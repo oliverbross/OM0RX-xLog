@@ -25,13 +25,16 @@ docs/OPPORTUNITIES_PROVENANCE.md. Public spot publishers and 425DXN retain
 their own data terms and visible source attribution. No third-party calendar
 code or raw provider data is bundled.
 
-The initial CQ WW CW and CQ WPX CW contest-rule and Cabrillo QSO-layout behavior
+The initial CQ WW CW, CQ WPX CW, CQ WW SSB and CQ WPX SSB contest-rule and
+Cabrillo QSO-layout behavior
 in Sources/XContestCore/PilotRules.swift and Sources/XContestCore/Cabrillo.swift
 is a Swift translation adapted from
 Not1MM by Michael Bridak (GPL-3.0-or-later), using Oliver Bross's read-only
 contest-sw fork at revision 7c8b499225a73f7f8f792246881bd7aefc05452f.
 The translated source paths are not1mm/plugins/cq_ww_cw.py,
-not1mm/plugins/cq_wpx_cw.py, not1mm/lib/ham_utility.py,
+not1mm/plugins/cq_wpx_cw.py, not1mm/plugins/cq_ww_ssb.py,
+not1mm/plugins/cq_wpx_ssb.py, not1mm/lib/ham_utility.py,
 not1mm/lib/database.py and duplicate dispatch in not1mm/__main__.py. The
-translation was modified for OM0RX-xLog on 17 October 2026; exact behavioral
-scope and differences are recorded in docs/contesting/CORE_CONTRACT.md.
+translation was modified for OM0RX-xLog on 17-18 October 2026; exact behavioral
+scope and differences are recorded in docs/contesting/CORE_CONTRACT.md and
+docs/contesting/SSB_RULE_CONTRACT.md.

@@ -298,7 +298,12 @@ public actor SQLiteContestStore: ContestDurableRepository {
             guard let draftID = scope.draftID else { throw ContestRepositoryError.invalidDraft }
             _ = try draft(sessionID: scope.sessionID, id: draftID)
             let before = try openSession(id: scope.sessionID)
-            guard before.session.rule == CQWPXCWRule.identity else {
+            guard let rule = rules.rule(for: before.session.rule) else {
+                throw ContestStoreError.unknownRule(before.session.rule)
+            }
+            let serial = rule.metadata.entry.serial
+            guard serial.requirement == .requiredForCommit,
+                  serial.allowedScopes.contains(serialScope) else {
                 throw ContestRepositoryError.invalidSerialTransition
             }
             guard try activeReservations(sessionID: scope.sessionID, draftID: draftID).isEmpty else {
@@ -427,9 +432,11 @@ public actor SQLiteContestStore: ContestDurableRepository {
             try validateQSOStructure(qso, for: stored.session)
             let semanticIssues = semanticFrequencyIssues(band: qso.band, frequencyHz: qso.frequencyHz)
             guard semanticIssues.isEmpty else { throw ContestStoreError.invalidQSO(semanticIssues) }
-            if stored.session.rule == CQWPXCWRule.identity, reservationID == nil {
+            let serialRequirement = rule.metadata.entry.serial.requirement
+            if serialRequirement == .requiredForCommit, reservationID == nil {
                 throw ContestStoreError.reservationMismatch
             }
+            if serialRequirement == .none, reservationID != nil { throw ContestStoreError.reservationMismatch }
             var existing = try qsos(sessionID: scope.sessionID, offset: 0, limit: Int.max)
             existing.append(qso)
             let score = try ContestEngine.score(existing, session: stored.session, rule: rule)
@@ -693,13 +700,15 @@ public actor SQLiteContestStore: ContestDurableRepository {
 
     private func validateQSOStructure(_ qso: ContestQSO, for session: ContestSessionSnapshot) throws {
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+        let entry = rule.metadata.entry
         let exchanges = [qso.exchange.rawSent, qso.exchange.normalizedSent,
                          qso.exchange.rawReceived, qso.exchange.normalizedReceived]
         let valid = validCallsign(qso.callsign) &&
             rule.metadata.supportedBands.contains(qso.band) && qso.band == qso.band.lowercased() &&
-            rule.metadata.supportedModes.contains(qso.mode) && qso.mode == qso.mode.uppercased() &&
+            entry.isCoherent(supportedModes: rule.metadata.supportedModes) && qso.mode == entry.mode &&
             qso.frequencyHz > 0 && qso.frequencyHz <= 100_000_000_000 &&
-            qso.rstSent.utf8.count <= 3 && qso.rstReceived.utf8.count <= 3 &&
+            qso.rstSent.utf8.count <= entry.report.maximumUTF8Bytes &&
+            qso.rstReceived.utf8.count <= entry.report.maximumUTF8Bytes &&
             exchanges.allSatisfy { $0.utf8.count <= 64 } &&
             validCallsign(qso.operatorCallsign) && session.station.operatorCallsigns.contains(qso.operatorCallsign) &&
             qso.stationLocation.utf8.count <= 128 && qso.entity.map(validEntity) != false &&
@@ -790,12 +799,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
                            updatedAt: Date, clearContact: Bool) throws {
         let old = try draft(sessionID: sessionID, id: draftID)
         let session = try openSession(id: sessionID).session
-        let clearedSentExchange = session.rule == CQWWCWRule.identity ? session.station.sentExchange : ""
+        guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+        let entry = rule.metadata.entry
+        let clearedSentExchange = entry.exchange.sentDefault == .stationSnapshot ? session.station.sentExchange : ""
         let updated = ContestDraftSnapshot(
             id: old.id, sessionID: old.sessionID, revision: revision, updatedAt: updatedAt,
             callsign: clearContact ? "" : old.callsign, band: old.band, mode: old.mode,
-            frequencyHz: old.frequencyHz, rstSent: clearContact ? "599" : old.rstSent,
-            rstReceived: clearContact ? "599" : old.rstReceived,
+            frequencyHz: old.frequencyHz, rstSent: clearContact ? entry.report.defaultSent : old.rstSent,
+            rstReceived: clearContact ? entry.report.defaultReceived : old.rstReceived,
             exchange: clearContact ? ContestExchangeSnapshot(rawSent: clearedSentExchange,
                                                               normalizedSent: clearedSentExchange,
                                                               rawReceived: "", normalizedReceived: "") : old.exchange,
@@ -854,6 +865,10 @@ public actor SQLiteContestStore: ContestDurableRepository {
 
     private func validateSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata) throws {
         let station = session.station
+        guard let rule = rules.rule(for: session.rule),
+              rule.metadata.entry.isCoherent(supportedModes: rule.metadata.supportedModes) else {
+            throw ContestStoreError.unknownRule(session.rule)
+        }
         let identityParts = [session.rule.id, session.rule.version, session.rule.edition,
                              session.rule.sourceRevision, session.referenceDataVersion]
         guard identityParts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 128 }),
@@ -872,13 +887,15 @@ public actor SQLiteContestStore: ContestDurableRepository {
 
     private func validateDraft(_ draft: ContestDraftSnapshot, for session: ContestSessionSnapshot) throws {
         guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+        let entry = rule.metadata.entry
         let exchangeValues = [draft.exchange.rawSent, draft.exchange.normalizedSent,
                               draft.exchange.rawReceived, draft.exchange.normalizedReceived]
         guard draft.callsign.utf8.count <= 32,
               draft.callsign.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "/" }),
               rule.metadata.supportedBands.contains(draft.band), draft.band == draft.band.lowercased(),
-              rule.metadata.supportedModes.contains(draft.mode), draft.mode == "CW",
-              draft.rstSent.utf8.count <= 3, draft.rstReceived.utf8.count <= 3,
+              entry.isCoherent(supportedModes: rule.metadata.supportedModes), draft.mode == entry.mode,
+              draft.rstSent.utf8.count <= entry.report.maximumUTF8Bytes,
+              draft.rstReceived.utf8.count <= entry.report.maximumUTF8Bytes,
               exchangeValues.allSatisfy({ $0.utf8.count <= 64 }),
               validCallsign(draft.operatorCallsign), session.station.operatorCallsigns.contains(draft.operatorCallsign),
               draft.stationLocation.utf8.count <= 128,

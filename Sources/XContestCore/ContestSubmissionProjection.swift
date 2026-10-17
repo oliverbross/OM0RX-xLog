@@ -27,7 +27,7 @@ public struct ContestSubmissionProjection: Codable, Hashable, Sendable {
     public let renderedQSOs: [ContestQSO]
     public let score: ContestScore
 
-    /// This preview intentionally supports only SINGLE-OP CW, no overlay, one transmitter,
+    /// This preview intentionally supports only SINGLE-OP, one rule-declared mode, no overlay, one transmitter,
     /// the declared assistance/power enums, and ALL or one rule-supported band.
     public static func make(qsos: [ContestQSO], session: ContestSessionSnapshot,
                             header: CabrilloHeader, rule: any ContestRule) throws -> Self {
@@ -64,7 +64,8 @@ public struct ContestSubmissionProjection: Codable, Hashable, Sendable {
             throw ContestSubmissionProjectionError.unsupportedCategory(field: "categoryOperator",
                                                                          value: header.categoryOperator)
         }
-        guard header.categoryMode == "CW" else {
+        guard rule.metadata.entry.isCoherent(supportedModes: rule.metadata.supportedModes),
+              header.categoryMode == rule.metadata.entry.mode else {
             throw ContestSubmissionProjectionError.unsupportedCategory(field: "categoryMode",
                                                                          value: header.categoryMode)
         }
