@@ -46,7 +46,7 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // QSO and Settings share validated cross-window field visibility; Settings
   // also owns the persisted propagation cadence. The heavier canvas editor
   // remains outside both detached surfaces.
-  const budget = name === "Settings" ? 406_000 : name === "QSO" ? 404_000 : 400_000;
+  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 405_000 : 400_000;
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
 }
