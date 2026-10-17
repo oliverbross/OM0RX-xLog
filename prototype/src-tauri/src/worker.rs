@@ -925,6 +925,12 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
 }
 
 fn request_timeout(request: &Value) -> Duration {
+    // QRZ may legitimately spend one bounded request authenticating and one
+    // fetching the profile. Do not abandon that valid reply at the generic
+    // five-second passive-read deadline; QRZClient's refresh worst case is 40s.
+    if request["method"].as_str() == Some("lookup_call") {
+        return RESPONSE_TIMEOUT;
+    }
     if request_is_non_retiring_read(request) {
         PASSIVE_READ_TIMEOUT
     } else {
@@ -1705,7 +1711,8 @@ mod tests {
             "wsjtx_snapshot", "reference_resolve",
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
-            assert_eq!(request_timeout(&json!({"method":method})), PASSIVE_READ_TIMEOUT, "{method}");
+            assert_eq!(request_timeout(&json!({"method":method})),
+                if method == "lookup_call" { RESPONSE_TIMEOUT } else { PASSIVE_READ_TIMEOUT }, "{method}");
         }
         for method in [
             "station_connect", "station_tune", "station_action", "station_radio_control",

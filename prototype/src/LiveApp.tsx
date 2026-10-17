@@ -71,6 +71,7 @@ import SpotBridgePanel from "./live/SpotBridgePanel";
 import WSJTXPanel from "./live/WSJTXPanel";
 import { logMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
+import { settingsLoadingLookup } from "./live/callsignIntelligenceContext";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
 import { connectOperatorDraftChanges, openDetachedQSO, ownDraftUpdateWarnings, protectOperatorDraftClose } from "./live/operatorDraftWindows";
@@ -122,7 +123,9 @@ function ownedCallsignLookup(request: Request, call: string): Promise<any> {
   return work;
 }
 
-export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 5_000): Promise<any> {
+// Native QRZ has a 40-second authenticated refresh worst case and the worker
+// owns a 45-second deadline. This outer deadline must be the last one to fire.
+export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 46_000): Promise<any> {
   const lookup = ownedCallsignLookup(request, call);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -887,7 +890,15 @@ function MainLiveApp() {
     if (!call || !workspace?.workspace_exists) { setLookup(null); setPrevious([]); return; }
     const loadLookup = (retry: boolean) => {
       void boundedCallsignLookup(request, call)
-        .then(info => { if (!disposed) { setLookup(info); if (draftSession.canAcceptBackgroundUpdate() && baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info)); } })
+        .then(info => {
+          if (disposed) return;
+          setLookup(info);
+          if (!retry && settingsLoadingLookup(info)) {
+            retryTimer = setTimeout(() => loadLookup(true), 750);
+            return;
+          }
+          if (draftSession.canAcceptBackgroundUpdate() && baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info));
+        })
         .catch(e => {
           if (disposed) return;
           if (!retry) { retryTimer = setTimeout(() => loadLookup(true), 750); return; }

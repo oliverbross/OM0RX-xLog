@@ -47,7 +47,9 @@ public enum QRZClientError: Error, LocalizedError {
 }
 
 public actor QRZClient {
-    private static let requestTimeout: TimeInterval = 12
+    // Four requests are possible when QRZ asks for one session refresh. Keep
+    // that worst case below the worker's 45-second lookup deadline.
+    private static let requestTimeout: TimeInterval = 10
     private let username: String
     private let password: String
     private let session: URLSession
@@ -61,10 +63,12 @@ public actor QRZClient {
     }
 
     public func lookup(_ call: String) async throws -> CallsignProfile {
+        let requestedCall = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let lookupCall = Self.providerCallsign(for: requestedCall)
         for attempt in 0..<2 {
             if sessionKey == nil { try await authenticate() }
             guard let sessionKey else { throw QRZClientError.missingSession }
-            let request = Self.lookupRequest(sessionKey: sessionKey, call: call)
+            let request = Self.lookupRequest(sessionKey: sessionKey, call: lookupCall)
             let data: Data, response: URLResponse
             do { (data, response) = try await session.data(for: request) }
             catch { throw Self.safeTransportError(error) }
@@ -83,7 +87,14 @@ public actor QRZClient {
                 throw QRZClientError.missingSession
             }
             self.sessionKey = returnedKey
-            return try Self.profile(document: document, call: call)
+            var profile = try Self.profile(document: document, call: lookupCall)
+            guard Self.providerCallsign(for: profile.call) == lookupCall else {
+                throw QRZClientError.rejected("QRZ returned a different callsign")
+            }
+            // Keep the UI result scoped to the exact draft identity. QRZ returns
+            // the home callsign for portable and prefix/suffix forms.
+            profile.call = requestedCall
+            return profile
         }
         throw QRZClientError.missingSession
     }
@@ -188,6 +199,20 @@ public actor QRZClient {
         var request = URLRequest(url: components.url!)
         request.timeoutInterval = requestTimeout
         return request
+    }
+
+    /// QRZ XML profiles are keyed by the licensed home call, while operators
+    /// commonly enter forms such as OM0RX/P, VK8NSB/4, or EA8/OM0RX/P.
+    static func providerCallsign(for call: String) -> String {
+        let parts = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            .split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+        let candidates = parts.filter { part in
+            part.utf8.count >= 3 && part.utf8.contains(where: { (65...90).contains($0) }) &&
+                part.utf8.contains(where: { (48...57).contains($0) })
+        }
+        return candidates.max { lhs, rhs in
+            lhs.utf8.count == rhs.utf8.count ? lhs > rhs : lhs.utf8.count < rhs.utf8.count
+        } ?? parts.first ?? ""
     }
 
     static func authenticationRequest(username: String, password: String) -> URLRequest {

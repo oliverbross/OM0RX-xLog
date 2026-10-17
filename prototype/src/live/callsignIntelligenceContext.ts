@@ -51,19 +51,45 @@ export class CanonicalDraftFollower {
 export const intelligenceIdentity = (snapshot: DraftSnapshot | null) => snapshot
   ? JSON.stringify([snapshot.generation?.toLowerCase(), snapshot.qso.id.toLowerCase(), normalizedCall(snapshot.qso.call)]) : "";
 
+export const settingsLoadingLookup = (profile: unknown): profile is Record<string, any> => {
+  const value = profile as Record<string, any> | null;
+  return value?.qrz_status === "unavailable" &&
+    typeof value.lookup_warning === "string" && value.lookup_warning.startsWith("Workspace settings are still loading.");
+};
+
 /** Bounded, memory-only lookup cache. Credentials/client ownership stay native. */
 export class CallsignLookupCache {
   private cache = new Map<string, { profile: Record<string, any>; until: number }>();
   private pending = new Map<string, Promise<Record<string, any>>>();
-  constructor(private request: IntelligenceRequest, private now: () => number = Date.now) {}
+  constructor(private request: IntelligenceRequest, private now: () => number = Date.now,
+    private timeoutMs = 46_000) {}
   invalidate(key: string) { this.cache.delete(key); }
   lookup(key: string, call: string): Promise<Record<string, any>> {
     const cached = this.cache.get(key);
     if (cached && cached.until > this.now()) return Promise.resolve(structuredClone(cached.profile));
     const pending = this.pending.get(key); if (pending) return pending;
     let work: Promise<Record<string, any>>;
-    work = Promise.resolve().then(async () => {
-      const profile = await this.request("lookup_call", { call });
+    work = Promise.resolve().then(() => new Promise<Record<string, any>>((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true; reject(new Error("Callsign lookup timed out."));
+      }, this.timeoutMs);
+      const fetch = async () => {
+        let profile = await this.request("lookup_call", { call });
+        if (settingsLoadingLookup(profile)) {
+          await new Promise(done => setTimeout(done, 750));
+          profile = await this.request("lookup_call", { call });
+        }
+        return profile;
+      };
+      void fetch().then(profile => {
+        if (settled) return;
+        settled = true; clearTimeout(timer); resolve(profile);
+      }, cause => {
+        if (settled) return;
+        settled = true; clearTimeout(timer); reject(cause);
+      });
+    })).then(profile => {
       if (!profile || typeof profile !== "object" || Array.isArray(profile) || normalizedCall(profile.call) !== call)
         throw new Error("The lookup response does not match the shared callsign.");
       this.cache.delete(key);

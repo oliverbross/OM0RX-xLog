@@ -234,7 +234,7 @@ struct QRZProfileTests {
         let login = QRZClient.authenticationRequest(username: username, password: password)
         #expect(login.httpMethod == "POST")
         #expect(login.url?.query == nil)
-        #expect(login.timeoutInterval == 12)
+        #expect(login.timeoutInterval == 10)
         #expect(login.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
         let body = String(data: try #require(login.httpBody), encoding: .utf8) ?? ""
         #expect(body.contains("username=fixture-user-private"))
@@ -242,10 +242,27 @@ struct QRZProfileTests {
 
         let lookup = QRZClient.lookupRequest(sessionKey: "fixture-session", call: "om0aao")
         #expect(lookup.httpMethod == "GET")
-        #expect(lookup.timeoutInterval == 12)
+        #expect(lookup.timeoutInterval == 10)
         #expect(lookup.url?.query?.contains("callsign=OM0AAO") == true)
         #expect(lookup.url?.absoluteString.contains(username) == false)
         #expect(lookup.url?.absoluteString.contains(password) == false)
+    }
+
+    @Test("Portable and prefixed calls resolve through the licensed QRZ callsign")
+    func normalizesPortableCallsigns() async throws {
+        #expect(QRZClient.providerCallsign(for: "om0rx/p") == "OM0RX")
+        #expect(QRZClient.providerCallsign(for: "VK8NSB/4") == "VK8NSB")
+        #expect(QRZClient.providerCallsign(for: "EA8/OM0RX/P") == "OM0RX")
+
+        QRZFixtureURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [QRZFixtureURLProtocol.self]
+        let client = QRZClient(username: "fixture", password: "fixture",
+                               session: URLSession(configuration: configuration))
+        let profile = try await client.lookup("OM0AAO/P")
+        #expect(profile.call == "OM0AAO/P")
+        #expect(profile.country == "SLOVAK REPUBLIC")
+        #expect(QRZFixtureURLProtocol.lastLookupCallsign() == "OM0AAO")
     }
 }
 
@@ -263,6 +280,7 @@ private final class QRZFixtureURLProtocol: URLProtocol {
         lock.withLock {
             loginCount = 0
             lookupCount = 0
+            lastCallsign = nil
             self.missingFirstLookup = missingFirstLookup
             self.alwaysMissing = alwaysMissing
             self.failLogin = failLogin
@@ -271,6 +289,8 @@ private final class QRZFixtureURLProtocol: URLProtocol {
     }
 
     static func counts() -> [Int] { lock.withLock { [loginCount, lookupCount] } }
+    static func lastLookupCallsign() -> String? { lock.withLock { lastCallsign } }
+    private static var lastCallsign: String?
 
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host == "xmldata.qrz.com"
@@ -286,6 +306,7 @@ private final class QRZFixtureURLProtocol: URLProtocol {
                 return ("<QRZDatabase><Session><Key>session-\(Self.loginCount)</Key></Session></QRZDatabase>", Self.failLogin)
             }
             Self.lookupCount += 1
+            Self.lastCallsign = query.first(where: { $0.name == "callsign" })?.value
             if Self.failLookup { return ("", true) }
             if Self.alwaysMissing || (Self.missingFirstLookup && Self.lookupCount == 1) {
                 return ("<QRZDatabase><Session><Error>Session Timeout</Error></Session></QRZDatabase>", false)

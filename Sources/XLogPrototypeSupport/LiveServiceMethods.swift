@@ -150,20 +150,23 @@ actor LiveServiceMethods {
                 return profile
             }
             if settings.qrzEnabled {
-                var client = settings.qrzUsername == qrzClientUsername ? qrzClient : nil
-                if client == nil {
-                    do {
-                        let password = try workspaceSecrets().load(.qrzPassword)
-                        if let password, !password.isEmpty {
-                            client = try cachedQRZClient(username: settings.qrzUsername, password: password)
-                        } else {
-                            profile["qrz_status"] = "credential_required"
-                            profile["lookup_warning"] = "Save a QRZ username and password to enable online lookup. Offline CTY result retained."
-                        }
-                    } catch {
+                var client: QRZClient?
+                do {
+                    // Always re-establish the workspace credential identity.
+                    // cachedQRZClient still reuses the QRZ session when its
+                    // workspace, username and password digest are unchanged.
+                    let password = try workspaceSecrets().load(.qrzPassword)
+                    if let password, !password.isEmpty {
+                        client = try cachedQRZClient(username: settings.qrzUsername, password: password)
+                    } else {
+                        qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil
                         profile["qrz_status"] = "credential_required"
-                        profile["lookup_warning"] = "QRZ password needs operator authorization. Save it again in Settings. Offline CTY result retained."
+                        profile["lookup_warning"] = "Save a QRZ username and password to enable online lookup. Offline CTY result retained."
                     }
+                } catch {
+                    qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil
+                    profile["qrz_status"] = "credential_required"
+                    profile["lookup_warning"] = "QRZ password needs operator authorization. Save it again in Settings. Offline CTY result retained."
                 }
                 if let client {
                     profile = await CallsignEnrichment.resolve(base: profile) {

@@ -63,4 +63,32 @@ describe("generation and contact scoped lookup cache", () => {
     for (let index = 0; index < 33; index++) await cache.lookup(`key-${index}`, `TEST${index}`);
     await cache.lookup("key-0", "TEST0"); expect(read).toHaveBeenCalledTimes(34);
   });
+  it("retires an abandoned transport so lookup never remains pending", async () => {
+    vi.useFakeTimers();
+    try {
+      const abandoned = deferred<any>();
+      const read = vi.fn().mockReturnValueOnce(abandoned.promise).mockResolvedValueOnce({ call: "TEST1" });
+      const cache = new CallsignLookupCache(read, Date.now, 50);
+      const first = cache.lookup("key", "TEST1");
+      const timedOut = expect(first).rejects.toThrow("timed out");
+      await vi.advanceTimersByTimeAsync(51);
+      await timedOut;
+      await expect(cache.lookup("key", "TEST1")).resolves.toMatchObject({ call: "TEST1" });
+      expect(read).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
+  it("retries a fulfilled settings-loading result once before caching", async () => {
+    vi.useFakeTimers();
+    try {
+      const read = vi.fn()
+        .mockResolvedValueOnce({ call: "TEST1", qrz_status: "unavailable", lookup_warning: "Workspace settings are still loading. Offline CTY result retained." })
+        .mockResolvedValueOnce({ call: "TEST1", qrz_status: "matched", source: "QRZ" });
+      const cache = new CallsignLookupCache(read);
+      const lookup = cache.lookup("key", "TEST1");
+      await vi.advanceTimersByTimeAsync(750);
+      await expect(lookup).resolves.toMatchObject({ qrz_status: "matched" });
+      await cache.lookup("key", "TEST1");
+      expect(read).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
 });

@@ -102,6 +102,21 @@ it("recovers a saved Operator Desk callsign after one transient launch lookup fa
   expect(screen.queryByText("Worker warming up")).toBeNull();
 });
 
+it("retries a fulfilled settings-loading callsign result once", async () => {
+  exists = true;
+  draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "IQ2MM/P", band: "20m", mode: "SSB" });
+  const backend = calls.request.getMockImplementation()!;
+  let attempts = 0;
+  calls.request.mockImplementation((method, params) => method === "lookup_call"
+    ? Promise.resolve({ ok: true, result: ++attempts === 1
+      ? { call: params.call, country: "ITALY", qrz_status: "unavailable", lookup_warning: "Workspace settings are still loading. Offline CTY result retained." }
+      : { call: params.call, country: "ITALY", qrz_status: "matched", source: "QRZ", name: "Portable operator" } })
+    : backend(method, params));
+  render(<LiveApp />);
+  await waitFor(() => expect(attempts).toBe(2), { timeout: 2_500 });
+  expect(await screen.findByText("Portable operator")).toBeTruthy();
+});
+
 it.each(["missing", "unavailable", "pending"])("keeps Settings reachable with a %s workspace without creating or editing station data", async state => {
   const backend = calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method, params) => method === "workspace_status" && state !== "missing"
