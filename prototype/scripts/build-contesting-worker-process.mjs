@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -44,7 +44,9 @@ function resourceManifest(directory) {
 const head = run("git", ["rev-parse", "HEAD"]);
 const compiledDiff = run("git", ["status", "--porcelain=v1", "--", "Package.swift", "Sources", "Tests"]);
 assert.equal(compiledDiff, "", `Compiled inputs differ from ${head}:\n${compiledDiff}`);
-const swiftPath = realpathSync(run("/usr/bin/xcrun", ["--find", "swift"]));
+// Invoke the driver path returned by xcrun. Resolving its symlink can produce
+// swift-frontend, which does not accept SwiftPM's build arguments.
+const swiftPath = run("/usr/bin/xcrun", ["--find", "swift"]);
 const swiftVersion = run(swiftPath, ["--version"]);
 const buildArguments = [
   "build", "--build-system", "xcode", "-j", "2", "--scratch-path", scratchPath,
