@@ -378,32 +378,56 @@ final class ContestExportLaneTests: XCTestCase {
     func testConcurrentSameIDSingleFlightFailureRetryAndReleaseCancellation() async throws {
         let sessionID = fixedUUID(700), entity = om
         let generationBox = ExportGenerationBox(generation)
-        let cache = ContestExportArtifactCache()
-        let attempts = ExportAttemptCounter(failFirst: true) { request in
+        let pendingJoins = ExportPendingJoinObserver()
+        let cache = ContestExportArtifactCache(beforePendingJoin: { exportID in
+            await pendingJoins.pause(exportID)
+        })
+        let attempts = ExportProducerGate(failFirst: true) { request in
             Self.artifact(request, bytes: 4, entity: entity)
         }
-        let lane = ContestExportLane(generationSource: { await generationBox.value }, cache: cache) { request in
-            try await attempts.produce(request)
-        }
         let request = directRequest(exportID: fixedUUID(701), sessionID: sessionID)
-        async let first: ContestExportPreparedArtifact = lane.prepare(request)
-        async let second: ContestExportPreparedArtifact = lane.prepare(request)
-        do { _ = try await first; XCTFail("Expected exporter failure") } catch { }
+        let first = Task { try await cache.prepare(request) {
+            try await attempts.produce(request)
+        } }
+        await attempts.waitForStarts(1)
+        let second = Task { try await cache.prepare(request) {
+            try await attempts.produce(request)
+        } }
+        await pendingJoins.waitForJoin(request.exportID)
+        await attempts.resume(1)
+        do { _ = try await first.value; XCTFail("Expected exporter failure") }
+        catch ExportProducerGate.Failure.planned { }
+        catch { XCTFail("Unexpected first exporter error: \(error)") }
         let changedAfterFailure = ContestExportPrepareRequest(exportID: request.exportID,
             sessionID: request.sessionID, workspaceGeneration: request.workspaceGeneration,
             expectedRevision: request.expectedRevision, generatedAtUTC: request.generatedAtUTC.addingTimeInterval(1),
             format: request.format, header: request.header)
-        await assertError("request_conflict") { try await lane.prepare(changedAfterFailure) }
-        let retryTask = Task { try await lane.prepare(request) }
-        do { _ = try await second; XCTFail("Expected shared exporter failure") } catch { }
+        await assertError("request_conflict") {
+            try await cache.prepare(changedAfterFailure) {
+                try await attempts.produce(changedAfterFailure)
+            }
+        }
+        let retryTask = Task { try await cache.prepare(request) {
+            try await attempts.produce(request)
+        } }
+        await attempts.waitForStarts(2)
+        await pendingJoins.resume(request.exportID)
+        do { _ = try await second.value; XCTFail("Expected shared exporter failure") }
+        catch ExportProducerGate.Failure.planned { }
+        catch { XCTFail("Unexpected shared exporter error: \(error)") }
+        await attempts.resume(2)
         let retried = try await retryTask.value
         XCTAssertEqual(retried.byteLength, 4)
-        let retryCallCount = await attempts.callCount
+        let retryCallCount = await attempts.startCount
         XCTAssertEqual(retryCallCount, 2)
         let conflict = ContestExportPrepareRequest(exportID: request.exportID, sessionID: request.sessionID,
             workspaceGeneration: request.workspaceGeneration, expectedRevision: request.expectedRevision,
             generatedAtUTC: request.generatedAtUTC.addingTimeInterval(1), format: request.format, header: request.header)
-        await assertError("request_conflict") { try await lane.prepare(conflict) }
+        await assertError("request_conflict") {
+            try await cache.prepare(conflict) {
+                try await attempts.produce(conflict)
+            }
+        }
 
         let typedAttempts = ExportAttemptCounter(failFirst: true, failWithLaneError: true) { request in
             Self.artifact(request, bytes: 4, entity: entity)
@@ -467,7 +491,7 @@ final class ContestExportLaneTests: XCTestCase {
         let overlapCallCount = await overlapAttempts.callCount
         XCTAssertEqual(overlapCallCount, 1)
 
-        let slowAttempts = ExportAttemptCounter(delayNanoseconds: 100_000_000) { request in
+        let slowAttempts = ExportProducerGate { request in
             Self.artifact(request, bytes: 4, entity: entity)
         }
         let slowCache = ContestExportArtifactCache()
@@ -476,14 +500,15 @@ final class ContestExportLaneTests: XCTestCase {
         }
         let slowRequest = directRequest(exportID: fixedUUID(702), sessionID: sessionID)
         let pending = Task { try await slowLane.prepare(slowRequest) }
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await slowAttempts.waitForStarts(1)
         let released = try await slowLane.release(.init(exportID: slowRequest.exportID,
             sessionID: sessionID, workspaceGeneration: generation))
         XCTAssertFalse(released.released)
+        await slowAttempts.resume(1)
         do { _ = try await pending.value; XCTFail("Expected released in-flight request to fail") }
         catch let error as ContestExportLaneError { XCTAssertEqual(error.code, "artifact_unavailable") }
         catch { XCTFail("Unexpected error: \(error)") }
-        let cancelledCallCount = await slowAttempts.callCount
+        let cancelledCallCount = await slowAttempts.startCount
         XCTAssertEqual(cancelledCallCount, 1)
     }
 
@@ -637,14 +662,19 @@ private actor ExportAttemptCounter {
         }
         return factory(request)
     }
+
 }
 
 private actor ExportProducerGate {
+    enum Failure: Error { case planned }
     private(set) var startCount = 0
     private var continuations: [Int: CheckedContinuation<Void, Never>] = [:]
+    private let failFirst: Bool
     private let factory: @Sendable (ContestExportPrepareRequest) -> ContestExportArtifact
 
-    init(factory: @escaping @Sendable (ContestExportPrepareRequest) -> ContestExportArtifact) {
+    init(failFirst: Bool = false,
+         factory: @escaping @Sendable (ContestExportPrepareRequest) -> ContestExportArtifact) {
+        self.failFirst = failFirst
         self.factory = factory
     }
 
@@ -652,6 +682,7 @@ private actor ExportProducerGate {
         startCount += 1
         let index = startCount
         await withCheckedContinuation { continuations[index] = $0 }
+        if failFirst && index == 1 { throw Failure.planned }
         return factory(request)
     }
 
@@ -660,6 +691,24 @@ private actor ExportProducerGate {
     }
 
     func resume(_ index: Int) { continuations.removeValue(forKey: index)?.resume() }
+}
+
+private actor ExportPendingJoinObserver {
+    private var joined: Set<UUID> = []
+    private var continuations: [UUID: CheckedContinuation<Void, Never>] = [:]
+
+    func pause(_ exportID: UUID) async {
+        joined.insert(exportID)
+        await withCheckedContinuation { continuations[exportID] = $0 }
+    }
+
+    func waitForJoin(_ exportID: UUID) async {
+        while !joined.contains(exportID) { await Task.yield() }
+    }
+
+    func resume(_ exportID: UUID) {
+        continuations.removeValue(forKey: exportID)?.resume()
+    }
 }
 
 private actor ExportGenerationController {
