@@ -84,24 +84,48 @@ final class ContestExportTests: XCTestCase {
         }
     }
 
+    func testSubmissionNameLocationAndOperatorsRemainDistinctFromOperationalMetadata() throws {
+        let rule = CQWWCWRule()
+        let valid = makeInput(rule: rule, qsos: [], operationalLocation: "",
+                              submissionLocation: "DX", selectedOperator: "OM1ABC",
+                              stationOperators: ["OM1ABC"], headerOperators: ["OM0RX", "OM1ABC"],
+                              entrantName: "Oliver Operator")
+        XCTAssertNoThrow(try valid.validatedScore(rule: rule))
+        XCTAssertEqual(valid.session.station.location, "")
+        XCTAssertEqual(valid.metadata.sessionName, "Pilot session")
+        XCTAssertEqual(valid.metadata.cabrilloHeader.location, "DX")
+        XCTAssertEqual(valid.metadata.cabrilloHeader.name, "Oliver Operator")
+
+        let omitted = makeInput(rule: rule, qsos: [], operationalLocation: "",
+                                submissionLocation: "DX", selectedOperator: "OM1ABC",
+                                stationOperators: ["OM1ABC"], headerOperators: ["OM0RX"])
+        XCTAssertThrowsError(try omitted.validatedScore(rule: rule)) {
+            XCTAssertEqual($0 as? ContestExportInputError, .metadataMismatch)
+        }
+    }
+
     private func makeInput(rule: any ContestRule, qsos: [ContestQSO], referenceDataVersion: String = "fixture-cty-1",
                            operatorCategory: String = "SINGLE-OP", club: String? = "OM CONTEST CLUB",
-                           categoryBand: String = "ALL", generatedAt: Date? = nil) -> ContestExportInput {
+                           categoryBand: String = "ALL", generatedAt: Date? = nil,
+                           operationalLocation: String = "DX", submissionLocation: String = "DX",
+                           selectedOperator: String = "OM0RX", stationOperators: [String] = ["OM0RX"],
+                           headerOperators: [String] = ["OM0RX"], entrantName: String = "Oliver Operator") -> ContestExportInput {
         let session = ContestSessionSnapshot(id: sessionID, workspaceGeneration: generation,
                                              rule: rule.metadata.identity, referenceDataVersion: "fixture-cty-1",
                                              startedAt: baseDate, station: .init(callsign: "OM0RX", entity: om,
                                              sentExchange: rule.metadata.identity == CQWPXCWRule.identity ? "001" : "15",
-                                             operatorCallsigns: ["OM0RX"], location: "DX"))
+                                             operatorCallsigns: stationOperators, location: operationalLocation))
         let header = CabrilloHeader(callsign: "OM0RX", categoryOperator: "SINGLE-OP",
                                     categoryAssisted: "NON-ASSISTED", categoryBand: categoryBand,
                                     categoryMode: "CW", categoryTransmitter: "ONE", categoryPower: "LOW",
-                                    categoryOverlay: "CLASSIC", operators: ["OM0RX"], location: "DX", club: club,
-                                    name: "Oliver Operator", addressLines: ["Test Street 1", "Bratislava"],
+                                    categoryOverlay: "CLASSIC", operators: headerOperators,
+                                    location: submissionLocation, club: club,
+                                    name: entrantName, addressLines: ["Test Street 1", "Bratislava"],
                                     email: "operator@example.test")
         return ContestExportInput(generatedAtUTC: generatedAt ?? baseDate.addingTimeInterval(60), sessionRevision: 7,
                                   session: session, ruleIdentity: rule.metadata.identity,
                                   referenceDataVersion: referenceDataVersion,
-                                  metadata: .init(sessionName: "Pilot session", operatorCallsign: "OM0RX",
+                                  metadata: .init(sessionName: "Pilot session", operatorCallsign: selectedOperator,
                                                   operatorCategory: operatorCategory, cabrilloHeader: header), qsos: qsos)
     }
 

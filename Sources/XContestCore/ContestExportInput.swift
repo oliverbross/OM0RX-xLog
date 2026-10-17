@@ -68,13 +68,17 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
               validText(metadata.operatorCallsign), !metadata.sessionName.isEmpty,
               metadata.cabrilloHeader.callsign == session.station.callsign,
               metadata.operatorCategory == metadata.cabrilloHeader.categoryOperator,
-              metadata.cabrilloHeader.location == session.station.location,
               metadata.cabrilloHeader.categoryMode == "CW" else {
             throw ContestExportInputError.metadataMismatch
         }
         let stationOperators = Set(session.station.operatorCallsigns)
+        let allowedOperators = stationOperators.union([session.station.callsign, metadata.operatorCallsign])
+        let suppliedOperators = Set(metadata.cabrilloHeader.operators)
+        let usedOperators = Set(qsos.compactMap { $0.operatorCallsign.isEmpty ? nil : $0.operatorCallsign })
+            .union([metadata.operatorCallsign])
         guard metadata.operatorCallsign == session.station.callsign || stationOperators.contains(metadata.operatorCallsign),
-              metadata.cabrilloHeader.operators.allSatisfy({ $0 == session.station.callsign || stationOperators.contains($0) }),
+              usedOperators.isSubset(of: suppliedOperators),
+              suppliedOperators.isSubset(of: allowedOperators),
               qsos.allSatisfy({ ($0.operatorCallsign.isEmpty || $0.operatorCallsign == session.station.callsign || stationOperators.contains($0.operatorCallsign)) &&
                   $0.stationLocation == session.station.location }) else {
             throw ContestExportInputError.metadataMismatch
