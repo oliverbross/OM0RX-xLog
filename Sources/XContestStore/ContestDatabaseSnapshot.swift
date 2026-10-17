@@ -520,6 +520,9 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
             throw ContestDatabaseSnapshotError.invalidURL
         }
         let standardized = canonicalSystemPath(url.standardizedFileURL)
+        #if canImport(WinSDK)
+        _ = try windowsSnapshotPath(standardized.path)
+        #endif
         return standardized
     }
 
@@ -563,13 +566,13 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
 
     private static func openValidatedReadOnly(_ url: URL) throws -> OpaquePointer {
         let validated = try validatedSource(url)
-        #if canImport(Darwin) || canImport(Glibc)
+        #if canImport(Darwin) || canImport(Glibc) || canImport(WinSDK)
         let identity = try pathIdentity(validated)
         #endif
         let database = try open(validated, flags: SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX)
         do {
             let afterOpen = try validatedSource(validated)
-            #if canImport(Darwin) || canImport(Glibc)
+            #if canImport(Darwin) || canImport(Glibc) || canImport(WinSDK)
             guard try pathIdentity(afterOpen) == identity else {
                 throw ContestDatabaseSnapshotError.unsafePath(validated.path)
             }
@@ -595,6 +598,17 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
             throw ContestDatabaseSnapshotError.unsafePath(url.path)
         }
         return PathIdentity(device: value.st_dev, inode: value.st_ino)
+    }
+    #elseif canImport(WinSDK)
+    private static func pathIdentity(_ url: URL) throws -> WindowsFileIdentity {
+        let handle = try WindowsOwnedHandle.open(path: url.path,
+                                                  access: DWORD(FILE_READ_ATTRIBUTES),
+                                                  sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                                                  flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        guard let identity = handle.regularFileIdentity(requireSingleLink: true) else {
+            throw ContestDatabaseSnapshotError.unsafePath(url.path)
+        }
+        return identity
     }
     #endif
 
@@ -840,21 +854,278 @@ private final class PinnedSnapshotParent {
     }
 }
 #elseif canImport(WinSDK)
-private final class PinnedSnapshotParent {
-    let stagingURL: URL
+private struct WindowsFileIdentity: Equatable {
+    let volumeSerialNumber: UInt64
+    let fileID: [UInt8]
+}
 
-    init(parent: URL, stagingName: String, destinationName: String) throws {
-        stagingURL = parent.appendingPathComponent(stagingName, isDirectory: true)
-        // MoveFileExW is atomically no-replace, but its path traversal cannot be
-        // anchored to a retained parent handle. Fail before staging until the
-        // Windows implementation can preserve the same replacement guarantees.
-        throw ContestDatabaseSnapshotError.atomicPublicationUnsupported
+private final class WindowsOwnedHandle {
+    private var value: HANDLE?
+
+    var rawValue: HANDLE { value! }
+
+    private init(_ value: HANDLE) { self.value = value }
+
+    deinit { close() }
+
+    static func open(path: String, access: DWORD, sharing: DWORD, flags: DWORD,
+                     disposition: DWORD = DWORD(OPEN_EXISTING)) throws -> WindowsOwnedHandle {
+        let nativePath = try windowsSnapshotPath(path)
+        let result = nativePath.withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, access, sharing, nil, disposition, flags, nil)
+        }
+        guard let result, result != INVALID_HANDLE_VALUE else {
+            throw ContestDatabaseSnapshotError.publicationFailed("Windows open failed: \(GetLastError())")
+        }
+        return WindowsOwnedHandle(result)
     }
 
-    func publishNoReplace() throws { throw ContestDatabaseSnapshotError.atomicPublicationUnsupported }
-    func verifyPublishedLocation() throws { throw ContestDatabaseSnapshotError.atomicPublicationUnsupported }
-    func pinDatabase(databaseFileName: String) throws { throw ContestDatabaseSnapshotError.atomicPublicationUnsupported }
-    func removeOwnedStaging(databaseFileName: String) {}
+    func close() {
+        guard let value else { return }
+        self.value = nil
+        CloseHandle(value)
+    }
+
+    func reopened(access: DWORD, sharing: DWORD, flags: DWORD) throws -> WindowsOwnedHandle {
+        let result = ReOpenFile(rawValue, access, sharing, flags)
+        guard let result, result != INVALID_HANDLE_VALUE else {
+            throw ContestDatabaseSnapshotError.publicationFailed("Windows reopen failed: \(GetLastError())")
+        }
+        return WindowsOwnedHandle(result)
+    }
+
+    func identity() -> WindowsFileIdentity? {
+        var value = FILE_ID_INFO()
+        guard GetFileInformationByHandleEx(rawValue, FileIdInfo, &value,
+                                           DWORD(MemoryLayout<FILE_ID_INFO>.size)) else { return nil }
+        let bytes = withUnsafeBytes(of: &value.FileId) { Array($0) }
+        return WindowsFileIdentity(volumeSerialNumber: value.VolumeSerialNumber, fileID: bytes)
+    }
+
+    func basicInformation() -> BY_HANDLE_FILE_INFORMATION? {
+        var value = BY_HANDLE_FILE_INFORMATION()
+        guard GetFileInformationByHandle(rawValue, &value) else { return nil }
+        return value
+    }
+
+    func directoryIdentity() -> WindowsFileIdentity? {
+        guard let basic = basicInformation(),
+              basic.dwFileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0,
+              basic.dwFileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) == 0 else { return nil }
+        return identity()
+    }
+
+    func regularFileIdentity(requireSingleLink: Bool) -> WindowsFileIdentity? {
+        guard let basic = basicInformation(),
+              basic.dwFileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) == 0,
+              basic.dwFileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) == 0,
+              !requireSingleLink || basic.nNumberOfLinks == 1 else { return nil }
+        return identity()
+    }
+
+    func markForDeletion() -> Bool {
+        var disposition = FILE_DISPOSITION_INFO()
+        disposition.DeleteFile = BOOLEAN(1)
+        return SetFileInformationByHandle(rawValue, FileDispositionInfo, &disposition,
+                                          DWORD(MemoryLayout<FILE_DISPOSITION_INFO>.size))
+    }
+}
+
+func windowsSnapshotDriveTypeIsSupported(_ type: UInt32) -> Bool {
+    type == UInt32(DRIVE_FIXED) || type == UInt32(DRIVE_REMOVABLE) || type == UInt32(DRIVE_RAMDISK)
+}
+
+func windowsSnapshotPath(_ path: String) throws -> String {
+    var value = path.replacingOccurrences(of: "/", with: "\\")
+    var bytes = Array(value.utf8)
+    if bytes.count >= 4, bytes[0] == 92,
+       ((65...90).contains(bytes[1]) || (97...122).contains(bytes[1])),
+       bytes[2] == 58, bytes[3] == 92 {
+        value.removeFirst()
+        bytes.removeFirst()
+    }
+    guard bytes.count >= 3,
+          ((65...90).contains(bytes[0]) || (97...122).contains(bytes[0])),
+          bytes[1] == 58, bytes[2] == 92,
+          !value.hasPrefix("\\\\?\\"), !value.hasPrefix("\\\\.\\") else {
+        throw ContestDatabaseSnapshotError.unsafePath(path)
+    }
+    let root = String(value.prefix(3))
+    let driveType = root.withCString(encodedAs: UTF16.self) { GetDriveTypeW($0) }
+    guard windowsSnapshotDriveTypeIsSupported(driveType) else {
+        throw ContestDatabaseSnapshotError.unsafePath(path)
+    }
+    return value
+}
+
+private final class PinnedSnapshotParent {
+    let stagingURL: URL
+    private let parentURL: URL
+    private let destinationURL: URL
+    private let ancestorHandles: [WindowsOwnedHandle]
+    private let parentIdentity: WindowsFileIdentity
+    private let stagingHandle: WindowsOwnedHandle
+    private let stagingIdentity: WindowsFileIdentity
+    private var databaseHandle: WindowsOwnedHandle?
+    private var databaseIdentity: WindowsFileIdentity?
+
+    init(parent: URL, stagingName: String, destinationName: String) throws {
+        parentURL = parent
+        stagingURL = parent.appendingPathComponent(stagingName, isDirectory: true)
+        destinationURL = parent.appendingPathComponent(destinationName, isDirectory: true)
+
+        let nativeParent = try windowsSnapshotPath(parent.path)
+        var ancestorPaths = [String(nativeParent.prefix(3))]
+        var component = ancestorPaths[0]
+        for part in nativeParent.dropFirst(3).split(separator: "\\") {
+            if !component.hasSuffix("\\") { component.append("\\") }
+            component.append(contentsOf: part)
+            ancestorPaths.append(component)
+        }
+
+        var handles: [WindowsOwnedHandle] = []
+        for ancestorPath in ancestorPaths {
+            let handle = try WindowsOwnedHandle.open(
+                path: ancestorPath, access: DWORD(FILE_READ_ATTRIBUTES),
+                sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE),
+                flags: DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT))
+            guard handle.directoryIdentity() != nil else {
+                throw ContestDatabaseSnapshotError.unsafePath(ancestorPath)
+            }
+            handles.append(handle)
+        }
+        guard let pinnedParent = handles.last, let parentIdentity = pinnedParent.directoryIdentity() else {
+            throw ContestDatabaseSnapshotError.unsafePath(parent.path)
+        }
+        let parentCheck = try WindowsOwnedHandle.open(
+            path: parent.path, access: DWORD(FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE),
+            flags: DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT))
+        guard parentCheck.directoryIdentity() == parentIdentity else {
+            throw ContestDatabaseSnapshotError.unsafePath(parent.path)
+        }
+
+        let nativeStaging = try windowsSnapshotPath(stagingURL.path)
+        let created = nativeStaging.withCString(encodedAs: UTF16.self) { CreateDirectoryW($0, nil) }
+        guard created else {
+            let code = GetLastError()
+            if code == DWORD(ERROR_ALREADY_EXISTS) { throw ContestDatabaseSnapshotError.destinationExists }
+            throw ContestDatabaseSnapshotError.publicationFailed("Windows staging create failed: \(code)")
+        }
+        let stagingHandle = try WindowsOwnedHandle.open(
+            path: stagingURL.path, access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            flags: DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT))
+        guard let stagingIdentity = stagingHandle.directoryIdentity() else {
+            throw ContestDatabaseSnapshotError.unsafePath(stagingURL.path)
+        }
+        self.ancestorHandles = handles
+        self.parentIdentity = parentIdentity
+        self.stagingHandle = stagingHandle
+        self.stagingIdentity = stagingIdentity
+    }
+
+    func pinDatabase(databaseFileName: String) throws {
+        guard databaseHandle == nil else {
+            throw ContestDatabaseSnapshotError.publicationFailed("database already pinned")
+        }
+        let url = stagingURL.appendingPathComponent(databaseFileName)
+        let handle = try WindowsOwnedHandle.open(
+            path: url.path, access: DWORD(FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        guard let identity = handle.regularFileIdentity(requireSingleLink: true) else {
+            throw ContestDatabaseSnapshotError.unsafePath(url.path)
+        }
+        databaseHandle = handle
+        databaseIdentity = identity
+    }
+
+    func publishNoReplace() throws {
+        guard parentPathStillPinned(), stagingEntryStillOwned(), databaseEntryStillOwned() else {
+            throw ContestDatabaseSnapshotError.unsafePath(parentURL.path)
+        }
+        try renameStagingHandle(to: destinationURL.path)
+    }
+
+    func verifyPublishedLocation() throws {
+        guard parentPathStillPinned(),
+              directoryIdentity(at: destinationURL) == stagingIdentity,
+              databaseIdentity(at: destinationURL.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName))
+                == databaseIdentity else {
+            throw ContestDatabaseSnapshotError.unsafePath(parentURL.path)
+        }
+    }
+
+    func removeOwnedStaging(databaseFileName: String) {
+        if let databaseHandle {
+            if let deleteHandle = try? databaseHandle.reopened(
+                access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
+                sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT)),
+               deleteHandle.regularFileIdentity(requireSingleLink: false) == databaseIdentity {
+                _ = deleteHandle.markForDeletion()
+            }
+            databaseHandle.close()
+            self.databaseHandle = nil
+        }
+        _ = stagingHandle.markForDeletion()
+        stagingHandle.close()
+    }
+
+    private func parentPathStillPinned() -> Bool {
+        directoryIdentity(at: parentURL, sharingDelete: false) == parentIdentity
+    }
+
+    private func stagingEntryStillOwned() -> Bool {
+        directoryIdentity(at: stagingURL) == stagingIdentity
+    }
+
+    private func databaseEntryStillOwned() -> Bool {
+        guard let databaseIdentity else { return false }
+        return self.databaseIdentity(at: stagingURL.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName))
+            == databaseIdentity
+    }
+
+    private func directoryIdentity(at url: URL, sharingDelete: Bool = true) -> WindowsFileIdentity? {
+        let sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | (sharingDelete ? FILE_SHARE_DELETE : 0)
+        guard let handle = try? WindowsOwnedHandle.open(
+            path: url.path, access: DWORD(FILE_READ_ATTRIBUTES), sharing: DWORD(sharing),
+            flags: DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)) else { return nil }
+        return handle.directoryIdentity()
+    }
+
+    private func databaseIdentity(at url: URL) -> WindowsFileIdentity? {
+        guard let handle = try? WindowsOwnedHandle.open(
+            path: url.path, access: DWORD(FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT)) else { return nil }
+        return handle.regularFileIdentity(requireSingleLink: true)
+    }
+
+    private func renameStagingHandle(to path: String) throws {
+        let fileName = Array(try windowsSnapshotPath(path).utf16)
+        let fileNameOffset = MemoryLayout<FILE_RENAME_INFO>.offset(of: \FILE_RENAME_INFO.FileName)!
+        let byteCount = fileNameOffset + fileName.count * MemoryLayout<WCHAR>.stride
+        let buffer = UnsafeMutableRawPointer.allocate(byteCount: byteCount,
+                                                      alignment: MemoryLayout<FILE_RENAME_INFO>.alignment)
+        defer { buffer.deallocate() }
+        let rename = buffer.bindMemory(to: FILE_RENAME_INFO.self, capacity: 1)
+        rename.initialize(to: FILE_RENAME_INFO())
+        rename.pointee.ReplaceIfExists = BOOLEAN(0)
+        rename.pointee.RootDirectory = nil
+        rename.pointee.FileNameLength = DWORD(fileName.count * MemoryLayout<WCHAR>.stride)
+        fileName.withUnsafeBytes { bytes in
+            buffer.advanced(by: fileNameOffset).copyMemory(from: bytes.baseAddress!, byteCount: bytes.count)
+        }
+        guard SetFileInformationByHandle(stagingHandle.rawValue, FileRenameInfo, buffer, DWORD(byteCount)) else {
+            let code = GetLastError()
+            if code == DWORD(ERROR_ALREADY_EXISTS) || code == DWORD(ERROR_FILE_EXISTS) {
+                throw ContestDatabaseSnapshotError.destinationExists
+            }
+            throw ContestDatabaseSnapshotError.publicationFailed("Windows rename failed: \(code)")
+        }
+    }
 }
 #else
 private final class PinnedSnapshotParent {

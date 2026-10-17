@@ -13,7 +13,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     private let usa = ContestEntitySnapshot(adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5)
 
     func testSnapshotPreservesLifecycleHistoryReplayTombstonesAndSerialCounter() async throws {
-        try requirePublicationCapability()
         let source = databaseURL()
         let store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
@@ -84,7 +83,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     func testWALSnapshotPinsOneRevisionWhileSecondWriterCommits() async throws {
-        try requirePublicationCapability()
         let source = databaseURL()
         XCTAssertEqual(try rawScalar("PRAGMA journal_mode=WAL", at: source).lowercased(), "wal")
         let first = try SQLiteContestStore(databaseURL: source)
@@ -117,7 +115,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     func testDestinationSourceAndSymlinkSafetyRefuseWithoutChangingExistingData() async throws {
-        try requirePublicationCapability()
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
         let snapshotter = ContestDatabaseSnapshotter()
@@ -160,7 +157,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     func testSchemaVersionNormalLogShapeAndCorruptionAreRejected() async throws {
-        try requirePublicationCapability()
         let snapshotter = ContestDatabaseSnapshotter()
         for sql in [
             "CREATE TABLE normal_qsos(id TEXT PRIMARY KEY); PRAGMA user_version=2",
@@ -197,7 +193,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     func testBusyRetriesAreBoundedAndFreshRetrySucceeds() async throws {
-        try requirePublicationCapability()
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
         let destination = destinationDirectory()
@@ -241,7 +236,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     func testPreAndMidCancellationAndVerificationCancellationCleanStaging() async throws {
-        try requirePublicationCapability()
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
 
@@ -298,7 +292,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     func testPrepublicationFailureAndCompetingDestinationNeverClobberAndCanRetry() async throws {
-        try requirePublicationCapability()
         enum Injected: Error { case stop }
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
@@ -350,6 +343,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         await assertSnapshotError(.unsafePath(canonicalTemporaryPath(alias.path))) {
             _ = try await ContestDatabaseSnapshotter().inspectSnapshot(at: aliasDirectory)
         }
+        #endif
 
         let hardLinkDirectory = temporaryDirectory()
         let hardLink = hardLinkDirectory.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)
@@ -357,7 +351,6 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         await assertSnapshotError(.unsafePath(canonicalTemporaryPath(hardLink.path))) {
             _ = try await ContestDatabaseSnapshotter().inspectSnapshot(at: hardLinkDirectory)
         }
-        #endif
     }
 
     func testInvalidBackupStepAndBusySleepConfigurationFailBeforeCreatingStaging() async throws {
@@ -398,8 +391,8 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
                        String(created.receipt.committedRevision + 10))
     }
 
+    #if !os(Windows)
     func testReplacedStagingAndParentAreNeverPublishedOrDeleted() async throws {
-        try requirePublicationCapability()
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
 
@@ -450,9 +443,9 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: parentDestination.path))
         assertNoStaging(in: movedParent)
     }
+    #endif
 
     func testTriggersViewsAndChangedIndexSemanticsAreRejected() async throws {
-        try requirePublicationCapability()
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
         let snapshot = destinationDirectory()
@@ -508,28 +501,85 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     }
 
     #if os(Windows)
-    func testWindowsFailsClosedBeforeStagingUntilHandleRelativePublicationIsAvailable() async throws {
+    func testWindowsDriveTypeClassificationAndTemporaryDriveSupport() throws {
+        // GetDriveTypeW constants: unknown 0, missing root 1, removable 2,
+        // fixed 3, remote 4, CD-ROM 5, and RAM disk 6.
+        XCTAssertTrue(windowsSnapshotDriveTypeIsSupported(2))
+        XCTAssertTrue(windowsSnapshotDriveTypeIsSupported(3))
+        XCTAssertTrue(windowsSnapshotDriveTypeIsSupported(6))
+        XCTAssertFalse(windowsSnapshotDriveTypeIsSupported(0))
+        XCTAssertFalse(windowsSnapshotDriveTypeIsSupported(1))
+        XCTAssertFalse(windowsSnapshotDriveTypeIsSupported(4))
+        XCTAssertFalse(windowsSnapshotDriveTypeIsSupported(5))
+        XCTAssertNoThrow(try windowsSnapshotPath(FileManager.default.temporaryDirectory.path))
+    }
+
+    func testWindowsHeldHandlesDenyEarlyStagingAndParentMoves() async throws {
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
         let destination = destinationDirectory()
-        await assertSnapshotError(.atomicPublicationUnsupported) {
-            _ = try await ContestDatabaseSnapshotter().createSnapshot(sourceDatabaseURL: source,
-                                                                        destinationDirectoryURL: destination)
+        let parent = destination.deletingLastPathComponent()
+        let observations = LockedFlags()
+        let snapshotter = ContestDatabaseSnapshotter(hooks: .init(afterSourcePinned: {
+            let staging = try FileManager.default.contentsOfDirectory(at: parent,
+                                                                       includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") }!
+            do {
+                try FileManager.default.moveItem(at: staging,
+                    to: parent.appendingPathComponent("unexpected-moved-staging"))
+            } catch {
+                observations.setStagingMoveDenied()
+            }
+            do {
+                try FileManager.default.moveItem(at: parent,
+                    to: parent.deletingLastPathComponent().appendingPathComponent("unexpected-moved-parent"))
+            } catch {
+                observations.setParentMoveDenied()
+            }
+        }))
+        _ = try await snapshotter.createSnapshot(sourceDatabaseURL: source,
+                                                  destinationDirectoryURL: destination)
+        XCTAssertTrue(observations.stagingMoveDenied)
+        XCTAssertTrue(observations.parentMoveDenied)
+        let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
+        XCTAssertEqual(metadata.schemaVersion, 2)
+    }
+
+    func testWindowsLateStagingReplacementIsPreservedAndOwnedHandlesAreCleaned() async throws {
+        let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
+        _ = try await create(store)
+        let destination = destinationDirectory()
+        let parent = destination.deletingLastPathComponent()
+        let moved = parent.appendingPathComponent("moved-owned-staging")
+        let snapshotter = ContestDatabaseSnapshotter(hooks: .init(beforePublication: {
+            let staging = try FileManager.default.contentsOfDirectory(at: parent,
+                                                                       includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") }!
+            try FileManager.default.moveItem(at: staging, to: moved)
+            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: false)
+            try Data("replacement database".utf8).write(
+                to: staging.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName))
+            try Data("attacker replacement".utf8).write(to: staging.appendingPathComponent("replacement-marker"))
+        }))
+        await assertSnapshotError(.unsafePath(canonicalTemporaryPath(parent.path))) {
+            _ = try await snapshotter.createSnapshot(sourceDatabaseURL: source,
+                                                       destinationDirectoryURL: destination)
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
-        assertNoStaging(in: destination.deletingLastPathComponent())
+        let replacement = try XCTUnwrap(FileManager.default.contentsOfDirectory(
+            at: parent, includingPropertiesForKeys: nil)
+            .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") })
+        XCTAssertEqual(try Data(contentsOf: replacement.appendingPathComponent("replacement-marker")),
+                       Data("attacker replacement".utf8))
+        XCTAssertEqual(try Data(contentsOf: replacement.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)),
+                       Data("replacement database".utf8))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: moved.path))
     }
     #endif
 
     private func create(_ store: SQLiteContestStore) async throws -> ContestSessionCreationResult {
         try await store.createSession(session(), metadata: ContestSessionMetadata(name: "Snapshot fixture", operatorCallsign: "OM0RX", operatorCategory: "single-op"),
                                       initialDraft: draft(revision: 1), scope: mutation(1, revision: 0, digest: "create"), committedAt: baseDate)
-    }
-
-    private func requirePublicationCapability() throws {
-        #if os(Windows)
-        throw XCTSkip("Windows snapshot publication fails closed until handle-relative publication is implemented")
-        #endif
     }
 
     private static let longVerificationQuery = """
@@ -666,6 +716,16 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         }
         return result
     }
+}
+
+private final class LockedFlags: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values = (staging: false, parent: false)
+
+    var stagingMoveDenied: Bool { lock.withLock { values.staging } }
+    var parentMoveDenied: Bool { lock.withLock { values.parent } }
+    func setStagingMoveDenied() { lock.withLock { values.staging = true } }
+    func setParentMoveDenied() { lock.withLock { values.parent = true } }
 }
 
 private actor AsyncSemaphore {
