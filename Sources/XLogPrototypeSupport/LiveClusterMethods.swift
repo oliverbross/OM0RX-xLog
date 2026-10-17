@@ -17,6 +17,38 @@ protocol ClusterCredentialStoring: Sendable {
     func save(_ password: String, serverID: UUID) throws
 }
 
+/// Serializes and memoizes secure-store reads for the worker lifetime. Cluster
+/// snapshots are renderer-polled, so a missing or denied item must not cause a
+/// fresh Security.framework request on every snapshot.
+final class CachedClusterCredentialStore: ClusterCredentialStoring, @unchecked Sendable {
+    private let base: any ClusterCredentialStoring
+    private let lock = NSLock()
+    private var cache: [UUID: Result<String?, Error>] = [:]
+
+    init(base: any ClusterCredentialStoring) { self.base = base }
+
+    var available: Bool { base.available }
+
+    func load(_ id: UUID) throws -> String? {
+        lock.lock(); defer { lock.unlock() }
+        if let result = cache[id] { return try result.get() }
+        do {
+            let value = try base.load(id)
+            cache[id] = .success(value)
+            return value
+        } catch {
+            cache[id] = .failure(error)
+            throw error
+        }
+    }
+
+    func save(_ password: String, serverID: UUID) throws {
+        try base.save(password, serverID: serverID)
+        lock.lock(); defer { lock.unlock() }
+        cache[serverID] = .success(password.isEmpty ? nil : password)
+    }
+}
+
 /// Persistent worker bridge for the isolated integrated xLog profile.
 /// Configuration is separate from both standalone apps. Passwords require a
 /// platform secure store; no plaintext fallback is permitted.
@@ -65,7 +97,7 @@ public actor LiveClusterMethods {
                                      requestSkimmer: skimmer, onState: state, onLine: line)
          }, beforeContactPublication: (@Sendable () async throws -> Void)? = nil) {
         self.logbook = logbook
-        self.vault = vault
+        self.vault = CachedClusterCredentialStore(base: vault)
         self.transportFactory = transportFactory
         self.beforeContactPublication = beforeContactPublication
         self.configurationURL = configurationURL ?? (logbook === LiveLogbookMethods.shared
