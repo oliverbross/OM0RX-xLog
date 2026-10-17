@@ -30,6 +30,8 @@ final class ContestExportServiceTests: XCTestCase {
             XCTAssertEqual(adif.ruleIdentity, rule.metadata.identity)
             XCTAssertEqual(cabrillo.sessionName, stored.metadata.name)
             XCTAssertEqual(cabrillo.requestedHeader.name, "Oliver Operator")
+            XCTAssertEqual(cabrillo.formatterVersion, ContestExportInput.submissionProjectionFormatterVersion)
+            XCTAssertEqual(adif.formatterVersion, ContestExportInput.legacyFormatterVersion)
             XCTAssertEqual(cabrillo.station.location, "")
             XCTAssertEqual(String(data: cabrillo.data, encoding: .utf8)?.contains("CONTEST: \(rule.metadata.cabrilloName)"), true)
             XCTAssertEqual(String(data: adif.data, encoding: .utf8)?.contains("<CONTEST_ID:\(rule.metadata.cabrilloName.count)>\(rule.metadata.cabrilloName)"), true)
@@ -86,6 +88,9 @@ final class ContestExportServiceTests: XCTestCase {
             expectedWorkspaceGeneration: generation, expectedRevision: revision, generatedAtUTC: baseDate,
             format: .cabrillo, header: makeHeader(name: fixture.name,
                 addressLines: [String(repeating: "A", count: 161)])))
+        await XCTAssertThrowsErrorAsync(try await service.export(sessionID: fixture.sessionID,
+            expectedWorkspaceGeneration: generation, expectedRevision: revision, generatedAtUTC: baseDate,
+            format: .cabrillo, header: makeHeader(name: fixture.name, overlay: "CLASSIC")))
     }
 
     func testRealWorkerShapedStationAcceptsExplicitSubmissionIdentityAndRequiresActualOperator() async throws {
@@ -180,6 +185,26 @@ final class ContestExportServiceTests: XCTestCase {
         XCTAssertNotEqual(old.data, next.data)
     }
 
+    func testSingleBandServiceMetadataUsesProjectionWhileDocumentRetainsOffBandQSO() async throws {
+        let fixture = try await makeFixture(rule: CQWWCWRule(), category: "single-op")
+        _ = try await commit(fixture, number: 1, call: "K1ABC", entity: usa, band: "40m")
+        let selected = try await commit(fixture, number: 2, call: "DL1AAA", entity: germany, band: "20m")
+        let artifact = try await ContestExportService(repository: fixture.store).export(
+            sessionID: fixture.sessionID, expectedWorkspaceGeneration: generation,
+            expectedRevision: selected.session.revision, generatedAtUTC: baseDate,
+            format: .cabrillo, header: makeHeader(name: fixture.name, band: "20M"))
+        let document = try XCTUnwrap(String(data: artifact.data, encoding: .utf8))
+        XCTAssertEqual(artifact.formatterVersion, ContestExportInput.submissionProjectionFormatterVersion)
+        XCTAssertEqual(artifact.qsoCount, 2)
+        XCTAssertEqual(artifact.totalPoints, 1)
+        XCTAssertEqual(artifact.multiplierCount, 2)
+        XCTAssertEqual(artifact.claimedScore, 2)
+        XCTAssertEqual(document.components(separatedBy: "QSO: ").count, 3)
+        XCTAssertTrue(document.contains(" 7025 CW"))
+        XCTAssertTrue(document.contains("14025 CW"))
+        XCTAssertTrue(document.contains("CLAIMED-SCORE: 2\r\n"))
+    }
+
     func testExportIsDeterministicAndDoesNotMutateStoreState() async throws {
         let fixture = try await makeFixture(rule: CQWPXCWRule(), category: "single-op")
         _ = try await commit(fixture, number: 1, call: "K1ABC", entity: usa)
@@ -239,7 +264,7 @@ final class ContestExportServiceTests: XCTestCase {
     }
 
     private func commit(_ fixture: Fixture, number: Int, call: String,
-                        entity: ContestEntitySnapshot) async throws -> ContestQSOCommitResult {
+                        entity: ContestEntitySnapshot, band: String = "20m") async throws -> ContestQSOCommitResult {
         let stored = try await fixture.store.openSession(id: fixture.sessionID)
         var revision = stored.revision
         var reservation: ContestSerialReservation?
@@ -253,8 +278,8 @@ final class ContestExportServiceTests: XCTestCase {
         }
         let sent = reservation?.transmittedText ?? "15"
         let qso = ContestQSO(id: fixedUUID(2_000 + number), sessionID: fixture.sessionID,
-            timestampUTC: baseDate.addingTimeInterval(Double(number)), callsign: call, band: "20m", mode: "CW",
-            frequencyHz: 14_025_000, rstSent: "599", rstReceived: "599",
+            timestampUTC: baseDate.addingTimeInterval(Double(number)), callsign: call, band: band, mode: "CW",
+            frequencyHz: band == "40m" ? 7_025_000 : 14_025_000, rstSent: "599", rstReceived: "599",
             exchange: .init(rawSent: sent, normalizedSent: sent,
                             rawReceived: fixture.rule == CQWWCWRule.identity ? "5" : "101",
                             normalizedReceived: fixture.rule == CQWWCWRule.identity ? "5" : "101"),
@@ -274,10 +299,11 @@ final class ContestExportServiceTests: XCTestCase {
 
     private func makeHeader(name: String, categoryOperator: String = "SINGLE-OP",
                             club: String? = "OM CONTEST CLUB", addressLines: [String] = ["Test Street 1"],
-                            operators: [String] = ["OM0RX"], location: String = "DX") -> CabrilloHeader {
+                             operators: [String] = ["OM0RX"], location: String = "DX",
+                             band: String = "ALL", overlay: String? = nil) -> CabrilloHeader {
         CabrilloHeader(callsign: "OM0RX", categoryOperator: categoryOperator, categoryAssisted: "NON-ASSISTED",
-            categoryBand: "ALL", categoryMode: "CW", categoryTransmitter: "ONE", categoryPower: "LOW",
-            categoryOverlay: "CLASSIC", operators: operators, location: location, club: club,
+            categoryBand: band, categoryMode: "CW", categoryTransmitter: "ONE", categoryPower: "LOW",
+            categoryOverlay: overlay, operators: operators, location: location, club: club,
             name: name, addressLines: addressLines, email: "operator@example.test")
     }
 

@@ -97,7 +97,12 @@ public struct ContestExportService: Sendable {
         try Self.validate(header: header, stored: stored, qsos: snapshot.qsos,
                           canonicalCategory: category)
 
+        // Cabrillo uses the complete-log/single-band projection preview. ADIF remains on the
+        // frozen pilot-1 policy so this slice does not reinterpret its preservation semantics.
+        let formatterVersion = format == .cabrillo ? ContestExportInput.submissionProjectionFormatterVersion :
+            ContestExportInput.legacyFormatterVersion
         let input = ContestExportInput(
+            formatterVersion: formatterVersion,
             generatedAtUTC: generatedAtUTC,
             sessionRevision: stored.revision,
             session: stored.session,
