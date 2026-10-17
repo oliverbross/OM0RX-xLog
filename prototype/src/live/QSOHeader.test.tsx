@@ -62,9 +62,9 @@ it("contains multiple live POTA parks as stable separate rows without scrolling 
   expect(css).toMatch(/\.desk-active \{[^}]*max-width: 100%;[^}]*overflow: hidden;/);
   expect(css).toMatch(/\.desk-active form \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow: hidden;/);
   expect(css).toMatch(/\.desk-active-references \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow: hidden;/);
-  expect(css).toMatch(/\.desk-ref-slot \{[^}]*block-size: 3em;[^}]*overflow: hidden;[^}]*contain: inline-size paint;/);
-  expect(css).toMatch(/\.desk-ref-slot > \.qso-reference-status \{[^}]*display: grid;[^}]*grid-auto-rows: 1\.35em;[^}]*row-gap: \.15em;[^}]*height: 100%;[^}]*overflow: hidden;/);
-  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*display: block;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/);
+  expect(css).toMatch(/\.desk-ref-slot \{[^}]*grid-column: 1 \/ -1;[^}]*justify-self: stretch;[^}]*block-size: 3em;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot > \.qso-reference-status \{[^}]*display: grid;[^}]*justify-content: stretch;[^}]*justify-items: start;[^}]*row-gap: \.15em;[^}]*height: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*display: block;[^}]*width: 100%;[^}]*overflow: hidden;[^}]*text-align: left;[^}]*text-overflow: ellipsis;/);
   expect(css).toMatch(/\.desk-active-actions \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*flex: 0 0 auto;/);
 });
 it("removes the global tuning status row while retaining the authoritative tune fence and errors", async () => {
