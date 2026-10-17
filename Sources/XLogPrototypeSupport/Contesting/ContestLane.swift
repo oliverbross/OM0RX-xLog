@@ -14,11 +14,12 @@ actor ContestLane {
     private let databaseURL: URL
     private let generationSource: GenerationSource
     private let reference: ContestReferenceData
-    private let rules = ContestRuleRegistry([
+    private static let activeRules = ContestRuleRegistry([
         CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
         OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
-        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(),
+        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
     ])
+    private let rules: ContestRuleRegistry
     private var store: SQLiteContestStore?
     private var exportLane: ContestExportLane?
     private var assistanceService: ContestSCPService?
@@ -26,10 +27,12 @@ actor ContestLane {
     private var terminalShutdown = false
 
     init(databaseURL: URL, generationSource: @escaping GenerationSource,
-         exportLane: ContestExportLane? = nil) throws {
+         exportLane: ContestExportLane? = nil,
+         rules: ContestRuleRegistry? = nil) throws {
         self.databaseURL = databaseURL
         self.generationSource = generationSource
         self.exportLane = exportLane
+        self.rules = rules ?? Self.activeRules
         self.reference = try ContestReferenceData.bundled()
         try ContestDatabaseBoundary.validate(databaseURL: databaseURL)
     }
@@ -259,7 +262,9 @@ actor ContestLane {
         guard referenceVersion == reference.version else { throw ContestLaneError.confirmed("reference_unavailable", "The requested offline reference data is unavailable.") }
         let stationInput = try Wire.object(request.payload, "station")
         if rule.metadata.entry.version == .v2 {
-            try Wire.exact(stationInput, ["callsign", "cqZone", "dxccEntity", "exchangeFields"])
+            var keys: Set<String> = ["callsign", "cqZone", "dxccEntity", "exchangeFields"]
+            if !rule.metadata.entry.stationFields.isEmpty { keys.insert("stationFields") }
+            try Wire.exact(stationInput, keys)
         } else {
             try Wire.exact(stationInput, ["callsign", "cqZone", "dxccEntity"])
         }
@@ -279,6 +284,10 @@ actor ContestLane {
         let stationFields = parsedStationFields.mapValues {
             ContestExchangeFieldValue(raw: $0.normalized, normalized: $0.normalized)
         }
+        let structuredStationFields = rule.metadata.entry.stationFields.isEmpty
+            ? [:]
+            : try Wire.stationFields(Wire.object(stationInput, "stationFields"),
+                                     descriptors: rule.metadata.entry.stationFields)
         let stationExchange = rule.metadata.entry.version == .v2
             ? Wire.aggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
             : (rule.metadata.entry.exchange.sentDefault == .stationSnapshot ? zoneText : "")
@@ -288,7 +297,9 @@ actor ContestLane {
             referenceDataVersion: referenceVersion, startedAt: request.timestamp,
             station: ContestStationSnapshot(callsign: stationCall, entity: try reference.entity(country),
                 sentExchange: stationExchange, operatorCallsigns: [operatorCall],
-                location: stationFields["location"]?.normalized ?? "", sentExchangeFields: stationFields))
+                location: rule.metadata.entry.cabrilloLocationField.flatMap { structuredStationFields[$0.id] }
+                    ?? stationFields["location"]?.normalized ?? "",
+                sentExchangeFields: stationFields))
         let draft = ContestDraftSnapshot(id: request.requestID, sessionID: request.sessionID, revision: 1, updatedAt: request.timestamp,
             callsign: "", band: "20m", mode: rule.metadata.entry.mode, frequencyHz: nil,
             rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
@@ -359,9 +370,14 @@ actor ContestLane {
         let prior = try await preflightReplay(request)
         let session = try await checkedSession(request.sessionID, generation: generation,
                                                revision: prior == nil ? request.expectedRevision : nil)
-        guard let rule = rules.rule(for: session.session.rule),
-              rule.metadata.entry.serial.requirement == .requiredForCommit,
-              rule.metadata.entry.serial.allowedScopes.contains(.session) else {
+        guard let rule = rules.rule(for: session.session.rule) else {
+            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
+        }
+        let requirement: ContestResolvedSerialRequirement
+        do { requirement = try rule.resolvedSerialRequirement(in: session.session) }
+        catch { throw ContestLaneError.confirmed("invalid_session", "The station serial policy is invalid.") }
+        guard requirement.requirement == .requiredForCommit,
+              requirement.allowedScopes.contains(.session) else {
             throw ContestLaneError.confirmed("serial_not_supported", "This contest does not allocate serial numbers.")
         }
         _ = try await repository().draft(sessionID: request.sessionID, id: request.draftID!)
@@ -560,19 +576,30 @@ actor ContestLane {
         guard let suppliedCount, let suppliedDate else {
             throw ContestLaneError.uncertain("invalid_result", "Contest session projection requires one coherent read snapshot.")
         }
-        guard let metadata = rules.rule(for: stored.session.rule)?.metadata, let entity = stored.session.station.entity else { throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.") }
+        guard let rule = rules.rule(for: stored.session.rule), let entity = stored.session.station.entity else { throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.") }
+        let metadata = rule.metadata
         var station: [String: Any] = ["callsign": stored.session.station.callsign,
             "cqZone": String(entity.cqZone), "dxccEntity": entity.name]
         if metadata.entry.version == .v2 {
             station["exchangeFields"] = Wire.exchangeFieldsWire(stored.session.station.sentExchangeFields,
                                                                   descriptors: metadata.entry.exchange.sentFields)
+            if !metadata.entry.stationFields.isEmpty {
+                station["stationFields"] = Dictionary(uniqueKeysWithValues: metadata.entry.stationFields.map {
+                    ($0.id, $0.role == .cabrilloLocation ? stored.session.station.location : "")
+                })
+            }
         }
-        return ["sessionID": Wire.uuidString(stored.session.id), "workspaceGeneration": generation, "revision": stored.revision,
+        var result: [String: Any] = ["sessionID": Wire.uuidString(stored.session.id), "workspaceGeneration": generation, "revision": stored.revision,
             "name": stored.metadata.name, "rule": reference.ruleWire(metadata), "referenceDataVersion": stored.session.referenceDataVersion,
             "station": station,
             "operator": ["callsign": stored.metadata.operatorCallsign, "category": stored.metadata.operatorCategory],
             "qsoCount": suppliedCount,
             "updatedAt": Wire.iso(max(stored.createdAt, suppliedDate))]
+        if metadata.entry.stationResolvedSerial != nil {
+            result["resolvedSerial"] = try Wire.resolvedSerialWire(
+                rule.resolvedSerialRequirement(in: stored.session))
+        }
+        return result
     }
 
     private func draftWire(_ draft: ContestDraftSnapshot, stored: StoredContestSession, generation: String,
@@ -618,7 +645,7 @@ actor ContestLane {
             fields["receivedExchangeFields"] = Wire.exchangeFieldsWire(draft.exchange.receivedFields,
                                                                          descriptors: rule.metadata.entry.exchange.receivedFields)
         }
-        return ["draftID": Wire.uuidString(draft.id), "sessionID": Wire.uuidString(draft.sessionID), "workspaceGeneration": generation, "revision": stored.revision,
+        var result: [String: Any] = ["draftID": Wire.uuidString(draft.id), "sessionID": Wire.uuidString(draft.sessionID), "workspaceGeneration": generation, "revision": stored.revision,
             "fields": fields,
             "reservedSerial": serial?.number as Any? ?? NSNull(),
             "validation": ["errors": validation.filter { $0.severity == .error }.map(\.message),
@@ -627,6 +654,11 @@ actor ContestLane {
                      "reason": duplicate == true ? "This callsign and band are already logged in this contest."
                         : (duplicate == nil ? "Reload the contest session to check duplicate state." : "")],
             "updatedAt": Wire.iso(draft.updatedAt)]
+        if rule.metadata.entry.stationResolvedSerial != nil {
+            result["resolvedSerial"] = try Wire.resolvedSerialWire(
+                rule.resolvedSerialRequirement(in: stored.session))
+        }
+        return result
     }
 
     private func qsoWire(_ qso: ContestQSO, scored: ContestScoredQSO?) throws -> [String: Any] {
@@ -1080,6 +1112,20 @@ private enum Wire {
                             "defaultReceived": $0.report.defaultReceived, "maximumUTF8Bytes": $0.report.maximumUTF8Bytes]]
             }
             result["scorePolicy"] = value.scorePolicy.rawValue
+            if let resolved = value.stationResolvedSerial {
+                result["stationResolvedSerial"] = [
+                    "policy": resolved.policy.rawValue,
+                    "locationFieldID": resolved.locationFieldID,
+                    "allocatedSerialFieldID": resolved.allocatedSerialFieldID,
+                    "allowedScopes": resolved.allowedScopes.map(\.rawValue),
+                ]
+            }
+            if !value.stationFields.isEmpty {
+                result["stationFields"] = value.stationFields.map {
+                    ["id": $0.id, "label": $0.label, "role": $0.role.rawValue,
+                     "required": $0.required, "maximumUTF8Bytes": $0.maximumUTF8Bytes]
+                }
+            }
         }
         return result
     }
@@ -1087,6 +1133,25 @@ private enum Wire {
         ["id": value.id, "label": value.label, "acceptedKinds": value.acceptedKinds.map(\.rawValue),
          "required": value.required, "maximumUTF8Bytes": value.maximumUTF8Bytes,
          "adifField": value.adifField?.rawValue as Any? ?? NSNull()]
+    }
+    static func stationFields(_ value: [String: Any],
+                              descriptors: [ContestStationFieldDescriptor]) throws -> [String: String] {
+        try exact(value, Set(descriptors.map(\.id)))
+        var result: [String: String] = [:]
+        for descriptor in descriptors {
+            let raw = try text(value, descriptor.id, max: descriptor.maximumUTF8Bytes,
+                               empty: !descriptor.required)
+            guard raw.unicodeScalars.allSatisfy({ (65...90).contains($0.value) || (48...57).contains($0.value) }) else {
+                throw ContestLaneError.confirmed("invalid_params", "Contest station field is invalid.")
+            }
+            result[descriptor.id] = raw
+        }
+        return result
+    }
+    static func resolvedSerialWire(_ value: ContestResolvedSerialRequirement) -> [String: Any] {
+        ["requirement": value.requirement.rawValue,
+         "allowedScopes": value.allowedScopes.map(\.rawValue),
+         "allocatedFieldID": value.allocatedFieldID as Any? ?? NSNull()]
     }
     static func entity(_ value: [String: Any]) throws -> ContestEntitySnapshot {
         try exact(value, ["adif", "name", "countryPrefix", "continent", "cqZone"])

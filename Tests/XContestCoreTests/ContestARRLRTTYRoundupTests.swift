@@ -99,17 +99,23 @@ final class ContestARRLRTTYRoundupTests: XCTestCase {
         let entry = rule.metadata.entry
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(entry)) as? [String: Any])
         XCTAssertNotNil(object["stationResolvedSerial"])
+        XCTAssertEqual((object["stationFields"] as? [[String: Any]])?.first?["id"] as? String, "section")
 
         let legacy = CQWWCWRule().metadata.entry
         let legacyBytes = try encoder.encode(legacy)
         let legacyObject = try XCTUnwrap(JSONSerialization.jsonObject(with: legacyBytes) as? [String: Any])
         XCTAssertNil(legacyObject["stationResolvedSerial"])
+        XCTAssertNil(legacyObject["stationFields"])
         XCTAssertEqual(try encoder.encode(JSONDecoder().decode(ContestEntryDescriptor.self, from: legacyBytes)),
                        legacyBytes)
         var legacyWithNull = legacyObject
         legacyWithNull["stationResolvedSerial"] = NSNull()
         let badV1 = try JSONSerialization.data(withJSONObject: legacyWithNull, options: [.sortedKeys])
         XCTAssertThrowsError(try JSONDecoder().decode(ContestEntryDescriptor.self, from: badV1))
+
+        var legacyWithStationFields = legacyObject
+        legacyWithStationFields["stationFields"] = []
+        XCTAssertThrowsError(try decodeEntry(legacyWithStationFields))
 
         var unknown = object
         var policy = try XCTUnwrap(unknown["stationResolvedSerial"] as? [String: Any])
@@ -147,6 +153,28 @@ final class ContestARRLRTTYRoundupTests: XCTestCase {
         ambiguousExchange["sentFields"] = ambiguousSentFields
         ambiguousField["exchange"] = ambiguousExchange
         XCTAssertThrowsError(try decodeEntry(ambiguousField))
+
+        var missingSectionDescriptor = object
+        missingSectionDescriptor.removeValue(forKey: "stationFields")
+        XCTAssertThrowsError(try decodeEntry(missingSectionDescriptor))
+
+        var duplicateStationField = object
+        var stationFields = try XCTUnwrap(duplicateStationField["stationFields"] as? [[String: Any]])
+        stationFields.append(try XCTUnwrap(stationFields.first))
+        duplicateStationField["stationFields"] = stationFields
+        XCTAssertThrowsError(try decodeEntry(duplicateStationField))
+
+        var renamedStationField = object
+        var renamed = try XCTUnwrap(renamedStationField["stationFields"] as? [[String: Any]])
+        renamed[0]["id"] = "location"
+        renamedStationField["stationFields"] = renamed
+        XCTAssertThrowsError(try decodeEntry(renamedStationField))
+    }
+
+    func testCabrilloSectionIsPartOfImmutableSessionValidation() {
+        XCTAssertTrue(rule.validateSession(session(entity: usa, call: "K1AAA", location: "CA")).isEmpty)
+        let invalid = session(entity: usa, call: "K1AAA", location: "CA", section: "CA")
+        XCTAssertEqual(rule.validateSession(invalid).map(\.code), ["invalidStationSection"])
     }
 
     func testAuthorityFixturePinsPrimaryAndComparatorInputs() throws {
@@ -178,13 +206,14 @@ final class ContestARRLRTTYRoundupTests: XCTestCase {
     }
 
     private func session(entity: ContestEntitySnapshot, call: String,
-                         location: String?) -> ContestSessionSnapshot {
+                         location: String?, section suppliedSection: String? = nil) -> ContestSessionSnapshot {
         let fields = location.map { ["location": ContestExchangeFieldValue(raw: $0, normalized: $0)] } ?? [:]
         return ContestSessionSnapshot(
             id: sessionID, workspaceGeneration: generation, rule: ARRLRTTYRoundupRule.identity,
             referenceDataVersion: "cty-arrl-fixture", startedAt: date,
             station: .init(callsign: call, entity: entity, sentExchange: location ?? "",
-                           operatorCallsigns: [call], location: "fixture", sentExchangeFields: fields))
+                           operatorCallsigns: [call], location: suppliedSection ?? section(for: entity),
+                           sentExchangeFields: fields))
     }
 
     private func qso(_ number: Int, call: String, entity: ContestEntitySnapshot, exchange: String,
@@ -198,8 +227,18 @@ final class ContestARRLRTTYRoundupTests: XCTestCase {
                             normalizedReceived: exchange,
                             sentFields: ["serial": .init(raw: sent, normalized: sent)],
                             receivedFields: ["exchange": .init(raw: exchange, normalized: exchange)]),
-            entity: entity, operatorCallsign: "G3AAA", stationLocation: "fixture",
+            entity: entity, operatorCallsign: "G3AAA", stationLocation: "DX",
             provenance: .init(source: .operatorEntry))
+    }
+
+    private func section(for entity: ContestEntitySnapshot) -> String {
+        switch entity.adif {
+        case 291: return "EB"
+        case 1: return "QC"
+        case 6: return "AK"
+        case 110: return "PAC"
+        default: return "DX"
+        }
     }
 
     private func frequency(for band: String) -> Int64 {

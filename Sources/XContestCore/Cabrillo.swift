@@ -96,7 +96,8 @@ public enum CabrilloExporter {
         let renderedQSOs: [ContestQSO]
         do {
             if formatterVersion == ContestExportInput.naqpPreviewFormatterVersion ||
-                formatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
+                formatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion ||
+                formatterVersion == ContestExportInput.jidxPreviewFormatterVersion {
                 guard rule.metadata.entry.cabrilloFormatterVersion == formatterVersion,
                       rule.metadata.entry.cabrilloProjectionFormatterVersion == formatterVersion else {
                     throw CabrilloExportError.invalidHeader("formatterVersion")
@@ -134,6 +135,10 @@ public enum CabrilloExporter {
         } catch let error as CabrilloExportError { throw error }
         catch { throw CabrilloExportError.invalidHeader("score") }
         guard recomputed == score else { throw CabrilloExportError.invalidHeader("score") }
+        if formatterVersion == ContestExportInput.jidxPreviewFormatterVersion {
+            return try jidxDocument(header: header, score: score, qsos: renderedQSOs,
+                                    session: session, rule: rule, createdBy: createdBy)
+        }
         let call = try token(header.callsign, field: "callsign")
         var lines = ["START-OF-LOG: 3.0", "CREATED-BY: \(try safe(createdBy, field: "createdBy", required: true))",
                      "CONTEST: \(rule.metadata.cabrilloName)"]
@@ -172,6 +177,97 @@ public enum CabrilloExporter {
         }
         if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
             return try arrlRTTYQsoLine(qso, session: session, rule: rule)
+        }
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.jidxPreviewFormatterVersion {
+            return try jidxQsoLine(qso, session: session, rule: rule)
+        }
+        return try standardQsoLine(qso, session: session, rule: rule)
+    }
+
+    private static func jidxDocument(header: CabrilloHeader, score: ContestScore,
+                                     qsos: [ContestQSO], session: ContestSessionSnapshot,
+                                     rule: any ContestRule, createdBy: String) throws -> String {
+        let call = try token(header.callsign, field: "callsign")
+        let category = try jidxCategory(header: header, callsign: call)
+        let operators = header.operators.isEmpty ? ["@\(call)"] : header.operators
+        guard operators.allSatisfy({ $0.range(of: #"^@?[A-Z0-9]+(?:/[A-Z0-9]+)*$"#,
+                                                    options: .regularExpression) != nil }) else {
+            throw CabrilloExportError.invalidHeader("operators")
+        }
+        guard let sentNumber = session.station.sentExchangeFields["number"]?.normalized,
+              sentNumber == session.station.sentExchange,
+              sentNumber.range(of: #"^[0-9]{2}$"#, options: .regularExpression) != nil else {
+            throw CabrilloExportError.invalidHeader("sentNumber")
+        }
+        let entity: String
+        if call.split(separator: "/").last == "MM" {
+            entity = "MARITIME-MOBILE"
+        } else if let stationEntity = session.station.entity {
+            entity = stationEntity.name
+        } else {
+            throw CabrilloExportError.invalidHeader("entity")
+        }
+        var lines = [
+            "START-OF-LOG: 2.0",
+            "CALLSIGN: \(call)",
+            "CONTEST: \(rule.metadata.cabrilloName)",
+            "CATEGORY: \(category)",
+            "CLAIMED-SCORE: \(score.claimedScore)",
+            "OPERATORS: \(try safe(operators.joined(separator: ","), field: "operators", required: true))",
+            "ENTITY: \(try safe(entity, field: "entity", required: true))",
+            "CREATED-BY: \(try safe(createdBy, field: "createdBy", required: true))",
+        ]
+        if !header.name.isEmpty { lines.append("NAME: \(try safe(header.name, field: "name"))") }
+        for address in header.addressLines { lines.append("ADDRESS: \(try safe(address, field: "address"))") }
+        if !header.email.isEmpty { lines.append("EMAIL: \(try safe(header.email, field: "email"))") }
+        lines.append("SENTNR: \(sentNumber)")
+        for qso in qsos.sorted(by: deterministicOrder) {
+            lines.append(try jidxQsoLine(qso, session: session, rule: rule))
+        }
+        lines.append("END-OF-LOG:")
+        return lines.joined(separator: "\r\n") + "\r\n"
+    }
+
+    private static func jidxCategory(header: CabrilloHeader, callsign: String) throws -> String {
+        guard header.categoryOperator == "SINGLE-OP",
+              header.categoryTransmitter == "ONE",
+              header.categoryOverlay?.isEmpty != false,
+              ["ASSISTED", "NON-ASSISTED"].contains(header.categoryAssisted) else {
+            throw CabrilloExportError.invalidHeader("category")
+        }
+        if callsign.split(separator: "/").last == "MM" {
+            guard header.categoryBand == "ALL",
+                  ["HIGH", "LOW"].contains(header.categoryPower) else {
+                throw CabrilloExportError.invalidHeader("category")
+            }
+            return "MM"
+        }
+        guard let base = ["ALL": "AB", "10M": "28", "15M": "21", "20M": "14",
+                          "40M": "7", "80M": "3.5", "160M": "1.8"][header.categoryBand],
+              ["HIGH", "LOW"].contains(header.categoryPower) else {
+            throw CabrilloExportError.invalidHeader("category")
+        }
+        return header.categoryPower == "LOW" ? (base == "AB" ? "ABL" : "\(base)L") : base
+    }
+
+    private static func jidxQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
+                                    rule: any ContestRule) throws -> String {
+        guard ["JIDX-CW", "JIDX-PH"].contains(rule.metadata.cabrilloName),
+              rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.jidxPreviewFormatterVersion else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule")
+        }
+        let evaluation: ContestRuleEvaluation
+        do { evaluation = try ContestEngine.evaluate(qso, session: session, rule: rule, allowIncomplete: false) }
+        catch { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "qso") }
+        if let issue = evaluation.validation.first(where: { $0.severity == .error }) {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: issue.field)
+        }
+        guard let sent = qso.exchange.sentFields["number"]?.normalized,
+              let received = qso.exchange.receivedFields["number"]?.normalized,
+              sent == qso.exchange.normalizedSent, received == qso.exchange.normalizedReceived,
+              sent.range(of: #"^[0-9]{2}$"#, options: .regularExpression) != nil,
+              received.range(of: #"^[0-9]{2}$"#, options: .regularExpression) != nil else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "exchange")
         }
         return try standardQsoLine(qso, session: session, rule: rule)
     }
@@ -227,20 +323,8 @@ public enum CabrilloExporter {
             throw CabrilloExportError.invalidHeader("location")
         }
         guard let entity = session.station.entity,
-              arrlRTTYLocationIsValid(value, entityADIF: entity.adif) else {
+              arrlRTTYCabrilloLocationIsValid(value, entityADIF: entity.adif) else {
             throw CabrilloExportError.invalidHeader("location")
-        }
-    }
-
-    private static func arrlRTTYLocationIsValid(_ value: String, entityADIF: Int) -> Bool {
-        switch entityADIF {
-        case 291: return arrlUSSectionAbbreviations.contains(value)
-        case 1: return arrlCanadaSectionAbbreviations.contains(value)
-        case 6: return value == "AK"
-        case 202: return value == "PR"
-        case 285: return value == "VI"
-        case let code where arrlPacificSectionEntityCodes.contains(code): return value == "PAC"
-        default: return value == "DX"
         }
     }
 
@@ -338,5 +422,17 @@ public enum CabrilloExporter {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = format
         return formatter
+    }
+}
+
+internal func arrlRTTYCabrilloLocationIsValid(_ value: String, entityADIF: Int) -> Bool {
+    switch entityADIF {
+    case 291: return arrlUSSectionAbbreviations.contains(value)
+    case 1: return arrlCanadaSectionAbbreviations.contains(value)
+    case 6: return value == "AK"
+    case 202: return value == "PR"
+    case 285: return value == "VI"
+    case let code where arrlPacificSectionEntityCodes.contains(code): return value == "PAC"
+    default: return value == "DX"
     }
 }

@@ -1,6 +1,6 @@
 # ARRL RTTY Roundup station-resolved serial preview
 
-Status: inactive rule and durable-core preview. It is not in the rule catalog and has no worker, UI, or export activation. Passing these fixtures does not establish category, contest-date, operating-time, power, assistance, mobile-location, packaged-app, or sponsor-submission acceptance.
+Status: explicit worker and plain-logging UI preview. It remains outside the core `ContestRuleRegistry.pilots` set and is registered only by the contest worker. Passing these fixtures does not establish category, contest-date, operating-time, power, assistance, mobile-location, packaged-app, radio/RTTY hardware, or sponsor-submission acceptance.
 
 ## Frozen authority
 
@@ -9,6 +9,10 @@ The preview identity is `arrl-rtty-roundup`, version `1.0.0-3.0b-preview`, editi
 Multiplier authority is separately pinned to the ARRL [Canadian list](https://contests.arrl.org/contestmultipliers.php?a=ve), [United States list](https://contests.arrl.org/contestmultipliers.php?a=usa), and [January 2026 DXCC list](https://www.arrl.org/files/file/DXCC/DXCC_Current.pdf). Exact URLs, retrieval-local cache paths, and SHA-256 digests are recorded in `Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-authority.json`. The PDF is cached at `/tmp/arrl-dxcc-current-2026.pdf`; its independently extracted text is cached at `/tmp/arrl-dxcc-current-2026.txt` with SHA-256 `9f5e3635790438ab77fcc6621a8dbd6c836d38c62683aad279471ba1e3015387`. The reproducible fixture extractor reads the pinned PDF, anchors one three-digit entity code at each table-row end, and requires exactly 340 rows, 340 unique codes, and no duplicates. Tests compare that independently recorded set exactly with the production authority set. The read-only comparison source is Oliver Bross's `contest-sw` fork at `7c8b499225a73f7f8f792246881bd7aefc05452f`, file `not1mm/plugins/arrl_rtty_ru.py`, derived from Not1MM by Michael Bridak under GPL-3.0-or-later. Comparator behavior is evidence, not sponsor authority.
 
 ## Station-resolved exchange
+
+The contest worker explicitly registers the preview while the core pilot registry remains unchanged. Version-two metadata may declare exactly one separate required `cabrilloLocation` station field for this station-resolved policy. It is stored in the existing immutable `ContestStationSnapshot.location`; it is not an exchange field and it is never inferred from the on-air subdivision. A continental-US station may therefore send `CA` while retaining the independent Cabrillo section `EB`. Invalid section/entity combinations fail before session creation and create no receipt or partial database row.
+
+ARRL session and draft responses conditionally expose the server-resolved serial requirement, allowed scopes, and allocated field identifier. W/VE responses forbid serial reservation; DX responses require session-scoped allocation. Creation hints are descriptive only: the lane resolves the frozen station entity, and the store remains the authority for reservation and commit. Existing version-one and NAQP version-two metadata, station, session, and draft wire objects omit these new conditional members exactly.
 
 `ContestStationResolvedSerialDescriptor` is an optional version-two entry descriptor. Absence maps exactly to the established static `ContestSerialDescriptor`; version-one descriptors reject the new key even when it is JSON `null`. The only admitted policy in this slice is `arrlRTTYRoundupWVEOrDX`. Rule metadata declares one optional `location` subdivision field, one optional `serial` numeric field, and session serial scope. Metadata coherence rejects duplicate or ambiguous fields, static/conditional contradictions, unsupported scope sets, and unknown policies.
 
@@ -19,7 +23,7 @@ The throwing `ContestRule.resolvedSerialRequirement(in:)` resolves only after th
 
 Drafts may keep an incomplete received exchange while editing. A W/VE draft must retain the station subdivision and cannot reserve a serial. A DX reservation atomically allocates `001`, binds it into the typed raw and normalized serial field and both sent aggregates, and survives restart. Commit verifies all four text projections against the durable reservation. A failed, forged, foreign, or exhausted reservation attempt changes no session revision, draft, counter, reservation, QSO, or receipt. Successful commit consumes the reservation and reset clears the allocated serial while preserving nonserial station fields. Existing correction paths continue to retain immutable sent fields.
 
-No SQLite schema change is required: station policy belongs to immutable rule metadata; sessions, drafts, reservations, QSOs, operations, and canonical request bytes keep their existing shapes. Existing contest identities and version-one encodings remain unchanged.
+No SQLite schema change or exposed-session migration is required: station policy belongs to immutable rule metadata; sessions, drafts, reservations, QSOs, operations, and canonical request bytes keep their existing shapes. Existing contest identities and version-one encodings remain unchanged. Tightening the invalid placeholder sections in inactive core fixtures establishes the future admission boundary; it does not migrate an activated user session.
 
 ## Inactive scoring preview
 
@@ -28,6 +32,20 @@ The rule admits RTTY/`RY` on 80, 40, 20, 15, and 10 metres. Both the entrant and
 Suffix normalization is deliberately bounded: `W1AW` and `W1AW/7` share a duplicate identity, while `K7/W1AW` remains distinct. Self contacts reject after this normalization. `/MM` and `/AM` contacts and entrants fail closed because the current immutable snapshot cannot prove their physical endpoint; the rules allow contact credit only for mobile endpoints outside the US and Canada. This boundary is explicit rather than inferred from a home prefix.
 
 The rule remains outside `ContestRuleRegistry.pilots`. Full mobile support requires a later reviewed slice.
+
+## Worker and browser contract
+
+The browser admits the exact known ARRL identity and descriptor only. ARRL metadata must carry the conditional serial descriptor and one Cabrillo-section station descriptor; NAQP metadata and every version-one rule must omit both. Session and draft replies likewise carry `resolvedSerial` only for ARRL, and the station reply carries `stationFields` only for ARRL. Crossed, missing, unknown, or extra members fail closed. Recovery storage may retain either recognized structured draft shape before a rule is known, but activation revalidates it against the authoritative session rule and discards a crossed shape.
+
+The creation form renders station exchange and station fields in descriptor order. It does not render the server-allocated serial field. State/province is the immutable on-air station exchange input; Cabrillo section is a distinct immutable station field. The reserve action follows the session/draft `resolvedSerial` reply: it is absent for W/VE and available for DX. Successful commit clears the consumed DX serial while preserving the station snapshot; reopen and correction continue through the ordinary durable owner.
+
+Report controls follow the independent report descriptor rather than the exchange representation. ARRL's structured exchange therefore retains editable three-character sent and received reports in both entry and correction, while NAQP's `none` report descriptor remains report-free. Nondefault valid reports survive draft application, commit, reopen, and correction unchanged.
+
+Structured sent exchange values are displayed from the authoritative draft or immutable QSO snapshot with the descriptor's human labels. They are never editable browser authority. A W/VE ARRL session shows its frozen state or province, a DX session shows `Awaiting reservation` until the store allocates a serial and then shows that serial, and NAQP shows its frozen name and location. These read-only values improve plain-logging visibility; they do not establish Run/S&P, ESM, real RTTY output, or operator acceptance.
+
+Every ARRL draft result must carry exactly the same resolved-serial authority as its accompanying validated session result. The client checks this invariant for create, open, draft refresh, apply, reserve, and commit replies. Draft exchange fields are mutable operator input and cannot downgrade a DX session to W/VE policy, upgrade W/VE to a serial policy, or otherwise redefine the immutable station-resolved authority.
+
+The export dialog preloads the Cabrillo section from the frozen session station field and makes it read-only. It cannot substitute the on-air subdivision or a later typed value. The generated Swift fixture exercises W/VE rejection, invalid-create atomicity, DX reserve/replay/commit/reset/reopen/correction/delete, and Cabrillo plus ADIF output through the real worker, then the TypeScript client parses those exact frames. This is still a plain-logging preview; it does not claim radio or RTTY transmission control.
 
 ## Inactive export preview
 

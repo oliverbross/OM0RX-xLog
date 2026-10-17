@@ -61,7 +61,7 @@ public enum ContestADIFExport {
             "FREQ": String(format: "%.6f", Double(qso.frequencyHz) / 1_000_000.0),
             "STATION_CALLSIGN": input.session.station.callsign,
             "OPERATOR": qso.operatorCallsign.isEmpty ? input.metadata.operatorCallsign : qso.operatorCallsign,
-            "CONTEST_ID": rule.metadata.cabrilloName,
+            "CONTEST_ID": adifContestID(for: rule),
             "STX_STRING": qso.exchange.rawSent,
             "SRX_STRING": qso.exchange.rawReceived,
         ]
@@ -82,10 +82,27 @@ public enum ContestADIFExport {
         return fields
     }
 
+    private static func adifContestID(for rule: any ContestRule) -> String {
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.jidxPreviewFormatterVersion,
+           rule.metadata.identity == JIDXSSBRule.identity {
+            return "JIDX-SSB"
+        }
+        return rule.metadata.cabrilloName
+    }
+
     private static func addStructuredExchangeFields(to fields: inout [String: String], qso: ContestQSO,
                                                      input: ContestExportInput, rule: any ContestRule) {
         if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
             addARRLRTTYExchangeFields(to: &fields, qso: qso, input: input)
+            return
+        }
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.jidxPreviewFormatterVersion {
+            addDescriptorMappedNumberFields(to: &fields,
+                                            descriptors: rule.metadata.entry.exchange.sentFields,
+                                            values: qso.exchange.sentFields, expectedField: .stx)
+            addDescriptorMappedNumberFields(to: &fields,
+                                            descriptors: rule.metadata.entry.exchange.receivedFields,
+                                            values: qso.exchange.receivedFields, expectedField: .srx)
             return
         }
         guard rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion else { return }
@@ -100,6 +117,17 @@ public enum ContestADIFExport {
            adifStateIsApplicable(entity),
            let state = qso.exchange.receivedFields["location"]?.normalized {
             fields["STATE"] = state
+        }
+    }
+
+    private static func addDescriptorMappedNumberFields(to fields: inout [String: String],
+                                                        descriptors: [ContestExchangeFieldDescriptor],
+                                                        values: [String: ContestExchangeFieldValue],
+                                                        expectedField: ContestADIFField) {
+        for descriptor in descriptors where descriptor.adifField == expectedField {
+            guard let normalized = values[descriptor.id]?.normalized,
+                  let number = Int(normalized) else { continue }
+            fields[expectedField.rawValue] = String(number)
         }
     }
 

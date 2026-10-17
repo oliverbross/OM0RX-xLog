@@ -87,7 +87,10 @@ final class ContestSCPWorkerIntegrationTests: XCTestCase {
         let catalog = try result(await frame(worker, "contest_catalog"))
         let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        let rule = try XCTUnwrap(rules.first)
+        let rule = try XCTUnwrap(rules.first {
+            (($0["identity"] as? [String: Any])?["id"] as? String) == "cq-ww-cw"
+        })
+        XCTAssertEqual((rule["identity"] as? [String: Any])?["id"] as? String, "cq-ww-cw")
         let sessionID = wire(UUID()), createID = wire(UUID())
         let payload: [String: Any] = ["sessionID": sessionID, "name": "SCP test",
             "ruleIdentity": try XCTUnwrap(rule["identity"] as? [String: Any]),

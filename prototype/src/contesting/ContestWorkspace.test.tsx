@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ContestWorkspace, projectSCPCallsign } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
@@ -524,6 +524,11 @@ it("logs repeated report-free NAQP RTTY entries and preserves station exchange f
   expect(screen.queryByLabelText("Sent report")).toBeNull();
   expect(screen.queryByLabelText("Received report")).toBeNull();
   expect(screen.queryByRole("button", { name: /Reserve serial/ })).toBeNull();
+  const sent = screen.getByLabelText("Sent exchange");
+  expect(within(sent).getByText("Sent Name")).toBeTruthy();
+  expect(within(sent).getByText("AL")).toBeTruthy();
+  expect(within(sent).getByText("Sent Location")).toBeTruthy();
+  expect(within(sent).getByText("CA")).toBeTruthy();
   expect(screen.getByText(/plain logging only/i)).toBeTruthy();
 
   for (const [call, name, location] of [["VE3AAA", "SAM", "ON"], ["K2AAA", "BOB", "NY"]]) {

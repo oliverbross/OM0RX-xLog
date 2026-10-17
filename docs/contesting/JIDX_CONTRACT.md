@@ -1,0 +1,100 @@
+# JIDX CW and Phone 2026 implementation contract
+
+Status: inactive implementation and acceptance contract. No JIDX rule is registered, exposed through the worker or UI, packaged, installed, or represented as sponsor-ready by this change.
+
+## Authority and frozen identity
+
+The primary authority is the JIDX Contest Committee's [JIDX Contest Rules](https://www.jidx.org/jidxrule-e.html), edition `2026-10`, retrieved 18 October 2026. The retrieved HTML has SHA-256 `01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa` and server `Last-Modified` value `2026-10-07T01:54:00Z`. The official [JIDX multiplier list](https://www.jidx.org/jidxmult.lst), SHA-256 `8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5`, defines the exact 50 Japanese location numbers. The official [electronic log submission guide](https://www.jidx.org/jidxelog-e.html), SHA-256 `9db44ff6abe9927db969ffc765462fd47cc95055d03a211fb66e3a0b65752f36`, defines the Cabrillo 2.0 headers, tokens, QSO field order, and multi-operator transmitter identifier. The live [web submission form](https://www.jidx.org/upload/uplog.html), SHA-256 `245ca84d936d144a6e9cf2001df7de0601af6623f2c01747d68ff5e5b0ed11dc`, and [upload instructions](https://www.jidx.org/upload/HowToUpload.html), SHA-256 `6bfafeb45659842f554f97ef77f4d7323e9e68aa3b5e56c74c08e0e50bfb4623`, separately confirm Phone selection and single-operator, multi-single, and multi-two upload paths. [ADIF 3.1.7](https://www.adif.org/317/ADIF_317.htm), retrieved 18 October 2026, SHA-256 `b766703277e952e6b548ccdc73e32ff16e10f84c060be616cf110449eddc5c97`, lists `JIDX-CW` and `JIDX-SSB` in its Contest ID enumeration. Exact downloaded bytes are cached at `/tmp/jidx-rules-2026-10.html`, `/tmp/jidx-multiplier-list.txt`, `/tmp/jidx-electronic-log-guide.html`, `/tmp/jidx-web-upload-form.html`, `/tmp/jidx-web-upload-instructions.html`, and `/tmp/adif-3.1.7.html`; each `cachedPath` and digest is also recorded in `Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json`.
+
+The compatibility comparator is Oliver Bross's read-only `contest-sw` tree at `7c8b499225a73f7f8f792246881bd7aefc05452f`: `not1mm/plugins/jidx_cw.py` at SHA-256 `457e6ba45da31a90c06fc9508dee8d1dccf053b0676083c2472082dd61c18e53` and `not1mm/plugins/jidx_ph.py` at SHA-256 `20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860`. The sponsor documents override those plugins wherever they differ.
+
+Call structure is additionally grounded by the RSGB's [Operating for Visitors](https://rsgb.org/main/operating/licensing-novs-visitors/operating-for-visitors/) guidance, retrieved 18 October 2026 and cached at `/tmp/rsgb-operating-for-visitors.html` with SHA-256 `c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56`. Its callsign-prefix section gives `MM/F1ABC` as a visitor operating from Scotland. A leading `MM/` token is therefore valid land-prefix evidence and is not itself maritime-mobile evidence.
+
+The proposed immutable rule identities are `jidx-cw` and `jidx-ssb`, version `1.0.0-2026-rules-preview`, edition `2026-10-rules-preview`. Both use the rules-page digest above as `sourceRevision`; source-comparator provenance remains a separate field. The CW Cabrillo contest token is `JIDX-CW`. The internal phone mode remains `SSB`, its Cabrillo QSO token is `PH`, and its contest token is the official `JIDX-PH`.
+
+## Reuse boundary
+
+JIDX must use the existing v2 `ContestEntryDescriptor`, `ContestExchangeSnapshot`, `ContestEngine`, immutable `ContestSessionSnapshot`, `SQLiteContestStore`, snapshot/export service, and save path. It must not introduce a parallel log, score cache, session type, QSO table, or file-save workflow.
+
+Each rule declares one required sent and received structured field named `number`, maximum two ASCII digits, with existing accepted-kind alternatives `cqZone` and `jarlPrefectureNumber`, mapped to ADIF `STX` and `SRX`. The lowercase identifier preserves the existing v2 field-identifier invariant. Those alternatives are structural admission only: they allow the shared v2 descriptor to carry either kind of two-digit number, but do not declare a generic union whose meaning can float per QSO. The JIDX rule selects exactly one meaning from the frozen endpoint role. A Japanese-side station or contact must validate against the official Japanese set; a land-DX or `/MM` station or contact must validate as a CQ zone. A value that happens to satisfy both numeric ranges is still rejected when it contradicts the resolved role.
+
+Raw and normalized evidence remain separate throughout persistence. If the operator types `3`, `ContestExchangeFieldValue.raw` and the matching aggregate `rawSent` or `rawReceived` preserve `3`; `ContestExchangeFieldValue.normalized` and the matching normalized aggregate store `03`. Drafts, committed QSOs, corrections, audit records, replay payloads, and snapshots retain both projections; commit does not silently rewrite raw evidence. Only the normalized projection is required to be exactly two ASCII digits. Scoring keys and sponsor Cabrillo output use `03`; ADIF `STX_STRING`/`SRX_STRING` retain raw input while numeric `STX`/`SRX` derive from the normalized value. Rule validation, not the broad `jarlPrefectureNumber` primitive, restricts Japanese values to the frozen set `01` through `50` and zones to `01` through `40`.
+
+The station snapshot pins the same field. There is no serial reservation. Existing draft, commit, correction, audit, replay, rescore, workspace-generation, and revision behavior stays authoritative. Sent structured fields remain immutable after commit; received fields remain correctable through the existing correction transaction.
+
+CW has one mode profile: internal/ADIF/Cabrillo `CW`, three-digit CW RST, defaults `599`. Phone has one profile: internal and ADIF `SSB`, Cabrillo `PH`, two-digit phone RS, defaults `59`. Both admit `160m`, `80m`, `40m`, `20m`, `15m`, and `10m`. The existing `ContestBandPlan` supplies band normalization; regional transmit sub-bands and recommended frequencies are operating guidance, not score inference.
+
+## Station role and exchange
+
+Role is frozen at session creation and never inferred only from the displayed callsign prefix.
+
+- A Japanese-side station has a current entity snapshot and a pinned official Japanese location. Locations `01` through `47` require ADIF entity 339 (Japan); `48` and `50` require ADIF 192 (Ogasawara); `49` requires ADIF 177 (Minami Torishima). Okinotorishima's former ADIF/DXCC entity 194 is deleted and must not be accepted for a current contact. The station sends its JIDX location number.
+- A land-based non-JA station has a current DXCC entity other than 339, 177, and 192. It sends its actual CQ zone. The exchange is authoritative for the operating location because one DXCC entity may span more than one CQ zone.
+- A maritime-mobile station has an unambiguous final `/MM` suffix and is treated as the DX side. Prefix tokens and suffix tokens are classified by position: `MM/F1ABC` remains a land station resolved by its frozen Scotland entity, while `MM/F1ABC/MM` is maritime mobile because its final suffix is `/MM`. At least one non-marker component must itself contain both an ASCII letter and digit, so marker letters cannot manufacture a call from `1/MM`, `MM/1`, or `MM/1/MM`; this bounded check is not a full licensing regex. A mobile marker embedded in a suffix chain, such as `K1AAA/MM/P`, and ambiguous repetition such as `K1AAA/MM/MM`, fail closed. A final `/AM` remains unsupported and cannot be reinterpreted as maritime mobile. Rules section 3, note `*5`, requires the `/MM` suffix, permits exchange only with JA stations, requires one unchanged CQ-zone number throughout the contest, and makes the entry ineligible for awards even though its score is listed. Rules section 5 gives points only to JA-DX and JA-`/MM` contacts and explicitly gives DX-`/MM` contacts no point or multiplier. Rules section 6 gives a JA station working `/MM` a point and CQ-zone multiplier but no DXCC-entity multiplier. Conversely, the `Others` multiplier rule gives an `/MM` entrant Japanese location multipliers for eligible JA contacts. Its home-call entity must never create a DXCC multiplier. Malformed mobile suffixes and an entrant whose physical role cannot be frozen fail session validation rather than borrowing a home entity.
+
+Every QSO must carry a resolved worked role consistent with its entity, callsign, and normalized received field. Japanese locations `48`, `49`, and `50` receive the same entity cross-checks as the station. A land DX exchange must be a valid CQ zone. A `/MM` exchange must be a valid CQ zone and may have a home entity snapshot only as provenance; that entity is ignored for role and multipliers. The generic CTY zone is not substituted for the received exchange.
+
+The current source tree pins `cty.csv` at SHA-256 `e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d`. Implementation must reuse the already pinned current-DXCC authority when validating land entities, while the JIDX fixture remains authoritative for the 50 Japanese locations. Callsigns and entities that cannot be resolved without ambiguity fail closed for positive credit.
+
+## Eligibility, duplicates, multipliers, and score
+
+Only a Japanese-side contact with a land DX or maritime-mobile endpoint earns credit. JA-to-JA, DX-to-DX, and DX-to-maritime-mobile contacts remain valid zero-point, zero-multiplier log rows when their exchanges are otherwise coherent. They must not suppress a later eligible multiplier. Self contacts are invalid.
+
+The band point table is identical for CW and phone: 160m = 4; 80m = 2; 40m, 20m, and 15m = 1; 10m = 2. Cross-mode contacts are excluded by the single-mode rule identities. The frequency and recorded band must agree. The application cannot prove on-air cross-band or repeater use from a QSO record, so those remain operator/sponsor acceptance items.
+
+The same station may be worked once per band. The duplicate key is the validated canonical complete callsign plus band. Case and surrounding whitespace normalize; suffixes are not casually removed. In particular, `/MM` is role-bearing, and a Japanese `/#` portable indicator is sponsor-required when operating outside the home call area. Any future equivalence between portable spellings needs a separately pinned sponsor rule or adjudication fixture. A zero-credit same-side row uses the same duplicate key for display consistency but cannot consume a multiplier.
+
+Multiplier keys always include the band in `scope`:
+
+- A Japanese entrant receives `dxccEntity:<ADIF>|<band>` and `cqZone:<two-digit-zone>|<band>` for each eligible land-DX QSO. Repeated countries can add a new zone and repeated zones can add a new country. ADIF 177 and 192 are excluded as JD1; ADIF 339 is the same side. A maritime-mobile QSO receives only the CQ-zone multiplier.
+- A non-JA or maritime-mobile entrant receives `jidxLocation:<01...50>|<band>` for each eligible Japanese QSO. The maximum is 50 on each band.
+
+Only accepted, positive-point QSOs publish multiplier candidates. Final score is checked total points multiplied by the count of distinct typed multiplier keys. Arithmetic overflow remains an evaluation error.
+
+Two independent oracle families are mandatory. The bounded fixture records their arithmetic:
+
+1. A non-JA entrant has five accepted nonduplicate contacts worth `1 + 1 + 2 + 2 + 2 = 8` points across 20, 15, and 10m, five band-scoped Japanese location multipliers, and one same-band duplicate worth zero: `8 × 5 = 40`.
+2. A JA entrant works two US zones on one band, Germany on two bands, and a maritime-mobile station. The five contacts total `1 + 1 + 1 + 1 + 2 = 6` points. Entity-plus-zone, per-band repetition, and zone-only maritime handling yield eight multipliers: `6 × 8 = 48`.
+
+Focused tests must additionally isolate every band weight, per-band duplicate reset, per-band multiplier reset, a new zone in an already-worked entity, a new entity in an already-worked zone, all `48`/`49`/`50` mappings, rejection of deleted entity 194, invalid `00`/`51`, a JA same-side row, a DX same-side row, `/MM` on each entrant side, self contact, entity/exchange contradictions, and score overflow.
+
+## Source deviations that must not be copied
+
+Both Python plugins correctly declare once-per-band duplicates (`jidx_cw.py:66-67`, `jidx_ph.py:37-38`) and the six-band point table (`jidx_cw.py:154-169`, `jidx_ph.py:125-140`), but their scoring implementation awards those points to every nonduplicate contact. It does not enforce the JA-to-DX topology, self-contact rejection, entity validity, or maritime-mobile exceptions.
+
+`set_contact_vars()` calls `fetch_nr_exists(NR)` (`jidx_cw.py:120-131`, `jidx_ph.py:91-102`) and `recalculate_mults()` calls `fetch_nr_exists_before_me(NR, timestamp)` (`jidx_cw.py:409-421`, `jidx_ph.py:380-392`). The stored raw received number is therefore treated as one global multiplier. This omits the required band scope. For a JA entrant it also omits the DXCC-entity multiplier entirely and conflates a CQ zone with a Japanese location number. Neither plugin validates membership in the official Japanese list or checks JD1 identity.
+
+The phone plugin declares `cabrillo_name = "JIDX-SSB"` and repeats that value in ADIF (`jidx_ph.py:20-22,173-175`); the current sponsor guide requires `JIDX-PH`. Both plugins emit every QSO without role validation (`jidx_cw.py:378-400`, `jidx_ph.py:360-371`), use a generic `CATEGORY` mapping that predates the current `M1` and `M2` distinction, and do not emit a transmitter identifier. Their multiplier count and claimed score inherit the raw/global defects. Their export is compatibility evidence, not a golden sponsor artifact.
+
+Both plugins' `prefill()` functions call `SentExchange.replace(...)` without assigning the result (`jidx_cw.py:138-151`, `jidx_ph.py:109-122`). JIDX has no serial exchange, so the port must not reproduce or generalize that dormant behavior.
+
+## Cabrillo and ADIF contract
+
+JIDX needs a bounded `jidx-preview-1` formatter inside the existing export pipeline. It emits CRLF and `START-OF-LOG: 2.0`, the official contest token, `CALLSIGN`, one legacy `CATEGORY` abbreviation, recomputed `CLAIMED-SCORE`, `OPERATORS`, `ENTITY`, `CREATED-BY`, entrant/contact fields already admitted by the shared header, and `SENTNR` from the frozen normalized station field. QSO field order is frequency kHz, `CW` or `PH`, UTC date/time, station call, sent report, sent number, worked call, received report, received number, and transmitter ID when required. Values are space-delimited, bounded, never truncated, and ordered by timestamp then UUID. Invalid semantic contacts make a sponsor export fail rather than silently disappear.
+
+The sponsor guide describes `ENTITY` as the entrant's DXCC entity, while the rules define the entity-independent `MM = MARITIME-MOBILE` category. For a terminal `/MM` entrant the preview therefore emits `ENTITY: MARITIME-MOBILE` as a deliberate inference, regardless of optional home-entity provenance; it never presents that home country as the vessel's contest location. This exact `ENTITY` value is not directly specified by the sponsor and remains an upload-acceptance gate. Land entrants continue to use the frozen station entity name.
+
+The generic SQLite store retains default rejection of a missing station entity. A narrow, non-Codable rule capability permits the exception only when the JIDX rule validates an entityless terminal `/MM` station; no prior rule opts in, a land JIDX station still requires an entity, and a provided entity must still pass both generic bounds and full rule validation. This changes no snapshot, wire, schema, or rule identity.
+
+The existing generic Cabrillo 3.0 header renderer is not JIDX submission proof because the official guide uses a Cabrillo 2.0 `CATEGORY` token and `SENTNR`. Single-operator categories map exactly to `AB`, `ABL`, `28[/L]`, `21[/L]`, `14[/L]`, `7[/L]`, `3.5[/L]`, and `1.8[/L]`; there is no QRP category. `MM`, `M1`, and `M2` must be modeled explicitly. The official submission guide is stale at `MOP`, while the current rules and upload instructions define multi-single and multi-two. The live form labels the phone contest `JIDX-PHONE`, while the format guide explicitly requires `CONTEST: JIDX-PH`; the formatter follows the format guide, but sponsor acceptance must verify that token. Implementation must obtain or capture a current committee-accepted header example before multi-operator sponsor readiness is claimed.
+
+The current QSO model has no durable transmitter ID. Single-operator export may omit field 12. `M1` and `M2` export must fail closed until a bounded transmitter identifier (`0`/`1` in the current rules examples, despite older guide prose saying `1`/`2`) is persisted, corrected, audited, and rendered. The disagreement is an unresolved primary-source ambiguity and must not be guessed away.
+
+ADIF reuses the existing deterministic exporter. It retains `STX_STRING` and `SRX_STRING`, projects normalized numeric `STX` and `SRX` from the v2 descriptors, uses the ADIF 3.1.7 Contest ID `JIDX-CW` or `JIDX-SSB`, and uses the selected mode profile. The phone Cabrillo document independently retains the sponsor token `JIDX-PH`. The current structured-field projection is hard-coded to NAQP, so it must become descriptor-driven before JIDX ADIF is accepted. Existing immutable application identity fields remain unchanged.
+
+Exact CW and phone golden files must cover a Japanese entrant, a non-JA entrant, leading-zero exchanges, single-band claimed-score projection with the complete valid log retained where sponsor policy permits, deterministic order, frequency rounding, `/MM`, and rejection of unsupported multi-operator export. A successful local render is format evidence only; upload acceptance requires a sponsor endpoint or committee validator response.
+
+## Remaining acceptance gates
+
+Implementation is not activation. Each gate needs evidence at the same candidate commit:
+
+1. Core: two inactive rules, fixture decoding, all scoring/validation oracles, and unchanged legacy rule identities and tests.
+2. Store: draft, commit, replay, reopen, correction, deletion, rescore, immutable sent field, and no schema regression. Any transmitter-ID addition requires migration and rollback tests.
+3. Export: exact CW/phone Cabrillo and ADIF goldens, dedicated category mapping, no-clobber save behavior, and explicit multi-operator fail-closed behavior until the ambiguity is resolved.
+4. Worker/UI: descriptors, role-aware labels, two-digit normalization without cursor loss, band/mode selection, multiplier/dupe display, edit/delete, restart recovery, and source-accurate contest names.
+5. Categories and time: 2026 contest windows, single-entry rule, fixed location, high/low power boundary, no QRP category, assistance/self-spotting policy, M1 ten-minute behavior, M2 eight-band-change rule, and maximum simultaneous signals. Unsupported categories must be blocked rather than relabeled.
+6. Platform: focused and full tests on macOS, Ubuntu, and Windows at one exact SHA, then packaged-app launch from the canonical checkout. This contract worktree is not a packaging source.
+7. Sponsor: current M1/M2 category and transmitter-ID syntax resolved with primary evidence; Cabrillo accepted through the JIDX submission path or validator; CW and phone deadlines and the one-log policy presented accurately.
+8. Operating evidence: no radio/keying claim is made here. Frequency readback, actual mode, legal sub-band use, and on-air/repeater compliance remain separate from source, test, export, and package evidence.
+
+Until all applicable gates pass, JIDX remains outside `ContestRuleRegistry.pilots`, the public rule catalog, the production worker allowlist, and packaged UI.

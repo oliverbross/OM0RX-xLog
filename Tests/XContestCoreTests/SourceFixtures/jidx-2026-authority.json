@@ -1,0 +1,174 @@
+{
+  "retrievedOn": "2026-10-18",
+  "primaryAuthorities": [
+    {
+      "name": "JIDX Contest Rules 2026-10",
+      "url": "https://www.jidx.org/jidxrule-e.html",
+      "cachedPath": "/tmp/jidx-rules-2026-10.html",
+      "lastModified": "2026-10-07T01:54:00Z",
+      "sha256": "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa"
+    },
+    {
+      "name": "JIDX Multiplier List",
+      "url": "https://www.jidx.org/jidxmult.lst",
+      "cachedPath": "/tmp/jidx-multiplier-list.txt",
+      "lastModified": "2016-06-28T05:14:43Z",
+      "sha256": "8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5"
+    },
+    {
+      "name": "JIDX Electronic Log Submission Guide",
+      "url": "https://www.jidx.org/jidxelog-e.html",
+      "cachedPath": "/tmp/jidx-electronic-log-guide.html",
+      "lastModified": "2023-10-16T01:51:00Z",
+      "sha256": "9db44ff6abe9927db969ffc765462fd47cc95055d03a211fb66e3a0b65752f36"
+    },
+    {
+      "name": "JIDX Web Log Submission Form",
+      "url": "https://www.jidx.org/upload/uplog.html",
+      "cachedPath": "/tmp/jidx-web-upload-form.html",
+      "lastModified": "2025-04-15T09:53:19Z",
+      "sha256": "245ca84d936d144a6e9cf2001df7de0601af6623f2c01747d68ff5e5b0ed11dc"
+    },
+    {
+      "name": "JIDX Web Log Upload Instructions 2023-11",
+      "url": "https://www.jidx.org/upload/HowToUpload.html",
+      "cachedPath": "/tmp/jidx-web-upload-instructions.html",
+      "lastModified": "2023-11-14T05:29:17Z",
+      "sha256": "6bfafeb45659842f554f97ef77f4d7323e9e68aa3b5e56c74c08e0e50bfb4623"
+    },
+    {
+      "name": "ADIF 3.1.7 Specification",
+      "url": "https://www.adif.org/317/ADIF_317.htm",
+      "cachedPath": "/tmp/adif-3.1.7.html",
+      "lastModified": "2026-03-22T16:06:24Z",
+      "sha256": "b766703277e952e6b548ccdc73e32ff16e10f84c060be616cf110449eddc5c97",
+      "evidence": "Contest ID enumeration: JIDX-CW and JIDX-SSB"
+    }
+  ],
+  "callsignAuthorities": [
+    {
+      "name": "RSGB Operating for Visitors",
+      "url": "https://rsgb.org/main/operating/licensing-novs-visitors/operating-for-visitors/",
+      "cachedPath": "/tmp/rsgb-operating-for-visitors.html",
+      "retrievedOn": "2026-10-18",
+      "sha256": "c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56",
+      "evidence": "Callsign Prefixes example: visiting Scotland MM/F1ABC"
+    }
+  ],
+  "sourceComparators": [
+    {
+      "repository": "/Users/oliver/Documents/Projects/contest-sw",
+      "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+      "path": "not1mm/plugins/jidx_cw.py",
+      "fileSha256": "457e6ba45da31a90c06fc9508dee8d1dccf053b0676083c2472082dd61c18e53"
+    },
+    {
+      "repository": "/Users/oliver/Documents/Projects/contest-sw",
+      "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+      "path": "not1mm/plugins/jidx_ph.py",
+      "fileSha256": "20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860"
+    }
+  ],
+  "referenceData": {
+    "path": "Sources/XLogCore/Resources/cty.csv",
+    "sha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d",
+    "jidxJapaneseSideADIFEntities": [339, 177, 192],
+    "specialMappings": [
+      {"number": "48", "name": "Ogasawara", "requiredADIFEntity": 192},
+      {"number": "49", "name": "Minamitorishima", "requiredADIFEntity": 177},
+      {"number": "50", "name": "Okinotorishima", "requiredADIFEntity": 192}
+    ],
+    "forbiddenDeletedADIFEntities": [194]
+  },
+  "japaneseLocationMultipliers": [
+    {"number": "01", "name": "Hokkaido"},
+    {"number": "02", "name": "Aomori"},
+    {"number": "03", "name": "Iwate"},
+    {"number": "04", "name": "Akita"},
+    {"number": "05", "name": "Yamagata"},
+    {"number": "06", "name": "Miyagi"},
+    {"number": "07", "name": "Fukushima"},
+    {"number": "08", "name": "Niigata"},
+    {"number": "09", "name": "Nagano"},
+    {"number": "10", "name": "Tokyo"},
+    {"number": "11", "name": "Kanagawa"},
+    {"number": "12", "name": "Chiba"},
+    {"number": "13", "name": "Saitama"},
+    {"number": "14", "name": "Ibaraki"},
+    {"number": "15", "name": "Tochigi"},
+    {"number": "16", "name": "Gumma"},
+    {"number": "17", "name": "Yamanashi"},
+    {"number": "18", "name": "Shizuoka"},
+    {"number": "19", "name": "Gifu"},
+    {"number": "20", "name": "Aichi"},
+    {"number": "21", "name": "Mie"},
+    {"number": "22", "name": "Kyoto"},
+    {"number": "23", "name": "Shiga"},
+    {"number": "24", "name": "Nara"},
+    {"number": "25", "name": "Osaka"},
+    {"number": "26", "name": "Wakayama"},
+    {"number": "27", "name": "Hyogo"},
+    {"number": "28", "name": "Toyama"},
+    {"number": "29", "name": "Fukui"},
+    {"number": "30", "name": "Ishikawa"},
+    {"number": "31", "name": "Okayama"},
+    {"number": "32", "name": "Shimane"},
+    {"number": "33", "name": "Yamaguchi"},
+    {"number": "34", "name": "Tottori"},
+    {"number": "35", "name": "Hiroshima"},
+    {"number": "36", "name": "Kagawa"},
+    {"number": "37", "name": "Tokushima"},
+    {"number": "38", "name": "Ehime"},
+    {"number": "39", "name": "Kochi"},
+    {"number": "40", "name": "Fukuoka"},
+    {"number": "41", "name": "Saga"},
+    {"number": "42", "name": "Nagasaki"},
+    {"number": "43", "name": "Kumamoto"},
+    {"number": "44", "name": "Oita"},
+    {"number": "45", "name": "Miyazaki"},
+    {"number": "46", "name": "Kagoshima"},
+    {"number": "47", "name": "Okinawa"},
+    {"number": "48", "name": "Ogasawara"},
+    {"number": "49", "name": "Minamitorishima"},
+    {"number": "50", "name": "Okinotorishima"}
+  ],
+  "bandPoints": {
+    "160m": 4,
+    "80m": 2,
+    "40m": 1,
+    "20m": 1,
+    "15m": 1,
+    "10m": 2
+  },
+  "independentOracles": [
+    {
+      "name": "non-JA entrant, per-band Japanese locations",
+      "station": {"callsign": "OM0RX", "adif": 504, "sentExchange": "15"},
+      "contacts": [
+        {"callsign": "JA1AAA", "band": "20m", "adif": 339, "receivedExchange": "10", "disposition": "accepted", "points": 1, "newMultipliers": ["jidxLocation:10:20m"]},
+        {"callsign": "JA1AAA", "band": "20m", "adif": 339, "receivedExchange": "10", "disposition": "duplicate", "points": 0, "newMultipliers": []},
+        {"callsign": "JA1AAA", "band": "15m", "adif": 339, "receivedExchange": "10", "disposition": "accepted", "points": 1, "newMultipliers": ["jidxLocation:10:15m"]},
+        {"callsign": "JD1AAA", "band": "10m", "adif": 192, "receivedExchange": "48", "disposition": "accepted", "points": 2, "newMultipliers": ["jidxLocation:48:10m"]},
+        {"callsign": "JG8NQJ/JD1", "band": "10m", "adif": 177, "receivedExchange": "49", "disposition": "accepted", "points": 2, "newMultipliers": ["jidxLocation:49:10m"]},
+        {"callsign": "JA1BBB", "band": "10m", "adif": 339, "receivedExchange": "10", "disposition": "accepted", "points": 2, "newMultipliers": ["jidxLocation:10:10m"]}
+      ],
+      "totalPoints": 8,
+      "totalMultipliers": 5,
+      "claimedScore": 40
+    },
+    {
+      "name": "JA entrant, entity plus zone and maritime-mobile zone only",
+      "station": {"callsign": "JA1ZZZ", "adif": 339, "sentExchange": "10"},
+      "contacts": [
+        {"callsign": "K1AAA", "band": "20m", "adif": 291, "receivedExchange": "05", "disposition": "accepted", "points": 1, "newMultipliers": ["dxccEntity:291:20m", "cqZone:05:20m"]},
+        {"callsign": "W6AAA", "band": "20m", "adif": 291, "receivedExchange": "03", "disposition": "accepted", "points": 1, "newMultipliers": ["cqZone:03:20m"]},
+        {"callsign": "DL1AAA", "band": "20m", "adif": 230, "receivedExchange": "14", "disposition": "accepted", "points": 1, "newMultipliers": ["dxccEntity:230:20m", "cqZone:14:20m"]},
+        {"callsign": "DL2BBB", "band": "40m", "adif": 230, "receivedExchange": "14", "disposition": "accepted", "points": 1, "newMultipliers": ["dxccEntity:230:40m", "cqZone:14:40m"]},
+        {"callsign": "VE3AAA/MM", "band": "10m", "adif": 1, "receivedExchange": "25", "disposition": "accepted", "points": 2, "newMultipliers": ["cqZone:25:10m"]}
+      ],
+      "totalPoints": 6,
+      "totalMultipliers": 8,
+      "claimedScore": 48
+    }
+  ]
+}
