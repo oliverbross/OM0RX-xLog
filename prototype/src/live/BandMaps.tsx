@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { ArrowDown, ArrowUp, RotateCcw, Settings, X, ZoomIn, ZoomOut } from "lucide-react";
 import { clusterBandColors, clusterStatusCode, clusterStatusColors, paletteColor } from "./clusterPalette";
+import { countryDisplay } from "./countryDisplay";
 import "./BandMaps.css";
 
 export type BandMapSpot = Record<string, any>;
@@ -75,27 +76,36 @@ export function filterRecentBandMapSpots(spots: BandMapSpot[], ageMinutes: numbe
 }
 
 export function deduplicateBandMapSpots(spots: BandMapSpot[]): BandMapSpot[] {
-  const groups: Array<{ spot: BandMapSpot; timestamp: number; index: number }> = [];
+  const groups = new Map<string, { spot: BandMapSpot; timestamp: number; index: number; tie: string }>();
   spots.forEach((spot, index) => {
     const callsign = text(spot.callsign).trim().toUpperCase();
-    const band = text(spot.band).trim().toLowerCase();
-    if (!callsign || !band) { groups.push({ spot, timestamp: receivedAtMilliseconds(spot.receivedAt) ?? -Infinity, index }); return; }
-    const match = groups.find(group => text(group.spot.callsign).trim().toUpperCase() === callsign
-      && text(group.spot.band).trim().toLowerCase() === band);
+    const frequency = finite(spot.frequencyKHz);
+    // Cluster and WSJT-X projections can report the same observation through
+    // more than one feed. One-Hz normalization removes those copies without
+    // hiding a real QSY by the same callsign elsewhere in the band.
+    const key = callsign && frequency !== null ? `${callsign}\u0000${Math.round(frequency * 1000)}` : `unkeyed\u0000${index}`;
     const timestamp = receivedAtMilliseconds(spot.receivedAt) ?? -Infinity;
-    if (!match) groups.push({ spot, timestamp, index });
-    else if (timestamp > match.timestamp) { match.spot = spot; match.timestamp = timestamp; }
+    const tie = text(spot.id);
+    const match = groups.get(key);
+    if (!match) groups.set(key, { spot, timestamp, index, tie });
+    else if (timestamp > match.timestamp || timestamp === match.timestamp && (tie > match.tie || tie === match.tie && index > match.index)) {
+      match.spot = spot;
+      match.timestamp = timestamp;
+      match.tie = tie;
+    }
   });
-  return groups.sort((a, b) => a.index - b.index).map(group => group.spot);
+  return [...groups.values()].sort((a, b) => a.index - b.index).map(group => group.spot);
 }
 
 export function formatBandMapFrequency(frequencyKHz: number): string {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: Number.isInteger(frequencyKHz) ? 0 : 1, maximumFractionDigits: 1 }).format(frequencyKHz);
 }
 
-export function bandMapFrequencyTicks(view: ViewRange): number[] {
+export function bandMapFrequencyTicks(view: ViewRange, chartHeight = 208, fontScale = 1): number[] {
   const span = Math.max(1, view.high - view.low);
-  const target = span / 8;
+  // Match traditional band maps: enough kHz labels to tune confidently, while
+  // retaining at least one readable text line between adjacent major ticks.
+  const target = span / Math.max(2, Math.floor(chartHeight / (20 * fontScale)));
   const magnitude = 10 ** Math.floor(Math.log10(target));
   const normalized = target / magnitude;
   const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10) * magnitude;
@@ -139,18 +149,22 @@ export function bandForRadio(frequencyHz?: number): string | null {
   const khz = frequencyHz / 1000;
   return BAND_ORDER.find((band) => khz >= BAND_RANGES[band].low && khz <= BAND_RANGES[band].high) ?? null;
 }
-export function opportunityCode(spot: BandMapSpot): string {
+function opportunityStatus(spot: BandMapSpot): string {
   const call = text(spot.callStatus);
   const dxcc = text(spot.dxccStatus);
-  if (dxcc === "ATNO" || dxcc.includes("/New ")) return clusterStatusCode(dxcc);
-  if (call.startsWith("New ")) return clusterStatusCode(call);
-  if (dxcc === "Confirmed" || call === "Confirmed") return "C";
-  if (dxcc === "Worked" || call === "Worked") return "W";
-  return "--";
+  if (dxcc === "ATNO" || dxcc.includes("/New ")) return dxcc;
+  if (call.startsWith("New ")) return call;
+  if (dxcc === "Confirmed" || call === "Confirmed") return "Confirmed";
+  if (dxcc === "Worked" || call === "Worked") return "Worked";
+  return dxcc || call || "Unknown";
 }
-function statusColor(spot: BandMapSpot): string {
+export function opportunityCode(spot: BandMapSpot): string {
+  const status = opportunityStatus(spot);
+  return status === "Unknown" ? "--" : clusterStatusCode(status);
+}
+export function bandMapSpotColor(spot: BandMapSpot): string {
   if (hex(spot.statusHex)) return spot.statusHex;
-  return paletteColor(text(spot.dxccStatus) || text(spot.callStatus), undefined, clusterStatusColors);
+  return paletteColor(opportunityStatus(spot), undefined, clusterStatusColors);
 }
 function bandColor(band: string, spots: BandMapSpot[]): string {
   const configured = spots.find((spot) => spot.band === band && hex(spot.bandHex))?.bandHex;
@@ -351,14 +365,14 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         const span = view.high - view.low;
         return <div key={part.name} className={`band-map-allocation band-map-${part.name.toLowerCase()}`} style={{ top: `${((low - view.low) / span) * 100}%`, height: `${((high - low) / span) * 100}%` }} aria-hidden="true">{allocationCaptionsFit && <span>{part.name.toUpperCase()}</span>}</div>;
       })}
-      {bandMapFrequencyTicks(view).map((frequency, index, ticks) => {
+      {bandMapFrequencyTicks(view, chartHeight, fontScale).map((frequency, index, ticks) => {
         const fraction = (frequency - view.low) / (view.high - view.low);
         return <div key={frequency} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === ticks.length - 1 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{formatBandMapFrequency(frequency)}</span></div>;
       })}
       {placed.map(({ spot, lane, top, anchorTop, key }) => {
-        const color = statusColor(spot);
+        const color = bandMapSpotColor(spot);
         const code = opportunityCode(spot);
-        const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
+        const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
           <button type="button" className="band-map-spot" style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={tooltip} onClick={() => onSelect(spot)}><strong>{text(spot.callsign)}</strong><b>{code}</b></button></Fragment>;

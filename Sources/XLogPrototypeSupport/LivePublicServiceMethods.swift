@@ -124,6 +124,8 @@ actor LivePublicServiceMethods {
 }
 
 enum LocalCallsignProfile {
+    private static let bundledResolver = try? CTYResolver.bundled()
+
     static func validatedCall(_ params: [String: Any]) throws -> String {
         guard Set(params.keys) == ["call"], let raw = params["call"] as? String,
               (1...32).contains(raw.utf8.count), raw.utf8.allSatisfy({
@@ -134,7 +136,11 @@ enum LocalCallsignProfile {
 
     static func base(_ call: String, logbook: LiveLogbookMethods) throws -> [String: Any] {
         var profile: [String: Any] = ["call": call, "source": "No match"]
-        if let country = try logbook.currentCTYResolver().resolve(call) {
+        // Callsign identity is useful before the workspace/database owner has
+        // completed launch. Prefer its downloaded CTY snapshot, but never lose
+        // bundled prefix resolution merely because that owner is unavailable.
+        let resolver = logbook.currentCTYResolverIfReady() ?? bundledResolver
+        if let country = resolver?.resolve(call) {
             profile.merge(["country": country.name, "dxcc": country.adif,
                 "continent": country.continent, "cqZone": String(country.cqZone),
                 "ituZone": String(country.ituZone), "source": "CTY approximate",

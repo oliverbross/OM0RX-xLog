@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { ContactRound } from "lucide-react";
+import { countryDisplay } from "./countryDisplay";
 import "./OperatorDesk.css";
 
 type Data = Record<string, any>;
@@ -34,7 +35,7 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
   const current = evidence?.contextKey === contextKey && evidence.call === call && evidence.adif === adif ? evidence : null;
   // The intelligence card describes the current matched lookup, not carried-over
   // editable draft fields. Never label a new call with the previous country.
-  const name = info?.name, country = info?.country;
+  const name = info?.name, country = countryDisplay(info?.country);
   const grid = info?.gridSquare, continent = info?.continent;
   const cq = info?.cqZone, itu = info?.ituZone;
   const lastCall = current?.history ? current.history.previous?.[0] : previous.find(item => normalizedCall(item.call) === call);

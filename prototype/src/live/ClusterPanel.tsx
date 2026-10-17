@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
-import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
+import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { formatSpotAge, useSpotAgeClock } from "./spotAge";
+import { countryDisplay } from "./countryDisplay";
 import "./ClusterPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
@@ -311,7 +312,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}
     <div className="table-scroll live-cluster-table"><table aria-label="Live cluster spots"><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
-      {compactClusterColumns.filter(([id]) => visibleColumns.has(id)).map(([id, label]) => <th key={id}><span title={label}>{label}</span>
+      {compactClusterColumns.filter(([id]) => visibleColumns.has(id)).map(([id, label]) => <th key={id} aria-label={id === "callStatus" || id === "dxccStatus" ? label : undefined}
+        className={id === "callStatus" || id === "dxccStatus" ? "live-cluster-status-column" : undefined}><span title={label}>{compactClusterHeader(id)}</span>
         <span className="live-cluster-column-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${label} column`} aria-valuemin={48} aria-valuemax={480} aria-valuenow={columnPreferences.widths[id]}
           onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); columnDrag.current = { id, x: event.clientX, width: columnPreferences.widths[id], scale: columnPreferences.widths[id] / Math.max(1, event.currentTarget.parentElement!.getBoundingClientRect().width) }; }}
           onPointerMove={event => { const drag = columnDrag.current; if (drag?.id === id) resizeColumn(id, drag.width + (event.clientX - drag.x) * drag.scale); }}
@@ -328,10 +330,10 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
       <td hidden={!visibleColumns.has("callsign")}><button type="button" className="call-button live-cluster-call" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button></td>
       <td hidden={!visibleColumns.has("mode")}><span className="live-cluster-category" style={{ color: paletteColor(spot.mode, configuration?.palette.mode, clusterModeColors) }}>{spot.mode}</span></td>
-      <td hidden={!visibleColumns.has("country")} title={spot.country}>{spot.country}</td><td hidden={!visibleColumns.has("cq")}>{spot.cqZone ?? "—"}</td>
+      <td hidden={!visibleColumns.has("country")} title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td><td hidden={!visibleColumns.has("cq")}>{spot.cqZone ?? "—"}</td>
       <td hidden={!visibleColumns.has("spotter")} title={`${spot.source === "rbl" ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
-      <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.callStatus)}</td>
-      <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.dxccStatus)}</td>
+      <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.callStatus)}</td>
+      <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.dxccStatus)}</td>
       <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>) : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
@@ -339,7 +341,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       {!live?.spots.length && <p className="empty">{connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
-      <div><strong>{selectedSpot.callsign}</strong><span>{selectedSpot.country}</span></div>
+      <div><strong>{selectedSpot.callsign}</strong><span>{countryDisplay(selectedSpot.country)}</span></div>
       <div><small>Frequency</small><span>{(selectedSpot.frequencyKHz / 1000).toFixed(6)} MHz</span></div>
       <div><small>Path</small><span>{selectedSpot.spotter} · {selectedSpot.clusterName}</span></div>
       <div><small>Priority</small><span>{selectedSpot.score} · {selectedSpot.scoreReasons.join(", ") || "No score reasons"}</span></div>

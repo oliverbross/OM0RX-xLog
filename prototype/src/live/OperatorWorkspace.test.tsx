@@ -35,12 +35,29 @@ describe("operator workspace preferences", () => {
     expect(JSON.stringify(result)).not.toContain("not-persisted"); expect(JSON.stringify(result)).not.toContain("feed-");
     for (const raw of ["{bad", "[]", JSON.stringify({ version: 2 }), " ".repeat(4097), JSON.stringify({ version: 1, columns: [] })]) expect(readWorkspacePreferences(raw)).toEqual(defaultWorkspacePreferences());
   });
+  it("migrates the old wide status defaults to compact CS and DS widths", () => {
+    const result = readWorkspacePreferences(JSON.stringify({ version: 1, columns: ["callStatus", "dxccStatus"],
+      widths: { callStatus: 120, dxccStatus: 120 } }));
+    expect(result.widths.callStatus).toBe(68); expect(result.widths.dxccStatus).toBe(78);
+  });
   it("protects usable pane widths at the supported desk sizes", () => {
     const bounds = splitBounds(1100); expect(bounds.min * 1090 / 100).toBeGreaterThanOrEqual(420); expect((100 - bounds.max) * 1090 / 100).toBeGreaterThanOrEqual(280);
     expect(splitBounds(600)).toEqual({ min: 20, max: 80 });
   });
 });
 describe("operator workspace", () => {
+  it("centres compact CS and DS columns while retaining full accessible names and configured colours", () => {
+    const preferences = defaultWorkspacePreferences();
+    window.localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ ...preferences, activeTab: "cluster", columns: ["callStatus", "dxccStatus"] }));
+    const configured = projection(1); configured.configuration.palette.status = { "New Call": "#123456", ATNO: "#abcdef" };
+    const { container } = mount(configured);
+    expect(screen.getByRole("columnheader", { name: "Call status" }).textContent).toBe("CS");
+    expect(screen.getByRole("columnheader", { name: "DXCC status" }).textContent).toBe("DS");
+    const cells = container.querySelectorAll("td.live-cluster-status-column");
+    expect(cells).toHaveLength(2); expect(cells[0].textContent).toBe("NC"); expect(cells[1].textContent).toBe("ATNO");
+    expect((cells[0].querySelector(".live-cluster-status") as HTMLElement).style.color).toBe("rgb(18, 52, 86)");
+    expect((cells[1].querySelector(".live-cluster-status") as HTMLElement).style.color).toBe("rgb(171, 205, 239)");
+  });
   it("shows a live For age instead of clock time and advances without a new spot", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date((812_000_000 + 978_307_200) * 1000));

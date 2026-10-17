@@ -151,8 +151,12 @@ actor LiveServiceMethods {
             }
             guard let rawCall = params["call"] else { throw invalid() }
             let call = try LocalCallsignProfile.validatedCall(["call": rawCall])
-            let settings = try logbook.currentSettings()
             var profile = try LocalCallsignProfile.base(call, logbook: logbook)
+            guard let settings = logbook.currentSettingsIfReady() else {
+                profile["lookup_warning"] = "Workspace settings are still loading. Offline CTY result retained."
+                profile["qrz_status"] = "unavailable"
+                return profile
+            }
             if settings.qrzEnabled {
                 var client = settings.qrzUsername == qrzClientUsername ? qrzClient : nil
                 if client == nil {

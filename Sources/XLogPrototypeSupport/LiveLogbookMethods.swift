@@ -160,6 +160,15 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
     }
 
+    /// Passive callsign rendering must not queue behind imports, startup
+    /// recovery or another long-lived logbook owner. Missing this snapshot is
+    /// not an error: callers retain bundled CTY identity and can retry later.
+    func currentSettingsIfReady() -> XLogSettings? {
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        return try? currentSettings()
+    }
+
     public func withCurrentWorkspaceGeneration<T: Sendable>(_ body: (UUID) throws -> T) throws -> T {
         try lock.withLock { try body(powerWorkspaceID()) }
     }
@@ -453,6 +462,12 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         try lock.withLock {
             try currentCTYResolverSnapshot().resolver
         }
+    }
+
+    func currentCTYResolverIfReady() -> CTYResolver? {
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        return try? currentCTYResolverSnapshot().resolver
     }
 
     /// One immutable local classification view for passive cluster-like consumers.

@@ -8,8 +8,13 @@
 - Corrected confirmed-entity handling so a confirmed DXCC on a new band is reported as C/NB instead of ATNO, with regression coverage for Brazil.
 - Added JTTY as a first-class displayed mode when identified by cluster comments, while retaining digital-mode grouping for opportunity history and radio control.
 - Preserved offline CTY/DXCC intelligence when QRZ credentials or the provider are unavailable, and limited interactive Keychain authorization to an explicit Test QRZ lookup action in Settings.
+- Made callsign intelligence independent of the launch-time logbook lock, so bundled CTY identity resolves immediately on Operator Desk and Log QSO (including VK8NSB/Australia and OM0AAO/Slovak Republic) while QRZ enrichment remains optional.
 - Split Band and Mode into independent configurable columns in Logbook and Spot History, and tightened Active QSO field widths to keep common desktop layouts on one line.
-- Made the Operator Desk rotor dial fill its card, moved SP/LP selection inside the dial, retained default-on Auto Rotor in Settings, and suppressed unavailable distance text.
+- Made the Operator Desk rotor dial fill its card, placed SP/LP in the lower card corners, retained default-on Auto Rotor in Settings, and suppressed unavailable distance text.
+- Centered compact Cluster status columns as CS and DS, retained their full accessible names, and applied the configurable palette to every NC/NB/NM/NB+M/W/C/ATNO combination and row tint.
+- Reworked Band Maps to merge only repeated callsign-frequency occurrences, preserve genuine QSYs, show a denser kHz ruler, and retain quick bottom controls for band, resolution and maximum spot age.
+- Reused and coalesced read-only Chaser & DX warm-up results across navigation, eliminating repeated snapshot/priority/all work on quick revisits while retaining explicit manual refresh and freshness indicators.
+- Displayed country/entity names in natural title case throughout the UI without changing stored CTY/DXCC values.
 - Simplified native window menu labels to their destinations, such as Logbook, DX Cluster and Band Maps, without redundant “Open” or “Window” wording.
 - Retained the beta.3 non-interactive background credential reads that prevent recurring macOS Keychain dialogs and worker stalls.
 

@@ -39,6 +39,7 @@
 .operator-compact-table tbody tr:focus-visible { outline: 2px solid #71baf7; outline-offset: -2px; }
 .operator-compact-table tbody tr[aria-selected="true"] { background: #244768; }
 .operator-compact-table .live-cluster-category { font-size: 11px; }
+.operator-compact-table .live-cluster-status-column { text-align: center; }
 .operator-compact-table .live-cluster-special-tag { margin-right: 3px; }
 .operator-cluster-empty { margin: 12px; color: #aebbcf; font-size: 12px; }
 .operator-compact-cluster footer { display: flex; align-items: center; justify-content: space-between; flex: 0 0 28px; padding: 0 5px; font-size: 11px; color: #aebbcf; border-top: 1px solid var(--border, #283247); }

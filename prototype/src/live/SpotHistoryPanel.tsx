@@ -4,6 +4,7 @@ import { useLogbookCapacity } from "./logbookCapacity";
 import { SpotHistoryColumnHeader, SpotHistoryColumns, useSpotHistoryColumns } from "./SpotHistoryColumns";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, paletteColor } from "./clusterPalette";
 import { orderedSpotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
+import { countryDisplay } from "./countryDisplay";
 import "./SpotHistoryPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -273,7 +274,7 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
             <td key="mode" hidden={!visibleColumns.has("mode")} data-label="Mode" aria-label={`${row.mode || "Unknown"} mode`}><span className="spot-history-category" style={{ color: paletteColor(row.mode || "Unknown", undefined, clusterModeColors) }}>{row.mode || "—"}</span></td>,
             <td key="spotter" hidden={!visibleColumns.has("spotter")} data-label="Spotter" title={row.spotter}>{row.spotter}</td>,
             <td key="source" hidden={!visibleColumns.has("source")} data-label="Source / Cluster" title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td>,
-            <td key="country" hidden={!visibleColumns.has("country")} data-label="Country" title={row.country}>{row.country || "—"}</td>,
+            <td key="country" hidden={!visibleColumns.has("country")} data-label="Country" title={countryDisplay(row.country)}>{countryDisplay(row.country) || "—"}</td>,
             <td key="comment" hidden={!visibleColumns.has("comment")} data-label="Comment" title={`${row.comment}${row.commentTruncated ? " (shortened; open Details)" : ""}`}>{row.comment}</td>,
           ].sort((a, b) => columnPositions.get(a.key as SpotHistoryColumn)! - columnPositions.get(b.key as SpotHistoryColumn)!)}
         </tr>)}</tbody>

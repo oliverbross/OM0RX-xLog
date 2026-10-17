@@ -5,6 +5,14 @@ import RadioSpotSettings from "./RadioSpotSettings";
 
 afterEach(cleanup);
 
+it("keeps every callsign, DXCC combination and shared state colour configurable", async () => {
+  const request = vi.fn(async () => ({ configuration: { forwardSpotsToFlex: false, palette: { status: {} } }, flex_forwarding_available: true }));
+  render(<RadioSpotSettings request={request} visible />);
+  for (const status of ["New Call", "New Band", "New Mode", "New Band+Mode", "ATNO", "C/New Band", "C/New Mode",
+    "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"])
+    expect(await screen.findByLabelText(`${status} radio spot colour`)).toBeTruthy();
+});
+
 it("migrates an old FLEX preference and saves a DXCC colour policy without claiming TCI output", async () => {
   const configuration: { forwardSpotsToFlex: boolean; radioSpotColorPolicy?: string; palette: { status: Record<string, string> } } =
     { forwardSpotsToFlex: true, palette: { status: { ATNO: "#123456" } } };

@@ -80,18 +80,18 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
   const requestRef = useRef(request); requestRef.current = request;
   const kindRef = useRef(kind); kindRef.current = kind;
   const reloadRef = useRef<(automatic: boolean) => void>(() => {});
-  const inFlight = useRef(new Map<string, Promise<unknown>>());
+  const inFlight = useMemo(() => new Map<string, Promise<unknown>>(), [request]);
   const responseOrder = useRef(0), acceptedOrder = useRef(0);
   useEffect(() => {
     let active = true, refreshing = false;
     setError("");
     const load = (key: string, method: string, params?: Record<string, unknown>) => {
-      const pending = inFlight.current.get(key);
+      const pending = inFlight.get(key);
       if (pending) return pending;
       const next = params ? requestRef.current(method, params) : requestRef.current(method);
-      inFlight.current.set(key, next);
+      inFlight.set(key, next);
       void next.then(() => {}, () => {}).finally(() => {
-        if (inFlight.current.get(key) === next) inFlight.current.delete(key);
+        if (inFlight.get(key) === next) inFlight.delete(key);
       });
       return next;
     };
@@ -133,7 +133,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     const localTimer = window.setInterval(read, 15_000);
     const feedTimer = window.setInterval(() => reload(true), 60_000);
     return () => { active = false; window.clearInterval(localTimer); window.clearInterval(feedTimer); };
-  }, [refresh]);
+  }, [refresh, inFlight]);
   useEffect(() => { try { localStorage.setItem(preferencesKey, JSON.stringify(prefs)); } catch { /* Session-only fallback. */ } }, [prefs]);
   useEffect(() => { setPage(0); }, [kind, band, mode, sort, query]);
   useEffect(() => {

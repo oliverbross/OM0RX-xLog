@@ -57,7 +57,7 @@
 .band-map-gridline[data-edge="lower"] span { top: auto; bottom: 3px; }
 .band-map-spot-anchor { position: absolute; z-index: 2; height: 1px; border-top: 1px solid currentColor; opacity: .42; pointer-events: none; }
 .band-map-spot-anchor::before { content: ""; position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
-.band-map-spot { position: absolute; z-index: 4; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 4px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 3px; border: 1px solid transparent !important; border-radius: 3px; background: transparent !important; text-shadow: 0 1px 2px #000, 0 0 5px #07111f; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
+.band-map-spot { position: absolute; z-index: 4; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: space-between; gap: 4px; height: calc(22px * var(--band-font-scale)); min-height: calc(22px * var(--band-font-scale)) !important; padding: 1px 4px; border: 1px solid currentColor !important; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, #0b1728 84%) !important; text-shadow: 0 1px 2px #000, 0 0 5px #07111f; text-align: left; font: calc(10px * var(--band-font-scale)) ui-monospace, SFMono-Regular, monospace; overflow: hidden; }
 .band-map-spot strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-map-spot b { flex: none; font-size: .86em; white-space: nowrap; }
 .band-map-spot:hover { background: #18314c !important; filter: brightness(1.2); }

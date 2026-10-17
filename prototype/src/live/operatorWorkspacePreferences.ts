@@ -2,10 +2,12 @@ export const operatorWorkspaceKey = "xlog.integration.operator-workspace.v1";
 export const compactClusterColumns = [
   ["time", "For", 62], ["score", "Score", 52], ["band", "Band", 58], ["frequency", "MHz", 94],
   ["callsign", "Callsign", 96], ["mode", "Mode", 58], ["country", "Country", 120], ["cq", "CQ", 48],
-  ["spotter", "Spotter", 100], ["callStatus", "Call status", 120], ["dxccStatus", "DXCC status", 120],
+  ["spotter", "Spotter", 100], ["callStatus", "Call status", 68], ["dxccStatus", "DXCC status", 78],
   ["special", "Special", 100], ["workedBefore", "Worked before", 160], ["comment", "Comment", 150],
 ] as const;
 export type CompactColumn = typeof compactClusterColumns[number][0];
+export const compactClusterHeader = (column: CompactColumn) =>
+  column === "callStatus" ? "CS" : column === "dxccStatus" ? "DS" : compactClusterColumns.find(([id]) => id === column)![1];
 export type WorkspacePreferences = { version: 1; mapPercent: number; activeTab: "band-maps" | "cluster";
   columns: CompactColumn[]; widths: Record<CompactColumn, number> };
 export const boundColumnWidth = (value: number) => Math.round(Math.max(48, Math.min(480, value)));
@@ -27,7 +29,10 @@ export function readWorkspacePreferences(raw: string | null): WorkspacePreferenc
     }
     for (const [id] of compactClusterColumns) {
       const width = value.widths?.[id];
-      if (typeof width === "number" && Number.isFinite(width)) result.widths[id] = boundColumnWidth(width);
+      if (typeof width === "number" && Number.isFinite(width)) {
+        const legacyStatusDefault = (id === "callStatus" || id === "dxccStatus") && width === 120;
+        if (!legacyStatusDefault) result.widths[id] = boundColumnWidth(width);
+      }
     }
   } catch { /* Damaged/nonsecret preferences never block the operator. */ }
   return result;

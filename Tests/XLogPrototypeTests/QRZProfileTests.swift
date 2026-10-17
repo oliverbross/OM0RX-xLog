@@ -6,6 +6,17 @@ import Testing
 
 @Suite("QRZ XML profile projection", .serialized)
 struct QRZProfileTests {
+    private func hold(_ logbook: LiveLogbookMethods, acquired: DispatchSemaphore, release: DispatchSemaphore) {
+        logbook.withSyncOwnerLock {
+            acquired.signal()
+            release.wait()
+        }
+    }
+
+    private func waitForSignal(_ signal: DispatchSemaphore) -> Bool {
+        signal.wait(timeout: .now() + 1) == .success
+    }
+
     private func xml(image: String, website: String) -> Data {
         Data("""
         <QRZDatabase><Callsign>
@@ -55,6 +66,54 @@ struct QRZProfileTests {
         #expect(result["qrz_status"] as? String == "unavailable")
         #expect((result["lookup_warning"] as? String)?.contains("timed out") == true)
         #expect(!(result["lookup_warning"] as? String ?? "").contains("Operation failed"))
+    }
+
+    @Test("Launch-time lookup retains bundled OM0AAO identity before the workspace is ready")
+    func launchLookupBeforeWorkspaceReady() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false))
+        let request = try JSONSerialization.data(withJSONObject: [
+            "id": "launch-lookup", "method": "lookup_call", "params": ["call": "OM0AAO"],
+        ])
+        let response = try #require(JSONSerialization.jsonObject(with: await worker.response(to: request)) as? [String: Any])
+        #expect(response["ok"] as? Bool == true)
+        let profile = try #require(response["result"] as? [String: Any])
+        #expect(profile["call"] as? String == "OM0AAO")
+        #expect(profile["country"] as? String == "SLOVAK REPUBLIC")
+        #expect(profile["dxcc"] as? Int == 504)
+        #expect(profile["source"] as? String == "CTY approximate")
+        #expect(profile["qrz_status"] as? String == "unavailable")
+        #expect((profile["lookup_warning"] as? String)?.contains("Offline CTY result retained") == true)
+        #expect(!String(describing: response).contains("Operation failed"))
+        await worker.shutdown()
+    }
+
+    @Test("Passive VK8NSB lookup settles from bundled CTY while the logbook owner is busy")
+    func lookupSettlesDuringLogbookContention() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let worker = LiveWorker(logbook: logbook)
+        let acquired = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let owner = Task.detached { hold(logbook, acquired: acquired, release: release) }
+        #expect(waitForSignal(acquired))
+        let request = try JSONSerialization.data(withJSONObject: [
+            "id": "busy-lookup", "method": "lookup_call", "params": ["call": "VK8NSB"],
+        ])
+        let response = await worker.response(to: request)
+        release.signal()
+        await owner.value
+        let object = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        #expect(object["ok"] as? Bool == true)
+        let profile = try #require(object["result"] as? [String: Any])
+        #expect(profile["call"] as? String == "VK8NSB")
+        #expect(profile["country"] as? String == "AUSTRALIA")
+        #expect(profile["dxcc"] as? Int == 150)
+        #expect(profile["source"] as? String == "CTY approximate")
+        #expect(profile["qrz_status"] as? String == "unavailable")
+        #expect(!String(describing: object).contains("Operation failed"))
+        await worker.shutdown()
     }
 
     @Test("Insecure or local XML image URLs are never exposed")

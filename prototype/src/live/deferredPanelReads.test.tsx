@@ -19,6 +19,64 @@ function scheduledFrames() {
 }
 
 describe("deferred local panel reads", () => {
+  it("moves a 500ms local read before navigation and avoids all three calls on a second visit", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn((method: string) => new Promise(resolve => window.setTimeout(() => resolve({
+      ...snapshot, generated_at: new Date(Date.now()).toISOString(),
+    }), method === "opportunities_snapshot" ? 500 : 100)));
+    const reads = createDeferredPanelReads(request);
+    reads.warm();
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    const first = render(<OpportunitiesPanel request={reads.request} />);
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText("0 matching · 0 available")).toBeTruthy();
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_snapshot")).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    first.unmount();
+    const calls = request.mock.calls.length;
+    render(<OpportunitiesPanel request={reads.request} />);
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText("0 matching · 0 available")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(calls);
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(request.mock.calls.filter(([method]) => method === "opportunities_refresh")).toHaveLength(4);
+  });
+
+  it("shares pending feed work across navigation and retains the newest projection", async () => {
+    const finishes = new Map<string, (value: unknown) => void>();
+    const request = vi.fn((method: string, params?: Record<string, unknown>) =>
+      new Promise(resolve => { finishes.set(String(params?.source ?? method), resolve); }));
+    const reads = createDeferredPanelReads(request);
+    const priority = reads.request("opportunities_refresh", { source: "pota", automatic: true });
+    expect(reads.request("opportunities_refresh", { source: "pota", automatic: true })).toBe(priority);
+    const all = reads.request("opportunities_refresh", { source: "all", automatic: true });
+    const newest = { ...snapshot, generated_at: "2026-10-17T00:00:02Z" };
+    finishes.get("all")!(newest); await all;
+    finishes.get("pota")!(snapshot); await priority;
+    expect(await reads.request("opportunities_snapshot")).toBe(newest);
+    expect(await reads.request("opportunities_refresh", { source: "pota", automatic: true })).toBe(newest);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not grant slow reads another freshness interval and retries rejected automatic refreshes", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn().mockImplementationOnce(() => new Promise(resolve => window.setTimeout(() => resolve(snapshot), 20_000)))
+      .mockResolvedValueOnce(snapshot).mockRejectedValueOnce(new Error("offline")).mockResolvedValue(snapshot);
+    const reads = createDeferredPanelReads(request);
+    const first = reads.request("opportunities_snapshot");
+    await vi.advanceTimersByTimeAsync(20_000); await first;
+    await reads.request("opportunities_snapshot");
+    expect(request).toHaveBeenCalledTimes(2);
+    await expect(reads.request("opportunities_refresh", { source: "all", automatic: true })).rejects.toThrow("offline");
+    await reads.request("opportunities_refresh", { source: "all", automatic: true });
+    expect(request).toHaveBeenCalledTimes(4);
+    await reads.request("opportunities_refresh", { source: "all", automatic: false });
+    expect(request).toHaveBeenCalledTimes(5);
+    await reads.request("opportunities_snapshot");
+    expect(request).toHaveBeenCalledTimes(5);
+  });
+
   it("waits for desk paint and idle time, without mounting either panel or refreshing feeds", async () => {
     const frame = scheduledFrames();
     let idle!: IdleRequestCallback;

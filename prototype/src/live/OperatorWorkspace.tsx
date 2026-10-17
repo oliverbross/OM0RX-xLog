@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode 
 import { clusterRowTint, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
 import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
-import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
+import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
 import { formatSpotAge, useSpotAgeClock } from "./spotAge";
 import "./OperatorWorkspace.css";
@@ -116,15 +116,16 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, selectedSp
             <button type="button" onClick={() => { const defaults = defaultWorkspacePreferences(); setPreferences(current => ({ ...current, columns: defaults.columns, widths: defaults.widths })); }}>Reset columns and widths</button></nav>
         </div>
         <div className="operator-compact-table" hidden={columnsOpen}><table aria-label="Compact live cluster"><colgroup>{preferences.columns.map(column => <col key={column} style={{ width: `${preferences.widths[column] / totalWidth * 100}%` }} />)}</colgroup>
-          <thead><tr>{preferences.columns.map(column => <th key={column}><span title={compactClusterColumns.find(([value]) => value === column)![1]}>{compactClusterColumns.find(([value]) => value === column)![1]}</span>
+          <thead><tr>{preferences.columns.map(column => { const label = compactClusterColumns.find(([value]) => value === column)![1]; return <th key={column} aria-label={column === "callStatus" || column === "dxccStatus" ? label : undefined}
+            className={column === "callStatus" || column === "dxccStatus" ? "live-cluster-status-column" : undefined}><span title={label}>{compactClusterHeader(column)}</span>
             <span role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${compactClusterColumns.find(([value]) => value === column)![1]} column`} aria-valuemin={48} aria-valuemax={480} aria-valuenow={preferences.widths[column]}
               onKeyDown={event => { const value = event.key === "Home" ? 48 : event.key === "End" ? 480 : event.key === "ArrowLeft" ? preferences.widths[column] - 8 : event.key === "ArrowRight" ? preferences.widths[column] + 8 : null;
                 if (value != null) { event.preventDefault(); setColumnWidth(column, value); } }}
               onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); drag.current = { kind: column, startX: event.clientX, startWidth: preferences.widths[column], total: totalWidth, pixels: event.currentTarget.closest("table")?.getBoundingClientRect().width || 1 }; event.currentTarget.setPointerCapture?.(event.pointerId); }}
-              onPointerMove={event => move(event.clientX)} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} /></th>)}</tr></thead>
-          <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${(spot.frequencyKHz / 1000).toFixed(6)} MHz`} style={{ backgroundColor: selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus) }}
+              onPointerMove={event => move(event.clientX)} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} /></th>; })}</tr></thead>
+          <tbody>{spots.slice(offset, offset + rows).map(spot => <tr key={spot.id} tabIndex={0} aria-selected={selectedSpotId === spot.id} aria-label={`Select ${spot.callsign} at ${(spot.frequencyKHz / 1000).toFixed(6)} MHz`} style={{ backgroundColor: selectedSpotId === spot.id ? undefined : clusterRowTint(spot.dxccStatus, colors?.status) }}
             onClick={() => onSelect(spot)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(spot); } }}>
-            {preferences.columns.map(column => <td key={column} title={spotText(column, spot, ageClock)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : ""}>{cell(column, spot, ageClock, colors)}</td>)}</tr>)}</tbody></table>
+            {preferences.columns.map(column => <td key={column} title={spotText(column, spot, ageClock)} className={column === "frequency" ? "cyan mono" : column === "callsign" ? "live-cluster-call" : column === "callStatus" || column === "dxccStatus" ? "live-cluster-status-column" : ""}>{cell(column, spot, ageClock, colors)}</td>)}</tr>)}</tbody></table>
           {!spots.length && <p className="operator-cluster-empty">{projection?.snapshot ? "No spots in the current live cluster view." : "Awaiting live cluster state."}</p>}
         </div>
         <footer hidden={columnsOpen}><button type="button" aria-label="Previous spots page" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>‹</button>

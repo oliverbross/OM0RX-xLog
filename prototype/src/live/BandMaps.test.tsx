@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapFrequencyTicks, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight, deduplicateBandMapSpots, filterRecentBandMapSpots, formatBandMapFrequency } from "./BandMaps";
+import { BAND_RANGES, BandMaps, BandMapsToolbarContext, bandForRadio, opportunityCode, placeSpots, panBandRange, bandMapCapacity, bandMapFrequencyTicks, bandMapLaneGeometry, bandMapSpotWidth, bandMapOverflowHeight, bandMapSpotColor, deduplicateBandMapSpots, filterRecentBandMapSpots, formatBandMapFrequency } from "./BandMaps";
 import type { BandMapViewPreferences } from "./BandMaps";
 
 const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New Call", dxccStatus = "Worked") => ({
@@ -13,13 +13,21 @@ beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("native band-map parity", () => {
-  it("keeps one marker per callsign and band and moves it to the newest report", () => {
+  it("merges only the same callsign-frequency occurrence and retains a real QSY", () => {
     const now = Date.UTC(2026, 9, 16, 12, 0, 0);
     const appleNow = now / 1000 - 978_307_200;
     const old = { ...spot("old", 14023.7), callsign: "OK2BUH", receivedAt: appleNow - 60 };
     const newest = { ...spot("new", 14023.7), callsign: "ok2buh", receivedAt: appleNow };
     const qsy = { ...spot("qsy", 14025), callsign: "OK2BUH", receivedAt: appleNow - 20 };
-    expect(deduplicateBandMapSpots([old, newest, qsy]).map(item => item.id)).toEqual(["new"]);
+    expect(deduplicateBandMapSpots([old, newest, qsy]).map(item => item.id)).toEqual(["new", "qsy"]);
+  });
+
+  it("resolves equal-time duplicate updates deterministically", () => {
+    const receivedAt = Date.now() / 1000 - 978_307_200;
+    const first = { ...spot("a", 14023.7), callsign: "OK2BUH", receivedAt, comment: "first" };
+    const winner = { ...spot("z", 14023.7), callsign: "ok2buh", receivedAt, comment: "updated" };
+    expect(deduplicateBandMapSpots([winner, first])[0]).toBe(winner);
+    expect(deduplicateBandMapSpots([first, winner])[0]).toBe(winner);
   });
 
   it("filters by spot age without hiding legacy reports that have no trustworthy timestamp", () => {
@@ -35,6 +43,7 @@ describe("native band-map parity", () => {
     expect(formatBandMapFrequency(7000)).toBe("7,000");
     expect(formatBandMapFrequency(14023.7)).toBe("14,023.7");
     expect(bandMapFrequencyTicks({ low: 14000, high: 14350 })).toEqual([14000, 14050, 14100, 14150, 14200, 14250, 14300, 14350]);
+    expect(bandMapFrequencyTicks({ low: 7000, high: 7200 }, 1000)).toEqual(Array.from({ length: 41 }, (_, index) => 7000 + index * 5));
   });
 
   it("renders a repeated report once and activates the newest original record", () => {
@@ -47,6 +56,17 @@ describe("native band-map parity", () => {
     expect(markers).toHaveLength(1);
     fireEvent.click(markers[0]);
     expect(onSelect).toHaveBeenCalledWith(newest);
+  });
+
+  it("renders separate frequencies for the same callsign without repeating either occurrence", () => {
+    const appleNow = Date.now() / 1000 - 978_307_200;
+    const first = { ...spot("first", 14023.7), callsign: "OK2BUH", receivedAt: appleNow };
+    const firstCopy = { ...first, id: "first-copy", receivedAt: appleNow + 1 };
+    const qsy = { ...spot("qsy", 14025), callsign: "OK2BUH", receivedAt: appleNow + 2 };
+    render(<BandMaps spots={[first, firstCopy, qsy]} onSelect={vi.fn()} />);
+    expect(screen.getAllByRole("button", { name: /OK2BUH/ })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /14\.023700 MHz/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /14\.025000 MHz/ })).toBeTruthy();
   });
 
   it("offers compact bottom controls for band, resolution and spot age", () => {
@@ -252,6 +272,12 @@ describe("native band-map parity", () => {
     expect(opportunityCode(spot("C", 14070, "20m", "Worked"))).toBe("W");
     expect(opportunityCode(spot("D", 14070, "20m", "Confirmed"))).toBe("C");
     expect(opportunityCode(spot("E", 14070, "20m", "Confirmed", "Worked"))).toBe("C");
+    expect(opportunityCode(spot("G", 14070, "20m", "New Mode"))).toBe("NM");
+    expect(opportunityCode(spot("H", 14070, "20m", "New Band"))).toBe("NB");
+    expect(opportunityCode(spot("I", 14070, "20m", "New Band+Mode"))).toBe("NB+M");
+    expect(opportunityCode(spot("J", 14070, "20m", "Worked", "W/New Band+Mode"))).toBe("W/NB+M");
+    expect(bandMapSpotColor({ ...spot("K", 14070), statusHex: "#123456" })).toBe("#123456");
+    expect(bandMapSpotColor({ ...spot("L", 14070), statusHex: undefined })).toBe("#FF6B35");
     expect(bandForRadio(14_070_000)).toBe("20m");
     expect(bandForRadio(1)).toBeNull();
     expect(BAND_RANGES["30m"].allocations.map((part) => part.name)).toEqual(["CW", "Data"]);
@@ -383,10 +409,11 @@ describe("native band-map parity", () => {
 
   it("selects the original spot and keeps per-spot frequency in accessible detail only", () => {
     const onSelect = vi.fn();
-    const realSpot = spot("OM0RX", 14070);
+    const realSpot = { ...spot("OM0RX", 14070), country: "SLOVAK REPUBLIC" };
     render(<BandMaps spots={[realSpot]} onSelect={onSelect} />);
     const panel = screen.getByRole("region", { name: "20m band map" });
     const marker = within(panel).getByRole("button", { name: /OM0RX.*14\.070000 MHz/ });
+    expect(marker.getAttribute("aria-label")).toContain("Slovak Republic");
     expect(marker.textContent).toBe("OM0RXNC");
     fireEvent.click(marker);
     expect(onSelect).toHaveBeenCalledWith(realSpot);

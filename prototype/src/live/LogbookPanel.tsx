@@ -11,6 +11,7 @@ import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 import { OnlineLogFollowUpPanel } from "./OnlineLogFollowUp";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
+import { countryDisplay } from "./countryDisplay";
 
 const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
 
@@ -462,7 +463,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         <div><dt>Band / Mode</dt><dd>{selected.band} · {selected.submode || selected.mode}</dd></div>
         <div><dt>Frequency MHz</dt><dd>{typeof selected.frequencyHz === "number" ? (selected.frequencyHz / 1_000_000).toFixed(6) : "—"}</dd></div>
         <div><dt>RST sent / received</dt><dd>{selected.rstSent || "—"} / {selected.rstReceived || "—"}</dd></div>
-        <div><dt>Country / Name</dt><dd>{selected.country || "—"}{selected.name ? ` · ${selected.name}` : ""}</dd></div>
+        <div><dt>Country / Name</dt><dd>{countryDisplay(selected.country) || "—"}{selected.name ? ` · ${selected.name}` : ""}</dd></div>
         <div className="live-logbook-details-qsl"><dt>Confirmations</dt><dd>
           <span>QSL <ConfirmationStatus service="QSL" sent={selected.qslSent} received={selected.qslReceived} /></span>
           <span>LoTW <ConfirmationStatus service="LoTW" sent={selected.lotwSent} received={selected.lotwReceived} /></span>
@@ -508,7 +509,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
               <td key="mode" hidden={hidden("mode")} data-label="Mode" className="live-logbook-band" title={qso.submode || qso.mode}><span className="live-logbook-category" style={{ color: paletteColor(qso.submode || qso.mode, undefined, clusterModeColors) }}>{qso.submode || qso.mode}</span></td>,
               <td key="frequency" hidden={hidden("frequency")} data-label="Frequency" className="live-logbook-frequency mono">{typeof qso.frequencyHz === "number" ? (qso.frequencyHz / 1_000_000).toFixed(6) : "—"}</td>,
               <td key="rst" hidden={hidden("rst")} data-label="RST" className="mono" aria-label={`RST sent ${qso.rstSent || "not recorded"}, received ${qso.rstReceived || "not recorded"}`}>{qso.rstSent || "—"} / {qso.rstReceived || "—"}</td>,
-              <td key="country" hidden={hidden("country")} data-label="Country" title={[qso.country, qso.name].filter(Boolean).join(" · ") || undefined}>{qso.country || "—"}</td>,
+              <td key="country" hidden={hidden("country")} data-label="Country" title={[countryDisplay(qso.country), qso.name].filter(Boolean).join(" · ") || undefined}>{countryDisplay(qso.country) || "—"}</td>,
               <td key="qsl" hidden={hidden("qsl")} data-label="QSL"><ConfirmationStatus service="QSL" sent={qso.qslSent} received={qso.qslReceived} /></td>,
               <td key="lotw" hidden={hidden("lotw")} data-label="LoTW"><ConfirmationStatus service="LoTW" sent={qso.lotwSent} received={qso.lotwReceived} /></td>,
               <td key="clublog" hidden={hidden("clublog")} data-label="Club Log"><ConfirmationStatus service="Club Log" sent={qso.extraFields?.CLUBLOG_QSO_UPLOAD_STATUS} supportsReceived={false} />

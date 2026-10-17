@@ -480,7 +480,7 @@ function MainLiveApp() {
     } catch (e) { throw new Error(e instanceof Error ? e.message : "Operation failed"); }
   }, [disarmAutoRotor]);
   const panelRequest = useDeferredPanelReads(request, refresh,
-    workspace?.workspace_exists === true && !workspacePending && view === "Operator Desk" && !separateWindows);
+    workspace?.workspace_exists === true && !workspacePending && view !== "Chaser & DX" && !separateWindows);
   const referenceEvidence = useReferenceEvidence(draft, (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation, request, refresh);
   useReferenceSchedule(workspace?.workspace_exists === true, request);
   const cw = useSharedCW(`${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);

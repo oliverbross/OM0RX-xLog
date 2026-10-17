@@ -17,6 +17,18 @@ vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (s
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("read-only opportunities", () => {
+  it("retires pending responses when a logbook revision replaces the request owner", async () => {
+    let finishOld!: (value: unknown) => void;
+    const oldRequest = vi.fn(() => new Promise(resolve => { finishOld = resolve; }));
+    const view = render(<OpportunitiesPanel request={oldRequest} />);
+    const freshRequest = vi.fn(async () => ({ ...snapshot, generated_at: "2026-10-12T10:02:00Z", items: [expedition] }));
+    view.rerender(<OpportunitiesPanel request={freshRequest} refresh={1} />);
+    await screen.findByText("DX1ABC");
+    await act(async () => { finishOld({ ...snapshot, generated_at: "2026-10-12T10:03:00Z" }); });
+    expect(screen.queryByText("Verified park")).toBeNull();
+    expect(oldRequest).toHaveBeenCalledTimes(1);
+    expect(freshRequest).toHaveBeenCalledTimes(3);
+  });
   it("puts DXpeditions second and includes island operations in IOTA without duplicating All", async () => {
     const island = { ...expedition, reference: "EU-001", reference_kind: "iota", programmes: ["dxpedition", "iota"],
       activity: "scheduled", starts_at: "2026-10-01T00:00:00Z", ends_at: "2026-10-20T23:59:59Z",
