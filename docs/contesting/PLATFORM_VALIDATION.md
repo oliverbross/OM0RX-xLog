@@ -451,7 +451,10 @@ macOS Swift job `117478983619` and Linux Swift job `117478983715` passed;
 their actual logs confirm six ARRL core and three ARRL store tests each.
 All three Rust jobs passed. Windows Swift `117478983725` is still pending,
 so this checkpoint does not claim the completed three-platform matrix.
-Raw logs: `/tmp/xlog-5f93441-{macos,linux}-ci.log`.
+Windows Swift subsequently completed successfully. Its actual log confirms
+the six ARRL core and three ARRL store tests passing. All six jobs in this
+run are now successful; the previously pending status above is historical.
+Raw logs: `/tmp/xlog-5f93441-{macos,linux,windows}-ci.log`.
 
 Foundation merge `420774651dd8dd593e28ce1e56b4f1641daa4097` passed 32
 focused portable-manifest integration tests locally (six ARRL core,
