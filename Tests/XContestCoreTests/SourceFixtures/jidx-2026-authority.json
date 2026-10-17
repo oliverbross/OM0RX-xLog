@@ -37,6 +37,16 @@
       "sha256": "6bfafeb45659842f554f97ef77f4d7323e9e68aa3b5e56c74c08e0e50bfb4623"
     }
   ],
+  "callsignAuthorities": [
+    {
+      "name": "RSGB Operating for Visitors",
+      "url": "https://rsgb.org/main/operating/licensing-novs-visitors/operating-for-visitors/",
+      "cachedPath": "/tmp/rsgb-operating-for-visitors.html",
+      "retrievedOn": "2026-10-18",
+      "sha256": "c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56",
+      "evidence": "Callsign Prefixes example: visiting Scotland MM/F1ABC"
+    }
+  ],
   "sourceComparators": [
     {
       "repository": "/Users/oliver/Documents/Projects/contest-sw",
