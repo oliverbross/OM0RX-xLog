@@ -1,0 +1,14 @@
+!!Order,1,1
+# RapidFuzz 3.13 oracle from the pinned scorer.
+K1ABC
+K1AB
+K1ABD
+K1XYZ
+N1ABC
+N1AB
+XK1AB
+W1AW
+OM0RX
+EA7EU
+k1abc
+
