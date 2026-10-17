@@ -27,7 +27,8 @@ The SQLite schema is unchanged. Sessions, drafts, QSOs, audit records, and idemp
 
 The comparison source is the read-only tree at `7c8b499225a73f7f8f792246881bd7aefc05452f`:
 
-- `not1mm/plugins/naqp_rtty.py:20,121-123,143,162,178,191` stores a name and location separately and uses a points-only result. That requires typed multi-field exchanges and the explicit `pointsOnly` case.
+- `not1mm/plugins/naqp_rtty.py:20,121-123,143,162,178,191` stores a name and location separately and multiplies contact points by location multipliers. That requires typed multi-field exchanges and the checked product case; NAQP is not a points-only contest.
+- `not1mm/plugins/stew_perry_topband.py:152-155` returns the contact-points total directly. That is a source example for the explicit `pointsOnly` case; this foundation does not activate a Stew Perry rule.
 - `not1mm/plugins/arrl_rtty_ru.py:13,137-138,158,167,206,217` has mode-specific RTTY entry plus a subdivision/country exchange and multiplier scoring. That requires a digital mode profile and the checked product case.
 - `not1mm/plugins/jidx_cw.py:18,124-125,154,172,188,202` distinguishes a JARL prefecture exchange from the serial-like scalar used by the source UI. The `jarlPrefectureNumber` semantic kind prevents treating every numeric exchange as a serial reservation.
 - `not1mm/plugins/arrl_vhf_jan.py:18,135-136,156,179,205,216` and `not1mm/plugins/cq_ww_vhf.py:13,126,174-175,215,227,256,264` require four-character Maidenhead fields, report-free mode profiles, and portable VHF/UHF band normalization.
