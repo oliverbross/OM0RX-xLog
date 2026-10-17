@@ -1790,7 +1790,7 @@ fn main() {
                     }) {
                         eprintln!("Native station startup unavailable: {error}");
                     }
-                    match rotor_session::resume() {
+                    match rotor_session::resume(startup_auto_rotor.epoch) {
                         Ok(Some(startup)) => match AUTOMATIC_ROTOR_COMMANDS.apply(startup_auto_rotor, |epoch|
                             auto_rotor::set_armed(true, Some(&startup.owner), Some(startup.generation), epoch, &startup.bands)) {
                             Ok(_) => {

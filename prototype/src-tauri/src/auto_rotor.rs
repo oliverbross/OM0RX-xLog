@@ -95,6 +95,9 @@ impl AutomaticRotor {
     fn new() -> Self { Self { authority: AtomicU64::new(0), state: Mutex::new(State::default()) } }
     fn epoch(&self) -> u64 { self.authority.load(Ordering::Acquire) >> 1 }
     fn armed(&self) -> bool { self.authority.load(Ordering::Acquire) & 1 != 0 }
+    pub(crate) fn disarmed_at_epoch(&self, epoch: u64) -> bool {
+        self.authority.load(Ordering::Acquire) == epoch << 1
+    }
     fn permits_epoch(&self, epoch: u64) -> bool { self.authority.load(Ordering::Acquire) == (epoch << 1 | 1) }
     fn advance_epoch(&self, disarm: bool) {
         let _ = self.authority.fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {

@@ -67,16 +67,16 @@ impl RotorCoordinator {
     where
         F: FnOnce(Value) -> Result<Value, String>,
     {
-        self.handle_scoped(request, None, false, false, backend)
+        self.handle_scoped(request, None, false, None, backend)
     }
 
     pub(crate) fn handle_automatic<F>(&self, request: Value, permit: &crate::auto_rotor::Permit, backend: F) -> Result<Value, String>
     where F: FnOnce(Value) -> Result<Value, String> {
-        self.handle_scoped(request, Some(permit), false, false, backend)
+        self.handle_scoped(request, Some(permit), false, None, backend)
     }
 
     fn handle_scoped<F>(&self, request: Value, automatic: Option<&crate::auto_rotor::Permit>, startup: bool,
-        startup_observation: bool, backend: F) -> Result<Value, String>
+        startup_observation: Option<u64>, backend: F) -> Result<Value, String>
     where F: FnOnce(Value) -> Result<Value, String> {
         let id = request["id"]
             .as_str()
@@ -104,7 +104,7 @@ impl RotorCoordinator {
         if startup && (method != "rotor_connect" || state.owner.is_some()) {
             return Err("Rotor owner changed; startup connection was not sent.".into());
         }
-        if startup_observation && method != "rotor_snapshot" {
+        if startup_observation.is_some() && method != "rotor_snapshot" {
             return Err("Automatic rotor startup observation is passive.".into());
         }
         // Also revoke at actual manual admission: an explicit Arm interleaved
@@ -147,7 +147,12 @@ impl RotorCoordinator {
                     current.last_observed = Some(Instant::now());
                 } else {
                     current.last_observed = None;
-                    if !startup_observation { self.automatic.revoke(); }
+                    // Only the untouched, disarmed startup reservation gets a
+                    // readiness grace period. An intervening Arm or Off changes
+                    // authority, so this failed telemetry must revoke normally.
+                    if !startup_observation.is_some_and(|epoch| self.automatic.disarmed_at_epoch(epoch)) {
+                        self.automatic.revoke();
+                    }
                 }
             }
             return Ok(success(
@@ -475,16 +480,16 @@ pub(crate) fn request_manual_generation(request: Value, expected_worker: u64) ->
         || Ok(worker::generation()), worker::request_existing_generation, hamlib::request))
 }
 pub(crate) fn request_startup(request: Value) -> Result<Value, String> {
-    coordinator().handle_scoped(request, None, true, false, dispatch)
+    coordinator().handle_scoped(request, None, true, None, dispatch)
 }
 pub(crate) fn request_startup_with(
     request: Value,
     dispatch: impl FnOnce(Value) -> Result<Value, String>,
 ) -> Result<Value, String> {
-    coordinator().handle_scoped(request, None, true, false, dispatch)
+    coordinator().handle_scoped(request, None, true, None, dispatch)
 }
-pub(crate) fn request_startup_observation(request: Value) -> Result<Value, String> {
-    coordinator().handle_scoped(request, None, false, true, dispatch)
+pub(crate) fn request_startup_observation(request: Value, expected_epoch: u64) -> Result<Value, String> {
+    coordinator().handle_scoped(request, None, false, Some(expected_epoch), dispatch)
 }
 pub(crate) fn worker_restarted() -> Result<(), String> {
     crate::auto_rotor::revoke();
@@ -546,16 +551,16 @@ mod tests {
         let coordinator = RotorCoordinator::new();
         let connect = json!({"id":"startup","method":"rotor_connect",
             "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
-        coordinator.handle_scoped(connect.clone(), None, true, false, |request| {
+        coordinator.handle_scoped(connect.clone(), None, true, None, |request| {
             assert_eq!(request["method"], "station_rotor_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent","host":"rotor.example.invalid","port":4001,"name":"ARCO"}));
             Ok(success("startup", json!({"connected":false})))
         }).unwrap();
-        assert!(coordinator.handle_scoped(connect.clone(), None, true, false, |_| panic!("Second startup connection")).is_err());
+        assert!(coordinator.handle_scoped(connect.clone(), None, true, None, |_| panic!("Second startup connection")).is_err());
         let fresh = RotorCoordinator::new();
         for method in ["rotor_goto", "rotor_stop", "rotor_park", "rotor_disconnect"] {
             assert!(fresh.handle_scoped(json!({"id":"motion","method":method,"params":{"owner":"native_dcu1","generation":0,"bearing":90}}),
-                None, true, false, |_| panic!("Startup issued motion")).is_err());
+                None, true, None, |_| panic!("Startup issued motion")).is_err());
         }
     }
 
@@ -566,7 +571,7 @@ mod tests {
         let startup = RotorCoordinator::with_authority(startup_authority.clone());
         let connect = json!({"id":"startup","method":"rotor_connect",
             "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
-        startup.handle_scoped(connect.clone(), None, true, false, |request| {
+        startup.handle_scoped(connect.clone(), None, true, None, |request| {
             Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))
         }).unwrap();
         assert!(startup_authority.test_armed());
@@ -579,26 +584,50 @@ mod tests {
     }
 
     #[test]
-    fn startup_observation_is_passive_but_an_ordinary_failed_snapshot_revokes() {
+    fn startup_observation_preserves_exact_disarmed_epoch_but_an_ordinary_failure_revokes() {
         let authority = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
-        authority.arm("native_dcu1", 7).unwrap();
+        let startup_epoch = authority.test_epoch();
         let coordinator = RotorCoordinator::with_authority(authority.clone());
         let connect = json!({"id":"startup","method":"rotor_connect",
             "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
-        coordinator.handle_scoped(connect, None, true, false, |request| {
+        coordinator.handle_scoped(connect, None, true, None, |request| {
             Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))
         }).unwrap();
 
         let snapshot = json!({"id":"observe","method":"rotor_snapshot","params":{}});
-        let pending = coordinator.handle_scoped(snapshot.clone(), None, false, true,
+        let pending = coordinator.handle_scoped(snapshot.clone(), None, false, Some(startup_epoch),
             |_| Err("DCU-1 is still starting".into())).unwrap();
         assert_eq!(pending["result"]["backend_available"], false);
-        assert!(authority.test_armed());
+        assert!(!authority.test_armed());
         assert!(coordinator.handle_scoped(json!({"id":"motion","method":"rotor_stop",
-            "params":{"owner":"native_dcu1","generation":1}}), None, false, true,
+            "params":{"owner":"native_dcu1","generation":1}}), None, false, Some(startup_epoch),
             |_| panic!("Startup observation issued motion")).is_err());
 
+        authority.arm("native_dcu1", 7).unwrap();
         coordinator.handle(snapshot, |_| Err("DCU-1 stopped responding".into())).unwrap();
+        assert!(!authority.test_armed());
+    }
+
+    #[test]
+    fn explicit_arm_between_startup_observations_is_revoked_by_the_next_failure() {
+        let authority = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
+        let startup_epoch = authority.test_epoch();
+        let coordinator = RotorCoordinator::with_authority(authority.clone());
+        let connect = json!({"id":"startup","method":"rotor_connect",
+            "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
+        coordinator.handle_scoped(connect, None, true, None, |request| {
+            Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))
+        }).unwrap();
+        let snapshot = json!({"id":"observe","method":"rotor_snapshot","params":{}});
+        coordinator.handle_scoped(snapshot.clone(), None, false, Some(startup_epoch), |request| {
+            Ok(success(request["id"].as_str().unwrap(), json!({"connected":true,"azimuth":138})))
+        }).unwrap();
+
+        authority.arm("native_dcu1", 1).unwrap();
+        coordinator.handle_scoped(snapshot, None, false, Some(startup_epoch), |request| {
+            assert_eq!(request["method"], "station_rotor_snapshot");
+            Err("DCU-1 telemetry dropped".into())
+        }).unwrap();
         assert!(!authority.test_armed());
     }
 

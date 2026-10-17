@@ -266,7 +266,7 @@ fn await_startup_observation(
     Err("Timed out waiting for a stable connected rotor observation; automatic rotor remains off.".into())
 }
 
-pub fn resume() -> Result<Option<AutomaticStartup>, String> {
+pub fn resume(startup_epoch: u64) -> Result<Option<AutomaticStartup>, String> {
     let mut policy = None;
     let connected = owner()?.resume(|| {
         let saved = load()?;
@@ -281,7 +281,7 @@ pub fn resume() -> Result<Option<AutomaticStartup>, String> {
     let (owner, generation) = await_startup_observation(20, || {
         let id = uuid::Uuid::new_v4().to_string();
         let observed = crate::rotor::request_startup_observation(
-            json!({"id":id,"method":"rotor_snapshot","params":{}}))?;
+            json!({"id":id,"method":"rotor_snapshot","params":{}}), startup_epoch)?;
         if observed["id"] != id || observed["ok"] != true {
             return Err("Automatic rotor startup observation was not acknowledged.".into());
         }
