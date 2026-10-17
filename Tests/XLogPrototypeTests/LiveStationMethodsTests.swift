@@ -242,6 +242,28 @@ final class LiveStationMethodsTests: XCTestCase {
     }
 
     #if os(macOS)
+    func testDirectAgentConsumesExplicitRadioIdentityBeforeExactPayloadValidation() async throws {
+        let snapshot = try await LiveStationMethods.handle("station_snapshot", params: ["radio_id": "radio1", "provider": "direct_agent"])
+        XCTAssertEqual(snapshot["radio_id"] as? String, "radio1")
+
+        for params: [String: Any] in [
+            ["provider": "direct_agent"],
+            ["radio_id": "radio3", "provider": "direct_agent"],
+            ["radio_id": "radio1", "provider": "direct_agent", "extra": true],
+        ] {
+            do { _ = try await LiveStationMethods.handle("station_snapshot", params: params); XCTFail("Accepted invalid radio identity or payload") }
+            catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
+        }
+
+        for (method, params) in [
+            ("station_tune", ["radio_id": "radio1", "provider": "direct_agent", "frequency_hz": 14_074_000, "mode": "FT8", "expected_generation": 99] as [String: Any]),
+            ("station_action", ["radio_id": "radio1", "provider": "direct_agent", "action": "tune", "expected_generation": 99] as [String: Any]),
+        ] {
+            do { _ = try await LiveStationMethods.handle(method, params: params); XCTFail("Accepted a replaced Agent generation") }
+            catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "station_changed") }
+        }
+    }
+
     func testRemoteCWGenerationFenceRejectsRequestsBeforeConnecting() async throws {
         let session = LiveStationSession()
         let snapshot = await session.snapshot()

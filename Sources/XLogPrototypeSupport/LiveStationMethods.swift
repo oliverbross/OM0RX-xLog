@@ -153,27 +153,27 @@ enum LiveStationMethods {
         }
         let provider = selectedProvider
         if provider == "direct_agent" {
-            guard Set(params.keys).isSubset(of: method == "station_tune"
+            guard Set(routed.keys).isSubset(of: method == "station_tune"
                 ? ["provider", "frequency_hz", "mode", "expected_generation"] : method == "station_action"
                 ? ["provider", "action", "expected_generation", "expected_native_intent"] : ["provider"]) else { throw invalidParams() }
             if method == "station_snapshot" { var result = await agent.snapshot(); result["radio_id"] = radioID; return result }
             if method == "station_tune" {
-                let target = try tuneTarget(params)
-                let expected = try params["expected_generation"].map { raw -> UInt64 in
+                let target = try tuneTarget(routed)
+                let expected = try routed["expected_generation"].map { raw -> UInt64 in
                     let value = try integer(raw)
                     guard (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                     return UInt64(value)
                 }
                 var result = try await agent.tune(frequencyHz: target.0, mode: target.1, expectedGeneration: expected); result["radio_id"] = radioID; return result
             }
-            guard let action = params["action"] as? String,
+            guard let action = routed["action"] as? String,
                   ["standby", "operate", "tune", "cancel"].contains(action) else { throw invalidParams() }
-            let expected = try params["expected_generation"].map { raw -> UInt64 in
+            let expected = try routed["expected_generation"].map { raw -> UInt64 in
                 let value = try integer(raw)
                 guard ["cancel", "tune", "operate", "standby"].contains(action), (0...9_007_199_254_740_991).contains(value) else { throw invalidParams() }
                 return UInt64(value)
             }
-            let nativeIntent = try params["expected_native_intent"].map { raw -> UInt64 in
+            let nativeIntent = try routed["expected_native_intent"].map { raw -> UInt64 in
                 let value = try integer(raw)
                 guard ["cancel", "tune", "operate", "standby"].contains(action), expected != nil,
                       (1...9_007_199_254_740_991).contains(value) else { throw invalidParams() }

@@ -499,7 +499,7 @@ impl Session {
         let params = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
             "generation":state.generation,"revision":state.revision,
             "selection_generation":selection["generation"],"selection_id":selection["selection_id"],
-            "allow_transmit":allow_transmit,"allow_keychain_interaction":false});
+            "allow_transmit":allow_transmit,"allow_keychain_interaction":false,"radio_id":self.radio_id});
         drop(state);
         // The existing admission path persists pending before transport, fences
         // concurrent setup edits, and lets Swift load only this endpoint's token.
@@ -1137,7 +1137,7 @@ mod tests {
             assert_eq!(request["method"], "station_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent",
                 "base_url":"https://station.example:8443","allow_transmit":false,
-                "allow_keychain_interaction":false}));
+                "allow_keychain_interaction":false,"radio_id":"radio1"}));
             assert_eq!(session.receipt(request["id"].as_str().unwrap()).unwrap()["status"], "pending");
             let disk: Value = serde_json::from_slice(&std::fs::read(directory.path().join("session.json")).unwrap()).unwrap();
             assert_eq!(disk["receipts"][1]["status"], "pending");
@@ -1145,6 +1145,9 @@ mod tests {
         }).unwrap().unwrap();
         assert_eq!(receipt["status"], "acknowledged");
         assert_eq!(receipt["request"]["allow_transmit"], false);
+        assert_eq!(receipt["request"]["radio_id"], "radio1");
+        let disk: Value = serde_json::from_slice(&std::fs::read(directory.path().join("session.json")).unwrap()).unwrap();
+        assert_eq!(disk["receipts"][1]["request"]["radio_id"], "radio1");
         assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
     }
     #[test]
@@ -1162,7 +1165,7 @@ mod tests {
             assert_eq!(request["method"], "station_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent",
                 "base_url":"https://station.example:8443","allow_transmit":false,
-                "allow_keychain_interaction":false}));
+                "allow_keychain_interaction":false,"radio_id":"radio1"}));
             Ok(json!({"id":request["id"],"ok":true}))
         };
         let restored = Session::new(directory.path().join("session.json")).unwrap();
@@ -1233,7 +1236,7 @@ mod tests {
                 assert_eq!(request["method"], "station_connect");
                 assert_eq!(request["params"], json!({"provider":"direct_agent",
                     "base_url":"https://station.example:8443","allow_transmit":true,
-                    "allow_keychain_interaction":false}));
+                    "allow_keychain_interaction":false,"radio_id":"radio1"}));
                 Ok(json!({"id":request["id"],"ok":true}))
             };
             assert!(restored.resume_saved_agent(&selection, assert_connect_only).unwrap().is_some(), "{status}");

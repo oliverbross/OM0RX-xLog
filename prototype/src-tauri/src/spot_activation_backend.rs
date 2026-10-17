@@ -187,12 +187,14 @@ fn validate_recovery(response: &Value, context: &Context, worker: u64) -> Result
     Ok(())
 }
 fn selection_identity(value: &Value) -> Result<Value, String> {
+    let radio_id = value["radio_id"].as_str().filter(|value| crate::radio_slots::valid(value))
+        .ok_or("Native radio slot is invalid")?;
     let provider = value["provider"].as_str().filter(|value| crate::station_telemetry::valid_provider(value))
         .ok_or("Choose a native radio before selecting a spot")?;
     let identity = valid_uuid(&value["selection_id"])?;
     let generation = value["generation"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Native radio selection generation is invalid")?;
     let revision = value["control_revision"].as_u64().filter(|value| *value <= MAX_REVISION).ok_or("Native radio control revision is invalid")?;
-    Ok(json!({"provider":provider,"generation":generation,"selection_id":identity,"control_revision":revision}))
+    Ok(json!({"radio_id":radio_id,"provider":provider,"generation":generation,"selection_id":identity,"control_revision":revision}))
 }
 fn tune_request(provider: &str, spot: &Value) -> Result<Value, String> {
     let hz = spot["frequencyHz"].as_u64().filter(|value| (100..=10_000_000_000).contains(value)).ok_or("Spot frequency is invalid")?;
@@ -290,10 +292,11 @@ impl Backend for NativeBackend {
     fn tune(&self, request: &Request, selection: &Value, spot: &Value) -> Result<Value, String> {
         let worker = self.context(request, |context| if context.spot == *spot { Ok(context.worker) } else { Err("Activation report changed".into()) })?;
         let selection = selection_identity(selection)?;
+        let radio_id = selection["radio_id"].as_str().ok_or("Radio slot unavailable")?;
         let provider = selection["provider"].as_str().ok_or("Radio selection unavailable")?;
         let tune = tune_request(provider, spot)?;
-        let owner = crate::station_selection::owner(&self.app)?;
-        let telemetry = crate::station_telemetry::owner(&self.app)?;
+        let owner = crate::station_selection::owner_for(&self.app, radio_id)?;
+        let telemetry = crate::station_telemetry::owner_for(&self.app, radio_id)?;
         let id = tune["id"].clone();
         let response = owner.activation_tune(tune, &selection, || {
             crate::worker::require_existing_generation(worker)?;
@@ -465,11 +468,12 @@ mod tests {
     }
     #[test]
     fn selection_comparison_ignores_notification_noise_not_control_or_source_identity() {
-        let value=json!({"provider":"direct_agent","generation":2,"selection_id":uuid::Uuid::new_v4().to_string(),
+        let value=json!({"radio_id":"radio1","provider":"direct_agent","generation":2,"selection_id":uuid::Uuid::new_v4().to_string(),
             "control_revision":5,"power_notification":{"state":"pending"}});
         let mut changed=value.clone();changed["power_notification"]=json!({"state":"ready"});
         assert_eq!(selection_identity(&value).unwrap(),selection_identity(&changed).unwrap());
         changed["control_revision"]=json!(6);assert_ne!(selection_identity(&value).unwrap(),selection_identity(&changed).unwrap());
+        changed=value.clone();changed["radio_id"]=json!("radio2");assert_ne!(selection_identity(&value).unwrap(),selection_identity(&changed).unwrap());
         changed["selection_id"]=json!("invalid");assert!(selection_identity(&changed).is_err());
     }
     #[test]

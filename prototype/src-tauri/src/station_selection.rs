@@ -158,6 +158,15 @@ impl Selection {
             Ok(())
         }
     }
+    fn route_request(&self, request: &mut Value) -> Result<(), String> {
+        let Some(radio_id) = self.radio_id.as_deref() else { return Ok(()); };
+        let params = request["params"].as_object_mut().ok_or("Radio request parameters are unavailable.")?;
+        if params.get("radio_id").is_some_and(|value| value.as_str() != Some(radio_id)) {
+            return Err("Radio request targets a different slot.".into());
+        }
+        params.insert("radio_id".into(), json!(radio_id));
+        Ok(())
+    }
     fn value(&self, state: &State) -> Value {
         let power = self.power.lock().unwrap_or_else(|error| error.into_inner());
         json!({"radio_id":self.radio_id,"provider":state.provider,"generation":state.generation,"selection_id":state.selection_id,"control_revision":state.control_revision,
@@ -507,11 +516,12 @@ impl Selection {
         crate::auto_rotor::revoke();
         let _activity = ActivityGuard::new(&self.activity);
         let id = format!("native-radio-handover-{}", state.generation);
-        let request = if previous == "hamlib" {
+        let mut request = if previous == "hamlib" {
             json!({"id":id,"method":"hamlib_disconnect","params":{"device":"radio"}})
         } else {
             json!({"id":id,"method":"station_disconnect","params":{"provider":previous}})
         };
+        self.route_request(&mut request)?;
         let next_id = uuid::Uuid::new_v4().to_string();
         let mut saved_next = false;
         let result = (|| {
@@ -641,6 +651,7 @@ impl Selection {
             && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
             else if !carrier && method == Some("station_tune") { request["params"]["provider"].as_str() } else { None };
         if provider.is_none() || provider != state.provider.as_deref() { return Err("Invalid native spot tune route.".into()); }
+        self.route_request(&mut request)?;
         let next_revision = state.control_revision.checked_add(1).filter(|value| *value <= 9_007_199_254_740_991)
             .ok_or("Radio control revision exhausted")?;
         let _admission = admit()?;
@@ -719,6 +730,7 @@ impl Selection {
                     .into(),
             );
         }
+        self.route_request(&mut request)?;
         // Only quick retained admission runs under this lock. Its guard, not
         // either mutex, lives through transport and excludes stale observations.
         let _admission = admit()?;
@@ -935,6 +947,25 @@ mod tests {
         ).unwrap();
         assert!(owner.snapshot().unwrap()["provider"].is_null());
         assert_eq!(owner.snapshot().unwrap()["radio_id"], crate::radio_slots::RADIO1);
+    }
+    #[test]
+    fn slot_owner_routes_every_radio_request_and_rejects_cross_slot_targets() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Selection::new_for(
+            directory.path().join("radio-selection-radio2.json"),
+            Some(crate::radio_slots::RADIO2),
+            None,
+            Arc::new(|_| panic!("routing validation must not dispatch")),
+            Arc::new(|| {}),
+        ).unwrap();
+        for method in ["station_tune", "station_action", "station_radio_control", "station_disconnect", "hamlib_disconnect"] {
+            let mut request = json!({"method":method,"params":{}});
+            owner.route_request(&mut request).unwrap();
+            assert_eq!(request["params"]["radio_id"], crate::radio_slots::RADIO2, "{method}");
+        }
+        let mut wrong = json!({"method":"station_tune","params":{"radio_id":"radio1"}});
+        assert!(owner.route_request(&mut wrong).is_err());
+        assert_eq!(wrong["params"]["radio_id"], crate::radio_slots::RADIO1);
     }
     #[test]
     fn amplifier_standby_retires_held_operate_and_carrier_with_native_ordered_tokens(){

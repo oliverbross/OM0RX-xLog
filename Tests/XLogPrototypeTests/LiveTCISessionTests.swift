@@ -58,14 +58,16 @@ final class LiveTCISessionTests: XCTestCase {
     }
 
     func testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback() async throws {
-        let snapshot = try await LiveStationMethods.handle("station_snapshot", params: minimal)
+        let routed = minimal.merging(["radio_id": "radio1"]) { _, value in value }
+        let snapshot = try await LiveStationMethods.handle("station_snapshot", params: routed)
         XCTAssertEqual(snapshot["source"] as? String, "direct_tci")
         XCTAssertEqual(snapshot["allow_transmit"] as? Bool, false)
+        XCTAssertEqual(snapshot["radio_id"] as? String, "radio1")
         for method in ["station_reconnect", "station_action", "station_radio_control", "station_configuration_save", "station_add_spot", "station_cat_servers"] {
-            do { _ = try await LiveStationMethods.handle(method, params: minimal); XCTFail("Router admitted TCI mutation") }
+            do { _ = try await LiveStationMethods.handle(method, params: routed); XCTFail("Router admitted TCI mutation") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
-        do { _ = try await LiveStationMethods.handle("station_tune", params: minimal); XCTFail("Incomplete TCI tune admitted") }
+        do { _ = try await LiveStationMethods.handle("station_tune", params: routed); XCTFail("Incomplete TCI tune admitted") }
         catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
     }
 
