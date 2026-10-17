@@ -672,6 +672,12 @@ public protocol ContestRule: Sendable {
     func cabrilloReceivedExchange(for qso: ContestQSO) -> String
 }
 
+/// Narrow opt-in for rules whose station role can be proven without a DXCC entity snapshot.
+/// The store rejects a missing station entity unless the concrete rule adopts this capability.
+public protocol ContestRuleStationEntityPolicy: ContestRule {
+    func allowsMissingStationEntity(in session: ContestSessionSnapshot) -> Bool
+}
+
 public extension ContestRule {
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
 

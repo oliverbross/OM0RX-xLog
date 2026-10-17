@@ -31,6 +31,8 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public static let naqpPreviewFormatterVersion = "naqp-preview-1"
     /// ARRL RTTY Roundup report plus station-resolved location/serial projection.
     public static let arrlRTTYPreviewFormatterVersion = "arrl-rtty-preview-1"
+    /// JIDX Cabrillo 2.0 and role-resolved two-digit number projection.
+    public static let jidxPreviewFormatterVersion = "jidx-preview-1"
 
     public let schemaVersion: String
     public let formatterVersion: String
@@ -62,7 +64,8 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public func validatedScore(rule: any ContestRule) throws -> ContestScore {
         let validated = try validatedCommon(rule: rule)
         if formatterVersion == Self.naqpPreviewFormatterVersion ||
-            formatterVersion == Self.arrlRTTYPreviewFormatterVersion {
+            formatterVersion == Self.arrlRTTYPreviewFormatterVersion ||
+            formatterVersion == Self.jidxPreviewFormatterVersion {
             return try validatedProjectionAfterCommonValidation(rule: rule).score
         }
         switch formatterVersion {

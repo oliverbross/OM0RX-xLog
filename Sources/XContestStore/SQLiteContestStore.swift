@@ -951,6 +951,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let station = session.station
         let stationDescriptorIssues = rule.metadata.entry.stationExchangeIssues(station.sentExchangeFields)
         let stationRuleIssues = rule.validateSession(session)
+        let missingStationEntityIsAllowed = station.entity == nil &&
+            (rule as? any ContestRuleStationEntityPolicy)?.allowsMissingStationEntity(in: session) == true
         let resolvedSerialIsValid = (try? rule.resolvedSerialRequirement(in: session)) != nil
         let stationExchangeMaximum = rule.metadata.entry.version == .v2
             ? rule.metadata.entry.exchange.sentFields.reduce(0) { $0 + $1.maximumUTF8Bytes } +
@@ -969,7 +971,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
               (1...64).contains(metadata.operatorCategory.utf8.count),
               session.startedAt.timeIntervalSinceReferenceDate.isFinite,
               session.endedAt?.timeIntervalSinceReferenceDate.isFinite != false,
-              station.entity.map(validEntity) == true, stationDescriptorIssues.isEmpty, resolvedSerialIsValid,
+              station.entity.map(validEntity) ?? missingStationEntityIsAllowed,
+              stationDescriptorIssues.isEmpty, resolvedSerialIsValid,
               !stationRuleIssues.contains(where: { $0.severity == .error }) else {
             throw ContestStoreError.invalidSession
         }
