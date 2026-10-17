@@ -231,12 +231,11 @@ public actor RemoteAgentClient: RadioControlling {
             try await tuneSimplexLegacyBounded(frequencyHz, mode: normalized)
             return
         }
-        // Keep the existing one-request fast path for an already-simplex A.
-        if value.slice.uppercased() == "A", value.transmitSlice.uppercased() == "A" {
-            try await executeReceiveTune(.frequencyAndMode(frequencyHz, mode: normalized, vfo: "A"))
-            recordSimplexTarget(frequencyHz, mode: normalized)
-            return
-        }
+        // The Agent's guarded simplex transaction owns radio routing and its
+        // authoritative readback even when the last observation already showed
+        // A/A.  Substituting set_frequency_mode here bypassed that transaction:
+        // the command could acknowledge while the physical radio stayed on the
+        // previous target, leaving native spot activation uncertain.
         try await executeReceiveTune(.tuneSimplex(frequencyHz, mode: normalized))
         recordSimplexTarget(frequencyHz, mode: normalized)
     }

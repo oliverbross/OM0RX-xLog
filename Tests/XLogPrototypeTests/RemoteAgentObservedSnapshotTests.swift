@@ -141,7 +141,8 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
     func testSimplexTuneMakesOneBoundedAttemptWhenReplyIsLost() async throws {
         try await fixture(commands: [], verify: { script in
             XCTAssertEqual(script.sentCommands.count, 1)
-            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "set_frequency_mode")
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "tune_simplex")
+            XCTAssertNil((script.sentCommands.first?["arguments"] as? [String: Any])?["vfo"])
             XCTAssertEqual(script.sentTimeouts, [RemoteAgentClient.receiveTuneCommandTimeout])
         }) { client, _ in
             do {
@@ -154,7 +155,7 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
     func testSimplexTuneAllowsGuardedRouteLongerThanFiveSecondsWithoutRetry() async throws {
         try await fixture(commands: [nil], commandDelay: 5.25, verify: { script in
             XCTAssertEqual(script.sentCommands.count, 1)
-            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "set_frequency_mode")
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "tune_simplex")
             XCTAssertEqual(script.sentTimeouts, [12])
         }) { client, _ in
             try await client.tuneSimplex(7_088_000, mode: "LSB")
