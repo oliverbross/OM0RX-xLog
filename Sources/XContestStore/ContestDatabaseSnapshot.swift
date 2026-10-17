@@ -924,8 +924,7 @@ private final class WindowsOwnedHandle {
     }
 
     func markForDeletion() -> Bool {
-        var disposition = FILE_DISPOSITION_INFO()
-        disposition.DeleteFile = BOOLEAN(1)
+        var disposition = FILE_DISPOSITION_INFO(DeleteFileA: BOOLEAN(1))
         return SetFileInformationByHandle(rawValue, FileDispositionInfo, &disposition,
                                           DWORD(MemoryLayout<FILE_DISPOSITION_INFO>.size))
     }
