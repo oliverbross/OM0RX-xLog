@@ -1,7 +1,7 @@
 # Unified xLog prototype — P1, not the production app
 
 Current P2 iteration is **Mac-first real integration**: the runtime now builds
-`OM0RX-xLog.app` (`1.2.4`) with actual persistent services, not
+`OM0RX-xLog.app` (`1.2.5`) with actual persistent services, not
 the older fixture-only preview. See [current setup and acceptance](../docs/P2_MAC_LIVE_INTEGRATION.md).
 The earlier Prototype app and stable native apps remain installed and unchanged.
 Automatic CI selects Mac only. The historic Windows/Linux packaging machinery
