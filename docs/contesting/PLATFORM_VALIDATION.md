@@ -382,3 +382,18 @@ The candidate's native jobs ran the existing 18 export tests only. The
 integration explicitly discovers and executes the five native admission
 tests and one passive-read timeout-policy test on every OS, so local SCP
 cancellation evidence is not mistaken for hosted coverage.
+
+The repaired integration is pushed at
+`89d1b5669f86ac1dba78a55322d4e71341ecf759` in
+[run 39058760438](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39058760438).
+Inspected Linux job `117472135407` and macOS job `117472135211` logs show
+all three export-wire, 16 lifecycle and four SCP-worker tests passing. This
+confirms the original Linux failure is repaired in the integrated source.
+Windows Swift job `117472135347` is still running at this checkpoint.
+
+All three native Rust jobs passed: macOS `117472135489`, Linux
+`117472135329`, Windows `117472135296`. Their inspected logs show 18 export,
+five admission and one passive-read timeout-policy test passing on each OS.
+Raw logs are `/tmp/xlog-89d1b56-*-ci.log`. This establishes actual hosted
+execution of the newly added native SCP coverage; it does not establish
+native chooser interaction or packaged operator acceptance.
