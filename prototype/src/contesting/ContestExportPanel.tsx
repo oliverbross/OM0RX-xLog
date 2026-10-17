@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } fro
 import { Download, X } from "lucide-react";
 import type { ContestExportSaveOwner } from "./contestExportSave";
 import type { ContestCabrilloHeader, ContestExportFormat, ContestPreparedExport, ContestSessionSummary } from "./types";
+import { isStructuredEntry } from "./types";
 
 type Props = {
   session: ContestSessionSummary; opener: RefObject<HTMLButtonElement | null>; saveOwner: ContestExportSaveOwner;
@@ -25,11 +26,13 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
   const [preparing, setPreparing] = useState(false), [error, setError] = useState("");
   const [cancelled, setCancelled] = useState(false), [format, setFormat] = useState<ContestExportFormat>("cabrillo");
   const [assisted, setAssisted] = useState("NON-ASSISTED"), [band, setBand] = useState("ALL"), [power, setPower] = useState("LOW");
-  const frozenLocation = session.rule.identity.id === "arrl-rtty-roundup" ? session.station.stationFields?.section ?? "" : null;
+  const locationField = isStructuredEntry(session.rule.entry)
+    ? session.rule.entry.stationFields?.find(field => field.role === "cabrilloLocation") : undefined;
+  const frozenLocation = locationField ? session.station.stationFields?.[locationField.id] ?? "" : null;
   const [location, setLocation] = useState(frozenLocation ?? ""), [club, setClub] = useState(""), [name, setName] = useState("");
   const [address, setAddress] = useState(""), [email, setEmail] = useState("");
   const supported = singleOperator(session.operator.category);
-  const practicePreview = session.rule.identity.id.startsWith("sac-") || session.rule.identity.id.startsWith("jidx-");
+  const practicePreview = session.rule.identity.id.startsWith("sac-") || session.rule.identity.id.startsWith("jidx-") || session.rule.identity.id.startsWith("arrl-dx-");
   preparedRef.current = prepared; saveRef.current = save; releaseRef.current = release;
 
   useEffect(() => {
@@ -80,7 +83,7 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
   return <dialog ref={dialog} className="contest-export-dialog" aria-label="Export contest log"
     onCancel={event => { event.preventDefault(); close(); }} onKeyDown={event => { event.stopPropagation(); if (event.key === "Escape") { event.preventDefault(); close(); } }}>
     <header><div><p>CONTEST EXPORT</p><h2>{practicePreview ? "Prepare a practice export" : "Prepare a submission file"}</h2></div><button ref={closeButton} type="button" onClick={close}><X size={14}/>Close</button></header>
-    {practicePreview && <p className="contest-alert" role="status">{session.rule.identity.id.startsWith("jidx-") ? "JIDX export is a scoring and format preview. Sponsor acceptance of the maritime-mobile ENTITY token and multi-operator categories remains open." : "SAC export is a scoring and format preview. It is not sponsor-submission ready because full category and contest-date rules are not yet enforced."}</p>}
+    {practicePreview && <p className="contest-alert" role="status">{session.rule.identity.id.startsWith("jidx-") ? "JIDX export is a scoring and format preview. Sponsor acceptance of the maritime-mobile ENTITY token and multi-operator categories remains open." : session.rule.identity.id.startsWith("arrl-dx-") ? "ARRL DX export is a scoring and format preview. Full category and contest-date rules and sponsor submission acceptance remain open." : "SAC export is a scoring and format preview. It is not sponsor-submission ready because full category and contest-date rules are not yet enforced."}</p>}
     {!supported ? <p className="contest-alert is-error" role="alert">Export is unavailable for the stored category “{session.operator.category}”. This preview supports Single Operator only.</p> : <>
       {foreignSave && <section className="contest-alert is-uncertain" role="alert"><div><strong>Another contest export needs attention</strong><p>{save.phase === "saving" ? "Its save dialog is still open." : save.phase === "unknown" ? "Check its selected folder before starting another export." : "Dismiss its completed save state before starting another export."}</p></div>{save.phase !== "saving" && <button type="button" onClick={() => save.phase === "unknown" ? saveOwner.acknowledgeUnknown() : saveOwner.discardKnown()}>{save.phase === "unknown" ? "I checked the folder" : "Dismiss"}</button>}</section>}
       {!foreignSave && !prepared && save.phase !== "unknown" && <div className="contest-export-fields">

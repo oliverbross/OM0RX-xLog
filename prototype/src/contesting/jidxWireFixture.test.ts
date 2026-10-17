@@ -20,9 +20,9 @@ function clientFor(items: { request: any; response: any }[]) {
 }
 
 describe("generated JIDX worker wire", () => {
-  it("pins the 14-row catalog while preserving legacy v1 shapes", async () => {
+  it("pins the 16-row catalog while preserving legacy v1 shapes", async () => {
     const catalog = await new ContestClient(vi.fn(async () => fixture.catalog) as ContestRequest).catalog();
-    expect(catalog.rules).toHaveLength(14);
+    expect(catalog.rules).toHaveLength(16);
     const legacy = catalog.rules.filter(rule => rule.entryDescriptorVersion === 1);
     expect(legacy).toHaveLength(8);
     expect(legacy.every(rule => !("version" in rule.entry))).toBe(true);

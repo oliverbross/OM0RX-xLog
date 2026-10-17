@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AlertTriangle, CheckCircle2, ClipboardList, Database, Download, Pencil, Trash2, Trophy, X } from "lucide-react";
-import { ContestMutationUncertain, ContestServerError } from "./client";
+import { ContestMutationUncertain, ContestServerError, normalizedARRLDXPower } from "./client";
 import { ContestExportPanel } from "./ContestExportPanel";
 import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
 import { ContestAssistancePanel, type SCPSelectionScope } from "./ContestAssistancePanel";
@@ -132,7 +132,11 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   }
   function changeStructuredReceived(id: string, value: string) {
     if (!draft || !active || !isStructuredEntry(active.rule.entry) || busy || blockingOperation) return;
-    const receivedExchangeFields = { ...draft.fields.receivedExchangeFields, [id]: value };
+    const arrlDX = active.rule.identity.id.startsWith("arrl-dx-");
+    const projected = arrlDX ? value.toUpperCase() : value;
+    const receivedExchangeFields = arrlDX
+      ? Object.fromEntries(active.rule.entry.exchange.receivedFields.map(field => [field.id, field.id === id ? projected : ""]))
+      : { ...draft.fields.receivedExchangeFields, [id]: projected };
     const receivedExchange = active.rule.entry.exchange.receivedFields.map(field => receivedExchangeFields[field.id] ?? "").filter(Boolean).join(" ");
     setOperatorEditGeneration(current => current + 1);
     owner.edit({ ...draft.fields, receivedExchangeFields, receivedExchange });
@@ -233,11 +237,17 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     const entry = active.rule.entry;
     setEditing(current => {
       if (!current) return current;
-      const receivedExchangeFields = { ...current.qso.receivedExchangeFields, [id]: value };
+      const arrlDX = active.rule.identity.id.startsWith("arrl-dx-");
+      const projected = arrlDX ? value.toUpperCase() : value;
+      const receivedExchangeFields = arrlDX
+        ? Object.fromEntries(entry.exchange.receivedFields.map(field => [field.id, field.id === id ? projected : ""]))
+        : { ...current.qso.receivedExchangeFields, [id]: projected };
       const receivedExchange = entry.exchange.receivedFields.map(field => receivedExchangeFields[field.id] ?? "").filter(Boolean).join(" ");
       const normalizedReceivedExchange = entry.exchange.receivedFields.map(field => {
         const raw = receivedExchangeFields[field.id] ?? "";
-        return field.acceptedKinds.some(kind => kind === "cqZone" || kind === "jarlPrefectureNumber") && /^[0-9]{1,2}$/.test(raw)
+        return field.acceptedKinds.includes("power")
+          ? normalizedARRLDXPower(raw) ?? raw.toUpperCase()
+          : field.acceptedKinds.some(kind => kind === "cqZone" || kind === "jarlPrefectureNumber") && /^[0-9]{1,2}$/.test(raw)
           ? String(Number(raw)).padStart(2, "0")
           : raw.toUpperCase();
       }).filter(Boolean).join(" ");
@@ -348,20 +358,22 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const entryDisabled = busy || blockingOperation;
   const sacPreview = active?.rule.identity.id.startsWith("sac-") ?? false;
   const selectedCreateRule = rules.find(rule => rule.identity.id === create.ruleID);
-  const selectedAllocatedField = selectedCreateRule && isStructuredEntry(selectedCreateRule.entry)
-    ? selectedCreateRule.entry.stationResolvedSerial?.allocatedSerialFieldID : undefined;
+  const selectedCreateEntry = selectedCreateRule && isStructuredEntry(selectedCreateRule.entry) ? selectedCreateRule.entry : undefined;
+  const selectedCreateIsARRLDX = selectedCreateRule?.identity.id.startsWith("arrl-dx-") ?? false;
+  const selectedAllocatedField = selectedCreateEntry?.stationResolvedSerial?.allocatedSerialFieldID;
   return <main className="contest-workspace">
     <header className="contest-header"><div><p>CONTESTING PILOT</p><h1>{active ? `${active.rule.displayName} · ${active.name}` : "Contest Workspace"}</h1></div><div className="contest-header-actions">{active && !manager && <button ref={exportButton} type="button" disabled={disabled} aria-haspopup="dialog" onClick={() => setExportOpen(true)}><Download size={15}/>Export…</button>}<button type="button" disabled={disabled} onClick={() => { closeExport(); setManager(value => !value); }}><Database size={15}/>Contest Manager</button></div></header>
     {error && <p className="contest-alert is-error" role="alert"><AlertTriangle size={15}/>{error}{needsRefresh && <button type="button" onClick={() => void refreshDraft()}>Refresh draft</button>}</p>}
     {notice && <p className="contest-alert" role="status"><CheckCircle2 size={15}/>{notice}</p>}
     {uncertain && <section className="contest-alert is-uncertain"><div><strong>{owner.pendingPhase === "inflight" ? "Saving…" : busy ? "Checking save status…" : "Save status unknown"}</strong><p>The original save is preserved for receipt checking or an exact retry.</p></div>{owner.pendingPhase === "uncertain" && <><button disabled={busy} onClick={() => void checkReceipt(false)}>Check save status</button><button disabled={busy} onClick={() => void checkReceipt(true)}>Retry same save</button></>}</section>}
     {manager && <section className="contest-manager"><div className="contest-session-list"><h2>Contest sessions</h2>{sessions.map(session => <button type="button" key={session.sessionID} disabled={disabled} aria-current={active?.sessionID === session.sessionID || undefined} onClick={() => void openSession(session.sessionID)}><span><strong>{session.name}</strong><small>{session.rule.displayName} · {session.qsoCount} QSOs</small></span><time>{session.rule.identity.edition}</time></button>)}</div>
-      <form className="contest-create" onSubmit={createSession} aria-label="Create contest session"><h2>New session</h2><label>Session name<input maxLength={128} value={create.name} onChange={e => setCreate({...create,name:e.target.value})}/></label><label>Contest<select value={create.ruleID} onChange={e => setCreate({...create,ruleID:e.target.value,stationExchangeFields:{},stationFields:{}})}>{rules.map(rule => <option key={rule.identity.id} value={rule.identity.id}>{rule.displayName} · {rule.identity.edition}</option>)}</select></label><div className="contest-create-fields"><label>Station callsign<input maxLength={32} value={create.station} onChange={e => setCreate({...create,station:e.target.value})}/></label><label>Operator callsign<input maxLength={32} value={create.operator} onChange={e => setCreate({...create,operator:e.target.value})}/></label><label>CQ zone<input maxLength={8} value={create.cqZone} onChange={e => setCreate({...create,cqZone:e.target.value})}/></label><label>DXCC entity<input maxLength={160} value={create.entity} onChange={e => setCreate({...create,entity:e.target.value})}/></label>{selectedCreateRule && isStructuredEntry(selectedCreateRule.entry) && <>{selectedCreateRule.entry.exchange.sentFields.filter(field => field.id !== selectedAllocatedField).map(field => <label key={`exchange-${field.id}`}>Station {field.label.charAt(0).toLowerCase() + field.label.slice(1)}<input maxLength={field.maximumUTF8Bytes} required={field.required} value={create.stationExchangeFields[field.id] ?? ""} onChange={e => setCreate({...create,stationExchangeFields:{...create.stationExchangeFields,[field.id]:e.target.value}})}/></label>)}{(selectedCreateRule.entry.stationFields ?? []).map(field => <label key={`station-${field.id}`}>{field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} value={create.stationFields[field.id] ?? ""} onChange={e => setCreate({...create,stationFields:{...create.stationFields,[field.id]:e.target.value}})}/></label>)}</>}</div><p className="contest-source">Exact rule and reference versions are pinned at creation.</p><button className="contest-primary" type="submit" disabled={disabled}>Create and open</button></form></section>}
+      <form className="contest-create" onSubmit={createSession} aria-label="Create contest session"><h2>New session</h2><label>Session name<input maxLength={128} value={create.name} onChange={e => setCreate({...create,name:e.target.value})}/></label><label>Contest<select value={create.ruleID} onChange={e => setCreate({...create,ruleID:e.target.value,stationExchangeFields:{},stationFields:{}})}>{rules.map(rule => <option key={rule.identity.id} value={rule.identity.id}>{rule.displayName} · {rule.identity.edition}</option>)}</select></label><div className="contest-create-fields"><label>Station callsign<input maxLength={32} value={create.station} onChange={e => setCreate({...create,station:e.target.value})}/></label><label>Operator callsign<input maxLength={32} value={create.operator} onChange={e => setCreate({...create,operator:e.target.value})}/></label><label>CQ zone<input maxLength={8} value={create.cqZone} onChange={e => setCreate({...create,cqZone:e.target.value})}/></label><label>DXCC entity<input maxLength={160} value={create.entity} onChange={e => setCreate({...create,entity:e.target.value})}/></label>{selectedCreateEntry && <>{selectedCreateEntry.exchange.sentFields.filter(field => field.id !== selectedAllocatedField).map(field => <label key={`exchange-${field.id}`}>{selectedCreateIsARRLDX ? field.id === "location" ? "Station state or province (W/VE)" : "Station power (DX)" : `Station ${field.label.charAt(0).toLowerCase() + field.label.slice(1)}`}<input maxLength={field.maximumUTF8Bytes} required={field.required} value={create.stationExchangeFields[field.id] ?? ""} onChange={e => { const value = selectedCreateIsARRLDX ? e.target.value.toUpperCase() : e.target.value; setCreate({...create,stationExchangeFields:selectedCreateIsARRLDX ? Object.fromEntries(selectedCreateEntry.exchange.sentFields.map(item => [item.id, item.id === field.id ? value : ""])) : {...create.stationExchangeFields,[field.id]:value}}); }}/></label>)}{(selectedCreateEntry.stationFields ?? []).map(field => <label key={`station-${field.id}`}>{field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} value={create.stationFields[field.id] ?? ""} onChange={e => setCreate({...create,stationFields:{...create.stationFields,[field.id]:e.target.value}})}/></label>)}</>}</div>{selectedCreateIsARRLDX && <p className="contest-source">W/VE stations enter one state or province; DX stations enter one uppercase power token such as 100, K, 1KW, or KILO. An incomplete token stays editable until it is valid. Cabrillo section is an independent station field.</p>}<p className="contest-source">Exact rule and reference versions are pinned at creation.</p><button className="contest-primary" type="submit" disabled={disabled}>Create and open</button></form></section>}
     {active && draft && !manager && <>
       <section className="contest-snapshot" aria-label="Contest identity snapshot"><div><span>Station</span><strong>{active.station.callsign}</strong></div><div><span>Operator</span><strong>{active.operator.callsign}</strong></div><div><span>CQ zone</span><strong>{active.station.cqZone}</strong></div><div><span>Entity</span><strong>{active.station.dxccEntity || (active.rule.identity.id.startsWith("jidx-") && active.station.callsign.endsWith("/MM") ? "Maritime mobile" : "Unavailable")}</strong></div><div><span>Rules</span><small className={`contest-source is-${active.rule.sourceVerification}`}>{active.rule.sourceVerification} · {active.rule.identity.version} · {active.referenceDataVersion}</small></div></section>
       {sacPreview && <p className="contest-alert" role="status">SAC scoring practice preview. Category and contest-date eligibility are not fully enforced.</p>}
       {active.rule.identity.id.startsWith("naqp-") && <p className="contest-alert" role="status">NAQP rules preview · plain logging only. No radio, audio, or RTTY hardware output is used.</p>}
       {active.rule.identity.id === "arrl-rtty-roundup" && <p className="contest-alert" role="status">ARRL RTTY Roundup preview · plain logging only. Contest dates, categories, and RTTY hardware operation are not certified.</p>}
+      {active.rule.identity.id.startsWith("arrl-dx-") && <p className="contest-alert" role="status">ARRL International DX preview · plain logging and Single Operator export only. Contest dates, full categories, and sponsor submission acceptance remain open.</p>}
       <div className="contest-operating-grid"><form ref={entryRoot} className="contest-entry" aria-label={`${active.rule.mode} contest entry`} onSubmit={logQSO}><header><h2>Plain Log · optional simulated operator flow</h2><span>{owner.dirty ? "Saving…" : "Saved"}</span></header>
         {active.rule.entryDescriptorVersion === 1 && <ContestOperatorPanel key={`${active.sessionID}/${active.workspaceGeneration}`} session={active} draft={draft} entryRoot={entryRoot}
           editGeneration={operatorEditGeneration} disabled={entryDisabled || owner.dirty || !!uncertain} recovery={operatorRecovery}
