@@ -289,7 +289,7 @@ impl Backend for NativeBackend {
         }
         Ok(response)
     }
-    fn tune(&self, request: &Request, selection: &Value, spot: &Value) -> Result<Value, String> {
+    fn tune(&self, request: &Request, selection: &Value, spot: &Value, effect_started: &mut bool) -> Result<Value, String> {
         let worker = self.context(request, |context| if context.spot == *spot { Ok(context.worker) } else { Err("Activation report changed".into()) })?;
         let selection = selection_identity(selection)?;
         let radio_id = selection["radio_id"].as_str().ok_or("Radio slot unavailable")?;
@@ -301,12 +301,14 @@ impl Backend for NativeBackend {
         let response = owner.activation_tune(tune, &selection, || {
             crate::worker::require_existing_generation(worker)?;
             if self.resolve(request)? != *spot { return Err("Spot source changed before control admission".into()); }
-            telemetry.control()
-        }, |request| if provider == "hamlib" {
+            telemetry.spot_tune_control(selection["generation"].as_u64().ok_or("Radio selection generation unavailable")?,
+                selection["selection_id"].as_str().ok_or("Radio selection identity unavailable")?)
+        }, |request| {
             crate::worker::require_existing_generation(worker)?;
-            crate::hamlib::request(request)
-        }
-            else { crate::worker::request_existing_generation(request, worker) })?;
+            *effect_started = true;
+            if provider == "hamlib" { crate::hamlib::request(request) }
+            else { crate::worker::request_existing_generation(request, worker) }
+        })?;
         let tuned = result(&json!({"id":id}), response)?;
         if crate::worker::generation() != worker { return Err("Worker changed during tuning; no automatic turn is permitted".into()); }
         Ok(tuned)

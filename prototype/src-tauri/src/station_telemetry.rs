@@ -154,17 +154,26 @@ impl StationTelemetry {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
         self.receive_control_at(generation, identity, connection, control, now)
     }
+    pub fn spot_tune_control(self: &Arc<Self>, generation: u64, identity: &str) -> Result<ControlFence, String> {
+        let connection = self.state.lock().map_err(|_| "Radio telemetry unavailable")?.projection["snapshot"]["generation"]
+            .as_u64().ok_or("A fresh observed radio connection is required before spot tuning.")?;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
+        self.receive_control_at(generation, identity, connection, "tune_simplex", now)
+    }
     fn receive_control_at(self: &Arc<Self>, generation: u64, identity: &str, connection: u64, control: &str, now: u64) -> Result<ControlFence, String> {
         let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
         let value = &state.projection; let snapshot = &value["snapshot"];
         let provider = state.provider.as_deref().unwrap_or("");
-        let (capability_owner, advertised) = match (provider, control) {
-            ("direct_flex_lan", "set_frequency_a") => ("capabilities", "set_frequency_a"),
-            ("direct_flex_lan", "set_mode_a") => ("capabilities", "set_mode_a"),
-            ("direct_agent", "set_receive_frequency_a") => ("station", "set_frequency_hz"),
-            ("direct_agent", "set_receive_mode_a") => ("station", "set_mode"),
-            ("hamlib", "set_receive_frequency_a") => ("station", "set_receive_frequency_a"),
-            ("hamlib", "set_receive_mode_a") => ("station", "set_receive_mode_a"),
+        let (capability_owner, advertised): (&str, &[&str]) = match (provider, control) {
+            ("direct_flex_lan", "set_frequency_a") => ("capabilities", &["set_frequency_a"]),
+            ("direct_flex_lan", "set_mode_a") => ("capabilities", &["set_mode_a"]),
+            ("direct_flex_lan", "tune_simplex") => ("capabilities", &["set_frequency_a", "set_mode_a"]),
+            ("direct_agent", "set_receive_frequency_a") => ("station", &["set_frequency_hz"]),
+            ("direct_agent", "set_receive_mode_a") => ("station", &["set_mode"]),
+            ("direct_agent", "tune_simplex") => ("station", &["set_frequency_hz", "set_mode"]),
+            ("hamlib", "set_receive_frequency_a") => ("station", &["set_receive_frequency_a"]),
+            ("hamlib", "set_receive_mode_a") => ("station", &["set_receive_mode_a"]),
+            ("hamlib", "tune_simplex") => ("station", &["set_receive_frequency_a", "set_receive_mode_a"]),
             _ => return Err("This provider does not expose the requested exact receive control.".into()),
         };
         let age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
@@ -185,7 +194,8 @@ impl StationTelemetry {
                 && snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
                 && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false && radio["receive_vfo"] == "A"
                 && radio["vfos"].as_array().is_some_and(|vfos| vfos.iter().any(|vfo| vfo["letter"] == "A" && vfo["receive"] == true))
-                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands| commands.iter().any(|command| command == advertised))
+                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands|
+                    advertised.iter().all(|advertised| commands.iter().any(|command| command == *advertised)))
         };
         if self.stopped.load(Ordering::Acquire) || state.controls != 0
             || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
@@ -327,10 +337,12 @@ impl StationTelemetry {
 pub struct ControlFence(Arc<StationTelemetry>);
 impl Drop for ControlFence {
     fn drop(&mut self) {
-        if let Ok(mut state) = self.0.state.lock() {
+        let released = if let Ok(mut state) = self.0.state.lock() {
             state.epoch += 1;
             state.controls = state.controls.saturating_sub(1);
-        }
+            state.controls == 0
+        } else { false };
+        if released { self.0.wake.1.notify_all(); }
     }
 }
 static OWNERS: OnceLock<Mutex<[Option<Arc<StationTelemetry>>; 2]>> = OnceLock::new();
@@ -583,8 +595,10 @@ mod tests {
             assert!(owner.receive_control_at(2, &identity, 13, "set_frequency_a", 10000).is_err(), "{change}");
         }
         for (provider, control) in [("direct_flex_lan", "set_frequency_a"), ("direct_flex_lan", "set_mode_a"),
+                                    ("direct_flex_lan", "tune_simplex"),
                                     ("direct_agent", "set_receive_frequency_a"), ("direct_agent", "set_receive_mode_a"),
-                                    ("hamlib", "set_receive_frequency_a"), ("hamlib", "set_receive_mode_a")] {
+                                    ("direct_agent", "tune_simplex"),
+                                    ("hamlib", "set_receive_frequency_a"), ("hamlib", "set_receive_mode_a"), ("hamlib", "tune_simplex")] {
             let (owner, identity) = receive_fixture(provider); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
             assert_eq!(owner.snapshot().unwrap()["available"], false); assert!(owner.receive_control_at(2, &identity, 13, control, 10000).is_err()); drop(fence);
             assert_eq!(owner.state.lock().unwrap().controls, 0);

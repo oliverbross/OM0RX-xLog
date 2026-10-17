@@ -44,8 +44,8 @@ vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_radi
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, activate: host.activate, reconcile: vi.fn() }) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Synthetic map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Synthetic conditions</div> }));
-vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button></> }));
-vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button></> }));
+vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button><button onClick={() => onSelect({ id: "newest-report" })}>Select newest report</button></> }));
+vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button><button onClick={() => onSelect({ id: "newest-report" })}>Select newest report</button></> }));
 vi.mock("../src/live/LogbookPanel", () => ({ LogbookPanel: ({ onEdit, onWorkingChange }: any) => <><button onClick={() => onEdit({ id: "historical" })}>Edit synthetic contact</button>
   <button onClick={() => onWorkingChange?.(true)}>Begin synthetic logbook work</button><button onClick={() => onWorkingChange?.(false)}>Finish synthetic logbook work</button></> }));
 vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }: any) => host.customCanvas
@@ -295,16 +295,19 @@ it("uses only the latest of rapid successive spot clicks", async () => {
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
 });
 
-it("keeps an activation in flight fenced from a second selection", async () => {
+it("retains only the latest selection while an activation is in flight", async () => {
   let complete!: () => void;
   host.activate.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; }));
   await openEditor(false);
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
   fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
   expect(host.activate).toHaveBeenCalledOnce();
   expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
   await act(async () => complete());
+  await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
+  expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
 });
 
 it("does not turn a repeated in-flight spot selection into a persistent page error", async () => {

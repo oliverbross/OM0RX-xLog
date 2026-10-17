@@ -443,6 +443,8 @@ function MainLiveApp() {
   const [activeRadio, setActiveRadio] = useState<RadioID | null>(() => nativeStationSelection() ? null : "radio1");
   const selection = useRef(0);
   const activationStarted = useRef(false);
+  const spotAwaitingActivation = useRef<Data | null>(null);
+  const selectSpotRef = useRef<(spot: Data) => void>(() => {});
   const spotPreparation = useRef<Promise<void> | null>(null);
   const spotActivationDelay = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(spotActivationDelay.current), []);
@@ -859,7 +861,7 @@ function MainLiveApp() {
       }
     };
     const unavailable = () => {
-      if (!disposed) setStation(s => s ? { ...s, available: false, radio: { ...s.radio, connected: false, observed: false }, connection_error: "Station connection unavailable" } : null);
+      if (!disposed) setStation(s => s ? { ...s, available: false, radio: { ...s.radio, observed: false }, connection_error: "Radio observation is refreshing" } : null);
     };
     const stopTelemetry = connectStationTelemetry(activeRadio, stationProvider, observe, unavailable, () => selection.current);
     if (stopTelemetry) return () => { disposed = true; stopTelemetry(); };
@@ -1003,7 +1005,15 @@ function MainLiveApp() {
   const selectSpot = (spot: Data) => {
     if (monitor) return;
     const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
-    if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) return;
+    if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) {
+      selection.current++;
+      spotAwaitingActivation.current = spot;
+      pendingTune.current = true;
+      setSelected(spot.id);
+      setMessage(`Latest spot retained: ${spot.call || "selected report"}. It will tune as soon as the current confirmed activation closes.`);
+      setError("");
+      return;
+    }
     if ((draftState.activationFrozen || contactState.activationFrozen) && spotEditor.initializing) {
       setError(spotEditor.error || "QSO editor registration is still initializing. Spot selection remains disabled and your draft is retained; recovery retries automatically.");
       return;
@@ -1033,6 +1043,7 @@ function MainLiveApp() {
       setError("Resolve the current QSO operation before selecting another spot."); return;
     }
     const generation = ++selection.current;
+    spotAwaitingActivation.current = null;
     pendingTune.current = true; setSelected(spot.id);
     setMessage(""); setError("");
     // A new selection discards only local, unsaved editor text. A pending write,
@@ -1050,13 +1061,23 @@ function MainLiveApp() {
       void preparation.then(() => {
         if (selection.current !== generation) return;
         activationStarted.current = true;
-        return Promise.resolve(spotActivation.activate(spot)).finally(() => { activationStarted.current = false; });
+        return Promise.resolve(spotActivation.activate(spot)).then(result => {
+          const queued = spotAwaitingActivation.current;
+          const safeToAdvance = !result || result.reservationActive === false && result.phase !== "uncertain";
+          if (queued && safeToAdvance) {
+            spotAwaitingActivation.current = null;
+            window.setTimeout(() => selectSpotRef.current(queued), 0);
+          }
+          return result;
+        }).finally(() => { activationStarted.current = false; });
       }).catch(cause => {
+        spotAwaitingActivation.current = null;
         const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
         if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
       }).finally(() => { if (selection.current === generation) pendingTune.current = false; });
     }, spotSelectionDebounceMs);
   };
+  selectSpotRef.current = selectSpot;
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
@@ -1100,9 +1121,10 @@ function MainLiveApp() {
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
+  const radioConnectionLabel = station?.radio?.connected ? station.radio.observed ? "Connected" : "Refreshing" : "Disconnected";
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
-      <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
+      <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} reconcile={() => {}} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}

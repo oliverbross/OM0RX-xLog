@@ -29,7 +29,7 @@ pub trait Backend: Send + Sync {
     fn stage(&self, request: &Request, applied: &Value, stage: &str) -> Result<Value, String>;
     /// Recheck the request's source token at actual native control admission,
     /// not merely when the possibly slow draft transaction was started.
-    fn tune(&self, request: &Request, selection: &Value, spot: &Value) -> Result<Value, String>;
+    fn tune(&self, request: &Request, selection: &Value, spot: &Value, effect_started: &mut bool) -> Result<Value, String>;
     fn rotor(&self, request: &Request, applied: &Value) -> Result<Value, String>;
     fn finish(&self, request: &Request, applied: &Value, outcome: &str) -> Result<(), String>;
     fn durable_status(&self, request: &Request, generation: &str) -> Result<Value, String>;
@@ -113,15 +113,38 @@ impl Coordinator {
         if state.active.as_deref() == Some(operation_id) { state.active = None; }
         drop(state); self.backend.wake(); Ok(value)
     }
-    fn publish(&self, request: &Request, phase: &str, draft: Option<&Value>, error: Option<&str>, rotor: &str, tune_confirmed: bool, reservation_active: bool) -> Result<Value, String> {
+    fn outcome(&self, request: &Request, phase: &str, draft: Option<&Value>, error: Option<&str>, rotor: &str, tune_confirmed: bool, reservation_active: bool) -> Value {
         let mut value = json!({"operationId":request.operation_id,"phase":phase,"draft":draft,
             "tuneConfirmed":tune_confirmed,"rotor":rotor,"reservationActive":reservation_active});
         if self.backend.draft_only(request) { value["draftOnly"] = json!(true); }
         if let Some(error) = error { value["error"] = json!(error); }
+        value
+    }
+    fn record(&self, request: &Request, value: Value, wake: bool) -> Result<Value, String> {
         let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
         let operation = state.operations.get_mut(&request.operation_id).ok_or("Activation outcome missing")?;
-        operation.running = matches!(phase, "preparing" | "draft_applied" | "tuning");
-        operation.outcome = value.clone(); drop(state); self.backend.wake(); Ok(value)
+        operation.running = matches!(value["phase"].as_str(), Some("preparing" | "draft_applied" | "tuning"));
+        operation.outcome = value.clone(); drop(state);
+        if wake { self.backend.wake(); }
+        Ok(value)
+    }
+    fn publish(&self, request: &Request, phase: &str, draft: Option<&Value>, error: Option<&str>, rotor: &str, tune_confirmed: bool, reservation_active: bool) -> Result<Value, String> {
+        self.record(request, self.outcome(request, phase, draft, error, rotor, tune_confirmed, reservation_active), true)
+    }
+    fn finalize_closed(&self, request: &Request, mut outcome: Value) -> Result<Value, String> {
+        if let Err(error) = self.editors.finish(&request.operation_id) {
+            let prior = outcome["error"].as_str().unwrap_or("Activation completed, but editor release could not be confirmed.").to_owned();
+            outcome["phase"] = json!("uncertain");
+            outcome["reservationActive"] = json!(true);
+            outcome["error"] = json!(format!("{prior} Editor release could not be confirmed: {error}"));
+            return self.record(request, outcome, true);
+        }
+        let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+        let operation = state.operations.get_mut(&request.operation_id).ok_or("Activation outcome missing")?;
+        operation.running = false;
+        operation.outcome = outcome.clone();
+        if state.active.as_deref() == Some(&request.operation_id) { state.active = None; }
+        drop(state); self.backend.wake(); Ok(outcome)
     }
     pub fn activate(&self, request: Request) -> Result<Value, String> {
         request.validate()?;
@@ -141,9 +164,8 @@ impl Coordinator {
                     "draftOnly":self.backend.draft_only(&request),
                     "tuneConfirmed":false,"rotor":"not_requested","reservationActive":false,
                     "error":"Wait for the current spot activation to finish."});
-                state.latest = Some(request.operation_id.clone());
                 state.operations.insert(request.operation_id.clone(), Operation { request, outcome:outcome.clone(), generation:None, running:false });
-                drop(state); self.backend.wake(); return Ok(outcome);
+                return Ok(outcome);
             }
             state.active = Some(request.operation_id.clone());
             state.latest = Some(request.operation_id.clone());
@@ -202,7 +224,7 @@ impl Coordinator {
             if draft_only {
                 self.backend.finish(&request, &result, "confirmed")?;
                 reservation_active = false;
-                return self.publish(&request, "confirmed", Some(&result["receipt"]["draft"]), None, "not_requested", false, false);
+                return Ok(self.outcome(&request, "confirmed", Some(&result["receipt"]["draft"]), None, "not_requested", false, false));
             }
             self.publish(&request, "draft_applied", Some(&result["receipt"]["draft"]), None, "not_requested", false, true)?;
             if self.backend.stage(&request, &result, "tune_started")?["status"] != "staged" {
@@ -212,8 +234,7 @@ impl Coordinator {
             if self.backend.resolve(&request)? != spot || self.backend.selection()? != selection {
                 return Err("Spot or radio selection changed before tune admission. No tune was sent.".into());
             }
-            effect_started = true;
-            let tuned = self.backend.tune(&request, &selection, &spot)?;
+            let tuned = self.backend.tune(&request, &selection, &spot, &mut effect_started)?;
             if tuned["confirmed"] != true { return Err("Radio frequency, mode and simplex ownership were not confirmed. The draft is retained; no automatic turn was requested.".into()); }
             tune_confirmed = true;
             if self.backend.stage(&request, &result, "tune_confirmed")?["status"] != "staged" {
@@ -227,7 +248,7 @@ impl Coordinator {
             rotor_outcome = if rotor["requested"] == true { "pending" } else { "not_requested" };
             self.backend.finish(&request, &result, "confirmed")?;
             reservation_active = false;
-            self.publish(&request, "confirmed", Some(&result["receipt"]["draft"]), None, rotor_outcome, tune_confirmed, false)
+            Ok(self.outcome(&request, "confirmed", Some(&result["receipt"]["draft"]), None, rotor_outcome, tune_confirmed, false))
         })();
         let outcome = match result {
             Ok(value) => value,
@@ -239,19 +260,18 @@ impl Coordinator {
                         final_error = format!("{final_error} Reservation release could not be confirmed: {error}");
                     } else { reservation_active = false; }
                 }
-                self.publish(&request, phase, applied.as_ref().map(|value| &value["receipt"]["draft"]), Some(&final_error), rotor_outcome, tune_confirmed, reservation_active)?
+                self.outcome(&request, if reservation_active { "uncertain" } else { phase },
+                    applied.as_ref().map(|value| &value["receipt"]["draft"]), Some(&final_error), rotor_outcome, tune_confirmed, reservation_active)
             }
         };
         if reservation_active {
             // Do not let a timeout unlock editors while the worker may still
             // own their draft. Explicit reservation reconciliation is required.
-            return Ok(outcome);
+            return self.record(&request, outcome, true);
         }
-        // Terminal state is recorded before editors may reconcile/unfreeze.
-        self.editors.finish(&request.operation_id)?;
-        let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
-        if state.active.as_deref() == Some(&request.operation_id) { state.active = None; }
-        drop(state); self.backend.wake(); Ok(outcome)
+        // Closed terminal state becomes visible only after the editor barrier and
+        // admission slot are released, so a wake can never advertise false readiness.
+        self.finalize_closed(&request, outcome)
     }
 }
 
@@ -293,8 +313,10 @@ mod tests {
             self.call(stage);
             Ok(json!({"status":if self.mode.load(Ordering::SeqCst) == 9 && stage == "rotor_started" { "already_staged" } else { "staged" }}))
         }
-        fn tune(&self, request: &Request, _: &Value, _: &Value) -> Result<Value, String> {
+        fn tune(&self, request: &Request, _: &Value, _: &Value, effect_started: &mut bool) -> Result<Value, String> {
             request.validate().unwrap();
+            if self.mode.load(Ordering::SeqCst) == 17 { return Err("radio admission rejected".into()); }
+            *effect_started = true;
             self.call("tune"); if self.mode.load(Ordering::SeqCst) == 2 { Err("lost tune reply".into()) } else { Ok(json!({"confirmed":true})) }
         }
         fn rotor(&self, _: &Request, _: &Value) -> Result<Value, String> {
@@ -369,10 +391,10 @@ mod tests {
         assert_eq!(owner.state.lock().unwrap().active.as_deref(), Some(first.operation_id.as_str()));
         assert!(backend.calls.lock().unwrap().is_empty());
         owner.state.lock().unwrap().active = None;
-        assert_eq!(owner.snapshot().unwrap()["operationId"], result["operationId"]);
+        assert_eq!(owner.snapshot().unwrap()["phase"], "idle");
     }
     #[test]
-    fn newest_concurrent_click_owns_the_snapshot_after_the_active_operation_closes() {
+    fn concurrent_clicks_remain_exact_receipts_without_stealing_global_lifecycle() {
         let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone());
         let active = request(); owner.state.lock().unwrap().active = Some(active.operation_id.clone());
         let second = request(); let second_result = owner.activate(second.clone()).unwrap();
@@ -380,8 +402,9 @@ mod tests {
         assert_eq!(second_result["phase"], "blocked"); assert_eq!(third_result["phase"], "blocked");
         assert_eq!(owner.snapshot().unwrap()["phase"], "idle");
         owner.state.lock().unwrap().active = None;
-        assert_eq!(owner.snapshot().unwrap()["operationId"], third.operation_id);
+        assert_eq!(owner.snapshot().unwrap()["phase"], "idle");
         assert_eq!(owner.status(&second.operation_id).unwrap()["operationId"], second.operation_id);
+        assert_eq!(owner.status(&third.operation_id).unwrap()["operationId"], third.operation_id);
         assert!(backend.calls.lock().unwrap().is_empty());
     }
     #[test]
@@ -395,6 +418,15 @@ mod tests {
         assert_eq!(owner.activate(request.clone()).unwrap()["phase"], "uncertain"); owner.activate(request).unwrap();
         assert_eq!(*backend.calls.lock().unwrap(), ["apply","tune_started","tune","uncertain"]);
         assert_eq!(owner.snapshot().unwrap()["phase"], "uncertain");
+    }
+    #[test]
+    fn rejected_radio_admission_is_failed_not_uncertain_and_never_dispatches() {
+        let backend = Arc::new(Fake::new()); backend.mode.store(17, Ordering::SeqCst); let owner = Coordinator::new(backend.clone());
+        let outcome = owner.activate(request()).unwrap();
+        assert_eq!(outcome["phase"], "failed"); assert_eq!(outcome["reservationActive"], false);
+        assert!(!backend.calls.lock().unwrap().iter().any(|call| call == "tune"));
+        assert_eq!(owner.snapshot().unwrap()["phase"], "failed");
+        assert_eq!(owner.snapshot().unwrap()["barrier"], Value::Null);
     }
     #[test]
     fn lost_apply_reply_keeps_editors_frozen_until_receipt_only_reconciliation() {
@@ -511,6 +543,20 @@ mod tests {
             let values = observed.lock().unwrap(); let last = values.last().unwrap();
             assert_eq!(last["reservationActive"], false); assert_eq!(last["barrier"], Value::Null);
         }
+    }
+    #[test]
+    fn every_closed_terminal_wake_has_released_the_editor_barrier_and_admission_slot() {
+        let backend = Arc::new(Fake::new());
+        let owner = Arc::new(Coordinator::new(backend.clone()));
+        let observed = Arc::new(Mutex::new(Vec::new())); let saved = observed.clone(); let weak = Arc::downgrade(&owner);
+        *backend.observer.lock().unwrap() = Some(Box::new(move || saved.lock().unwrap().push(weak.upgrade().unwrap().snapshot().unwrap())));
+        assert_eq!(owner.activate(request()).unwrap()["phase"], "confirmed");
+        let values = observed.lock().unwrap();
+        let closed: Vec<_> = values.iter().filter(|value| value["reservationActive"] == false).collect();
+        assert_eq!(closed.len(), 1);
+        assert_eq!(closed[0]["phase"], "confirmed");
+        assert_eq!(closed[0]["barrier"], Value::Null);
+        assert!(owner.state.lock().unwrap().active.is_none());
     }
     #[test]
     fn nonterminal_protection_cannot_be_reconciled_while_apply_or_tune_is_running() {
