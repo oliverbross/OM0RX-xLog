@@ -44,9 +44,17 @@ result at its recorded commit, but it does not validate the newer source.
 
 | Platform | Required job | Current status |
 | --- | --- | --- |
-| macOS 14 | `Contest tests (macos-14)` | Pending a successful hosted run. Run `39031590054` at `d1ab5aa` failed while compiling a portable backup test under Xcode 16.2. Run `39032872265` at `434e5de` progressed past that repair but failed while type-checking `TCIProtocolTests`; neither run is macOS validation. |
-| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed in run `39031590054` at `d1ab5aa` and again in run `39032872265` at `434e5de`. Each result validates only its recorded source commit. |
-| Windows Server 2022 | `Contest tests (windows-2022)` | Passed in run `39031590054` at `d1ab5aa`: 16 contest-core tests, 23 contest-store tests, 6 ConnectionDoctor tests, and 8 remote-backup presentation tests. It passed again in run `39032872265` at `434e5de`; each result validates only its recorded source commit. |
+| macOS 14 | `Contest tests (macos-14)` | Passed at `59a38571f39acc7ed12fc07b8f43a4e7fcbe8b36`: 16 core and 23 store tests, Apple Swift 6.0.3 / Xcode 16.2. [Job 117400736183](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953/job/117400736183). |
+| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed at `59a38571f39acc7ed12fc07b8f43a4e7fcbe8b36`: 16 core and 23 store tests, Swift 6.3.3. [Job 117400736027](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953/job/117400736027). |
+| Windows Server 2022 | `Contest tests (windows-2022)` | Passed at `59a38571f39acc7ed12fc07b8f43a4e7fcbe8b36`: 16 core, 23 store, 6 ConnectionDoctor and 8 remote-backup presentation tests, Swift 6.3.3. [Job 117400736125](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953/job/117400736125). |
+
+[Run 39034236953](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953)
+is the first completed green three-platform matrix for this pilot baseline.
+Earlier runs `39031590054` (`d1ab5aa`) and `39032872265` (`434e5de`)
+passed Linux and Windows but failed macOS during compilation, respectively in
+a portable backup test and the malformed TCI input test. The latest result does
+not retroactively validate those failed jobs or the subsequent, independently
+developed correction/deletion and export changes.
 
 These are native Swift compile-and-test results for the workflow's portable
 manifest. They do not prove a packaged application, renderer or worker runtime,
