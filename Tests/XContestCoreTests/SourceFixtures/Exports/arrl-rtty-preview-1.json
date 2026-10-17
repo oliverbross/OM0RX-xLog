@@ -1,0 +1,14 @@
+{
+  "formatterVersion": "arrl-rtty-preview-1",
+  "wveToWve": "QSO: 14080 RY 2023-11-14 2213 K1AAA         599 CA     VE3AAA        599 ON    ",
+  "wveToDX": "QSO: 14080 RY 2023-11-14 2213 K1AAA         599 CA     DL1AAA        599 001   ",
+  "dxToWve": "QSO: 14080 RY 2023-11-14 2213 DL1DX         599 001    K1BBB         599 MA    ",
+  "dxToDX": "QSO: 14080 RY 2023-11-14 2213 DL1DX         599 001    DL2BBB        599 002   ",
+  "wveDocumentLines": [
+    "START-OF-LOG: 3.0", "CREATED-BY: OM0RX-xLog", "CONTEST: ARRL-RTTY", "CALLSIGN: K1AAA",
+    "LOCATION: EMA", "CATEGORY-OPERATOR: SINGLE-OP", "CATEGORY-ASSISTED: NON-ASSISTED",
+    "CATEGORY-BAND: ALL", "CATEGORY-MODE: RTTY", "CATEGORY-TRANSMITTER: ONE", "CATEGORY-POWER: LOW",
+    "CLAIMED-SCORE: 1", "OPERATORS: K1AAA", "NAME: Operator", "EMAIL: ",
+    "QSO: 14080 RY 2023-11-14 2213 K1AAA         599 CA     VE3AAA        599 ON    ", "END-OF-LOG:"
+  ]
+}

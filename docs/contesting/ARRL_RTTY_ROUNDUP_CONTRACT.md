@@ -10,6 +10,10 @@ Multiplier authority is separately pinned to the ARRL [Canadian list](https://co
 
 ## Station-resolved exchange
 
+The first worker boundary remains inactive in the production catalog while its authority contract is exercised with an injected registry. Version-two metadata may declare exactly one separate required `cabrilloLocation` station field for this station-resolved policy. It is stored in the existing immutable `ContestStationSnapshot.location`; it is not an exchange field and it is never inferred from the on-air subdivision. A continental-US station may therefore send `CA` while retaining the independent Cabrillo section `EB`. Invalid section/entity combinations fail before session creation and create no receipt or partial database row.
+
+ARRL session and draft responses conditionally expose the server-resolved serial requirement, allowed scopes, and allocated field identifier. W/VE responses forbid serial reservation; DX responses require session-scoped allocation. Creation hints are descriptive only: the lane resolves the frozen station entity, and the store remains the authority for reservation and commit. Existing version-one and NAQP version-two metadata, station, session, and draft wire objects omit these new conditional members exactly.
+
 `ContestStationResolvedSerialDescriptor` is an optional version-two entry descriptor. Absence maps exactly to the established static `ContestSerialDescriptor`; version-one descriptors reject the new key even when it is JSON `null`. The only admitted policy in this slice is `arrlRTTYRoundupWVEOrDX`. Rule metadata declares one optional `location` subdivision field, one optional `serial` numeric field, and session serial scope. Metadata coherence rejects duplicate or ambiguous fields, static/conditional contradictions, unsupported scope sets, and unknown policies.
 
 The throwing `ContestRule.resolvedSerialRequirement(in:)` resolves only after the immutable rule identity, descriptor, and frozen station snapshot agree:
@@ -19,7 +23,7 @@ The throwing `ContestRule.resolvedSerialRequirement(in:)` resolves only after th
 
 Drafts may keep an incomplete received exchange while editing. A W/VE draft must retain the station subdivision and cannot reserve a serial. A DX reservation atomically allocates `001`, binds it into the typed raw and normalized serial field and both sent aggregates, and survives restart. Commit verifies all four text projections against the durable reservation. A failed, forged, foreign, or exhausted reservation attempt changes no session revision, draft, counter, reservation, QSO, or receipt. Successful commit consumes the reservation and reset clears the allocated serial while preserving nonserial station fields. Existing correction paths continue to retain immutable sent fields.
 
-No SQLite schema change is required: station policy belongs to immutable rule metadata; sessions, drafts, reservations, QSOs, operations, and canonical request bytes keep their existing shapes. Existing contest identities and version-one encodings remain unchanged.
+No SQLite schema change or exposed-session migration is required: station policy belongs to immutable rule metadata; sessions, drafts, reservations, QSOs, operations, and canonical request bytes keep their existing shapes. Existing contest identities and version-one encodings remain unchanged. Tightening the invalid placeholder sections in inactive core fixtures establishes the future admission boundary; it does not migrate an activated user session.
 
 ## Inactive scoring preview
 
@@ -27,4 +31,16 @@ The rule admits RTTY/`RY` on 80, 40, 20, 15, and 10 metres. Both the entrant and
 
 Suffix normalization is deliberately bounded: `W1AW` and `W1AW/7` share a duplicate identity, while `K7/W1AW` remains distinct. Self contacts reject after this normalization. `/MM` and `/AM` contacts and entrants fail closed because the current immutable snapshot cannot prove their physical endpoint; the rules allow contact credit only for mobile endpoints outside the US and Canada. This boundary is explicit rather than inferred from a home prefix.
 
-The rule remains outside `ContestRuleRegistry.pilots`. Export column/category semantics and full mobile support require later reviewed slices.
+The rule remains outside `ContestRuleRegistry.pilots`. Full mobile support requires a later reviewed slice.
+
+## Inactive export preview
+
+Formatter `arrl-rtty-preview-1` is bound to the existing immutable rule identity and export input. It emits `CONTEST: ARRL-RTTY`, Cabrillo mode `RY`, three-character reports, and the station-resolved W/VE location or allocated DX serial. The exact four direction layouts (W/VE to W/VE, W/VE to DX, DX to W/VE, and DX to DX) are pinned in `Tests/XContestCoreTests/SourceFixtures/Exports/arrl-rtty-preview-1.json`.
+
+The supported category projection is intentionally narrow: `SINGLE-OP`, one transmitter, RTTY, no overlay, a declared power and assistance value, and all bands or one supported single band. Every valid log row is retained in the Cabrillo document while a single-band claim scores only the selected band. Two-transmitter output is rejected because immutable QSOs do not carry an authoritative transmitter identifier. Category, date window, operating-time, power, assistance, and submission acceptance remain preview boundaries.
+
+`LOCATION` is independent from exchange classification. It must exactly match the frozen session station location. Continental-US entity 291 and Canadian entity 1 require an abbreviation from their respective pinned ARRL/RAC section sets; entity 291 explicitly cannot use `AK`, `PAC`, `PR`, or `VI`. Alaska maps to `AK`, Hawaii and the current U.S. Pacific-possession DXCC entities map to `PAC`, Puerto Rico maps to `PR`, and the U.S. Virgin Islands map to `VI`, while these stations continue to exchange a DX serial under the rule. Other entities require `DX`. These mappings come from the primary ARRL section list, section-boundary authority, Part 97 jurisdiction list, pinned current DXCC entities, Hawaii DLNR's Kure jurisdiction record, and the Department of the Interior's Swains Island record; the exporter does not infer a section from a callsign prefix or exchanged subdivision.
+
+ADIF keeps `STX_STRING` and `SRX_STRING` for the exact typed exchange and retains `RST_SENT` and `RST_RCVD`. Numeric `STX` or `SRX` appears only on a DX serial side. `MY_STATE` and `STATE` appear only on a W/VE subdivision side. ADIF 3.1.8 represents both contest exchange tokens `LB` and `NF` as the Canadian primary subdivision `NL` in `STATE`/`MY_STATE`; the original token remains unchanged in the corresponding exchange string. `MY_DXCC` and `DXCC` preserve the immutable resolved entity snapshots, including Alaska and Hawaii as DXCC entities. Mobile endpoints continue to fail rule validation before export.
+
+Primary export authorities retrieved 18 October 2026 are pinned in `Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-export-authority.json`: ARRL RTTY Roundup Rules v3.0b, the WWROF Cabrillo v3 header specification, the current ARRL/RAC section list and section boundaries, ARRL's Part 97 jurisdiction text, and ADIF 3.1.8. Cached paths and SHA-256 digests are recorded there. These fixtures establish deterministic preview behavior; they do not claim sponsor approval or submission readiness.

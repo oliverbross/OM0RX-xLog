@@ -1,5 +1,33 @@
 import Foundation
 
+private let arrlUSSectionAbbreviations: Set<String> = [
+    "CT", "EMA", "ME", "NH", "RI", "VT", "WMA",
+    "ENY", "NLI", "NNJ", "NNY", "SNJ", "WNY",
+    "DE", "EPA", "MDC", "WPA",
+    "AL", "GA", "KY", "NC", "NFL", "SC", "SFL", "TN", "VA", "WCF",
+    "AR", "LA", "MS", "NM", "NTX", "OK", "STX", "WTX",
+    "EB", "LAX", "ORG", "SB", "SCV", "SDG", "SF", "SJV", "SV",
+    "AZ", "EWA", "ID", "MT", "NV", "OR", "UT", "WWA", "WY",
+    "MI", "OH", "WV", "IL", "IN", "WI",
+    "CO", "IA", "KS", "MN", "MO", "NE", "ND", "SD",
+]
+private let arrlCanadaSectionAbbreviations: Set<String> = [
+    "AB", "BC", "GH", "MB", "NB", "NL", "NS", "ONE", "ONN", "ONS", "PE", "QC", "SK", "TER",
+]
+private let arrlPacificSectionEntityCodes: Set<Int> = [
+    9,   // American Samoa
+    20,  // Baker and Howland Islands
+    103, // Guam
+    110, // Hawaii
+    123, // Johnston Island
+    138, // Kure Island
+    166, // Mariana Islands
+    174, // Midway Island
+    197, // Palmyra and Jarvis Islands
+    297, // Wake Island
+    515, // Swains Island
+]
+
 public struct CabrilloHeader: Codable, Hashable, Sendable {
     public let callsign: String
     public let categoryOperator: String
@@ -67,10 +95,14 @@ public enum CabrilloExporter {
         let recomputed: ContestScore
         let renderedQSOs: [ContestQSO]
         do {
-            if formatterVersion == ContestExportInput.naqpPreviewFormatterVersion {
+            if formatterVersion == ContestExportInput.naqpPreviewFormatterVersion ||
+                formatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
                 guard rule.metadata.entry.cabrilloFormatterVersion == formatterVersion,
                       rule.metadata.entry.cabrilloProjectionFormatterVersion == formatterVersion else {
                     throw CabrilloExportError.invalidHeader("formatterVersion")
+                }
+                if formatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
+                    try validateARRLRTTYLocation(header: header, session: session)
                 }
                 let projection = try ContestSubmissionProjection.make(qsos: qsos, session: session,
                                                                        header: header, rule: rule)
@@ -138,6 +170,14 @@ public enum CabrilloExporter {
         if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion {
             return try naqpQsoLine(qso, session: session, rule: rule)
         }
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
+            return try arrlRTTYQsoLine(qso, session: session, rule: rule)
+        }
+        return try standardQsoLine(qso, session: session, rule: rule)
+    }
+
+    private static func standardQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
+                                        rule: any ContestRule) throws -> String {
         guard qso.sessionID == session.id else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "sessionID") }
         guard session.rule == rule.metadata.identity else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule") }
         guard qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite else {
@@ -163,6 +203,33 @@ public enum CabrilloExporter {
         return "QSO: \(leftPad(String(frequency), 5)) \(mode) \(date(qso.timestampUTC)) \(time(qso.timestampUTC)) " +
             "\(rightPad(values[0], 13)) \(rightPad(values[1], 3)) \(rightPad(values[2], 6)) " +
             "\(rightPad(values[3], 13)) \(rightPad(values[4], 3)) \(rightPad(values[5], 6))"
+    }
+
+    private static func arrlRTTYQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
+                                        rule: any ContestRule) throws -> String {
+        guard rule.metadata.cabrilloName == "ARRL-RTTY",
+              rule.metadata.entry.modeProfile(for: qso.mode)?.cabrilloQSOType == "RY" else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule")
+        }
+        let evaluation: ContestRuleEvaluation
+        do { evaluation = try ContestEngine.evaluate(qso, session: session, rule: rule, allowIncomplete: false) }
+        catch { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "qso") }
+        if let issue = evaluation.validation.first(where: { $0.severity == .error }) {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: issue.field)
+        }
+        return try standardQsoLine(qso, session: session, rule: rule)
+    }
+
+    private static func validateARRLRTTYLocation(header: CabrilloHeader,
+                                                  session: ContestSessionSnapshot) throws {
+        let value = header.location
+        guard value == session.station.location else {
+            throw CabrilloExportError.invalidHeader("location")
+        }
+        guard let entity = session.station.entity,
+              arrlRTTYCabrilloLocationIsValid(value, entityADIF: entity.adif) else {
+            throw CabrilloExportError.invalidHeader("location")
+        }
     }
 
     private static func naqpQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
@@ -259,5 +326,17 @@ public enum CabrilloExporter {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = format
         return formatter
+    }
+}
+
+internal func arrlRTTYCabrilloLocationIsValid(_ value: String, entityADIF: Int) -> Bool {
+    switch entityADIF {
+    case 291: return arrlUSSectionAbbreviations.contains(value)
+    case 1: return arrlCanadaSectionAbbreviations.contains(value)
+    case 6: return value == "AK"
+    case 202: return value == "PR"
+    case 285: return value == "VI"
+    case let code where arrlPacificSectionEntityCodes.contains(code): return value == "PAC"
+    default: return value == "DX"
     }
 }
