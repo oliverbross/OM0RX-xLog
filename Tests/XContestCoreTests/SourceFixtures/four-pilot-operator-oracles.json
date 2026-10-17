@@ -1,0 +1,1755 @@
+{
+  "schemaVersion": 1,
+  "fixtureKind": "four-pilot-operator-oracles",
+  "authority": {
+    "repository": "oliverbross/contest-sw",
+    "commit": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+    "derivation": "Expected arithmetic and prefix behavior were transcribed from the pinned Python source, independently of the Swift engine.",
+    "sharedPrefixSource": {
+      "path": "not1mm/lib/ham_utility.py",
+      "sha256": "dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2"
+    }
+  },
+  "boundary": {
+    "sourceDerivedOnly": true,
+    "currentSponsorCertified": false,
+    "rfOrHardwareEvidence": false,
+    "runAndSPMeaning": "Operating-role labels make both entry paths explicit; the pinned scoring arithmetic itself does not vary by Run versus S&P.",
+    "referenceData": "Entity snapshots are fixed synthetic inputs. The later harness must verify its pinned resolver accepts the same coordinates."
+  },
+  "independentArithmeticCases": {
+    "cqWW": [
+      {
+        "case": "same-country",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "expectedPoints": 0
+      },
+      {
+        "case": "same-continent-different-country",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 230,
+          "name": "Federal Republic of Germany",
+          "countryPrefix": "DL",
+          "continent": "EU",
+          "cqZone": 14
+        },
+        "expectedPoints": 1
+      },
+      {
+        "case": "intercontinent",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 291,
+          "name": "United States of America",
+          "countryPrefix": "K",
+          "continent": "NA",
+          "cqZone": 5
+        },
+        "expectedPoints": 3
+      },
+      {
+        "case": "north-america-exception",
+        "station": {
+          "adif": 291,
+          "name": "United States of America",
+          "countryPrefix": "K",
+          "continent": "NA",
+          "cqZone": 5
+        },
+        "worked": {
+          "adif": 1,
+          "name": "Canada",
+          "countryPrefix": "VE",
+          "continent": "NA",
+          "cqZone": 4
+        },
+        "expectedPoints": 2
+      }
+    ],
+    "cqWPX": [
+      {
+        "case": "same-country-high-band",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "band": "20m",
+        "expectedPoints": 1
+      },
+      {
+        "case": "same-continent-high-band",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 230,
+          "name": "Federal Republic of Germany",
+          "countryPrefix": "DL",
+          "continent": "EU",
+          "cqZone": 14
+        },
+        "band": "20m",
+        "expectedPoints": 1
+      },
+      {
+        "case": "same-continent-low-band",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 230,
+          "name": "Federal Republic of Germany",
+          "countryPrefix": "DL",
+          "continent": "EU",
+          "cqZone": 14
+        },
+        "band": "40m",
+        "expectedPoints": 2
+      },
+      {
+        "case": "intercontinent-high-band",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 291,
+          "name": "United States of America",
+          "countryPrefix": "K",
+          "continent": "NA",
+          "cqZone": 5
+        },
+        "band": "20m",
+        "expectedPoints": 3
+      },
+      {
+        "case": "intercontinent-low-band",
+        "station": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        },
+        "worked": {
+          "adif": 291,
+          "name": "United States of America",
+          "countryPrefix": "K",
+          "continent": "NA",
+          "cqZone": 5
+        },
+        "band": "40m",
+        "expectedPoints": 6
+      },
+      {
+        "case": "north-america-high-band",
+        "station": {
+          "adif": 291,
+          "name": "United States of America",
+          "countryPrefix": "K",
+          "continent": "NA",
+          "cqZone": 5
+        },
+        "worked": {
+          "adif": 1,
+          "name": "Canada",
+          "countryPrefix": "VE",
+          "continent": "NA",
+          "cqZone": 4
+        },
+        "band": "20m",
+        "expectedPoints": 2
+      },
+      {
+        "case": "north-america-low-band",
+        "station": {
+          "adif": 291,
+          "name": "United States of America",
+          "countryPrefix": "K",
+          "continent": "NA",
+          "cqZone": 5
+        },
+        "worked": {
+          "adif": 1,
+          "name": "Canada",
+          "countryPrefix": "VE",
+          "continent": "NA",
+          "cqZone": 4
+        },
+        "band": "40m",
+        "expectedPoints": 4
+      }
+    ],
+    "wpxPrefixes": [
+      {
+        "callsign": "K1ABC",
+        "expected": "K1"
+      },
+      {
+        "callsign": "K1ABC/4",
+        "expected": "K4"
+      },
+      {
+        "callsign": "OM/K1ABC/P",
+        "expected": "OM0"
+      },
+      {
+        "callsign": "EA8/K1ABC/P",
+        "expected": "EA8"
+      }
+    ]
+  },
+  "operatorScenarios": [
+    {
+      "scenarioID": "cq-ww-cw-operator-lifecycle-v1",
+      "ruleIdentity": {
+        "id": "cq-ww-cw",
+        "version": "1.0.0-source-spike",
+        "edition": "source-26.10.11",
+        "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "source": {
+        "path": "not1mm/plugins/cq_ww_cw.py",
+        "sha256": "08f383e8ddb6f02fede9149f5490a1042b71a5cd5e2591ac76b0cf1ba460c3e2"
+      },
+      "entry": {
+        "mode": "CW",
+        "adifMode": "CW",
+        "cabrilloQSOType": "CW",
+        "report": {
+          "format": "cwRST",
+          "defaultSent": "599",
+          "defaultReceived": "599",
+          "maximumUTF8Bytes": 3
+        },
+        "exchange": {
+          "sent": "cqZone",
+          "received": "cqZone",
+          "sentDefault": "stationSnapshot",
+          "adifFields": "none"
+        },
+        "serial": {
+          "requirement": "none",
+          "allowedScopes": []
+        }
+      },
+      "station": {
+        "callsign": "OM0RX",
+        "sentExchange": "15",
+        "entity": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        }
+      },
+      "operator": {
+        "callsign": "OM0RX",
+        "category": "Single Operator"
+      },
+      "initialContacts": [
+        {
+          "qsoID": "ww-q1",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-11-28T00:00:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "15",
+          "receivedExchange": "14",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "ww-q2",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-11-28T00:01:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "15",
+          "receivedExchange": "05",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "ww-q3",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-11-28T00:02:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "15",
+          "receivedExchange": "14",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "ww-q4",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-11-28T00:03:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "40m",
+          "frequencyHz": 7025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "15",
+          "receivedExchange": "14",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "ww-q5",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-11-28T00:04:00.000Z",
+          "callsign": "OM1AAA",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "15",
+          "receivedExchange": "15",
+          "entity": {
+            "adif": 504,
+            "name": "Slovak Republic",
+            "countryPrefix": "OM",
+            "continent": "EU",
+            "cqZone": 15
+          }
+        },
+        {
+          "qsoID": "ww-q6",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-11-28T00:05:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "15",
+          "receivedExchange": "05",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        }
+      ],
+      "checkpoints": [
+        {
+          "name": "after-initial-run-and-s-and-p-entry",
+          "expected": {
+            "liveQSOCount": 6,
+            "points": 5,
+            "multiplierCount": 8,
+            "claimedScore": 40,
+            "dispositions": {
+              "ww-q1": "scored:1",
+              "ww-q2": "scored:3",
+              "ww-q3": "duplicate:0",
+              "ww-q4": "scored:1",
+              "ww-q5": "scored:0",
+              "ww-q6": "duplicate:0"
+            },
+            "multiplierKeys": [
+              "country:230:20m",
+              "cq-zone:14:20m",
+              "country:291:20m",
+              "cq-zone:5:20m",
+              "country:230:40m",
+              "cq-zone:14:40m",
+              "country:504:20m",
+              "cq-zone:15:20m"
+            ]
+          }
+        },
+        {
+          "name": "after-correction",
+          "mutation": {
+            "kind": "correct",
+            "qsoID": "ww-q1",
+            "changes": {
+              "callsign": "F1AAA",
+              "receivedExchange": "14",
+              "entity": {
+                "adif": 227,
+                "name": "France",
+                "countryPrefix": "F",
+                "continent": "EU",
+                "cqZone": 14
+              }
+            },
+            "expected": {
+              "promotedFromDuplicate": "ww-q3",
+              "points": 6,
+              "multiplierCount": 9,
+              "claimedScore": 54
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "ww-q3",
+            "points": 6,
+            "multiplierCount": 9,
+            "claimedScore": 54
+          }
+        },
+        {
+          "name": "after-deletion",
+          "mutation": {
+            "kind": "delete",
+            "qsoID": "ww-q2",
+            "expected": {
+              "promotedFromDuplicate": "ww-q6",
+              "liveQSOCount": 5,
+              "points": 6,
+              "multiplierCount": 9,
+              "claimedScore": 54,
+              "dispositions": {
+                "ww-q1": "scored:1",
+                "ww-q3": "scored:1",
+                "ww-q4": "scored:1",
+                "ww-q5": "scored:0",
+                "ww-q6": "scored:3"
+              },
+              "multiplierKeys": [
+                "country:227:20m",
+                "cq-zone:14:20m",
+                "country:230:20m",
+                "country:230:40m",
+                "cq-zone:14:40m",
+                "country:504:20m",
+                "cq-zone:15:20m",
+                "country:291:20m",
+                "cq-zone:5:20m"
+              ]
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "ww-q6",
+            "liveQSOCount": 5,
+            "points": 6,
+            "multiplierCount": 9,
+            "claimedScore": 54,
+            "dispositions": {
+              "ww-q1": "scored:1",
+              "ww-q3": "scored:1",
+              "ww-q4": "scored:1",
+              "ww-q5": "scored:0",
+              "ww-q6": "scored:3"
+            },
+            "multiplierKeys": [
+              "country:227:20m",
+              "cq-zone:14:20m",
+              "country:230:20m",
+              "country:230:40m",
+              "cq-zone:14:40m",
+              "country:504:20m",
+              "cq-zone:15:20m",
+              "country:291:20m",
+              "cq-zone:5:20m"
+            ]
+          }
+        },
+        {
+          "name": "after-clean-restart",
+          "expected": {
+            "liveQSOCount": 5,
+            "points": 6,
+            "multiplierCount": 9,
+            "claimedScore": 54,
+            "dispositions": {
+              "ww-q1": "scored:1",
+              "ww-q3": "scored:1",
+              "ww-q4": "scored:1",
+              "ww-q5": "scored:0",
+              "ww-q6": "scored:3"
+            },
+            "multiplierKeys": [
+              "country:227:20m",
+              "cq-zone:14:20m",
+              "country:230:20m",
+              "country:230:40m",
+              "cq-zone:14:40m",
+              "country:504:20m",
+              "cq-zone:15:20m",
+              "country:291:20m",
+              "cq-zone:5:20m"
+            ],
+            "exactMutationReplayRequired": true,
+            "receiptsAndTombstonePersist": true,
+            "activeDraftAndReservationStatePreserved": true
+          }
+        }
+      ],
+      "exportExpectations": {
+        "capturedBeforeMutations": {
+          "cabrillo": {
+            "contestID": "CQ-WW-CW",
+            "qsoType": "CW",
+            "qsoLineCount": 6,
+            "claimedScore": 40,
+            "retainsDuplicateLines": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WW-CW",
+            "mode": "CW",
+            "recordCount": 6,
+            "numericSTXSRX": false,
+            "preservesRawLeadingZeroExchange": true
+          }
+        },
+        "capturedAfterDeletionAndRestart": {
+          "cabrillo": {
+            "contestID": "CQ-WW-CW",
+            "qsoType": "CW",
+            "qsoLineCount": 5,
+            "claimedScore": 54,
+            "excludesDeletedQSO": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WW-CW",
+            "mode": "CW",
+            "recordCount": 5,
+            "numericSTXSRX": false,
+            "excludesDeletedQSO": true,
+            "preservesRawLeadingZeroExchange": true
+          }
+        }
+      },
+      "revisionExpectation": "Every accepted create/reserve/draft/QSO/correction/deletion mutation advances the aggregate revision; exact numbers depend on harness draft-save cadence."
+    },
+    {
+      "scenarioID": "cq-ww-ssb-operator-lifecycle-v1",
+      "ruleIdentity": {
+        "id": "cq-ww-ssb",
+        "version": "1.0.0-source-spike",
+        "edition": "source-26.10.11",
+        "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "source": {
+        "path": "not1mm/plugins/cq_ww_ssb.py",
+        "sha256": "9ec3762986761232042389f0334b4887271772d18025f3dd0fdc820782105b3b"
+      },
+      "entry": {
+        "mode": "SSB",
+        "adifMode": "SSB",
+        "cabrilloQSOType": "PH",
+        "report": {
+          "format": "phoneRS",
+          "defaultSent": "59",
+          "defaultReceived": "59",
+          "maximumUTF8Bytes": 2
+        },
+        "exchange": {
+          "sent": "cqZone",
+          "received": "cqZone",
+          "sentDefault": "stationSnapshot",
+          "adifFields": "none"
+        },
+        "serial": {
+          "requirement": "none",
+          "allowedScopes": []
+        }
+      },
+      "station": {
+        "callsign": "OM0RX",
+        "sentExchange": "15",
+        "entity": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        }
+      },
+      "operator": {
+        "callsign": "OM0RX",
+        "category": "Single Operator"
+      },
+      "initialContacts": [
+        {
+          "qsoID": "ww-q1",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-11-28T00:00:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "15",
+          "receivedExchange": "14",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "ww-q2",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-11-28T00:01:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "15",
+          "receivedExchange": "05",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "ww-q3",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-11-28T00:02:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "15",
+          "receivedExchange": "14",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "ww-q4",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-11-28T00:03:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "40m",
+          "frequencyHz": 7125000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "15",
+          "receivedExchange": "14",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "ww-q5",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-11-28T00:04:00.000Z",
+          "callsign": "OM1AAA",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "15",
+          "receivedExchange": "15",
+          "entity": {
+            "adif": 504,
+            "name": "Slovak Republic",
+            "countryPrefix": "OM",
+            "continent": "EU",
+            "cqZone": 15
+          }
+        },
+        {
+          "qsoID": "ww-q6",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-11-28T00:05:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "15",
+          "receivedExchange": "05",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        }
+      ],
+      "checkpoints": [
+        {
+          "name": "after-initial-run-and-s-and-p-entry",
+          "expected": {
+            "liveQSOCount": 6,
+            "points": 5,
+            "multiplierCount": 8,
+            "claimedScore": 40,
+            "dispositions": {
+              "ww-q1": "scored:1",
+              "ww-q2": "scored:3",
+              "ww-q3": "duplicate:0",
+              "ww-q4": "scored:1",
+              "ww-q5": "scored:0",
+              "ww-q6": "duplicate:0"
+            },
+            "multiplierKeys": [
+              "country:230:20m",
+              "cq-zone:14:20m",
+              "country:291:20m",
+              "cq-zone:5:20m",
+              "country:230:40m",
+              "cq-zone:14:40m",
+              "country:504:20m",
+              "cq-zone:15:20m"
+            ]
+          }
+        },
+        {
+          "name": "after-correction",
+          "mutation": {
+            "kind": "correct",
+            "qsoID": "ww-q1",
+            "changes": {
+              "callsign": "F1AAA",
+              "receivedExchange": "14",
+              "entity": {
+                "adif": 227,
+                "name": "France",
+                "countryPrefix": "F",
+                "continent": "EU",
+                "cqZone": 14
+              }
+            },
+            "expected": {
+              "promotedFromDuplicate": "ww-q3",
+              "points": 6,
+              "multiplierCount": 9,
+              "claimedScore": 54
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "ww-q3",
+            "points": 6,
+            "multiplierCount": 9,
+            "claimedScore": 54
+          }
+        },
+        {
+          "name": "after-deletion",
+          "mutation": {
+            "kind": "delete",
+            "qsoID": "ww-q2",
+            "expected": {
+              "promotedFromDuplicate": "ww-q6",
+              "liveQSOCount": 5,
+              "points": 6,
+              "multiplierCount": 9,
+              "claimedScore": 54,
+              "dispositions": {
+                "ww-q1": "scored:1",
+                "ww-q3": "scored:1",
+                "ww-q4": "scored:1",
+                "ww-q5": "scored:0",
+                "ww-q6": "scored:3"
+              },
+              "multiplierKeys": [
+                "country:227:20m",
+                "cq-zone:14:20m",
+                "country:230:20m",
+                "country:230:40m",
+                "cq-zone:14:40m",
+                "country:504:20m",
+                "cq-zone:15:20m",
+                "country:291:20m",
+                "cq-zone:5:20m"
+              ]
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "ww-q6",
+            "liveQSOCount": 5,
+            "points": 6,
+            "multiplierCount": 9,
+            "claimedScore": 54,
+            "dispositions": {
+              "ww-q1": "scored:1",
+              "ww-q3": "scored:1",
+              "ww-q4": "scored:1",
+              "ww-q5": "scored:0",
+              "ww-q6": "scored:3"
+            },
+            "multiplierKeys": [
+              "country:227:20m",
+              "cq-zone:14:20m",
+              "country:230:20m",
+              "country:230:40m",
+              "cq-zone:14:40m",
+              "country:504:20m",
+              "cq-zone:15:20m",
+              "country:291:20m",
+              "cq-zone:5:20m"
+            ]
+          }
+        },
+        {
+          "name": "after-clean-restart",
+          "expected": {
+            "liveQSOCount": 5,
+            "points": 6,
+            "multiplierCount": 9,
+            "claimedScore": 54,
+            "dispositions": {
+              "ww-q1": "scored:1",
+              "ww-q3": "scored:1",
+              "ww-q4": "scored:1",
+              "ww-q5": "scored:0",
+              "ww-q6": "scored:3"
+            },
+            "multiplierKeys": [
+              "country:227:20m",
+              "cq-zone:14:20m",
+              "country:230:20m",
+              "country:230:40m",
+              "cq-zone:14:40m",
+              "country:504:20m",
+              "cq-zone:15:20m",
+              "country:291:20m",
+              "cq-zone:5:20m"
+            ],
+            "exactMutationReplayRequired": true,
+            "receiptsAndTombstonePersist": true,
+            "activeDraftAndReservationStatePreserved": true
+          }
+        }
+      ],
+      "exportExpectations": {
+        "capturedBeforeMutations": {
+          "cabrillo": {
+            "contestID": "CQ-WW-SSB",
+            "qsoType": "PH",
+            "qsoLineCount": 6,
+            "claimedScore": 40,
+            "retainsDuplicateLines": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WW-SSB",
+            "mode": "SSB",
+            "recordCount": 6,
+            "numericSTXSRX": false,
+            "preservesRawLeadingZeroExchange": true
+          }
+        },
+        "capturedAfterDeletionAndRestart": {
+          "cabrillo": {
+            "contestID": "CQ-WW-SSB",
+            "qsoType": "PH",
+            "qsoLineCount": 5,
+            "claimedScore": 54,
+            "excludesDeletedQSO": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WW-SSB",
+            "mode": "SSB",
+            "recordCount": 5,
+            "numericSTXSRX": false,
+            "excludesDeletedQSO": true,
+            "preservesRawLeadingZeroExchange": true
+          }
+        }
+      },
+      "revisionExpectation": "Every accepted create/reserve/draft/QSO/correction/deletion mutation advances the aggregate revision; exact numbers depend on harness draft-save cadence."
+    },
+    {
+      "scenarioID": "cq-wpx-cw-operator-lifecycle-v1",
+      "ruleIdentity": {
+        "id": "cq-wpx-cw",
+        "version": "1.0.0-source-spike",
+        "edition": "source-26.10.11",
+        "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "source": {
+        "path": "not1mm/plugins/cq_wpx_cw.py",
+        "sha256": "27551aab291943acc03b53c74773b8da8ad3c5cbeb96dc6e483870408eadbc86"
+      },
+      "entry": {
+        "mode": "CW",
+        "adifMode": "CW",
+        "cabrilloQSOType": "CW",
+        "report": {
+          "format": "cwRST",
+          "defaultSent": "599",
+          "defaultReceived": "599",
+          "maximumUTF8Bytes": 3
+        },
+        "exchange": {
+          "sent": "serialNumber",
+          "received": "serialNumber",
+          "sentDefault": "reservedSerial",
+          "adifFields": "stxSrx"
+        },
+        "serial": {
+          "requirement": "requiredForOperatorEntry",
+          "allowedScopes": [
+            "session",
+            "band",
+            "transmitter"
+          ]
+        }
+      },
+      "station": {
+        "callsign": "OM0RX",
+        "sentExchange": "001",
+        "entity": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        }
+      },
+      "operator": {
+        "callsign": "OM0RX",
+        "category": "Single Operator"
+      },
+      "initialContacts": [
+        {
+          "qsoID": "wpx-q1",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:00:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "001",
+          "receivedExchange": "101",
+          "expectedWPXPrefix": "K1",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q2",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-05-30T00:01:00.000Z",
+          "callsign": "OM1AAA",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "002",
+          "receivedExchange": "102",
+          "expectedWPXPrefix": "OM1",
+          "entity": {
+            "adif": 504,
+            "name": "Slovak Republic",
+            "countryPrefix": "OM",
+            "continent": "EU",
+            "cqZone": 15
+          }
+        },
+        {
+          "qsoID": "wpx-q3",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:02:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "003",
+          "receivedExchange": "103",
+          "expectedWPXPrefix": "DL1",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "wpx-q4",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-05-30T00:03:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "004",
+          "receivedExchange": "104",
+          "expectedWPXPrefix": "K1",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q5",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:04:00.000Z",
+          "callsign": "K1ABC",
+          "band": "40m",
+          "frequencyHz": 7025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "005",
+          "receivedExchange": "105",
+          "expectedWPXPrefix": "K1",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q6",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-05-30T00:05:00.000Z",
+          "callsign": "K1ABC/4",
+          "band": "15m",
+          "frequencyHz": 21025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "006",
+          "receivedExchange": "106",
+          "expectedWPXPrefix": "K4",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q7",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:06:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "sentReport": "599",
+          "receivedReport": "599",
+          "sentExchange": "007",
+          "receivedExchange": "107",
+          "expectedWPXPrefix": "DL1",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        }
+      ],
+      "checkpoints": [
+        {
+          "name": "after-initial-run-and-s-and-p-entry",
+          "expected": {
+            "liveQSOCount": 7,
+            "points": 14,
+            "multiplierCount": 4,
+            "claimedScore": 56,
+            "dispositions": {
+              "wpx-q1": "scored:3",
+              "wpx-q2": "scored:1",
+              "wpx-q3": "scored:1",
+              "wpx-q4": "duplicate:0",
+              "wpx-q5": "scored:6",
+              "wpx-q6": "scored:3",
+              "wpx-q7": "duplicate:0"
+            },
+            "multiplierKeys": [
+              "wpx-prefix:K1:contest",
+              "wpx-prefix:OM1:contest",
+              "wpx-prefix:DL1:contest",
+              "wpx-prefix:K4:contest"
+            ]
+          }
+        },
+        {
+          "name": "after-correction",
+          "mutation": {
+            "kind": "correct",
+            "qsoID": "wpx-q1",
+            "changes": {
+              "callsign": "N2XYZ",
+              "expectedWPXPrefix": "N2",
+              "entity": {
+                "adif": 291,
+                "name": "United States of America",
+                "countryPrefix": "K",
+                "continent": "NA",
+                "cqZone": 5
+              }
+            },
+            "expected": {
+              "promotedFromDuplicate": "wpx-q4",
+              "points": 17,
+              "multiplierCount": 5,
+              "claimedScore": 85
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "wpx-q4",
+            "points": 17,
+            "multiplierCount": 5,
+            "claimedScore": 85
+          }
+        },
+        {
+          "name": "after-deletion",
+          "mutation": {
+            "kind": "delete",
+            "qsoID": "wpx-q3",
+            "expected": {
+              "promotedFromDuplicate": "wpx-q7",
+              "liveQSOCount": 6,
+              "points": 17,
+              "multiplierCount": 5,
+              "claimedScore": 85,
+              "dispositions": {
+                "wpx-q1": "scored:3",
+                "wpx-q2": "scored:1",
+                "wpx-q4": "scored:3",
+                "wpx-q5": "scored:6",
+                "wpx-q6": "scored:3",
+                "wpx-q7": "scored:1"
+              },
+              "multiplierKeys": [
+                "wpx-prefix:N2:contest",
+                "wpx-prefix:OM1:contest",
+                "wpx-prefix:K1:contest",
+                "wpx-prefix:K4:contest",
+                "wpx-prefix:DL1:contest"
+              ],
+              "issuedSerialsRemain": [
+                "001",
+                "002",
+                "003",
+                "004",
+                "005",
+                "006",
+                "007"
+              ],
+              "nextSerial": "008"
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "wpx-q7",
+            "liveQSOCount": 6,
+            "points": 17,
+            "multiplierCount": 5,
+            "claimedScore": 85,
+            "dispositions": {
+              "wpx-q1": "scored:3",
+              "wpx-q2": "scored:1",
+              "wpx-q4": "scored:3",
+              "wpx-q5": "scored:6",
+              "wpx-q6": "scored:3",
+              "wpx-q7": "scored:1"
+            },
+            "multiplierKeys": [
+              "wpx-prefix:N2:contest",
+              "wpx-prefix:OM1:contest",
+              "wpx-prefix:K1:contest",
+              "wpx-prefix:K4:contest",
+              "wpx-prefix:DL1:contest"
+            ],
+            "issuedSerialsRemain": [
+              "001",
+              "002",
+              "003",
+              "004",
+              "005",
+              "006",
+              "007"
+            ],
+            "nextSerial": "008"
+          }
+        },
+        {
+          "name": "after-clean-restart",
+          "expected": {
+            "liveQSOCount": 6,
+            "points": 17,
+            "multiplierCount": 5,
+            "claimedScore": 85,
+            "dispositions": {
+              "wpx-q1": "scored:3",
+              "wpx-q2": "scored:1",
+              "wpx-q4": "scored:3",
+              "wpx-q5": "scored:6",
+              "wpx-q6": "scored:3",
+              "wpx-q7": "scored:1"
+            },
+            "multiplierKeys": [
+              "wpx-prefix:N2:contest",
+              "wpx-prefix:OM1:contest",
+              "wpx-prefix:K1:contest",
+              "wpx-prefix:K4:contest",
+              "wpx-prefix:DL1:contest"
+            ],
+            "exactMutationReplayRequired": true,
+            "receiptsAndTombstonePersist": true,
+            "activeDraftAndReservationStatePreserved": true
+          }
+        }
+      ],
+      "exportExpectations": {
+        "capturedBeforeMutations": {
+          "cabrillo": {
+            "contestID": "CQ-WPX-CW",
+            "qsoType": "CW",
+            "qsoLineCount": 7,
+            "claimedScore": 56,
+            "retainsDuplicateLines": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WPX-CW",
+            "mode": "CW",
+            "recordCount": 7,
+            "numericSTXSRX": true,
+            "preservesRawLeadingZeroExchange": true
+          }
+        },
+        "capturedAfterDeletionAndRestart": {
+          "cabrillo": {
+            "contestID": "CQ-WPX-CW",
+            "qsoType": "CW",
+            "qsoLineCount": 6,
+            "claimedScore": 85,
+            "excludesDeletedQSO": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WPX-CW",
+            "mode": "CW",
+            "recordCount": 6,
+            "numericSTXSRX": true,
+            "excludesDeletedQSO": true,
+            "preservesRawLeadingZeroExchange": true
+          }
+        }
+      },
+      "revisionExpectation": "Every accepted create/reserve/draft/QSO/correction/deletion mutation advances the aggregate revision; exact numbers depend on harness draft-save cadence."
+    },
+    {
+      "scenarioID": "cq-wpx-ssb-operator-lifecycle-v1",
+      "ruleIdentity": {
+        "id": "cq-wpx-ssb",
+        "version": "1.0.0-source-spike",
+        "edition": "source-26.10.11",
+        "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "source": {
+        "path": "not1mm/plugins/cq_wpx_ssb.py",
+        "sha256": "7d76fc6506c9fa4599db7ba1ea1e609a42994c79fc77096fbb522a7cb129f10d"
+      },
+      "entry": {
+        "mode": "SSB",
+        "adifMode": "SSB",
+        "cabrilloQSOType": "PH",
+        "report": {
+          "format": "phoneRS",
+          "defaultSent": "59",
+          "defaultReceived": "59",
+          "maximumUTF8Bytes": 2
+        },
+        "exchange": {
+          "sent": "serialNumber",
+          "received": "serialNumber",
+          "sentDefault": "reservedSerial",
+          "adifFields": "stxSrx"
+        },
+        "serial": {
+          "requirement": "requiredForOperatorEntry",
+          "allowedScopes": [
+            "session",
+            "band",
+            "transmitter"
+          ]
+        }
+      },
+      "station": {
+        "callsign": "OM0RX",
+        "sentExchange": "001",
+        "entity": {
+          "adif": 504,
+          "name": "Slovak Republic",
+          "countryPrefix": "OM",
+          "continent": "EU",
+          "cqZone": 15
+        }
+      },
+      "operator": {
+        "callsign": "OM0RX",
+        "category": "Single Operator"
+      },
+      "initialContacts": [
+        {
+          "qsoID": "wpx-q1",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:00:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "001",
+          "receivedExchange": "101",
+          "expectedWPXPrefix": "K1",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q2",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-05-30T00:01:00.000Z",
+          "callsign": "OM1AAA",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "002",
+          "receivedExchange": "102",
+          "expectedWPXPrefix": "OM1",
+          "entity": {
+            "adif": 504,
+            "name": "Slovak Republic",
+            "countryPrefix": "OM",
+            "continent": "EU",
+            "cqZone": 15
+          }
+        },
+        {
+          "qsoID": "wpx-q3",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:02:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "003",
+          "receivedExchange": "103",
+          "expectedWPXPrefix": "DL1",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        },
+        {
+          "qsoID": "wpx-q4",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-05-30T00:03:00.000Z",
+          "callsign": "K1ABC",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "004",
+          "receivedExchange": "104",
+          "expectedWPXPrefix": "K1",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q5",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:04:00.000Z",
+          "callsign": "K1ABC",
+          "band": "40m",
+          "frequencyHz": 7125000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "005",
+          "receivedExchange": "105",
+          "expectedWPXPrefix": "K1",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q6",
+          "operatingRole": "s-and-p",
+          "workedAtUTC": "2026-05-30T00:05:00.000Z",
+          "callsign": "K1ABC/4",
+          "band": "15m",
+          "frequencyHz": 21250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "006",
+          "receivedExchange": "106",
+          "expectedWPXPrefix": "K4",
+          "entity": {
+            "adif": 291,
+            "name": "United States of America",
+            "countryPrefix": "K",
+            "continent": "NA",
+            "cqZone": 5
+          }
+        },
+        {
+          "qsoID": "wpx-q7",
+          "operatingRole": "run",
+          "workedAtUTC": "2026-05-30T00:06:00.000Z",
+          "callsign": "DL1AAA",
+          "band": "20m",
+          "frequencyHz": 14250000,
+          "mode": "SSB",
+          "sentReport": "59",
+          "receivedReport": "59",
+          "sentExchange": "007",
+          "receivedExchange": "107",
+          "expectedWPXPrefix": "DL1",
+          "entity": {
+            "adif": 230,
+            "name": "Federal Republic of Germany",
+            "countryPrefix": "DL",
+            "continent": "EU",
+            "cqZone": 14
+          }
+        }
+      ],
+      "checkpoints": [
+        {
+          "name": "after-initial-run-and-s-and-p-entry",
+          "expected": {
+            "liveQSOCount": 7,
+            "points": 14,
+            "multiplierCount": 4,
+            "claimedScore": 56,
+            "dispositions": {
+              "wpx-q1": "scored:3",
+              "wpx-q2": "scored:1",
+              "wpx-q3": "scored:1",
+              "wpx-q4": "duplicate:0",
+              "wpx-q5": "scored:6",
+              "wpx-q6": "scored:3",
+              "wpx-q7": "duplicate:0"
+            },
+            "multiplierKeys": [
+              "wpx-prefix:K1:contest",
+              "wpx-prefix:OM1:contest",
+              "wpx-prefix:DL1:contest",
+              "wpx-prefix:K4:contest"
+            ]
+          }
+        },
+        {
+          "name": "after-correction",
+          "mutation": {
+            "kind": "correct",
+            "qsoID": "wpx-q1",
+            "changes": {
+              "callsign": "N2XYZ",
+              "expectedWPXPrefix": "N2",
+              "entity": {
+                "adif": 291,
+                "name": "United States of America",
+                "countryPrefix": "K",
+                "continent": "NA",
+                "cqZone": 5
+              }
+            },
+            "expected": {
+              "promotedFromDuplicate": "wpx-q4",
+              "points": 17,
+              "multiplierCount": 5,
+              "claimedScore": 85
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "wpx-q4",
+            "points": 17,
+            "multiplierCount": 5,
+            "claimedScore": 85
+          }
+        },
+        {
+          "name": "after-deletion",
+          "mutation": {
+            "kind": "delete",
+            "qsoID": "wpx-q3",
+            "expected": {
+              "promotedFromDuplicate": "wpx-q7",
+              "liveQSOCount": 6,
+              "points": 17,
+              "multiplierCount": 5,
+              "claimedScore": 85,
+              "dispositions": {
+                "wpx-q1": "scored:3",
+                "wpx-q2": "scored:1",
+                "wpx-q4": "scored:3",
+                "wpx-q5": "scored:6",
+                "wpx-q6": "scored:3",
+                "wpx-q7": "scored:1"
+              },
+              "multiplierKeys": [
+                "wpx-prefix:N2:contest",
+                "wpx-prefix:OM1:contest",
+                "wpx-prefix:K1:contest",
+                "wpx-prefix:K4:contest",
+                "wpx-prefix:DL1:contest"
+              ],
+              "issuedSerialsRemain": [
+                "001",
+                "002",
+                "003",
+                "004",
+                "005",
+                "006",
+                "007"
+              ],
+              "nextSerial": "008"
+            }
+          },
+          "expected": {
+            "promotedFromDuplicate": "wpx-q7",
+            "liveQSOCount": 6,
+            "points": 17,
+            "multiplierCount": 5,
+            "claimedScore": 85,
+            "dispositions": {
+              "wpx-q1": "scored:3",
+              "wpx-q2": "scored:1",
+              "wpx-q4": "scored:3",
+              "wpx-q5": "scored:6",
+              "wpx-q6": "scored:3",
+              "wpx-q7": "scored:1"
+            },
+            "multiplierKeys": [
+              "wpx-prefix:N2:contest",
+              "wpx-prefix:OM1:contest",
+              "wpx-prefix:K1:contest",
+              "wpx-prefix:K4:contest",
+              "wpx-prefix:DL1:contest"
+            ],
+            "issuedSerialsRemain": [
+              "001",
+              "002",
+              "003",
+              "004",
+              "005",
+              "006",
+              "007"
+            ],
+            "nextSerial": "008"
+          }
+        },
+        {
+          "name": "after-clean-restart",
+          "expected": {
+            "liveQSOCount": 6,
+            "points": 17,
+            "multiplierCount": 5,
+            "claimedScore": 85,
+            "dispositions": {
+              "wpx-q1": "scored:3",
+              "wpx-q2": "scored:1",
+              "wpx-q4": "scored:3",
+              "wpx-q5": "scored:6",
+              "wpx-q6": "scored:3",
+              "wpx-q7": "scored:1"
+            },
+            "multiplierKeys": [
+              "wpx-prefix:N2:contest",
+              "wpx-prefix:OM1:contest",
+              "wpx-prefix:K1:contest",
+              "wpx-prefix:K4:contest",
+              "wpx-prefix:DL1:contest"
+            ],
+            "exactMutationReplayRequired": true,
+            "receiptsAndTombstonePersist": true,
+            "activeDraftAndReservationStatePreserved": true
+          }
+        }
+      ],
+      "exportExpectations": {
+        "capturedBeforeMutations": {
+          "cabrillo": {
+            "contestID": "CQ-WPX-SSB",
+            "qsoType": "PH",
+            "qsoLineCount": 7,
+            "claimedScore": 56,
+            "retainsDuplicateLines": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WPX-SSB",
+            "mode": "SSB",
+            "recordCount": 7,
+            "numericSTXSRX": true,
+            "preservesRawLeadingZeroExchange": true
+          }
+        },
+        "capturedAfterDeletionAndRestart": {
+          "cabrillo": {
+            "contestID": "CQ-WPX-SSB",
+            "qsoType": "PH",
+            "qsoLineCount": 6,
+            "claimedScore": 85,
+            "excludesDeletedQSO": true,
+            "lineEnding": "CRLF"
+          },
+          "adif": {
+            "contestID": "CQ-WPX-SSB",
+            "mode": "SSB",
+            "recordCount": 6,
+            "numericSTXSRX": true,
+            "excludesDeletedQSO": true,
+            "preservesRawLeadingZeroExchange": true
+          }
+        }
+      },
+      "revisionExpectation": "Every accepted create/reserve/draft/QSO/correction/deletion mutation advances the aggregate revision; exact numbers depend on harness draft-save cadence."
+    }
+  ],
+  "openGates": [
+    "Current sponsor schedules, operating-time limits, category eligibility, power/assistance/station attestations and edition-specific Cabrillo enums are not validated.",
+    "Run/S&P labels are workflow fixtures, not RF, ESM, transmitter or physical-radio evidence.",
+    "Exact Cabrillo and ADIF bytes remain formatter golden work; this fixture defines the required records, coordinates, scores and inclusion rules.",
+    "A clean restart is required; crash recovery remains a separate acceptance gate."
+  ]
+}

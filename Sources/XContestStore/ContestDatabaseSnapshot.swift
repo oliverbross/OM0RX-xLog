@@ -959,10 +959,39 @@ private final class WindowsOwnedHandle {
         return identity()
     }
 
-    func markForDeletion() -> Bool {
+    func finalDOSPath() throws -> String {
+        let flags = DWORD(FILE_NAME_NORMALIZED | VOLUME_NAME_DOS)
+        let required = GetFinalPathNameByHandleW(rawValue, nil, 0, flags)
+        guard required > 0 else {
+            let code = GetLastError()
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows file-ID path lookup failed: \(code)")
+        }
+        var buffer = [WCHAR](repeating: 0, count: Int(required) + 1)
+        let written = buffer.withUnsafeMutableBufferPointer {
+            GetFinalPathNameByHandleW(rawValue, $0.baseAddress, DWORD($0.count), flags)
+        }
+        guard written > 0, written < DWORD(buffer.count) else {
+            let code = GetLastError()
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows file-ID path read failed: \(code)")
+        }
+        let resolved = String(decoding: buffer.prefix(Int(written)), as: UTF16.self)
+        guard resolved.hasPrefix("\\\\?\\") else {
+            throw ContestDatabaseSnapshotError.unsafePath(resolved)
+        }
+        let path = String(resolved.dropFirst(4))
+        _ = try windowsSnapshotPath(path)
+        return path
+    }
+
+    func markForDeletion() -> DWORD? {
         var disposition = FILE_DISPOSITION_INFO(DeleteFileA: BOOLEAN(1))
-        return SetFileInformationByHandle(rawValue, FileDispositionInfo, &disposition,
-                                          DWORD(MemoryLayout<FILE_DISPOSITION_INFO>.size))
+        guard SetFileInformationByHandle(rawValue, FileDispositionInfo, &disposition,
+                                         DWORD(MemoryLayout<FILE_DISPOSITION_INFO>.size)) else {
+            return GetLastError()
+        }
+        return nil
     }
 }
 
@@ -1083,6 +1112,15 @@ private final class PinnedSnapshotParent {
         guard preflight.regularFileIdentity(requireSingleLink: true) == identity else {
             throw ContestDatabaseSnapshotError.unsafePath(url.path)
         }
+        let currentPath = try preflight.finalDOSPath()
+        let pathCheck = try WindowsOwnedHandle.open(
+            path: currentPath, access: DWORD(FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        guard pathCheck.regularFileIdentity(requireSingleLink: true) == identity else {
+            throw ContestDatabaseSnapshotError.unsafePath(currentPath)
+        }
+        pathCheck.close()
         preflight.close()
         databaseIDReopenProven = true
     }
@@ -1106,24 +1144,35 @@ private final class PinnedSnapshotParent {
     }
 
     func publishNoReplace() throws {
-        guard parentPathStillPinned(), stagingEntryStillOwned(), databaseEntryStillOwned() else {
+        guard parentPathStillPinned() else {
             throw ContestDatabaseSnapshotError.unsafePath(parentURL.path)
+        }
+        guard stagingEntryStillOwned() else {
+            throw ContestDatabaseSnapshotError.unsafePath(stagingURL.path)
+        }
+        guard databaseEntryStillOwned() else {
+            throw ContestDatabaseSnapshotError.unsafePath(
+                stagingURL.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName).path)
         }
         try renameStagingHandle(to: destinationURL.path)
     }
 
     func verifyPublishedLocation() throws {
-        guard parentPathStillPinned(),
-              directoryIdentity(at: destinationURL) == stagingIdentity,
-              databaseIdentity(at: destinationURL.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName))
-                == databaseIdentity else {
+        guard parentPathStillPinned() else {
             throw ContestDatabaseSnapshotError.unsafePath(parentURL.path)
+        }
+        guard directoryIdentity(at: destinationURL) == stagingIdentity else {
+            throw ContestDatabaseSnapshotError.unsafePath(destinationURL.path)
+        }
+        let publishedDatabase = destinationURL.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)
+        guard databaseIdentity(at: publishedDatabase) == databaseIdentity else {
+            throw ContestDatabaseSnapshotError.unsafePath(publishedDatabase.path)
         }
     }
 
     func removeOwnedStaging(databaseFileName: String) throws {
         guard let databaseIdentity else {
-            if stagingHandle.markForDeletion() {
+            if stagingHandle.markForDeletion() == nil {
                 stagingHandle.close()
                 return
             }
@@ -1131,17 +1180,23 @@ private final class PinnedSnapshotParent {
                 "Windows cleanup lost the staged database identity")
         }
         let deleteHandle: WindowsOwnedHandle
+        var identityHandle: WindowsOwnedHandle?
         if databaseIDReopenProven {
-            do {
-                deleteHandle = try WindowsOwnedHandle.openByID(
-                    volumeHint: stagingHandle, identity: databaseIdentity,
-                    access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
-                    sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
-                    flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
-            } catch {
+            let openedByID = try WindowsOwnedHandle.openByID(
+                volumeHint: stagingHandle, identity: databaseIdentity,
+                access: DWORD(FILE_READ_ATTRIBUTES),
+                sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+            guard openedByID.regularFileIdentity(requireSingleLink: true) == databaseIdentity else {
                 throw ContestDatabaseSnapshotError.publicationFailed(
-                    "Windows cleanup could not reopen the staged database by file ID")
+                    "Windows cleanup file-ID lookup returned a different object")
             }
+            let currentPath = try openedByID.finalDOSPath()
+            deleteHandle = try WindowsOwnedHandle.open(
+                path: currentPath, access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
+                sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+            identityHandle = openedByID
         } else if let databaseHandle {
             deleteHandle = try databaseHandle.reopened(
                 access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
@@ -1151,20 +1206,21 @@ private final class PinnedSnapshotParent {
             throw ContestDatabaseSnapshotError.publicationFailed(
                 "Windows cleanup cannot reopen the staged database identity")
         }
-        guard deleteHandle.regularFileIdentity(requireSingleLink: false) == databaseIdentity else {
+        guard deleteHandle.regularFileIdentity(requireSingleLink: true) == databaseIdentity else {
             throw ContestDatabaseSnapshotError.publicationFailed(
                 "Windows cleanup could not verify the staged database identity")
         }
+        identityHandle?.close()
         databaseHandle?.close()
         self.databaseHandle = nil
-        guard deleteHandle.markForDeletion() else {
+        if let code = deleteHandle.markForDeletion() {
             throw ContestDatabaseSnapshotError.publicationFailed(
-                "Windows staged database cleanup failed: \(GetLastError())")
+                "Windows staged database cleanup disposition failed: \(code)")
         }
         deleteHandle.close()
-        guard stagingHandle.markForDeletion() else {
+        if let code = stagingHandle.markForDeletion() {
             throw ContestDatabaseSnapshotError.publicationFailed(
-                "Windows staging directory cleanup failed: \(GetLastError())")
+                "Windows staging directory cleanup disposition failed: \(code)")
         }
         stagingHandle.close()
     }
@@ -1202,7 +1258,8 @@ private final class PinnedSnapshotParent {
     private func renameStagingHandle(to path: String) throws {
         let fileName = Array(try windowsSnapshotPath(path).utf16)
         let fileNameOffset = MemoryLayout<FILE_RENAME_INFO>.offset(of: \FILE_RENAME_INFO.FileName)!
-        let byteCount = fileNameOffset + fileName.count * MemoryLayout<WCHAR>.stride
+        let fileNameByteCount = fileName.count * MemoryLayout<WCHAR>.stride
+        let byteCount = fileNameOffset + fileNameByteCount + MemoryLayout<WCHAR>.stride
         let buffer = UnsafeMutableRawPointer.allocate(byteCount: byteCount,
                                                       alignment: MemoryLayout<FILE_RENAME_INFO>.alignment)
         defer { buffer.deallocate() }
@@ -1210,10 +1267,11 @@ private final class PinnedSnapshotParent {
         rename.initialize(to: FILE_RENAME_INFO())
         rename.pointee.ReplaceIfExists = BOOLEAN(0)
         rename.pointee.RootDirectory = nil
-        rename.pointee.FileNameLength = DWORD(fileName.count * MemoryLayout<WCHAR>.stride)
+        rename.pointee.FileNameLength = DWORD(fileNameByteCount)
         fileName.withUnsafeBytes { bytes in
             buffer.advanced(by: fileNameOffset).copyMemory(from: bytes.baseAddress!, byteCount: bytes.count)
         }
+        buffer.advanced(by: fileNameOffset + fileNameByteCount).storeBytes(of: WCHAR(0), as: WCHAR.self)
         guard SetFileInformationByHandle(stagingHandle.rawValue, FileRenameInfo, buffer, DWORD(byteCount)) else {
             let code = GetLastError()
             if code == DWORD(ERROR_ALREADY_EXISTS) || code == DWORD(ERROR_FILE_EXISTS) {

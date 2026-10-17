@@ -1,4 +1,4 @@
-name: Contest core and store portability
+name: Contest portability
 
 on:
   workflow_dispatch:
@@ -6,9 +6,22 @@ on:
     paths:
       - 'Sources/XContestCore/**'
       - 'Sources/XContestStore/**'
+      - 'Sources/XLogPrototypeSupport/Contesting/**'
+      - 'Sources/XLogPrototypeSupport/LiveWorker.swift'
       - 'Sources/CSQLitePrototype/**'
       - 'Tests/XContestCoreTests/**'
       - 'Tests/XContestStoreTests/**'
+      - 'Tests/XLogPrototypeTests/Contest*Tests.swift'
+      - 'docs/contesting/fixtures/contest-export-worker-wire.json'
+      - 'prototype/src-tauri/Cargo.lock'
+      - 'prototype/src-tauri/Cargo.toml'
+      - 'prototype/src-tauri/build.rs'
+      - 'prototype/src-tauri/tauri.conf.json'
+      - 'prototype/src-tauri/tauri.contesting-test.conf.json'
+      - 'prototype/src-tauri/src/contest_export.rs'
+      - 'prototype/src-tauri/src/main.rs'
+      - 'prototype/src-tauri/src/runtime_profile.rs'
+      - 'prototype/src-tauri/src/worker.rs'
       - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
       - 'Tests/XStationIntegrationTests/ConnectionDoctorTests.swift'
       - 'Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift'
@@ -20,9 +33,22 @@ on:
     paths:
       - 'Sources/XContestCore/**'
       - 'Sources/XContestStore/**'
+      - 'Sources/XLogPrototypeSupport/Contesting/**'
+      - 'Sources/XLogPrototypeSupport/LiveWorker.swift'
       - 'Sources/CSQLitePrototype/**'
       - 'Tests/XContestCoreTests/**'
       - 'Tests/XContestStoreTests/**'
+      - 'Tests/XLogPrototypeTests/Contest*Tests.swift'
+      - 'docs/contesting/fixtures/contest-export-worker-wire.json'
+      - 'prototype/src-tauri/Cargo.lock'
+      - 'prototype/src-tauri/Cargo.toml'
+      - 'prototype/src-tauri/build.rs'
+      - 'prototype/src-tauri/tauri.conf.json'
+      - 'prototype/src-tauri/tauri.contesting-test.conf.json'
+      - 'prototype/src-tauri/src/contest_export.rs'
+      - 'prototype/src-tauri/src/main.rs'
+      - 'prototype/src-tauri/src/runtime_profile.rs'
+      - 'prototype/src-tauri/src/worker.rs'
       - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
       - 'Tests/XStationIntegrationTests/ConnectionDoctorTests.swift'
       - 'Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift'
@@ -88,42 +114,112 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          discovered="$(swift test list --scratch-path .build/contest-platform)"
+          discovered="$(swift test list --jobs 2 --scratch-path .build/contest-platform)"
           printf '%s\n' "$discovered"
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestStoreTests\.ContestStoreTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestADIFExportTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportServiceTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportLaneTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportWorkerWireTests/')" -ge 1
       - name: Verify contest test discovery (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $discovered = & swift test list --scratch-path .build/contest-platform -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib" 2>&1
+          $discovered = & swift test list --jobs 2 --scratch-path .build/contest-platform -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib" 2>&1
           if ($LASTEXITCODE -ne 0) { $discovered | Write-Output; exit $LASTEXITCODE }
           $discovered | Write-Output
           $core = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCoreTests/' }).Count
           $store = @($discovered | Where-Object { $_ -match '^XContestStoreTests\.ContestStoreTests/' }).Count
-          if ($core -lt 1 -or $store -lt 1) { throw "Expected contest test targets were not discovered." }
-      - name: Test contest core and store (macOS and Linux)
+          $adif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestADIFExportTests/' }).Count
+          $service = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportServiceTests/' }).Count
+          $lane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportLaneTests/' }).Count
+          $wire = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportWorkerWireTests/' }).Count
+          if ($core -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1) { throw "Expected contest test targets were not discovered." }
+      - name: Test contest core, store, and export support (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
-          swift test --scratch-path .build/contest-platform --filter XContestCoreTests
-          swift test --scratch-path .build/contest-platform --filter XContestStoreTests
-      - name: Test contest core and store (Windows)
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestCoreTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestADIFExportTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportServiceTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportLaneTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportWorkerWireTests
+      - name: Test contest core, store, and export support (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          swift test --scratch-path .build/contest-platform --filter XContestCoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestCoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          swift test --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
-          exit $LASTEXITCODE
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests')) {
+            swift test --jobs 2 --scratch-path .build/contest-platform --filter $filter -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Test Windows ConnectionDoctor boolean fallback
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          swift test --scratch-path .build/contest-platform --filter XStationIntegrationTests.ConnectionDoctorTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XStationIntegrationTests.ConnectionDoctorTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
       - name: Test Windows remote backup revision validation
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          swift test --scratch-path .build/contest-platform --filter XLogPrototypeTests.LiveRemoteBackupPresentationTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.LiveRemoteBackupPresentationTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          exit $LASTEXITCODE
+
+  contest-native-tests:
+    name: Contest native tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04, windows-2022]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      TAURI_CONFIG: '{"productName":"OM0RX-xLog Contesting Test","identifier":"com.oliverbross.xlog.contesting-test","bundle":{"active":false,"externalBin":[]}}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux Tauri compile dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev
+      - name: Restore isolated native test cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/contest-native-target
+          key: contest-native-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock') }}
+      - name: Record Rust toolchain and verify Test config override
+        shell: bash
+        run: |
+          rustc --version --verbose
+          cargo --version --verbose
+          node -e 'const c=JSON.parse(process.env.TAURI_CONFIG); if(c.productName!=="OM0RX-xLog Contesting Test"||c.identifier!=="com.oliverbross.xlog.contesting-test"||c.bundle?.active!==false||!Array.isArray(c.bundle?.externalBin)||c.bundle.externalBin.length!==0) process.exit(1)'
+      - name: Discover and run bounded native export tests
+        if: runner.os != 'Windows'
+        working-directory: prototype/src-tauri
+        shell: bash
+        run: |
+          target="${{ runner.temp }}/contest-native-target"
+          discovered="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests:: -- --list)"
+          printf '%s\n' "$discovered"
+          test "$(printf '%s\n' "$discovered" | grep -c '^contest_export::tests::')" -ge 1
+          cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests::
+      - name: Discover and run bounded native export tests (Windows)
+        if: runner.os == 'Windows'
+        working-directory: prototype/src-tauri
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'contest-native-target'
+          $discovered = & cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test 'contest_export::tests::' -- --list 2>&1
+          if ($LASTEXITCODE -ne 0) { $discovered | Write-Output; exit $LASTEXITCODE }
+          $discovered | Write-Output
+          $count = @($discovered | Where-Object { $_ -match '^contest_export::tests::' }).Count
+          if ($count -lt 1) { throw 'Expected native contest export tests were not discovered.' }
+          cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test 'contest_export::tests::'
           exit $LASTEXITCODE

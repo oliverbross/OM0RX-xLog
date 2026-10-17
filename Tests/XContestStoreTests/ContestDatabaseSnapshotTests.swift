@@ -514,6 +514,21 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         XCTAssertNoThrow(try windowsSnapshotPath(FileManager.default.temporaryDirectory.path))
     }
 
+    func testWindowsPublicationUsesExactRequestedDestinationName() async throws {
+        let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
+        _ = try await create(store)
+        let parent = temporaryDirectory()
+        let destination = parent.appendingPathComponent("published-exact-name", isDirectory: true)
+
+        _ = try await ContestDatabaseSnapshotter().createSnapshot(
+            sourceDatabaseURL: source, destinationDirectoryURL: destination)
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: parent.path),
+                       [destination.lastPathComponent])
+        let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
+        XCTAssertEqual(metadata.schemaVersion, 2)
+    }
+
     func testWindowsHeldHandlesDenyEarlyStagingAndParentMoves() async throws {
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)
@@ -649,14 +664,21 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
                 to: staging.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName))
             try Data("attacker replacement".utf8).write(to: staging.appendingPathComponent("replacement-marker"))
         }))
-        await assertSnapshotError(.unsafePath(canonicalTemporaryPath(parent.path))) {
+        var snapshotError: ContestDatabaseSnapshotError?
+        do {
             _ = try await snapshotter.createSnapshot(sourceDatabaseURL: source,
                                                        destinationDirectoryURL: destination)
+            XCTFail("Replaced staging directory published")
+        } catch let error as ContestDatabaseSnapshotError {
+            snapshotError = error
+        } catch {
+            XCTFail("Unexpected error: \(error)")
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
         let replacement = try XCTUnwrap(FileManager.default.contentsOfDirectory(
             at: parent, includingPropertiesForKeys: nil)
             .first { $0.lastPathComponent.hasPrefix(".contest-snapshot-") })
+        XCTAssertEqual(snapshotError, .unsafePath(canonicalTemporaryPath(replacement.path)))
         XCTAssertEqual(try Data(contentsOf: replacement.appendingPathComponent("replacement-marker")),
                        Data("attacker replacement".utf8))
         XCTAssertEqual(try Data(contentsOf: replacement.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)),
