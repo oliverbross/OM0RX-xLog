@@ -29,6 +29,8 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public static let ssbSubmissionProjectionFormatterVersion = "ssb-pilot-2"
     /// Report-free name/location projection shared by the three isolated NAQP previews.
     public static let naqpPreviewFormatterVersion = "naqp-preview-1"
+    /// ARRL RTTY Roundup report plus station-resolved location/serial projection.
+    public static let arrlRTTYPreviewFormatterVersion = "arrl-rtty-preview-1"
 
     public let schemaVersion: String
     public let formatterVersion: String
@@ -59,7 +61,8 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
 
     public func validatedScore(rule: any ContestRule) throws -> ContestScore {
         let validated = try validatedCommon(rule: rule)
-        if formatterVersion == Self.naqpPreviewFormatterVersion {
+        if formatterVersion == Self.naqpPreviewFormatterVersion ||
+            formatterVersion == Self.arrlRTTYPreviewFormatterVersion {
             return try validatedProjectionAfterCommonValidation(rule: rule).score
         }
         switch formatterVersion {
