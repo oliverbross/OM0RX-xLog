@@ -821,9 +821,12 @@ final class TCIProtocolTests: XCTestCase {
         // The PDF's example lacks the comma between RMS and peak values. Never repair it.
         reducer.apply(decoder.feed("TX_SENSORS:0,-27.2,47.4.67.5,1.7;"), receivedAt: receipt.addingTimeInterval(10))
         XCTAssertEqual(reducer.state.transmitSensors, retained)
-        for arguments in [[], ["0"], Array(valid.dropLast()), valid + ["extra"],
-                          ["-1"] + Array(valid.dropFirst()), ["2"] + Array(valid.dropFirst()),
-                          ["0.0"] + Array(valid.dropFirst()), ["0", "1"] + Array(valid.dropFirst())] {
+        let tail = Array(valid.dropFirst())
+        let malformedArguments: [[String]] = [
+            [], ["0"], Array(valid.dropLast()), valid + ["extra"],
+            ["-1"] + tail, ["2"] + tail, ["0.0"] + tail, ["0", "1"] + tail,
+        ]
+        for arguments in malformedArguments {
             XCTAssertFalse(reducer.apply(TCICommand(name: "TX_SENSORS", arguments: arguments)))
             XCTAssertEqual(reducer.state.transmitSensors, retained)
         }

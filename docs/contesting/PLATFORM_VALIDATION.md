@@ -39,11 +39,15 @@ job on another operating system is not evidence for Linux or Windows.
 
 Record the workflow URL, run ID, source commit, runner image, reported Swift
 version, and the outcome of both focused test commands before marking an
-operating system complete. Until those jobs run successfully, native platform
-status remains pending.
+operating system complete. A later failure does not erase an earlier native
+result at its recorded commit, but it does not validate the newer source.
 
 | Platform | Required job | Current status |
 | --- | --- | --- |
-| macOS 14 | `Contest tests (macos-14)` | Pending first workflow run |
-| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Pending first workflow run |
-| Windows Server 2022 | `Contest tests (windows-2022)` | Pending first workflow run |
+| macOS 14 | `Contest tests (macos-14)` | Pending a successful hosted run. Run `39031590054` at `d1ab5aa` failed while compiling a portable backup test under Xcode 16.2. Run `39032872265` at `434e5de` progressed past that repair but failed while type-checking `TCIProtocolTests`; neither run is macOS validation. |
+| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed in run `39031590054` at `d1ab5aa` and again in run `39032872265` at `434e5de`. Each result validates only its recorded source commit. |
+| Windows Server 2022 | `Contest tests (windows-2022)` | Passed in run `39031590054` at `d1ab5aa`: 16 contest-core tests, 23 contest-store tests, 6 ConnectionDoctor tests, and 8 remote-backup presentation tests. It passed again in run `39032872265` at `434e5de`; each result validates only its recorded source commit. |
+
+These are native Swift compile-and-test results for the workflow's portable
+manifest. They do not prove a packaged application, renderer or worker runtime,
+installation, device access, radio behavior, or end-to-end contest operation.
