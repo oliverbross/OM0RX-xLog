@@ -2,13 +2,13 @@ import Foundation
 
 public struct ContestMutationScope: Codable, Hashable, Sendable {
     public let sessionID: UUID
-    public let workspaceGeneration: UInt64
+    public let workspaceGeneration: UUID
     public let requestID: UUID
     public let expectedRevision: UInt64
     public let draftID: UUID?
     public let payloadDigest: String
 
-    public init(sessionID: UUID, workspaceGeneration: UInt64, requestID: UUID,
+    public init(sessionID: UUID, workspaceGeneration: UUID, requestID: UUID,
                 expectedRevision: UInt64, draftID: UUID? = nil, payloadDigest: String) {
         self.sessionID = sessionID
         self.workspaceGeneration = workspaceGeneration

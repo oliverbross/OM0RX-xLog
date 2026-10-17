@@ -49,14 +49,14 @@ public struct ContestStationSnapshot: Codable, Hashable, Sendable {
 
 public struct ContestSessionSnapshot: Codable, Hashable, Sendable {
     public let id: UUID
-    public let workspaceGeneration: UInt64
+    public let workspaceGeneration: UUID
     public let rule: ContestRuleIdentity
     public let referenceDataVersion: String
     public let startedAt: Date
     public let endedAt: Date?
     public let station: ContestStationSnapshot
 
-    public init(id: UUID, workspaceGeneration: UInt64, rule: ContestRuleIdentity,
+    public init(id: UUID, workspaceGeneration: UUID, rule: ContestRuleIdentity,
                 referenceDataVersion: String, startedAt: Date, endedAt: Date? = nil,
                 station: ContestStationSnapshot) {
         self.id = id

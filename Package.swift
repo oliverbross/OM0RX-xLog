@@ -62,6 +62,7 @@ let package = portableOnly ? Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "XContestCore", targets: ["XContestCore"]),
+        .library(name: "XContestStore", targets: ["XContestStore"]),
         .executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"]),
     ],
     dependencies: portableDependencies,
@@ -72,7 +73,8 @@ let package = portableOnly ? Package(
         .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
         .target(name: "XStationIntegrationCore"),
         .target(name: "XContestCore"),
-        .target(name: "XLogPrototypeSupport", dependencies: [.byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault", "XClusterIntegrationCore", "XStationIntegrationCore"] + portableCrypto + liveIntegrationDependencies),
+        .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
+        .target(name: "XLogPrototypeSupport", dependencies: [.byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault", "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore"] + portableCrypto + liveIntegrationDependencies),
         .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
         .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
         .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
@@ -80,6 +82,7 @@ let package = portableOnly ? Package(
         .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
         .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
         .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
+        .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
     ]
 ) : Package(
     name: "OM0RXXLog",
@@ -87,9 +90,11 @@ let package = portableOnly ? Package(
     products: [
         .library(name: "XLogCore", targets: ["XLogCore"]),
         .library(name: "XContestCore", targets: ["XContestCore"]),
+        .library(name: "XContestStore", targets: ["XContestStore"]),
         .executable(name: "om0rx-xlog", targets: ["XLogApp"]),
     ],
     targets: nativeTransferTargets + [
+        .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
         .target(
             name: "XLogCore",
             dependencies: ["CCurlBackup"],
@@ -102,6 +107,7 @@ let package = portableOnly ? Package(
             ]
         ),
         .target(name: "XContestCore"),
+        .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
         .executableTarget(
             name: "XLogApp",
             dependencies: ["XLogCore"],
@@ -117,5 +123,6 @@ let package = portableOnly ? Package(
             linkerSettings: [.linkedLibrary("sqlite3")]
         ),
         .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
+        .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
     ]
 )

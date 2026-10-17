@@ -240,7 +240,8 @@ final class ContestCoreTests: XCTestCase {
     }
 
     private func makeSession(rule: ContestRuleIdentity, stationEntity: ContestEntitySnapshot? = nil) -> ContestSessionSnapshot {
-        ContestSessionSnapshot(id: sessionID, workspaceGeneration: 7, rule: rule,
+        ContestSessionSnapshot(id: sessionID,
+                               workspaceGeneration: UUID(uuidString: "ffffffff-ffff-ffff-8000-000000000007")!, rule: rule,
                                referenceDataVersion: "fixture-cty-1", startedAt: baseDate,
                                station: .init(callsign: "OM0RX", entity: stationEntity ?? om, sentExchange: "15", operatorCallsigns: ["OM0RX"]))
     }
