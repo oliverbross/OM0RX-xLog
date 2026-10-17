@@ -207,3 +207,27 @@ This validates the Oceania rule/store source on native runners. It excludes
 the subsequent six-pilot worker/UI integration, corrected SAC candidate,
 SCP integration and full operator simulation; no package, save-dialog,
 sponsor approval or hardware acceptance is inferred.
+
+## Six-pilot adapter source matrix
+
+[Run 39050582252](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39050582252)
+passed all six jobs at `e70f3bd0778d9938bba046aae1ec87cd1e5df56b`.
+Actual logs show 44 core, 49 store/snapshot and 27 export-support tests on
+macOS (Swift job `117448166194`) and Linux (`117448166200`). Windows Swift
+job `117448166193` passed 44 core, 54 store/snapshot, 27 export-support,
+6 ConnectionDoctor and 8 backup-presentation tests. Its snapshot suite ran
+all 17 tests without skips. Rust jobs `117448166089`, `117448166174` and
+`117448166231` each executed 18 native export tests successfully.
+
+This source contains the six-contest worker/UI adapters and Oceania ADIF
+mapping, but the workflow currently executes only the four export-support
+classes (5 ADIF, 8 service, 11 export-lane, 3 wire tests). It does not run
+`ContestingLaneTests`; create/log/edit/delete/restart scenarios in that suite
+have local evidence only. It also excludes the later SCP backend, Run/S&P
+reducer and deterministic export-concurrency repair. Native test success is
+not application/operator or native save-dialog acceptance.
+
+The predecessor four-pilot adapter
+[run 39049346200](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39049346200)
+at `a074a34f35fd3916d332e97b496c174fc5ff59aa` also completed all six jobs
+successfully; no uninspected per-suite counts are claimed for that run here.

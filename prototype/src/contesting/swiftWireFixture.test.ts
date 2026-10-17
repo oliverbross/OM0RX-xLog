@@ -18,7 +18,7 @@ const lifecycleRequestKey: Record<string, LifecycleRequestKey> = {
   contest_create: "create", contest_serial_reserve: "reserve", contest_draft_apply: "apply", contest_qso_commit: "commit",
 };
 const UUID_KEYS = new Set(["sessionID", "workspaceGeneration", "requestID", "draftID", "qsoID"]);
-const LOWERCASE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const LOWERCASE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function contestUUIDs(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap(contestUUIDs);
@@ -34,7 +34,7 @@ function createInput(): ContestCreateInput {
 
 describe("Swift contest worker wire fixture", () => {
   it("parses the generated create, reserve, apply, commit, and exact replay lifecycle", async () => {
-    expect(fixture.schemaVersion).toBe(3);
+    expect(fixture.schemaVersion).toBe(5);
     expect(fixture.provenance.liveWorkerResponses).toContain("reserve");
     expect(fixture.provenance.postCommitUncertain).toBe("actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response");
     expect(fixture.assertions.allContestUUIDsCanonicalLowercase).toBe(true);
@@ -69,6 +69,14 @@ describe("Swift contest worker wire fixture", () => {
     );
 
     const catalog = await client.catalog();
+    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb"]));
+    const entries = Object.fromEntries(catalog.rules.map(rule => [rule.identity.id,
+      [rule.entryDescriptorVersion, rule.mode, rule.entry.cabrilloQSOType, rule.entry.report.defaultSent, rule.entry.serial.requirement]]));
+    expect(entries).toEqual({
+      "cq-ww-cw": [1, "CW", "CW", "599", "none"], "cq-wpx-cw": [1, "CW", "CW", "599", "requiredForCommit"],
+      "cq-ww-ssb": [1, "SSB", "PH", "59", "none"], "cq-wpx-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
+      "oceania-dx-cw": [1, "CW", "CW", "599", "requiredForCommit"], "oceania-dx-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
+    });
     const created = await client.create(catalog.workspaceGeneration, createInput());
     const reserved = await client.reserveSerial(created.session, created.draft.draftID);
     const applied = await client.applyDraft(reserved.session, reserved.draft.draftID, (fixture.requests.apply.payload as { fields: ContestDraftFields }).fields);

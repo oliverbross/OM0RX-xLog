@@ -5,15 +5,27 @@ import { ContestWorkspace } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 
+const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx" | "exchangeStrings" = serial ? "stxSrx" : "none"): ContestRuleMetadata["entry"] => ({
+  mode, adifMode: mode, cabrilloQSOType: mode === "CW" ? "CW" : "PH",
+  cabrilloFormatterVersion: mode === "CW" ? "pilot-1" : "ssb-pilot-1",
+  cabrilloProjectionFormatterVersion: mode === "CW" ? "pilot-2" : "ssb-pilot-2",
+  report: { format: mode === "CW" ? "cwRST" : "phoneRS", defaultSent: mode === "CW" ? "599" : "59", defaultReceived: mode === "CW" ? "599" : "59", maximumUTF8Bytes: mode === "CW" ? 3 : 2 },
+  exchange: { sent: serial ? "serialNumber" : "cqZone", received: serial ? "serialNumber" : "cqZone", sentDefault: serial ? "reservedSerial" : "stationSnapshot", adifFields },
+  serial: { requirement: serial ? "requiredForCommit" : "none", allowedScopes: serial ? ["session", "band", "transmitter"] : [] },
+});
 const rules: ContestRuleMetadata[] = [
-  { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "contest-sw@1" }, displayName: "CQ WW CW", mode: "CW", referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
-  { identity: { id: "cq-wpx-cw", version: "2026.2", edition: "2026", sourceRevision: "contest-sw@2" }, displayName: "CQ WPX CW", mode: "CW", referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Fixture checked" },
+  { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "contest-sw@1" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
+  { identity: { id: "cq-wpx-cw", version: "2026.2", edition: "2026", sourceRevision: "contest-sw@2" }, displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true), referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Fixture checked" },
+  { identity: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WW SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WPX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
 ];
-const sessions: ContestSessionSummary[] = rules.map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
-function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: "599", sentExchange: session.rule.identity.id === "cq-ww-cw" ? "15" : "001", receivedReport: "599", receivedExchange: callsign ? "05" : "", frequencyHz: 14025000, band: "20m", mode: "CW" }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
+const sessions: ContestSessionSummary[] = rules.slice(0, 2).map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
+function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent; return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
-function fullQSO(session: ContestSessionSummary): ContestFullQSO { return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW", frequencyHz: 14025000, sentReport: "599", receivedReport: "599", sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
+function fullQSO(session: ContestSessionSummary): ContestFullQSO { const report = session.rule.entry.report.defaultSent; return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: session.rule.mode, frequencyHz: 14025000, sentReport: report, receivedReport: report, sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
 function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean } = {}) {
   const state = new Map(sessions.map(item => { const session = { ...item, qsoCount: options.qsoSession === item.sessionID ? 1 : item.qsoCount }; const draft = draftFor(session); if (options.qsoSession === "session-2") draft.reservedSerial = 7; return [item.sessionID, { session, draft }]; }));
   const contacts = new Map<string, ContestFullQSO>(); if (options.qsoSession) contacts.set(options.qsoSession, fullQSO(state.get(options.qsoSession)!.session));
@@ -49,7 +61,7 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
     if (method === "contest_qso_commit") {
       await options.commit; const old = current.draft, revision = current.session.revision + 1; current.session = { ...current.session, revision, qsoCount: current.session.qsoCount + 1 }; current.draft = draftFor(current.session);
       const { multiplierLabels: _multiplierLabels, ...scoreSummary } = score(current.session);
-      return ok({ ...current, qso: { qsoID: `qso-${revision}`, sessionID: current.session.sessionID, workedAt: "2026-10-17T02:00:00Z", callsign: old.fields.callsign, band: old.fields.band, mode: "CW", sentExchange: old.fields.sentExchange, receivedExchange: old.fields.receivedExchange, points: 3, multiplier: "K", isDupe: false }, score: scoreSummary, receipt: receipt(params, revision) });
+      return ok({ ...current, qso: { qsoID: `qso-${revision}`, sessionID: current.session.sessionID, workedAt: "2026-10-17T02:00:00Z", callsign: old.fields.callsign, band: old.fields.band, mode: old.fields.mode, sentExchange: old.fields.sentExchange, receivedExchange: old.fields.receivedExchange, points: 3, multiplier: "K", isDupe: false }, score: scoreSummary, receipt: receipt(params, revision) });
     }
     if (method === "contest_qso_correct" || method === "contest_qso_delete") {
       const replay = changeResults.get(params.requestID as string); if (replay) return ok(replay);
@@ -70,7 +82,7 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       return ok(value);
     }
     if (method === "contest_operation_receipt") { const result = changeResults.get(params.requestID as string); return ok(options.receiptCommitted && result ? { status: "committed", receipt: result.receipt } : { status: "not_found" }); }
-    if (method === "contest_log_page") { const contact = contacts.get(current.session.sessionID); const qsos = contact ? [{ qsoID: contact.qsoID, sessionID: contact.sessionID, workedAt: contact.originalUTC, callsign: contact.callsign, band: contact.band, mode: "CW", sentExchange: contact.sentExchange, receivedExchange: contact.receivedExchange, points: 3, multiplier: "prefix:DL:all", isDupe: false }] : []; return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos, total: qsos.length, offset: params.offset, limit: params.limit }); }
+    if (method === "contest_log_page") { const contact = contacts.get(current.session.sessionID); const qsos = contact ? [{ qsoID: contact.qsoID, sessionID: contact.sessionID, workedAt: contact.originalUTC, callsign: contact.callsign, band: contact.band, mode: contact.mode, sentExchange: contact.sentExchange, receivedExchange: contact.receivedExchange, points: 3, multiplier: "prefix:DL:all", isDupe: false }] : []; return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos, total: qsos.length, offset: params.offset, limit: params.limit }); }
     if (method === "contest_score") return ok({ ...score(current.session), revision: params.expectedRevision });
     throw new Error(`Unexpected ${method}`);
   }) as ContestRequest;
@@ -112,6 +124,28 @@ it("offers serial reservation only for WPX and keeps partial calls editable afte
     ((params.payload as { fields?: ContestDraftSnapshot["fields"] }).fields?.callsign === "K1"))).toBe(true));
   expect(call.value).toBe("K1");
   view.unmount();
+});
+
+it("creates an SSB pilot from catalog metadata and uses phone reports with WPX serial capability", async () => {
+  const { request, calls } = fixture();
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  await screen.findByText("WW November");
+  expect(screen.getByRole("option", { name: /Oceania DX CW/ })).toBeTruthy();
+  expect(screen.getByRole("option", { name: /Oceania DX SSB/ })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Session name"), { target: { value: "WPX SSB Saturday" } });
+  fireEvent.change(screen.getByLabelText("Contest"), { target: { value: "cq-wpx-ssb" } });
+  fireEvent.change(screen.getByLabelText("Station callsign"), { target: { value: "OM0RX" } });
+  fireEvent.change(screen.getByLabelText("Operator callsign"), { target: { value: "OM0RX" } });
+  fireEvent.change(screen.getByLabelText("CQ zone"), { target: { value: "15" } });
+  fireEvent.change(screen.getByLabelText("DXCC entity"), { target: { value: "Slovak Republic" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+  await screen.findByRole("form", { name: "SSB contest entry" });
+  expect(screen.getByText("SSB", { selector: ".contest-entry-context strong" })).toBeTruthy();
+  expect((screen.getByLabelText("Sent report") as HTMLInputElement).value).toBe("59");
+  expect((screen.getByLabelText("Received report") as HTMLInputElement).value).toBe("59");
+  expect(screen.getByRole("button", { name: "Reserve serial" })).toBeTruthy();
+  const createCall = calls.find(([method]) => method === "contest_create");
+  expect((createCall?.[1].payload as Record<string, unknown>).ruleIdentity).toEqual(rules[3].identity);
 });
 
 it("drains edits made during a delayed save before an immediate Log", async () => {

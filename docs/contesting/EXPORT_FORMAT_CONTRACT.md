@@ -16,10 +16,10 @@ QSO ordering is UTC timestamp followed by the complete UUID string. Cabrillo out
 
 Explicit `pilot-1` inputs and default direct formatter calls retain the legacy
 interpretation and golden output, including rejection of off-band contacts for
-a single-band header. ADIF continues to use `pilot-1`; its preservation mapping
+a single-band header. CW ADIF continues to use `pilot-1`; its preservation mapping
 is unchanged. Unknown formatter versions are rejected.
 
-`ContestExportService` explicitly selects `pilot-2` for new Cabrillo artifacts.
+`ContestExportService` selects the formatter policy pinned by the rule entry descriptor: `pilot-2` for the CW submission projection and `ssb-pilot-2` for SSB. ADIF artifacts likewise carry the descriptor's base policy (`pilot-1` or `ssb-pilot-1`).
 This policy first validates every contact in the coherent captured snapshot,
 then recomputes the claimed score over all contacts for `ALL`, or over the
 selected band only. Every original valid contact is rendered in deterministic
@@ -30,7 +30,7 @@ multiplier credit. No eligible contacts produces a zero claimed score. The
 artifact metadata and Cabrillo claim use the same projection; a mismatched
 caller-supplied score is rejected.
 
-The supported `pilot-2` preview category is single-operator CW with no overlay,
+The supported projection preview category is single-operator CW or SSB with no overlay,
 one transmitter, power `HIGH`, `LOW`, or `QRP`, assistance `ASSISTED` or
 `NON-ASSISTED`, and `ALL` or one supported pilot band. Unsupported combinations
 are explicit errors. This change does not alter stored session scores, rule
@@ -45,7 +45,7 @@ Intentional differences are strict and deterministic: the formatter has no files
 
 ## ADIF 3.1.7 mapping
 
-The mapper reuses xLog's `ADIFRecord` writer and parser. It follows the released ADIF 3.1.7 field semantics: `QSO_DATE` and `TIME_ON` are UTC, `FREQ` is MHz, `CONTEST_ID` names the contest, and `STX`/`SRX` contain numeric WPX serials. `STX_STRING` and `SRX_STRING` retain the exact exchange text, including leading zeroes. Lengths are UTF-8 byte lengths as emitted by `ADIFRecord`.
+The mapper reuses xLog's `ADIFRecord` writer and parser. It follows the released ADIF 3.1.7 field semantics: `QSO_DATE` and `TIME_ON` are UTC, `FREQ` is MHz, `MODE` is the descriptor's CW or SSB mode, `CONTEST_ID` names the contest, and `STX`/`SRX` contain numeric WPX serials. WPX CW and SSB advertise the numeric `stxSrx` mapping; Oceania DX CW and SSB advertise `exchangeStrings`, which emits only `STX_STRING`/`SRX_STRING`; WW advertises none. String exchange fields retain the exact exchange text, including leading zeroes. Lengths are UTF-8 byte lengths as emitted by `ADIFRecord`.
 
 The current untyped operational `station.location` is used only to validate each QSO against its frozen station snapshot. It is not emitted as `MY_GRIDSQUARE`, `MY_CITY`, or Cabrillo `LOCATION`; those standards fields require a future typed station-location contract rather than guessing from a free-form value.
 

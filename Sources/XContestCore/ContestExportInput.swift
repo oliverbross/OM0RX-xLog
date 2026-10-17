@@ -23,6 +23,10 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public static let legacyFormatterVersion = "pilot-1"
     /// Cabrillo preview policy that projects a single-band claim while retaining the complete valid log.
     public static let submissionProjectionFormatterVersion = "pilot-2"
+    /// SSB counterpart to the frozen pilot-1 policy. QSO records use the Cabrillo PH token.
+    public static let ssbFormatterVersion = "ssb-pilot-1"
+    /// SSB counterpart to the frozen pilot-2 single-band projection policy.
+    public static let ssbSubmissionProjectionFormatterVersion = "ssb-pilot-2"
 
     public let schemaVersion: String
     public let formatterVersion: String
@@ -54,7 +58,7 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     public func validatedScore(rule: any ContestRule) throws -> ContestScore {
         let validated = try validatedCommon(rule: rule)
         switch formatterVersion {
-        case Self.legacyFormatterVersion:
+        case rule.metadata.entry.cabrilloFormatterVersion:
             let categoryBand = metadata.cabrilloHeader.categoryBand.uppercased()
             if categoryBand != "ALL" {
                 let expectedBand = categoryBand.lowercased()
@@ -64,7 +68,7 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
                 }
             }
             return validated
-        case Self.submissionProjectionFormatterVersion:
+        case rule.metadata.entry.cabrilloProjectionFormatterVersion:
             return try validatedProjectionAfterCommonValidation(rule: rule).score
         default:
             throw ContestExportInputError.unsupportedFormatter(formatterVersion)
@@ -72,7 +76,7 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
     }
 
     public func validatedProjection(rule: any ContestRule) throws -> ContestSubmissionProjection {
-        guard formatterVersion == Self.submissionProjectionFormatterVersion else {
+        guard formatterVersion == rule.metadata.entry.cabrilloProjectionFormatterVersion else {
             throw ContestExportInputError.unsupportedFormatter(formatterVersion)
         }
         _ = try validatedCommon(rule: rule)
@@ -81,8 +85,8 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
 
     private func validatedCommon(rule: any ContestRule) throws -> ContestScore {
         guard schemaVersion == Self.currentSchemaVersion else { throw ContestExportInputError.unsupportedSchema(schemaVersion) }
-        guard formatterVersion == Self.legacyFormatterVersion ||
-                formatterVersion == Self.submissionProjectionFormatterVersion else {
+        guard formatterVersion == rule.metadata.entry.cabrilloFormatterVersion ||
+                formatterVersion == rule.metadata.entry.cabrilloProjectionFormatterVersion else {
             throw ContestExportInputError.unsupportedFormatter(formatterVersion)
         }
         guard ruleIdentity == session.rule, ruleIdentity == rule.metadata.identity else {
@@ -102,7 +106,8 @@ public struct ContestExportInput: Codable, Hashable, Sendable {
               validText(metadata.operatorCallsign), !metadata.sessionName.isEmpty,
               metadata.cabrilloHeader.callsign == session.station.callsign,
               metadata.operatorCategory == metadata.cabrilloHeader.categoryOperator,
-              metadata.cabrilloHeader.categoryMode == "CW" else {
+              rule.metadata.entry.isCoherent(supportedModes: rule.metadata.supportedModes),
+              metadata.cabrilloHeader.categoryMode == rule.metadata.entry.mode else {
             throw ContestExportInputError.metadataMismatch
         }
         let stationOperators = Set(session.station.operatorCallsigns)

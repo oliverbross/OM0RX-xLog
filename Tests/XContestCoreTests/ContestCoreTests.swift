@@ -269,7 +269,13 @@ final class ContestCoreTests: XCTestCase {
     private struct OverflowRule: ContestRule {
         let metadata = ContestRuleMetadata(identity: .init(id: "overflow", version: "1", edition: "fixture", sourceRevision: "test"),
                                            displayName: "Overflow", cabrilloName: "OVERFLOW",
-                                           supportedBands: ["20m"], supportedModes: ["CW"], sourceProvenance: "test")
+                                           supportedBands: ["20m"], supportedModes: ["CW"],
+                                           entry: .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW",
+                                                        cabrilloFormatterVersion: "pilot-1", cabrilloProjectionFormatterVersion: "pilot-2",
+                                                        report: .init(format: .cwRST, defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3),
+                                                        exchange: .init(sent: .cqZone, received: .cqZone, sentDefault: .stationSnapshot, adifFields: .none),
+                                                        serial: .init(requirement: .none, allowedScopes: [])),
+                                           sourceProvenance: "test")
         func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation {
             ContestRuleEvaluation(validation: [], dupeKey: qso.id.uuidString, points: .max,
                                   multiplierCandidates: [.init(kind: "a", value: "1", scope: "contest"),

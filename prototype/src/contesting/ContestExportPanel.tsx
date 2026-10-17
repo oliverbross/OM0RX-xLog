@@ -54,7 +54,7 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
     onClose();
   };
   const makeHeader = (): ContestCabrilloHeader => ({ callsign: session.station.callsign, categoryOperator: "SINGLE-OP",
-    categoryAssisted: assisted, categoryBand: band, categoryMode: "CW", categoryTransmitter: "ONE", categoryPower: power,
+    categoryAssisted: assisted, categoryBand: band, categoryMode: session.rule.mode, categoryTransmitter: "ONE", categoryPower: power,
     operators: [session.operator.callsign], location: location.trim(), ...(club.trim() ? { club: club.trim() } : {}),
     name: name.trim(), addressLines: address.trim() ? [address.trim()] : [], email: email.trim() });
   const runPrepare = async () => {
@@ -90,7 +90,7 @@ export function ContestExportPanel({ session, opener, saveOwner, prepare, releas
         <label>Club<input maxLength={128} disabled={preparing} value={club} onChange={event => setClub(event.target.value)}/></label>
         <label>Email<input maxLength={254} disabled={preparing} value={email} onChange={event => setEmail(event.target.value)}/></label>
         <label className="contest-export-wide">Address line<input maxLength={160} disabled={preparing} value={address} onChange={event => setAddress(event.target.value)}/></label>
-        <p className="contest-source contest-export-wide">SINGLE-OP · CW · ONE transmitter · no overlay · {session.rule.sourceVerification} source preview</p>
+        <p className="contest-source contest-export-wide">SINGLE-OP · {session.rule.mode} · ONE transmitter · no overlay · {session.rule.sourceVerification} source preview</p>
       </div>}
       {!foreignSave && prepared && <section className="contest-export-summary" aria-label="Prepared export summary"><strong>{prepared.format === "cabrillo" ? "Cabrillo submission preview" : "ADIF compatibility export"}</strong><dl><div><dt>Revision</dt><dd>{prepared.revision}</dd></div><div><dt>QSOs</dt><dd>{prepared.qsoCount}</dd></div><div><dt>Points</dt><dd>{prepared.totalPoints}</dd></div><div><dt>Multipliers</dt><dd>{prepared.multiplierCount}</dd></div><div><dt>Claimed score</dt><dd>{prepared.claimedScore.toLocaleString()}</dd></div><div><dt>Size</dt><dd>{prepared.byteLength.toLocaleString()} bytes</dd></div></dl><p className="contest-source">{session.rule.sourceVerification} source · {prepared.formatterVersion} preview</p></section>}
       {!foreignSave && save.phase === "unknown" && <section className="contest-alert is-uncertain" role="alert"><div><strong>Save outcome not confirmed</strong><p>Check the selected folder before saving again.</p></div><button type="button" onClick={() => { saveOwner.acknowledgeUnknown(); setPrepared(null); }}>I checked the folder</button></section>}

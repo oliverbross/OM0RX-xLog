@@ -92,8 +92,8 @@ public struct ContestDraftSnapshot: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
-public enum ContestSerialState: String, Codable, Sendable { case reserved, transmitted, uncertain, committed, void }
-public enum ContestSerialScope: String, Codable, Sendable { case session, band, transmitter }
+public enum ContestSerialState: String, Codable, Hashable, Sendable { case reserved, transmitted, uncertain, committed, void }
+public enum ContestSerialScope: String, Codable, Hashable, Sendable { case session, band, transmitter }
 
 public extension ContestSerialState {
     func canTransition(to next: ContestSerialState) -> Bool {

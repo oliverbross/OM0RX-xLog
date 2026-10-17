@@ -60,12 +60,15 @@ public enum CabrilloExporter {
                                 createdBy: String = "OM0RX-xLog") throws -> String {
         guard session.rule == rule.metadata.identity else { throw CabrilloExportError.invalidHeader("rule") }
         guard header.callsign == session.station.callsign else { throw CabrilloExportError.invalidHeader("callsign") }
-        guard header.categoryMode == "CW" else { throw CabrilloExportError.invalidHeader("categoryMode") }
+        guard rule.metadata.entry.isCoherent(supportedModes: rule.metadata.supportedModes),
+              header.categoryMode == rule.metadata.entry.mode else {
+            throw CabrilloExportError.invalidHeader("categoryMode")
+        }
         let recomputed: ContestScore
         let renderedQSOs: [ContestQSO]
         do {
             switch formatterVersion {
-            case ContestExportInput.legacyFormatterVersion:
+            case rule.metadata.entry.cabrilloFormatterVersion:
                 let categoryBand = header.categoryBand.uppercased()
                 let usedBands = Set(qsos.map(\.band))
                 if categoryBand != "ALL" {
@@ -77,7 +80,7 @@ public enum CabrilloExporter {
                 }
                 recomputed = try ContestEngine.score(qsos, session: session, rule: rule)
                 renderedQSOs = qsos
-            case ContestExportInput.submissionProjectionFormatterVersion:
+            case rule.metadata.entry.cabrilloProjectionFormatterVersion:
                 let projection = try ContestSubmissionProjection.make(qsos: qsos, session: session,
                                                                        header: header, rule: rule)
                 recomputed = projection.score
@@ -135,7 +138,7 @@ public enum CabrilloExporter {
         let frequency = remainder < 500 ? wholeKHz : remainder > 500 ? wholeKHz + 1 :
             (wholeKHz.isMultiple(of: 2) ? wholeKHz : wholeKHz + 1)
         guard frequency > 0 && frequency <= 99_999 else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz") }
-        let mode = qso.mode == "CW" ? "CW" : qso.mode
+        let mode = rule.metadata.entry.cabrilloQSOType
         let values = [session.station.callsign, qso.rstSent, qso.exchange.normalizedSent,
                       qso.callsign, qso.rstReceived, rule.cabrilloReceivedExchange(for: qso)]
         let limits = [13, 3, 6, 13, 3, 6]

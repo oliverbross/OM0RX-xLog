@@ -6,7 +6,7 @@ import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 
 const rule: ContestRuleMetadata = { identity: { id: "cq-wpx-cw", version: "2026.2", edition: "2026", sourceRevision: "fixture" },
-  displayName: "CQ WPX CW", mode: "CW", referenceDataVersion: "cty", sourceVerification: "provisional", sourceNote: "Preview" };
+  displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: { mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", cabrilloFormatterVersion: "pilot-1", cabrilloProjectionFormatterVersion: "pilot-2", report: { format: "cwRST", defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3 }, exchange: { sent: "serialNumber", received: "serialNumber", sentDefault: "reservedSerial", adifFields: "stxSrx" }, serial: { requirement: "requiredForCommit", allowedScopes: ["session", "band", "transmitter"] } }, referenceDataVersion: "cty", sourceVerification: "provisional", sourceNote: "Preview" };
 const session: ContestSessionSummary = { sessionID: "20000000-0000-4000-8000-000000000002", workspaceGeneration: "30000000-0000-4000-8000-000000000003",
   revision: 7, name: "WPX", rule, referenceDataVersion: "cty", station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovakia" },
   operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 2, updatedAt: "2026-10-18T00:00:00.000Z" };

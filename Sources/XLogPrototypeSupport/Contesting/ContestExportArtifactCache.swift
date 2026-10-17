@@ -28,6 +28,7 @@ actor ContestExportArtifactCache {
     private let limits: Limits
     private let now: @Sendable () -> UInt64
     private let beforeGenerationApply: (@Sendable (UInt64) async -> Void)?
+    private let beforePendingJoin: (@Sendable (UUID) async -> Void)?
     private var known: [UUID: ContestExportPrepareRequest] = [:]
     private var terminal: [UUID: String] = [:]
     private var entries: [UUID: Entry] = [:]
@@ -39,10 +40,12 @@ actor ContestExportArtifactCache {
 
     init(limits: Limits = .production,
          now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
-         beforeGenerationApply: (@Sendable (UInt64) async -> Void)? = nil) {
+         beforeGenerationApply: (@Sendable (UInt64) async -> Void)? = nil,
+         beforePendingJoin: (@Sendable (UUID) async -> Void)? = nil) {
         self.limits = limits
         self.now = now
         self.beforeGenerationApply = beforeGenerationApply
+        self.beforePendingJoin = beforePendingJoin
     }
 
     func prepare(_ request: ContestExportPrepareRequest,
@@ -52,7 +55,10 @@ actor ContestExportArtifactCache {
         if let original = known[request.exportID] {
             guard original == request else { throw ContestExportLaneError("request_conflict", "The export ID was already used for another request.") }
             if let entry = entries[request.exportID] { return entry.prepared }
-            if let pending = inFlight[request.exportID] { return try await finish(request, pending: pending) }
+            if let pending = inFlight[request.exportID] {
+                if let beforePendingJoin { await beforePendingJoin(request.exportID) }
+                return try await finish(request, pending: pending)
+            }
             if let code = terminal[request.exportID], code != "retryable_failure" { throw terminalError(code) }
             try requireProducerCapacity()
             terminal.removeValue(forKey: request.exportID)
