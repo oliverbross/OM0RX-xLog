@@ -64,7 +64,11 @@ struct PendingRadioWrites: Sendable {
 }
 
 public actor RemoteAgentClient: RadioControlling {
-    static let receiveTuneCommandTimeout: TimeInterval = 5
+    // The guarded Remote Agent tune route is serialized with station safety reads and
+    // has been observed taking just over seven seconds across the AU-SK link. Keep one
+    // request (never replay a tune), but allow that request to finish before dispatching
+    // the latest queued spot.
+    static let receiveTuneCommandTimeout: TimeInterval = 12
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
 

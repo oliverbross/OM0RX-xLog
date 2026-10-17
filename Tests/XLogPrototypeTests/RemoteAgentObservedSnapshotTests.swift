@@ -145,6 +145,16 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
         }
     }
 
+    func testSimplexTuneAllowsGuardedRouteLongerThanFiveSecondsWithoutRetry() async throws {
+        try await fixture(commands: [nil], commandDelay: 5.25, verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "set_frequency_mode")
+            XCTAssertEqual(script.sentTimeouts, [12])
+        }) { client, _ in
+            try await client.tuneSimplex(7_088_000, mode: "LSB")
+        }
+    }
+
     func testGUIPTTMakesExactlyOneHTTPAttemptForOnAndOff() async throws {
         for enabled in [true,false] {try await fixture(commands:[],verify:{script in
             XCTAssertEqual(script.sentCommands.count,1);XCTAssertEqual(script.sentCommands.first?["command"] as? String,"set_ptt")
