@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 #if canImport(CryptoKit)
 import CryptoKit
 #else

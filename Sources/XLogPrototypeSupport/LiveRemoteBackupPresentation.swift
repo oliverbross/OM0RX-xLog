@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -72,7 +74,7 @@ actor LiveRemoteBackupPresentation {
               let raw = params["operation_id"] as? String, let id = UUID(uuidString: raw),
               let owner = params["owner"] as? [String: Any], Set(owner.keys) == ["generation", "revision", "token"],
               let generationText = owner["generation"] as? String, let generation = UUID(uuidString: generationText),
-              let revision = owner["revision"] as? NSNumber, CFGetTypeID(revision) != CFBooleanGetTypeID(),
+              let revision = owner["revision"] as? NSNumber, !Self.isBoolean(revision),
               revision.doubleValue >= 0, revision.doubleValue < 9_007_199_254_740_991,
               revision.doubleValue == Double(revision.int64Value),
               owner["token"] is NSNull || (owner["token"] as? String).flatMap(UUID.init(uuidString:)) != nil else { throw invalid() }
@@ -260,4 +262,18 @@ actor LiveRemoteBackupPresentation {
     }
     private func invalid() -> WorkerFailure { WorkerFailure("backup_invalid_request", "The remote backup request or saved command record is invalid. Nothing was replayed.") }
     private func stale() -> WorkerFailure { WorkerFailure("backup_context_changed", "Backup context changed. Refresh and review the current workspace and account; no command was replayed.") }
+
+    private static func isBoolean(_ number: NSNumber) -> Bool {
+        #if canImport(CoreFoundation)
+        CFGetTypeID(number) == CFBooleanGetTypeID()
+        #else
+        isFoundationBoolean(number)
+        #endif
+    }
+
+    /// swift-corelibs-foundation represents JSON booleans with its canonical
+    /// true/false NSNumber singletons. Identity avoids conflating Int8 with Bool.
+    static func isFoundationBoolean(_ number: NSNumber) -> Bool {
+        number === NSNumber(value: true) || number === NSNumber(value: false)
+    }
 }

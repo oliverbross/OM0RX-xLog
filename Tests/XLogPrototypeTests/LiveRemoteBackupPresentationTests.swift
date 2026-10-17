@@ -11,6 +11,11 @@ import XLogPortableCore
 @testable import XLogPrototypeSupport
 
 final class LiveRemoteBackupPresentationTests: XCTestCase {
+    private func jsonNumber(_ literal: String) throws -> NSNumber {
+        let values = try XCTUnwrap(JSONSerialization.jsonObject(with: Data("[\(literal)]".utf8)) as? [Any])
+        return try XCTUnwrap(values.first as? NSNumber)
+    }
+
     private actor Probe {
         var prepares = 0, verifications = 0
         func prepared() { prepares += 1 }
@@ -141,6 +146,33 @@ final class LiveRemoteBackupPresentationTests: XCTestCase {
         let snapshot = try await f.owner.handle(["action": "snapshot"])
         XCTAssertEqual(snapshot["registered"] as? Bool, false)
         XCTAssertEqual(f.vault.count, 0); let http = await f.http.calls; XCTAssertEqual(http, 0)
+    }
+    func testBooleanIdentityFallbackKeepsByteSizedIntegersNumeric() throws {
+        XCTAssertTrue(LiveRemoteBackupPresentation.isFoundationBoolean(try jsonNumber("true")))
+        XCTAssertTrue(LiveRemoteBackupPresentation.isFoundationBoolean(try jsonNumber("false")))
+        XCTAssertFalse(LiveRemoteBackupPresentation.isFoundationBoolean(try jsonNumber("0")))
+        XCTAssertFalse(LiveRemoteBackupPresentation.isFoundationBoolean(try jsonNumber("1")))
+        XCTAssertFalse(LiveRemoteBackupPresentation.isFoundationBoolean(NSNumber(value: Int8(0))))
+        XCTAssertFalse(LiveRemoteBackupPresentation.isFoundationBoolean(NSNumber(value: Int8(1))))
+        XCTAssertFalse(LiveRemoteBackupPresentation.isFoundationBoolean(NSNumber(value: UInt8(0))))
+        XCTAssertFalse(LiveRemoteBackupPresentation.isFoundationBoolean(NSNumber(value: UInt8(1))))
+    }
+    func testBooleanRevisionIsRejectedBeforeMutation() async throws {
+        let f = try Fixture(); defer { f.cleanup() }
+        var intent = try await request(f.owner, "prepare")
+        var owner = try XCTUnwrap(intent["owner"] as? [String: Any])
+        owner["revision"] = try jsonNumber("true")
+        intent["owner"] = owner
+        do { _ = try await f.owner.handle(intent); XCTFail("Boolean revision admitted") }
+        catch let error as WorkerFailure { XCTAssertEqual(error.code, "backup_invalid_request") }
+        var numericIntent = try await request(f.owner, "prepare")
+        var numericOwner = try XCTUnwrap(numericIntent["owner"] as? [String: Any])
+        numericOwner["revision"] = try jsonNumber("0")
+        numericIntent["owner"] = numericOwner
+        let numericReceipt = try await f.owner.handle(numericIntent)
+        XCTAssertEqual(numericReceipt["status"] as? String, "acknowledged")
+        let prepares = await f.probe.prepares
+        XCTAssertEqual(prepares, 1)
     }
     func testStaleRevisionWorkspaceAndRendererProofsAreRejected() async throws {
         let f = try Fixture(); defer { f.cleanup() }

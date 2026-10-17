@@ -11,6 +11,9 @@ on:
       - 'Tests/XContestStoreTests/**'
       - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
       - 'Tests/XStationIntegrationTests/ConnectionDoctorTests.swift'
+      - 'Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift'
+      - 'Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift'
+      - 'Tests/XLogPrototypeTests/LiveRemoteBackupPresentationTests.swift'
       - 'Package.swift'
       - '.github/workflows/contest-portability.yml'
   pull_request:
@@ -22,6 +25,9 @@ on:
       - 'Tests/XContestStoreTests/**'
       - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
       - 'Tests/XStationIntegrationTests/ConnectionDoctorTests.swift'
+      - 'Sources/XLogPrototypeSupport/LiveFTPBackupPresentation.swift'
+      - 'Sources/XLogPrototypeSupport/LiveRemoteBackupPresentation.swift'
+      - 'Tests/XLogPrototypeTests/LiveRemoteBackupPresentationTests.swift'
       - 'Package.swift'
       - '.github/workflows/contest-portability.yml'
 
@@ -114,4 +120,10 @@ jobs:
         shell: pwsh
         run: |
           swift test --scratch-path .build/contest-platform --filter XStationIntegrationTests.ConnectionDoctorTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          exit $LASTEXITCODE
+      - name: Test Windows remote backup revision validation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          swift test --scratch-path .build/contest-platform --filter XLogPrototypeTests.LiveRemoteBackupPresentationTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
