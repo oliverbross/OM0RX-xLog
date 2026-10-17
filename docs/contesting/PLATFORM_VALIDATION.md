@@ -408,9 +408,10 @@ At `5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d`,
 has passed its Linux and macOS Swift jobs. Inspected logs for jobs
 `117472494380` and `117472494496` each show five NAQP core export tests
 and five NAQP ADIF export tests passing, including mobile subdivision
-omission. The three native Rust jobs also passed; Windows Swift remains
-pending at this checkpoint. Raw inspected logs are
-`/tmp/xlog-5ee75ea-{linux,macos}-ci.log`.
+omission. Windows Swift job `117472494464` subsequently passed both five-test
+NAQP export suites, confirmed in its actual log. Together with all three
+native Rust jobs, this run is complete with all six jobs successful.
+Raw inspected logs are `/tmp/xlog-5ee75ea-{linux,macos,windows}-ci.log`.
 
 Combined source `6db070e0c49950c8d0fce29d6c1d233640a79ee0` preserves both
 the SCP and NAQP workflow coverage. It passed 11 combined NAQP core/store
