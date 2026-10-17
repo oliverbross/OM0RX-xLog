@@ -1027,11 +1027,12 @@ function MainLiveApp() {
       setError("");
       return;
     }
+    const replacingPreparedSpot = pendingTune.current && !!spotPreparation.current;
     if ((draftState.activationFrozen || contactState.activationFrozen) && spotEditor.initializing) {
       setError(spotEditor.error || "QSO editor registration is still initializing. Spot selection remains disabled and your draft is retained; recovery retries automatically.");
       return;
     }
-    if (draftState.pending && !draftState.workspaceChanged && !draftState.activationFrozen && !contactState.activationFrozen) {
+    if (!replacingPreparedSpot && draftState.pending && !draftState.workspaceChanged && !draftState.activationFrozen && !contactState.activationFrozen) {
       // A lost acknowledgement may already have a durable receipt. Re-check it
       // before presenting a permanent selection barrier; never replay here.
       spotAwaitingDraftRecovery.current = spot;
@@ -1048,11 +1049,13 @@ function MainLiveApp() {
       }
       return;
     }
+    const draftOperationBlocked = draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged || draftState.activationFrozen ||
+      !draftSession.canAcceptLocalInput();
     if (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
       readingRadio.current || readOperation.current || mainClosing.current || layoutChanging.current || editorTransition.current ||
-      draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged || draftState.activationFrozen ||
+      !replacingPreparedSpot && draftOperationBlocked ||
       contactState.locked || contactState.pending || contactState.conflict || contactState.workspaceChanged || contactState.activationFrozen ||
-      !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
+      !contactSession.canAcceptLocalInput()) {
       setError("Resolve the current QSO operation before selecting another spot."); return;
     }
     const generation = ++selection.current;

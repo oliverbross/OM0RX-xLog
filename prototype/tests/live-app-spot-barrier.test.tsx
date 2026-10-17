@@ -316,6 +316,16 @@ it("uses only the latest of rapid successive spot clicks", async () => {
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
 });
 
+it("replaces a rapid spot while the first selection is still clearing a dirty draft", async () => {
+  await openEditor(false);
+  fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Unsaved lookup text" } });
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
+  expect(screen.queryByText(/Resolve the current QSO operation|Check the pending draft operation/)).toBeNull();
+});
+
 it("retains only the latest selection while an activation is in flight", async () => {
   let complete!: () => void;
   host.activate.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; }));
