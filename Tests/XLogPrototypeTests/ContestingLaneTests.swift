@@ -56,6 +56,33 @@ final class ContestingLaneTests: XCTestCase {
         return (sessionID, createID, result)
     }
 
+    private func commitContact(_ lane: ContestLane, sessionID: UUID, draftID: UUID,
+                               revision: Int, callsign: String, minute: Int) async throws -> (UUID, Int, [String: Any]) {
+        let reserveID = UUID(), applyID = UUID(), qsoID = UUID()
+        let reserved = try await lane.handle(method: "contest_serial_reserve", params: mutation(
+            sessionID: sessionID, requestID: reserveID, revision: revision,
+            timestamp: String(format: "2026-10-17T03:%02d:00.000Z", minute), payload: [:], draftID: draftID))
+        let sent = try XCTUnwrap((((reserved["draft"] as? [String: Any])?["fields"] as? [String: Any])?["sentExchange"] as? String))
+        let fields: [String: Any] = ["callsign": callsign, "sentReport": "599", "sentExchange": sent,
+            "receivedReport": "599", "receivedExchange": "1", "frequencyHz": 14_025_000,
+            "band": "20m", "mode": "CW"]
+        _ = try await lane.handle(method: "contest_draft_apply", params: mutation(
+            sessionID: sessionID, requestID: applyID, revision: revision + 1,
+            timestamp: String(format: "2026-10-17T03:%02d:10.000Z", minute),
+            payload: ["fields": fields], draftID: draftID))
+        let committed = try await lane.handle(method: "contest_qso_commit", params: mutation(
+            sessionID: sessionID, requestID: qsoID, revision: revision + 2,
+            timestamp: String(format: "2026-10-17T03:%02d:20.000Z", minute), payload: [:], draftID: draftID))
+        return (qsoID, revision + 3, committed)
+    }
+
+    private func qsoGet(_ lane: ContestLane, sessionID: UUID, qsoID: UUID, revision: Int) async throws -> [String: Any] {
+        try await lane.handle(method: "contest_qso_get", params: [
+            "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+            "expectedRevision": revision, "qsoID": wireID(qsoID),
+        ])
+    }
+
     func testCreateReserveCommitReplayAndReopenUseDurableContestStore() async throws {
         let (root, lane) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let (sessionID, draftID, created) = try await makeSession(lane)
@@ -130,6 +157,151 @@ final class ContestingLaneTests: XCTestCase {
             "sessionID": wireID(sessionID), "workspaceGeneration": generation, "expectedRevision": 6,
         ])
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
+    }
+
+    func testQSOGetCorrectionDeletionReplayAndStrictFailures() async throws {
+        let (root, lane) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        let (sessionID, draftID, _) = try await makeSession(lane)
+        let (qsoID, revision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
+                                                           revision: 1, callsign: "K1ABC", minute: 10)
+        let read = try await qsoGet(lane, sessionID: sessionID, qsoID: qsoID, revision: revision)
+        var full = try XCTUnwrap(read["qso"] as? [String: Any])
+        XCTAssertEqual(full["qsoID"] as? String, wireID(qsoID))
+        XCTAssertEqual(full["sessionID"] as? String, wireID(sessionID))
+        XCTAssertEqual(full["originalUTC"] as? String, "2026-10-17T03:10:20.000Z")
+        XCTAssertEqual(full["allocatedSerial"] as? String, "001")
+        XCTAssertNotNil(full["provenance"] as? [String: Any])
+        XCTAssertNotNil(full["entity"] as? [String: Any])
+        XCTAssertNotNil(full["ruleIdentity"] as? [String: Any])
+        do { _ = try await qsoGet(lane, sessionID: sessionID, qsoID: qsoID, revision: revision - 1); XCTFail("Expected stale read") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_revision") }
+        do {
+            _ = try await lane.handle(method: "contest_qso_get", params: [
+                "sessionID": wireID(sessionID), "workspaceGeneration": "f1111111-2222-4333-9444-555555555555",
+                "expectedRevision": revision, "qsoID": wireID(qsoID),
+            ])
+            XCTFail("Expected generation-fenced read")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_workspace") }
+        full["callsign"] = "K2ABC"
+        full["receivedReport"] = "579"
+        full["receivedExchange"] = "2"
+        full["normalizedReceivedExchange"] = "2"
+        let correctionID = UUID()
+        let correctionParams = mutation(sessionID: sessionID, requestID: correctionID, revision: revision,
+            timestamp: "2026-10-17T03:20:00.000Z", payload: ["qso": full, "reason": "Correct copied call"],
+            digest: String(repeating: "c", count: 64))
+        let corrected = try await lane.handle(method: "contest_qso_correct", params: correctionParams)
+        XCTAssertEqual(corrected["operation"] as? String, "correction")
+        XCTAssertEqual((corrected["qsoCount"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((corrected["currentTarget"] as? [String: Any])?["callsign"] as? String, "K2ABC")
+        XCTAssertEqual(((corrected["session"] as? [String: Any])?["revision"] as? NSNumber)?.intValue, revision + 1)
+
+        var changedTimestamp = correctionParams
+        changedTimestamp["operationTimestamp"] = "2026-10-17T03:20:01.000Z"
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: changedTimestamp); XCTFail("Expected canonical timestamp conflict") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "request_conflict") }
+        var crossOperation = correctionParams
+        crossOperation["payload"] = ["qsoID": wireID(qsoID), "reason": "Wrong operation for request ID"]
+        do { _ = try await lane.handle(method: "contest_qso_delete", params: crossOperation); XCTFail("Expected cross-operation request conflict") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "request_conflict") }
+        var immutable = correctionParams
+        immutable["requestID"] = wireID(UUID()); immutable["expectedRevision"] = revision + 1
+        var immutablePayload = try XCTUnwrap(immutable["payload"] as? [String: Any])
+        var immutableQSO = try XCTUnwrap(immutablePayload["qso"] as? [String: Any])
+        immutableQSO["originalUTC"] = "2026-10-17T03:10:21.000Z"
+        immutablePayload["qso"] = immutableQSO; immutable["payload"] = immutablePayload
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: immutable); XCTFail("Expected immutable identity rejection") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "immutable_qso") }
+        var malformed = correctionParams
+        malformed["requestID"] = wireID(UUID())
+        malformed["expectedRevision"] = revision + 1
+        var malformedPayload = try XCTUnwrap(malformed["payload"] as? [String: Any])
+        var malformedQSO = try XCTUnwrap(malformedPayload["qso"] as? [String: Any])
+        malformedQSO.removeValue(forKey: "provenance"); malformedPayload["qso"] = malformedQSO; malformed["payload"] = malformedPayload
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: malformed); XCTFail("Expected strict malformed rejection") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "invalid_params") }
+        var stale = correctionParams
+        stale["requestID"] = wireID(UUID()); stale["expectedRevision"] = revision
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: stale); XCTFail("Expected stale correction") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_revision") }
+        var wrongSession = correctionParams
+        wrongSession["requestID"] = wireID(UUID()); wrongSession["expectedRevision"] = revision + 1
+        var wrongPayload = try XCTUnwrap(wrongSession["payload"] as? [String: Any])
+        var wrongQSO = try XCTUnwrap(wrongPayload["qso"] as? [String: Any])
+        wrongQSO["sessionID"] = wireID(UUID()); wrongPayload["qso"] = wrongQSO; wrongSession["payload"] = wrongPayload
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: wrongSession); XCTFail("Expected cross-session rejection") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "wrong_session") }
+        var wrongGeneration = correctionParams
+        wrongGeneration["requestID"] = wireID(UUID())
+        wrongGeneration["workspaceGeneration"] = "f1111111-2222-4333-9444-555555555555"
+        do { _ = try await lane.handle(method: "contest_qso_correct", params: wrongGeneration); XCTFail("Expected generation rejection") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_workspace") }
+
+        let deleteID = UUID()
+        let deleteParams = mutation(sessionID: sessionID, requestID: deleteID, revision: revision + 1,
+            timestamp: "2026-10-17T03:21:00.000Z",
+            payload: ["qsoID": wireID(qsoID), "reason": "Remove invalid contact"],
+            digest: String(repeating: "d", count: 64))
+        let deleted = try await lane.handle(method: "contest_qso_delete", params: deleteParams)
+        XCTAssertEqual(deleted["operation"] as? String, "deletion")
+        XCTAssertTrue(deleted["currentTarget"] is NSNull)
+        XCTAssertEqual((deleted["qsoCount"] as? NSNumber)?.intValue, 0)
+        let reopened = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
+        let replayed = try await reopened.handle(method: "contest_qso_correct", params: correctionParams)
+        XCTAssertEqual(try canonicalJSON(replayed), try canonicalJSON(corrected))
+        let deleteReplay = try await reopened.handle(method: "contest_qso_delete", params: deleteParams)
+        XCTAssertEqual(try canonicalJSON(deleteReplay), try canonicalJSON(deleted))
+        do { _ = try await qsoGet(reopened, sessionID: sessionID, qsoID: qsoID, revision: revision + 2); XCTFail("Expected tombstone error") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "qso_deleted") }
+        let receipt = try await reopened.handle(method: "contest_operation_receipt", params: [
+            "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+            "requestID": wireID(correctionID), "payloadDigest": String(repeating: "c", count: 64),
+        ])
+        XCTAssertEqual(receipt["status"] as? String, "committed")
+    }
+
+    func testQSOChangesRescoreDuplicateCreditAndRecoverPostCommitUncertainty() async throws {
+        enum FenceFailure: Error { case unavailable }
+        actor Fence {
+            let generation: String; var calls = 0
+            init(_ generation: String) { self.generation = generation }
+            func next() throws -> String { calls += 1; if calls == 1 { return generation }; throw FenceFailure.unavailable }
+        }
+        let (root, stable) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        let (sessionID, draftID, _) = try await makeSession(stable)
+        let (firstID, firstRevision, _) = try await commitContact(stable, sessionID: sessionID, draftID: draftID,
+                                                                  revision: 1, callsign: "K1ABC", minute: 30)
+        let (secondID, secondRevision, _) = try await commitContact(stable, sessionID: sessionID, draftID: draftID,
+                                                                    revision: firstRevision, callsign: "K1ABC", minute: 31)
+        let firstRead = try await qsoGet(stable, sessionID: sessionID, qsoID: firstID, revision: secondRevision)
+        var first = try XCTUnwrap(firstRead["qso"] as? [String: Any])
+        first["callsign"] = "K2ABC"
+        let correctionID = UUID()
+        let params = mutation(sessionID: sessionID, requestID: correctionID, revision: secondRevision,
+            timestamp: "2026-10-17T03:32:00.000Z", payload: ["qso": first, "reason": "Promote duplicate"],
+            digest: String(repeating: "e", count: 64))
+        let fence = Fence(generation)
+        let uncertain = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { try await fence.next() }
+        do { _ = try await uncertain.handle(method: "contest_qso_correct", params: params); XCTFail("Expected post-commit uncertainty") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.outcome, "uncertain") }
+        let receipt = try await stable.handle(method: "contest_operation_receipt", params: [
+            "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+            "requestID": wireID(correctionID), "payloadDigest": String(repeating: "e", count: 64),
+        ])
+        XCTAssertEqual(receipt["status"] as? String, "committed")
+        let corrected = try await stable.handle(method: "contest_qso_correct", params: params)
+        let score = try XCTUnwrap(corrected["score"] as? [String: Any])
+        XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 2)
+        XCTAssertEqual((score["points"] as? NSNumber)?.intValue, 6)
+        let deleteParams = mutation(sessionID: sessionID, requestID: UUID(), revision: secondRevision + 1,
+            timestamp: "2026-10-17T03:33:00.000Z",
+            payload: ["qsoID": wireID(firstID), "reason": "Remove corrected first contact"])
+        let deleted = try await stable.handle(method: "contest_qso_delete", params: deleteParams)
+        let deleteScore = try XCTUnwrap(deleted["score"] as? [String: Any])
+        XCTAssertEqual((deleteScore["qsos"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((deleteScore["points"] as? NSNumber)?.intValue, 3)
+        let survivor = try await qsoGet(stable, sessionID: sessionID, qsoID: secondID, revision: secondRevision + 2)
+        XCTAssertEqual((survivor["qso"] as? [String: Any])?["callsign"] as? String, "K1ABC")
     }
 
     func testSameRequestChangedTimestampConflictsAndInvalidDateIsConfirmed() async throws {
@@ -310,6 +482,8 @@ final class ContestingLaneTests: XCTestCase {
         let reserveID = UUID(uuidString: "b7654321-89ab-4cde-8fab-0123456789ab")!
         let applyID = UUID(uuidString: "c7654321-89ab-4cde-8fab-0123456789ab")!
         let commitID = UUID(uuidString: "d7654321-89ab-4cde-8fab-0123456789ab")!
+        let correctionID = UUID(uuidString: "17654321-89ab-4cde-8fab-0123456789ab")!
+        let deletionID = UUID(uuidString: "27654321-89ab-4cde-8fab-0123456789ab")!
         let payload: [String: Any] = [
             "sessionID": wireID(sessionID), "name": "Browser wire test",
             "ruleIdentity": try XCTUnwrap(rule["identity"] as? [String: Any]),
@@ -340,13 +514,43 @@ final class ContestingLaneTests: XCTestCase {
             workspaceGeneration: workspaceGeneration)
         let committed = try await workerRequest(worker, method: "contest_qso_commit", params: commitParams)
         XCTAssertEqual(committed["ok"] as? Bool, true)
-        let laterParams = mutation(sessionID: sessionID, requestID: UUID(), revision: 4,
-            timestamp: "2026-10-17T02:04:00.000Z", payload: ["fields": fields.merging(["callsign": "K1/"], uniquingKeysWith: { _, new in new })],
-            draftID: draftID, workspaceGeneration: workspaceGeneration)
-        _ = try await workerRequest(worker, method: "contest_draft_apply", params: laterParams)
         let replayed = try await workerRequest(worker, method: "contest_qso_commit", params: commitParams)
         XCTAssertEqual(try canonicalJSON(try XCTUnwrap(replayed["result"] as? [String: Any])),
                        try canonicalJSON(try XCTUnwrap(committed["result"] as? [String: Any])))
+        let committedResult = try XCTUnwrap(committed["result"] as? [String: Any])
+        let committedTarget = try XCTUnwrap(committedResult["qso"] as? [String: Any])
+        let qsoID = try XCTUnwrap(committedTarget["qsoID"] as? String)
+        let getParams: [String: Any] = ["sessionID": wireID(sessionID), "workspaceGeneration": workspaceGeneration,
+            "expectedRevision": 4, "qsoID": qsoID]
+        let got = try await workerRequest(worker, method: "contest_qso_get", params: getParams)
+        var correctedQSO = try XCTUnwrap((got["result"] as? [String: Any])?["qso"] as? [String: Any])
+        correctedQSO["callsign"] = "K2ABC"
+        correctedQSO["receivedReport"] = "579"
+        correctedQSO["receivedExchange"] = "2"
+        correctedQSO["normalizedReceivedExchange"] = "2"
+        let correctionParams = mutation(sessionID: sessionID, requestID: correctionID, revision: 4,
+            timestamp: "2026-10-17T02:03:30.000Z",
+            payload: ["qso": correctedQSO, "reason": "Correct copied call"],
+            digest: String(repeating: "1", count: 64), workspaceGeneration: workspaceGeneration)
+        let corrected = try await workerRequest(worker, method: "contest_qso_correct", params: correctionParams)
+        XCTAssertEqual((corrected["result"] as? [String: Any])?["operation"] as? String, "correction")
+        let deletionParams = mutation(sessionID: sessionID, requestID: deletionID, revision: 5,
+            timestamp: "2026-10-17T02:03:40.000Z",
+            payload: ["qsoID": qsoID, "reason": "Remove invalid contact"],
+            digest: String(repeating: "2", count: 64), workspaceGeneration: workspaceGeneration)
+        let deleted = try await workerRequest(worker, method: "contest_qso_delete", params: deletionParams)
+        XCTAssertEqual((deleted["result"] as? [String: Any])?["operation"] as? String, "deletion")
+        let correctionReplay = try await workerRequest(worker, method: "contest_qso_correct", params: correctionParams)
+        XCTAssertEqual(try canonicalJSON(try XCTUnwrap(correctionReplay["result"] as? [String: Any])),
+                       try canonicalJSON(try XCTUnwrap(corrected["result"] as? [String: Any])))
+        let deletionReplay = try await workerRequest(worker, method: "contest_qso_delete", params: deletionParams)
+        XCTAssertEqual(try canonicalJSON(try XCTUnwrap(deletionReplay["result"] as? [String: Any])),
+                       try canonicalJSON(try XCTUnwrap(deleted["result"] as? [String: Any])))
+
+        let laterParams = mutation(sessionID: sessionID, requestID: UUID(), revision: 6,
+            timestamp: "2026-10-17T02:04:00.000Z", payload: ["fields": fields.merging(["callsign": "K1/"], uniquingKeysWith: { _, new in new })],
+            draftID: draftID, workspaceGeneration: workspaceGeneration)
+        _ = try await workerRequest(worker, method: "contest_draft_apply", params: laterParams)
 
         let confirmed = try await workerRequest(worker, method: "contest_open", params: [
             "sessionID": wireID(sessionID).uppercased(), "workspaceGeneration": workspaceGeneration,
@@ -354,7 +558,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual(((confirmed["error"] as? [String: Any])?["outcome"] as? String), "confirmed")
 
         let uncertainRequestID = UUID(uuidString: "e7654321-89ab-4cde-8fab-0123456789ab")!
-        let uncertainParams = mutation(sessionID: sessionID, requestID: uncertainRequestID, revision: 5,
+        let uncertainParams = mutation(sessionID: sessionID, requestID: uncertainRequestID, revision: 7,
             timestamp: "2026-10-17T02:05:00.000Z", payload: ["fields": fields], draftID: draftID,
             digest: String(repeating: "e", count: 64), workspaceGeneration: workspaceGeneration)
         let fence = Fence(workspaceGeneration)
@@ -372,15 +576,19 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((receipt["result"] as? [String: Any])?["status"] as? String, "committed")
 
         if let output = ProcessInfo.processInfo.environment["XLOG_CONTEST_FIXTURE_OUTPUT"] {
-            let fixture: [String: Any] = ["schemaVersion": 2,
+            let fixture: [String: Any] = ["schemaVersion": 3,
                 "requests": ["create": createParams, "reserve": reserveParams, "apply": applyParams,
-                             "commit": commitParams, "postCommitApply": uncertainParams],
+                             "commit": commitParams, "qsoGet": getParams, "qsoCorrect": correctionParams,
+                             "qsoDelete": deletionParams, "postCommitApply": uncertainParams],
                 "responses": ["catalog": catalogFrame, "create": created, "reserve": reserved, "apply": applied, "commit": committed,
+                              "qsoGet": got, "qsoCorrect": corrected, "qsoDelete": deleted,
+                              "qsoCorrectReplayAfterDelete": correctionReplay, "qsoDeleteReplay": deletionReplay,
                               "replay": replayed, "confirmedError": confirmed, "postCommitUncertain": uncertainFrame,
                               "receiptAfterUncertain": receipt],
-                "provenance": ["liveWorkerResponses": ["catalog", "create", "reserve", "apply", "commit", "replay", "confirmedError", "receiptAfterUncertain"],
+                "provenance": ["liveWorkerResponses": ["catalog", "create", "reserve", "apply", "commit", "qsoGet", "qsoCorrect", "qsoDelete", "qsoCorrectReplayAfterDelete", "qsoDeleteReplay", "replay", "confirmedError", "receiptAfterUncertain"],
                                "postCommitUncertain": "actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response"],
-                "assertions": ["replayResultExactlyEqual": true, "allContestUUIDsCanonicalLowercase": true]]
+                "assertions": ["replayResultExactlyEqual": true, "qsoChangeReplayAfterDeleteExactlyEqual": true,
+                               "allContestUUIDsCanonicalLowercase": true]]
             let url = URL(fileURLWithPath: output)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)

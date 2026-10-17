@@ -5,10 +5,10 @@ import type { ContestCreateInput, ContestDraftFields, ContestRequest, ContestSes
 
 type WireFixture = {
   schemaVersion: number;
-  requests: Record<"create" | "reserve" | "apply" | "commit" | "postCommitApply", Record<string, unknown>>;
-  responses: Record<"catalog" | "create" | "apply" | "commit" | "replay" | "confirmedError" | "postCommitUncertain" | "receiptAfterUncertain", ContestWorkerResponse<unknown>> &
+  requests: Record<"create" | "reserve" | "apply" | "commit" | "qsoGet" | "qsoCorrect" | "qsoDelete" | "postCommitApply", Record<string, unknown>>;
+  responses: Record<"catalog" | "create" | "apply" | "commit" | "qsoGet" | "qsoCorrect" | "qsoDelete" | "qsoCorrectReplayAfterDelete" | "qsoDeleteReplay" | "replay" | "confirmedError" | "postCommitUncertain" | "receiptAfterUncertain", ContestWorkerResponse<unknown>> &
     { reserve?: ContestWorkerResponse<unknown> };
-  assertions: { replayResultExactlyEqual: boolean; allContestUUIDsCanonicalLowercase: boolean };
+  assertions: { replayResultExactlyEqual: boolean; qsoChangeReplayAfterDeleteExactlyEqual: boolean; allContestUUIDsCanonicalLowercase: boolean };
   provenance: { liveWorkerResponses: string[]; postCommitUncertain: string };
 };
 
@@ -34,7 +34,7 @@ function createInput(): ContestCreateInput {
 
 describe("Swift contest worker wire fixture", () => {
   it("parses the generated create, reserve, apply, commit, and exact replay lifecycle", async () => {
-    expect(fixture.schemaVersion).toBe(2);
+    expect(fixture.schemaVersion).toBe(3);
     expect(fixture.provenance.liveWorkerResponses).toContain("reserve");
     expect(fixture.provenance.postCommitUncertain).toBe("actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response");
     expect(fixture.assertions.allContestUUIDsCanonicalLowercase).toBe(true);
@@ -81,6 +81,12 @@ describe("Swift contest worker wire fixture", () => {
     expect(fixture.responses.commit.ok).toBe(true);
     if (!fixture.responses.replay.ok || !fixture.responses.commit.ok) throw new Error("Generated replay fixture is not a successful worker frame.");
     expect(fixture.responses.replay.result).toEqual(fixture.responses.commit.result);
+    expect(fixture.assertions.qsoChangeReplayAfterDeleteExactlyEqual).toBe(true);
+    expect(fixture.responses.qsoCorrectReplayAfterDelete.ok && fixture.responses.qsoCorrectReplayAfterDelete.result)
+      .toEqual(fixture.responses.qsoCorrect.ok && fixture.responses.qsoCorrect.result);
+    expect(fixture.responses.qsoDeleteReplay.ok && fixture.responses.qsoDeleteReplay.result)
+      .toEqual(fixture.responses.qsoDelete.ok && fixture.responses.qsoDelete.result);
+    expect(fixture.responses.qsoGet.ok).toBe(true);
     expect(replayed).toEqual(committed);
     expect(request).toHaveBeenCalledTimes(6);
   });
@@ -144,6 +150,6 @@ describe("Swift contest worker wire fixture", () => {
 
     const receipt = await client.receipt(uncertainty.operation);
     expect(receipt).toEqual(fixture.responses.receiptAfterUncertain.ok && fixture.responses.receiptAfterUncertain.result);
-    expect(receipt).toMatchObject({ status: "committed", receipt: { requestID, payloadDigest, committedRevision: 6 } });
+    expect(receipt).toMatchObject({ status: "committed", receipt: { requestID, payloadDigest, committedRevision: 8 } });
   });
 });

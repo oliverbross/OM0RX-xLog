@@ -27,6 +27,10 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if request["method"] == "connection_doctor_project" {
         return Err("Use the typed retained Connection Doctor projection.".into());
     }
+    if request["method"].as_str().is_some_and(|method| method.starts_with("contest_")) {
+        return if label == "main" { Ok(()) }
+        else { Err("Contest methods are available only in the main window.".into()) };
+    }
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
@@ -182,6 +186,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_draft_apply",
         "contest_serial_reserve",
         "contest_qso_commit",
+        "contest_qso_get",
+        "contest_qso_correct",
+        "contest_qso_delete",
         "contest_operation_receipt",
         "contest_log_page",
         "contest_score",
@@ -947,7 +954,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
-        "wsjtx_snapshot" | "reference_resolve"
+        "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get"
     ))
 }
 
@@ -1459,12 +1466,14 @@ mod tests {
         for method in [
             "contest_catalog", "contest_sessions", "contest_create", "contest_open",
             "contest_draft_get", "contest_draft_apply", "contest_serial_reserve",
-            "contest_qso_commit", "contest_operation_receipt", "contest_log_page", "contest_score",
+            "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
+            "contest_operation_receipt", "contest_log_page", "contest_score",
         ] {
             let request = json!({"id":"contest", "method":method, "params":{}});
             assert!(validate_request(&request).is_ok(), "{method}");
             assert!(validate_surface("main", &request).is_ok(), "{method}");
             assert!(validate_surface("monitor", &request).is_err(), "{method}");
+            assert!(validate_surface("settings", &request).is_err(), "{method}");
         }
     }
     #[test]
@@ -1724,7 +1733,7 @@ mod tests {
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
             "lookup_call", "logbook_previous", "logbook_duplicate",
             "logbook_matrix", "cluster_history", "cluster_snapshot",
-            "wsjtx_snapshot", "reference_resolve",
+            "wsjtx_snapshot", "reference_resolve", "contest_qso_get",
         ] {
             let script = format!(
                 "IFS= read -r stale; sleep 0.1; printf '%s\\n' '{{\"id\":\"stale\",\"ok\":true,\"result\":{{}}}}'; IFS= read -r health; printf '%s\\n' '{{\"id\":\"health\",\"ok\":true,\"result\":{{}}}}'; cat >/dev/null"
@@ -1768,7 +1777,7 @@ mod tests {
             "rotor_goto", "rotor_stop", "rotor_park", "logbook_operator_draft_apply",
             "logbook_contact_apply", "logbook_save", "logbook_delete", "logbook_undo",
             "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
-            "cluster_resume",
+            "cluster_resume", "contest_qso_correct", "contest_qso_delete",
         ] {
             assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");
