@@ -819,6 +819,19 @@ pub fn request_existing(request: Value) -> Result<Value, String> {
     request_using(request, existing_session)
 }
 
+/// Read from the already-running worker and return the generation that
+/// actually served the request. This never starts or replaces a worker.
+pub(crate) fn request_existing_with_generation(request: Value) -> Result<(u64, Value), String> {
+    let mut generation = 0;
+    let response = request_using(request, || {
+        let session = existing_session()?;
+        generation = session.generation;
+        Ok(session)
+    })?;
+    require_existing_generation(generation)?;
+    Ok((generation, response))
+}
+
 /// Pin admission to an already-running worker. An obsolete operation can never
 /// cross a restart by checking the generation before a generic request call.
 pub(crate) fn request_existing_generation(request: Value, expected: u64) -> Result<Value, String> {
