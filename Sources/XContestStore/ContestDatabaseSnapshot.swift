@@ -90,6 +90,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
         var beforeVerification: @Sendable () throws -> Void = {}
         var afterInspectionPinned: @Sendable () throws -> Void = {}
         var verificationProbeSQL: String?
+        var afterDatabaseClosed: @Sendable () throws -> Void = {}
         var beforePublication: @Sendable () throws -> Void = {}
         var afterPublication: @Sendable () throws -> Void = {}
     }
@@ -153,30 +154,42 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                                                     destinationName: destination.lastPathComponent)
         let staging = pinnedParent.stagingURL
         var published = false
-        defer { if !published { pinnedParent.removeOwnedStaging(databaseFileName: Self.databaseFileName) } }
-        let stagedDatabase = staging.appendingPathComponent(Self.databaseFileName, isDirectory: false)
-
-        var destinationHandle: OpaquePointer? = try Self.open(stagedDatabase,
-            flags: SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX)
-        defer { if let destinationHandle { sqlite3_close_v2(destinationHandle) } }
-        try pinnedParent.pinDatabase(databaseFileName: Self.databaseFileName)
-        try copyDatabase(from: source, to: destinationHandle!, operation: operation)
-        let metadata = try Self.inspect(destinationHandle!, operation: operation,
-                                        beforeVerification: hooks.beforeVerification,
-                                        afterPinned: hooks.afterInspectionPinned,
-                                        verificationProbeSQL: hooks.verificationProbeSQL)
-        guard sqlite3_close_v2(destinationHandle!) == SQLITE_OK else {
-            throw Self.sqliteError(destinationHandle!)
+        do {
+            return try {
+                let stagedDatabase = staging.appendingPathComponent(Self.databaseFileName, isDirectory: false)
+                var destinationHandle: OpaquePointer? = try Self.open(stagedDatabase,
+                    flags: SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX)
+                defer { if let destinationHandle { sqlite3_close_v2(destinationHandle) } }
+                try pinnedParent.pinDatabase(databaseFileName: Self.databaseFileName)
+                try copyDatabase(from: source, to: destinationHandle!, operation: operation)
+                let metadata = try Self.inspect(destinationHandle!, operation: operation,
+                                                beforeVerification: hooks.beforeVerification,
+                                                afterPinned: hooks.afterInspectionPinned,
+                                                verificationProbeSQL: hooks.verificationProbeSQL)
+                guard sqlite3_close_v2(destinationHandle!) == SQLITE_OK else {
+                    throw Self.sqliteError(destinationHandle!)
+                }
+                destinationHandle = nil
+                try hooks.afterDatabaseClosed()
+                try pinnedParent.prepareForPublication(databaseFileName: Self.databaseFileName)
+                try operation.check()
+                try hooks.beforePublication()
+                try operation.check()
+                try pinnedParent.publishNoReplace()
+                published = true
+                try hooks.afterPublication()
+                try pinnedParent.verifyPublishedLocation()
+                return metadata
+            }()
+        } catch {
+            guard !published else { throw error }
+            do {
+                try pinnedParent.removeOwnedStaging(databaseFileName: Self.databaseFileName)
+            } catch let cleanupError {
+                throw cleanupError
+            }
+            throw error
         }
-        destinationHandle = nil
-        try operation.check()
-        try hooks.beforePublication()
-        try operation.check()
-        try pinnedParent.publishNoReplace()
-        published = true
-        try hooks.afterPublication()
-        try pinnedParent.verifyPublishedLocation()
-        return metadata
     }
 
     private func validateConfiguration() throws {
@@ -782,6 +795,8 @@ private final class PinnedSnapshotParent {
         databaseIdentity = identity
     }
 
+    func prepareForPublication(databaseFileName: String) throws {}
+
     func publishNoReplace() throws {
         guard parentPathStillPinned(), stagingEntryStillOwned() else {
             throw ContestDatabaseSnapshotError.unsafePath(parentURL.path)
@@ -814,7 +829,7 @@ private final class PinnedSnapshotParent {
         }
     }
 
-    func removeOwnedStaging(databaseFileName: String) {
+    func removeOwnedStaging(databaseFileName: String) throws {
         if databaseEntryStillOwned(databaseFileName) {
             _ = databaseFileName.withCString { unlinkat(stagingDescriptor, $0, 0) }
         }
@@ -876,6 +891,28 @@ private final class WindowsOwnedHandle {
         }
         guard let result, result != INVALID_HANDLE_VALUE else {
             throw ContestDatabaseSnapshotError.publicationFailed("Windows open failed: \(GetLastError())")
+        }
+        return WindowsOwnedHandle(result)
+    }
+
+    static func openByID(volumeHint: WindowsOwnedHandle, identity: WindowsFileIdentity,
+                         access: DWORD, sharing: DWORD, flags: DWORD) throws -> WindowsOwnedHandle {
+        guard volumeHint.identity()?.volumeSerialNumber == identity.volumeSerialNumber,
+              identity.fileID.count == MemoryLayout<FILE_ID_128>.size else {
+            throw ContestDatabaseSnapshotError.unsafePath("Windows file identity is not on the pinned volume")
+        }
+        var descriptor = FILE_ID_DESCRIPTOR()
+        descriptor.dwSize = DWORD(MemoryLayout<FILE_ID_DESCRIPTOR>.size)
+        descriptor.Type = ExtendedFileIdType
+        let identifierOffset = MemoryLayout<FILE_ID_DESCRIPTOR>.offset(of: \FILE_ID_DESCRIPTOR.Type)!
+            + MemoryLayout<FILE_ID_TYPE>.size
+        withUnsafeMutableBytes(of: &descriptor) { bytes in
+            bytes[identifierOffset ..< identifierOffset + identity.fileID.count]
+                .copyBytes(from: identity.fileID)
+        }
+        let result = OpenFileById(volumeHint.rawValue, &descriptor, access, sharing, nil, flags)
+        guard let result, result != INVALID_HANDLE_VALUE else {
+            throw ContestDatabaseSnapshotError.atomicPublicationUnsupported
         }
         return WindowsOwnedHandle(result)
     }
@@ -967,6 +1004,7 @@ private final class PinnedSnapshotParent {
     private let stagingIdentity: WindowsFileIdentity
     private var databaseHandle: WindowsOwnedHandle?
     private var databaseIdentity: WindowsFileIdentity?
+    private var databaseIDReopenProven = false
 
     init(parent: URL, stagingName: String, destinationName: String) throws {
         parentURL = parent
@@ -1038,6 +1076,34 @@ private final class PinnedSnapshotParent {
         }
         databaseHandle = handle
         databaseIdentity = identity
+        let preflight = try WindowsOwnedHandle.openByID(
+            volumeHint: stagingHandle, identity: identity,
+            access: DWORD(FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        guard preflight.regularFileIdentity(requireSingleLink: true) == identity else {
+            throw ContestDatabaseSnapshotError.unsafePath(url.path)
+        }
+        preflight.close()
+        databaseIDReopenProven = true
+    }
+
+    func prepareForPublication(databaseFileName: String) throws {
+        guard let databaseHandle, let databaseIdentity, databaseIDReopenProven else {
+            throw ContestDatabaseSnapshotError.publicationFailed("database is not pinned")
+        }
+        let identityCheck = try WindowsOwnedHandle.openByID(
+            volumeHint: stagingHandle, identity: databaseIdentity,
+            access: DWORD(FILE_READ_ATTRIBUTES),
+            sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        guard identityCheck.regularFileIdentity(requireSingleLink: true) == databaseIdentity else {
+            throw ContestDatabaseSnapshotError.unsafePath(
+                stagingURL.appendingPathComponent(databaseFileName).path)
+        }
+        identityCheck.close()
+        databaseHandle.close()
+        self.databaseHandle = nil
     }
 
     func publishNoReplace() throws {
@@ -1056,19 +1122,51 @@ private final class PinnedSnapshotParent {
         }
     }
 
-    func removeOwnedStaging(databaseFileName: String) {
-        if let databaseHandle {
-            if let deleteHandle = try? databaseHandle.reopened(
+    func removeOwnedStaging(databaseFileName: String) throws {
+        guard let databaseIdentity else {
+            if stagingHandle.markForDeletion() {
+                stagingHandle.close()
+                return
+            }
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows cleanup lost the staged database identity")
+        }
+        let deleteHandle: WindowsOwnedHandle
+        if databaseIDReopenProven {
+            do {
+                deleteHandle = try WindowsOwnedHandle.openByID(
+                    volumeHint: stagingHandle, identity: databaseIdentity,
+                    access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
+                    sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                    flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+            } catch {
+                throw ContestDatabaseSnapshotError.publicationFailed(
+                    "Windows cleanup could not reopen the staged database by file ID")
+            }
+        } else if let databaseHandle {
+            deleteHandle = try databaseHandle.reopened(
                 access: DWORD(DELETE | FILE_READ_ATTRIBUTES),
                 sharing: DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
-                flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT)),
-               deleteHandle.regularFileIdentity(requireSingleLink: false) == databaseIdentity {
-                _ = deleteHandle.markForDeletion()
-            }
-            databaseHandle.close()
-            self.databaseHandle = nil
+                flags: DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        } else {
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows cleanup cannot reopen the staged database identity")
         }
-        _ = stagingHandle.markForDeletion()
+        guard deleteHandle.regularFileIdentity(requireSingleLink: false) == databaseIdentity else {
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows cleanup could not verify the staged database identity")
+        }
+        databaseHandle?.close()
+        self.databaseHandle = nil
+        guard deleteHandle.markForDeletion() else {
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows staged database cleanup failed: \(GetLastError())")
+        }
+        deleteHandle.close()
+        guard stagingHandle.markForDeletion() else {
+            throw ContestDatabaseSnapshotError.publicationFailed(
+                "Windows staging directory cleanup failed: \(GetLastError())")
+        }
         stagingHandle.close()
     }
 
@@ -1135,7 +1233,10 @@ private final class PinnedSnapshotParent {
     func publishNoReplace() throws { throw ContestDatabaseSnapshotError.atomicPublicationUnsupported }
     func verifyPublishedLocation() throws { throw ContestDatabaseSnapshotError.atomicPublicationUnsupported }
     func pinDatabase(databaseFileName: String) throws { throw ContestDatabaseSnapshotError.atomicPublicationUnsupported }
-    func removeOwnedStaging(databaseFileName: String) {}
+    func prepareForPublication(databaseFileName: String) throws {
+        throw ContestDatabaseSnapshotError.atomicPublicationUnsupported
+    }
+    func removeOwnedStaging(databaseFileName: String) throws {}
 }
 #endif
 

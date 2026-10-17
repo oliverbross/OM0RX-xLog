@@ -118,10 +118,24 @@ Supported publication primitives are:
 
 If the platform cannot provide that primitive, publication fails explicitly.
 A destination created by another process between validation and publication is
-never overwritten. Windows retains read-attribute identity handles while SQLite
-is open. Cleanup requests delete access to that same file object with
-`ReOpenFile`; if the filesystem or sharing state refuses it, cleanup preserves
-the artifact instead of falling back to a pathname deletion.
+never overwritten. Windows records the staged database's volume serial and
+128-bit file ID and proves `OpenFileById` support while its identity handle is
+still held. After SQLite closes, a temporary file-ID handle rechecks the
+identity and closes, then the child database handle closes. Only the pinned
+ancestor and staging-directory handles survive into the publication callback,
+the final pathname identity checks, and the directory rename. This explicit
+publication phase avoids the Windows rule that an open descendant blocks a
+directory rename.
+
+Failure cleanup opens the recorded database object by file ID using the
+same-volume staging handle, verifies the returned identity, and requests
+handle-based deletion before deleting the owned staging directory by its
+retained handle. It never deletes a database through an unchecked pathname. If
+file-ID reopen or identity verification fails, cleanup reports failure and
+preserves the orphan rather than risking deletion of replacement content. A
+filesystem without file-ID reopen support fails before the original identity
+handle is released; that retained, identity-checked handle is the cleanup
+fallback for this preflight-failure path only.
 
 On Darwin and Linux, the native rename binds the staging *name* relative to the
 retained parent; the preceding identity check and rename are separate syscalls.
