@@ -10,6 +10,7 @@ import {
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { correctedQSOFromRead } from "./contesting-worker-acceptance-qso.mjs";
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const bundleID = "com.oliverbross.xlog.contesting-test";
@@ -355,7 +356,7 @@ const protectedBefore = protectedMetadata();
 const exchanges = [];
 const observations = { missingProfile: null, foundationProbe: null };
 const record = async (worker, method, params = {}) => {
-  const exchange = { request: null, response: null };
+  const exchange = { operation: exchanges.length + 1, process: worker.label, method, request: null, response: null };
   exchanges.push(exchange);
   const result = await worker.request(method, params, request => { exchange.request = request; });
   exchange.response = result.response;
@@ -502,6 +503,139 @@ assert.equal(wpxReceipt.status, "committed");
 assert.deepEqual({ requestID: wpxReceipt.receipt.requestID, payloadDigest: wpxReceipt.receipt.payloadDigest,
   committedRevision: wpxReceipt.receipt.committedRevision },
 { requestID: wpxCommitID, payloadDigest: wpxCommitParams.payloadDigest, committedRevision: wpxCommit.session.revision });
+
+const wpxRead = expectSuccess(await record(first, "contest_qso_get", {
+  sessionID: wpxSession, workspaceGeneration: generation, expectedRevision: wpxRevision, qsoID: wpxCommit.qso.qsoID,
+}));
+assert.equal(wpxRead.qso.callsign, "DL1ABC");
+assert.equal(wpxRead.qso.entity.countryPrefix, "DL");
+assert.equal(wpxRead.qso.originalUTC, "2026-10-17T03:13:00.000Z");
+assert.equal(wpxRead.qso.allocatedSerial, "001");
+assert.equal(wpxRead.qso.sentExchange, "001");
+assert.equal(wpxRead.qso.operatorCallsign, "OM0RX");
+assert.equal(wpxRead.qso.provenance.source, "operatorEntry");
+expectError(await record(first, "contest_qso_get", {
+  sessionID: wpxSession, workspaceGeneration: "f1111111-2222-4333-9444-555555555555",
+  expectedRevision: wpxRevision, qsoID: wpxCommit.qso.qsoID,
+}), "stale_workspace");
+
+const wpxReserve2ID = "83333333-2222-4333-8444-555555555555";
+const wpxApply2ID = "83333333-2222-4333-9444-555555555555";
+const wpxForgedCorrectionID = "83333333-2222-4333-a444-555555555555";
+const wpxStaleCorrectionID = "83333333-2222-4333-b444-555555555555";
+const wpxCorrectionID = "84444444-2222-4333-8444-555555555555";
+const wpxDeleteID = "84444444-2222-4333-9444-555555555555";
+const wpxCommit2ID = "84444444-2222-4333-a444-555555555555";
+const wpxReserve3ID = "84444444-2222-4333-b444-555555555555";
+const wpxReserve2 = expectSuccess(await record(first, "contest_serial_reserve", mutation({
+  sessionID: wpxSession, generation, requestID: wpxReserve2ID, revision: wpxRevision, draftID: wpxCreateID,
+  timestamp: "2026-10-17T03:14:00.000Z", payload: {},
+})));
+assert.equal(wpxReserve2.draft.reservedSerial, 2);
+const wpxFields2 = { callsign: "K1ABC", sentReport: "599", sentExchange: "002", receivedReport: "599", receivedExchange: "2", frequencyHz: 7025000, band: "40m", mode: "CW" };
+const wpxApply2 = expectSuccess(await record(first, "contest_draft_apply", mutation({
+  sessionID: wpxSession, generation, requestID: wpxApply2ID, revision: wpxReserve2.session.revision, draftID: wpxCreateID,
+  timestamp: "2026-10-17T03:15:00.000Z", payload: { fields: wpxFields2 },
+})));
+assert.equal(wpxApply2.draft.reservedSerial, 2);
+assert.equal(wpxApply2.draft.dupe.state, "clear");
+const correctedQSO = correctedQSOFromRead(wpxRead.qso, {
+  callsign: "K1ABC", receivedReport: "579", receivedExchange: "2", normalizedReceivedExchange: "2",
+});
+const correctionPayload = { qso: correctedQSO, reason: "Synthetic copied-call correction" };
+const forgedCorrection = mutation({
+  sessionID: wpxSession, generation, requestID: wpxForgedCorrectionID, revision: wpxApply2.session.revision,
+  timestamp: "2026-10-17T03:16:00.000Z",
+  payload: { qso: { ...correctedQSO, entity: wpxRead.qso.entity }, reason: "Forged entity must fail" },
+});
+expectError(await record(first, "contest_qso_correct", forgedCorrection), "invalid_params");
+const staleCorrection = mutation({
+  sessionID: wpxSession, generation, requestID: wpxStaleCorrectionID, revision: wpxReserve2.session.revision,
+  timestamp: "2026-10-17T03:17:00.000Z", payload: correctionPayload,
+});
+expectError(await record(first, "contest_qso_correct", staleCorrection), "stale_revision");
+const wpxCorrectionParams = mutation({
+  sessionID: wpxSession, generation, requestID: wpxCorrectionID, revision: wpxApply2.session.revision,
+  timestamp: "2026-10-17T03:18:00.000Z", payload: correctionPayload,
+});
+const wpxCorrection = expectSuccess(await record(first, "contest_qso_correct", wpxCorrectionParams));
+assert.equal(wpxCorrection.operation, "correction");
+assert.equal(wpxCorrection.currentTarget.callsign, "K1ABC");
+assert.equal(wpxCorrection.currentTarget.entity.countryPrefix, "K");
+assert.equal(wpxCorrection.currentTarget.originalUTC, wpxRead.qso.originalUTC);
+assert.equal(wpxCorrection.currentTarget.allocatedSerial, "001");
+assert.equal("draft" in wpxCorrection, false);
+assert.deepEqual({ qsos: wpxCorrection.score.qsos, points: wpxCorrection.score.points,
+  multipliers: wpxCorrection.score.multipliers, claimedScore: wpxCorrection.score.claimedScore },
+{ qsos: 1, points: 6, multipliers: 1, claimedScore: 6 });
+const wpxCorrectionReceiptParams = { sessionID: wpxSession, workspaceGeneration: generation,
+  requestID: wpxCorrectionID, payloadDigest: wpxCorrectionParams.payloadDigest };
+const wpxCorrectionReceipt = expectSuccess(await record(first, "contest_operation_receipt", wpxCorrectionReceiptParams));
+assert.equal(wpxCorrectionReceipt.status, "committed");
+assert.deepEqual(wpxCorrectionReceipt.receipt, wpxCorrection.receipt);
+assert.deepEqual({ requestID: wpxCorrectionReceipt.receipt.requestID,
+  payloadDigest: wpxCorrectionReceipt.receipt.payloadDigest,
+  committedRevision: wpxCorrectionReceipt.receipt.committedRevision },
+{ requestID: wpxCorrectionID, payloadDigest: wpxCorrectionParams.payloadDigest,
+  committedRevision: wpxCorrection.session.revision });
+const draftAfterCorrection = expectSuccess(await record(first, "contest_draft_get", {
+  sessionID: wpxSession, workspaceGeneration: generation,
+}));
+assert.equal(draftAfterCorrection.draft.draftID, wpxCreateID);
+assert.equal(draftAfterCorrection.draft.reservedSerial, 2);
+assert.deepEqual(draftAfterCorrection.draft.fields, wpxFields2);
+assert.equal(draftAfterCorrection.draft.dupe.state, "duplicate");
+
+const wpxDeleteParams = mutation({
+  sessionID: wpxSession, generation, requestID: wpxDeleteID, revision: wpxCorrection.session.revision,
+  timestamp: "2026-10-17T03:19:00.000Z",
+  payload: { qsoID: wpxCommit.qso.qsoID, reason: "Synthetic invalid contact deletion" },
+});
+const wpxDelete = expectSuccess(await record(first, "contest_qso_delete", wpxDeleteParams));
+assert.equal(wpxDelete.operation, "deletion");
+assert.equal(wpxDelete.currentTarget, null);
+assert.equal(wpxDelete.qsoCount, 0);
+assert.deepEqual({ qsos: wpxDelete.score.qsos, points: wpxDelete.score.points,
+  multipliers: wpxDelete.score.multipliers, claimedScore: wpxDelete.score.claimedScore },
+{ qsos: 0, points: 0, multipliers: 0, claimedScore: 0 });
+const wpxDeleteReceiptParams = { sessionID: wpxSession, workspaceGeneration: generation,
+  requestID: wpxDeleteID, payloadDigest: wpxDeleteParams.payloadDigest };
+const wpxDeleteReceipt = expectSuccess(await record(first, "contest_operation_receipt", wpxDeleteReceiptParams));
+assert.equal(wpxDeleteReceipt.status, "committed");
+assert.deepEqual(wpxDeleteReceipt.receipt, wpxDelete.receipt);
+assert.deepEqual({ requestID: wpxDeleteReceipt.receipt.requestID,
+  payloadDigest: wpxDeleteReceipt.receipt.payloadDigest,
+  committedRevision: wpxDeleteReceipt.receipt.committedRevision },
+{ requestID: wpxDeleteID, payloadDigest: wpxDeleteParams.payloadDigest,
+  committedRevision: wpxDelete.session.revision });
+const draftAfterDelete = expectSuccess(await record(first, "contest_draft_get", {
+  sessionID: wpxSession, workspaceGeneration: generation,
+}));
+assert.equal(draftAfterDelete.draft.draftID, wpxCreateID);
+assert.equal(draftAfterDelete.draft.reservedSerial, 2);
+assert.deepEqual(draftAfterDelete.draft.fields, wpxFields2);
+assert.equal(draftAfterDelete.draft.dupe.state, "clear");
+expectError(await record(first, "contest_qso_get", {
+  sessionID: wpxSession, workspaceGeneration: generation,
+  expectedRevision: wpxDelete.session.revision, qsoID: wpxCommit.qso.qsoID,
+}), "qso_deleted");
+
+const wpxCommit2Params = mutation({
+  sessionID: wpxSession, generation, requestID: wpxCommit2ID, revision: wpxDelete.session.revision, draftID: wpxCreateID,
+  timestamp: "2026-10-17T03:20:00.000Z", payload: {},
+});
+const wpxCommit2 = expectSuccess(await record(first, "contest_qso_commit", wpxCommit2Params));
+assert.equal(wpxCommit2.qso.callsign, "K1ABC");
+assert.equal(wpxCommit2.qso.sentExchange, "002");
+assert.notEqual(wpxCommit2.qso.qsoID, wpxCommit.qso.qsoID);
+assert.equal(wpxCommit2.session.qsoCount, 1);
+assert.deepEqual({ points: wpxCommit2.score.points, multipliers: wpxCommit2.score.multipliers,
+  claimedScore: wpxCommit2.score.claimedScore }, { points: 6, multipliers: 1, claimedScore: 6 });
+const wpxReserve3 = expectSuccess(await record(first, "contest_serial_reserve", mutation({
+  sessionID: wpxSession, generation, requestID: wpxReserve3ID, revision: wpxCommit2.session.revision, draftID: wpxCreateID,
+  timestamp: "2026-10-17T03:21:00.000Z", payload: {},
+})));
+assert.equal(wpxReserve3.draft.reservedSerial, 3);
 expectError(await record(first, "cluster_connect"), "external_io_disabled");
 expectError(await record(first, "station_connect"), "external_io_disabled");
 expectError(await record(first, "online_log_configure"), "external_io_disabled");
@@ -521,18 +655,43 @@ const reopenedWW = expectSuccess(await record(second, "contest_open", { sessionI
 assert.equal(reopenedWW.session.qsoCount, 1);
 const reopenedWPX = expectSuccess(await record(second, "contest_open", { sessionID: wpxSession, workspaceGeneration: generation }));
 assert.equal(reopenedWPX.session.qsoCount, 1);
+assert.equal(reopenedWPX.draft.reservedSerial, 3);
 const wwReceiptAfterRestart = expectSuccess(await record(second, "contest_operation_receipt", wwReceiptParams));
 assert.deepEqual(wwReceiptAfterRestart, wwReceipt);
 const receiptAfterRestart = expectSuccess(await record(second, "contest_operation_receipt", wpxReceiptParams));
 assert.deepEqual(receiptAfterRestart, wpxReceipt);
+assert.deepEqual(expectSuccess(await record(second, "contest_operation_receipt", wpxCorrectionReceiptParams)), wpxCorrectionReceipt);
+assert.deepEqual(expectSuccess(await record(second, "contest_operation_receipt", wpxDeleteReceiptParams)), wpxDeleteReceipt);
 assert.deepEqual(expectSuccess(await record(second, "contest_qso_commit", wwCommitParams)), wwCommit);
 assert.deepEqual(expectSuccess(await record(second, "contest_qso_commit", wpxCommitParams)), wpxCommit);
+assert.deepEqual(expectSuccess(await record(second, "contest_qso_correct", wpxCorrectionParams)), wpxCorrection);
+assert.deepEqual(expectSuccess(await record(second, "contest_qso_delete", wpxDeleteParams)), wpxDelete);
+expectError(await record(second, "contest_qso_get", {
+  sessionID: wpxSession, workspaceGeneration: generation,
+  expectedRevision: reopenedWPX.session.revision, qsoID: wpxCommit.qso.qsoID,
+}), "qso_deleted");
+const restartWPXLog = expectSuccess(await record(second, "contest_log_page", {
+  sessionID: wpxSession, workspaceGeneration: generation,
+  expectedRevision: reopenedWPX.session.revision, offset: 0, limit: 25,
+}));
+assert.equal(restartWPXLog.total, 1);
+assert.equal(restartWPXLog.qsos[0].qsoID, wpxCommit2.qso.qsoID);
+assert.equal(restartWPXLog.qsos[0].sentExchange, "002");
 const descriptorEvidenceRestart = await inspectDescriptors(second);
 const secondExit = await second.stop();
+assert.equal(exchanges.length, 56, "The worker-process acceptance operation ledger changed unexpectedly.");
 
 return {
   missingProfile, descriptorEvidenceFirst, descriptorEvidenceAfterMutations, descriptorEvidenceRestart,
   firstExit, secondExit, first, second,
+  contestMutation: {
+    originalQSOID: wpxCommit.qso.qsoID, replacementQSOID: wpxCommit2.qso.qsoID,
+    correctionRequestID: wpxCorrectionID, deletionRequestID: wpxDeleteID,
+    correctedCountryPrefix: wpxCorrection.currentTarget.entity.countryPrefix,
+    committedSerials: [wpxCommit.qso.sentExchange, wpxCommit2.qso.sentExchange],
+    nextReservedSerial: wpxReserve3.draft.reservedSerial, finalRevision: reopenedWPX.session.revision,
+  },
+  operationCount: exchanges.length,
 };
 }
 
@@ -607,11 +766,17 @@ const evidence = {
   protectedProductionMetadata: { before: protectedBefore, after: protectedAfter, equal: protectedMetadataEqual, contentsRead: false },
   descriptorChecks: completed ? { firstStartup: completed.descriptorEvidenceFirst,
     afterMutations: completed.descriptorEvidenceAfterMutations, restart: completed.descriptorEvidenceRestart } : null,
+  operationCount: exchanges.length,
+  contestMutation: completed?.contestMutation ?? null,
   processes: workerProcesses.map(worker => ({ label: worker.label, pid: worker.child.pid, exit: worker.exit,
     stderr: worker.stderr, responseFrames: worker.frames.length })),
   assertions: {
     onboardingBeforeWorkspace: Boolean(completed), emptyWorkspaceCreated: Boolean(completed), cqWWCommitted: Boolean(completed),
     cqWPXReservedAndCommitted: Boolean(completed), exactCommitReplay: Boolean(completed), receiptSurvivedRestart: Boolean(completed),
+    fullQSOReadBeforeEdit: Boolean(completed), countryChangingCorrection: Boolean(completed), forgedEntityRejected: Boolean(completed),
+    staleGenerationAndRevisionRejected: Boolean(completed), deletionTombstoneObserved: Boolean(completed),
+    exactQSOChangeReplayAfterRestart: Boolean(completed), qsoChangeReceiptsSurvivedRestart: Boolean(completed),
+    postEditDraftDupeRevalidated: Boolean(completed), serialAllocationContinued: Boolean(completed),
     externalMethodsDenied: Boolean(completed), noNetworkSocketsObserved: Boolean(completed),
     noRadioDeviceDescriptorsObserved: Boolean(completed), protectedMetadataUnchanged: protectedMetadataEqual,
   },
