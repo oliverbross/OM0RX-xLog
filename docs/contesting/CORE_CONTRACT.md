@@ -1,6 +1,6 @@
 # Contest core contract
 
-Status: P1/P2 implementation checkpoint, 17 October 2026. This contract is reviewable source and test work. It is not a claim of completed cross-platform acceptance or current CQ sponsor approval.
+Status: Astra-approved fixture-scoped P1/P2 foundation at `71f71b2`, with the full-UUID persistence contract incorporated in approved store commit `c105b61` and the integrated worker/UI fixture contract approved at `603b770`. This is source and focused-test evidence, not completed cross-platform acceptance or current CQ sponsor approval.
 
 ## Boundary
 
@@ -8,7 +8,7 @@ Status: P1/P2 implementation checkpoint, 17 October 2026. This contract is revie
 
 A session pins:
 
-- session UUID and workspace generation;
+- session UUID and a full UUID workspace generation (separate from the unsigned aggregate revision);
 - exact rule ID, implementation version, source edition and source revision;
 - reference-data version;
 - start/end and immutable station callsign, entity and sent-exchange snapshot.
@@ -38,12 +38,12 @@ These rules were translated from Not1MM by Michael Bridak, licensed GPL-3.0-or-l
 
 ## Persistence protocol boundary
 
-`ContestRepository` is a protocol only at this checkpoint. Mutations carry `sessionID`, `workspaceGeneration`, `requestID`, `expectedRevision`, optional `draftID` and a correlation digest. A durable implementation must compare and retain the canonical structured operation payload; the digest is not trusted as proof of payload equality. The same request ID and same payload returns the original typed-result receipt, while the same ID with a different payload fails as a conflict. Receipt and full-draft lookup are explicit so an uncertain response is resolved with the same stable request identity.
+Mutations carry `sessionID`, full-UUID `workspaceGeneration`, `requestID`, unsigned `expectedRevision`, optional `draftID` and a correlation digest. The durable implementation compares and retains the canonical structured operation payload; the digest is not trusted as proof of payload equality. The same request ID and same payload returns the original typed-result receipt, while the same ID with a different payload fails as a conflict. Receipt and full-draft lookup are explicit so an uncertain response is resolved with the same stable request identity.
 
 Session UUIDs are allocated outside the evaluator before create and appear in both the create payload and mutation scope, so an uncertain create has a stable receipt key even before a session row is known to be committed. Create expects revision zero. Every later mutation compares and advances one session aggregate revision; draft and serial values report the session revision at which they were returned. Durable replay checks request identity plus canonical payload before expected revision so a valid retry returns its original receipt after the aggregate has advanced.
 
-Serial reservations are draft-bound, explicitly scoped to session/band/transmitter, and expose guarded reserved, transmitted, uncertain, committed and void transitions. A durable repository must persist a reservation before send and must never recycle uncertain, transmitted or void serials. The P1/P2 module does not yet implement SQLite, transactions, migrations or crash recovery; an in-memory fake would be test scaffolding rather than P3 durability evidence.
+Serial reservations are draft-bound, explicitly scoped to session/band/transmitter, and expose guarded reserved, transmitted, uncertain, committed and void transitions. `XContestStore` now implements the approved pilot SQLite boundary, transactions, migrations, durable receipts and close/reopen recovery in `c105b61`; its detailed constraints and remaining P3 gates are recorded in `STORE_CONTRACT.md`.
 
 ## Current verification limits
 
-The corrected focused suite runs 16 tests covering per-band duplicates, CQ WW country/zone multipliers, CQ WPX unique prefixes and source arithmetic (including the North American branch), same-country zero-point multipliers, edit/delete replay equivalence, deterministic tie-breaking, duplicate identities, nonfinite timestamps, checked addition/multiplication, semantic geography, sent/received exchange and RST validation, serial transitions, and exact/rejected Cabrillo output. It passes in the native manifest and `XLOG_PORTABLE_ONLY=1` manifest on this macOS host. The portable-manifest run is not Windows or Linux execution evidence. Sponsor-rule reconciliation, durable storage, test packaging and integrated UI/runtime acceptance remain separate gates.
+The corrected focused suite has 16 native tests covering per-band duplicates, CQ WW country/zone multipliers, CQ WPX unique prefixes and source arithmetic (including the North American branch), same-country zero-point multipliers, edit/delete replay equivalence, deterministic tie-breaking, duplicate identities, nonfinite timestamps, checked arithmetic, semantic geography, exchange/RST validation, serial transitions, and exact/rejected Cabrillo output. All 16 passed after the UUID contract change. The corresponding portable-manifest command exited zero, but its executed-test count was elided, so this checkpoint does not claim a counted portable rerun. Workflow run `39029076031` at `de458e7` does not establish three-OS acceptance: macOS failed during manifest type-checking, Linux failed in session tests excluded from the portable implementation target, and Windows failed on an unconditional `CoreFoundation` import. The manifest repair and TCI guard were approved at `2366341`; hosted rerun `39029612842` is pending, and the Windows import repair remains under review. Sponsor-rule reconciliation, test packaging and integrated UI/runtime acceptance remain separate gates.
