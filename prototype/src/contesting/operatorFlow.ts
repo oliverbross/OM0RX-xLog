@@ -190,6 +190,13 @@ function keyboardPlan(state: OperatorFlowState, key: string): { macros: Operator
   return { macros: ["EXCH"], commit: true };
 }
 
+export function operatorFlowAdmissionShape(state: OperatorFlowState, key: string) {
+  const plan = keyboardPlan(state, key);
+  if (!plan) return null;
+  return Object.freeze({ macros: Object.freeze([...plan.macros]), commit: plan.commit,
+    reserveSerial: state.context.serialRequired && state.cues.reservedSerial === null && plan.macros.includes("EXCH") });
+}
+
 function tokensFor(plan: { macros: OperatorMacroRole[]; commit: boolean }, state: OperatorFlowState, admission?: OperatorKeyboardAdmission) {
   if (!admission || !Array.isArray(admission.send) || admission.send.length !== plan.macros.length || Boolean(admission.commit) !== plan.commit) return null;
   const needsSerial = state.context.serialRequired && state.cues.reservedSerial === null && plan.macros.includes("EXCH");

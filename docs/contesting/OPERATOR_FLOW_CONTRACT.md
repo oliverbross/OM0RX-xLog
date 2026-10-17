@@ -99,11 +99,41 @@ state. Caller mutation after a transition therefore cannot rewrite captured
 ownership or an already emitted command. Integrations must still treat these
 values as data and pass them to the existing owners for authoritative checks.
 
+The Test-profile workspace binds this reducer to an explicitly armed simulation
+panel for the pinned CQ WW and CQ WPX CW/SSB pilots. The panel uses the shared
+CW template expander only to render a visible local trace. It does not call the
+native CW session, voice/audio, PTT, radio, or device owners. Reservation and
+commit intents use the existing contest mutation client and recovery journal.
+A lost mutation acknowledgement remains owned by the normal receipt/exact-retry
+controls. Recovery is admitted only when method, session, workspace generation,
+request ID, and payload digest match the exact uncertain mutation captured by
+the sequence. The operator sequence stays disarmed until that same operation is
+reconciled. Before simulated output, reservation, or commit, the integration
+also rechecks the captured context and draft against the current mutation owner;
+dirty, busy, disabled, edited, or replaced drafts are rejected. Admission is
+phase-specific and uses an exact allowlist of the worker's missing callsign,
+geography, received-exchange, and sent-serial messages. A worker-shaped blank
+draft may call CQ, an incomplete received exchange may request AGN, and WPX Run
+may reserve from a valid callsign before the received exchange exists. Output
+that leads to commit and commit itself require the authoritative validation and
+duplicate checks to be clear; numeric but out-of-range exchanges and callsigns
+that fail the worker's letter, number, or slash-shape requirements cannot
+progress. Manual draft edits, style changes, session changes, Escape, and
+manager switches disarm the simulation. Enter events are consumed only while
+the flow is armed or owns an operation, and the form independently refuses
+implicit submission over that same interval. Disarmed Enter retains Plain Log
+submission.
+
+Oceania DX, SAC preview, and any future rule identity remain on Plain Log until
+their operator sequences are separately audited. The simulation trace is not
+evidence of RF, audio, macro timing, or transmit completion.
+
 ## Boundary
 
-The module supplies no event listener and makes no browser, filesystem, worker,
-native, audio, radio, or network call. UI focus routing, macro configuration,
-macro text, voice playback, CW transmission, operation persistence, and receipt
-lookups remain integration work. These tests therefore establish deterministic
-intent sequencing only; they are not RF, audio, native-process, or durable
+The reducer module supplies no event listener and makes no browser, filesystem,
+worker, native, audio, radio, or network call. Its Test-profile integration adds
+only scoped keyboard handling, simulation trace rendering, and calls to the
+existing contest mutation owner. Voice playback and CW transmission remain out
+of scope. These tests establish deterministic intent sequencing and contest
+mutation integration only; they are not RF, audio, native-process, or durable
 restart evidence.
