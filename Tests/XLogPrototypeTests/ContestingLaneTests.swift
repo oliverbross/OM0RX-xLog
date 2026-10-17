@@ -73,6 +73,47 @@ final class ContestingLaneTests: XCTestCase {
         return (sessionID, createID, result)
     }
 
+    func testCQWWWorkerCreatePreservesStationSnapshotExchangeThroughCommit() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-cqww-worker-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
+        guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected contest profile") }
+        let logbook = LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: false, runtimeProfile: profile)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
+        let catalogFrame = try await workerRequest(worker, method: "contest_catalog")
+        let catalog = try XCTUnwrap(catalogFrame["result"] as? [String: Any])
+        let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
+        let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
+        let rule = try XCTUnwrap(rules.first { ($0["identity"] as? [String: Any])?["id"] as? String == "cq-ww-cw" })
+        let sessionID = UUID(), draftID = UUID()
+        let payload: [String: Any] = [
+            "sessionID": wireID(sessionID), "name": "CQ WW v1 reset regression",
+            "ruleIdentity": try XCTUnwrap(rule["identity"] as? [String: Any]),
+            "referenceDataVersion": try XCTUnwrap(rule["referenceDataVersion"] as? String),
+            "station": ["callsign": "OM0RX", "cqZone": "15", "dxccEntity": "SLOVAK REPUBLIC"],
+            "operator": ["callsign": "OM0RX", "category": "single-op"],
+        ]
+        let created = try await workerRequest(worker, method: "contest_create", params: mutation(
+            sessionID: sessionID, requestID: draftID, revision: 0, timestamp: "2026-10-18T22:00:00.000Z",
+            payload: payload, workspaceGeneration: generation))
+        let createdResult = try XCTUnwrap(created["result"] as? [String: Any])
+        let createdFields = try XCTUnwrap((createdResult["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        XCTAssertEqual(createdFields["sentExchange"] as? String, "15")
+
+        let fields: [String: Any] = ["callsign": "K1ABC", "sentReport": "599", "sentExchange": "15",
+            "receivedReport": "599", "receivedExchange": "05", "frequencyHz": 14_025_000,
+            "band": "20m", "mode": "CW"]
+        let applied = try await workerRequest(worker, method: "contest_draft_apply", params: mutation(
+            sessionID: sessionID, requestID: UUID(), revision: 1, timestamp: "2026-10-18T22:01:00.000Z",
+            payload: ["fields": fields], draftID: draftID, workspaceGeneration: generation))
+        XCTAssertEqual((((applied["result"] as? [String: Any])?["draft"] as? [String: Any])?["fields"] as? [String: Any])?["sentExchange"] as? String, "15")
+        let committed = try await workerRequest(worker, method: "contest_qso_commit", params: mutation(
+            sessionID: sessionID, requestID: UUID(), revision: 2, timestamp: "2026-10-18T22:02:00.000Z",
+            payload: [:], draftID: draftID, workspaceGeneration: generation))
+        XCTAssertEqual(((committed["result"] as? [String: Any])?["qso"] as? [String: Any])?["sentExchange"] as? String, "15")
+    }
+
     private func commitSerialContact(_ lane: ContestLane, sessionID: UUID, draftID: UUID, revision: Int,
                                      call: String, band: String, frequencyHz: Int, mode: String,
                                      report: String, received: String, minute: Int) async throws -> Int {
@@ -195,7 +236,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
-    func testTwelveRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
+    func testFourteenRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
         let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-eight-pilot-catalog-\(UUID().uuidString)")
         defer {
             if FileManager.default.fileExists(atPath: catalogRoot.path) {
@@ -207,7 +248,8 @@ final class ContestingLaneTests: XCTestCase {
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
                        ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup"])
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb"])
+        XCTAssertEqual(rules.count, 14)
         for rule in rules {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
@@ -215,7 +257,7 @@ final class ContestingLaneTests: XCTestCase {
             let ruleID = try XCTUnwrap((rule["identity"] as? [String: Any])?["id"] as? String)
             XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String,
                            ruleID.hasPrefix("naqp-") ? "" : mode == "SSB" ? "59" : "599")
-            if ruleID.hasPrefix("naqp-") || ruleID == "arrl-rtty-roundup" {
+            if ruleID.hasPrefix("naqp-") || ruleID == "arrl-rtty-roundup" || ruleID.hasPrefix("jidx-") {
                 XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 2)
                 XCTAssertEqual((entry["version"] as? NSNumber)?.intValue, 2)
             } else {
@@ -852,10 +894,10 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 12)
+        XCTAssertEqual(rules.count, 14)
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
                        ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup"])
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb"])
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let rule = try XCTUnwrap(rules.first { $0["displayName"] as? String == "CQ WPX CW" })
         let sessionID = UUID(uuidString: "f7654321-89ab-4cde-8fab-0123456789ab")!
@@ -1203,10 +1245,13 @@ final class ContestingLaneTests: XCTestCase {
             let initialFields = try XCTUnwrap(initialDraft["fields"] as? [String: Any])
             XCTAssertEqual(initialFields["sentReport"] as? String, "")
             XCTAssertEqual(initialFields["sentExchange"] as? String, "AL CA")
-            let fields: [String: Any] = ["callsign": "VE3AAA", "sentReport": "", "sentExchange": "AL CA",
-                "receivedReport": "", "receivedExchange": "SAM ON", "frequencyHz": item.2,
+            let workedCall = offset == 0 ? "K1ABC" : "VE3AAA"
+            let receivedName = offset == 0 ? "BOB" : "SAM"
+            let receivedLocation = offset == 0 ? "CT" : "ON"
+            let fields: [String: Any] = ["callsign": workedCall, "sentReport": "", "sentExchange": "AL CA",
+                "receivedReport": "", "receivedExchange": "\(receivedName) \(receivedLocation)", "frequencyHz": item.2,
                 "band": "20m", "mode": item.1, "sentExchangeFields": ["name": "AL", "location": "CA"],
-                "receivedExchangeFields": ["name": "SAM", "location": "ON"]]
+                "receivedExchangeFields": ["name": receivedName, "location": receivedLocation]]
             var applyRevision = 1
             if offset == 0 {
                 var incompleteFields = fields
@@ -1257,7 +1302,7 @@ final class ContestingLaneTests: XCTestCase {
                 let chunk = try XCTUnwrap(read["result"] as? [String: Any])
                 let bytes = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(chunk["dataBase64"] as? String)))
                 let text = try XCTUnwrap(String(data: bytes, encoding: .utf8))
-                XCTAssertTrue(text.contains("VE3AAA")); XCTAssertTrue(text.contains("SAM"))
+                XCTAssertTrue(text.contains(workedCall)); XCTAssertTrue(text.contains(receivedName))
                 if format == "adif" {
                     XCTAssertFalse(text.contains("<RST_SENT:")); XCTAssertFalse(text.contains("<RST_RCVD:"))
                 } else {
@@ -1278,8 +1323,10 @@ final class ContestingLaneTests: XCTestCase {
                 "expectedRevision": revision, "qsoID": qsoID])
             let got = try XCTUnwrap(getResponse["result"] as? [String: Any])
             var correctedQSO = try XCTUnwrap(got["qso"] as? [String: Any]); correctedQSO.removeValue(forKey: "entity")
-            correctedQSO["receivedExchange"] = "TOM ON"; correctedQSO["normalizedReceivedExchange"] = "TOM ON"
-            correctedQSO["receivedExchangeFields"] = ["name": "TOM", "location": "ON"]
+            let correctedName = offset == 0 ? "Sam" : "TOM"
+            correctedQSO["receivedExchange"] = "\(correctedName) \(receivedLocation)"
+            correctedQSO["normalizedReceivedExchange"] = "\(correctedName.uppercased()) \(receivedLocation)"
+            correctedQSO["receivedExchangeFields"] = ["name": correctedName, "location": receivedLocation]
             let correctionID = UUID()
             let correction = mutation(sessionID: sessionID, requestID: correctionID, revision: Int(revision),
                 timestamp: "2026-10-18T0\(offset):04:00.000Z", payload: ["qso": correctedQSO, "reason": "Correct copied name"],
@@ -1287,6 +1334,12 @@ final class ContestingLaneTests: XCTestCase {
             let correctionResponse = try await workerRequest(worker, method: "contest_qso_correct", params: correction)
             let corrected = try XCTUnwrap(correctionResponse["result"] as? [String: Any])
             XCTAssertEqual(((corrected["score"] as? [String: Any])?["claimedScore"] as? NSNumber)?.intValue, 1)
+            if offset == 0 {
+                let target = try XCTUnwrap(corrected["currentTarget"] as? [String: Any])
+                XCTAssertEqual(target["receivedExchange"] as? String, "Sam CT")
+                XCTAssertEqual(target["normalizedReceivedExchange"] as? String, "SAM CT")
+                XCTAssertEqual(target["receivedExchangeFields"] as? [String: String], ["name": "Sam", "location": "CT"])
+            }
             let scoreResponse = try await workerRequest(worker, method: "contest_score", params: [
                 "sessionID": wireID(sessionID), "workspaceGeneration": generation, "expectedRevision": revision + 1])
             let rescored = try XCTUnwrap(scoreResponse["result"] as? [String: Any])

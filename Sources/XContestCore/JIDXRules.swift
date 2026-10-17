@@ -49,10 +49,12 @@ private let jidxProvenance = "JIDX Contest Rules 2026-10 https://www.jidx.org/ji
     "visitor prefix authority https://rsgb.org/main/operating/licensing-novs-visitors/" +
     "operating-for-visitors/ SHA-256 " +
     "c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; " +
-    "inactive preview only"
+    "practice preview only"
 
-/// Inactive JIDX CW scoring core. Registry, worker, UI, export, and category activation remain separate.
+/// JIDX CW practice-preview scoring core. Sponsor submission acceptance remains separate.
 public struct JIDXCWRule: ContestRule, ContestRuleStationEntityPolicy {
+    public let draftResetSentProjection: ContestDraftResetSentProjection = .soleStationField
+
     public static let identity = ContestRuleIdentity(
         id: "jidx-cw", version: "1.0.0-2026-rules-preview",
         edition: "2026-10-rules-preview", sourceRevision: jidxRulesDigest)
@@ -76,8 +78,10 @@ public struct JIDXCWRule: ContestRule, ContestRuleStationEntityPolicy {
     }
 }
 
-/// Inactive JIDX Phone scoring core. SSB is rendered as PH only by a future dedicated exporter.
+/// JIDX Phone practice-preview scoring core. Cabrillo renders the sponsor's PH token.
 public struct JIDXSSBRule: ContestRule, ContestRuleStationEntityPolicy {
+    public let draftResetSentProjection: ContestDraftResetSentProjection = .soleStationField
+
     public static let identity = ContestRuleIdentity(
         id: "jidx-ssb", version: "1.0.0-2026-rules-preview",
         edition: "2026-10-rules-preview", sourceRevision: jidxRulesDigest)
@@ -192,6 +196,7 @@ private func jidxSentExchangeIssues(_ qso: ContestQSO, station: ContestStationSn
                                     role: role, entity: station.entity,
                                     direction: "exchange.sent")
     if qso.exchange.sentFields != station.sentExchangeFields ||
+        qso.exchange.rawSent != station.sentExchangeFields["number"]?.raw ||
         qso.exchange.normalizedSent != station.sentExchange {
         issues.append(jidxIssue("sentExchangeMismatch", "exchange.sent",
                                 "Sent exchange must match the immutable station snapshot."))
