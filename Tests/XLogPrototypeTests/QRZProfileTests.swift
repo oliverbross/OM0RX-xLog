@@ -17,6 +17,32 @@ struct QRZProfileTests {
         signal.wait(timeout: .now() + 1) == .success
     }
 
+    @Test("Workspace creation is busy while its owner holds the absent path, then ready")
+    func workspaceCreationAvailabilityTransition() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let acquired = DispatchSemaphore(value: 0), create = DispatchSemaphore(value: 0)
+        let owner = Task.detached { () throws -> Void in
+            try logbook.withSyncOwnerLock {
+                acquired.signal()
+                create.wait()
+                _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+            }
+        }
+        #expect(waitForSignal(acquired))
+        guard case .busy = logbook.currentSettingsAvailability() else {
+            Issue.record("An owned workspace transition with an absent path must remain transiently busy.")
+            create.signal(); try await owner.value; return
+        }
+        create.signal()
+        try await owner.value
+        guard case .ready = logbook.currentSettingsAvailability() else {
+            Issue.record("Completed workspace creation must publish readable settings.")
+            return
+        }
+    }
+
     private func xml(image: String, website: String) -> Data {
         Data("""
         <QRZDatabase><Callsign>

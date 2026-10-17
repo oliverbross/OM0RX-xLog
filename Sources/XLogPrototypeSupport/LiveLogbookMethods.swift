@@ -170,9 +170,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     /// recovery or another long-lived logbook owner. Missing this snapshot is
     /// not an error: callers retain bundled CTY identity and can retry later.
     func currentSettingsAvailability() -> LiveSettingsAvailability {
-        guard fileManager.fileExists(atPath: workspaceURL.path) else { return .unavailable }
         guard lock.try() else { return .busy }
         defer { lock.unlock() }
+        guard fileManager.fileExists(atPath: workspaceURL.path) else { return .unavailable }
         do { return .ready(try currentSettings()) }
         catch { return .unavailable }
     }
