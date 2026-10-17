@@ -172,4 +172,12 @@ Phase 1 does not expose its pending preview outside the actor and does not yet a
 
 There are still no worker routes, private picker, UI, draft mutation, rule projection, QSO mutation, history export, or catalog activation. Those remain later review gates.
 
+### Phase 2a implementation checkpoint
+
+Phase 2a adds internal contest-worker status, private preview, diagnostic-page, preview-cancel, preview-commit, exact-query, scoped query-cancel, and explicit record-selection routes. A preview expires after ten minutes according to an injected monotonic clock; its UTC expiry is display metadata only. Commit remains bound to the active dataset generation captured at preview time and to the canonical workspace generation. Query and selection contexts are reconstructed from one authoritative session/draft snapshot and checked again after each service-actor await. Result evidence is server-held, limited to eight contexts, invalidated exactly by query cancellation or globally by dataset replacement, and never accepted from renderer-supplied row data.
+
+The native command owns the file chooser and sends only its private path to the blocked internal worker route. Renderer-accessible generic worker dispatch rejects that route, and no path or complete source byte payload appears in a response. The chooser accepts operator-managed filenames without an extension filter. The service accepts only regular non-symlink files, reads at most the 16 MiB source limit plus one byte, and fails closed before unsafe bound arithmetic. Diagnostics are paged at 100 records maximum. Query and selection values are independently pageable, retain every header and unknown value, and use a dedicated 768 KiB response ceiling below the worker's existing 1 MiB wire limit.
+
+This phase still has no frontend panel or picker invocation, draft prefill or mutation, QSO mutation, call-history generation/export, catalog activation, native package evidence, or operator-run evidence. Those remain phase 2b or later gates.
+
 F18 remains pending until the applicable phase has runtime evidence. This contract provides no native package, real-radio/keying, operator-run, current external-format compatibility, automatic prefill, call-history generation/export, or sponsor acceptance evidence. Those exclusions must remain visible in acceptance records.

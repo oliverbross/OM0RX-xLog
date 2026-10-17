@@ -4,6 +4,50 @@ import XContestCore
 @testable import XLogPrototypeSupport
 
 final class ContestCallHistoryServiceTests: XCTestCase {
+    func testPreviewExpiryAndCancellationRetainCommittedGeneration() async throws {
+        let root = temporaryRoot("expiry")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("CallHistory/current.json")
+        let clock = HistoryTestClock(Date(timeIntervalSince1970: 100))
+        let service = try ContestCallHistoryService(cacheURL: cache, validatePrivateRoot: {},
+            previewTTL: 600, now: { clock.wallNow }, monotonicNow: { clock.monotonicNow })
+        let first = await service.previewImport(data: validBytes("K1ABC"), sourceName: "first.txt",
+                                                importedAtUTC: clock.wallNow)
+        let info = try await service.commitImport(previewID: first.previewID,
+            expectedSHA256: first.preview.sha256, confirmAdvisories: false)
+        let expiring = await service.previewImport(data: validBytes("N1XYZ"), sourceName: "second.txt",
+            importedAtUTC: clock.wallNow, workspaceGeneration: "00000000-0000-0000-0000-000000000001")
+        await XCTAssertThrowsErrorAsync(try await service.diagnosticPage(
+            previewID: expiring.previewID, expectedSHA256: expiring.preview.sha256,
+            workspaceGeneration: "00000000-0000-0000-0000-000000000001", offset: Int.max, limit: 100)) {
+                XCTAssertEqual($0 as? ContestCallHistoryServiceError, .invalidPage)
+            }
+        clock.setWall(Date(timeIntervalSince1970: -10_000))
+        clock.advanceMonotonic(601)
+        await XCTAssertThrowsErrorAsync(try await service.diagnosticPage(
+            previewID: expiring.previewID, expectedSHA256: expiring.preview.sha256,
+            workspaceGeneration: "00000000-0000-0000-0000-000000000001", offset: 0, limit: 10)) {
+                XCTAssertEqual($0 as? ContestCallHistoryServiceError, .expiredPreview)
+            }
+        let status = await service.status()
+        XCTAssertEqual(status.dataset, info)
+        XCTAssertNil(status.pending)
+
+        let cancellable = await service.previewImport(data: validBytes("N1XYZ"), sourceName: "third.txt",
+            importedAtUTC: clock.wallNow, workspaceGeneration: "00000000-0000-0000-0000-000000000001")
+        let didCancel = try await service.cancelImport(
+            previewID: cancellable.previewID, expectedSHA256: cancellable.preview.sha256,
+            workspaceGeneration: "00000000-0000-0000-0000-000000000001")
+        XCTAssertTrue(didCancel)
+        await XCTAssertThrowsErrorAsync(try await service.commitImport(
+            previewID: cancellable.previewID, expectedSHA256: cancellable.preview.sha256,
+            confirmAdvisories: false,
+            expectedWorkspaceGeneration: "00000000-0000-0000-0000-000000000001")) {
+                XCTAssertEqual($0 as? ContestCallHistoryServiceError, .unknownPreview)
+            }
+        let retained = await service.status()
+        XCTAssertEqual(retained.dataset, info)
+    }
     func testPreviewCommitReopenPreservesLosslessRowsAndDuplicateLookup() async throws {
         let root = temporaryRoot("reopen")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -118,6 +162,19 @@ final class ContestCallHistoryServiceTests: XCTestCase {
         XCTAssertEqual(reopenedStatus.dataset, info)
     }
 
+    func testInvalidEnvelopeReadBoundFailsClosedBeforeArithmetic() async throws {
+        let root = temporaryRoot("invalid-bound")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appendingPathComponent("CallHistory/current.json")
+        try FileManager.default.createDirectory(at: cache.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: cache)
+        let service = try ContestCallHistoryService(
+            cacheURL: cache, validatePrivateRoot: {}, maximumEnvelopeBytes: Int.max)
+        let status = await service.status()
+        XCTAssertNil(status.dataset)
+        XCTAssertEqual(status.unavailableReason, "invalid_cache")
+    }
+
     func testReplacementInvalidatesOldSelectionByDatasetGenerationAndMembership() async throws {
         let root = temporaryRoot("stale")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -213,6 +270,30 @@ final class ContestCallHistoryServiceTests: XCTestCase {
 
     private func temporaryRoot(_ suffix: String) -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("xlog-history-\(suffix)-\(UUID().uuidString)")
+    }
+}
+
+private final class HistoryTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var wall: Date
+    private let monotonicBase = ContinuousClock().now
+    private var monotonicOffset: TimeInterval = 0
+    init(_ value: Date) { wall = value }
+    var wallNow: Date {
+        lock.lock(); defer { lock.unlock() }
+        return wall
+    }
+    var monotonicNow: ContinuousClock.Instant {
+        lock.lock(); defer { lock.unlock() }
+        return monotonicBase.advanced(by: .seconds(monotonicOffset))
+    }
+    func setWall(_ value: Date) {
+        lock.lock(); defer { lock.unlock() }
+        wall = value
+    }
+    func advanceMonotonic(_ interval: TimeInterval) {
+        lock.lock(); defer { lock.unlock() }
+        monotonicOffset += interval
     }
 }
 

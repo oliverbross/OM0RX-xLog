@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "feature": "F18 call-history phase 2a internal worker and native picker",
+  "capturedAtUTC": "2026-10-17T23:45:18.161Z",
+  "branch": "codex/contest-history-worker",
+  "baseCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
+  "status": "review_candidate",
+  "boundaries": {
+    "included": [
+      "internal service authority",
+      "private native picker",
+      "worker status/preview/cancel/commit/query/query-cancel/select",
+      "bounded diagnostic/query/selection pagination"
+    ],
+    "excluded": [
+      "frontend UI",
+      "draft prefill or mutation",
+      "QSO mutation",
+      "catalog activation",
+      "history generation/export",
+      "native package",
+      "operator run",
+      "radio/keying"
+    ]
+  },
+  "budgetRegression": {
+    "sourceRows": 24,
+    "headers": 4,
+    "largeValuesPerRow": 3,
+    "bytesPerLargeValue": 3900,
+    "jsonEscapedScalar": "U+0001",
+    "assertions": [
+      "query traversal crosses the 768 KiB branch",
+      "every encoded response is below 768 KiB",
+      "all 96 record/header values are preserved exactly once",
+      "selection pagination returns all four columns with exact values"
+    ]
+  },
+  "commands": [
+    {
+      "log": "/tmp/xlog-history-phase2a-final-portable-focused.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && set -o pipefail && XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/om0rx-history-phase2a-portable --filter 'ContestCallHistoryServiceTests|ContestCallHistoryWorkerTests|ContestSCPWorkerIntegrationTests|ContestCallsignAssistanceTests|ContestAssistanceLaneTests' 2>&1 | tee /tmp/xlog-history-phase2a-final-portable-focused.log"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-final-wire-regression.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && set -o pipefail && XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/om0rx-history-phase2a-portable --filter 'ContestCallHistoryWorkerTests|ContestSCPWorkerIntegrationTests|ContestAssistanceLaneTests' 2>&1 | tee /tmp/xlog-history-phase2a-final-wire-regression.log"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-budget-worker.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && set -o pipefail && XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/om0rx-history-phase2a-portable --filter ContestCallHistoryWorkerTests 2>&1 | tee /tmp/xlog-history-phase2a-budget-worker.log"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-budget-assistance.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && set -o pipefail && XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/om0rx-history-phase2a-portable --filter ContestAssistanceLaneTests 2>&1 | tee /tmp/xlog-history-phase2a-budget-assistance.log"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-budget-discovery.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && set -o pipefail && XLOG_PORTABLE_ONLY=1 swift test list --jobs 2 --scratch-path /tmp/om0rx-history-phase2a-portable 2>&1 | tee /tmp/xlog-history-phase2a-budget-discovery.log | rg 'ContestCallHistory(Service|Worker)Tests'"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-final-native-admission.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype/src-tauri && set -o pipefail && /usr/bin/env TAURI_CONFIG='{\"productName\":\"OM0RX-xLog Contesting Test\",\"identifier\":\"com.oliverbross.xlog.contesting-test\",\"bundle\":{\"active\":false,\"externalBin\":[]}}' /opt/homebrew/bin/cargo test --locked --jobs 2 --target-dir /tmp/om0rx-history-phase2a-rust2 --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests:: -- --nocapture 2>&1 | tee /tmp/xlog-history-phase2a-final-native-admission.log"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-final-native-policy.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype/src-tauri && set -o pipefail && /usr/bin/env TAURI_CONFIG='{\"productName\":\"OM0RX-xLog Contesting Test\",\"identifier\":\"com.oliverbross.xlog.contesting-test\",\"bundle\":{\"active\":false,\"externalBin\":[]}}' /opt/homebrew/bin/cargo test --locked --jobs 2 --target-dir /tmp/om0rx-history-phase2a-rust2 --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy -- --nocapture 2>&1 | tee /tmp/xlog-history-phase2a-final-native-policy.log"
+    },
+    {
+      "log": "/tmp/xlog-history-phase2a-final-native-check.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype/src-tauri && set -o pipefail && /usr/bin/env TAURI_CONFIG='{\"productName\":\"OM0RX-xLog Contesting Test\",\"identifier\":\"com.oliverbross.xlog.contesting-test\",\"bundle\":{\"active\":false,\"externalBin\":[]}}' /opt/homebrew/bin/cargo check --locked --jobs 2 --target-dir /tmp/om0rx-history-phase2a-rust2 --features contesting-test 2>&1 | tee /tmp/xlog-history-phase2a-final-native-check.log"
+    }
+  ],
+  "logs": {
+    "/tmp/xlog-history-phase2a-final-portable-focused.log": {
+      "sha256": "38e3d1dd6373ce13d0ba29e55090694c03534caa390c2f9590626fa45e03b525",
+      "result": "38 passed: 9 history service, 2 history worker, 4 SCP worker, 13 assistance lane, 10 callsign assistance"
+    },
+    "/tmp/xlog-history-phase2a-final-wire-regression.log": {
+      "sha256": "53b1eca6d67cfb5b6ec7e183f48e6c05b6bd9fe148da95038afa6c1795a1a9f1",
+      "result": "19 passed: 2 history worker, 4 SCP worker, 13 assistance lane"
+    },
+    "/tmp/xlog-history-phase2a-final-native-admission.log": {
+      "sha256": "63fd7f5f99f931a39fe1697675b4928fbe78abbe5ab56c3aa6f07cd49b1455de",
+      "result": "5 passed"
+    },
+    "/tmp/xlog-history-phase2a-final-native-policy.log": {
+      "sha256": "967d457a8a37cca83161dd5acaf1fbd7f1ef823eba8e35498bfa3057b793e83c",
+      "result": "1 passed"
+    },
+    "/tmp/xlog-history-phase2a-final-native-check.log": {
+      "sha256": "cc2b8404976e198cfb0b7a15929ff1ae911d57bb5d67c9e33dc96fcc634c94bb",
+      "result": "cargo check passed"
+    },
+    "/tmp/xlog-history-phase2a-budget-worker.log": {
+      "sha256": "47d05e5ef581df9e606ee7e73888ffc63acfa2b01391ff7e2a7d6b2675bdc828",
+      "result": "3 passed, including escaped values crossing the 768 KiB query budget"
+    },
+    "/tmp/xlog-history-phase2a-budget-assistance.log": {
+      "sha256": "bd9ef769b7b336371e826e0a4cdf7f4b38fcc38e5819b58daf8857d9224766ed",
+      "result": "13 passed"
+    },
+    "/tmp/xlog-history-phase2a-budget-discovery.log": {
+      "sha256": "bc1c4933a626d26b5ae637912898ce015ffb61d69227042afb69d588e20d9c34",
+      "result": "9 history service and 3 history worker tests discovered"
+    }
+  },
+  "frozenFiles": {
+    ".github/workflows/contest-portability.yml": "f43e6b809b7478a6d376c0ec636ec10c715ebe27612ade9a1945e529d5599bc7",
+    "Sources/XLogPrototypeSupport/Contesting/ContestCallHistoryService.swift": "6457e0bdb268552cdf72f6b188eb6faa131f816dfbbf1ddb48d6100eb5db8262",
+    "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift": "7ecfc1920b3bee7f259fd7126e02d72ce61b3ddbf93aeefd416d61cf423780a2",
+    "Tests/XLogPrototypeTests/ContestCallHistoryServiceTests.swift": "66eef5563e2af9bb89f7b0272373ba50d68f453817b431ed67cf66a5793957f5",
+    "Tests/XLogPrototypeTests/ContestCallHistoryWorkerTests.swift": "4766a5d86440af417bd9ba7922894f5eb0c00d0d0b284f1454462ebbe2247d51",
+    "docs/contesting/CALL_HISTORY_CONTRACT.md": "63d95bd3719d4677b4e3dd79df300eeef2d42d79d476c4547e6d57f50861c264",
+    "prototype/src-tauri/src/main.rs": "bb30eb7969107331afcac51d36eae7293196ff89e8b5ec3df2a596f51fc0f4ba",
+    "prototype/src-tauri/src/worker.rs": "e8ce94a3afdd026f338c0a713de87845c13decb371bba825eccd3dd7671b5ba1"
+  }
+}

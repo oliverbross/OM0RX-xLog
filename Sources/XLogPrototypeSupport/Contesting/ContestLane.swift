@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 import XContestCore
 import XContestStore
 #if canImport(XLogCore)
@@ -24,6 +25,7 @@ actor ContestLane {
     private var store: SQLiteContestStore?
     private var exportLane: ContestExportLane?
     private var assistanceService: ContestSCPService?
+    private var callHistoryService: ContestCallHistoryService?
     private var tail: Task<Void, Never>?
     private var terminalShutdown = false
 
@@ -84,6 +86,10 @@ actor ContestLane {
             case "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
                  "contest_scp_import_private":
                 result = try await assistance(method: method, params: params)
+            case "contest_history_status", "contest_history_preview_private", "contest_history_preview_page",
+                 "contest_history_preview_cancel", "contest_history_preview_commit",
+                 "contest_history_query", "contest_history_query_cancel", "contest_history_select":
+                result = try await callHistory(method: method, params: params, generation: before)
             default: throw ContestLaneError.confirmed("unknown_method", "Unknown contest method.")
             }
         } catch let error as ContestLaneError { throw error }
@@ -91,6 +97,8 @@ actor ContestLane {
           catch let error as ContestAssistanceLaneError { throw Self.map(error) }
           catch is ContestSCPServiceError { throw ContestLaneError.confirmed("scp_import_failed", "The selected SCP file could not be imported.") }
           catch is ContestSCPError { throw ContestLaneError.confirmed("invalid_scp", "The SCP dataset or query is invalid.") }
+          catch let error as ContestCallHistoryServiceError { throw Self.map(error) }
+          catch let error as ContestCallHistoryError { throw Self.map(error) }
           catch { throw Self.map(error) }
         if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let after: String
@@ -211,12 +219,313 @@ actor ContestLane {
          "isPartial": result.isPartial]
     }
 
+    private func callHistoryTransport() throws -> ContestCallHistoryService {
+        if let callHistoryService { return callHistoryService }
+        let databaseURL = self.databaseURL
+        let cacheURL = databaseURL.deletingLastPathComponent()
+            .appendingPathComponent("CallHistory", isDirectory: true)
+            .appendingPathComponent("current.json")
+        let created = try ContestCallHistoryService(cacheURL: cacheURL, validatePrivateRoot: {
+            try ContestDatabaseBoundary.validateCache(cacheURL: cacheURL, databaseURL: databaseURL)
+        })
+        callHistoryService = created
+        return created
+    }
+
+    private func callHistory(method: String, params: [String: Any], generation: String) async throws -> [String: Any] {
+        let service = try callHistoryTransport()
+        switch method {
+        case "contest_history_status":
+            try Wire.exact(params, [])
+            let status = await service.status()
+            return ["dataset": status.dataset.map(Self.historyDatasetWire) ?? NSNull(),
+                    "pendingPreview": status.pending.map(Self.historyPreviewWire) ?? NSNull(),
+                    "unavailableReason": status.unavailableReason ?? NSNull()]
+        case "contest_history_preview_private":
+            try Wire.exact(params, ["path", "sourceName"])
+            let receipt = try await service.previewFile(
+                path: try Wire.text(params, "path", max: 4_096),
+                sourceName: try Wire.text(params, "sourceName", max: 256),
+                importedAtUTC: Date(), workspaceGeneration: generation)
+            return Self.historyPreviewWire(receipt)
+        case "contest_history_preview_page":
+            try Wire.exact(params, ["previewID", "sha256", "workspaceGeneration", "offset", "limit"])
+            let requestedGeneration = try Wire.generation(try Wire.text(params, "workspaceGeneration", max: 36))
+            try Wire.requireGeneration(requestedGeneration, generation)
+            let page = try await service.diagnosticPage(
+                previewID: try Wire.text(params, "previewID", max: 36),
+                expectedSHA256: try Wire.text(params, "sha256", max: 64),
+                workspaceGeneration: requestedGeneration,
+                offset: try Wire.int(params, "offset", range: 0...Int.max),
+                limit: try Wire.int(params, "limit", range: 1...100))
+            return Self.historyDiagnosticPageWire(page)
+        case "contest_history_preview_cancel":
+            try Wire.exact(params, ["previewID", "sha256", "workspaceGeneration"])
+            let requestedGeneration = try Wire.generation(try Wire.text(params, "workspaceGeneration", max: 36))
+            try Wire.requireGeneration(requestedGeneration, generation)
+            return ["cancelled": try await service.cancelImport(
+                previewID: try Wire.text(params, "previewID", max: 36),
+                expectedSHA256: try Wire.text(params, "sha256", max: 64),
+                workspaceGeneration: requestedGeneration)]
+        case "contest_history_preview_commit":
+            try Wire.exact(params, ["previewID", "sha256", "workspaceGeneration", "confirmAdvisories"])
+            let requestedGeneration = try Wire.generation(try Wire.text(params, "workspaceGeneration", max: 36))
+            try Wire.requireGeneration(requestedGeneration, generation)
+            let dataset = try await service.commitImport(
+                previewID: try Wire.text(params, "previewID", max: 36),
+                expectedSHA256: try Wire.text(params, "sha256", max: 64),
+                confirmAdvisories: try Wire.bool(params, "confirmAdvisories"),
+                expectedWorkspaceGeneration: requestedGeneration)
+            return ["dataset": Self.historyDatasetWire(dataset)]
+        case "contest_history_query":
+            let context = try await historyContext(params, generation: generation, selecting: false)
+            let recordOffset = try Wire.int(params, "recordOffset", range: 0...100_000)
+            let recordLimit = try Wire.int(params, "recordLimit", range: 1...20)
+            let valueOffset = try Wire.int(params, "valueOffset", range: 0...128)
+            let valueLimit = try Wire.int(params, "valueLimit", range: 1...128)
+            let view = try await service.queryView(callsign: context.inputCallsign, context: context)
+            guard try await historyContext(params, generation: generation, selecting: false) == context else {
+                _ = await service.cancelQuery(context: context)
+                throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed while call history was queried.")
+            }
+            return try Self.historyQueryWire(view, recordOffset: recordOffset, recordLimit: recordLimit,
+                                             valueOffset: valueOffset, valueLimit: valueLimit)
+        case "contest_history_query_cancel":
+            let context = try await historyContext(params, generation: generation,
+                                                   selecting: false, cancelling: true)
+            let cancelled = await service.cancelQuery(context: context)
+            guard try await historyContext(params, generation: generation,
+                                           selecting: false, cancelling: true) == context else {
+                throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed while call-history results were cancelled.")
+            }
+            return ["cancelled": cancelled]
+        case "contest_history_select":
+            let context = try await historyContext(params, generation: generation, selecting: true)
+            let valueOffset = try Wire.int(params, "valueOffset", range: 0...128)
+            let valueLimit = try Wire.int(params, "valueLimit", range: 1...128)
+            let selected = try await service.selectedView(
+                recordID: try Wire.text(params, "recordID", max: 192), expectedContext: context)
+            guard try await historyContext(params, generation: generation, selecting: true) == context else {
+                throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed while call history was selected.")
+            }
+            return try Self.historySelectionWire(selected, context: context,
+                                                 valueOffset: valueOffset, valueLimit: valueLimit)
+        default:
+            throw ContestLaneError.confirmed("unknown_method", "Unknown call-history method.")
+        }
+    }
+
+    private func historyContext(_ params: [String: Any], generation: String,
+                                selecting: Bool, cancelling: Bool = false) async throws -> ContestCallHistorySelectionContext {
+        var keys = ["sessionID", "workspaceGeneration", "expectedRevision", "draftID", "expectedDraftRevision",
+                    "requestID", "callsign", "ruleIdentity", "referenceDataVersion"]
+        if !cancelling { keys.append(contentsOf: ["valueOffset", "valueLimit"]) }
+        if selecting { keys.append("recordID") }
+        else if !cancelling { keys.append(contentsOf: ["recordOffset", "recordLimit"]) }
+        try Wire.exact(params, Set(keys))
+        try Wire.requireGeneration(try Wire.text(params, "workspaceGeneration", max: 36), generation)
+        let sessionID = try Wire.uuid(params, "sessionID")
+        let draftID = try Wire.uuid(params, "draftID")
+        let expectedRevision = try Wire.uint(params, "expectedRevision")
+        let expectedDraftRevision = try Wire.uint(params, "expectedDraftRevision")
+        let requestID = try Wire.uuid(params, "requestID")
+        let callsign = try Wire.callsign(params, "callsign")
+        let ruleIdentity = try Wire.ruleIdentity(Wire.object(params, "ruleIdentity"))
+        let referenceDataVersion = try Wire.text(params, "referenceDataVersion", max: 160)
+        let snapshot = try await repository().sessionReadSnapshot(id: sessionID)
+        try checked(snapshot.session, generation: generation, revision: expectedRevision)
+        guard snapshot.session.session.rule == ruleIdentity,
+              snapshot.session.session.referenceDataVersion == referenceDataVersion,
+              referenceDataVersion == reference.version,
+              Self.historyRuleIDs.contains(ruleIdentity.id),
+              let draft = snapshot.drafts.first(where: { $0.id == draftID }),
+              draft.sessionID == sessionID, draft.revision == expectedDraftRevision,
+              draft.callsign == callsign else {
+            throw ContestLaneError.confirmed("stale_history_context", "The call-history request does not match the live contest draft.")
+        }
+        guard expectedRevision <= UInt64(Int64.max), expectedDraftRevision <= UInt64(Int64.max) else {
+            throw ContestLaneError.confirmed("invalid_params", "Call-history revisions exceed the supported range.")
+        }
+        return .init(sessionID: Wire.uuidString(sessionID), workspaceGeneration: generation,
+                     sessionRevision: Int64(expectedRevision), draftID: Wire.uuidString(draftID),
+                     draftRevision: Int64(expectedDraftRevision), inputCallsign: callsign,
+                     requestID: Wire.uuidString(requestID), ruleIdentity: ruleIdentity,
+                     referenceDataVersion: referenceDataVersion)
+    }
+
+    private static let historyRuleIDs: Set<String> = [
+        "cq-ww-cw", "cq-ww-ssb", "naqp-cw", "naqp-ssb", "naqp-rtty",
+        "arrl-rtty-roundup", "arrl-dx-cw", "arrl-dx-ssb",
+    ]
+    private static let historyWireBudget = 768 * 1_024
+
+    private static func historyDatasetWire(_ value: ContestCallHistoryDatasetInfo) -> [String: Any] {
+        ["generation": value.generation, "sha256": value.sha256,
+         "sourceName": value.provenance.sourceName, "importedAtUTC": Wire.iso(value.provenance.importedAtUTC),
+         "byteCount": value.byteCount, "recordCount": value.recordCount,
+         "indexableRecordCount": value.indexableRecordCount,
+         "unindexableRecordCount": value.unindexableRecordCount,
+         "duplicateCallCount": value.duplicateCallCount]
+    }
+
+    private static func historyPreviewWire(_ value: ContestCallHistoryPendingPreview) -> [String: Any] {
+        let preview = value.preview
+        return ["previewID": value.previewID, "sha256": preview.sha256,
+                "expiresAtUTC": Wire.iso(value.expiresAtUTC),
+                "activeDatasetGeneration": value.activeDatasetGeneration ?? NSNull(),
+                "workspaceGeneration": value.workspaceGeneration ?? NSNull(),
+                "sourceName": preview.provenance.sourceName,
+                "byteCount": preview.sourceBytes.count, "recordCount": preview.rows.count,
+                "duplicateCallCount": preview.duplicateCallCount,
+                "indexableRecordCount": preview.rows.filter { $0.normalizedCallsign != nil }.count,
+                "unindexableRecordCount": preview.rows.filter { $0.normalizedCallsign == nil }.count,
+                "isCommittable": preview.isCommittable,
+                "requiresAdvisoryConfirmation": preview.requiresAdvisoryConfirmation,
+                "diagnosticCount": preview.diagnostics.count,
+                "headers": preview.headers.map(historyHeaderWire)]
+    }
+
+    private static func historyHeaderWire(_ value: ContestCallHistoryHeader) -> [String: Any] {
+        ["originalName": value.originalName, "canonicalName": value.canonicalName,
+         "knownKey": value.knownKey?.rawValue ?? NSNull()]
+    }
+
+    private static func historyDiagnosticPageWire(_ value: ContestCallHistoryDiagnosticPage) -> [String: Any] {
+        ["preview": historyPreviewWire(value.pending), "offset": value.offset, "limit": value.limit,
+         "total": value.total, "diagnostics": value.diagnostics.map {
+            ["severity": $0.severity.rawValue, "code": $0.code.rawValue,
+             "line": $0.line as Any? ?? NSNull(), "detail": $0.detail]
+         }]
+    }
+
+    private static func historyQueryWire(_ view: ContestCallHistoryQueryView, recordOffset: Int,
+                                         recordLimit: Int, valueOffset: Int,
+                                         valueLimit: Int) throws -> [String: Any] {
+        let result = view.result
+        let upper = min(result.records.count, recordOffset + recordLimit)
+        let records = recordOffset < upper ? Array(result.records[recordOffset..<upper]) : []
+        var response: [String: Any] = [
+            "context": historyContextWire(result.context), "normalizedCallsign": result.normalizedCallsign,
+            "dataset": historyDatasetWire(result.dataset), "totalRecords": result.records.count,
+            "recordOffset": recordOffset, "recordLimit": recordLimit,
+            "valueOffset": valueOffset, "valueLimit": valueLimit, "records": [],
+            "next": NSNull(),
+        ]
+        var rows: [[String: Any]] = []
+        for (recordIndex, row) in records.enumerated() {
+            let rowValueOffset = recordIndex == 0 ? valueOffset : 0
+            let valuesUpper = min(view.headers.count, rowValueOffset + valueLimit)
+            var cells: [[String: Any]] = []
+            if rowValueOffset < valuesUpper {
+                for index in rowValueOffset..<valuesUpper {
+                    let value = row.values.indices.contains(index) ? row.values[index] : ""
+                    let cell: [String: Any] = ["header": historyHeaderWire(view.headers[index]), "value": value]
+                    var candidateCells = cells; candidateCells.append(cell)
+                    var candidateRow = historyRowWire(row); candidateRow["values"] = candidateCells
+                    var candidateRows = rows; candidateRows.append(candidateRow)
+                    var candidate = response
+                    candidate["records"] = candidateRows
+                    candidate["next"] = ["recordOffset": recordOffset + recordIndex,
+                                         "valueOffset": index + 1]
+                    guard try JSONSerialization.data(withJSONObject: candidate).count < historyWireBudget else {
+                        guard !cells.isEmpty || !rows.isEmpty else {
+                            throw ContestLaneError.confirmed("response_too_large", "A call-history value exceeds the response budget.")
+                        }
+                        response["records"] = cells.isEmpty ? rows :
+                            rows + [historyRowWire(row).merging(["values": cells]) { _, new in new }]
+                        response["next"] = ["recordOffset": recordOffset + recordIndex, "valueOffset": index]
+                        guard try JSONSerialization.data(withJSONObject: response).count < historyWireBudget else {
+                            throw ContestLaneError.confirmed("response_too_large", "The call-history page exceeds the response budget.")
+                        }
+                        return response
+                    }
+                    cells = candidateCells
+                }
+            }
+            var rowWire = historyRowWire(row); rowWire["values"] = cells
+            rows.append(rowWire)
+            if valuesUpper < view.headers.count {
+                response["records"] = rows
+                response["next"] = ["recordOffset": recordOffset + recordIndex, "valueOffset": valuesUpper]
+                return response
+            }
+        }
+        response["records"] = rows
+        if upper < result.records.count {
+            response["next"] = ["recordOffset": upper, "valueOffset": 0]
+        }
+        guard try JSONSerialization.data(withJSONObject: response).count < historyWireBudget else {
+            throw ContestLaneError.confirmed("response_too_large", "The call-history page exceeds the response budget.")
+        }
+        return response
+    }
+
+    private static func historySelectionWire(_ view: ContestCallHistorySelectedView,
+                                             context: ContestCallHistorySelectionContext,
+                                             valueOffset: Int, valueLimit: Int) throws -> [String: Any] {
+        let upper = min(view.headers.count, valueOffset + valueLimit)
+        var row = historyRowWire(view.row); row["values"] = []
+        var response: [String: Any] = [
+            "context": historyContextWire(context), "dataset": historyDatasetWire(view.dataset),
+            "record": row, "valueOffset": valueOffset, "valueLimit": valueLimit,
+            "nextValueOffset": NSNull(),
+        ]
+        var cells: [[String: Any]] = []
+        if valueOffset < upper {
+            for index in valueOffset..<upper {
+                let cell: [String: Any] = [
+                    "header": historyHeaderWire(view.headers[index]),
+                    "value": view.row.values.indices.contains(index) ? view.row.values[index] : "",
+                ]
+                var candidateCells = cells; candidateCells.append(cell)
+                var candidateRow = historyRowWire(view.row); candidateRow["values"] = candidateCells
+                var candidate = response
+                candidate["record"] = candidateRow
+                candidate["nextValueOffset"] = index + 1
+                guard try JSONSerialization.data(withJSONObject: candidate).count < historyWireBudget else {
+                    guard !cells.isEmpty else {
+                        throw ContestLaneError.confirmed("response_too_large", "A selected call-history value exceeds the response budget.")
+                    }
+                    row["values"] = cells
+                    response["record"] = row
+                    response["nextValueOffset"] = index
+                    guard try JSONSerialization.data(withJSONObject: response).count < historyWireBudget else {
+                        throw ContestLaneError.confirmed("response_too_large", "The selected call-history page exceeds the response budget.")
+                    }
+                    return response
+                }
+                cells = candidateCells
+            }
+        }
+        row["values"] = cells
+        response["record"] = row
+        response["nextValueOffset"] = upper < view.headers.count ? upper : NSNull()
+        guard try JSONSerialization.data(withJSONObject: response).count < historyWireBudget else {
+            throw ContestLaneError.confirmed("response_too_large", "The selected call-history page exceeds the response budget.")
+        }
+        return response
+    }
+
+    private static func historyRowWire(_ row: ContestCallHistoryRow) -> [String: Any] {
+        ["recordID": row.recordID, "sourceOrdinal": row.sourceOrdinal, "sourceLine": row.sourceLine,
+         "normalizedCallsign": row.normalizedCallsign ?? NSNull(),
+         "indexingIssue": row.indexingIssue?.rawValue ?? NSNull()]
+    }
+
+    private static func historyContextWire(_ value: ContestCallHistorySelectionContext) -> [String: Any] {
+        ["sessionID": value.sessionID, "workspaceGeneration": value.workspaceGeneration,
+         "sessionRevision": value.sessionRevision, "draftID": value.draftID,
+         "draftRevision": value.draftRevision, "inputCallsign": value.inputCallsign,
+         "requestID": value.requestID, "ruleIdentity": Wire.ruleIdentityWire(value.ruleIdentity),
+         "referenceDataVersion": value.referenceDataVersion]
+    }
+
     private static func isExportMethod(_ method: String) -> Bool {
         method == "contest_export_prepare" || method == "contest_export_read" || method == "contest_export_release"
     }
 
     private static func isConcurrentMethod(_ method: String) -> Bool {
-        isExportMethod(method) || method.hasPrefix("contest_scp_")
+        isExportMethod(method) || method.hasPrefix("contest_scp_") || method.hasPrefix("contest_history_")
     }
 
     private func requireExportRunning() throws {
@@ -228,7 +537,7 @@ actor ContestLane {
     private func requireConcurrentRunning(_ method: String) throws {
         if Self.isExportMethod(method) { try requireExportRunning(); return }
         guard !terminalShutdown else {
-            throw ContestLaneError.confirmed("scp_unavailable", "Callsign assistance is shut down.")
+            throw ContestLaneError.confirmed("assistance_unavailable", "Contest assistance is shut down.")
         }
     }
 
@@ -892,6 +1201,42 @@ actor ContestLane {
         }
     }
 
+    private static func map(_ error: ContestCallHistoryServiceError) -> ContestLaneError {
+        switch error {
+        case .invalidCache, .dataUnavailable:
+            return .confirmed("history_unavailable", "Import a call-history file before querying it.")
+        case .invalidImport:
+            return .confirmed("history_import_failed", "The selected call-history file could not be read safely.")
+        case .unknownPreview, .expiredPreview:
+            return .confirmed("history_preview_unavailable", "The call-history preview is missing or expired.")
+        case .digestMismatch, .staleGeneration:
+            return .confirmed("stale_history_preview", "The call-history preview no longer matches the active context.")
+        case .previewNotCommittable:
+            return .confirmed("history_preview_blocked", "The call-history preview contains blocking issues.")
+        case .advisoryConfirmationRequired:
+            return .confirmed("history_confirmation_required", "Confirm the call-history advisory issues before import.")
+        case .envelopeTooLarge:
+            return .confirmed("history_import_failed", "The call-history cache exceeds the storage limit.")
+        case .invalidPage:
+            return .confirmed("invalid_params", "The call-history page is invalid.")
+        case .resultUnavailable:
+            return .confirmed("history_selection_unavailable", "The call-history query result is no longer available.")
+        }
+    }
+
+    private static func map(_ error: ContestCallHistoryError) -> ContestLaneError {
+        switch error {
+        case .invalidQuery, .invalidContext, .invalidGeneration:
+            return .confirmed("invalid_history_query", "The call-history query is invalid.")
+        case .staleContext:
+            return .confirmed("stale_history_context", "The call-history query belongs to another live context.")
+        case .unknownRecord:
+            return .confirmed("history_selection_unavailable", "The selected call-history record is unavailable.")
+        case .previewNotCommittable:
+            return .confirmed("history_preview_blocked", "The call-history preview contains blocking issues.")
+        }
+    }
+
     private static func map(_ error: Error) -> ContestLaneError {
         switch error {
         case ContestRepositoryError.notFound: return .confirmed("not_found", "The contest record was not found.")
@@ -1117,6 +1462,13 @@ private enum Wire {
         let number = try uint(value, key), result = Int(number)
         guard range.contains(result) else { throw ContestLaneError.confirmed("invalid_params", "Contest number is outside the supported range.") }
         return result
+    }
+    static func bool(_ value: [String: Any], _ key: String) throws -> Bool {
+        guard let number = value[key] as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else {
+            throw ContestLaneError.confirmed("invalid_params", "Contest boolean is invalid.")
+        }
+        return number.boolValue
     }
     static func date(_ value: [String: Any], _ key: String) throws -> Date {
         let raw = try text(value, key, max: 32)

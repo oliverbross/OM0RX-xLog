@@ -200,6 +200,14 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_scp_query",
         "contest_scp_cancel",
         "contest_scp_select",
+        "contest_history_status",
+        "contest_history_preview_private",
+        "contest_history_preview_page",
+        "contest_history_preview_cancel",
+        "contest_history_preview_commit",
+        "contest_history_query",
+        "contest_history_query_cancel",
+        "contest_history_select",
         "workspace_status",
         "workspace_create",
         "workspace_preferences_load",
@@ -981,7 +989,9 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get" |
         "contest_export_prepare" | "contest_export_read" | "contest_export_release" |
-        "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select"
+        "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
+        "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
+        "contest_history_query" | "contest_history_query_cancel" | "contest_history_select"
     ))
 }
 
@@ -1797,6 +1807,8 @@ mod tests {
             "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
             "contest_export_read", "contest_export_release",
             "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
+            "contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
+            "contest_history_query", "contest_history_query_cancel", "contest_history_select",
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})),
@@ -1810,6 +1822,7 @@ mod tests {
             "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
             "cluster_resume", "contest_qso_correct", "contest_qso_delete",
             "contest_scp_import_private",
+            "contest_history_preview_private", "contest_history_preview_commit",
         ] {
             assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");
