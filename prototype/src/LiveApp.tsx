@@ -1230,7 +1230,7 @@ function MainLiveApp() {
           onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
         busy={logbookWorking || logbookMutation.busy || !!logbookMutation.pending}
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
-        cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
+        cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} onRequest={request} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor resetInputEpoch={spotEditorEpoch} referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
         clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}
         contactActions={contactEdit.base && <ContactDeleteAction snapshot={contactEdit.base} mutations={logbookMutations}

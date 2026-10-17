@@ -4,7 +4,10 @@ import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultW
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
+import { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
 import "./ClusterPanel.css";
+
+export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 export type LiveClusterSpot = {
@@ -25,9 +28,7 @@ type Snapshot = { connectedClusters: number; loadedSpots: number; contactCount: 
   spots: LiveClusterSpot[]; console: ConsoleEntry[] };
 type Server = { id: string; name: string; host: string; port: number; callsign: string; enabled: boolean };
 type Rule = { id: string; name: string; keywords: string[]; referenceFormat: string; advancedPattern: string; enabled: boolean };
-type Filter = { query: string; bands: string[]; modes: string[]; continents: string[];
-  callStatuses: string[]; dxccStatuses: string[]; specials: string[];
-  sources: string[]; worked: string[]; sort: string };
+type Filter = ClusterFilter;
 export type ClusterPalette = { status: Record<string, string>; band: Record<string, string>; mode: Record<string, string> };
 type Palette = ClusterPalette;
 type CommandPreset = { id: string; name: string; command: string };
@@ -48,15 +49,11 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
   passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
   settingsOnly?: boolean };
 
-const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
-const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"];
-const callStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"];
-const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"];
+const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
 export const clusterRowTint = (status: string, configured?: Record<string, string>): string | undefined =>
   status === "Unknown" ? undefined : `${paletteColor(status, configured, clusterStatusColors)}1F`;
-const emptyFilter: Filter = { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
-  specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" };
+const emptyFilter: Filter = defaultClusterFilter();
 export const fullClusterColumnsKey = "xlog.integration.full-cluster-columns.v1";
 const defaultColumns = () => ({ ...defaultWorkspacePreferences(), columns: compactClusterColumns.map(([id]) => id) });
 function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string; width: number; disabled: boolean; onCommit: (width: number) => void }) {
