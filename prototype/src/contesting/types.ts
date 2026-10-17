@@ -11,7 +11,7 @@ export type ContestRequest = <T = unknown>(method: ContestMethod, params?: Recor
 export type SourceVerificationStatus = "verified" | "provisional" | "unverified";
 
 export type ContestMode = "CW" | "SSB";
-export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb";
+export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb" | "sac-cw" | "sac-ssb";
 export type ContestRuleIdentity = { id: ContestRuleID; version: string; edition: string; sourceRevision: string };
 export type ContestEntryDescriptor = {
   mode: ContestMode; adifMode: ContestMode; cabrilloQSOType: "CW" | "PH";
@@ -22,7 +22,7 @@ export type ContestEntryDescriptor = {
   serial: { requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[] };
 };
 export type ContestRuleMetadata = {
-  identity: ContestRuleIdentity; displayName: "CQ WW CW" | "CQ WPX CW" | "CQ WW SSB" | "CQ WPX SSB" | "Oceania DX CW" | "Oceania DX SSB"; mode: ContestMode;
+  identity: ContestRuleIdentity; displayName: "CQ WW CW" | "CQ WPX CW" | "CQ WW SSB" | "CQ WPX SSB" | "Oceania DX CW" | "Oceania DX SSB" | "Scandinavian Activity Contest CW" | "Scandinavian Activity Contest SSB"; mode: ContestMode;
   entryDescriptorVersion: 1;
   entry: ContestEntryDescriptor;
   referenceDataVersion: string; sourceVerification: SourceVerificationStatus; sourceNote: string;

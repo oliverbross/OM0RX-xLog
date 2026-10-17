@@ -14,7 +14,7 @@ final class ContestOceaniaTests: XCTestCase {
 
     func testCatalogPublishesSourcePinnedOceaniaDescriptors() {
         let catalog = ContestRuleRegistry.pilots.metadata
-        XCTAssertEqual(catalog.count, 6)
+        XCTAssertEqual(catalog.count, 8)
         for rule in [OceaniaDXCWRule().metadata, OceaniaDXSSBRule().metadata] {
             XCTAssertEqual(rule.identity.version, "1.0.0-source-spike")
             XCTAssertEqual(rule.identity.edition, "source-26.10.11")

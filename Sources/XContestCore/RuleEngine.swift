@@ -260,6 +260,6 @@ public struct ContestRuleRegistry: Sendable {
 
     public static let pilots = ContestRuleRegistry([
         CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
-        OceaniaDXCWRule(), OceaniaDXSSBRule(),
+        OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
     ])
 }

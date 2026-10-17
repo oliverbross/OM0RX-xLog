@@ -84,7 +84,7 @@ function validExportChunk(value: unknown, params: Record<string, unknown>) {
 
 function validIdentity(value: unknown) {
   const v = object(value);
-  return !!v && ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb"].includes(String(v.id)) &&
+  return !!v && ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"].includes(String(v.id)) &&
     text(v.version, 64) && text(v.edition, 32) && text(v.sourceRevision, 160);
 }
 function validEntry(value: unknown) {
@@ -111,13 +111,17 @@ function validRule(value: unknown) {
   const v = object(value);
   const identity = object(v?.identity), entry = object(v?.entry), exchange = object(entry?.exchange), serial = object(entry?.serial);
   const names: Record<string, string> = { "cq-ww-cw": "CQ WW CW", "cq-wpx-cw": "CQ WPX CW", "cq-ww-ssb": "CQ WW SSB", "cq-wpx-ssb": "CQ WPX SSB",
-    "oceania-dx-cw": "Oceania DX CW", "oceania-dx-ssb": "Oceania DX SSB" };
-  const id = String(identity?.id), expectedMode = id.endsWith("-ssb") ? "SSB" : "CW", expectsSerial = id.startsWith("cq-wpx-") || id.startsWith("oceania-dx-");
-  const expectedADIF = id.startsWith("cq-wpx-") ? "stxSrx" : id.startsWith("oceania-dx-") ? "exchangeStrings" : "none";
+    "oceania-dx-cw": "Oceania DX CW", "oceania-dx-ssb": "Oceania DX SSB",
+    "sac-cw": "Scandinavian Activity Contest CW", "sac-ssb": "Scandinavian Activity Contest SSB" };
+  const id = String(identity?.id), expectedMode = id.endsWith("-ssb") ? "SSB" : "CW";
+  const expectsSerial = id.startsWith("cq-wpx-") || id.startsWith("oceania-dx-") || id.startsWith("sac-");
+  const expectedADIF = id.startsWith("cq-wpx-") ? "stxSrx" : expectsSerial ? "exchangeStrings" : "none";
+  const sacIdentity = !id.startsWith("sac-") || identity?.version === "1.0.0-2026-rules-preview" &&
+    identity?.edition === "2026-rules-preview" && identity?.sourceRevision === "7c8b499225a73f7f8f792246881bd7aefc05452f";
   return !!v && exact(v, ["identity", "displayName", "mode", "entryDescriptorVersion", "entry", "referenceDataVersion", "sourceVerification", "sourceNote"]) &&
     validIdentity(identity) && v.displayName === names[id] && v.entryDescriptorVersion === 1 && validEntry(entry) && entry?.mode === v.mode && v.mode === expectedMode &&
     (expectsSerial ? serial?.requirement === "requiredForCommit" && exchange?.sent === "serialNumber" : serial?.requirement === "none" && exchange?.sent === "cqZone") &&
-    exchange?.adifFields === expectedADIF &&
+    exchange?.adifFields === expectedADIF && sacIdentity &&
     text(v.referenceDataVersion, 160) && text(v.sourceNote, 512) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification));
 }
 function validSession(value: unknown, params?: Record<string, unknown>) {
@@ -206,7 +210,7 @@ function validScore(value: unknown, params: Record<string, unknown>, expectedRev
 
 function validateResult<T>(method: ContestMethod, value: unknown, params: Record<string, unknown>): T {
   const v = object(value); let valid = false;
-  if (method === "contest_catalog") valid = !!v && text(v.workspaceGeneration, 128) && Array.isArray(v.rules) && v.rules.length <= 6 && v.rules.every(validRule);
+  if (method === "contest_catalog") valid = !!v && text(v.workspaceGeneration, 128) && Array.isArray(v.rules) && v.rules.length <= 8 && v.rules.every(validRule);
   else if (method === "contest_sessions") valid = !!v && Array.isArray(v.sessions) && v.sessions.length <= 1_000 && v.sessions.every(x => validSession(x));
   else if (method === "contest_open" || method === "contest_draft_get") {
     const s = object(v?.session), d = object(v?.draft); valid = !!v && validSession(s, params) && s?.sessionID === params.sessionID && validDraft(d, s!, undefined, s?.rule as ContestRuleMetadata) && d?.revision === s?.revision;

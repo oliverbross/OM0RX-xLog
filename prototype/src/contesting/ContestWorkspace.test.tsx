@@ -20,6 +20,8 @@ const rules: ContestRuleMetadata[] = [
   { identity: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@ssb" }, displayName: "CQ WPX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Scandinavian Activity Contest CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Practice scoring preview; submission categories and dates are not fully enforced." },
+  { identity: { id: "sac-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Scandinavian Activity Contest SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Practice scoring preview; submission categories and dates are not fully enforced." },
 ];
 const sessions: ContestSessionSummary[] = rules.slice(0, 2).map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
 function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent; return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
@@ -132,6 +134,8 @@ it("creates an SSB pilot from catalog metadata and uses phone reports with WPX s
   await screen.findByText("WW November");
   expect(screen.getByRole("option", { name: /Oceania DX CW/ })).toBeTruthy();
   expect(screen.getByRole("option", { name: /Oceania DX SSB/ })).toBeTruthy();
+  expect(screen.getByRole("option", { name: /Scandinavian Activity Contest CW/ })).toBeTruthy();
+  expect(screen.getByRole("option", { name: /Scandinavian Activity Contest SSB/ })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Session name"), { target: { value: "WPX SSB Saturday" } });
   fireEvent.change(screen.getByLabelText("Contest"), { target: { value: "cq-wpx-ssb" } });
   fireEvent.change(screen.getByLabelText("Station callsign"), { target: { value: "OM0RX" } });
@@ -146,6 +150,24 @@ it("creates an SSB pilot from catalog metadata and uses phone reports with WPX s
   expect(screen.getByRole("button", { name: "Reserve serial" })).toBeTruthy();
   const createCall = calls.find(([method]) => method === "contest_create");
   expect((createCall?.[1].payload as Record<string, unknown>).ruleIdentity).toEqual(rules[3].identity);
+});
+
+it("labels SAC as a practice scoring preview without claiming submission readiness", async () => {
+  const { request } = fixture();
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  await screen.findByText("WW November");
+  fireEvent.change(screen.getByLabelText("Session name"), { target: { value: "SAC practice" } });
+  fireEvent.change(screen.getByLabelText("Contest"), { target: { value: "sac-ssb" } });
+  fireEvent.change(screen.getByLabelText("Station callsign"), { target: { value: "OM0RX" } });
+  fireEvent.change(screen.getByLabelText("Operator callsign"), { target: { value: "OM0RX" } });
+  fireEvent.change(screen.getByLabelText("CQ zone"), { target: { value: "15" } });
+  fireEvent.change(screen.getByLabelText("DXCC entity"), { target: { value: "Slovak Republic" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+  await screen.findByRole("form", { name: "SSB contest entry" });
+  expect(screen.getByText(/SAC scoring practice preview/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+  expect(await screen.findByText(/not sponsor-submission ready/)).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Prepare a practice export" })).toBeTruthy();
 });
 
 it("drains edits made during a delayed save before an immediate Log", async () => {

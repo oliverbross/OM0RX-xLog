@@ -11,10 +11,11 @@ final class ContestExportServiceTests: XCTestCase {
     private let usa = ContestEntitySnapshot(adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5)
     private let germany = ContestEntitySnapshot(adif: 230, name: "GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14)
 
-    func testActualSQLiteSixPilotsProduceBothImmutableFormats() async throws {
+    func testActualSQLiteEightPilotsProduceBothImmutableFormats() async throws {
         for rule in [CQWWCWRule() as any ContestRule, CQWPXCWRule() as any ContestRule,
                      CQWWSSBRule() as any ContestRule, CQWPXSSBRule() as any ContestRule,
-                     OceaniaDXCWRule() as any ContestRule, OceaniaDXSSBRule() as any ContestRule] {
+                     OceaniaDXCWRule() as any ContestRule, OceaniaDXSSBRule() as any ContestRule,
+                     SACCWRule() as any ContestRule, SACSSBRule() as any ContestRule] {
             let fixture = try await makeFixture(rule: rule, category: "Single Operator")
             _ = try await commit(fixture, number: 1, call: "K1ABC", entity: usa)
             let stored = try await fixture.store.openSession(id: fixture.sessionID)
@@ -291,7 +292,8 @@ final class ContestExportServiceTests: XCTestCase {
         let sent = reservation?.transmittedText ?? "15"
         let qso = ContestQSO(id: fixedUUID(2_000 + number), sessionID: fixture.sessionID,
             timestampUTC: baseDate.addingTimeInterval(Double(number)), callsign: call, band: band, mode: rule.metadata.entry.mode,
-            frequencyHz: band == "40m" ? 7_025_000 : 14_025_000,
+            frequencyHz: band == "40m" ? (rule.metadata.entry.mode == "SSB" ? 7_150_000 : 7_025_000)
+                : (rule.metadata.entry.mode == "SSB" ? 14_250_000 : 14_025_000),
             rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
             exchange: .init(rawSent: sent, normalizedSent: sent,
                             rawReceived: rule.metadata.entry.exchange.received == .cqZone ? "5" : "101",

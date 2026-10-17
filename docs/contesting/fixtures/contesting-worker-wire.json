@@ -42,7 +42,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "c7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "commit" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -54,7 +54,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "create" : {
       "expectedRevision" : 0,
@@ -82,7 +82,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "a7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "postCommitApply" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -103,7 +103,7 @@
       "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "requestID" : "e7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "qsoCorrect" : {
       "expectedRevision" : 4,
@@ -144,7 +144,7 @@
       "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
       "requestID" : "17654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "qsoDelete" : {
       "expectedRevision" : 5,
@@ -156,13 +156,13 @@
       "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
       "requestID" : "27654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "qsoGet" : {
       "expectedRevision" : 4,
       "qsoID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     },
     "reserve" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -174,12 +174,12 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "b7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+      "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
     }
   },
   "responses" : {
     "apply" : {
-      "id" : "9cb8f486-0ae7-495c-b779-02e984b50195",
+      "id" : "87efcdc3-a3a8-4d19-b6a9-f2baa89632ff",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -210,7 +210,7 @@
 
             ]
           },
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:02:00.000Z",
@@ -275,12 +275,12 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:02:00.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
     "catalog" : {
-      "id" : "995a2153-75a2-4737-8f62-572ea4431a29",
+      "id" : "616803a0-dfb9-4aaf-a43a-0026a99cd65b",
       "ok" : true,
       "result" : {
         "rules" : [
@@ -525,13 +525,95 @@
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
+          },
+          {
+            "displayName" : "Scandinavian Activity Contest CW",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "pilot-1",
+              "cabrilloProjectionFormatterVersion" : "pilot-2",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "serialNumber",
+                "sent" : "serialNumber",
+                "sentDefault" : "reservedSerial"
+              },
+              "mode" : "CW",
+              "report" : {
+                "defaultReceived" : "599",
+                "defaultSent" : "599",
+                "format" : "cwRST",
+                "maximumUTF8Bytes" : 3
+              },
+              "serial" : {
+                "allowedScopes" : [
+                  "session",
+                  "band",
+                  "transmitter"
+                ],
+                "requirement" : "requiredForCommit"
+              }
+            },
+            "entryDescriptorVersion" : 1,
+            "identity" : {
+              "edition" : "2026-rules-preview",
+              "id" : "sac-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_cw.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+            "sourceVerification" : "provisional"
+          },
+          {
+            "displayName" : "Scandinavian Activity Contest SSB",
+            "entry" : {
+              "adifMode" : "SSB",
+              "cabrilloFormatterVersion" : "ssb-pilot-1",
+              "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+              "cabrilloQSOType" : "PH",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "serialNumber",
+                "sent" : "serialNumber",
+                "sentDefault" : "reservedSerial"
+              },
+              "mode" : "SSB",
+              "report" : {
+                "defaultReceived" : "59",
+                "defaultSent" : "59",
+                "format" : "phoneRS",
+                "maximumUTF8Bytes" : 2
+              },
+              "serial" : {
+                "allowedScopes" : [
+                  "session",
+                  "band",
+                  "transmitter"
+                ],
+                "requirement" : "requiredForCommit"
+              }
+            },
+            "entryDescriptorVersion" : 1,
+            "identity" : {
+              "edition" : "2026-rules-preview",
+              "id" : "sac-ssb",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "mode" : "SSB",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+            "sourceVerification" : "provisional"
           }
         ],
-        "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+        "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
       }
     },
     "commit" : {
-      "id" : "bfb2b364-0d53-4045-b7d8-a0888e961f9b",
+      "id" : "224a0955-8533-4ba5-9556-2d7aebd18113",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -566,7 +648,7 @@
 
             ]
           },
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "qso" : {
           "band" : "20m",
@@ -595,7 +677,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -654,7 +736,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
@@ -664,11 +746,11 @@
         "message" : "Contest identity must be a canonical lowercase UUID.",
         "outcome" : "confirmed"
       },
-      "id" : "b90f9b68-288e-438c-89f5-88cf133260a3",
+      "id" : "2e2afce2-b1b5-4956-8585-da3e56495995",
       "ok" : false
     },
     "create" : {
-      "id" : "ec8ee7d5-54ad-42a5-a417-1869444b1b5a",
+      "id" : "ccafe67e-2efe-4cd3-ac3f-1391a98b5cce",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -704,7 +786,7 @@
 
             ]
           },
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:00:00.000Z",
@@ -769,7 +851,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:00:00.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
@@ -783,7 +865,7 @@
       "ok" : false
     },
     "qsoCorrect" : {
-      "id" : "744a6c41-de90-42de-a1da-e2922e72b1c4",
+      "id" : "c4c5cc53-3066-4938-8a45-69e3e19eb765",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -846,7 +928,7 @@
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -861,12 +943,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
     "qsoCorrectReplayAfterDelete" : {
-      "id" : "ebb2df7c-f04e-476c-a40c-38c894f6d7ed",
+      "id" : "493f3c4b-92a8-4812-9869-d4eb3cd6680f",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -929,7 +1011,7 @@
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -944,12 +1026,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
     "qsoDelete" : {
-      "id" : "35eb5375-498b-4949-a5a9-ac56effbb0e4",
+      "id" : "a7c6ab1b-98bb-4240-a19d-51e7127864f3",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -976,7 +1058,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -991,12 +1073,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
     "qsoDeleteReplay" : {
-      "id" : "7837444e-65f2-42b5-8506-517b6cad4b42",
+      "id" : "cef14ddb-8596-4512-8aa9-d92590e39842",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -1023,7 +1105,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -1038,12 +1120,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
     "qsoGet" : {
-      "id" : "8defb016-2877-4828-baaa-975e5f75a990",
+      "id" : "68b38186-3ec2-4a4f-adcb-dcf5137ce6d5",
       "ok" : true,
       "result" : {
         "qso" : {
@@ -1085,11 +1167,11 @@
         },
         "revision" : 4,
         "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+        "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
       }
     },
     "receiptAfterUncertain" : {
-      "id" : "7e13b454-c4a3-4141-b8fa-6ff32f96240e",
+      "id" : "7f7ad99c-b8ed-400b-abc4-14f72c26aea4",
       "ok" : true,
       "result" : {
         "receipt" : {
@@ -1102,7 +1184,7 @@
       }
     },
     "replay" : {
-      "id" : "c141284a-4fd3-47df-a769-c92ebf623efc",
+      "id" : "708c803a-9244-44c6-a032-29a4847fb774",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -1137,7 +1219,7 @@
 
             ]
           },
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "qso" : {
           "band" : "20m",
@@ -1166,7 +1248,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -1225,12 +1307,12 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     },
     "reserve" : {
-      "id" : "7625cbde-38a4-4602-bd8a-18a06a2213ab",
+      "id" : "529ec0b2-0b81-4434-8436-14c94747e96e",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -1265,7 +1347,7 @@
 
             ]
           },
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:01:00.000Z",
@@ -1330,10 +1412,10 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:01:00.000Z",
-          "workspaceGeneration" : "482133fd-e08e-4d15-b07d-9ccc93f42fd7"
+          "workspaceGeneration" : "ec836e4a-9d32-4fff-a47d-ea30e58f3af2"
         }
       }
     }
   },
-  "schemaVersion" : 5
+  "schemaVersion" : 6
 }

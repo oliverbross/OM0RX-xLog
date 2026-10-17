@@ -51,6 +51,21 @@ it("derives the SSB Cabrillo mode from the pinned entry descriptor", async () =>
   expect(prepare).toHaveBeenCalledWith("cabrillo", expect.objectContaining({ categoryMode: "SSB" }));
 });
 
+it("keeps SAC Cabrillo output visibly practice-only before and after preparation", async () => {
+  const sac = { ...session, rule: { ...session.rule,
+    identity: { id: "sac-cw" as const, version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" },
+    displayName: "Scandinavian Activity Contest CW" as const,
+    entry: { ...session.rule.entry, exchange: { sent: "serialNumber" as const, received: "serialNumber" as const,
+      sentDefault: "reservedSerial" as const, adifFields: "exchangeStrings" as const },
+      serial: { requirement: "requiredForCommit" as const, allowedScopes: ["session" as const, "band" as const, "transmitter" as const] } } } };
+  setup(undefined, "Single Operator", sac);
+  expect(screen.getByRole("heading", { name: "Prepare a practice export" })).toBeTruthy();
+  expect(screen.getByText(/not sponsor-submission ready/)).toBeTruthy();
+  fillAndPrepare();
+  expect(await screen.findByText("Cabrillo practice export")).toBeTruthy();
+  expect(screen.queryByText("Cabrillo submission preview")).toBeNull();
+});
+
 it("does not relabel unsupported stored categories", () => {
   setup(undefined, "Multi Operator");
   expect(screen.getByRole("alert").textContent).toMatch(/unavailable.*Multi Operator.*Single Operator/i);

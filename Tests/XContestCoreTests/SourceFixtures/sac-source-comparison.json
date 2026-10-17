@@ -1,0 +1,10 @@
+{
+  "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+  "cwSHA256": "2c2879d79f59df964e821f5c9ee6a5a460dad93e1c0e04a72b4c3a9ff9aa36ce",
+  "ssbSHA256": "c8a8fe6189e79a6fe001de2f73cccd574acc0d26ea8f2f8691765619f1b06fd9",
+  "canonicalAlandPrefix": "OH0",
+  "sourceRecognizesCanonicalAlandPrefix": false,
+  "sourcePortablePrefix": "P0",
+  "sourcePortableAreaComponent": "",
+  "sourceValidatesPublishedFrequencySegments": false
+}
