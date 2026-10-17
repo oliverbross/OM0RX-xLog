@@ -1,0 +1,59 @@
+{
+  "capturedAt": "2026-10-18T09:08:27+09:30",
+  "branch": "codex/contest-plugin-generator",
+  "baselineCommit": "c8a73173bed743fae9a2fc9d1c78e404cda8113d",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "scratchPath": "SwiftPM default .build under workingDirectory; no explicit --scratch-path was supplied",
+  "activation": {
+    "activeCatalogChanged": false,
+    "activeCatalogSHA256": "4987b84cce1978e43c0a04111841c506f526214f8c1ed44077891957d7c6af69",
+    "exportPolicy": "unsupported"
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --filter ContestDeclarativeRuleTests",
+      "result": "10 tests, 0 failures",
+      "logPath": "/Users/oliver/.local/state/lean-ctx/tee/XLOG_PORTABLE_ONLY_1_swift_test_--filter_48526182.log",
+      "logSHA256": "21813ee84b575f38e89fe7118ad161eed6217785d9bd2e942d3928283a8a354d",
+      "logScope": "The retained full-core raw log contains the same focused suite passing; the earlier standalone passing output was below lean-ctx's retained-log threshold."
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --filter ContestDeclarativeRuleStoreTests",
+      "result": "1 test with four parameterized definitions, 0 failures",
+      "logPath": "/Users/oliver/.local/state/lean-ctx/tee/XLOG_PORTABLE_ONLY_1_swift_test_--filter_ca9a7017.log",
+      "logSHA256": "9f83a30f82934af727fa45132a5d9495c6e8243bb6386f90aad61a15f6f448d5",
+      "logScope": "The retained full-store raw log contains the same focused suite passing; the earlier standalone passing output was below lean-ctx's retained-log threshold."
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --filter XContestCoreTests",
+      "result": "143 tests, 0 failures",
+      "logPath": "/Users/oliver/.local/state/lean-ctx/tee/XLOG_PORTABLE_ONLY_1_swift_test_--filter_48526182.log",
+      "logSHA256": "21813ee84b575f38e89fe7118ad161eed6217785d9bd2e942d3928283a8a354d"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --filter XContestStoreTests",
+      "result": "72 tests, 0 failures",
+      "logPath": "/Users/oliver/.local/state/lean-ctx/tee/XLOG_PORTABLE_ONLY_1_swift_test_--filter_ca9a7017.log",
+      "logSHA256": "9f83a30f82934af727fa45132a5d9495c6e8243bb6386f90aad61a15f6f448d5"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "frozenFiles": {
+    "Sources/XContestCore/RuleEngine.swift": "26bf09dcd9b49713c87ce2e68f7fa6f0617960aff9236f5f920c46416cd5b514",
+    "Sources/XContestCore/DeclarativeContestRule.swift": "6e6ef4eebf4e88e36ee2a78be3690cb2ce24e58dae1d221aad7b7f13f63d6d81",
+    "Sources/XContestCore/TenTenDeclarativeDefinitions.swift": "410211fcddba2202a21b3376956c74577d46db5bbf0e2e5ce906b2f9f8ac4a27",
+    "Tests/XContestCoreTests/ContestDeclarativeRuleTests.swift": "d2788c537ae4ab47a8f396ec0eca40c0af170c5bab3a497be6fa01a42a32eeff",
+    "Tests/XContestCoreTests/SourceFixtures/ten-ten-declarative-authority.json": "974c47143230b6e31f8b20f0096d564fe33dff8af39d360a00b9473f9f2cb06e",
+    "Tests/XContestStoreTests/ContestDeclarativeRuleStoreTests.swift": "e1a589fa95044a6e2a8b2bc4d325734ce46fc595f5d09caf467f29bb34127c76",
+    "docs/contesting/TEN_TEN_DECLARATIVE_PILOT.md": "848107127559a05768992e43f57a49e073597c8ac6680c704e6807d1da3b9cfa"
+  },
+  "limits": [
+    "Definitions are not registered in the active 16-rule catalog.",
+    "Python comparator cases are independently expected and source-inspected; Python was not executed.",
+    "Canonical definition bytes are not yet persisted by SQLiteContestStore.",
+    "Export, mobile-category duplicate exceptions, event windows, and mode sub-band restrictions remain activation gates."
+  ]
+}
