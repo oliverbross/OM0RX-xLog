@@ -39,23 +39,32 @@ it.each(["desk", "editor"])("puts evidence beneath the %s reference fields inste
   expect(status.parentElement).not.toBe(heading.parentElement);
   expect(status.closest(kind === "desk" ? ".desk-active-references" : ".qso-fields")).toBeTruthy();
 });
-it("contains the live long POTA evidence in a stable two-line narrow-desk slot", () => {
+it("contains multiple live POTA parks as stable separate rows without scrolling the desk", () => {
   const view = render(<DeskQSO {...props} referenceEvidence={null} />);
   const slot = view.container.querySelector(".desk-ref-slot")!;
   const actions = view.container.querySelector(".desk-active-actions")!;
   expect(slot).toBeTruthy();
   expect(slot.querySelector('[role="status"]')).toBeNull();
-  view.rerender(<DeskQSO {...props} referenceEvidence={{ call: "H49A", rows: [{ kind: "pota", reference: "DE-1081", status: "verified", name: "Wangerland Bird Sanctuary" }] }} />);
+  view.rerender(<DeskQSO {...props} referenceEvidence={{ call: "H49A", rows: [
+    { kind: "pota", reference: "GB-3144", status: "verified", name: "Darnford Park" },
+    { kind: "pota", reference: "GB-5759", status: "verified", name: "Heart of England National Scenic Trail" },
+    { kind: "iota", reference: "EU-005", status: "verified", name: "Great Britain" },
+  ] }} />);
   expect(view.container.querySelector(".desk-ref-slot")).toBe(slot);
   expect(view.container.querySelector(".desk-active-actions")).toBe(actions);
-  expect(slot.querySelector('[role="status"]')?.textContent).toBe("POTA DE-1081 · Verified: Wangerland Bird Sanctuary");
+  const rows = Array.from(slot.querySelector('[role="status"]')!.children);
+  expect(rows.map(row => row.textContent)).toEqual([
+    "POTA GB-3144 · Verified: Darnford Park",
+    "POTA GB-5759 · Verified: Heart of England National Scenic Trail",
+    "IOTA EU-005 · Verified: Great Britain",
+  ]);
   const css = readFileSync("src/live/OperatorDesk.css", "utf8");
-  expect(css).toMatch(/\.desk-active \{[^}]*max-width: 100%;[^}]*overflow-x: hidden;/);
-  expect(css).toMatch(/\.desk-active form \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow-x: hidden;/);
-  expect(css).toMatch(/\.desk-active-references \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow-x: hidden;/);
-  expect(css).toMatch(/\.desk-ref-slot \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*block-size: 2\.8em;[^}]*overflow: hidden;[^}]*contain: inline-size paint;/);
-  expect(css).toMatch(/\.desk-ref-slot > \.qso-reference-status \{[^}]*display: -webkit-box;[^}]*height: 100%;[^}]*overflow: hidden;[^}]*-webkit-box-orient: vertical;[^}]*-webkit-line-clamp: 2;/);
-  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*min-width: 0;[^}]*white-space: normal;[^}]*overflow-wrap: anywhere;[^}]*word-break: break-word;/);
+  expect(css).toMatch(/\.desk-active \{[^}]*max-width: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-active form \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-active-references \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \{[^}]*block-size: 3em;[^}]*overflow: hidden;[^}]*contain: inline-size paint;/);
+  expect(css).toMatch(/\.desk-ref-slot > \.qso-reference-status \{[^}]*display: grid;[^}]*grid-auto-rows: 1\.35em;[^}]*row-gap: \.15em;[^}]*height: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*display: block;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/);
   expect(css).toMatch(/\.desk-active-actions \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*flex: 0 0 auto;/);
 });
 it("removes the global tuning status row while retaining the authoritative tune fence and errors", async () => {
