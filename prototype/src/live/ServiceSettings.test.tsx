@@ -102,6 +102,28 @@ describe("grouped service settings", () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith("online_log_status", { service: "club_log" }));
     expect(request).toHaveBeenCalledWith("secret_status");
   });
+  it("tests QRZ only after an explicit click and reports a successful OM0AAO match", async () => {
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "lookup_call"
+      ? { call: params?.call, country: "SLOVAK REPUBLIC", dxcc: 504, qrz_status: "matched" } : {});
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    expect(request).not.toHaveBeenCalledWith("lookup_call", expect.anything());
+    fireEvent.change(screen.getByLabelText("QRZ test callsign"), { target: { value: "om0aao" } });
+    fireEvent.click(screen.getByRole("button", { name: "Test QRZ lookup" }));
+    await screen.findByText("QRZ matched OM0AAO · SLOVAK REPUBLIC.");
+    expect(request).toHaveBeenCalledWith("lookup_call", { call: "OM0AAO", allow_credential_interaction: true });
+  });
+  it("shows the retained offline result when an authorized QRZ test cannot reach the provider", async () => {
+    const warning = "QRZ request timed out. Check the connection and try again. Offline CTY result retained.";
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => method === "lookup_call"
+      ? { call: params?.call, country: "SLOVAK REPUBLIC", dxcc: 504, qrz_status: "unavailable", lookup_warning: warning } : {});
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "QRZ" }));
+    fireEvent.change(screen.getByLabelText("QRZ test callsign"), { target: { value: "OM0AAO" } });
+    fireEvent.click(screen.getByRole("button", { name: "Test QRZ lookup" }));
+    await screen.findByText(warning);
+    expect(screen.queryByText(/Operation failed/)).toBeNull();
+  });
   it("saves the separate QRZ Logbook key without enabling or saving upload settings", async () => {
     const request = vi.fn(async (method: string) => method === "secret_status"
       ? { "qrz-logbook-key": false } : method === "online_log_status" ? qrzUploadOff : { saved: true });

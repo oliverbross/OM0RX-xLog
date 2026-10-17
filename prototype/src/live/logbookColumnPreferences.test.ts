@@ -7,7 +7,7 @@ describe("logbook presentation preferences", () => {
     const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["call", "comment"],
       order: ["comment", "unknown", "call", "comment"] }));
     expect(orderedLogbookColumns(value).map(([id]) => id)).toEqual([
-      "comment", "call", "utc", "bandMode", "frequency", "rst", "country", "qsl", "lotw", "clublog",
+      "comment", "call", "utc", "band", "mode", "frequency", "rst", "country", "qsl", "lotw", "clublog",
     ]);
     expect(readLogbookColumnPreferences(JSON.stringify(value))).toEqual(value);
     expect(orderedLogbookColumns({}).map(([id]) => id)).toEqual(defaultLogbookColumnPreferences().columns);
@@ -15,7 +15,7 @@ describe("logbook presentation preferences", () => {
       .toEqual(defaultLogbookColumnPreferences().columns);
   });
   it("keeps all existing fields by default and isolates contexts from cluster preferences", () => {
-    expect(defaultLogbookColumnPreferences().columns).toEqual(["utc", "call", "bandMode", "frequency", "rst", "country", "qsl", "lotw", "clublog", "comment"]);
+    expect(defaultLogbookColumnPreferences().columns).toEqual(["utc", "call", "band", "mode", "frequency", "rst", "country", "qsl", "lotw", "clublog", "comment"]);
     expect(logbookColumnsKey("docked")).not.toBe(logbookColumnsKey("detached"));
     expect(logbookColumnsKey("docked")).not.toContain("cluster");
     expect(new Set((["docked", "detached", "desk"] as const).map(logbookColumnsKey)).size).toBe(3);
@@ -36,7 +36,8 @@ describe("logbook presentation preferences", () => {
     expect(value.widths).toMatchObject({ rst: 480, call: 96 });
   });
   it("promotes only the untouched legacy Desk default and preserves real v1 customizations", () => {
-    const widths = defaultLogbookColumnPreferences().widths;
+    const { band: _band, mode: _mode, ...currentWidths } = defaultLogbookColumnPreferences().widths;
+    const widths = { ...currentWidths, bandMode: 105 };
     const untouched = JSON.stringify({ version: 1, columns: ["utc", "call", "bandMode", "frequency", "country"], widths });
     expect(migrateLegacyDeskLogbookColumnPreferences(untouched)).toEqual(defaultLogbookColumnPreferences("desk"));
     const hidden = JSON.stringify({ version: 1, columns: ["call", "rst", "comment"], widths });
@@ -44,8 +45,18 @@ describe("logbook presentation preferences", () => {
     const resized = JSON.stringify({ version: 1, columns: ["utc", "call", "bandMode", "frequency", "country"],
       widths: { ...widths, call: 177 } });
     expect(migrateLegacyDeskLogbookColumnPreferences(resized)).toMatchObject({
-      columns: ["utc", "call", "bandMode", "frequency", "country"], widths: { call: 177 },
+      columns: ["utc", "call", "band", "mode", "frequency", "country"], widths: { call: 177 },
     });
+  });
+  it("expands saved Band / Mode visibility, order and width into independent columns", () => {
+    const value = readLogbookColumnPreferences(JSON.stringify({ version: 1,
+      columns: ["call", "bandMode", "comment"], order: ["call", "bandMode", "comment"],
+      widths: { bandMode: 133 } }));
+    expect(value.columns).toEqual(["call", "band", "mode", "comment"]);
+    expect(value.order?.slice(0, 4)).toEqual(["call", "band", "mode", "comment"]);
+    expect(value.widths).toMatchObject({ band: 133, mode: 133 });
+    const hidden = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["call", "comment"] }));
+    expect(hidden.columns).toEqual(["call", "comment"]);
   });
   it("restores canonical order, removes unknown/duplicate fields and always retains Callsign", () => {
     const value = readLogbookColumnPreferences(JSON.stringify({ version: 1, columns: ["comment", "utc", "utc", "unknown"] }));

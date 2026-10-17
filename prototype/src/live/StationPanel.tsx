@@ -44,7 +44,7 @@ type StationSnapshot = {
   propagation?: { status?: string; updated_at?: number; solar_flux?: number; a_index?: number; k_index?: number } | null;
 };
 type Props = { snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean; independentRotor?: boolean };
-const modes = ["CW", "SSB", "USB", "LSB", "AM", "FM", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI"];
+const modes = ["CW", "SSB", "USB", "LSB", "AM", "FM", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI"];
 const rotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "Other"];
 
 function unwrap(raw: any): any { return raw && typeof raw === "object" && "result" in raw ? raw.result : raw; }

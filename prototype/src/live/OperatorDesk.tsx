@@ -19,7 +19,7 @@ type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>
   canAcceptLocalInput?: () => boolean; onLocalInputState?: (pending: boolean) => void; resetInputEpoch?: number };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
-const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
+const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"];
 const utc = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : "";
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 // Same mean Earth radius as XLogCore/Geo.swift, which supplies lookup distances.
@@ -113,7 +113,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   </form>{cwControls}</section>;
 }
 
-export function DeskRotor({ draft, lookup, rotor, request, autoRotor, setAutoRotor, onManualRotor }: Props) {
+export function DeskRotor({ draft, lookup, rotor, request, onManualRotor }: Props) {
   const [path, setPath] = useState<"SP" | "LP">("SP"), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const observed = rotorProjection(rotor), call = normalizedCall(draft?.call);
   const info = call && normalizedCall(lookup?.call) === call ? lookup : null;
@@ -127,12 +127,11 @@ export function DeskRotor({ draft, lookup, rotor, request, autoRotor, setAutoRot
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Rotor motion unavailable."); }
     finally { setBusy(false); }
   };
-  const stop = async () => { onManualRotor(); setMessage(""); try { await request("rotor_stop", rotorCommandParams(rotor)); setMessage("Stop accepted; watch the observed rotor state."); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Rotor stop unavailable."); } };
   return <section className="desk-panel desk-rotor" aria-label="Rotor"><header className="desk-rotor-heading"><h2><Navigation size={15} aria-hidden="true" /> Rotor</h2><small className={`desk-rotor-connection ${observed.connected ? "teal" : "desk-offline"}`} title={observed.status || "Rotor telemetry unavailable"}>● {observed.connected ? "ROTOR CONNECTED" : "ROTOR OFFLINE"}</small></header>
-    <div className="desk-rotor-body"><RotorCompass connected={observed.connected} azimuth={observed.azimuth} target={bearing} path={path} readout={{ call, distanceKm: distance, status: observed.status }} /></div>
-    <div className="desk-rotor-controls"><label className="desk-toggle" title="When enabled, turn short path to the resolved callsign, including a typed call. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns."><input type="checkbox" checked={autoRotor} disabled={!observed.connected} onChange={event => setAutoRotor(event.target.checked)} />Auto rotor</label>{message && <p className="desk-rotor-result" role="status">{message}</p>}
-    <div className="desk-rotor-actions"><button type="button" aria-label="Turn rotor short path" aria-pressed={path === "SP"} disabled={busy || !observed.connected || !finite(info?.bearing)} onClick={() => void turn("SP")}>{finite(info?.bearing) ? `SP · ${Math.round(info.bearing)}°` : "SP"}</button><button type="button" aria-label="Turn rotor long path" aria-pressed={path === "LP"} disabled={busy || !observed.connected || !finite(info?.long_path_bearing)} onClick={() => void turn("LP")}>{finite(info?.long_path_bearing) ? `LP · ${Math.round(info.long_path_bearing)}°` : "LP"}</button><button type="button" aria-label="Stop desk rotor" className="desk-stop" disabled={!rotor?.owner} onClick={() => void stop()}>■ Stop</button></div>
-    </div>
+    <div className="desk-rotor-body"><RotorCompass connected={observed.connected} azimuth={observed.azimuth} target={bearing} path={path}
+      readout={{ call, distanceKm: distance, status: observed.status }} pathControls={{ shortBearing: info?.bearing,
+        longBearing: info?.long_path_bearing, busy, onSelect: next => void turn(next) }} /></div>
+    {message && <p className="desk-rotor-result" role="status">{message}</p>}
   </section>;
 }
 

@@ -10,8 +10,8 @@ type Configuration = {
 type Snapshot = { configuration: Configuration; flex_forwarding_available: boolean;
   forwarding?: { accepted_count: number; status: string } };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-const callsignStatuses = ["New Callsign"];
-const dxccStatuses = ["New DXCC"];
+const callsignStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode"];
+const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode"];
 const sharedStatuses = ["Worked", "Confirmed", "Unknown"];
 const statusNames = [...callsignStatuses, ...dxccStatuses, ...sharedStatuses];
 
@@ -84,7 +84,7 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
       <label>Use status of <select aria-label="Radio spot colour status" value={policy} onChange={event => setPolicy(event.target.value as "callsign" | "dxcc")}>
         <option value="callsign">Callsign</option><option value="dxcc">DXCC</option>
       </select></label>
-      <p>Wavelog-compatible defaults are red for new, amber for worked and green for confirmed on this exact band and mode. Your choices override those defaults everywhere spots are shown.</p>
+      <p>Colours distinguish new calls, bands and modes, plus whether a DXCC is confirmed or only worked overall. Your choices apply everywhere spots are shown.</p>
       <h3>Callsign status</h3>{colorInputs(callsignStatuses)}
       <h3>DXCC status</h3>{colorInputs(dxccStatuses)}
       <h3>Shared status</h3>{colorInputs(sharedStatuses)}

@@ -93,6 +93,7 @@ final class BoundedSyncReconciliationTests: XCTestCase {
             _ = try db.applyOperatorDraft(OperatorDraftMutation(operationID: UUID(), draftID: typed.id,
                 expectedRevision: draft.revision, action: .replace, qso: typed),
                 nextDraft: QSO(call: "", band: "20m", mode: "CW"))
+            let draftSnapshot = try db.operatorDraft(initial: typed).qso
             var changed = try XCTUnwrap(db.lookup(localID: localEdit.id))
             changed.comment = "unsent local edit"; try db.save(changed)
             try db.softDelete(try XCTUnwrap(db.lookup(localID: localDelete.id)))
@@ -103,7 +104,7 @@ final class BoundedSyncReconciliationTests: XCTestCase {
             XCTAssertEqual(try db.lookup(localID: localEdit.id), editSnapshot)
             XCTAssertEqual(try db.lookup(localID: localDelete.id), deleteSnapshot)
             XCTAssertNotNil(try db.lookup(localID: absent.id)?.deletedAt)
-            XCTAssertEqual(try db.operatorDraft(initial: typed).qso, typed)
+            XCTAssertEqual(try db.operatorDraft(initial: typed).qso, draftSnapshot)
             XCTAssertEqual(try db.count(), 399)
         }
     }

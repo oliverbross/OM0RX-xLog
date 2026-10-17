@@ -91,6 +91,13 @@ async function openRotorSettings() {
   fireEvent.click(await screen.findByRole("tab", { name: "Rotator" }));
   return screen.findByRole("region", { name: "Independent rotor" });
 }
+async function waitForDesk() {
+  return screen.findByLabelText("Desk Frequency MHz");
+}
+async function armAutoRotor() {
+  await waitFor(() => expect(bridge.autoChanged).not.toBeNull());
+  await act(async () => { await bridge.native("auto_rotor_set", { armed: true, owner: "native_dcu1", generation: 4 }); });
+}
 beforeEach(() => {
   localStorage.clear(); bridge.request.mockReset(); bridge.native.mockReset(); bridge.tune = null; bridge.rejectActivation = null; bridge.rotorGeneration = 4; bridge.intentId = null;
   bridge.autoState = { armed: false, epoch: 0, owner: "native_dcu1", generation: 4, target: null, activation_pending: false, canonical_pending: false, error: "" };
@@ -178,30 +185,29 @@ it("follows native radio telemetry without polling but Read radio still uses exp
   view.unmount(); expect(stop).toHaveBeenCalledOnce();
 });
 
-it("uses native rotor telemetry without a renderer poller and reflects authoritative disarm on loss", async () => {
+it("uses native rotor telemetry without a renderer poller and keeps Auto Rotor out of the desk", async () => {
   let update!: (value: any) => void, unavailable!: () => void;
   const stop = vi.fn();
   bridge.telemetry.mockImplementation((changed, failed) => { update = changed; unavailable = failed; return stop; });
   const view = render(<LiveApp />);
   await act(async () => update({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
     backend: { connected: true, name: "Antenna", azimuth: 53 } }));
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
-  fireEvent.click(automatic); await waitFor(() => expect((automatic as HTMLInputElement).checked).toBe(true));
+  await waitForDesk();
+  expect(screen.queryByRole("checkbox", { name: "Auto rotor" })).toBeNull();
+  await armAutoRotor();
   expect(bridge.native).toHaveBeenCalledWith("auto_rotor_set", { armed: true, owner: "native_dcu1", generation: 4 });
   await act(async () => unavailable());
-  expect((automatic as HTMLInputElement).disabled).toBe(true);
   // Loss of a renderer projection is not itself new command authority.
-  expect((automatic as HTMLInputElement).checked).toBe(true);
+  expect(bridge.autoState.armed).toBe(true);
   await act(async () => bridge.autoChanged?.({ ...bridge.autoState, armed: false, epoch: 2 }));
-  expect((automatic as HTMLInputElement).checked).toBe(false);
+  expect(bridge.autoState.armed).toBe(false);
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_snapshot")).toHaveLength(0);
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(0);
   view.unmount(); expect(stop).toHaveBeenCalledOnce();
 });
 
-it.each(["Desk", "Canvas"])("%s native Stop sends one owner-only command with zero pre/post device snapshots", async surface => {
-  bridge.nativeStop = true; bridge.canvasStop = surface === "Canvas";
+it("Canvas native Stop sends one owner-only command with zero pre/post device snapshots", async () => {
+  bridge.nativeStop = true; bridge.canvasStop = true;
   let observe!: (snapshot: any) => void;
   bridge.telemetry.mockImplementation(changed => { observe = changed; return vi.fn(); });
   const original = bridge.native.getMockImplementation()!;
@@ -211,14 +217,14 @@ it.each(["Desk", "Canvas"])("%s native Stop sends one owner-only command with ze
   render(<LiveApp />);
   await act(async () => observe({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
     backend: { connected: true, name: "Retained rotor", azimuth: 53 } }));
-  fireEvent.click(await screen.findByRole("button", { name: surface === "Canvas" ? "■ Stop rotor" : "Stop desk rotor" }));
+  fireEvent.click(await screen.findByRole("button", { name: "■ Stop rotor" }));
   await screen.findByText("Stop accepted; watch the observed rotor state.");
   expect(bridge.native.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toEqual([["monitor_rotor_stop", { owner: "native_dcu1" }]]);
   expect(bridge.request.mock.calls.filter(([method]) => ["rotor_snapshot", "rotor_stop"].includes(method))).toEqual([]);
 });
 
-it.each(["Desk", "Canvas"])("%s native Stop retains uncertainty after a lost reply without a snapshot fallback or retry", async surface => {
-  bridge.nativeStop = true; bridge.canvasStop = surface === "Canvas";
+it("Canvas native Stop retains uncertainty after a lost reply without a snapshot fallback or retry", async () => {
+  bridge.nativeStop = true; bridge.canvasStop = true;
   let observe!: (snapshot: any) => void;
   bridge.telemetry.mockImplementation(changed => { observe = changed; return vi.fn(); });
   const original = bridge.native.getMockImplementation()!;
@@ -229,14 +235,13 @@ it.each(["Desk", "Canvas"])("%s native Stop retains uncertainty after a lost rep
   render(<LiveApp />);
   await act(async () => observe({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
     backend: { connected: true, name: "Retained rotor", azimuth: 53 } }));
-  fireEvent.click(await screen.findByRole("button", { name: surface === "Canvas" ? "■ Stop rotor" : "Stop desk rotor" }));
+  fireEvent.click(await screen.findByRole("button", { name: "■ Stop rotor" }));
   await screen.findByText("Stop acknowledgement lost");
-  expect(screen.getByText("Connection needs attention")).toBeTruthy();
   expect(screen.queryByText("Stop accepted; watch the observed rotor state.")).toBeNull();
   // Recovery wakes may refresh retained projections, but must never replay Stop
   // or introduce a direct worker snapshot as an acknowledgement substitute.
   await act(async () => { window.dispatchEvent(new Event("focus")); });
-  expect(screen.getByText("Connection needs attention")).toBeTruthy();
+  expect(screen.getByText("Stop acknowledgement lost")).toBeTruthy();
   expect(bridge.native.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toEqual([["monitor_rotor_stop", { owner: "native_dcu1" }]]);
   expect(bridge.request.mock.calls.filter(([method]) => ["rotor_snapshot", "rotor_stop"].includes(method))).toEqual([]);
 });
@@ -244,9 +249,8 @@ it.each(["Desk", "Canvas"])("%s native Stop retains uncertainty after a lost rep
 it.each(["before", "after"])("retains native automatic authority when rotor telemetry is polled %s activation acknowledgement", async order => {
   const poll = controlOneSecondPolls();
   render(<LiveApp />);
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
-  fireEvent.click(automatic);
+  await waitForDesk();
+  await armAutoRotor();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
@@ -255,7 +259,7 @@ it.each(["before", "after"])("retains native automatic authority when rotor tele
   await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
   if (order === "after") await poll();
   fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
-  expect((await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(true);
+  expect(bridge.autoState.armed).toBe(true);
   expect(bridge.native.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1);
   expect(bridge.request.mock.calls.some(([method]) => ["station_tune", "rotor_goto"].includes(method))).toBe(false);
 });
@@ -263,9 +267,8 @@ it.each(["before", "after"])("retains native automatic authority when rotor tele
 it.each(["rejected", "late success"])("manual monitor motion disarms pending auto and cannot rearm from %s", async outcome => {
   const poll = controlOneSecondPolls();
   render(<LiveApp />);
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
-  fireEvent.click(automatic);
+  await waitForDesk();
+  await armAutoRotor();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
@@ -280,7 +283,7 @@ it.each(["rejected", "late success"])("manual monitor motion disarms pending aut
     else bridge.tune?.({ accepted: true, confirmed: true });
   });
   fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
-  expect((await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(false);
+  expect(bridge.autoState.armed).toBe(false);
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(0);
   expect(bridge.native.mock.calls.filter(([command]) => command === "auto_rotor_set")).toHaveLength(1);
 });
@@ -292,9 +295,8 @@ it("never turns from a late lookup after an unconfirmed spot tune", async () => 
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "lookup_call"
     ? new Promise(resolve => { lookupReply = result => resolve({ result }); }) : base(method, params));
   render(<LiveApp />);
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
-  fireEvent.click(automatic);
+  await waitForDesk();
+  await armAutoRotor();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
@@ -313,7 +315,7 @@ it("retains native-applied spot references without replacing newer input during 
     return base(method, params);
   });
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(resolveReferences).toBeDefined());
@@ -340,7 +342,7 @@ it("discards reference results when the operator has changed the callsign", asyn
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "reference_resolve"
     ? new Promise(resolve => { resolveReferences = result => resolve({ result }); }) : base(method, params));
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(resolveReferences).toBeDefined());
@@ -353,12 +355,11 @@ it("discards reference results when the operator has changed the callsign", asyn
 it("arms native automatic following for typed calls without renderer-owned turns or polling replays", async () => {
   const poll = controlOneSecondPolls();
   render(<LiveApp />);
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
+  await waitForDesk();
   fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "EA7EU" } });
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("lookup_call", { call: "EA7EU" }));
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
-  fireEvent.click(automatic);
+  await armAutoRotor();
   await waitFor(() => expect(bridge.native).toHaveBeenCalledWith("auto_rotor_set", { armed: true, owner: "native_dcu1", generation: 4 }));
   await poll();
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_goto")).toHaveLength(0);
@@ -372,7 +373,7 @@ it.each(["Operator Desk", "Log QSO"])("saves exactly once on Command-Enter in %s
   const base = bridge.request.getMockImplementation()!;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "logbook_save" ? { result: { qso: params.qso } } : base(method, params));
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   if (view === "Log QSO") fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: view }));
   const input = await screen.findByLabelText(view === "Log QSO" ? "Callsign" : "Desk Callsign");
   fireEvent.change(input, { target: { value: "K1ABC" } });
@@ -383,7 +384,7 @@ it.each(["Operator Desk", "Log QSO"])("saves exactly once on Command-Enter in %s
 
 it("passes authentic observed radio and configured station provenance to the full editor", async () => {
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Log QSO" }));
   await screen.findByText("Station context");
   expect(screen.getAllByText("configured")).toHaveLength(2);
@@ -393,7 +394,7 @@ it("passes authentic observed radio and configured station provenance to the ful
 
 it("does not write an old explicit radio readback into a newly cleared QSO draft", async () => {
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   const base = bridge.request.getMockImplementation()!;
   let read: null | ((value: any) => void) = null;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => {
@@ -465,10 +466,9 @@ it("preserves two different preference controls emitted from the same rendered f
 
 it("cancels pending automatic motion on independent stop and never replays it", async () => {
   render(<LiveApp />);
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
+  await waitForDesk();
   expect(bridge.request.mock.calls.some(([method]) => ["rotor_connect", "rotor_goto"].includes(method))).toBe(false);
-  fireEvent.click(automatic);
+  await armAutoRotor();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
@@ -478,14 +478,13 @@ it("cancels pending automatic motion on independent stop and never replays it", 
   await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
   expect(bridge.request.mock.calls.some(([method]) => method === "rotor_goto")).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
-  expect((await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(false);
+  expect(bridge.autoState.armed).toBe(false);
 });
 
 it("stops the fresh same-owner generation while native activation is in flight and never rearms from its reply", async () => {
   render(<LiveApp />);
-  const automatic = await screen.findByRole("checkbox", { name: "Auto rotor" });
-  await waitFor(() => expect((automatic as HTMLInputElement).disabled).toBe(false));
-  fireEvent.click(automatic);
+  await waitForDesk();
+  await armAutoRotor();
   fireEvent.click(screen.getByRole("button", { name: "DX Cluster" }));
   fireEvent.click(await screen.findByRole("button", { name: "Select test spot" }));
   await waitFor(() => expect(bridge.tune).not.toBeNull());
@@ -495,13 +494,13 @@ it("stops the fresh same-owner generation while native activation is in flight a
   await waitFor(() => expect(bridge.request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 5 }));
   await act(async () => { bridge.tune?.({ accepted: true, confirmed: true }); });
   fireEvent.click(screen.getByRole("button", { name: "Operator Desk" }));
-  expect((await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).checked).toBe(false);
+  expect(bridge.autoState.armed).toBe(false);
   expect(bridge.request.mock.calls.filter(([method]) => method === "rotor_stop")).toHaveLength(1);
 });
 
 it("does not retry or redirect an explicit Stop across an owner switch", async () => {
   render(<LiveApp />);
-  await waitFor(() => expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).disabled).toBe(false));
+  await waitForDesk();
   await openRotorSettings();
   const stop = await screen.findByRole("button", { name: "Stop rotor" });
   const base = bridge.request.getMockImplementation()!;
@@ -518,7 +517,7 @@ it("does not retry or redirect an explicit Stop across an owner switch", async (
 
 it("preserves rotor ownership across radio handover and clears only the stale guidance", async () => {
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(await screen.findByRole("button", { name: "Direct FLEX · LAN" }));
   expect(bridge.request.mock.calls.some(([method]) => method === "station_disconnect")).toBe(false);
@@ -540,7 +539,7 @@ it("hydrates the native radio choice before polling and leaves handover with the
   const dispose = vi.fn(); bridge.selection.mockImplementation((_legacy, changed) => { selected = changed; return dispose; });
   localStorage.setItem("xlog.integration.provider", "direct_agent");
   const rendered = render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   expect(bridge.request.mock.calls.some(([method]) => method === "station_snapshot")).toBe(false);
   await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
   await waitFor(() => expect(bridge.request.mock.calls.some(([method, params]) => method === "station_snapshot" && params.provider === "direct_flex_lan")).toBe(true));
@@ -557,7 +556,7 @@ it("hydrates the native radio choice before polling and leaves handover with the
 
 it("browses inactive radio tabs without disconnecting or changing the active poll provider", async () => {
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(screen.getByRole("button", { name: "Local station · Hamlib" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Disconnect" }).hasAttribute("disabled")).toBe(true));
@@ -581,7 +580,7 @@ it("keeps the prior active radio if explicit selection retirement fails", async 
     return base(method, params);
   });
   render(<LiveApp />);
-  await screen.findByRole("checkbox", { name: "Auto rotor" });
+  await waitForDesk();
   fireEvent.click(screen.getByRole("button", { name: "Station Control" }));
   fireEvent.click(screen.getByRole("button", { name: "Direct FLEX · LAN" }));
   fireEvent.click(screen.getByRole("button", { name: "Use Direct FLEX · LAN" }));

@@ -63,8 +63,9 @@ struct OperatorIntelligenceTests {
 
     @Test("Cluster spots expose compact xCluster opportunity codes")
     func clusterOpportunityCodes() {
-        #expect(spot(call: "New Callsign", dxcc: "Worked").opportunityCode == "NC")
-        #expect(spot(call: "Worked", dxcc: "New DXCC").opportunityCode == "ND")
+        #expect(spot(call: "New Call", dxcc: "Worked").opportunityCode == "NC")
+        #expect(spot(call: "Worked", dxcc: "ATNO").opportunityCode == "ATNO")
+        #expect(spot(call: "New Band+Mode", dxcc: "C/New Band+Mode").opportunityCode == "NB+M")
         #expect(spot(call: "Confirmed", dxcc: "Confirmed").opportunityCode == "C")
         #expect(spot(call: "Worked", dxcc: "Worked").opportunityCode == "W")
         #expect(spot(call: "Unknown", dxcc: "Unknown").opportunityCode == "--")

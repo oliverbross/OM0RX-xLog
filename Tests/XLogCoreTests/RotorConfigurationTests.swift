@@ -75,7 +75,7 @@ struct RotorConfigurationTests {
         #expect(throws: RotorConfigurationError.self) { try database.rotorConfiguration(seed: invalid) }
     }
 
-    @Test("Legacy configuration decodes startup-safe defaults and band policy is bounded")
+    @Test("Legacy configuration enables the startup preference and band policy is bounded")
     func automaticRotorPolicy() throws {
         let legacy: [String: Any] = [
             "owner": "native_dcu1",
@@ -85,7 +85,10 @@ struct RotorConfigurationTests {
         ]
         let decoded = try JSONDecoder().decode(RotorConfiguration.self,
             from: JSONSerialization.data(withJSONObject: legacy))
-        #expect(decoded.autoRotorAtStartup == false)
+        #expect(decoded.autoRotorAtStartup == true)
+        var explicitlyOff = legacy; explicitlyOff["auto_rotor_at_startup"] = false
+        #expect(try JSONDecoder().decode(RotorConfiguration.self,
+            from: JSONSerialization.data(withJSONObject: explicitlyOff)).autoRotorAtStartup == false)
         #expect(decoded.autoRotorBands == BandPlan.bands)
 
         var invalid = decoded; invalid.autoRotorBands = ["20m", "20m"]

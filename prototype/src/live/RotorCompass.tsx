@@ -8,14 +8,19 @@ export function bearingArc(from: number, to: number) {
   return Math.abs(delta) < .5 ? "" : `M ${start.join(" ")} A 83 83 0 0 ${delta >= 0 ? 1 : 0} ${end.join(" ")}`;
 }
 type DialReadout = { call: string; distanceKm?: number; status?: string };
-function RotorCompass({ connected, azimuth, target, path, readout }: { connected: boolean; azimuth?: number | null; target?: number | null; path: "SP" | "LP"; readout?: DialReadout }) {
+type PathControls = { shortBearing?: number | null; longBearing?: number | null; busy?: boolean;
+  onSelect: (path: "SP" | "LP") => void };
+function RotorCompass({ connected, azimuth, target, path, readout, pathControls }: { connected: boolean; azimuth?: number | null;
+  target?: number | null; path: "SP" | "LP"; readout?: DialReadout; pathControls?: PathControls }) {
   const actual = connected && valid(azimuth) ? azimuth : null;
+  const distance = typeof readout?.distanceKm === "number" && Number.isFinite(readout.distanceKm)
+    ? `${Math.round(readout.distanceKm).toLocaleString()} km` : null;
   const [reading, setReading] = useState({ actual, angle: actual ?? 0 });
   const angle = actual === null ? reading.angle : reading.actual === null ? actual : reading.angle + bearingDelta(reading.angle, actual);
   useEffect(() => { setReading(previous => ({ actual, angle: actual === null ? previous.angle : previous.actual === null ? actual : previous.angle + bearingDelta(previous.angle, actual) })); }, [actual]);
-  return <svg className={`rotor-dial${actual === null ? " is-offline" : ""}${readout ? " has-readout" : ""}`} viewBox="0 0 200 200" role="img"
+  const dial = <svg className={`rotor-dial${actual === null ? " is-offline" : ""}${readout ? " has-readout" : ""}`} viewBox="0 0 200 200" role="img"
     aria-label={actual !== null ? `Observed rotor bearing ${Math.round(actual)} degrees` : "Rotor bearing unavailable"}>
-    {readout && <desc>{`Target callsign ${readout.call || "unavailable"}. ${path} target ${valid(target) ? `${Math.round(target)} degrees` : "unavailable"}. ${path} distance ${typeof readout.distanceKm === "number" && Number.isFinite(readout.distanceKm) ? `${Math.round(readout.distanceKm).toLocaleString()} km` : "unavailable"}. ${readout.status || "Rotor telemetry unavailable"}.`}</desc>}
+    {readout && <desc>{`Target callsign ${readout.call || "unavailable"}. ${path} target ${valid(target) ? `${Math.round(target)} degrees` : "unavailable"}.${distance ? ` ${path} distance ${distance}.` : ""} ${readout.status || "Rotor telemetry unavailable"}.`}</desc>}
     <circle className="rotor-dial-bezel" cx="100" cy="100" r="96" />
     <circle className="rotor-dial-face" cx="100" cy="100" r="89" />
     {Array.from({ length: 72 }, (_, i) => <line key={i} className={i % 18 === 0 ? "rotor-tick-cardinal" : i % 6 === 0 ? "rotor-tick-major" : "rotor-tick"} x1="100" y1="14" x2="100" y2={i % 18 === 0 ? 27 : i % 6 === 0 ? 23 : 18} transform={`rotate(${i * 5} 100 100)`} />)}
@@ -29,8 +34,15 @@ function RotorCompass({ connected, azimuth, target, path, readout }: { connected
       <text className="rotor-readout-observed" x="100" y="90">{actual !== null ? `${Math.round(actual).toString().padStart(3, "0")}°` : "---°"}</text>
       <text className="rotor-readout-label" x="100" y="108">{actual !== null ? "OBSERVED" : "NO TELEMETRY"}</text>
       <text className="rotor-readout-target" x="100" y="126">{path} {valid(target) ? `${Math.round(target)}°` : "---°"} TARGET</text>
-      <text className="rotor-readout-distance" x="100" y="141">{typeof readout.distanceKm === "number" && Number.isFinite(readout.distanceKm) ? `${Math.round(readout.distanceKm).toLocaleString()} km` : "Distance unavailable"}</text>
+      {distance && <text className="rotor-readout-distance" x="100" y="141">{distance}</text>}
     </g> : <><circle className="rotor-dial-hub" cx="100" cy="100" r="7" /><circle className="rotor-dial-pin" cx="100" cy="100" r="2.5" /></>}
   </svg>;
+  if (!pathControls) return dial;
+  return <div className="rotor-dial-shell">{dial}<div className="rotor-path-controls">
+    <button type="button" aria-label="Turn rotor short path" aria-pressed={path === "SP"}
+      disabled={pathControls.busy || !connected || !valid(pathControls.shortBearing)} onClick={() => pathControls.onSelect("SP")}>SP{valid(pathControls.shortBearing) ? ` · ${Math.round(pathControls.shortBearing)}°` : ""}</button>
+    <button type="button" aria-label="Turn rotor long path" aria-pressed={path === "LP"}
+      disabled={pathControls.busy || !connected || !valid(pathControls.longBearing)} onClick={() => pathControls.onSelect("LP")}>LP{valid(pathControls.longBearing) ? ` · ${Math.round(pathControls.longBearing)}°` : ""}</button>
+  </div></div>;
 }
 export default memo(RotorCompass);

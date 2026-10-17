@@ -90,8 +90,8 @@ it("proves rendered choices, actual table retention, isolated columns, keyboard 
   expect(context.request.mock.calls.every(([method]) => ["logbook_list", "logbook_operator_draft"].includes(method))).toBe(true);
   expect(context.routes).toEqual(["Logbook", "Operator Desk", "Logbook", "Operator Desk"]);
   expect(JSON.parse(localStorage.getItem(deskMapLogbookKey)!).view).toBe("map");
-  expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toHaveLength(10);
-  expect(JSON.parse(localStorage.getItem(logbookColumnsKey("docked"))!).columns).toHaveLength(10);
+  expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!).columns).toHaveLength(11);
+  expect(JSON.parse(localStorage.getItem(logbookColumnsKey("docked"))!).columns).toHaveLength(11);
 });
 it("retries an idempotent rendered divider target after a transient workspace veto", async () => {
   const context = await setup({ transientDividerBlock: true });

@@ -598,7 +598,7 @@ it("embedded propagation reads the shared owner without a renderer fetch timer",
   try {
     render(<LiveApp />);
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(screen.getByRole("button", { name: "Refresh propagation" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Refresh propagation" })).toBeNull();
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
     expect(calls.request.mock.calls.filter(([method]) => String(method).startsWith("propagation_"))).toHaveLength(0);
   } finally { cleanup(); vi.useRealTimers(); }

@@ -8,9 +8,11 @@ const logbook = readFileSync("src/live/logbook.css", "utf8");
 const deskMapLogbook = readFileSync("src/live/DeskMapLogbook.css", "utf8");
 const spotHistory = readFileSync("src/live/SpotHistoryPanel.css", "utf8");
 
-it("reflows compact QSO fields before stacking an otherwise usable three-panel desk", () => {
+it("fits the compact QSO fields on one line before reflowing at the readable minimum", () => {
   expect(desk).not.toContain("(max-width: 1840px)");
-  expect(desk).toContain("@container active-qso (max-width: 840px)");
+  expect(desk).toContain("@container active-qso (max-width: 720px)");
+  expect(desk).toContain("minmax(176px, 1.28fr) 106px 78px minmax(94px, 1fr) 58px 68px 44px 44px");
+  expect(desk).toContain("minimums total 717px including gaps");
   expect(desk).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
   expect(desk).toContain(".desk-call { grid-column: span 3; }");
   expect(desk).toContain(".desk-date, .desk-frequency { grid-column: span 2; }");

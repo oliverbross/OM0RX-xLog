@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
+import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { formatSpotAge, useSpotAgeClock } from "./spotAge";
@@ -47,9 +47,9 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
   passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean };
 
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
-const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
-const callStatuses = ["New Callsign", "Worked", "Confirmed", "Unknown"];
-const dxccStatuses = ["New DXCC", "Worked", "Confirmed", "Unknown"];
+const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"];
+const callStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"];
+const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"];
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
 export const clusterRowTint = (status: string, configured?: Record<string, string>): string | undefined =>
   status === "Unknown" ? undefined : `${paletteColor(status, configured, clusterStatusColors)}1F`;
@@ -330,8 +330,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <td hidden={!visibleColumns.has("mode")}><span className="live-cluster-category" style={{ color: paletteColor(spot.mode, configuration?.palette.mode, clusterModeColors) }}>{spot.mode}</span></td>
       <td hidden={!visibleColumns.has("country")} title={spot.country}>{spot.country}</td><td hidden={!visibleColumns.has("cq")}>{spot.cqZone ?? "—"}</td>
       <td hidden={!visibleColumns.has("spotter")} title={`${spot.source === "rbl" ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
-      <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{spot.callStatus}</td>
-      <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{spot.dxccStatus}</td>
+      <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.callStatus)}</td>
+      <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.dxccStatus)}</td>
       <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>) : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>

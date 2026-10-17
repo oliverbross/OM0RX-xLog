@@ -19,7 +19,7 @@ fn automatic_policy(snapshot: &Value) -> Result<AutomaticPolicy, String> {
         .ok_or("Saved automatic rotor policy is invalid.")?;
     let startup = match configuration.get("auto_rotor_at_startup") {
         Some(value) => value.as_bool().ok_or("Saved automatic rotor policy is invalid.")?,
-        None => false,
+        None => true,
     };
     let bands = match configuration.get("auto_rotor_bands") {
         Some(value) => value.as_array().ok_or("Saved automatic rotor band policy is invalid.")?
@@ -420,16 +420,16 @@ mod tests {
         assert!(restored.resume(|| panic!("Uncertain intent must not load settings"), forbidden).unwrap().is_none());
     }
     #[test]
-    fn automatic_policy_defaults_off_for_legacy_settings_and_validates_bands() {
+    fn automatic_policy_defaults_on_for_legacy_settings_and_preserves_explicit_off() {
         let (_directory, _session, mut saved) = fixture();
         let legacy = automatic_policy(&saved).unwrap();
-        assert!(!legacy.startup);
+        assert!(legacy.startup);
         assert_eq!(legacy.bands, crate::auto_rotor::SUPPORTED_BANDS);
 
-        saved["configuration"]["auto_rotor_at_startup"] = json!(true);
+        saved["configuration"]["auto_rotor_at_startup"] = json!(false);
         saved["configuration"]["auto_rotor_bands"] = json!(["20m", "6m"]);
         let explicit = automatic_policy(&saved).unwrap();
-        assert!(explicit.startup); assert_eq!(explicit.bands, ["20m", "6m"]);
+        assert!(!explicit.startup); assert_eq!(explicit.bands, ["20m", "6m"]);
 
         saved["configuration"]["auto_rotor_bands"] = json!(["20m", "20m"]);
         assert!(automatic_policy(&saved).is_err());

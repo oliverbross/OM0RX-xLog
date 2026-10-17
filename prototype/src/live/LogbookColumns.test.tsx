@@ -29,7 +29,7 @@ describe("shared Logbook column controls", () => {
     const later = screen.getByRole("button", { name: "Move Callsign column later" });
     later.focus(); await userEvent.keyboard("{Enter}");
     expect(document.activeElement).toBe(later);
-    expect(screen.getAllByRole("columnheader").slice(0, 3).map(header => header.textContent)).toEqual(["UTC", "Band / Mode", "Callsign"]);
+    expect(screen.getAllByRole("columnheader").slice(0, 4).map(header => header.textContent)).toEqual(["UTC", "Band", "Callsign", "Mode"]);
     const earlier = screen.getByRole("button", { name: "Move Callsign column earlier" });
     fireEvent.click(earlier);
     fireEvent.click(earlier);
@@ -60,7 +60,7 @@ describe("shared Logbook column controls", () => {
     localStorage.setItem(logbookColumnsKey("docked"), docked);
     localStorage.setItem(logbookColumnsKey("detached"), detached);
     const view = setup(true, "desk"); await screen.findByText(contact.call);
-    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(11);
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(screen.getByLabelText("Show Comment column"));
     fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Callsign column" }), { key: "ArrowRight" });
@@ -72,7 +72,7 @@ describe("shared Logbook column controls", () => {
     expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("160");
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
     fireEvent.click(screen.getByRole("button", { name: "Reset columns" }));
-    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(11);
     await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("desk"))!)).toEqual(defaultLogbookColumnPreferences("desk")));
     expect(localStorage.getItem(logbookColumnsKey("docked"))).toBe(docked);
     expect(localStorage.getItem(logbookColumnsKey("detached"))).toBe(detached);
@@ -81,14 +81,16 @@ describe("shared Logbook column controls", () => {
   it("migrates the untouched legacy Desk default once but retains legacy custom widths and visibility", async () => {
     const legacyKey = "xlog.integration.logbook-columns.desk.v1";
     const defaults = defaultLogbookColumnPreferences("desk");
-    localStorage.setItem(legacyKey, JSON.stringify({ ...defaults,
+    const { band: _band, mode: _mode, ...currentWidths } = defaults.widths;
+    const legacyWidths = { ...currentWidths, bandMode: 105 };
+    localStorage.setItem(legacyKey, JSON.stringify({ ...defaults, widths: legacyWidths,
       columns: ["utc", "call", "bandMode", "frequency", "country"] }));
     const promoted = setup(false, "desk"); await screen.findByText(contact.call);
-    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(11);
     await waitFor(() => expect(localStorage.getItem(logbookColumnsKey("desk"))).not.toBeNull());
     promoted.unmount(); localStorage.removeItem(logbookColumnsKey("desk"));
     localStorage.setItem(legacyKey, JSON.stringify({ ...defaults, columns: ["call", "rst"],
-      widths: { ...defaults.widths, call: 177 } }));
+      widths: { ...legacyWidths, call: 177 } }));
     setup(false, "desk"); await screen.findByText(contact.call);
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Callsign", "RST"]);
     expect(screen.getByRole("separator", { name: "Resize Callsign column" }).getAttribute("aria-valuenow")).toBe("177");
@@ -105,7 +107,7 @@ describe("shared Logbook column controls", () => {
     expect(screen.queryByRole("button", { name: /^Delete$/ })).toBeNull();
     expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
     view.rerender(<LogbookPanel {...view.props} columnContext="docked" />);
-    expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(11);
     expect(screen.getByRole("group", { name: `Delete ${contact.call}` })).toBeTruthy();
     view.rerender(<LogbookPanel {...view.props} columnContext="desk" />);
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual(["Callsign", "RST"]);
@@ -135,6 +137,22 @@ describe("shared Logbook column controls", () => {
     expect(screen.getByRole("separator", { name: "Resize RST column" }).getAttribute("aria-valuenow")).toBe("145");
   });
 
+  it("controls Band and Mode visibility and widths independently", async () => {
+    setup(); await screen.findByText(contact.call);
+    const band = screen.getByRole("separator", { name: "Resize Band column" });
+    const mode = screen.getByRole("separator", { name: "Resize Mode column" });
+    fireEvent.keyDown(band, { key: "ArrowRight" });
+    expect(band.getAttribute("aria-valuenow")).toBe("88");
+    expect(mode.getAttribute("aria-valuenow")).toBe("88");
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByLabelText("Show Mode column"));
+    expect(screen.getByRole("columnheader", { name: /^Band/ })).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: /^Mode/ })).toBeNull();
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(logbookColumnsKey("docked"))!)).toMatchObject({
+      columns: expect.not.arrayContaining(["mode"]), widths: { band: 88, mode: 88 },
+    }));
+  });
+
   it("keeps Callsign available, supports bounded keyboard resize, reset and focus return", async () => {
     setup(); await screen.findByText(contact.call);
     const trigger = screen.getByRole("button", { name: "Columns" }); fireEvent.click(trigger);
@@ -149,7 +167,7 @@ describe("shared Logbook column controls", () => {
     fireEvent.keyDown(handle, { key: "ArrowRight" }); expect(handle.getAttribute("aria-valuenow")).toBe("106");
     fireEvent.keyDown(handle, { key: "End" }); expect(handle.getAttribute("aria-valuenow")).toBe("480");
     fireEvent.keyDown(handle, { key: "ArrowRight" }); expect(handle.getAttribute("aria-valuenow")).toBe("480");
-    fireEvent.click(screen.getByRole("button", { name: "Reset columns" })); expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+    fireEvent.click(screen.getByRole("button", { name: "Reset columns" })); expect(screen.getAllByRole("columnheader")).toHaveLength(11);
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(trigger.getAttribute("aria-expanded")).toBe("false"); expect(document.activeElement).toBe(trigger);
   });

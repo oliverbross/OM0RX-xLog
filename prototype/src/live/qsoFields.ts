@@ -1,7 +1,7 @@
 export type QSOField = { key: string; label: string; kind?: "number" | "textarea" | "enum"; options?: string[] };
 
 export const qsoBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
-export const qsoModes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
+export const qsoModes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"];
 
 export const qsoFieldGroups: Record<string, QSOField[]> = {
   Station: [

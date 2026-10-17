@@ -29,6 +29,7 @@ actor LiveServiceMethods {
     #if os(macOS)
     private var qrzClient: QRZClient?
     private var qrzCredentialDigest: Data?
+    private var qrzClientUsername: String?
     #endif
 
     init(logbook: LiveLogbookMethods = .shared, operation: SyncOperation? = nil) { self.logbook = logbook; self.operation = operation }
@@ -124,7 +125,7 @@ actor LiveServiceMethods {
                 try secrets.save(value, for: account)
             }
             #if os(macOS)
-            if account == .qrzPassword { qrzClient = nil; qrzCredentialDigest = nil }
+            if account == .qrzPassword { qrzClient = nil; qrzCredentialDigest = nil; qrzClientUsername = nil }
             #endif
             return ["saved": !value.isEmpty]
         case "secret_status":
@@ -139,25 +140,53 @@ actor LiveServiceMethods {
             return values
         case "lookup_call":
             #if os(macOS)
-            let call = try LocalCallsignProfile.validatedCall(params)
+            let keys = Set(params.keys)
+            guard keys == ["call"] || keys == ["call", "allow_credential_interaction"] else { throw invalid() }
+            let allowCredentialInteraction: Bool
+            if let value = params["allow_credential_interaction"] {
+                guard let number = value as? NSNumber, isJSONBoolean(number) else { throw invalid() }
+                allowCredentialInteraction = number.boolValue
+            } else {
+                allowCredentialInteraction = false
+            }
+            guard let rawCall = params["call"] else { throw invalid() }
+            let call = try LocalCallsignProfile.validatedCall(["call": rawCall])
             let settings = try logbook.currentSettings()
-            let secrets = try workspaceSecrets()
             var profile = try LocalCallsignProfile.base(call, logbook: logbook)
-            if settings.qrzEnabled, let password = try secrets.load(.qrzPassword), !password.isEmpty {
-                let client = try cachedQRZClient(username: settings.qrzUsername, password: password)
-                profile = await CallsignEnrichment.resolve(base: profile) {
-                    let result = try await client.lookup(call)
-                    return ["call": result.call, "name": result.name, "gridSquare": result.gridSquare, "country": result.country,
-                    "dxcc": result.dxcc as Any? ?? NSNull(), "cqZone": result.cqZone, "ituZone": result.ituZone,
-                    "state": result.state, "county": result.county, "qth": result.qth, "email": result.email,
-                    "nickname": result.nickname, "websiteURL": result.websiteURL,
-                    "imageURL": result.imageURL, "qslManager": result.qslManager,
-                    "iota": result.iota, "licenseClass": result.licenseClass,
-                    "latitude": result.latitude as Any? ?? NSNull(), "longitude": result.longitude as Any? ?? NSNull()]
+            if settings.qrzEnabled {
+                var client = settings.qrzUsername == qrzClientUsername ? qrzClient : nil
+                if client == nil {
+                    do {
+                        let password = try workspaceSecrets().load(.qrzPassword, allowInteraction: allowCredentialInteraction)
+                        if let password, !password.isEmpty {
+                            client = try cachedQRZClient(username: settings.qrzUsername, password: password)
+                        } else {
+                            profile["qrz_status"] = "credential_required"
+                            profile["lookup_warning"] = "Save a QRZ username and password to enable online lookup. Offline CTY result retained."
+                        }
+                    } catch {
+                        profile["qrz_status"] = "credential_required"
+                        profile["lookup_warning"] = allowCredentialInteraction
+                            ? "QRZ password access was not authorized. Offline CTY result retained."
+                            : "QRZ password needs operator authorization. Use Test QRZ lookup in Settings. Offline CTY result retained."
+                    }
+                }
+                if let client {
+                    profile = await CallsignEnrichment.resolve(base: profile) {
+                        let result = try await client.lookup(call)
+                        return ["call": result.call, "name": result.name, "gridSquare": result.gridSquare, "country": result.country,
+                        "dxcc": result.dxcc as Any? ?? NSNull(), "cqZone": result.cqZone, "ituZone": result.ituZone,
+                        "state": result.state, "county": result.county, "qth": result.qth, "email": result.email,
+                        "nickname": result.nickname, "websiteURL": result.websiteURL,
+                        "imageURL": result.imageURL, "qslManager": result.qslManager,
+                        "iota": result.iota, "licenseClass": result.licenseClass,
+                        "latitude": result.latitude as Any? ?? NSNull(), "longitude": result.longitude as Any? ?? NSNull()]
+                    }
                 }
             } else {
                 qrzClient = nil
                 qrzCredentialDigest = nil
+                qrzClientUsername = nil
             }
             LocalCallsignProfile.addGeometry(to: &profile, grid: settings.gridSquare)
             return profile
@@ -623,6 +652,7 @@ actor LiveServiceMethods {
         let client = QRZClient(username: username, password: password)
         qrzClient = client
         qrzCredentialDigest = identity
+        qrzClientUsername = username
         return client
     }
     #endif

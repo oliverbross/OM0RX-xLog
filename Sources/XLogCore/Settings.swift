@@ -237,18 +237,18 @@ public struct RotorConfiguration: Codable, Equatable, Sendable {
     public var owner: RotorConfigurationOwner
     public var nativeDCU1: NativeRotorConfiguration
     public var hamlib: HamlibRotorConfiguration
-    /// Explicit launch-time permission only. The live Auto Rotor switch remains
-    /// a separate, revocable session permission.
+    /// Launch-time automatic-rotor preference. Explicitly saved false values are
+    /// preserved while configurations predating this field migrate to enabled.
     public var autoRotorAtStartup: Bool
     /// Native Auto Rotor admission is limited to these canonical bands.
     public var autoRotorBands: [String]
 
     public static let defaults = RotorConfiguration(owner: .nativeDCU1,
-        nativeDCU1: .init(), hamlib: .init(), autoRotorAtStartup: false,
+        nativeDCU1: .init(), hamlib: .init(), autoRotorAtStartup: true,
         autoRotorBands: BandPlan.bands)
 
     public init(owner: RotorConfigurationOwner, nativeDCU1: NativeRotorConfiguration,
-                hamlib: HamlibRotorConfiguration, autoRotorAtStartup: Bool = false,
+                hamlib: HamlibRotorConfiguration, autoRotorAtStartup: Bool = true,
                 autoRotorBands: [String] = BandPlan.bands) {
         self.owner = owner; self.nativeDCU1 = nativeDCU1; self.hamlib = hamlib
         self.autoRotorAtStartup = autoRotorAtStartup; self.autoRotorBands = autoRotorBands
@@ -264,7 +264,7 @@ public struct RotorConfiguration: Codable, Equatable, Sendable {
         owner = try values.decode(RotorConfigurationOwner.self, forKey: .owner)
         nativeDCU1 = try values.decode(NativeRotorConfiguration.self, forKey: .nativeDCU1)
         hamlib = try values.decode(HamlibRotorConfiguration.self, forKey: .hamlib)
-        autoRotorAtStartup = try values.decodeIfPresent(Bool.self, forKey: .autoRotorAtStartup) ?? false
+        autoRotorAtStartup = try values.decodeIfPresent(Bool.self, forKey: .autoRotorAtStartup) ?? true
         autoRotorBands = try values.decodeIfPresent([String].self, forKey: .autoRotorBands) ?? BandPlan.bands
     }
 

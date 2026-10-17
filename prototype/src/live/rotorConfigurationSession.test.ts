@@ -35,9 +35,9 @@ function backend() {
 beforeEach(() => localStorage.clear());
 
 describe("shared rotor configuration session", () => {
-  it("defaults launch permission off and rejects unbounded automatic-rotor bands", () => {
+  it("defaults launch permission on and rejects unbounded automatic-rotor bands", () => {
     const defaults = defaultRotorConfiguration();
-    expect(defaults.auto_rotor_at_startup).toBe(false);
+    expect(defaults.auto_rotor_at_startup).toBe(true);
     expect(defaults.auto_rotor_bands).toEqual(autoRotorBands);
     expect(() => checkedRotorConfiguration({ ...defaults, auto_rotor_bands: ["20m", "20m"] })).toThrow();
     expect(() => checkedRotorConfiguration({ ...defaults, auto_rotor_bands: ["1.25m"] })).toThrow();
@@ -45,13 +45,14 @@ describe("shared rotor configuration session", () => {
   });
   it("migrates pre-policy journals without losing a pending receipt identity", () => {
     const legacy = defaultRotorConfiguration() as any;
-    delete legacy.auto_rotor_at_startup; delete legacy.auto_rotor_bands;
+    delete legacy.auto_rotor_at_startup;
     const pending = { operationID, expectedRevision: 0, generation, configuration: structuredClone(legacy) };
     const journal = readRotorConfigurationJournal(JSON.stringify({ version: 1,
       base: { revision: 0, generation, configuration: legacy }, draft: legacy, pending }))!;
     expect(journal.pending?.operationID).toBe(operationID);
-    expect(journal.pending?.configuration).toMatchObject({ auto_rotor_at_startup: false,
+    expect(journal.pending?.configuration).toMatchObject({ auto_rotor_at_startup: true,
       auto_rotor_bands: [...autoRotorBands] });
+    expect(checkedRotorConfiguration({ ...defaultRotorConfiguration(), auto_rotor_at_startup: false }).auto_rotor_at_startup).toBe(false);
   });
   it("accepts native UUID serialization for revision-zero DCU-1 save without case-folding payload text", async () => {
     const service = backend(), written: any[] = [];

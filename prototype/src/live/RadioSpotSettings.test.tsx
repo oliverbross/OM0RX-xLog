@@ -7,13 +7,13 @@ afterEach(cleanup);
 
 it("migrates an old FLEX preference and saves a DXCC colour policy without claiming TCI output", async () => {
   const configuration: { forwardSpotsToFlex: boolean; radioSpotColorPolicy?: string; palette: { status: Record<string, string> } } =
-    { forwardSpotsToFlex: true, palette: { status: { "New DXCC": "#123456" } } };
+    { forwardSpotsToFlex: true, palette: { status: { ATNO: "#123456" } } };
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
     if (method === "cluster_snapshot") return { configuration, flex_forwarding_available: true,
       forwarding: { accepted_count: 2, status: "Accepted by Remote Station Agent; FLEX display is not verified." } };
     if (method === "cluster_radio_spots_configure") {
       expect(params).toEqual({ color_policy: "dxcc", color_policy_expected: "callsign",
-        status_colors: { "New DXCC": "#654321" }, status_color_expected: { "New DXCC": "#123456" } });
+        status_colors: { ATNO: "#654321" }, status_color_expected: { ATNO: "#123456" } });
       configuration.radioSpotColorPolicy = "dxcc";
       Object.assign(configuration.palette.status, params?.status_colors);
       return {};
@@ -24,14 +24,14 @@ it("migrates an old FLEX preference and saves a DXCC colour policy without claim
   expect(await screen.findByText(/2 accepted by agent/)).toBeTruthy();
   expect((screen.getByLabelText("Radio spot colour status") as HTMLSelectElement).value).toBe("callsign");
   fireEvent.change(screen.getByLabelText("Radio spot colour status"), { target: { value: "dxcc" } });
-  const atno = screen.getByLabelText("New DXCC radio spot colour") as HTMLInputElement;
+  const atno = screen.getByLabelText("ATNO radio spot colour") as HTMLInputElement;
   expect(atno.value).toBe("#123456");
   fireEvent.change(atno, { target: { value: "#654321" } });
-  expect((screen.getByLabelText("New Callsign radio spot colour") as HTMLInputElement).value).toBe("#cc372d");
+  expect((screen.getByLabelText("New Call radio spot colour") as HTMLInputElement).value).toBe("#ff6b35");
   fireEvent.click(screen.getByRole("button", { name: "Save radio spot output" }));
   await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_radio_spots_configure", {
     color_policy: "dxcc", color_policy_expected: "callsign",
-    status_colors: { "New DXCC": "#654321" }, status_color_expected: { "New DXCC": "#123456" },
+    status_colors: { ATNO: "#654321" }, status_color_expected: { ATNO: "#123456" },
   }));
   expect(screen.getByText(/no TCI spot output transport/)).toBeTruthy();
   expect((screen.getByRole("checkbox", { name: /Send spots through TCI/ }) as HTMLInputElement).disabled).toBe(true);
@@ -39,9 +39,9 @@ it("migrates an old FLEX preference and saves a DXCC colour policy without claim
 
 it("keeps colour edits when refreshing runtime status and sends only changed palette entries", async () => {
   const request = vi.fn(async () => ({ configuration: { forwardSpotsToFlex: false,
-    palette: { status: { "New Callsign": "#010203", Worked: "#111111" } } }, flex_forwarding_available: true }));
+    palette: { status: { "New Call": "#010203", Worked: "#111111" } } }, flex_forwarding_available: true }));
   render(<RadioSpotSettings request={request} visible />);
-  const edited = await screen.findByLabelText("New Callsign radio spot colour") as HTMLInputElement;
+  const edited = await screen.findByLabelText("New Call radio spot colour") as HTMLInputElement;
   await waitFor(() => expect(edited.value).toBe("#010203"));
   fireEvent.change(edited, { target: { value: "#040506" } });
   fireEvent.click(screen.getByRole("button", { name: "Refresh status" }));
@@ -52,7 +52,7 @@ it("keeps colour edits when refreshing runtime status and sends only changed pal
 
 it("a stale Settings window saves only its edited field", async () => {
   let configuration = { forwardSpotsToFlex: false, radioSpotColorPolicy: "callsign",
-    palette: { status: { "New DXCC": "#123456" } } };
+    palette: { status: { ATNO: "#123456" } } };
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
     if (method === "cluster_snapshot") return { configuration: structuredClone(configuration), flex_forwarding_available: true };
     if (method === "cluster_radio_spots_configure") {
@@ -69,10 +69,10 @@ it("a stale Settings window saves only its edited field", async () => {
   fireEvent.click(within(first).getByRole("checkbox", { name: /Forward spots through/ }));
   fireEvent.click(within(first).getByRole("button", { name: "Save radio spot output" }));
   await waitFor(() => expect(configuration.forwardSpotsToFlex).toBe(true));
-  fireEvent.change(within(second).getByLabelText("New DXCC radio spot colour"), { target: { value: "#abcdef" } });
+  fireEvent.change(within(second).getByLabelText("ATNO radio spot colour"), { target: { value: "#abcdef" } });
   fireEvent.click(within(second).getByRole("button", { name: "Save radio spot output" }));
-  await waitFor(() => expect(configuration.palette.status["New DXCC"]).toBe("#abcdef"));
+  await waitFor(() => expect(configuration.palette.status.ATNO).toBe("#abcdef"));
   expect(configuration.forwardSpotsToFlex).toBe(true);
   const writes = request.mock.calls.filter(([method]) => method === "cluster_radio_spots_configure");
-  expect(writes[1][1]).toEqual({ status_colors: { "New DXCC": "#abcdef" }, status_color_expected: { "New DXCC": "#123456" } });
+  expect(writes[1][1]).toEqual({ status_colors: { ATNO: "#abcdef" }, status_color_expected: { ATNO: "#123456" } });
 });

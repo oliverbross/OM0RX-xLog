@@ -73,7 +73,7 @@ describe("logbook confirmation visibility", () => {
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     await screen.findByText("OM0RX");
     expect(screen.getAllByRole("columnheader").map(header => header.textContent)).toEqual([
-      "UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country",
+      "UTC", "Callsign", "Band", "Mode", "Frequency", "RST", "Country",
       "QSL", "LoTW", "Club Log", "Comment",
     ]);
     const rows = screen.getAllByRole("row");
@@ -90,7 +90,7 @@ describe("logbook confirmation visibility", () => {
     expect(bandMode[0].style.color).not.toBe(bandMode[1].style.color);
     expect(within(rows[1]).getByRole("img", { name: "Pending synchronization" })).toBeTruthy();
     expect(Array.from(rows[1].querySelectorAll("td")).map(cell => cell.getAttribute("data-label"))).toEqual([
-      "UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment",
+      "UTC", "Callsign", "Band", "Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment",
     ]);
     expect(within(rows[2]).getByRole("img", { name: "QSL sent not recorded, received M" })).toBeTruthy();
     expect(within(rows[2]).getByRole("img", { name: "LoTW sent X, received not recorded" })).toBeTruthy();

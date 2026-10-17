@@ -28,13 +28,15 @@ const sameGeneration = (a: string, b: string) => a.toLowerCase() === b.toLowerCa
 const serialKeys = new Set(["data_bits", "stop_bits", "parity", "handshake", "dtr_state", "rts_state"]);
 export const autoRotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"] as const;
 const autoRotorBandSet = new Set<string>(autoRotorBands);
-const migratedAutomaticPolicy = (value: any) => object(value) && value.auto_rotor_at_startup === undefined && value.auto_rotor_bands === undefined
-  ? { ...value, auto_rotor_at_startup: false, auto_rotor_bands: [...autoRotorBands] } : value;
+const migratedAutomaticPolicy = (value: any) => object(value) ? { ...value,
+  ...(value.auto_rotor_at_startup === undefined ? { auto_rotor_at_startup: true } : {}),
+  ...(value.auto_rotor_bands === undefined ? { auto_rotor_bands: [...autoRotorBands] } : {}),
+} : value;
 
 export const defaultRotorConfiguration = (): RotorConfiguration => ({
   owner: "native_dcu1", native_dcu1: { host: "", port: 4001, name: "Rotor" },
   hamlib: { mode: "managed", path: "", baud: 9600, host: "127.0.0.1", port: 4533, serial: {} },
-  auto_rotor_at_startup: false, auto_rotor_bands: [...autoRotorBands],
+  auto_rotor_at_startup: true, auto_rotor_bands: [...autoRotorBands],
 });
 
 export function checkedRotorConfiguration(value: any): RotorConfiguration {

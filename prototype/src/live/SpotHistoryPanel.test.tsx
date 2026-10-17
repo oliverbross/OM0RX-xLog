@@ -10,7 +10,7 @@ const report = (id = "report-1", callsign = "OM0RX/P"): SpotHistoryObservation =
   id, callsign, sessionID: "session-1", sequence: 1, clusterID: "cluster-1", clusterName: "Test cluster", clusterHost: "cluster.example.invalid",
   arrivedAt: "2026-10-13T10:00:00Z", reportedAt: "2026-10-13T09:59:00Z", timeBasis: "arrival", recordKind: "live",
   spotter: "VK8AA", frequencyKHz: 14025, frequencyText: "14025.0", band: "20m", mode: "CW", source: "cluster",
-  country: "Slovakia", adif: 504, comment: "Portable report", specialTags: [], callStatus: "New Callsign", dxccStatus: "New DXCC",
+  country: "Slovakia", adif: 504, comment: "Portable report", specialTags: [], callStatus: "New Call", dxccStatus: "ATNO",
 });
 const historyPage = (rows = [report()], watermark = 42, nextCursor: string | null = null) => ({ page: { rows, watermark, nextCursor, revision: watermark } });
 const summary = (watermark = 42, total = 310) => ({ stats: { total, distinctCalls: 240, distinctSpotters: 12,
@@ -98,12 +98,13 @@ describe("Spot History scope and paging", () => {
     fireEvent.click(screen.getByText("Statistics")); expect(screen.getByText("20m 310")).toBeTruthy();
     expect(screen.getByText("Page 1 · 1 reports shown")).toBeTruthy();
     expect(Array.from(screen.getByText("OM0RX/P").closest("tr")!.querySelectorAll("td")).map(cell => cell.getAttribute("data-label"))).toEqual([
-      "Received UTC", "Callsign", "kHz", "Band / Mode", "Spotter", "Source / Cluster", "Country", "Comment",
+      "Received UTC", "Callsign", "kHz", "Band", "Mode", "Spotter", "Source / Cluster", "Country", "Comment",
     ]);
-    const bandMode = Array.from(screen.getByText("OM0RX/P").closest("tr")!.querySelectorAll<HTMLElement>(".spot-history-category"));
-    expect(bandMode.map(value => value.textContent)).toEqual(["20m", "CW"]);
-    expect(bandMode[0].style.color).not.toBe(bandMode[1].style.color);
-    expect(screen.getByRole("cell", { name: "20m band, CW mode" })).toBeTruthy();
+    const categories = Array.from(screen.getByText("OM0RX/P").closest("tr")!.querySelectorAll<HTMLElement>(".spot-history-category"));
+    expect(categories.map(value => value.textContent)).toEqual(["20m", "CW"]);
+    expect(categories[0].style.color).not.toBe(categories[1].style.color);
+    expect(screen.getByRole("cell", { name: "20m band" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "CW mode" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Spot History" })).toBeNull();
   });
   it("applies explicit prefix, portable call, spotter, UTC and optional filters", async () => {

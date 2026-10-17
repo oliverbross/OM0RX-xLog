@@ -1,5 +1,7 @@
 # OM0RX-xLog 1.0.0-beta.3 macOS release acceptance — 17 October 2026
 
+> **Superseded by beta.4.** The signing, packaging and Keychain-stability evidence below remains historical evidence for beta.3, but its cluster-classification acceptance is invalid: beta.3 collapsed new-band and new-mode opportunities into coarse `New Callsign` / `New DXCC` states and could label an already-confirmed entity as new. Do not use beta.3 for classification acceptance.
+
 ## Release identity
 
 - Packaged source commit: `59d6e53` (`Stop background Keychain prompts and restore Wavelog spot parity`), on `codex/macos-alpha33-release`.

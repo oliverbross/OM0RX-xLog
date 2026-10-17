@@ -228,7 +228,7 @@ actor LiveTCISession {
         }
         let mode: String = switch rawMode {
         case "SSB": frequency < 10_000_000 ? "LSB" : "USB"
-        case "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI": "DIGU"
+        case "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI": "DIGU"
         default: rawMode
         }
         return (Int64(frequency), mode)

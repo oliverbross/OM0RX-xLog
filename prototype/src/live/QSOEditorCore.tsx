@@ -330,7 +330,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const matchingMatrix = matrix?.call === matrixCall && matrix.adif === matrixADIF ? matrix : null;
   const countryIdentity = dxccIdentity(matrixCall, profile, matchingMatrix?.countryHistory);
   const countryStatus = countryIdentity.status === "neutral" ? "History unresolved" :
-    countryIdentity.status === "new" ? "New DXCC" : countryIdentity.status === "worked" ? "Worked" : "Confirmed";
+    countryIdentity.status === "new" ? "ATNO" : countryIdentity.status === "worked" ? "Worked" : "Confirmed";
   const captured = automaticStationMetadata.filter(item => item && item.label?.trim() && item.value?.trim() &&
     ["observed", "configured", "selected"].includes(item.provenance));
   if (!draft) return <section className="qso-editor" aria-label="Log QSO"><p>Opening logbook…</p></section>;

@@ -25,14 +25,14 @@ public struct ClusterSpot: Codable, Hashable, Identifiable, Sendable {
     /// Opportunity states take precedence over worked/confirmed history so the
     /// operator sees the most actionable information in the limited marker space.
     public var opportunityCode: String {
-        let call = callStatus.lowercased()
-        let dxcc = dxccStatus.lowercased()
-        let combined = "\(call) \(dxcc)"
-
-        if dxcc.contains("new dxcc") { return "ND" }
-        if call.contains("new callsign") { return "NC" }
-        if combined.contains("confirmed") { return "C" }
-        if combined.contains("worked") { return "W" }
+        let callCodes = ["New Call": "NC", "New Band": "NB", "New Mode": "NM", "New Band+Mode": "NB+M"]
+        let dxccCodes = ["ATNO": "ATNO", "C/New Band": "C/NB", "C/New Mode": "C/NM",
+                         "C/New Band+Mode": "C/NB+M", "W/New Band": "W/NB", "W/New Mode": "W/NM",
+                         "W/New Band+Mode": "W/NB+M"]
+        if let code = dxccCodes[dxccStatus] { return code }
+        if let code = callCodes[callStatus] { return code }
+        if dxccStatus == "Confirmed" || callStatus == "Confirmed" { return "C" }
+        if dxccStatus == "Worked" || callStatus == "Worked" { return "W" }
         return "--"
     }
 }

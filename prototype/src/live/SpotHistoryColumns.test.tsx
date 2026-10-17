@@ -67,13 +67,31 @@ it("normalizes saved ordering while retaining legacy visibility and widths", () 
   const legacy = readSpotHistoryColumns('{"version":1,"columns":["call","country"],"widths":{"call":177}}');
   expect(orderedSpotHistoryColumns(legacy).map(([id]) => id)).toEqual(defaultSpotHistoryColumns().columns);
   const ordered = readSpotHistoryColumns(JSON.stringify({ ...legacy, order: ["comment", "unknown", "call", "comment", null] }));
-  expect(ordered.order).toEqual(["comment", "call", "utc", "frequency", "bandMode", "spotter", "source", "country"]);
+  expect(ordered.order).toEqual(["comment", "call", "utc", "frequency", "band", "mode", "spotter", "source", "country"]);
   expect(ordered.columns).toEqual(legacy.columns);
   expect(ordered.widths.call).toBe(177);
   expect(readSpotHistoryColumns(JSON.stringify(ordered))).toEqual(ordered);
   for (const order of [null, "call", 3, {}])
     expect(orderedSpotHistoryColumns(readSpotHistoryColumns(JSON.stringify({ ...legacy, order }))).map(([id]) => id))
       .toEqual(defaultSpotHistoryColumns().columns);
+});
+
+it("expands legacy Band / Mode visibility, order and width into independent columns", async () => {
+  localStorage.setItem(spotHistoryColumnsKey, JSON.stringify({ version: 1,
+    columns: ["call", "bandMode", "comment"], order: ["call", "bandMode", "comment"], widths: { bandMode: 133 } }));
+  const migrated = readSpotHistoryColumns(localStorage.getItem(spotHistoryColumnsKey));
+  expect(migrated.columns).toEqual(["call", "band", "mode", "comment"]);
+  expect(migrated.order?.slice(0, 4)).toEqual(["call", "band", "mode", "comment"]);
+  expect(migrated.widths).toMatchObject({ band: 133, mode: 133 });
+
+  render(<SpotHistoryPanel request={request} />);
+  await screen.findByText("History is unavailable");
+  expect(screen.getByRole("separator", { name: "Resize Band column" }).getAttribute("aria-valuenow")).toBe("133");
+  expect(screen.getByRole("separator", { name: "Resize Mode column" }).getAttribute("aria-valuenow")).toBe("133");
+  fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show Band column" }));
+  expect(screen.queryByRole("columnheader", { name: "Band" })).toBeNull();
+  expect(screen.getByRole("columnheader", { name: "Mode" })).toBeTruthy();
 });
 
 it("remains usable if preference storage is denied", () => {

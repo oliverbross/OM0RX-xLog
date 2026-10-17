@@ -50,6 +50,7 @@ it("uses the shared logbook palette for contact facts and confirmation state", a
   expect(screen.getByText("CW").classList.contains("previous-mode")).toBe(true);
   expect(screen.getByText("CW").style.color).toBe("rgb(243, 178, 60)");
   expect(clusterBandColors["20m"]).not.toBe(clusterModeColors.CW);
+  expect(clusterModeColors.JTTY).toMatch(/^#[0-9A-F]{6}$/i);
   expect(screen.getByText("Confirmed").classList.contains("previous-confirmed")).toBe(true);
   cleanup(); request.mockImplementation(async (method, params) => method === "logbook_operator_draft" ? { draft: structuredClone(current) } : history(params?.call ?? "TEST1", "JN88AA", false));
   render(<PreviousQSOsSurface request={request} />);

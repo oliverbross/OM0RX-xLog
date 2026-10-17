@@ -114,7 +114,7 @@ public enum OperatorDraftRadioFollow {
         if !band.isEmpty { result.band = band }
         // Keep parity with prototype/src/live/draftRadio.ts: a data carrier is
         // not evidence of FT8 rather than another chosen digital contact mode.
-        let digital = ["FT8", "FT4", "FT2", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
+        let digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
         switch radioMode {
         case "PKTUSB", "PKTLSB", "DIGU", "DIGL", "DATA", "DIGI":
             let current = previous.mode.uppercased()

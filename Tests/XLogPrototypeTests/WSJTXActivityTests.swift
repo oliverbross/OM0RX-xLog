@@ -169,8 +169,8 @@ final class WSJTXActivityTests: XCTestCase {
         let first = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
         let initialActivity = try XCTUnwrap(first["activity"] as? [String: Any])
         let initialSpot = try XCTUnwrap((initialActivity["spots"] as? [[String: Any]])?.first)
-XCTAssertEqual(initialSpot["callStatus"] as? String, "New Callsign")
-XCTAssertEqual(initialSpot["dxccStatus"] as? String, "New DXCC")
+XCTAssertEqual(initialSpot["callStatus"] as? String, "New Call")
+XCTAssertEqual(initialSpot["dxccStatus"] as? String, "ATNO")
         let identity = try XCTUnwrap(initialSpot["id"] as? String)
         let initialClassificationRevision = try XCTUnwrap(initialActivity["classification_revision"] as? UInt64)
 

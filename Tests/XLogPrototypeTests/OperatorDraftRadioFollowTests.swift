@@ -54,7 +54,7 @@ struct OperatorDraftRadioFollowTests {
     @Test("Every data carrier preserves every chosen digital logging mode")
     func digitalModes() throws {
         let carriers = ["PKTUSB", "PKTLSB", "DIGU", "DIGL", "DATA", "DIGI"]
-        let digital = ["FT8", "FT4", "FT2", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
+        let digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]
         for carrier in carriers {
             for mode in digital {
                 var before = fixture(); before.mode = mode.lowercased()

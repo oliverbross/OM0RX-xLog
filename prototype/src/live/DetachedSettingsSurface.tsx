@@ -14,7 +14,7 @@ const rotorJournalKey = "xlog.integration.rotorConfiguration.detached.v1";
 const RotorPanel = lazy(() => import("./RotorPanel"));
 const availableTabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "Display", "Workspace", "Backups"] as const;
 export const detachedSettingsMethods = [
-  "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save",
+  "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save", "lookup_call",
   "online_log_status", "online_log_configure",
   "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save", "hamlib_models",
   "sync_status", "sync_summary", "sync_mutation", "sync_receipt",

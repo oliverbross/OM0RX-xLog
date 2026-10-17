@@ -36,7 +36,7 @@ struct RotorConfigurationSafetyTests {
         _ = try first.handle(method: "workspace_create", params: ["mode": "empty"])
         let initial = try load(first, legacy: legacy)
         #expect((initial.configuration["native_dcu1"] as? [String: Any])?["host"] as? String == "rotor.example.invalid")
-        #expect(initial.configuration["auto_rotor_at_startup"] as? Bool == false)
+        #expect(initial.configuration["auto_rotor_at_startup"] as? Bool == true)
         #expect(initial.configuration["auto_rotor_bands"] as? [String] ==
             ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"])
         var ignored = legacy; ignored["owner"] = "hamlib"

@@ -2,7 +2,7 @@ import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, u
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { ArrowDown, ArrowUp, RotateCcw, Settings, X, ZoomIn, ZoomOut } from "lucide-react";
-import { clusterBandColors, clusterStatusColors, paletteColor } from "./clusterPalette";
+import { clusterBandColors, clusterStatusCode, clusterStatusColors, paletteColor } from "./clusterPalette";
 import "./BandMaps.css";
 
 export type BandMapSpot = Record<string, any>;
@@ -140,13 +140,12 @@ export function bandForRadio(frequencyHz?: number): string | null {
   return BAND_ORDER.find((band) => khz >= BAND_RANGES[band].low && khz <= BAND_RANGES[band].high) ?? null;
 }
 export function opportunityCode(spot: BandMapSpot): string {
-  const call = text(spot.callStatus).toLowerCase();
-  const dxcc = text(spot.dxccStatus).toLowerCase();
-  const both = `${call} ${dxcc}`;
-  if (dxcc.includes("new dxcc")) return "ND";
-  if (call.includes("new callsign")) return "NC";
-  if (both.includes("confirmed")) return "C";
-  if (both.includes("worked")) return "W";
+  const call = text(spot.callStatus);
+  const dxcc = text(spot.dxccStatus);
+  if (dxcc === "ATNO" || dxcc.includes("/New ")) return clusterStatusCode(dxcc);
+  if (call.startsWith("New ")) return clusterStatusCode(call);
+  if (dxcc === "Confirmed" || call === "Confirmed") return "C";
+  if (dxcc === "Worked" || call === "Worked") return "W";
   return "--";
 }
 function statusColor(spot: BandMapSpot): string {
@@ -166,7 +165,7 @@ function modeGroup(mode: string): "cw" | "phone" | "data" {
 function matchesStatus(spot: BandMapSpot, scope: string): boolean {
   if (scope === "all") return true;
   const both = `${text(spot.callStatus)} ${text(spot.dxccStatus)}`.toLowerCase();
-  if (scope === "needed") return both.includes("new") || both.includes("need");
+  if (scope === "needed") return both.includes("new") || both.includes("atno") || both.includes("need");
   if (scope === "confirmed") return both.includes("confirmed");
   if (scope === "worked") return both.includes("worked") && !both.includes("confirmed");
   return (finite(spot.score) ?? 0) >= 50 || (Array.isArray(spot.specialTags) && spot.specialTags.length > 0);
@@ -499,7 +498,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
           {BAND_MAP_MODES.map(mode => <label key={mode}><input type="checkbox" checked={modes.includes(mode)} onChange={event => setModes(BAND_MAP_MODES.filter(item => item === mode ? event.target.checked : modes.includes(item)))} />{mode === "cw" ? "CW" : mode === "data" ? "Data" : "Phone"}</label>)}
         </div>
       </details>
-      <span className="band-maps-count">{filtered.length} of {recentUnique.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${text(selected.callStatus)} · ${text(selected.dxccStatus)}` : selectionHint}</span>{(query || status !== "all" || modes.length !== 3) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...BAND_MAP_MODES]); }}>Clear filters</button>}</div>}
+      <span className="band-maps-count">{filtered.length} of {recentUnique.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${clusterStatusCode(text(selected.callStatus))} · ${clusterStatusCode(text(selected.dxccStatus))}` : selectionHint}</span>{(query || status !== "all" || modes.length !== 3) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...BAND_MAP_MODES]); }}>Clear filters</button>}</div>}
     <div ref={panelsRef} className={`band-maps-panels band-maps-${compact || layout === "row" ? "row" : "grid"}`} style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, visibleCount))}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${Math.max(1, Math.ceil(visibleCount / columns))}, minmax(0, 1fr))` }}>
       {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} resolution={resolution}
         onManualView={markCustom}

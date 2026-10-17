@@ -33,7 +33,6 @@ describe("independent rotor panel", () => {
   it("saves startup opt-in and allowed bands without touching hardware", async () => {
     const configuration = await configuredSession(), request = vi.fn();
     render(<RotorPanel snapshot={null} request={request} configurationOnly configurationSession={configuration.session} />);
-    fireEvent.click(screen.getByLabelText("Enable Auto Rotor at app start"));
     fireEvent.click(screen.getByLabelText("40m"));
     fireEvent.click(screen.getByRole("button", { name: "Save rotor configuration" }));
     await screen.findByText("Rotor configuration saved. No connection or motion was started.");

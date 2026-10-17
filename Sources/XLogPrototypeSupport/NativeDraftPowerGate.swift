@@ -180,7 +180,7 @@ final class NativeDraftPowerGate: @unchecked Sendable {
         switch contactMode.uppercased() {
         case "SSB": return ["USB", "LSB", "SSB"].contains(observed)
         case "CW": return ["CW", "CWL", "CWU"].contains(observed)
-        case "FT8", "FT4", "FT2", "PSK", "PSK31", "PSK63", "RTTY", "DATA", "DIGI", "JT65", "JT9", "MFSK", "OLIVIA":
+        case "FT8", "FT4", "FT2", "PSK", "PSK31", "PSK63", "RTTY", "JTTY", "DATA", "DIGI", "JT65", "JT9", "MFSK", "OLIVIA":
             return ["DIGU", "DIGL", "DATA", "RTTY", contactMode.uppercased()].contains(observed)
         default: return contactMode.uppercased() == observed
         }

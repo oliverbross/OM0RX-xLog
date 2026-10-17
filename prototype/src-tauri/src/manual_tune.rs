@@ -45,7 +45,7 @@ fn radio_mode(mode: &str, hz: u64) -> &str {
                 "USB"
             }
         }
-        "FT8" | "FT4" | "FT2" | "PSK" | "DIGI" | "DATA" | "DIGU" => "PKTUSB",
+        "FT8" | "FT4" | "FT2" | "JTTY" | "PSK" | "DIGI" | "DATA" | "DIGU" => "PKTUSB",
         "DIGL" => "PKTLSB",
         _ => mode,
     }
@@ -119,7 +119,7 @@ pub fn confirmed(descriptor: &Value, response: &Value) -> bool {
                 "USB"
             }
         }
-        "FT8" | "FT4" | "FT2" | "RTTY" | "PSK" | "DIGI" => "DIGU",
+        "FT8" | "FT4" | "FT2" | "RTTY" | "JTTY" | "PSK" | "DIGI" => "DIGU",
         other => other,
     };
     let state = &result["state"];

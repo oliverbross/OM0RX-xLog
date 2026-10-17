@@ -14,7 +14,7 @@ const props = () => ({ draft: { id: "synthetic", call: "EA7EU", start: "2026-10-
   busy: false, lookup, previous: [], follow: false, setFollow: vi.fn() });
 const identity = (container: HTMLElement) => container.querySelector(".qso-country-identity")!;
 
-it.each([[12, 2, "confirmed", "Confirmed"], [12, 0, "worked", "Worked"], [0, 0, "new", "New DXCC"]] as const)(
+it.each([[12, 2, "confirmed", "Confirmed"], [12, 0, "worked", "Worked"], [0, 0, "new", "ATNO"]] as const)(
   "shows matching DXCC %s/%s as %s above UTC without editing the draft", async (worked, confirmed, status, label) => {
     const p = props(), request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells: [] }
       : { history: { ...history, dxcc_contact_count: worked, dxcc_confirmed_count: confirmed } });

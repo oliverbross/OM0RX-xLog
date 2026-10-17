@@ -5,7 +5,7 @@ const number = (v: unknown): number | undefined => typeof v === "string" && v.tr
 export function hamlibMode(mode: string, hz: number): string {
   const upper = mode.toUpperCase();
   if (upper === "SSB") return hz < 10_000_000 ? "LSB" : "USB";
-  return ["FT8", "FT4", "FT2", "PSK", "DIGI", "DATA", "DIGU"].includes(upper) ? "PKTUSB" : upper === "DIGL" ? "PKTLSB" : upper;
+  return ["FT8", "FT4", "FT2", "JTTY", "PSK", "DIGI", "DATA", "DIGU"].includes(upper) ? "PKTUSB" : upper === "DIGL" ? "PKTLSB" : upper;
 }
 export function frequencyBand(hz: number | undefined): string | undefined {
   if (hz == null) return undefined;

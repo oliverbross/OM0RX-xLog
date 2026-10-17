@@ -81,10 +81,12 @@ it("opens at the settings form and retains dirty text across invalidation and re
 it("enforces the detached non-hardware method list before IPC", async () => {
   api.request.mockResolvedValue({});
   await requestDetachedSettings("secret_status");
+  await requestDetachedSettings("lookup_call", { call: "OM0AAO", allow_credential_interaction: true });
   expect(api.request).toHaveBeenCalledWith("secret_status", {});
+  expect(api.request).toHaveBeenCalledWith("lookup_call", { call: "OM0AAO", allow_credential_interaction: true });
   await expect(requestDetachedSettings("station_tune", { frequency_hz: 14_025_000 })).rejects.toThrow("unavailable");
   await expect(requestDetachedSettings("winkeyer_send", { text: "TEST" })).rejects.toThrow("unavailable");
-  expect(api.request).toHaveBeenCalledOnce();
+  expect(api.request).toHaveBeenCalledTimes(2);
 });
 
 it("lets every detached settings section fill the available window width", () => {

@@ -29,9 +29,15 @@ enum CallsignEnrichment {
             }
             result["location_source"] = location
             result["source"] = location == "Unavailable" ? "QRZ · location unavailable" : location.hasPrefix("CTY") ? "QRZ · CTY approximate location" : "QRZ"
+            result["qrz_status"] = "matched"
         } catch {
             // Provider errors can contain URLs/session keys. Never echo them.
-            result["lookup_warning"] = "Online lookup unavailable; offline result retained."
+            result["qrz_status"] = "unavailable"
+            if let error = error as? QRZClientError {
+                result["lookup_warning"] = "\(error.localizedDescription) Offline CTY result retained."
+            } else {
+                result["lookup_warning"] = "QRZ lookup is unavailable. Offline CTY result retained."
+            }
         }
         return result
     }

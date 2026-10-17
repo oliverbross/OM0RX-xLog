@@ -40,7 +40,7 @@ export async function verifyDeskMapLogbook({ worker, navigate, fill, click }: Co
   await fill(selector, "logbook");
   await waitForAcceptance("Desk W1AW table", () => !!document.querySelector(".desk-map-logbook-logbook tbody tr")?.textContent?.includes("W1AW"));
   const table = required<HTMLTableElement>(".desk-map-logbook-logbook .live-logbook-table");
-  if (!sameDraftValue(headers(table), ["UTC", "Callsign", "Band / Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment"]))
+  if (!sameDraftValue(headers(table), ["UTC", "Callsign", "Band", "Mode", "Frequency", "RST", "Country", "QSL", "LoTW", "Club Log", "Comment"]))
     throw new Error("Desk normal Logbook columns are not rendered independently.");
   if (getComputedStyle(table).display !== "table" || getComputedStyle(required(".desk-map-logbook-logbook thead")).position === "absolute")
     throw new Error("Desk Logbook collapsed into responsive cards instead of retaining the normal table.");

@@ -123,7 +123,7 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
       <h3 id="rotor-auto-settings-title">Automatic rotor</h3>
       <label className="rotor-auto-start"><input type="checkbox" checked={configuration.auto_rotor_at_startup}
         onChange={event => edit({ ...configuration, auto_rotor_at_startup: event.target.checked })} /> Enable Auto Rotor at app start</label>
-      <p className="live-station-helper">This saved opt-in applies on the next launch. The Auto rotor switch on the Desk remains the immediate control for this session.</p>
+      <p className="live-station-helper">This saved preference applies on the next launch. Automatic turns still require a connected rotor, a resolved target and an allowed band.</p>
       <fieldset><legend>Allowed bands</legend><div className="rotor-auto-bands">{autoRotorBands.map(band => <label key={band}>
         <input type="checkbox" checked={configuration.auto_rotor_bands.includes(band)} onChange={event => updateAutomaticBand(band, event.target.checked)} /> {band}
       </label>)}</div></fieldset>

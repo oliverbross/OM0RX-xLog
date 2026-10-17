@@ -22,5 +22,12 @@
 .rotor-readout-label { fill:#abc0cf; font-size:6.5px; letter-spacing:1px; }
 .rotor-readout-target { fill:#ef9bda; font-size:9px; font-weight:750; }
 .rotor-readout-distance { fill:#abc0cf; font-size:8px; }
+.rotor-dial-shell { position:relative; }
+.rotor-dial-shell > .rotor-dial { width:100%; height:100%; max-width:none; }
+.rotor-path-controls { position:absolute; left:17.5%; bottom:10%; display:grid; grid-template-columns:1fr 1fr; gap:4px; width:65%; height:13%; }
+.rotor-path-controls button { min-width:0; padding:1px 3px; border:1px solid #315b72; border-radius:5px; background:#102b3e; color:#cae6f4; font-family:inherit; font-size:clamp(7px,5cqh,11px); font-weight:700; line-height:1; }
+.rotor-path-controls button[aria-pressed="true"] { border-color:#4ccceb; background:#17536d; color:#fff; }
+.rotor-path-controls button:disabled { opacity:.42; cursor:not-allowed; }
+.rotor-path-controls button:focus-visible { outline:2px solid #58dbf6; outline-offset:-2px; }
 .rotor-dial.is-offline .rotor-readout-observed { fill:#abc0cf; }
 @media(prefers-reduced-motion:reduce) { .rotor-observed-needle { transition:none; } }

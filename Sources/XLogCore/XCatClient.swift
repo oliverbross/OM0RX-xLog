@@ -244,7 +244,7 @@ public actor XCatClient {
     private func radioMode(for mode: String, frequencyHz: Int64) -> String {
         switch mode.uppercased() {
         case "SSB": return frequencyHz < 10_000_000 ? "LSB" : "USB"
-        case "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI": return "DIGU"
+        case "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI": return "DIGU"
         case "CW": return "CW"
         default: return mode.uppercased()
         }

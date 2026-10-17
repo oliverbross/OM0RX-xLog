@@ -19,7 +19,7 @@ export function checkedDxAlerts(input: unknown): DxAlertsSnapshot {
       typeof rule.name !== "string" || !rule.name.trim() || rule.name.length > 80 || typeof rule.enabled !== "boolean" || typeof rule.callsignGlob !== "string" || rule.callsignGlob.length > 32 ||
       rule.sources !== undefined && (!Array.isArray(rule.sources) || rule.sources.length < 1 || rule.sources.length > 2 || new Set(rule.sources).size !== rule.sources.length || rule.sources.some(source => !["cluster", "wsjtx"].includes(source))) ||
       typeof rule.commentContains !== "string" || new TextEncoder().encode(rule.commentContains).length > 80 || /[\x00-\x1f\x7f-\x9f]/.test(rule.commentContains) || !!rule.commentContains && !rule.commentContains.trim() ||
-      !strings(rule.bands, 13) || !strings(rule.modes, 3) || !strings(rule.callStatuses, 4) || !strings(rule.dxccStatuses, 4) || !strings(rule.specials, 16)) ||
+      !strings(rule.bands, 13) || !strings(rule.modes, 3) || !strings(rule.callStatuses, 7) || !strings(rule.dxccStatuses, 10) || !strings(rule.specials, 16)) ||
     typeof value.storageError !== "string" && value.storageError !== null || typeof value.source.available !== "boolean" || typeof value.source.baselined !== "boolean" ||
     !integer(value.source.revision) || !integer(value.source.receivedAtMs) || !Array.isArray(value.entries) || value.entries.length > 200 ||
     value.activitySource !== undefined && (!value.activitySource || typeof value.activitySource.available !== "boolean" || typeof value.activitySource.baselined !== "boolean" || !integer(value.activitySource.revision) ||

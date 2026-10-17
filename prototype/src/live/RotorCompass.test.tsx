@@ -28,8 +28,16 @@ describe("telemetry compass", () => {
     view.rerender(<RotorCompass connected={false} azimuth={53} target={73} path="LP" readout={{ call: "", distanceKm: undefined }} />);
     expect(screen.getByText("NO TELEMETRY")).toBeTruthy();
     expect(screen.getByText("---°")).toBeTruthy();
-    expect(screen.getByText("Distance unavailable")).toBeTruthy();
+    expect(screen.queryByText("Distance unavailable")).toBeNull();
     expect(view.container.querySelector(".rotor-observed-needle")).toBeNull();
     expect(view.container.querySelector(".rotor-target-arc")).toBeNull();
+  });
+  it("renders optional path controls inside the dial", () => {
+    const selected: Array<"SP" | "LP"> = [];
+    const view = render(<RotorCompass connected azimuth={53} target={73} path="SP" readout={{ call: "W7AIT" }}
+      pathControls={{ shortBearing: 73, longBearing: 253, onSelect: path => selected.push(path) }} />);
+    expect(view.container.querySelector(".rotor-dial-shell > .rotor-dial")).toBeTruthy();
+    screen.getByRole("button", { name: "Turn rotor long path" }).click();
+    expect(selected).toEqual(["LP"]);
   });
 });

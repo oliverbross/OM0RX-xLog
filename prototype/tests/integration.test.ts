@@ -4,7 +4,7 @@ import { emptyDraft, spots, MAX_SESSION_QSOS, initialState, reducer } from "../s
 
 const response = () => ({ schema_version: 1, history_scope: "synthetic_session", station_io: false,
   spots: spots.map(s => ({ id: s.id, call: s.call, frequency_hz: Math.round(s.mhz * 1e6), band: s.band, mode: s.mode,
-    call_status: "New Callsign", dxcc_status: "New DXCC", score: 85 })) });
+    call_status: "New Call", dxcc_status: "ATNO", score: 85 })) });
 describe("native cluster classification boundary", () => {
   it("caps complete session history before the worker limit and preserves data at capacity", () => {
     const qsos = Array.from({ length: MAX_SESSION_QSOS }, (_, i) => ({ ...emptyDraft(), call: "LONGCALL1234567890ABC", id: `q${i}`, time: "2026-10-12T00:00:00Z", profile: "manual" as const }));
@@ -36,10 +36,10 @@ describe("native cluster classification boundary", () => {
   });
   it("presents domain results without recomputing award rules", () => {
     const value = response().spots[0];
-    expect(opportunityLabel(value)).toBe("ND");
+    expect(opportunityLabel(value)).toBe("ATNO");
     expect(opportunityLabel({ ...value, dxcc_status: "Worked" })).toBe("NC");
-    expect(opportunityLabel({ ...value, dxcc_status: "Worked", call_status: "New Callsign" })).toBe("NC");
-    expect(opportunityLabel({ ...value, dxcc_status: "Confirmed", call_status: "Confirmed" })).toBe("CFM");
+    expect(opportunityLabel({ ...value, dxcc_status: "Worked", call_status: "New Call" })).toBe("NC");
+    expect(opportunityLabel({ ...value, dxcc_status: "Confirmed", call_status: "Confirmed" })).toBe("C");
     expect(opportunityLabel(undefined)).toBe("—");
     expect(classificationTone(value)).toBe("needed");
     expect(classificationTone({ ...value, call_status: "Worked", dxcc_status: "Worked" })).toBe("worked");

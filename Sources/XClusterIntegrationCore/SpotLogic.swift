@@ -2,7 +2,7 @@ import Foundation
 
 public enum SpotLogic {
     public static let bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"]
-    public static let modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"]
+    public static let modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"]
 
     private static let ft8 = [1840.0, 3573.0, 5357.0, 7074.0, 10136.0, 14074.0, 18100.0, 21074.0, 24915.0, 28074.0, 50313.0]
     private static let ft4 = [3575.0, 7047.5, 10140.0, 14080.0, 18104.0, 21140.0, 24919.0, 28180.0]
@@ -25,7 +25,7 @@ public enum SpotLogic {
 
     public static func mode(comment: String, band: String, khz: Double) -> String {
         let text = comment.uppercased()
-        for token in ["FT8", "FT4", "FT2", "RTTY", "OLIVIA", "PSK", "JT65", "JT9", "HELL", "MFSK", "SSTV"] where text.contains(token) { return token }
+        for token in ["FT8", "FT4", "FT2", "RTTY", "JTTY", "OLIVIA", "PSK", "JT65", "JT9", "HELL", "MFSK", "SSTV"] where text.contains(token) { return token }
         if text.range(of: #"(^|\s)AM($|\s)"#, options: .regularExpression) != nil { return "AM" }
         if text.range(of: #"(^|\s)FM($|\s)"#, options: .regularExpression) != nil { return "FM" }
         if text.range(of: #"\b(SSB|USB|LSB|PHONE|PH)\b"#, options: .regularExpression) != nil { return "SSB" }
@@ -88,21 +88,43 @@ public enum SpotLogic {
         }
     }
 
-    /// Wavelog classifies both callsigns and DXCC entities against the exact
-    /// band + QRG-mode slot of the spot. QRG modes are phone, CW and digital.
-    public static func callStatus(workedBandMode: Bool, confirmedBandMode: Bool) -> String {
+    /// Preserve the operator-facing opportunity hierarchy while using Wavelog's
+    /// phone/CW/digital QRG categories for every mode comparison.
+    public static func callStatus(worked: Bool, newBand: Bool, newMode: Bool,
+                                  confirmedBandMode: Bool) -> String {
+        if !worked { return "New Call" }
         if confirmedBandMode { return "Confirmed" }
-        return workedBandMode ? "Worked" : "New Callsign"
+        if newBand && newMode { return "New Band+Mode" }
+        if newBand { return "New Band" }
+        if newMode { return "New Mode" }
+        return "Worked"
     }
 
-    public static func dxccStatus(workedBandMode: Bool, confirmedBandMode: Bool) -> String {
+    public static func callStatus(worked: Bool, bandWorked: Bool, modeWorked: Bool,
+                                  bandModeWorked: Bool, confirmedBandMode: Bool) -> String {
+        let newBand = !bandWorked
+        let newMode = bandWorked ? !bandModeWorked : !modeWorked
+        return callStatus(worked: worked, newBand: newBand, newMode: newMode,
+                          confirmedBandMode: confirmedBandMode)
+    }
+
+    public static func dxccStatus(worked: Bool, confirmed: Bool, newBand: Bool,
+                                  newMode: Bool, confirmedBandMode: Bool) -> String {
+        if !worked { return "ATNO" }
         if confirmedBandMode { return "Confirmed" }
-        return workedBandMode ? "Worked" : "New DXCC"
+        let prefix = confirmed ? "C" : "W"
+        if newBand && newMode { return "\(prefix)/New Band+Mode" }
+        if newBand { return "\(prefix)/New Band" }
+        if newMode { return "\(prefix)/New Mode" }
+        return "Worked"
     }
 
     public static func score(callStatus: String, dxccStatus: String, specials: [String], source: String) -> (Int, [String]) {
-        let dxcc: [String: Int] = ["New DXCC": 85, "Worked": 18, "Confirmed": 8]
-        let call: [String: Int] = ["New Callsign": 42, "Worked": 8, "Confirmed": 4]
+        let dxcc: [String: Int] = ["ATNO": 85, "C/New Band+Mode": 68, "W/New Band+Mode": 62,
+                                   "C/New Band": 58, "W/New Band": 52, "C/New Mode": 48,
+                                   "W/New Mode": 42, "Worked": 18, "Confirmed": 8]
+        let call: [String: Int] = ["New Call": 42, "New Band+Mode": 34, "New Band": 28,
+                                   "New Mode": 22, "Worked": 8, "Confirmed": 4]
         var reasons: [String] = []
         var value = max(dxcc[dxccStatus] ?? 0, call[callStatus] ?? 0)
         if value > 0 { reasons.append(dxcc[dxccStatus] ?? 0 >= call[callStatus] ?? 0 ? dxccStatus : callStatus) }

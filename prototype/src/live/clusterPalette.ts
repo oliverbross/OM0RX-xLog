@@ -1,8 +1,17 @@
 // Wavelog band-map defaults. Operator settings take precedence.
 export const clusterStatusColors: Record<string, string> = {
-  "New Callsign": "#CC372D", "New DXCC": "#CC372D", Worked: "#E5A50A",
-  Confirmed: "#90EE90", Unknown: "#777F8C",
+  "New Call": "#FF6B35", "New Band": "#00BFFF", "New Mode": "#FFC000", "New Band+Mode": "#E91E63",
+  ATNO: "#FF8C00", "C/New Band": "#4A9EFF", "C/New Mode": "#FFD93D", "C/New Band+Mode": "#9C27B0",
+  "W/New Band": "#00BCD4", "W/New Mode": "#FFA726", "W/New Band+Mode": "#FF5722",
+  Worked: "#B0B0B0", Confirmed: "#10B981", Unknown: "#777F8C",
 };
+
+export const clusterStatusCode = (status: string): string => ({
+  "New Call": "NC", "New Band": "NB", "New Mode": "NM", "New Band+Mode": "NB+M",
+  ATNO: "ATNO", "C/New Band": "C/NB", "C/New Mode": "C/NM", "C/New Band+Mode": "C/NB+M",
+  "W/New Band": "W/NB", "W/New Mode": "W/NM", "W/New Band+Mode": "W/NB+M",
+  Worked: "W", Confirmed: "C", Unknown: "?",
+}[status] ?? (status || "—"));
 
 export const clusterBandColors: Record<string, string> = {
   "160m": "#B794F4", "80m": "#A78BFA", "60m": "#818CF8", "40m": "#4A9EFF",
@@ -13,7 +22,7 @@ export const clusterBandColors: Record<string, string> = {
 
 export const clusterModeColors: Record<string, string> = {
   CW: "#F3B23C", SSB: "#35C8F5", AM: "#FFD166", FM: "#4A9EFF",
-  RTTY: "#FB923C", FT8: "#A78BFA", FT4: "#F472B6", FT2: "#E879F9",
+  RTTY: "#FB923C", JTTY: "#F97316", FT8: "#A78BFA", FT4: "#F472B6", FT2: "#E879F9",
   PSK: "#4ADE80", OLIVIA: "#2DD4BF", JT65: "#818CF8", JT9: "#60A5FA",
   HELL: "#F59E0B", MFSK: "#34D399", SSTV: "#F87171", DIGI: "#8B9CFF",
   Unknown: "#B0B0B0",

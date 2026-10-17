@@ -71,15 +71,17 @@ public struct ClusterPalette: Codable, Equatable, Sendable {
     public var mode: [String: String]
 
     public static let originalDefaults = ClusterPalette(
-        // Wavelog band-map defaults: unworked, worked, confirmed.
-        status: ["New Callsign": "#CC372D", "New DXCC": "#CC372D", "Worked": "#E5A50A",
-                 "Confirmed": "#90EE90", "Unknown": "#777F8C"],
+        status: ["New Call": "#FF6B35", "New Band": "#00BFFF", "New Mode": "#FFC000",
+                 "New Band+Mode": "#E91E63", "ATNO": "#FF8C00", "C/New Band": "#4A9EFF",
+                 "C/New Mode": "#FFD93D", "C/New Band+Mode": "#9C27B0", "W/New Band": "#00BCD4",
+                 "W/New Mode": "#FFA726", "W/New Band+Mode": "#FF5722", "Worked": "#B0B0B0",
+                 "Confirmed": "#10B981", "Unknown": "#777F8C"],
         band: ["160m": "#B794F4", "80m": "#A78BFA", "60m": "#818CF8", "40m": "#4A9EFF",
                "30m": "#22D3EE", "20m": "#12D6A0", "17m": "#4ADE80", "15m": "#F3B23C",
                "12m": "#FB923C", "10m": "#FF6B5E", "6m": "#F472B6", "2m": "#E879F9",
                "70cm": "#C084FC", "Unknown": "#B0B0B0"],
         mode: ["CW": "#F3B23C", "SSB": "#35C8F5", "AM": "#FFD166", "FM": "#4A9EFF",
-               "RTTY": "#FB923C", "FT8": "#A78BFA", "FT4": "#F472B6", "FT2": "#E879F9",
+               "RTTY": "#FB923C", "JTTY": "#F97316", "FT8": "#A78BFA", "FT4": "#F472B6", "FT2": "#E879F9",
                "PSK": "#4ADE80", "OLIVIA": "#2DD4BF", "JT65": "#818CF8", "JT9": "#60A5FA",
                "HELL": "#F59E0B", "MFSK": "#34D399", "SSTV": "#F87171", "DIGI": "#8B9CFF",
                "Unknown": "#B0B0B0"]
@@ -91,43 +93,25 @@ public struct ClusterPalette: Codable, Equatable, Sendable {
         self.mode = mode
     }
 
-    static func wavelogParityMigrated(_ stored: ClusterPalette) -> ClusterPalette {
-        let legacyDefaults = ["New Call": "#FF6B35", "New Band": "#00BFFF", "New Mode": "#FFC000",
-                              "New Band+Mode": "#E91E63", "ATNO": "#FF8C00", "C/New Band": "#4A9EFF",
-                              "C/New Mode": "#FFD93D", "C/New Band+Mode": "#9C27B0", "W/New Band": "#00BCD4",
-                              "W/New Mode": "#FFA726", "W/New Band+Mode": "#FF5722", "Worked": "#B0B0B0",
-                              "Confirmed": "#10B981", "Unknown": "#777F8C"]
-        let isLegacy = stored.status["New Callsign"] == nil && stored.status["New DXCC"] == nil
-        func value(_ name: String, legacyNames: [String] = []) -> String {
-            if let saved = stored.status[name] {
-                if isLegacy, let oldDefault = legacyDefaults[name],
-                   saved.caseInsensitiveCompare(oldDefault) == .orderedSame {
-                    return Self.originalDefaults.status[name]!
-                }
-                return saved
-            }
-            for legacyName in legacyNames {
-                guard let saved = stored.status[legacyName], let oldDefault = legacyDefaults[legacyName],
-                      saved.caseInsensitiveCompare(oldDefault) != .orderedSame else { continue }
-                return saved
-            }
-            return Self.originalDefaults.status[name]!
+    static func opportunityHierarchyRestored(_ stored: ClusterPalette) -> ClusterPalette {
+        var status = Self.originalDefaults.status
+        for key in status.keys where stored.status[key] != nil {
+            status[key] = stored.status[key]
         }
-        func legacyDefaultMigrated(_ name: String) -> String {
-            guard let saved = stored.status[name] else { return Self.originalDefaults.status[name]! }
-            if isLegacy, let oldDefault = legacyDefaults[name],
-               saved.caseInsensitiveCompare(oldDefault) == .orderedSame {
-                return Self.originalDefaults.status[name]!
+        // Preserve operator customisations made while beta.3 exposed only two
+        // coarse "new" colours, without replacing the richer default palette.
+        if let call = stored.status["New Callsign"], call.caseInsensitiveCompare("#CC372D") != .orderedSame {
+            for key in ["New Call", "New Band", "New Mode", "New Band+Mode"] where stored.status[key] == nil {
+                status[key] = call
             }
-            return saved
         }
-        return ClusterPalette(
-            status: ["New Callsign": value("New Callsign", legacyNames: ["New Call", "New Band+Mode", "New Band", "New Mode"]),
-                     "New DXCC": value("New DXCC", legacyNames: ["ATNO", "C/New Band+Mode", "W/New Band+Mode",
-                                                                   "C/New Band", "W/New Band", "C/New Mode", "W/New Mode"]),
-                     "Worked": legacyDefaultMigrated("Worked"), "Confirmed": legacyDefaultMigrated("Confirmed"),
-                     "Unknown": legacyDefaultMigrated("Unknown")],
-            band: stored.band, mode: stored.mode)
+        if let dxcc = stored.status["New DXCC"], dxcc.caseInsensitiveCompare("#CC372D") != .orderedSame {
+            for key in ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode",
+                        "W/New Band", "W/New Mode", "W/New Band+Mode"] where stored.status[key] == nil {
+                status[key] = dxcc
+            }
+        }
+        return ClusterPalette(status: status, band: stored.band, mode: stored.mode)
     }
 }
 
@@ -207,15 +191,14 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         hideWSPRSpots = try values.decodeIfPresent(Bool.self, forKey: .hideWSPRSpots) ?? false
         maximumSpots = try values.decode(Int.self, forKey: .maximumSpots)
         specialRules = try values.decode([SpecialRule].self, forKey: .specialRules)
-        palette = ClusterPalette.wavelogParityMigrated(try values.decode(ClusterPalette.self, forKey: .palette))
+        palette = ClusterPalette.opportunityHierarchyRestored(try values.decode(ClusterPalette.self, forKey: .palette))
         filter = try values.decode(ClusterSpotFilter.self, forKey: .filter)
-        if filter.callStatuses.contains(where: { ["New Call", "New Band", "New Mode", "New Band+Mode"].contains($0) }) {
-            filter.callStatuses.subtract(["New Call", "New Band", "New Mode", "New Band+Mode"])
-            filter.callStatuses.insert("New Callsign")
+        if filter.callStatuses.remove("New Callsign") != nil {
+            filter.callStatuses.formUnion(["New Call", "New Band", "New Mode", "New Band+Mode"])
         }
-        if filter.dxccStatuses.contains(where: { $0 == "ATNO" || $0.contains("/New ") }) {
-            filter.dxccStatuses = Set(filter.dxccStatuses.filter { $0 == "Worked" || $0 == "Confirmed" || $0 == "Unknown" })
-            filter.dxccStatuses.insert("New DXCC")
+        if filter.dxccStatuses.remove("New DXCC") != nil {
+            filter.dxccStatuses.formUnion(["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode",
+                                           "W/New Band", "W/New Mode", "W/New Band+Mode"])
         }
         commandPresets = try values.decodeIfPresent([ClusterCommandPreset].self, forKey: .commandPresets)
             ?? Self(servers: []).commandPresets

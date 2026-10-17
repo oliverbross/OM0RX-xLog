@@ -30,7 +30,7 @@ enum LocalContactHistory {
         var matrix: [String: (band: String, mode: String, confirmed: Bool)] = [:]
         let formatter = ISO8601DateFormatter()
         let matrixBands: Set<String> = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"]
-        let matrixModes: Set<String> = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"]
+        let matrixModes: Set<String> = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"]
         for qso in rows {
                 if qso.deletedAt != nil { continue }
                 let mode = SpotLogic.normalizedMode(qso.submode.isEmpty ? qso.mode : qso.submode)

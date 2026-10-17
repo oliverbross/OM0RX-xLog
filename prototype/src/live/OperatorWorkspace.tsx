@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { clusterRowTint, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
 import { BandMapsToolbarContext } from "./BandMaps";
-import { clusterBandColors, clusterModeColors, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
+import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
 import { formatSpotAge, useSpotAgeClock } from "./spotAge";
@@ -25,7 +25,7 @@ function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): st
 function cell(column: CompactColumn, spot: LiveClusterSpot, now: number, palette?: ClusterPalette): ReactNode {
   if (column === "time") return <span className="live-cluster-age">{spotText(column, spot, now)}</span>;
   if (column === "band" || column === "mode") return <span className="live-cluster-category" style={{ color: paletteColor(spot[column], palette?.[column], column === "band" ? clusterBandColors : clusterModeColors) }}>{spot[column]}</span>;
-  if (column === "callStatus" || column === "dxccStatus") return <span className="live-cluster-status" style={{ color: paletteColor(spot[column], palette?.status, clusterStatusColors) }}>{spot[column]}</span>;
+  if (column === "callStatus" || column === "dxccStatus") return <span className="live-cluster-status" style={{ color: paletteColor(spot[column], palette?.status, clusterStatusColors) }}>{clusterStatusCode(spot[column])}</span>;
   if (column === "score") return <span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span>;
   if (column === "special") return spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span key={tag} className="live-cluster-special-tag" style={specialTagColors(tag)}>{tag}</span>) : "—";
   return spotText(column, spot, now);

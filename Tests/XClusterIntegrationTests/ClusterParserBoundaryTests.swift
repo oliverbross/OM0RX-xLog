@@ -62,10 +62,15 @@ final class ClusterParserBoundaryTests: XCTestCase {
     }
 
     func testModePriorityAndOriginalFrequencyHeuristics() {
+        XCTAssertTrue(SpotLogic.modes.contains("JTTY"))
         XCTAssertEqual(SpotLogic.mode(comment: "SSB FT4", band: "20m", khz: 14074), "FT4")
         XCTAssertEqual(SpotLogic.mode(comment: "", band: "20m", khz: 14074), "FT8")
         XCTAssertEqual(SpotLogic.mode(comment: "", band: "20m", khz: 14080), "FT4")
         XCTAssertEqual(SpotLogic.mode(comment: "", band: "20m", khz: 14084), "FT2")
+        for khz in [21091.5, 21092.1, 21089.2] {
+            XCTAssertEqual(SpotLogic.mode(comment: "JTTY", band: "15m", khz: khz), "JTTY")
+        }
+        XCTAssertEqual(SpotLogic.mode(comment: "jtty cq", band: "15m", khz: 21091.5), "JTTY")
         XCTAssertEqual(SpotLogic.mode(comment: "CQ AM", band: "20m", khz: 14200), "AM")
         XCTAssertEqual(SpotLogic.mode(comment: "FM", band: "2m", khz: 145500), "FM")
         XCTAssertEqual(SpotLogic.band(for: 1_240_000), "23cm")
@@ -88,11 +93,11 @@ final class ClusterParserBoundaryTests: XCTestCase {
     }
 
     func testScorePriorityAndCapRemainOriginal() {
-        let scored = SpotLogic.score(callStatus: "New Callsign", dxccStatus: "New DXCC", specials: ["POTA"], source: "rbl")
+        let scored = SpotLogic.score(callStatus: "New Call", dxccStatus: "ATNO", specials: ["POTA"], source: "rbl")
         XCTAssertEqual(scored.0, 100)
-        XCTAssertEqual(scored.1, ["New DXCC", "POTA", "RBN source"])
-        let unknown = SpotLogic.score(callStatus: "New Callsign", dxccStatus: "Unknown", specials: [], source: "cluster")
+        XCTAssertEqual(scored.1, ["ATNO", "POTA", "RBN source"])
+        let unknown = SpotLogic.score(callStatus: "New Call", dxccStatus: "Unknown", specials: [], source: "cluster")
         XCTAssertEqual(unknown.0, 42)
-        XCTAssertEqual(unknown.1, ["New Callsign"])
+        XCTAssertEqual(unknown.1, ["New Call"])
     }
 }

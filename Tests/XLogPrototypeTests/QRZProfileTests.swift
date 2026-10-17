@@ -37,7 +37,24 @@ struct QRZProfileTests {
         #expect(result["imageURL"] as? String == profile.imageURL)
         #expect(result["websiteURL"] as? String == profile.websiteURL)
         #expect(result["nickname"] as? String == "Ace")
+        #expect(result["qrz_status"] as? String == "matched")
         #expect(!String(describing: result).contains("fixture-session-key"))
+    }
+
+    @Test("QRZ failures retain the offline OM0AAO entity with an actionable safe state")
+    func retainsOfflineEntityOnProviderFailure() async {
+        let result = await CallsignEnrichment.resolve(base: [
+            "call": "OM0AAO", "country": "SLOVAK REPUBLIC", "dxcc": 504,
+            "source": "CTY approximate",
+        ]) {
+            throw QRZClientError.timedOut
+        }
+        #expect(result["country"] as? String == "SLOVAK REPUBLIC")
+        #expect(result["dxcc"] as? Int == 504)
+        #expect(result["source"] as? String == "CTY approximate")
+        #expect(result["qrz_status"] as? String == "unavailable")
+        #expect((result["lookup_warning"] as? String)?.contains("timed out") == true)
+        #expect(!(result["lookup_warning"] as? String ?? "").contains("Operation failed"))
     }
 
     @Test("Insecure or local XML image URLs are never exposed")

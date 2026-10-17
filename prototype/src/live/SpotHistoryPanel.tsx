@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type For
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { SpotHistoryColumnHeader, SpotHistoryColumns, useSpotHistoryColumns } from "./SpotHistoryColumns";
-import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
+import { clusterBandColors, clusterModeColors, clusterStatusCode, paletteColor } from "./clusterPalette";
 import { orderedSpotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
 import "./SpotHistoryPanel.css";
 
@@ -31,7 +31,7 @@ type Draft = { call: string; spotter: string; match: "exact" | "prefix"; range: 
 type Browse = { cursor?: string; watermark?: number; previous: (string | undefined)[]; index: number; limit: number; resized?: boolean };
 const firstPage: Browse = { previous: [], index: 0, limit: 100 };
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
-const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI", "AM", "FM"];
+const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"];
 function result<T>(raw: any): T { return (raw && typeof raw === "object" && "result" in raw ? raw.result : raw) as T; }
 export function spotHistoryUTC(value: string | null | undefined) {
   if (!value) return "—";
@@ -253,7 +253,7 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
         <div><dt>Callsign / Spotter</dt><dd>{detail.callsign} / {detail.spotter}</dd></div><div><dt>Frequency / Band / Mode</dt><dd>{detail.frequencyText || detail.frequencyKHz} kHz · {detail.band || "Unknown"} · {detail.mode || "Unknown"}</dd></div>
         <div><dt>Received UTC</dt><dd>{spotHistoryUTC(detail.arrivedAt)}</dd></div><div><dt>Reported UTC / Time basis</dt><dd>{spotHistoryUTC(detail.reportedAt)} · {detail.timeBasis}</dd></div>
         <div><dt>Cluster / Host / Source</dt><dd>{detail.clusterName} · {detail.clusterHost} · {detail.source}</dd></div><div><dt>Country / ADIF</dt><dd>{detail.country || "Unknown"} · {detail.adif ?? "—"}</dd></div>
-        <div><dt>Stored classification</dt><dd>{detail.callStatus || "Unknown"} · {detail.dxccStatus || "Unknown"} · {detail.specialTags?.join(", ") || "No special tags"}</dd></div><div><dt>Session / Sequence / Record kind</dt><dd>{detail.sessionID} · {detail.sequence} · {detail.recordKind}</dd></div>
+        <div><dt>Stored classification</dt><dd title={`${detail.callStatus || "Unknown"} · ${detail.dxccStatus || "Unknown"}`}>{clusterStatusCode(detail.callStatus)} · {clusterStatusCode(detail.dxccStatus)} · {detail.specialTags?.join(", ") || "No special tags"}</dd></div><div><dt>Session / Sequence / Record kind</dt><dd>{detail.sessionID} · {detail.sequence} · {detail.recordKind}</dd></div>
         <div className="spot-history-detail-wide"><dt>Full comment</dt><dd>{detail.comment || "No comment"}</dd></div>
         <div className="spot-history-detail-wide"><dt>Decoded source line</dt><dd><pre>{detail.rawLine || "Not retained"}</pre></dd></div>
         <div className="spot-history-detail-wide"><dt>Classification provenance</dt><dd><pre>{detail.classificationJSON || "Not retained"}</pre></dd></div>
@@ -269,9 +269,8 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
             <td key="utc" hidden={!visibleColumns.has("utc")} data-label="Received UTC" title={`${spotHistoryUTC(row.arrivedAt)} UTC`} className="history-data">{spotHistoryUTC(row.arrivedAt)}</td>,
             <td key="call" hidden={!visibleColumns.has("call")} data-label="Callsign" className="history-call-value" title={row.callsign}>{row.callsign}</td>,
             <td key="frequency" hidden={!visibleColumns.has("frequency")} data-label="kHz" className="history-frequency-value history-data">{row.frequencyText || row.frequencyKHz}</td>,
-            <td key="bandMode" hidden={!visibleColumns.has("bandMode")} data-label="Band / Mode" aria-label={`${row.band || "Unknown"} band, ${row.mode || "Unknown"} mode`}>
-              <span className="spot-history-category-row"><span className="spot-history-category" style={{ color: paletteColor(row.band || "Unknown", undefined, clusterBandColors) }}>{row.band || "—"}</span><span aria-hidden="true">/</span><span className="spot-history-category" style={{ color: paletteColor(row.mode || "Unknown", undefined, clusterModeColors) }}>{row.mode || "—"}</span></span>
-            </td>,
+            <td key="band" hidden={!visibleColumns.has("band")} data-label="Band" aria-label={`${row.band || "Unknown"} band`}><span className="spot-history-category" style={{ color: paletteColor(row.band || "Unknown", undefined, clusterBandColors) }}>{row.band || "—"}</span></td>,
+            <td key="mode" hidden={!visibleColumns.has("mode")} data-label="Mode" aria-label={`${row.mode || "Unknown"} mode`}><span className="spot-history-category" style={{ color: paletteColor(row.mode || "Unknown", undefined, clusterModeColors) }}>{row.mode || "—"}</span></td>,
             <td key="spotter" hidden={!visibleColumns.has("spotter")} data-label="Spotter" title={row.spotter}>{row.spotter}</td>,
             <td key="source" hidden={!visibleColumns.has("source")} data-label="Source / Cluster" title={`${row.source} / ${row.clusterName}`}>{row.source} / {row.clusterName}</td>,
             <td key="country" hidden={!visibleColumns.has("country")} data-label="Country" title={row.country}>{row.country || "—"}</td>,

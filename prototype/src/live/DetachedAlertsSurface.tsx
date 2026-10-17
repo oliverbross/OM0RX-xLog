@@ -4,6 +4,7 @@ import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, te
 import { AlertColumns, useAlertColumns } from "./AlertColumns";
 import { orderedAlertColumns } from "./alertColumnPreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
+import { clusterStatusCode } from "./clusterPalette";
 import "./DetachedReferenceSurface.css";
 const messages: Record<AlertCode, string> = { radio_inhibitors: "Radio safety inhibitors reported", radio_alarm: "Station alarm reported — review Station Status or Desk", rotor_uncertain: "Rotor outcome uncertain — review Rotor before further commands" };
 export function DetachedAlertsSurface() {
@@ -101,7 +102,7 @@ function compareAlerts(left: AlertEntry, right: AlertEntry, sort: AlertSort) {
 }
 const sourceLabel = (entry: AlertEntry) => entry.test ? "Test" : entry.source === "wsjtx" ? "WSJT-X CQ" : "DX Cluster";
 function AlertEvidence({ entry }: { entry: AlertEntry }) {
-  const evidence = [entry.callStatus && `Call: ${entry.callStatus}`, entry.dxccStatus && `DXCC: ${entry.dxccStatus}`, entry.band && `Band: ${entry.band}`, entry.mode && `Mode: ${entry.mode}`].filter(Boolean);
+  const evidence = [entry.callStatus && `Call: ${clusterStatusCode(entry.callStatus)}`, entry.dxccStatus && `DXCC: ${clusterStatusCode(entry.dxccStatus)}`, entry.band && `Band: ${entry.band}`, entry.mode && `Mode: ${entry.mode}`].filter(Boolean);
   if (entry.specialTags.length) evidence.push(`Special: ${entry.specialTags.join(", ")}`);
   return <div className="dx-alert-evidence"><strong>{entry.ruleNames.join(", ")}</strong><span>{evidence.join(" · ")}</span></div>;
 }

@@ -112,7 +112,7 @@ it("uses the shared column chooser and persists resized table columns across bot
   const first = render(desk());
   await act(async () => { view("logbook-above"); });
   const table = screen.getByRole("table"), map = first.container.querySelector(".desk-map-logbook-map");
-  expect(screen.getAllByRole("columnheader")).toHaveLength(10);
+  expect(screen.getAllByRole("columnheader")).toHaveLength(11);
   fireEvent.click(screen.getByRole("button", { name: "Columns" }));
   fireEvent.click(screen.getByLabelText("Show Comment column"));
   fireEvent.click(screen.getByRole("button", { name: "Done" }));

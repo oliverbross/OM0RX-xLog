@@ -1,7 +1,7 @@
 import { boundColumnWidth } from "./operatorWorkspacePreferences";
 
 export const logbookColumns = [
-  ["utc", "UTC", 154], ["call", "Callsign", 150], ["bandMode", "Band / Mode", 105],
+  ["utc", "UTC", 154], ["call", "Callsign", 150], ["band", "Band", 78], ["mode", "Mode", 88],
   ["frequency", "Frequency", 105], ["rst", "RST", 92], ["country", "Country", 150],
   ["qsl", "QSL", 60], ["lotw", "LoTW", 60], ["clublog", "Club Log", 82], ["comment", "Comment", 230],
 ] as const;
@@ -16,7 +16,9 @@ export const boundLogbookColumnWidth = (id: LogbookColumn, value: number) => Mat
 
 /** Older preferences have visibility only. Unknown/duplicate entries never remove a known column. */
 export function orderedLogbookColumns(preferences: Pick<LogbookColumnPreferences, "order">) {
-  const ids = [...new Set([...(Array.isArray(preferences.order) ? preferences.order : []), ...logbookColumns.map(([id]) => id)])];
+  const saved = Array.isArray(preferences.order) ? preferences.order : [];
+  const expanded = saved.flatMap(id => id === ("bandMode" as LogbookColumn) ? ["band", "mode"] as LogbookColumn[] : [id]);
+  const ids = [...new Set([...expanded, ...logbookColumns.map(([id]) => id)])];
   return ids.flatMap(id => logbookColumns.filter(([known]) => known === id));
 }
 
@@ -26,7 +28,8 @@ export function defaultLogbookColumnPreferences(_context: LogbookColumnContext =
 }
 
 const legacyDeskDefaults = (): LogbookColumnPreferences => ({ ...defaultLogbookColumnPreferences("desk"),
-  columns: ["utc", "call", "bandMode", "frequency", "country"] });
+  columns: ["utc", "call", "band", "mode", "frequency", "country"],
+  widths: { ...defaultLogbookColumnPreferences("desk").widths, band: 105, mode: 105 } });
 
 /** Preserve a customized v1 Desk layout, but promote its automatically persisted old default to the normal full table. */
 export function migrateLegacyDeskLogbookColumnPreferences(raw: string | null): LogbookColumnPreferences {
@@ -46,12 +49,14 @@ export function readLogbookColumnPreferences(raw: string | null, context: Logboo
     if (!value || Array.isArray(value) || value.version !== 1) return result;
     if (Array.isArray(value.order)) result.order = orderedLogbookColumns(value).map(([id]) => id);
     if (Array.isArray(value.columns)) {
-      const chosen = logbookColumns.map(([id]) => id).filter(id => id === "call" || value.columns.includes(id));
+      const legacyBandMode = value.columns.includes("bandMode");
+      const chosen = logbookColumns.map(([id]) => id).filter(id => id === "call" || value.columns.includes(id)
+        || (legacyBandMode && (id === "band" || id === "mode")));
       // A damaged or unknown-only list falls back to this context's defaults.
-      if (value.columns.some((id: unknown) => logbookColumns.some(([known]) => known === id))) result.columns = chosen;
+      if (value.columns.some((id: unknown) => id === "bandMode" || logbookColumns.some(([known]) => known === id))) result.columns = chosen;
     }
     for (const [id] of logbookColumns) {
-      const width = value.widths?.[id];
+      const width = value.widths?.[id] ?? ((id === "band" || id === "mode") ? value.widths?.bandMode : undefined);
       if (typeof width === "number" && Number.isFinite(width)) result.widths[id] = boundLogbookColumnWidth(id, width);
     }
   } catch { /* Presentation preferences must never block the logbook. */ }

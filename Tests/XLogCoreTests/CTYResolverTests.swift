@@ -15,6 +15,14 @@ struct CTYResolverTests {
         #expect(resolver.resolve("PJ4/OM0RX")?.adif == 520)
     }
 
+    @Test("Bundled Slovak prefix resolves OM0AAO for offline callsign intelligence")
+    func slovakPrefix() throws {
+        let country = try #require(CTYResolver.bundled().resolve(" om0aao "))
+        #expect(country.adif == 504)
+        #expect(country.name == "SLOVAK REPUBLIC")
+        #expect(country.continent == "EU")
+    }
+
     @Test("XML PJ rules honor validity dates and exact-call exceptions")
     func datedPJRulesAndExceptions() throws {
         // Deliberately include Bangladesh: its presence must not override PJ rules.

@@ -10,7 +10,7 @@ final class CallsignEnrichmentTests: XCTestCase {
         XCTAssertEqual(result["country"] as? String, "Spain")
         XCTAssertEqual(result["latitude"] as? Double, 40)
         XCTAssertEqual(result["source"] as? String, "CTY approximate")
-        XCTAssertEqual(result["lookup_warning"] as? String, "Online lookup unavailable; offline result retained.")
+        XCTAssertEqual(result["lookup_warning"] as? String, "QRZ lookup is unavailable. Offline CTY result retained.")
         XCTAssertFalse(String(describing: result).contains("secret-bearing"))
     }
 

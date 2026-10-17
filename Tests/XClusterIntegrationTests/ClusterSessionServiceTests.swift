@@ -209,6 +209,33 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertTrue(connection.stopped)
     }
 
+    func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
+        let connection = TestClusterTransport()
+        let configuration = ClusterSessionConfiguration(servers: [server], requestRecentSpotsOnConnect: false,
+                                                        showWorkedBandModeSpots: true)
+        let service = ClusterSessionService(configuration: configuration, transportFactory: { _, _, _, _, onState, onLine in
+            connection.onState = onState
+            connection.onLine = onLine
+            return connection
+        })
+        await service.replaceCountryCSV("K,United States,291,NA,5,8,40,100,-5,K N W;")
+        await service.replaceContacts([ClusterContact(callsign: "K1JTY", band: "15m", mode: "FT8", adif: 291, lotwQSL: "Y")])
+        try await service.connect(passwords: [:])
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+
+        connection.emit("DX de K1SPT: 21091.5 K1JTY JTTY")
+        try await waitFor { await service.snapshot().loadedSpots == 1 }
+
+        let snapshot = await service.snapshot()
+        let spot = try XCTUnwrap(snapshot.spots.first)
+        XCTAssertEqual(spot.mode, "JTTY")
+        XCTAssertEqual(spot.modeHex, ClusterPalette.originalDefaults.mode["JTTY"])
+        XCTAssertEqual(spot.callStatus, "Confirmed")
+        XCTAssertEqual(spot.dxccStatus, "Confirmed")
+        await service.disconnect()
+    }
+
     func testCommandIsBoundedAndNotEchoedIntoSnapshot() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
         let connection = TestClusterTransport()
@@ -352,7 +379,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(byContinent.count, 4)
         let byCallStatus = await matching { $0.callStatuses = ["Worked"] }
         XCTAssertEqual(byCallStatus.map(\.callsign), ["K1OLD"])
-        let byDXCC = await matching { $0.dxccStatuses = ["New DXCC"] }
+        let byDXCC = await matching { $0.dxccStatuses = ["W/New Band", "W/New Mode"] }
         XCTAssertEqual(Set(byDXCC.map(\.callsign)), ["K1DIG", "K1RBN"])
         let bySpecial = await matching { $0.specials = ["POTA"] }
         XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
@@ -393,26 +420,30 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(decoded.radioSpotColorPolicy, .dxcc)
     }
 
-    func testLegacySpotTaxonomyAndColoursMigrateToWavelogParity() throws {
+    func testCoarseBetaThreeTaxonomyMigratesBackToOpportunityHierarchy() throws {
         let original = ClusterSessionConfiguration(servers: [])
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
         var palette = try XCTUnwrap(object["palette"] as? [String: Any])
-        palette["status"] = ["New Call": "#010203", "ATNO": "#FF8C00",
+        palette["status"] = ["New Callsign": "#010203", "New DXCC": "#CC372D",
                              "Worked": "#B0B0B0", "Confirmed": "#10B981", "Unknown": "#777F8C"]
         object["palette"] = palette
         var filter = try XCTUnwrap(object["filter"] as? [String: Any])
-        filter["callStatuses"] = ["New Band", "Confirmed"]
-        filter["dxccStatuses"] = ["ATNO", "Worked"]
+        filter["callStatuses"] = ["New Callsign", "Confirmed"]
+        filter["dxccStatuses"] = ["New DXCC", "Worked"]
         object["filter"] = filter
 
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
-        XCTAssertEqual(decoded.palette.status["New Callsign"], "#010203")
-        XCTAssertEqual(decoded.palette.status["New DXCC"], "#CC372D")
-        XCTAssertEqual(decoded.palette.status["Worked"], "#E5A50A")
-        XCTAssertEqual(decoded.palette.status["Confirmed"], "#90EE90")
-        XCTAssertEqual(decoded.filter.callStatuses, ["New Callsign", "Confirmed"])
-        XCTAssertEqual(decoded.filter.dxccStatuses, ["New DXCC", "Worked"])
+        for key in ["New Call", "New Band", "New Mode", "New Band+Mode"] {
+            XCTAssertEqual(decoded.palette.status[key], "#010203")
+            XCTAssertTrue(decoded.filter.callStatuses.contains(key))
+        }
+        XCTAssertEqual(decoded.palette.status["ATNO"], "#FF8C00")
+        XCTAssertEqual(decoded.palette.status["Worked"], "#B0B0B0")
+        XCTAssertEqual(decoded.palette.status["Confirmed"], "#10B981")
+        XCTAssertTrue(decoded.filter.callStatuses.contains("Confirmed"))
+        XCTAssertTrue(decoded.filter.dxccStatuses.isSuperset(of: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode",
+                                                               "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked"]))
     }
 
     func testForwardingEligibilityFollowsVisibleSnapshotAndConnectionGeneration() async throws {

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.0.0-beta.4 — 2026-10-17
+
+- Restored the complete callsign and DXCC opportunity taxonomy: NC, NB, NM, NB+M, W, C and ATNO, including worked/confirmed DXCC band and mode combinations such as C/NB and W/NB+M.
+- Corrected confirmed-entity handling so a confirmed DXCC on a new band is reported as C/NB instead of ATNO, with regression coverage for Brazil.
+- Added JTTY as a first-class displayed mode when identified by cluster comments, while retaining digital-mode grouping for opportunity history and radio control.
+- Preserved offline CTY/DXCC intelligence when QRZ credentials or the provider are unavailable, and limited interactive Keychain authorization to an explicit Test QRZ lookup action in Settings.
+- Split Band and Mode into independent configurable columns in Logbook and Spot History, and tightened Active QSO field widths to keep common desktop layouts on one line.
+- Made the Operator Desk rotor dial fill its card, moved SP/LP selection inside the dial, retained default-on Auto Rotor in Settings, and suppressed unavailable distance text.
+- Simplified native window menu labels to their destinations, such as Logbook, DX Cluster and Band Maps, without redundant “Open” or “Window” wording.
+- Retained the beta.3 non-interactive background credential reads that prevent recurring macOS Keychain dialogs and worker stalls.
+
 ## 1.0.0-beta.3 — 2026-10-17
 
 - Prevented background services and credential-status checks from presenting repeated macOS Keychain dialogs, stalling the worker, or causing a periodic interface reload. Legacy credentials can be authorized once from a user-started sync or schedule change with **Always Allow**.

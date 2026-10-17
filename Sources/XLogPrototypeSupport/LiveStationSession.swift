@@ -1133,7 +1133,7 @@ actor LiveStationSession {
     private static func radioMode(_ mode: String, frequencyHz: Int64) -> String {
         switch mode {
         case "SSB": frequencyHz < 10_000_000 ? "LSB" : "USB"
-        case "FT8", "FT4", "FT2", "RTTY", "PSK", "DIGI": "DIGU"
+        case "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI": "DIGU"
         default: mode
         }
     }

@@ -139,7 +139,7 @@ it("does not let stale draft country/location label a new call's matched intelli
   expect(intelligence.getByText("JN88WT")).toBeTruthy();
   expect(draft()).toEqual(entered);
 });
-it("uses observed compass telemetry and sends only explicit generation-fenced LP/Stop motion", async () => {
+it("uses observed compass telemetry and sends only explicit generation-fenced in-dial path motion", async () => {
   const request = vi.fn(async (_method: string, _params?: Record<string, any>) => ({})), onManualRotor = vi.fn();
   render(<Harness request={request} onManualRotor={onManualRotor} />);
   expect(screen.getByLabelText("Observed rotor bearing 53 degrees")).toBeTruthy();
@@ -148,33 +148,33 @@ it("uses observed compass telemetry and sends only explicit generation-fenced LP
   await waitFor(() => expect(request).toHaveBeenCalledWith("rotor_goto", { owner: "native_dcu1", generation: 4, bearing: 253, label: "W7AIT" }));
   expect(screen.getByLabelText("LP target bearing 253 degrees")).toBeTruthy();
   expect(within(screen.getByLabelText("Observed rotor bearing 53 degrees")).getByText("27,530 km")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Stop desk rotor" }));
-  await waitFor(() => expect(request).toHaveBeenCalledWith("rotor_stop", { owner: "native_dcu1", generation: 4 }));
-  expect(onManualRotor).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("button", { name: "Stop desk rotor" })).toBeNull();
+  expect(onManualRotor).toHaveBeenCalledTimes(1);
 });
-it("keeps callsign, observed bearing, selected target and distance inside the dial with controls below", async () => {
+it("keeps callsign, observed bearing, target, distance and SP/LP controls inside the responsive dial", async () => {
   render(<Harness />);
   const panel = screen.getByRole("region", { name: "Rotor" });
   const dial = within(panel).getByRole("img", { name: "Observed rotor bearing 53 degrees" });
   for (const text of ["W7AIT", "053°", "OBSERVED", "SP 73° TARGET", "12,500 km"]) expect(within(dial).getByText(text)).toBeTruthy();
   expect(panel.querySelector(".desk-rotor-target")).toBeNull();
-  expect(panel.lastElementChild?.className).toBe("desk-rotor-controls");
-  expect(panel.lastElementChild?.lastElementChild?.className).toBe("desk-rotor-actions");
+  expect(within(panel).getByRole("button", { name: "Turn rotor short path" })).toBeTruthy();
+  expect(within(panel).getByRole("button", { name: "Turn rotor long path" })).toBeTruthy();
+  expect(panel.querySelector(".desk-rotor-controls")).toBeNull();
+  expect(panel.querySelector(".desk-rotor-body > .rotor-dial-shell > .rotor-dial")).toBe(dial);
   fireEvent.click(within(panel).getByRole("button", { name: "Turn rotor long path" }));
   await waitFor(() => expect(within(dial).getByText("LP 253° TARGET")).toBeTruthy());
   expect(within(dial).getByText("27,530 km")).toBeTruthy();
   expect(within(dial).getByText("053°")).toBeTruthy();
-  const auto = within(panel).getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
-  fireEvent.click(auto);
-  expect(auto.checked).toBe(true);
+  expect(within(panel).queryByRole("checkbox", { name: "Auto rotor" })).toBeNull();
 });
 it("keeps unknown target and distance explicit inside the dial instead of using stale lookup data", () => {
   render(<Harness info={{ ...lookup, call: "OTHER" }} rotorState={{ ...rotor, state: "uncertain", backend_available: false }} />);
   const dial = screen.getByRole("img", { name: "Rotor bearing unavailable" });
-  for (const text of ["W7AIT", "---°", "NO TELEMETRY", "SP ---° TARGET", "Distance unavailable"]) expect(within(dial).getByText(text)).toBeTruthy();
+  for (const text of ["W7AIT", "---°", "NO TELEMETRY", "SP ---° TARGET"]) expect(within(dial).getByText(text)).toBeTruthy();
+  expect(within(dial).queryByText("Distance unavailable")).toBeNull();
   expect(dial.querySelector(".rotor-observed-needle")).toBeNull();
   expect(dial.querySelector(".rotor-target-marker")).toBeNull();
-  expect((screen.getByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement).disabled).toBe(true);
+  expect(screen.queryByRole("checkbox", { name: "Auto rotor" })).toBeNull();
 });
 it("derives LP distance with the native geodesy radius and rejects missing/impossible distances", () => {
   expect(rotorPathDistance(12500, "SP")).toBe(12500);
@@ -191,10 +191,10 @@ it("does not clear a new draft's manual MHz buffer when an old Read radio callba
   expect((screen.getByLabelText("Desk Frequency MHz") as HTMLInputElement).value).toBe("manual-invalid");
   expect(draft()).toMatchObject({ id: "new-draft", frequencyHz: 7025000 });
 });
-it("keeps explicit Stop available for uncertain ownership without showing cached bearing as live", async () => {
+it("removes the desk Stop while keeping uncertain ownership from exposing stale path motion", async () => {
   render(<Harness rotorState={{ ...rotor, state: "uncertain", backend_available: false }} />);
   expect(screen.getByLabelText("Rotor bearing unavailable")).toBeTruthy();
-  expect((screen.getByRole("button", { name: "Stop desk rotor" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.queryByRole("button", { name: "Stop desk rotor" })).toBeNull();
   expect((screen.getByRole("button", { name: "Turn rotor short path" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText("ROTOR OFFLINE", { exact: false })).toBeTruthy();
 });

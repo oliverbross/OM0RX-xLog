@@ -438,7 +438,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             window_menu_title(window.title), true,
             detached_window_shortcut(window.id))?)?;
     }
-    let band_maps = Submenu::new(app, "Open Band Map", true)?;
+    let band_maps = Submenu::new(app, "Band Maps", true)?;
     for band in workspace_windows::BAND_MAP_BANDS {
         band_maps.append(&MenuItem::with_id(app, format!("workspace_window_band-map-{band}"), format!("{band} Band Map"), true, None::<&str>)?)?;
     }
@@ -454,7 +454,7 @@ fn append_logbook_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri
             &screen.title, true, screen.shortcut.as_deref())?)?;
     }
     logbook.append(&MenuItem::with_id(app, LOGBOOK_OPEN_WINDOW_MENU_ID,
-        "Open Logbook Window", true, None::<&str>)?)?;
+        "Logbook", true, None::<&str>)?)?;
     logbook.append(&PredefinedMenuItem::separator(app)?)?;
     logbook.append(&MenuItem::with_id(app, LOGBOOK_IMPORT_ADIF_MENU_ID,
         "Import ADIF…", true, None::<&str>)?)?;
@@ -524,7 +524,7 @@ fn window_menu_includes(id: &str) -> bool {
 }
 
 fn window_menu_title(title: &str) -> String {
-    format!("Open {} Window", title.trim_start_matches("OM0RX-xLog — "))
+    title.trim_start_matches("OM0RX-xLog — ").to_string()
 }
 
 #[cfg(target_os = "macos")]
@@ -1877,8 +1877,8 @@ mod workspace_layout_tests {
         #[cfg(target_os = "macos")]
         assert!(!super::screen_group_menu_includes("settings"));
         assert!(super::screen_group_menu_includes("station-control"));
-        assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Open Logbook Window");
-        assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Open Settings Window");
+        assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Logbook");
+        assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Settings");
     }
 
     #[test]
