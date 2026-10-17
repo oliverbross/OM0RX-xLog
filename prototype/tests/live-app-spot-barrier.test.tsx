@@ -6,7 +6,7 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 import { contactEditFixture } from "./contact-edit-fixture";
 
 const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanvas: false,
-  nativeEditor: false, followEnabled: true, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
+  nativeEditor: false, followEnabled: true, activationReady: true, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
   readiness: null as null | ((snapshot: any) => { ready: boolean }),
   navigate: undefined as undefined | ((title: string) => void),
   dock: undefined as undefined | ((kind: string) => void),
@@ -41,7 +41,8 @@ vi.mock("../src/live/useAutoRotor", () => ({ useAutoRotor: () => ({ state: null,
 vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_radioId: string, _provider: string, changed: (value: any) => void) => {
   host.telemetry = changed; return () => { host.telemetry = undefined; };
 } }));
-vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, activate: host.activate, reconcile: vi.fn() }) }));
+vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false,
+  activate: host.activate, canActivate: () => host.activationReady, reconcile: vi.fn() }) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Synthetic map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Synthetic conditions</div> }));
 vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button><button onClick={() => onSelect({ id: "newest-report" })}>Select newest report</button></> }));
@@ -53,7 +54,7 @@ vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }
 
 beforeEach(() => {
   localStorage.clear(); host.request.mockReset(); host.activate.mockReset(); host.customCanvas = false;
-  host.nativeEditor = false; host.followEnabled = true; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
+  host.nativeEditor = false; host.followEnabled = true; host.activationReady = true; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
   host.navigate = undefined; host.dock = undefined; host.close = undefined; host.telemetry = undefined;
   const initial = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const draft = operatorDraftFixture(initial);
@@ -379,6 +380,23 @@ it("retains only the latest selection while an activation is in flight", async (
   await act(async () => complete());
   await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
   expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
+});
+
+it("drains the latest selection after a stale active reply when the client is ready", async () => {
+  let complete!: () => void;
+  host.activationReady = false;
+  host.activate.mockImplementationOnce(() => new Promise(resolve => { complete = () => {
+    host.activationReady = true;
+    resolve({ phase: "uncertain", reservationActive: true });
+  }; }));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  expect(host.activate).toHaveBeenCalledOnce();
+  await act(async () => complete());
+  await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
+  expect(host.activate).toHaveBeenLastCalledWith({ id: "newer-report" });
 });
 
 it.each(["uncertain", "failed"])("continues with the latest selection after a closed %s operation", async phase => {

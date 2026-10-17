@@ -1015,6 +1015,12 @@ function MainLiveApp() {
       disarmAutoRotor(); setView("Log QSO");
     } finally { editorTransition.current = false; }
   });
+  const drainLatestSpot = () => {
+    const queued = spotAwaitingActivation.current;
+    if (!queued || activationStarted.current || !spotActivation.canActivate()) return;
+    spotAwaitingActivation.current = null;
+    window.setTimeout(() => selectSpotRef.current(queued), 0);
+  };
   const selectSpot = (spot: Data) => {
     if (monitor) return;
     const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
@@ -1086,15 +1092,10 @@ function MainLiveApp() {
       void preparation.then(() => {
         if (selection.current !== generation) return;
         activationStarted.current = true;
-        return Promise.resolve(spotActivation.activate(spot)).then(result => {
-          const queued = spotAwaitingActivation.current;
-          const safeToAdvance = !result || result.reservationActive !== true;
-          if (queued && safeToAdvance) {
-            spotAwaitingActivation.current = null;
-            window.setTimeout(() => selectSpotRef.current(queued), 0);
-          }
-          return result;
-        }).finally(() => { activationStarted.current = false; });
+        return Promise.resolve(spotActivation.activate(spot)).finally(() => {
+          activationStarted.current = false;
+          drainLatestSpot();
+        });
       }).catch(cause => {
         const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
         if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
@@ -1105,11 +1106,7 @@ function MainLiveApp() {
   const spotReservationActive = spotActivation.status?.phase === "idle" || !spotActivation.status
     ? false : spotActivation.status.reservationActive === true;
   useEffect(() => {
-    const queued = spotAwaitingActivation.current;
-    if (!queued || activationStarted.current || spotActivation.requesting ||
-        spotReservationActive) return;
-    spotAwaitingActivation.current = null;
-    window.setTimeout(() => selectSpotRef.current(queued), 0);
+    if (!spotActivation.requesting && !spotReservationActive) drainLatestSpot();
   }, [spotActivation.requesting, spotActivation.status?.operationId, spotActivation.status?.phase, spotReservationActive]);
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&

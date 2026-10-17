@@ -44,6 +44,19 @@ it("rejects overlapping clicks and never lets a late activation reply roll a ver
   await client.refresh(); held.resolve({ operationId, phase: "tuning" }); await activating;
   expect(client.getSnapshot().status?.phase).toBe("confirmed"); expect(call.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1);
 });
+it("becomes ready after native retirement even when the older activation reply is stale", async () => {
+  const held = deferred<any>();
+  const call = vi.fn((command: string) => command === "activate_spot" ? held.promise : Promise.resolve(result("uncertain")));
+  const client = new SpotActivationClient(call, () => operationId);
+  const activating = client.activate(report);
+  expect(client.canActivate()).toBe(false);
+  await client.refresh();
+  expect(client.canActivate()).toBe(false);
+  held.resolve(result("uncertain", true));
+  await activating;
+  expect(client.getSnapshot().status?.phase).toBe("idle");
+  expect(client.canActivate()).toBe(true);
+});
 it("does not reuse an old operation's checked permission for a newly observed uncertain operation", async () => {
   const call = vi.fn().mockResolvedValue(result("uncertain")), client = new SpotActivationClient(call, () => operationId);
   await client.activate(report); await client.reconcile();
