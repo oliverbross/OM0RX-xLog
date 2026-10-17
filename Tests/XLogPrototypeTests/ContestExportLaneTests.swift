@@ -32,6 +32,22 @@ final class ContestExportLaneTests: XCTestCase {
         }
     }
 
+    func testActualServiceRejectsClassicOverlayForPilotTwoCabrillo() async throws {
+        let fixture = try await makeFixture()
+        let lane = ContestExportLane(service: ContestExportService(repository: fixture.store)) { [generation] in generation }
+        let request = ContestExportPrepareRequest(exportID: fixedUUID(103), sessionID: fixture.sessionID,
+            workspaceGeneration: generation, expectedRevision: fixture.revision,
+            generatedAtUTC: baseDate.addingTimeInterval(60), format: .cabrillo,
+            header: header(overlay: "CLASSIC"))
+
+        do {
+            _ = try await lane.prepare(request)
+            XCTFail("Expected pilot-2 Cabrillo export to reject CLASSIC overlay")
+        } catch {
+            XCTAssertEqual(error as? ContestExportServiceError, .invalidExportInput)
+        }
+    }
+
     func testReplayKeepsHistoricalBytesAfterWriterAndChangedRequestConflicts() async throws {
         let fixture = try await makeFixture()
         let lane = ContestExportLane(service: ContestExportService(repository: fixture.store)) { [generation] in generation }
@@ -512,10 +528,10 @@ final class ContestExportLaneTests: XCTestCase {
               generatedAtUTC: baseDate, format: .cabrillo, header: header())
     }
 
-    private func header() -> CabrilloHeader {
+    private func header(overlay: String? = nil) -> CabrilloHeader {
         .init(callsign: "OM0RX", categoryOperator: "SINGLE-OP", categoryAssisted: "NON-ASSISTED",
               categoryBand: "ALL", categoryMode: "CW", categoryTransmitter: "ONE", categoryPower: "LOW",
-              categoryOverlay: "CLASSIC", operators: ["OM0RX"], location: "DX", club: "OM CONTEST CLUB",
+              categoryOverlay: overlay, operators: ["OM0RX"], location: "DX", club: "OM CONTEST CLUB",
               name: "Oliver Operator", addressLines: ["Test Street 1"], email: "operator@example.test")
     }
 
@@ -543,14 +559,20 @@ final class ContestExportLaneTests: XCTestCase {
     }
 
     private func wire(_ request: ContestExportPrepareRequest) -> [String: Any] {
-        ["exportID": wireID(request.exportID), "sessionID": wireID(request.sessionID),
-         "workspaceGeneration": wireID(request.workspaceGeneration), "expectedRevision": request.expectedRevision,
-         "generatedAtUTC": "2027-01-15T08:01:00.000Z", "format": request.format.rawValue,
-         "header": ["callsign": "OM0RX", "categoryOperator": "SINGLE-OP", "categoryAssisted": "NON-ASSISTED",
-                    "categoryBand": "ALL", "categoryMode": "CW", "categoryTransmitter": "ONE",
-                    "categoryPower": "LOW", "categoryOverlay": "CLASSIC", "operators": ["OM0RX"],
-                    "location": "DX", "club": "OM CONTEST CLUB", "name": "Oliver Operator",
-                    "addressLines": ["Test Street 1"], "email": "operator@example.test"]]
+        var header: [String: Any] = [
+            "callsign": request.header.callsign, "categoryOperator": request.header.categoryOperator,
+            "categoryAssisted": request.header.categoryAssisted, "categoryBand": request.header.categoryBand,
+            "categoryMode": request.header.categoryMode, "categoryTransmitter": request.header.categoryTransmitter,
+            "categoryPower": request.header.categoryPower, "operators": request.header.operators,
+            "location": request.header.location, "name": request.header.name,
+            "addressLines": request.header.addressLines, "email": request.header.email
+        ]
+        if let overlay = request.header.categoryOverlay { header["categoryOverlay"] = overlay }
+        if let club = request.header.club { header["club"] = club }
+        return ["exportID": wireID(request.exportID), "sessionID": wireID(request.sessionID),
+                "workspaceGeneration": wireID(request.workspaceGeneration), "expectedRevision": request.expectedRevision,
+                "generatedAtUTC": "2027-01-15T08:01:00.000Z", "format": request.format.rawValue,
+                "header": header]
     }
 
     private func wireID(_ value: UUID) -> String { value.uuidString.lowercased() }

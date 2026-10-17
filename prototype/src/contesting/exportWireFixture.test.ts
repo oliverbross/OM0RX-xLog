@@ -45,6 +45,8 @@ describe("Swift contest export worker wire fixture", () => {
 
     const prepared = await client.prepareExport(fixture.requests.prepare);
     const replayed = await client.prepareExport(fixture.requests.prepare);
+    expect(prepared.formatterVersion).toBe("pilot-2");
+    expect(prepared.sha256).toBe("5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1");
     expect(fixture.assertions.replayResultExactlyEqual).toBe(true);
     expect(fixture.assertions.prepareDidNotAdvanceRevision).toBe(true);
     expect(fixture.assertions.historicalReadAfterLaterMutation).toBe(true);
