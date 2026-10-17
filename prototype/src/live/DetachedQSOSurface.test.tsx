@@ -302,8 +302,9 @@ it("retains explicit lookup Fill in Simple without overwriting entered fields", 
 });
 
 it("retains an uncertain Save across remount and checks its receipt without creating a second QSO", async () => {
-  const f = backend(); let lose = true;
+  const f = backend(); let lose = true, receiptAvailable = false;
   api.draft.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_receipt" && !receiptAvailable) throw new Error("Receipt transport unavailable");
     const result = await f.request(method, params);
     if (method === "logbook_operator_draft_apply" && params.action === "save" && lose) { lose = false; throw new Error("Lost acknowledgement"); }
     return result;
@@ -315,6 +316,7 @@ it("retains an uncertain Save across remount and checks its receipt without crea
   await screen.findByText(/Draft acknowledgement unavailable/);
   expect(f.contacts).toHaveLength(1); expect(api.blocked!()).toBe(true);
   const operation = journal().pending.operationID;
+  receiptAvailable = true;
   first.unmount(); render(<DetachedQSOSurface />);
   await waitFor(() => expect(journal().pending).toBeNull());
   expect(f.contacts).toHaveLength(1); expect(api.blocked!()).toBe(false);

@@ -320,13 +320,21 @@ export class OperatorDraftSession {
         throw new Error(this.state.error);
       }
       if (result?.status !== "applied") throw new Error("The draft result could not be verified.");
+      if (validScopedSnapshot(result.receipt?.draft) && !sameGeneration(result.receipt.draft.generation, mutation.generation)) {
+        // An explicitly cross-workspace acknowledgement is terminal evidence,
+        // not an ordinary lost reply. Never use an old receipt to re-enable
+        // Read radio or another operation in the replacement workspace.
+        this.changedWorkspace();
+        throw new Error(workspaceChangedMessage);
+      }
       const receipt = this.verifiedReceipt(result.receipt, mutation);
       this.acceptReceipt(receipt, version, sentPowerIntentID);
       return receipt.savedQSO ?? null;
     } catch (cause) {
-      if (lifecycle === this.lifecycle && this.state.pending && cause instanceof DraftRequestRejected) {
-        // Even a worker error may follow a committed Save whose subsequent
-        // aggregate refresh failed. The durable receipt is the authority.
+      if (lifecycle === this.lifecycle && this.state.pending && !this.state.workspaceChanged) {
+        // Any lost/invalid acknowledgement may follow a committed Save. The
+        // durable receipt is authoritative; an absent receipt keeps the exact
+        // operation pending for the operator's explicit same-ID retry.
         try {
           const checked = await this.request("logbook_operator_draft_receipt", { operationID: mutation.operationID, generation: mutation.generation });
           if (lifecycle !== this.lifecycle) throw new Error("Workspace changed.");
@@ -336,7 +344,8 @@ export class OperatorDraftSession {
             this.acceptReceipt(receipt, version, sentPowerIntentID);
             return receipt.savedQSO ?? null;
           }
-          if (checked?.receipt === null) this.update({ pending: null, pendingPowerIntentID: null, locked: false, error: cause.message });
+          if (checked?.receipt === null && cause instanceof DraftRequestRejected)
+            this.update({ pending: null, pendingPowerIntentID: null, locked: false, error: cause.message });
         } catch { /* An unverified receipt leaves the original operation pending. */ }
       }
       if (lifecycle === this.lifecycle && this.state.pending && !this.state.workspaceChanged)

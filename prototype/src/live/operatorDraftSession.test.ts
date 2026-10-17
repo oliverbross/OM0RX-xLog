@@ -122,9 +122,11 @@ it("does not reconcile an old Save receipt as a current-workspace acknowledgemen
   f.request.mockImplementation(async (method, params) => {
     const result = await backend(method, params);
     if (method === "logbook_operator_draft_apply" && params.action === "save") throw new Error("Lost acknowledgement");
+    if (method === "logbook_operator_draft_receipt") throw new Error("Receipt transport unavailable");
     return result;
   });
   await expect(session.commit("save")).rejects.toThrow("Lost");
+  f.request.mockImplementation(backend);
   f.current.generation = crypto.randomUUID();
   const restarted = f.make(f.journal); await restarted.load();
   expect(restarted.getSnapshot()).toMatchObject({ workspaceChanged: true, draft: { call: "K1ABC" } });
@@ -192,12 +194,14 @@ describe("workspace operator draft client", () => {
     f.request.mockImplementation(async (method, params) => {
       const result = await backend(method, params);
       if (method === "logbook_operator_draft_apply" && params?.action === "save") throw new Error("IPC lost");
+      if (method === "logbook_operator_draft_receipt") throw new Error("Receipt transport unavailable");
       return result;
     });
     await expect(session.commit("save")).rejects.toThrow("IPC lost");
     expect(f.journal?.pending?.action).toBe("save");
     expect(session.getSnapshot().locked).toBe(true);
     const calls = f.request.mock.calls.length;
+    f.request.mockImplementation(backend);
     const restored = f.make(readDraftJournal(JSON.stringify(f.journal)));
     await restored.load();
     expect(f.contacts).toHaveLength(1);
@@ -249,6 +253,17 @@ describe("workspace operator draft client", () => {
     });
     expect((await session.commit("save"))?.call).toBe("K1ABC"); expect(f.contacts).toHaveLength(1);
   });
+  it("recovers a committed operation after an ordinary lost acknowledgement", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => {
+      const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply" && params?.action === "save") throw new Error("IPC lost after commit");
+      return result;
+    });
+    expect((await session.commit("save"))?.call).toBe("K1ABC");
+    expect(session.getSnapshot().pending).toBeNull(); expect(f.contacts).toHaveLength(1);
+  });
   it("does not send an operation when recovery storage cannot persist its identity", async () => {
     const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC");
     f.write.mockImplementation(() => { throw new Error("disk full"); });
@@ -260,8 +275,10 @@ describe("workspace operator draft client", () => {
     const f = fixture(), session = f.make(); await session.load(); type(session, "K1A");
     const backend = f.request.getMockImplementation()!;
     f.request.mockImplementation(async (method, params) => { const result = await backend(method, params);
-      if (method === "logbook_operator_draft_apply") throw new Error("lost ack"); return result; });
+      if (method === "logbook_operator_draft_apply") throw new Error("lost ack");
+      if (method === "logbook_operator_draft_receipt") throw new Error("receipt unavailable"); return result; });
     await expect(session.flush()).rejects.toThrow(); type(session, "K1ABC");
+    f.request.mockImplementation(backend);
     const restored = f.make(readDraftJournal(JSON.stringify(f.journal))); await restored.load();
     expect(restored.getSnapshot().draft?.call).toBe("K1ABC"); expect(restored.dirty).toBe(true);
   });
@@ -281,7 +298,7 @@ describe("workspace operator draft client", () => {
     expect(second.getSnapshot().draft?.call).toBe("OM0RX");
     expect(second.getSnapshot().conflict?.qso.call).toBe("");
   });
-  it("refuses a mismatched receipt while retaining recovery identity and local text", async () => {
+  it("recovers a mismatched direct acknowledgement from the durable receipt", async () => {
     const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
     const backend = f.request.getMockImplementation()!;
     f.request.mockImplementation(async (method, params) => {
@@ -289,14 +306,15 @@ describe("workspace operator draft client", () => {
       if (method === "logbook_operator_draft_apply") result.receipt.mutation.operationID = "wrong-operation";
       return result;
     });
-    await expect(session.flush()).rejects.toThrow("verified");
-    expect(session.getSnapshot().draft?.call).toBe("OM0RX"); expect(session.getSnapshot().pending).not.toBeNull();
+    await expect(session.flush()).resolves.toBeUndefined();
+    expect(session.getSnapshot().draft?.call).toBe("OM0RX"); expect(session.getSnapshot().pending).toBeNull();
   });
   it("fetches current state after a historical receipt, without rolling back newer remote text", async () => {
     const f = fixture(), session = f.make(); await session.load(); type(session, "OM0RX");
     const backend = f.request.getMockImplementation()!;
     f.request.mockImplementation(async (method, params) => { const result = await backend(method, params);
-      if (method === "logbook_operator_draft_apply") throw new Error("lost ack"); return result; });
+      if (method === "logbook_operator_draft_apply") throw new Error("lost ack");
+      if (method === "logbook_operator_draft_receipt") throw new Error("receipt unavailable"); return result; });
     await expect(session.flush()).rejects.toThrow(); const journal = copy(f.journal);
     f.request.mockImplementation(backend);
     const other = f.make(); await other.load(); type(other, "W1AW"); await other.flush();

@@ -148,14 +148,16 @@ it("retries a not-delivered empty manual intent with its exact operation and pay
 });
 
 it("retains an identical newer manual intent after lost acknowledgement and restart", async () => {
-  const f = fixture(), session = f.make(); await session.load(); session.setManualPower("42");
+  const f = fixture(), session = f.make(); await session.load(); session.setManualPower("42"); let receiptAvailable = false;
   const backend = f.request.getMockImplementation()!;
-  f.request.mockImplementation(async (method, params) => { const result = await backend(method, params);
+  f.request.mockImplementation(async (method, params) => { if (method === "logbook_operator_draft_receipt" && !receiptAvailable) throw new Error("receipt unavailable");
+    const result = await backend(method, params);
     if (method === "logbook_operator_draft_apply") throw new Error("lost ack"); return result; });
   await expect(session.flush()).rejects.toThrow("lost ack");
   const pendingID = session.getSnapshot().pendingPowerIntentID;
   session.setManualPower("42");
   expect(session.getSnapshot().powerIntentID).not.toBe(pendingID);
+  receiptAvailable = true;
   const restored = f.make(readDraftJournal(JSON.stringify(f.journal))); await restored.load();
   expect(restored.getSnapshot().pending).toBeNull(); expect(restored.getSnapshot().powerIntent).toEqual({ action: "manual", value: "42" });
   expect(restored.dirty).toBe(true); expect(restored.getSnapshot().conflict).toBeNull();
