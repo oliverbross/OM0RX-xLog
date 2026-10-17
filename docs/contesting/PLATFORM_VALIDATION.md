@@ -58,7 +58,11 @@ version, and the outcome of both focused test commands before marking an
 operating system complete. A later failure does not erase an earlier native
 result at its recorded commit, but it does not validate the newer source.
 
-| Platform | Required job | Current status |
+## Historical snapshot baseline
+
+The following table records the earlier `478269e` baseline. The later six-job acceptance below supersedes its Windows publication limitation for source `f724f73` only.
+
+| Platform | Required job | Historical status |
 | --- | --- | --- |
 | macOS 14 | `Contest tests (macos-14)` | Passed at `478269e9adce94d1eec8ec9f7282c9e7406e8b54`: 23 core/export and 44 store/snapshot tests, Apple Swift 6.0.3 / Xcode 16.2. [Job 117415329219](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39039297251/job/117415329219). |
 | Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed at `478269e9adce94d1eec8ec9f7282c9e7406e8b54`: 23 core/export and 44 store/snapshot tests, Swift 6.3.3. [Job 117415328940](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39039297251/job/117415328940). |
@@ -83,15 +87,14 @@ These are native Swift compile-and-test results for the workflow's portable
 manifest. They do not prove a packaged application, renderer or worker runtime,
 installation, device access, radio behavior, or end-to-end contest operation.
 
-## Export extension pending validation
+## Export extension scope
 
 The workflow source now requests four additional portable Swift classes on all
 three runners: `ContestADIFExportTests`, `ContestExportServiceTests`,
 `ContestExportLaneTests`, and `ContestExportWorkerWireTests`. It also requests a
 three-platform, nonpackaging native Rust job limited to
-`contest_export::tests::`. No hosted run for this extension is recorded yet.
-Until a run at the exact integrated commit passes, the existing platform table
-continues to describe only its recorded source and commands.
+`contest_export::tests::`. These extensions passed at `f724f73`, as recorded
+below; the earlier platform table describes only its historical source.
 
 The native job proves compilation of the desktop binary under the Test feature
 and the injected memory/filesystem save behaviors covered by the filtered unit
@@ -137,3 +140,44 @@ reports access denied. There are no publication skips hiding this failure.
 Native publication remains unaccepted pending repair and a successful rerun.
 Later Windows backup-presentation/ConnectionDoctor steps did not run after the
 snapshot failure and receive no fresh acceptance claim at this source.
+
+## Accepted snapshot publication, SSB core and export test matrix
+
+[Run 39047313889](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889)
+passed all six jobs at `f724f73684d80c1ccf205fc35fc777377b965543` on
+`codex/contest-ssb`. Actual job logs confirm the following executed counts:
+
+| Runner | Swift toolchain | Swift tests | Native Rust export tests | Jobs |
+| --- | --- | --- | --- | --- |
+| macOS 14, arm64 | Apple Swift 6.0.3, Xcode 16.2 | 38 core, 47 store/snapshot, 27 export support | 18 passed | [Swift 117438543721](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889/job/117438543721), [Rust 117438543553](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889/job/117438543553) |
+| Ubuntu 24.04, x86_64 | Swift 6.3.3 | 38 core, 47 store/snapshot, 27 export support | 18 passed | [Swift 117438543734](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889/job/117438543734), [Rust 117438543767](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889/job/117438543767) |
+| Windows Server 2022, x86_64 | Swift 6.3.3 | 38 core, 52 store/snapshot, 27 export support, 6 ConnectionDoctor, 8 backup presentation | 18 passed | [Swift 117438543786](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889/job/117438543786), [Rust 117438543630](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047313889/job/117438543630) |
+
+Windows executed all **17 snapshot tests with zero skips**, plus 3 SSB store
+and 32 existing store tests. macOS/Linux executed 12 snapshot, 3 SSB store and
+32 existing store tests. This closes the observed Windows snapshot publication
+test defects, including exact-name publication and cleanup, at this source.
+The preceding repairs use an identity-verified cleanup handle and a terminated
+UTF-16 rename buffer whose byte length excludes the terminator.
+
+Export support comprises 5 ADIF, 8 service, 11 lane and 3 worker-wire tests.
+These still exercise the existing CW adapter paths: the newer four-pilot
+worker/UI integration is not part of this accepted SHA. The SSB core/store
+tests are included. Native Rust tests validate injected save behavior, not a
+real native save dialog or packaged-app operation. This source excludes the
+later SCP and Oceania changes.
+
+## SCP fixture checkout follow-up
+
+[Run 39047583727](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39047583727)
+at `3b0019d6d48d4c4ea3215e59852085929a03b1d0` passed macOS/Linux Swift
+and all three native Rust jobs. Windows Swift job `117439354645` failed one
+of 10 SCP tests with `digestMismatch`; all other core classes passed (40 total,
+one failure), and later store/export steps were not reached. A temporary Git
+checkout with `core.autocrlf=true` independently reproduced the fixture changing
+from 124 LF bytes (SHA-256 `6510d5f2076e8bec2e268290a24a5f6d963a2d6d30a4701e8dd667394b383855`)
+to 138 CRLF bytes. Reviewed fix `1b54a85`, integrated at `b7e442a`, pins only
+this fixture to `text eol=lf`; production raw-byte digest verification is
+unchanged. The same checkout experiment then preserved the expected bytes.
+Fresh native CI is required for this repair; no passing Windows SCP claim is
+made from the checkout experiment alone.
