@@ -1,7 +1,7 @@
 # OM0RX-xLog Contesting — porting and delivery plan
 
 **Date:** 17 October 2026, Australia/Darwin  
-**Status:** IN PROGRESS — eight catalog rule previews; three additional NAQP core/export previews remain inactive; full 94-entry, feature, operator, package and sponsor-rule gates remain open
+**Status:** IN PROGRESS — eleven catalog rule previews; full 94-entry, feature, operator, package and sponsor-rule gates remain open
 **Product owner:** Oliver Bross, OM0RX  
 **Delivery owner:** this contesting chat, alongside **OM0RX-xLog main**  
 **Source:** [oliverbross/contest-sw](https://github.com/oliverbross/contest-sw), a fork of Not1MM  
@@ -19,9 +19,9 @@ Operator acceptance must exercise CW and SSB Run and Search & Pounce, realistic 
 
 | Area | Current evidence and next gate |
 | --- | --- |
-| Integrated source | `codex/contesting-foundation`, reviewed application source at `420774651dd8dd593e28ce1e56b4f1641daa4097`; all completed commits pushed |
-| Contest coverage | Six source-derived pilots plus two official-corrected SAC previews in the catalog; 86 source entries remain pending operational acceptance in the 94-entry ledger |
-| NAQP CW/SSB/RTTY | Core and versioned exports integrated; all six native jobs passed at foundation `ed1ad38`. Entry review requires real worker/client blank-map compatibility, descriptor-aware aggregate bounds, strict v2 metadata admission and mixed-case station normalization; repairs are in progress before registration |
+| Integrated source | `codex/contesting-foundation` combines reviewed NAQP entry `d221072` with ARRL foundation `4207746`; the merge preserves both reviewed policies and WPX operator continuation |
+| Contest coverage | Six source-derived pilots, two SAC previews and three NAQP plain-logging previews are registered; the three new NAQP ledger dispositions need refresh. Registration does not close operational acceptance for any of the 94 entries |
+| NAQP CW/SSB/RTTY | Reviewed worker and structured UI entry `d221072` is integrated after 39 affected Swift tests, 144 contesting frontend tests and build checks. Real generated lifecycle replies cover blank/partial/reset/reopen/mixed-case and recovery paths. Full operator and latest native matrix gates remain open |
 | ARRL RTTY Roundup | Inactive rule and station-resolved serial foundation approved and pushed at `5f93441`; all six hosted native jobs passed, including the new six core/three store tests on each OS. Versioned export implementation is in progress; no catalog activation |
 | SCP | Import/query/select and current-draft integration reviewed; all six native jobs passed at `89d1b56`; actual native chooser/package operator acceptance remains open |
 | Operator flow | WPX successor-readiness repair is integrated. Reviewed harness `f72d4f7` passed its fresh clean-source four-case gate: eight contacts, six reservations, four exports, invalid exchanges and restart/edit/delete actions. Eight-case and semantic-export expansion is in progress; [bounded evidence](contesting/OPERATOR_ACCEPTANCE_CHECKPOINT_f72d4f7.md) records the remaining limits |
@@ -204,6 +204,8 @@ ARRL RTTY Roundup source is Astra-approved and pushed at `5f93441`. Re-review in
 Foundation integration of `5f93441` passed nine focused native core/store tests and 32 portable-manifest integration tests: six ARRL core, three ARRL store, 16 lifecycle, four SCP worker and three export wire. Raw logs are `/tmp/xlog-arrl-policy-integration.log`, `/tmp/xlog-arrl-policy-integration-portable.log` and `/tmp/xlog-arrl-policy-integration-export-wire.log`. The first command's native manifest does not include prototype worker targets; those were explicitly executed under the portable manifest. Hosted policy run `39061073845` is still pending at this checkpoint.
 
 The full-host operator watchdog repair is Astra-approved and pushed at `f72d4f76052f0996bc5897ce8d0d0e407a64961e`. Its outer runner bounds the owned XCTest process group, drains bounded output, escalates TERM to KILL and verifies cleanup. Independent response/shutdown stall and TERM-ignoring descendant probes passed. The provisional dirty-source gate recorded 102 ordinary frames plus two lifecycle frames, eight commits, six reservations, four exports and four settled invalid-exchange checks; protected database metadata was unchanged. A new clean-commit compilation and run is required and is in progress. The next expansion must exercise both operating styles for every profile, independently check export fields and verify scores after correction/deletion; the current four-case gate does not cover those requirements.
+
+NAQP entry is approved and pushed at `d22107292532a8f77737b4fcf68134f547ca7be4`. Review closed sparse-map worker/client incompatibility, long-name aggregate limits, mixed-case immutable station normalization, malformed v2 descriptors and crossed v1 recovery shapes. Actual generated DX lifecycle frames are consumed through ContestClient. The worker registers all three NAQP modes as plain-logging previews; the original eight scalar-entry identities remain unchanged. Typed multiplier display labels replace internal keys without altering score identities. Integration retained both ARRL station-resolved serial validation and NAQP descriptor bounds, plus the complete WPX continuation. Astra approved the resolved merge after 39 affected Swift and 144 frontend tests and the production build. Root logs are `/tmp/naqp-arrl-integrated-{swift,ts,build}.log`. The clean operator checkpoint remains separately recorded at `f72d4f7`; it does not exercise this NAQP entry change.
 
 ## 1. Review decision
 

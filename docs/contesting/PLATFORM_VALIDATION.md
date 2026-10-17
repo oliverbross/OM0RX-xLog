@@ -462,3 +462,9 @@ three ARRL store, 16 lane, four SCP worker, three export wire), plus nine
 focused core/store tests through the native manifest. Its own matrix is
 [run 39061421629](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39061421629),
 pending at this checkpoint. Neither source registers ARRL in the catalog.
+
+Foundation run `39061421629` subsequently passed all six jobs at `4207746`.
+Verified job conclusions: Swift macOS `117480012700`, Linux `117480012912`,
+Windows `117480012833`; Rust macOS `117480012965`, Linux `117480012886`,
+Windows `117480012860`. This closes that foundation checkpoint before the
+later NAQP worker/UI merge; no additional per-suite counts are inferred here.

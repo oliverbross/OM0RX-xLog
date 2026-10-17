@@ -10,6 +10,10 @@ type WireFixture = {
     { reserve?: ContestWorkerResponse<unknown> };
   assertions: { replayResultExactlyEqual: boolean; qsoChangeReplayAfterDeleteExactlyEqual: boolean; allContestUUIDsCanonicalLowercase: boolean };
   provenance: { liveWorkerResponses: string[]; postCommitUncertain: string };
+  naqp: {
+    requests: Record<"create" | "partial" | "reset" | "open" | "complete" | "commit", Record<string, unknown>>;
+    responses: Record<"create" | "partial" | "reset" | "open" | "complete" | "commit", ContestWorkerResponse<unknown>>;
+  };
 };
 
 const fixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/contesting-worker-wire.json", import.meta.url), "utf8")) as WireFixture;
@@ -34,7 +38,7 @@ function createInput(): ContestCreateInput {
 
 describe("Swift contest worker wire fixture", () => {
   it("parses the generated create, reserve, apply, commit, and exact replay lifecycle", async () => {
-    expect(fixture.schemaVersion).toBe(6);
+    expect(fixture.schemaVersion).toBe(7);
     expect(fixture.provenance.liveWorkerResponses).toContain("reserve");
     expect(fixture.provenance.postCommitUncertain).toBe("actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response");
     expect(fixture.assertions.allContestUUIDsCanonicalLowercase).toBe(true);
@@ -69,7 +73,7 @@ describe("Swift contest worker wire fixture", () => {
     );
 
     const catalog = await client.catalog();
-    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"]));
+    expect(new Set(catalog.rules.map(rule => rule.identity.id))).toEqual(new Set(["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "naqp-rtty"]));
     const entries = Object.fromEntries(catalog.rules.map(rule => [rule.identity.id,
       [rule.entryDescriptorVersion, rule.mode, rule.entry.cabrilloQSOType, rule.entry.report.defaultSent, rule.entry.serial.requirement]]));
     expect(entries).toEqual({
@@ -77,6 +81,8 @@ describe("Swift contest worker wire fixture", () => {
       "cq-ww-ssb": [1, "SSB", "PH", "59", "none"], "cq-wpx-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
       "oceania-dx-cw": [1, "CW", "CW", "599", "requiredForCommit"], "oceania-dx-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
       "sac-cw": [1, "CW", "CW", "599", "requiredForCommit"], "sac-ssb": [1, "SSB", "PH", "59", "requiredForCommit"],
+      "naqp-cw": [2, "CW", "CW", "", "none"], "naqp-ssb": [2, "SSB", "PH", "", "none"],
+      "naqp-rtty": [2, "RTTY", "RY", "", "none"],
     });
     const created = await client.create(catalog.workspaceGeneration, createInput());
     const reserved = await client.reserveSerial(created.session, created.draft.draftID);
@@ -98,6 +104,81 @@ describe("Swift contest worker wire fixture", () => {
     expect(fixture.responses.qsoGet.ok).toBe(true);
     expect(replayed).toEqual(committed);
     expect(request).toHaveBeenCalledTimes(6);
+  });
+
+  it("parses the generated NAQP create, partial, reset, reopen, and commit lifecycle through ContestClient", async () => {
+    const sequence: Array<keyof WireFixture["naqp"]["requests"]> = ["create", "partial", "reset", "open", "complete", "commit"];
+    const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+      const key = sequence.shift();
+      expect(key).toBeDefined();
+      expect(method).toBe(key === "create" ? "contest_create" : key === "partial" || key === "reset" || key === "complete" ? "contest_draft_apply" : key === "open" ? "contest_open" : "contest_qso_commit");
+      expect(params).toEqual(fixture.naqp.requests[key!]);
+      return fixture.naqp.responses[key!];
+    }) as ContestRequest;
+    const ids = [fixture.naqp.requests.create.sessionID as string,
+      ...["create", "partial", "reset", "complete", "commit"].map(key => fixture.naqp.requests[key as keyof WireFixture["naqp"]["requests"]].requestID as string)];
+    const digests = ["create", "partial", "reset", "complete", "commit"].map(key => fixture.naqp.requests[key as keyof WireFixture["naqp"]["requests"]].payloadDigest as string);
+    const timestamps = ["create", "partial", "reset", "complete", "commit"].map(key => fixture.naqp.requests[key as keyof WireFixture["naqp"]["requests"]].operationTimestamp as string);
+    const client = new ContestClient(request, () => ids.shift()!, async () => digests.shift()!, undefined, () => timestamps.shift()!);
+    const catalogResult = fixture.responses.catalog.ok ? fixture.responses.catalog.result as { workspaceGeneration: string; rules: ContestSessionSummary["rule"][] } : null;
+    if (!catalogResult) throw new Error("Generated catalog fixture is unavailable.");
+    const { sessionID: _sessionID, ...createInput } = fixture.naqp.requests.create.payload as ContestCreateInput & { sessionID: string };
+    const created = await client.create(catalogResult.workspaceGeneration, createInput);
+    expect(created.session.station.exchangeFields).toEqual({ name: "AL", location: "" });
+    expect(created.draft.fields.receivedExchangeFields).toEqual({ name: "", location: "" });
+    const partial = await client.applyDraft(created.session, created.draft.draftID,
+      (fixture.naqp.requests.partial.payload as { fields: ContestDraftFields }).fields);
+    expect(partial.draft.fields.receivedExchangeFields).toEqual({ name: "Sam", location: "" });
+    expect(partial.draft.validation.errors.length).toBeGreaterThan(0);
+    const reset = await client.applyDraft(partial.session, partial.draft.draftID,
+      (fixture.naqp.requests.reset.payload as { fields: ContestDraftFields }).fields);
+    expect(reset.draft.fields.receivedExchangeFields).toEqual({ name: "", location: "" });
+    const reopened = await client.open(reset.session.sessionID, reset.session.workspaceGeneration);
+    expect(reopened.draft.fields).toEqual(reset.draft.fields);
+    const completed = await client.applyDraft(reopened.session, reopened.draft.draftID,
+      (fixture.naqp.requests.complete.payload as { fields: ContestDraftFields }).fields);
+    const committed = await client.commitQSO(completed.session, completed.draft.draftID);
+    expect(committed.qso).toMatchObject({ sentExchange: "AL", receivedExchange: "Sam ca" });
+    expect(committed.draft.fields.receivedExchangeFields).toEqual({ name: "", location: "" });
+    expect(sequence).toHaveLength(0);
+  });
+
+  it("rejects each incoherent NAQP v2 descriptor mutation from the generated catalog", async () => {
+    const mutations: Array<(entry: Record<string, any>) => void> = [
+      entry => { entry.report.format = "cwRST"; },
+      entry => { entry.report.defaultSent = "599"; },
+      entry => { entry.report.maximumUTF8Bytes = 3; },
+      entry => { entry.adifMode = "RTTY"; },
+      entry => { entry.cabrilloQSOType = "RY"; },
+      entry => { entry.cabrilloFormatterVersion = "pilot-1"; },
+      entry => { entry.modeProfiles[0].adifSubmode = {}; },
+      entry => { entry.exchange.sentFields = []; },
+      entry => { entry.exchange.sentFields.reverse(); },
+      entry => { entry.exchange.sentFields[0].acceptedKinds = ["subdivision"]; },
+      entry => { entry.exchange.sentFields[1].required = true; },
+      entry => { entry.exchange.receivedFields[1].adifField = "MY_STATE"; },
+      entry => { entry.exchange.receivedFields[0].maximumUTF8Bytes = 31; },
+    ];
+    for (const mutate of mutations) {
+      const frame = structuredClone(fixture.responses.catalog) as ContestWorkerResponse<unknown>;
+      if (!frame.ok) throw new Error("Generated catalog fixture is unavailable.");
+      const result = frame.result as { rules: Array<{ identity: { id: string }; entry: Record<string, any> }> };
+      const rule = result.rules.find(item => item.identity.id === "naqp-cw");
+      if (!rule) throw new Error("Generated NAQP rule is unavailable.");
+      mutate(rule.entry);
+      await expect(new ContestClient(vi.fn(async () => frame) as ContestRequest).catalog()).rejects.toThrow("Malformed or stale contest_catalog response");
+    }
+  });
+
+  it("rejects a generated legacy WPX reply crossed with an oversized structured draft shape", async () => {
+    if (!fixture.responses.create.ok) throw new Error("Generated WPX create fixture is unavailable.");
+    const result = structuredClone(fixture.responses.create.result) as { session: ContestSessionSummary; draft: { fields: ContestDraftFields } };
+    result.draft.fields = { ...result.draft.fields, sentExchange: `${"X".repeat(32)} CA`,
+      sentExchangeFields: { name: "X".repeat(32), location: "CA" }, receivedExchangeFields: { name: "", location: "" } };
+    const request = vi.fn(async () => ({ id: "crossed-wpx", ok: true as const, result })) as ContestRequest;
+    await expect(new ContestClient(request).open(result.session.sessionID, result.session.workspaceGeneration))
+      .rejects.toThrow("Malformed or stale contest_open response");
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a generated confirmed rejection editable instead of making it uncertain", async () => {

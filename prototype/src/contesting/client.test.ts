@@ -168,4 +168,18 @@ describe("ContestClient", () => {
     await expect(client.applyDraft(session, "draft-1", fields)).rejects.toThrow("canonical UTC ISO timestamp");
     expect(request).not.toHaveBeenCalled();
   });
+
+  it("fails closed on unknown and malformed structured descriptor versions", async () => {
+    const identity = { id: "naqp-rtty", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8" };
+    const malformed = { identity, displayName: "North American QSO Party RTTY", mode: "RTTY", entryDescriptorVersion: 2,
+      entry: { version: 2, mode: "RTTY", adifMode: "RTTY", cabrilloQSOType: "RY", cabrilloFormatterVersion: "naqp-preview-1", cabrilloProjectionFormatterVersion: "naqp-preview-1",
+        report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 },
+        exchange: { sent: "structured", received: "structured", sentDefault: "stationFields", adifFields: "exchangeStrings", sentFields: [], receivedFields: [] },
+        serial: { requirement: "none", allowedScopes: [] }, modeProfiles: [], scorePolicy: "pointsTimesMultipliers" },
+      referenceDataVersion: "cty", sourceVerification: "provisional", sourceNote: "preview" };
+    for (const candidate of [{ ...malformed, entryDescriptorVersion: 3 }, malformed]) {
+      const request = vi.fn(async () => ({ id: "frame", ok: true as const, result: { workspaceGeneration: "generation-1", rules: [candidate] } })) as ContestRequest;
+      await expect(new ContestClient(request).catalog()).rejects.toThrow("Malformed or stale contest_catalog response");
+    }
+  });
 });

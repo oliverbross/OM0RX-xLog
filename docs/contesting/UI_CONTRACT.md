@@ -1,6 +1,6 @@
 # Contesting UI contract
 
-The contest workspace is an isolated, local-only pilot for CQ WW, CQ WPX, Oceania DX, and Scandinavian Activity Contest in CW and SSB. SAC is explicitly presented as a scoring practice preview: category and contest-date eligibility are not fully enforced, and its exports are not represented as sponsor-submission ready. The React component receives the existing worker request function and never calls station, radio, keying, network, normal-log, or generic service methods.
+The contest workspace is an isolated, local-only pilot for CQ WW, CQ WPX, Oceania DX, Scandinavian Activity Contest, and the NAQP CW/SSB/RTTY preview. SAC is explicitly presented as a scoring practice preview: category and contest-date eligibility are not fully enforced, and its exports are not represented as sponsor-submission ready. NAQP uses report-free name/location entry and is labelled plain logging; RTTY entry does not claim radio, audio, modem, or keying integration. The React component receives the existing worker request function and never calls station, radio, keying, network, normal-log, or generic service methods.
 
 ## Request framing
 
@@ -23,7 +23,7 @@ Method names are:
 - `contest_log_page`
 - `contest_score`
 
-Wire DTOs use camel case and are defined in `prototype/src/contesting/types.ts`. `sessionID` always identifies one contest session. A rule is pinned by `ruleIdentity { id, version, edition, sourceRevision }` plus `referenceDataVersion`. Neither has an implicit active-session fallback. Catalog and session rule projections carry `entryDescriptorVersion: 1` plus the authoritative mode, Cabrillo QSO type and formatter policies, report defaults and UTF-8 bound, exchange meanings, ADIF exchange mapping, and serial requirement/scopes. The client rejects unknown descriptor versions or internally contradictory policies.
+Wire DTOs use camel case and are defined in `prototype/src/contesting/types.ts`. `sessionID` always identifies one contest session. A rule is pinned by `ruleIdentity { id, version, edition, sourceRevision }` plus `referenceDataVersion`. Neither has an implicit active-session fallback. Legacy scalar rules retain `entryDescriptorVersion: 1` and their original entry object shape. NAQP carries `entryDescriptorVersion: 2`, typed sent/received field descriptors, one coherent mode profile, report format `none`, no serial scopes, and the checked score policy. Both versions carry the authoritative mode, Cabrillo QSO type and formatter policies, report bounds, exchange meanings, ADIF mapping, and serial policy. The client rejects unknown versions, extra or missing descriptor members, and internally contradictory policies.
 
 ## Mutation scope and replay
 
@@ -45,7 +45,7 @@ The backend owns durable sessions, drafts, serial reservations, QSOs, receipts, 
 
 The workspace uses xLog's existing colors, typography, field controls, table density, focus rings, and responsive card-to-row behavior. It provides:
 
-- a manager to create/open CQ WW, CQ WPX, Oceania DX, and SAC CW/SSB sessions;
+- a manager to create/open CQ WW, CQ WPX, Oceania DX, and SAC CW/SSB sessions plus report-free NAQP CW/SSB/RTTY preview sessions;
 - immutable station, operator, CQ zone, and DXCC entity snapshots;
 - compact mode-specific callsign, report, exchange, band, frequency, and serial fields;
 - explicit validation and contest-dupe state;
@@ -53,6 +53,8 @@ The workspace uses xLog's existing colors, typography, field controls, table den
 - paged contest-only contacts and score/multiplier projections;
 - a contact editor loaded only by revision- and generation-bound `contest_qso_get`, with Save and Cancel plus one named deletion confirmation;
 - visible rule source revision and verification state.
+
+Stored multiplier identity remains the typed `kind`, `value`, and `scope` key. The wire retains its legacy raw key fields and adds bounded display labels derived by the worker from those typed keys and pinned CTY names. The UI uses the display labels, including every multiplier newly credited by one QSO. Thus `naqp-state:HI:20m` is shown as `Hawaii · 20m`, while `naqp-dxcc:HI:20m` is shown as `Dominican Republic · 20m`; it never parses colon-delimited identities or guesses an entity in the renderer.
 
 The contact list is a projection and never supplies editor defaults. The editor receives the full stored QSO. Callsign, reports, received exchange, frequency, and band are editable. Original UTC, provenance, operator, station location, and the allocated/sent exchange remain read-only. A correction sends every required field except `entity`; the worker resolves the changed callsign against the session's pinned CTY data at the original UTC and rejects caller-supplied entity data. While the callsign differs from the loaded QSO, the UI labels the displayed country as the original entity until the validated response provides the replacement. Confirmed rejections keep the edit buffer intact. Successful changes refresh the paged log and score after owner adoption and do not optimistically rewrite rows.
 

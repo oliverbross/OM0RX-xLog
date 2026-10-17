@@ -952,10 +952,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let stationDescriptorIssues = rule.metadata.entry.stationExchangeIssues(station.sentExchangeFields)
         let stationRuleIssues = rule.validateSession(session)
         let resolvedSerialIsValid = (try? rule.resolvedSerialRequirement(in: session)) != nil
+        let stationExchangeMaximum = rule.metadata.entry.version == .v2
+            ? rule.metadata.entry.exchange.sentFields.reduce(0) { $0 + $1.maximumUTF8Bytes } +
+                max(0, rule.metadata.entry.exchange.sentFields.count - 1)
+            : 32
         let identityParts = [session.rule.id, session.rule.version, session.rule.edition,
                              session.rule.sourceRevision, session.referenceDataVersion]
         guard identityParts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 128 }),
-              validCallsign(station.callsign), station.sentExchange.utf8.count <= 32,
+              validCallsign(station.callsign), station.sentExchange.utf8.count <= stationExchangeMaximum,
               station.location.utf8.count <= 128, !station.operatorCallsigns.isEmpty,
               station.operatorCallsigns.count <= 16,
               Set(station.operatorCallsigns).count == station.operatorCallsigns.count,
