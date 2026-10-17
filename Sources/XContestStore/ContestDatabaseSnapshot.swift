@@ -27,8 +27,8 @@ public enum ContestDatabaseSnapshotError: Error, Equatable, Sendable {
 }
 
 public struct ContestDatabaseSessionInventory: Codable, Hashable, Sendable {
-    public let sessionID: UUID
-    public let workspaceGeneration: UUID
+    public let sessionID: Foundation.UUID
+    public let workspaceGeneration: Foundation.UUID
     public let revision: UInt64
     public let draftCount: Int
     public let operationCount: Int
@@ -40,7 +40,7 @@ public struct ContestDatabaseSessionInventory: Codable, Hashable, Sendable {
     public let deletedQSOCount: Int
     public let auditCount: Int
 
-    public init(sessionID: UUID, workspaceGeneration: UUID, revision: UInt64,
+    public init(sessionID: Foundation.UUID, workspaceGeneration: Foundation.UUID, revision: UInt64,
                 draftCount: Int, operationCount: Int, serialCounterCount: Int,
                 reservationCount: Int, activeReservationCount: Int,
                 qsoCount: Int, liveQSOCount: Int, deletedQSOCount: Int, auditCount: Int) {
@@ -148,7 +148,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
         guard source.path != destination.path else { throw ContestDatabaseSnapshotError.unsafePath(destination.path) }
 
         let parent = destination.deletingLastPathComponent()
-        let stagingName = ".contest-snapshot-\(UUID().uuidString.lowercased())"
+        let stagingName = ".contest-snapshot-\(Foundation.UUID().uuidString.lowercased())"
         let pinnedParent = try PinnedSnapshotParent(parent: parent, stagingName: stagingName,
                                                     destinationName: destination.lastPathComponent)
         let staging = pinnedParent.stagingURL
@@ -293,8 +293,10 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
               (SELECT COUNT(*) FROM qso_audit a WHERE a.session_id=s.id)
             FROM sessions s ORDER BY s.id
             """, on: database, operation: operation) { statement in
-                guard let sessionText = textColumn(statement, 0), let sessionID = UUID(uuidString: sessionText),
-                      let generationText = textColumn(statement, 1), let generation = UUID(uuidString: generationText) else {
+                guard let sessionText = textColumn(statement, 0),
+                      let sessionID = Foundation.UUID(uuidString: sessionText),
+                      let generationText = textColumn(statement, 1),
+                      let generation = Foundation.UUID(uuidString: generationText) else {
                     throw ContestDatabaseSnapshotError.invalidSchema("invalid session identity")
                 }
                 let rawRevision = sqlite3_column_int64(statement, 2)
@@ -779,7 +781,7 @@ private final class PinnedSnapshotParent {
         #else
         let result = stagingName.withCString { sourceName in
             destinationName.withCString { destinationName in
-                renameat2(parentDescriptor, sourceName, parentDescriptor, destinationName, UInt32(1))
+                xlog_renameat_noreplace(parentDescriptor, sourceName, parentDescriptor, destinationName)
             }
         }
         #endif
