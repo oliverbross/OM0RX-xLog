@@ -85,3 +85,22 @@ tests plus 32 store tests and explicitly skipped 9 publication-dependent tests.
 Windows snapshot publication at that SHA fails closed; this passing matrix does
 not establish Windows publication support. Its native implementation remains a
 separate slice awaiting its own hosted acceptance.
+
+## Native Windows publication follow-up
+
+Native implementation `d24cb0b` at integrated source `daa8bdb` passed Linux
+and macOS in run `39040271218`, but Windows compilation failed because the
+WinSDK member is imported as `DeleteFileA`. Reviewed repair `c962f87` changes
+only the typed initializer.
+
+[Run 39041173713](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39041173713)
+at `0b6eaba12aeb17a65662e964c0b1562af0729856` passed Linux job
+`117420808506` and macOS job `117420808640`, each with 23 core/export and
+44 store/snapshot tests on the same toolchain versions as above. Windows job
+`117420808459` now compiles and passes 23 core/export and 32 store tests.
+However, its 14 snapshot tests report 9 failures (7 unexpected), principally
+`Windows rename failed: 5` during publication; the late-staging move test also
+reports access denied. There are no publication skips hiding this failure.
+Native publication remains unaccepted pending repair and a successful rerun.
+Later Windows backup-presentation/ConnectionDoctor steps did not run after the
+snapshot failure and receive no fresh acceptance claim at this source.
