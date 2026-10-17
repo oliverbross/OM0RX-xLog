@@ -42,6 +42,22 @@ describe("independent rotor panel", () => {
     });
     expect(request).not.toHaveBeenCalled();
   });
+  it("exposes live Auto rotor state separately from persisted startup and band policy", async () => {
+    const configuration = await configuredSession(), request = vi.fn(), changeAutomatic = vi.fn(async () => {});
+    render(<RotorPanel snapshot={initial} request={request} configurationSession={configuration.session}
+      automaticRotorAvailable automaticRotorArmed={false} onAutomaticRotorChange={changeAutomatic} />);
+    const toggle = screen.getByRole("checkbox", { name: "Auto rotor" });
+    expect((toggle as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(changeAutomatic).toHaveBeenCalledExactlyOnceWith(true));
+    fireEvent.click(screen.getByRole("checkbox", { name: "40m" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save rotor configuration" }));
+    await screen.findByText("Rotor configuration saved. No connection or motion was started.");
+    expect(configuration.session.getSnapshot().base?.configuration.auto_rotor_bands).not.toContain("40m");
+    expect(request).not.toHaveBeenCalled();
+    expect((screen.getByRole("checkbox", { name: "Enable Auto Rotor at app start" }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("checkbox", { name: "40m" })).toBeTruthy();
+  });
   it("confirms a revision-zero DCU-1 settings save with a native UUID receipt and no hardware call", async () => {
     const configuration = await configuredSession(), request = vi.fn();
     render(<RotorPanel snapshot={null} request={request} configurationOnly configurationSession={configuration.session} />);

@@ -481,6 +481,21 @@ it("cancels pending automatic motion on independent stop and never replays it", 
   expect(bridge.autoState.armed).toBe(false);
 });
 
+it("controls the existing native Auto rotor owner from Settings", async () => {
+  render(<LiveApp />);
+  await waitForDesk();
+  await openRotorSettings();
+  const toggle = await screen.findByRole("checkbox", { name: "Auto rotor" }) as HTMLInputElement;
+  await waitFor(() => expect(toggle.disabled).toBe(false));
+  fireEvent.click(toggle);
+  await waitFor(() => expect(bridge.native).toHaveBeenCalledWith("auto_rotor_set", {
+    armed: true, owner: "native_dcu1", generation: 4,
+  }));
+  await waitFor(() => expect(toggle.checked).toBe(true));
+  fireEvent.click(toggle);
+  await waitFor(() => expect(bridge.native).toHaveBeenCalledWith("auto_rotor_set", { armed: false }));
+});
+
 it("stops the fresh same-owner generation while native activation is in flight and never rearms from its reply", async () => {
   render(<LiveApp />);
   await waitForDesk();
