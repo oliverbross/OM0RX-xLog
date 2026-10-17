@@ -1,4 +1,5 @@
 import Foundation
+import XClusterIntegrationCore
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -170,6 +171,7 @@ actor LiveOpportunitiesMethods {
         let database = try logbook.openedDatabase()
         let history = try database.opportunityReferenceHistory()
         let byReference = Dictionary(uniqueKeysWithValues: history.map { ("\($0.kind.lowercased()):\($0.reference.uppercased())", $0) })
+        let classification = try? logbook.clusterClassificationSnapshot()
         let directory = try activationDirectory()
         let selected = Array(all.sorted { $0.observedAt > $1.observedAt }.prefix(300))
         let items: [[String: Any]] = selected.map { item in
@@ -186,10 +188,20 @@ actor LiveOpportunitiesMethods {
             let operationActive = (item.startsAt ?? .distantPast) <= now && (item.endsAt ?? item.expiresAt) > now
             let latestSpot = calendar && operationActive ? aliases.compactMap { latestByCall[$0] }
                 .max { ($0["receivedAt"] as? Double ?? 0) < ($1["receivedAt"] as? Double ?? 0) } : nil
+            let callsign = latestSpot?["callsign"] as? String ?? item.callsign
             let frequency = latestSpot.flatMap { ($0["frequencyKHz"] as? Double).map { Int64(($0 * 1_000).rounded()) } } ?? item.frequencyHz
             let areaLocation = directoryLocation && kind == .iota
             let referenceStatus = kind.map { !directory.hasData(for: $0) ? "not_installed" : match == nil ? "not_found" : "verified" } ?? "not_applicable"
-            return ["id": item.id, "kind": item.kind, "callsign": latestSpot?["callsign"] as? String ?? item.callsign,
+            let country = classification?.resolver.resolve(callsign, at: item.startsAt ?? item.observedAt)
+            let modeHistory = country.flatMap { entity in
+                classification.map { $0.index.dxccModeHistory(adif: entity.adif) }
+            }
+            let confirmedModes = modeHistory?.confirmed ?? []
+            let confirmedSet = Set(confirmedModes)
+            let workedOnlyModes = (modeHistory?.worked ?? []).filter { !confirmedSet.contains($0) }
+            let dxccHistory: Any = country.map { ["adif": $0.adif, "entity": $0.name,
+                "worked_modes": workedOnlyModes, "confirmed_modes": confirmedModes] as [String: Any] } ?? NSNull()
+            return ["id": item.id, "kind": item.kind, "callsign": callsign,
                     "reference": reference, "reference_kind": referenceKind,
                     "programmes": referenceKind != item.kind ? [item.kind, referenceKind] : [item.kind],
                     "name": item.name.isEmpty ? match?.name ?? "" : item.name,
@@ -205,6 +217,7 @@ actor LiveOpportunitiesMethods {
                     "starts_at": item.startsAt.map(iso) as Any? ?? NSNull(),
                     "ends_at": calendar ? iso(item.endsAt ?? item.expiresAt) as Any : NSNull(),
                     "latest_spot_at": latestSpot.flatMap { ($0["receivedAt"] as? Double).map { iso(Date(timeIntervalSinceReferenceDate: $0)) } } as Any? ?? NSNull(),
+                    "dxcc_history": dxccHistory,
                     "worked_count": evidence?.workedCount ?? 0,
                     "confirmed_count": evidence?.confirmedCount ?? 0,
                     "band_modes": evidence?.bandModes.map { cell in
