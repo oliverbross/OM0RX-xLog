@@ -17,7 +17,7 @@ actor ContestLane {
     private static let activeRules = ContestRuleRegistry([
         CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
         OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
-        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(),
+        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
     ])
     private let rules: ContestRuleRegistry
     private var store: SQLiteContestStore?

@@ -195,7 +195,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
-    func testElevenRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
+    func testTwelveRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
         let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-eight-pilot-catalog-\(UUID().uuidString)")
         defer {
             if FileManager.default.fileExists(atPath: catalogRoot.path) {
@@ -207,23 +207,26 @@ final class ContestingLaneTests: XCTestCase {
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
                        ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty"])
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup"])
         for rule in rules {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
             XCTAssertEqual(entry["mode"] as? String, mode)
             let ruleID = try XCTUnwrap((rule["identity"] as? [String: Any])?["id"] as? String)
             XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String,
-                           ruleID.hasPrefix("naqp-") ? "" : mode == "CW" ? "599" : "59")
-            if ruleID.hasPrefix("naqp-") {
+                           ruleID.hasPrefix("naqp-") ? "" : mode == "SSB" ? "59" : "599")
+            if ruleID.hasPrefix("naqp-") || ruleID == "arrl-rtty-roundup" {
                 XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 2)
                 XCTAssertEqual((entry["version"] as? NSNumber)?.intValue, 2)
             } else {
                 XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 1)
                 XCTAssertNil(entry["version"])
             }
-            XCTAssertNil(entry["stationFields"])
-            XCTAssertNil(entry["stationResolvedSerial"])
+            if ruleID == "arrl-rtty-roundup" {
+                XCTAssertNotNil(entry["stationFields"]); XCTAssertNotNil(entry["stationResolvedSerial"])
+            } else {
+                XCTAssertNil(entry["stationFields"]); XCTAssertNil(entry["stationResolvedSerial"])
+            }
         }
 
         for ruleName in ["CQ WW SSB", "CQ WPX SSB", "Oceania DX CW", "Oceania DX SSB",
@@ -849,10 +852,10 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 11)
+        XCTAssertEqual(rules.count, 12)
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
                        ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty"])
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup"])
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let rule = try XCTUnwrap(rules.first { $0["displayName"] as? String == "CQ WPX CW" })
         let sessionID = UUID(uuidString: "f7654321-89ab-4cde-8fab-0123456789ab")!
@@ -1027,6 +1030,138 @@ final class ContestingLaneTests: XCTestCase {
                                "postCommitUncertain": "actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response"],
                 "assertions": ["replayResultExactlyEqual": true, "qsoChangeReplayAfterDeleteExactlyEqual": true,
                                "allContestUUIDsCanonicalLowercase": true]]
+            let url = URL(fileURLWithPath: output)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
+        }
+    }
+
+    func testLiveWorkerARRLRTTYConditionalSerialLifecycleAndGeneratedFixture() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-arrl-rtty-worker-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
+        guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected contest test profile") }
+        let logbook = LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: false, runtimeProfile: profile)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
+        let catalogFrame = try await workerRequest(worker, method: "contest_catalog")
+        let catalog = try XCTUnwrap(catalogFrame["result"] as? [String: Any])
+        let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
+        let rule = try XCTUnwrap((catalog["rules"] as? [[String: Any]])?.first {
+            (($0["identity"] as? [String: Any])?["id"] as? String) == "arrl-rtty-roundup"
+        })
+        let identity = try XCTUnwrap(rule["identity"] as? [String: Any])
+        let reference = try XCTUnwrap(rule["referenceDataVersion"] as? String)
+
+        func create(sessionID: UUID, requestID: UUID, name: String, call: String, zone: String,
+                    entity: String, location: String, section: String) async throws -> ([String: Any], [String: Any]) {
+            let params = mutation(sessionID: sessionID, requestID: requestID, revision: 0,
+                timestamp: "2026-10-18T16:00:00.000Z", payload: [
+                    "sessionID": wireID(sessionID), "name": name, "ruleIdentity": identity,
+                    "referenceDataVersion": reference,
+                    "station": ["callsign": call, "cqZone": zone, "dxccEntity": entity,
+                                "exchangeFields": ["location": location, "serial": ""],
+                                "stationFields": ["section": section]],
+                    "operator": ["callsign": call, "category": "Single Operator"],
+                ], workspaceGeneration: generation)
+            return (params, try await workerRequest(worker, method: "contest_create", params: params))
+        }
+
+        let wveSession = UUID(), wveDraft = UUID()
+        let (wveCreateRequest, wveCreated) = try await create(sessionID: wveSession, requestID: wveDraft,
+            name: "ARRL RTTY WVE", call: "K1AAA", zone: "5", entity: "UNITED STATES", location: "CA", section: "EB")
+        XCTAssertEqual(wveCreated["ok"] as? Bool, true)
+        let wveResult = try XCTUnwrap(wveCreated["result"] as? [String: Any])
+        XCTAssertEqual(((wveResult["draft"] as? [String: Any])?["resolvedSerial"] as? [String: Any])?["requirement"] as? String, "none")
+        let wveReserveRequest = mutation(sessionID: wveSession, requestID: UUID(), revision: 1,
+            timestamp: "2026-10-18T16:01:00.000Z", payload: [:], draftID: wveDraft, workspaceGeneration: generation)
+        let wveReserve = try await workerRequest(worker, method: "contest_serial_reserve", params: wveReserveRequest)
+        XCTAssertEqual(((wveReserve["error"] as? [String: Any])?["code"] as? String), "serial_not_supported")
+
+        let invalidSession = UUID(), invalidDraft = UUID()
+        let (_, invalidCreate) = try await create(sessionID: invalidSession, requestID: invalidDraft,
+            name: "Invalid ARRL RTTY", call: "K1BBB", zone: "5", entity: "UNITED STATES", location: "CA", section: "CA")
+        XCTAssertEqual(((invalidCreate["error"] as? [String: Any])?["code"] as? String), "invalid_session")
+        let afterInvalid = try await workerRequest(worker, method: "contest_sessions")
+        XCTAssertEqual((((afterInvalid["result"] as? [String: Any])?["sessions"] as? [[String: Any]])?.count), 1)
+
+        let dxSession = UUID(), dxDraft = UUID(), reserveID = UUID()
+        let (dxCreateRequest, dxCreated) = try await create(sessionID: dxSession, requestID: dxDraft,
+            name: "ARRL RTTY DX", call: "DL1AAA", zone: "14", entity: "FED. REP. OF GERMANY", location: "", section: "DX")
+        let dxResult = try XCTUnwrap(dxCreated["result"] as? [String: Any])
+        XCTAssertEqual(((dxResult["session"] as? [String: Any])?["resolvedSerial"] as? [String: Any])?["requirement"] as? String, "requiredForCommit")
+        let reserveRequest = mutation(sessionID: dxSession, requestID: reserveID, revision: 1,
+            timestamp: "2026-10-18T16:02:00.000Z", payload: [:], draftID: dxDraft, workspaceGeneration: generation)
+        let reserved = try await workerRequest(worker, method: "contest_serial_reserve", params: reserveRequest)
+        let reserveReplay = try await workerRequest(worker, method: "contest_serial_reserve", params: reserveRequest)
+        XCTAssertEqual(try canonicalJSON(try XCTUnwrap(reserved["result"] as? [String: Any])),
+                       try canonicalJSON(try XCTUnwrap(reserveReplay["result"] as? [String: Any])))
+        let fields: [String: Any] = ["callsign": "K1AAA", "sentReport": "589", "sentExchange": "001",
+            "receivedReport": "579", "receivedExchange": "CA", "frequencyHz": 14_080_000,
+            "band": "20m", "mode": "RTTY", "sentExchangeFields": ["location": "", "serial": "001"],
+            "receivedExchangeFields": ["exchange": "CA"]]
+        let applyRequest = mutation(sessionID: dxSession, requestID: UUID(), revision: 2,
+            timestamp: "2026-10-18T16:03:00.000Z", payload: ["fields": fields], draftID: dxDraft, workspaceGeneration: generation)
+        let applied = try await workerRequest(worker, method: "contest_draft_apply", params: applyRequest)
+        let commitRequest = mutation(sessionID: dxSession, requestID: UUID(), revision: 3,
+            timestamp: "2026-10-18T16:04:00.000Z", payload: [:], draftID: dxDraft, workspaceGeneration: generation)
+        let committed = try await workerRequest(worker, method: "contest_qso_commit", params: commitRequest)
+        let committedResult = try XCTUnwrap(committed["result"] as? [String: Any])
+        let nextDraft = try XCTUnwrap(committedResult["draft"] as? [String: Any])
+        XCTAssertNil(nextDraft["reservedSerial"] as? NSNumber)
+        XCTAssertEqual(((nextDraft["fields"] as? [String: Any])?["sentExchangeFields"] as? [String: String])?["serial"], "")
+        let qsoID = try XCTUnwrap((committedResult["qso"] as? [String: Any])?["qsoID"] as? String)
+        let openRequest: [String: Any] = ["sessionID": wireID(dxSession), "workspaceGeneration": generation]
+        let reopened = try await workerRequest(worker, method: "contest_open", params: openRequest)
+        let getRequest: [String: Any] = ["sessionID": wireID(dxSession), "workspaceGeneration": generation,
+            "expectedRevision": 4, "qsoID": qsoID]
+        let got = try await workerRequest(worker, method: "contest_qso_get", params: getRequest)
+        var correctedQSO = try XCTUnwrap(((got["result"] as? [String: Any])?["qso"] as? [String: Any]))
+        correctedQSO.removeValue(forKey: "entity")
+        correctedQSO["receivedExchange"] = "NY"; correctedQSO["normalizedReceivedExchange"] = "NY"
+        correctedQSO["receivedExchangeFields"] = ["exchange": "NY"]
+        let correctionRequest = mutation(sessionID: dxSession, requestID: UUID(), revision: 4,
+            timestamp: "2026-10-18T16:05:00.000Z", payload: ["qso": correctedQSO, "reason": "Correct subdivision"],
+            workspaceGeneration: generation)
+        let corrected = try await workerRequest(worker, method: "contest_qso_correct", params: correctionRequest)
+
+        var exportFrames: [String: Any] = [:]
+        for format in ["cabrillo", "adif"] {
+            let exportID = UUID()
+            let prepare: [String: Any] = ["exportID": wireID(exportID), "sessionID": wireID(dxSession),
+                "workspaceGeneration": generation, "expectedRevision": 5,
+                "generatedAtUTC": "2026-10-18T16:06:00.000Z", "format": format,
+                "header": ["callsign": "DL1AAA", "categoryOperator": "SINGLE-OP", "categoryAssisted": "NON-ASSISTED",
+                    "categoryBand": "ALL", "categoryMode": "RTTY", "categoryTransmitter": "ONE", "categoryPower": "LOW",
+                    "operators": ["DL1AAA"], "location": "DX", "name": "DX Operator", "addressLines": [], "email": ""]]
+            let prepared = try await workerRequest(worker, method: "contest_export_prepare", params: prepare)
+            XCTAssertEqual(prepared["ok"] as? Bool, true)
+            let preparedResult = try XCTUnwrap(prepared["result"] as? [String: Any])
+            let length = try XCTUnwrap((preparedResult["byteLength"] as? NSNumber)?.intValue)
+            let readRequest: [String: Any] = ["exportID": wireID(exportID), "sessionID": wireID(dxSession),
+                "workspaceGeneration": generation, "offset": 0, "length": length]
+            let read = try await workerRequest(worker, method: "contest_export_read", params: readRequest)
+            let bytes = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap((read["result"] as? [String: Any])?["dataBase64"] as? String)))
+            let document = try XCTUnwrap(String(data: bytes, encoding: .utf8))
+            XCTAssertTrue(document.contains(format == "cabrillo" ? "LOCATION: DX" : "<CALL:5>K1AAA"))
+            exportFrames[format] = ["request": prepare, "response": prepared, "readRequest": readRequest, "readResponse": read]
+        }
+        let deleteRequest = mutation(sessionID: dxSession, requestID: UUID(), revision: 5,
+            timestamp: "2026-10-18T16:07:00.000Z", payload: ["qsoID": qsoID, "reason": "Remove test contact"], workspaceGeneration: generation)
+        let deleted = try await workerRequest(worker, method: "contest_qso_delete", params: deleteRequest)
+        XCTAssertEqual((deleted["result"] as? [String: Any])?["qsoCount"] as? NSNumber, 0)
+
+        if let output = ProcessInfo.processInfo.environment["XLOG_ARRL_RTTY_FIXTURE_OUTPUT"] {
+            let fixture: [String: Any] = ["schemaVersion": 1, "catalog": catalogFrame,
+                "wve": ["createRequest": wveCreateRequest, "createResponse": wveCreated,
+                        "reserveRequest": wveReserveRequest, "reserveResponse": wveReserve],
+                "invalidCreateResponse": invalidCreate,
+                "dx": ["createRequest": dxCreateRequest, "createResponse": dxCreated, "reserveRequest": reserveRequest,
+                       "reserveResponse": reserved, "reserveReplayResponse": reserveReplay, "applyRequest": applyRequest,
+                       "applyResponse": applied, "commitRequest": commitRequest, "commitResponse": committed,
+                       "openRequest": openRequest, "openResponse": reopened, "getRequest": getRequest, "getResponse": got,
+                       "correctionRequest": correctionRequest, "correctionResponse": corrected,
+                       "deleteRequest": deleteRequest, "deleteResponse": deleted, "exports": exportFrames]]
             let url = URL(fileURLWithPath: output)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
