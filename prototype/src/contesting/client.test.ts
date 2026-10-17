@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateCreateInput, validateDraftFields } from "./client";
-import type { ContestDraftFields, ContestRequest, ContestSessionSummary } from "./types";
+import type { ContestDraftFields, ContestRequest, ContestScoreSummary, ContestSessionSummary } from "./types";
 
 const rule = { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "source-1" }, displayName: "CQ WW CW", mode: "CW", referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked" } as const;
 const session: ContestSessionSummary = { sessionID: "session-1", workspaceGeneration: "generation-1", revision: 7, name: "WW", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T00:00:00Z" };
@@ -9,6 +9,12 @@ function draft(revision = 8) { return { draftID: "draft-1", sessionID: session.s
 function result(params: Record<string, unknown>) { const next = { ...session, revision: 8 }; return { session: next, draft: draft(), receipt: { requestID: params.requestID, payloadDigest: params.payloadDigest, committedRevision: 8, committedAt: "2026-10-17T00:00:01Z" } }; }
 
 describe("ContestClient", () => {
+  it("keeps durable commit score summaries scalar", () => {
+    const summary = { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: 8, qsos: 1, points: 3,
+      multipliers: 1, claimedScore: 3, sourceVerification: "provisional" } satisfies ContestScoreSummary;
+    expect(summary).not.toHaveProperty("multiplierLabels");
+  });
+
   it("scopes receipt lookup and retries the exact structured operation", async () => {
     const mock = vi.fn().mockRejectedValueOnce(new Error("reply lost")).mockImplementationOnce(async (_method, params) => ({ id: "frame", ok: true, result: result(params) })).mockResolvedValueOnce({ id: "frame", ok: true, result: { status: "not_found" } });
     const client = new ContestClient(mock as ContestRequest, () => "request-1", async () => "digest-1");

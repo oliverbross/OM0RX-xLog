@@ -37,6 +37,7 @@ export type ContestScore = {
   sessionID: string; workspaceGeneration: string; revision: number; qsos: number; points: number;
   multipliers: number; claimedScore: number; multiplierLabels: string[]; sourceVerification: SourceVerificationStatus;
 };
+export type ContestScoreSummary = Omit<ContestScore, "multiplierLabels">;
 export type ContestMutationScope = {
   sessionID: string; workspaceGeneration: string; requestID: string; expectedRevision: number;
   draftID?: string; payloadDigest: string; operationTimestamp: string;
@@ -44,7 +45,7 @@ export type ContestMutationScope = {
 export type ContestMutationReceipt = { requestID: string; payloadDigest: string; committedRevision: number; committedAt: string };
 export type ContestOpenResult = { session: ContestSessionSummary; draft: ContestDraftSnapshot };
 export type ContestDraftResult = ContestOpenResult & { receipt: ContestMutationReceipt };
-export type ContestCommitResult = ContestDraftResult & { qso: ContestQSO; score: ContestScore };
+export type ContestCommitResult = ContestDraftResult & { qso: ContestQSO; score: ContestScoreSummary };
 export type ContestCreateResult = ContestDraftResult;
 export type ContestOperationReceiptResult = { status: "committed"; receipt: ContestMutationReceipt } | { status: "not_found" };
 export type ContestLogPage = {

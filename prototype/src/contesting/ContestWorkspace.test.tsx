@@ -44,7 +44,8 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
     if (method === "contest_serial_reserve") { const revision = current.session.revision + 1; current.session = { ...current.session, revision }; current.draft = { ...current.draft, revision, reservedSerial: 1 }; return ok({ ...current, receipt: receipt(params, revision) }); }
     if (method === "contest_qso_commit") {
       await options.commit; const old = current.draft, revision = current.session.revision + 1; current.session = { ...current.session, revision, qsoCount: current.session.qsoCount + 1 }; current.draft = draftFor(current.session);
-      return ok({ ...current, qso: { qsoID: `qso-${revision}`, sessionID: current.session.sessionID, workedAt: "2026-10-17T02:00:00Z", callsign: old.fields.callsign, band: old.fields.band, mode: "CW", sentExchange: old.fields.sentExchange, receivedExchange: old.fields.receivedExchange, points: 3, multiplier: "K", isDupe: false }, score: score(current.session), receipt: receipt(params, revision) });
+      const { multiplierLabels: _multiplierLabels, ...scoreSummary } = score(current.session);
+      return ok({ ...current, qso: { qsoID: `qso-${revision}`, sessionID: current.session.sessionID, workedAt: "2026-10-17T02:00:00Z", callsign: old.fields.callsign, band: old.fields.band, mode: "CW", sentExchange: old.fields.sentExchange, receivedExchange: old.fields.receivedExchange, points: 3, multiplier: "K", isDupe: false }, score: scoreSummary, receipt: receipt(params, revision) });
     }
     if (method === "contest_operation_receipt") return ok({ status: "not_found" });
     if (method === "contest_log_page") return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos: [], total: current.session.qsoCount, offset: params.offset, limit: params.limit });
@@ -105,6 +106,15 @@ it("blocks session context changes until a delayed commit settles", async () => 
   const manager = screen.getByRole("button", { name: "Contest Manager" }) as HTMLButtonElement; expect(manager.disabled).toBe(true); fireEvent.click(manager);
   expect(calls.some(([m,p]) => m === "contest_open" && p.sessionID === "session-2")).toBe(false);
   await act(async () => gate.resolve()); await screen.findByText(/Logged K1ABC/); expect(screen.getByRole("heading", { name: /CQ WW CW/ })).toBeTruthy();
+});
+
+it("loads full multiplier labels from the score projection after a scalar commit summary", async () => {
+  const { request, calls } = fixture(); await open(request);
+  fireEvent.change(screen.getByRole("textbox", { name: "Contest callsign" }), { target: { value: "K1ABC" } });
+  await waitFor(() => expect(calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  fireEvent.submit(screen.getByRole("form", { name: "CW contest entry" }));
+  await screen.findByText("K", { selector: ".contest-multipliers span" });
+  expect(calls.filter(([method]) => method === "contest_score").length).toBeGreaterThanOrEqual(2);
 });
 
 it("rejects an old mount's delayed open after a remount opens another session", async () => {

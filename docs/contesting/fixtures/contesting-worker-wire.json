@@ -1,0 +1,612 @@
+{
+  "assertions" : {
+    "allContestUUIDsCanonicalLowercase" : true,
+    "replayResultExactlyEqual" : true
+  },
+  "provenance" : {
+    "liveWorkerResponses" : [
+      "catalog",
+      "create",
+      "reserve",
+      "apply",
+      "commit",
+      "replay",
+      "confirmedError",
+      "receiptAfterUncertain"
+    ],
+    "postCommitUncertain" : "actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response"
+  },
+  "requests" : {
+    "apply" : {
+      "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+      "expectedRevision" : 2,
+      "operationTimestamp" : "2026-10-17T02:02:00.000Z",
+      "payload" : {
+        "fields" : {
+          "band" : "20m",
+          "callsign" : "K1ABC",
+          "frequencyHz" : 14025000,
+          "mode" : "CW",
+          "receivedExchange" : "1",
+          "receivedReport" : "599",
+          "sentExchange" : "001",
+          "sentReport" : "599"
+        }
+      },
+      "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requestID" : "c7654321-89ab-4cde-8fab-0123456789ab",
+      "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+      "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+    },
+    "commit" : {
+      "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+      "expectedRevision" : 3,
+      "operationTimestamp" : "2026-10-17T02:03:00.000Z",
+      "payload" : {
+
+      },
+      "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab",
+      "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+      "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+    },
+    "create" : {
+      "expectedRevision" : 0,
+      "operationTimestamp" : "2026-10-17T02:00:00.000Z",
+      "payload" : {
+        "name" : "Browser wire test",
+        "operator" : {
+          "callsign" : "OM0RX",
+          "category" : "single-op"
+        },
+        "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+        "ruleIdentity" : {
+          "edition" : "source-26.10.11",
+          "id" : "cq-wpx-cw",
+          "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+          "version" : "1.0.0-source-spike"
+        },
+        "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+        "station" : {
+          "callsign" : "OM0RX",
+          "cqZone" : "15",
+          "dxccEntity" : "SLOVAK REPUBLIC"
+        }
+      },
+      "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requestID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+      "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+      "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+    },
+    "postCommitApply" : {
+      "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+      "expectedRevision" : 5,
+      "operationTimestamp" : "2026-10-17T02:05:00.000Z",
+      "payload" : {
+        "fields" : {
+          "band" : "20m",
+          "callsign" : "K1ABC",
+          "frequencyHz" : 14025000,
+          "mode" : "CW",
+          "receivedExchange" : "1",
+          "receivedReport" : "599",
+          "sentExchange" : "001",
+          "sentReport" : "599"
+        }
+      },
+      "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "requestID" : "e7654321-89ab-4cde-8fab-0123456789ab",
+      "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+      "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+    },
+    "reserve" : {
+      "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+      "expectedRevision" : 1,
+      "operationTimestamp" : "2026-10-17T02:01:00.000Z",
+      "payload" : {
+
+      },
+      "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requestID" : "b7654321-89ab-4cde-8fab-0123456789ab",
+      "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+      "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+    }
+  },
+  "responses" : {
+    "apply" : {
+      "id" : "165e5038-d0b1-4c80-a621-9b95964fc130",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+          "dupe" : {
+            "reason" : "",
+            "state" : "clear"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "K1ABC",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "receivedExchange" : "1",
+            "receivedReport" : "599",
+            "sentExchange" : "001",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : 1,
+          "revision" : 3,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "updatedAt" : "2026-10-17T02:02:00.000Z",
+          "validation" : {
+            "errors" : [
+
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-17T02:02:00.000Z",
+          "committedRevision" : 3,
+          "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "requestID" : "c7654321-89ab-4cde-8fab-0123456789ab"
+        },
+        "session" : {
+          "name" : "Browser wire test",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "single-op"
+          },
+          "qsoCount" : 0,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 3,
+          "rule" : {
+            "displayName" : "CQ WPX CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-wpx-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T02:02:00.000Z",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        }
+      }
+    },
+    "catalog" : {
+      "id" : "9cff8b18-9d58-46bc-8ef4-786de052b897",
+      "ok" : true,
+      "result" : {
+        "rules" : [
+          {
+            "displayName" : "CQ WPX CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-wpx-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          {
+            "displayName" : "CQ WW CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-ww-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          }
+        ],
+        "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+      }
+    },
+    "commit" : {
+      "id" : "6de2a175-45ae-4313-a517-c94b7643ff22",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedReport" : "599",
+            "sentExchange" : "",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : null,
+          "revision" : 4,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "updatedAt" : "2026-10-17T02:03:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A valid callsign is required.",
+              "Contest geography could not be resolved.",
+              "Sent serial must be a positive integer.",
+              "Received serial must be a positive integer.",
+              "A WPX prefix could not be derived."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "qso" : {
+          "band" : "20m",
+          "callsign" : "K1ABC",
+          "isDupe" : false,
+          "mode" : "CW",
+          "multiplier" : "wpx-prefix:K1:contest",
+          "points" : 3,
+          "qsoID" : "d7654321-89ab-4cde-8fab-0123456789ab",
+          "receivedExchange" : "1",
+          "sentExchange" : "001",
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "workedAt" : "2026-10-17T02:03:00.000Z"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-17T02:03:00.000Z",
+          "committedRevision" : 4,
+          "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab"
+        },
+        "score" : {
+          "claimedScore" : 3,
+          "multipliers" : 1,
+          "points" : 3,
+          "qsos" : 1,
+          "revision" : 4,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "sourceVerification" : "provisional",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "session" : {
+          "name" : "Browser wire test",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "single-op"
+          },
+          "qsoCount" : 1,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 4,
+          "rule" : {
+            "displayName" : "CQ WPX CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-wpx-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T02:03:00.000Z",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        }
+      }
+    },
+    "confirmedError" : {
+      "error" : {
+        "code" : "invalid_params",
+        "message" : "Contest identity must be a canonical lowercase UUID.",
+        "outcome" : "confirmed"
+      },
+      "id" : "ac35e38e-4a5b-4e88-91e6-ed5424ba7ebe",
+      "ok" : false
+    },
+    "create" : {
+      "id" : "d11d400f-2ad3-43b8-bedb-29934849fe31",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : null,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedReport" : "599",
+            "sentExchange" : "",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : null,
+          "revision" : 1,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "updatedAt" : "2026-10-17T02:00:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A valid callsign is required.",
+              "A positive frequency is required.",
+              "Contest geography could not be resolved.",
+              "Sent serial must be a positive integer.",
+              "Received serial must be a positive integer.",
+              "A WPX prefix could not be derived."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-17T02:00:00.000Z",
+          "committedRevision" : 1,
+          "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "requestID" : "a7654321-89ab-4cde-8fab-0123456789ab"
+        },
+        "session" : {
+          "name" : "Browser wire test",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "single-op"
+          },
+          "qsoCount" : 0,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 1,
+          "rule" : {
+            "displayName" : "CQ WPX CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-wpx-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T02:00:00.000Z",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        }
+      }
+    },
+    "postCommitUncertain" : {
+      "error" : {
+        "code" : "workspace_fence_failed",
+        "message" : "The workspace could not be verified after the contest request; check its receipt before retrying.",
+        "outcome" : "uncertain"
+      },
+      "id" : "postcommit-fence",
+      "ok" : false
+    },
+    "receiptAfterUncertain" : {
+      "id" : "746c5203-e21e-4553-9999-950739c84bd8",
+      "ok" : true,
+      "result" : {
+        "receipt" : {
+          "committedAt" : "2026-10-17T02:05:00.000Z",
+          "committedRevision" : 6,
+          "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "requestID" : "e7654321-89ab-4cde-8fab-0123456789ab"
+        },
+        "status" : "committed"
+      }
+    },
+    "replay" : {
+      "id" : "e962f901-5751-4456-9aff-b59ed57ae55d",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedReport" : "599",
+            "sentExchange" : "",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : null,
+          "revision" : 4,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "updatedAt" : "2026-10-17T02:03:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A valid callsign is required.",
+              "Contest geography could not be resolved.",
+              "Sent serial must be a positive integer.",
+              "Received serial must be a positive integer.",
+              "A WPX prefix could not be derived."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "qso" : {
+          "band" : "20m",
+          "callsign" : "K1ABC",
+          "isDupe" : false,
+          "mode" : "CW",
+          "multiplier" : "wpx-prefix:K1:contest",
+          "points" : 3,
+          "qsoID" : "d7654321-89ab-4cde-8fab-0123456789ab",
+          "receivedExchange" : "1",
+          "sentExchange" : "001",
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "workedAt" : "2026-10-17T02:03:00.000Z"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-17T02:03:00.000Z",
+          "committedRevision" : 4,
+          "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab"
+        },
+        "score" : {
+          "claimedScore" : 3,
+          "multipliers" : 1,
+          "points" : 3,
+          "qsos" : 1,
+          "revision" : 4,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "sourceVerification" : "provisional",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "session" : {
+          "name" : "Browser wire test",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "single-op"
+          },
+          "qsoCount" : 1,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 4,
+          "rule" : {
+            "displayName" : "CQ WPX CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-wpx-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T02:03:00.000Z",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        }
+      }
+    },
+    "reserve" : {
+      "id" : "c9d8a5de-0ed8-45d9-8d4c-9f69edfb498f",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : null,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedReport" : "599",
+            "sentExchange" : "001",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : 1,
+          "revision" : 2,
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "updatedAt" : "2026-10-17T02:01:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A valid callsign is required.",
+              "A positive frequency is required.",
+              "Contest geography could not be resolved.",
+              "Received serial must be a positive integer.",
+              "A WPX prefix could not be derived."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-17T02:01:00.000Z",
+          "committedRevision" : 2,
+          "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "requestID" : "b7654321-89ab-4cde-8fab-0123456789ab"
+        },
+        "session" : {
+          "name" : "Browser wire test",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "single-op"
+          },
+          "qsoCount" : 0,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 2,
+          "rule" : {
+            "displayName" : "CQ WPX CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-wpx-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T02:01:00.000Z",
+          "workspaceGeneration" : "6e089ec6-44c7-43bd-91fb-d31a9b6b4a57"
+        }
+      }
+    }
+  },
+  "schemaVersion" : 2
+}

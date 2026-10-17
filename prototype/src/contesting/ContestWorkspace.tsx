@@ -131,7 +131,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       await owner.flush(); if (!accepts(scope) || owner.pendingOperation) return; const current = owner.session!, result = await client.commitQSO(current, owner.draft!.draftID);
       if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
       if (!owner.apply(result, scope.lease!, scope.admission!)) return;
-      setScore(result.score); setNotice(`Logged ${result.qso.callsign}.`); await projections(result.session, 0, ticket, scope);
+      setScore(null); setNotice(`Logged ${result.qso.callsign}.`); await projections(result.session, 0, ticket, scope);
     } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
   }
   async function checkReceipt(retry = false) {

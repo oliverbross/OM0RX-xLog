@@ -25,6 +25,14 @@ public actor LiveWorker {
             return result
         }
 
+        func workspaceGeneration() throws -> String {
+            guard let generation = try service.syncOwnerContext()["generation"] as? String,
+                  UUID(uuidString: generation) != nil else {
+                throw ContestLaneError.confirmed("invalid_workspace", "The isolated workspace generation is unavailable.")
+            }
+            return generation
+        }
+
         func reconcilePower() {
             let state = power.state()
             guard !state.suspended else { power.disarm(); return }
@@ -73,6 +81,8 @@ public actor LiveWorker {
     private let powerDelivery: NativeDraftPowerDelivery
     private var powerSelectionSequence: UInt64 = 0
     private let logbookLane: LogbookLane
+    private let contestLane: ContestLane?
+    private let contestLaneInitializationError: ContestLaneError?
     let remoteBackup: LiveRemoteBackupService
     private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
@@ -107,7 +117,25 @@ public actor LiveWorker {
           runtimeProfile: AppRuntimeProfile = .production) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
-        logbookLane = LogbookLane(service: logbook, power: powerCapture)
+        let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
+        logbookLane = createdLogbookLane
+        if case .contestingTest = runtimeProfile {
+            let contestURL = logbook.workspaceDirectoryURL.deletingLastPathComponent()
+                .appendingPathComponent("Contesting", isDirectory: true).appendingPathComponent("contests.sqlite")
+            do {
+                contestLane = try ContestLane(databaseURL: contestURL) { try await createdLogbookLane.workspaceGeneration() }
+                contestLaneInitializationError = nil
+            } catch let error as ContestLaneError {
+                contestLane = nil
+                contestLaneInitializationError = error
+            } catch {
+                contestLane = nil
+                contestLaneInitializationError = .confirmed("contest_unavailable", "The isolated contest store could not be initialized.")
+            }
+        } else {
+            contestLane = nil
+            contestLaneInitializationError = nil
+        }
         let backupVerifier = remoteBackupEnvironment.map {
             LiveDropboxBackupAccountVerifier(vault: $0.vault, http: $0.http)
         }
@@ -271,7 +299,7 @@ public actor LiveWorker {
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
-            if terminalShutdown && (method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("contest_") || method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -302,7 +330,14 @@ public actor LiveWorker {
                 return diagnostics.response(to: data)
             }
             let result: [String: Any]
-            if method == "station_power_selection" {
+            if method.hasPrefix("contest_") {
+                guard case .contestingTest = runtimeProfile else {
+                    throw WorkerFailure("contest_profile_required", "Contest storage is available only in OM0RX-xLog Contesting Test.")
+                }
+                if let contestLaneInitializationError { throw contestLaneInitializationError }
+                guard let contestLane else { throw WorkerFailure("contest_unavailable", "The isolated contest store is unavailable.") }
+                result = try await contestLane.handle(method: method, params: params)
+            } else if method == "station_power_selection" {
                 guard !terminalShutdown, Set(params.keys) == ["provider", "selection_id", "sequence"],
                       let sequenceValue = params["sequence"],
                       let sequenceData = try? JSONSerialization.data(withJSONObject: [sequenceValue]),
@@ -458,12 +493,14 @@ public actor LiveWorker {
                 #endif
             }
             return encode(["id": id, "ok": true, "result": result])
+        } catch let failure as ContestLaneError {
+            return encode(["id": id, "ok": false, "error": ["code": failure.code, "message": failure.message, "outcome": failure.outcome]])
         } catch let failure as WorkerFailure {
-            return encode(["id": id, "ok": false, "error": ["code": failure.code, "message": failure.message]])
+            return encode(["id": id, "ok": false, "error": ["code": failure.code, "message": failure.message, "outcome": "confirmed"]])
         } catch {
             // Dependency errors can contain credentials, records or URLs. Never
             // return arbitrary localizedDescription over the UI/log boundary.
-            return encode(["id": id, "ok": false, "error": ["code": "operation_failed", "message": "Operation failed. Check the connection or configuration; no success has been confirmed."]])
+            return encode(["id": id, "ok": false, "error": ["code": "operation_failed", "message": "Operation failed. Check the connection or configuration; no success has been confirmed.", "outcome": "uncertain"]])
         }
     }
 

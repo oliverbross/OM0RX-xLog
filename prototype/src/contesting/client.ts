@@ -75,11 +75,14 @@ function validQSO(value: unknown, params: Record<string, unknown>) {
   return !!v && v.sessionID === params.sessionID && text(v.qsoID, 128) && iso(v.workedAt) && text(v.callsign, 32) && text(v.band, 8) && BANDS.has(v.band) &&
     v.mode === "CW" && text(v.sentExchange, 32, true) && text(v.receivedExchange, 32, true) && uint(v.points) && (v.multiplier === null || text(v.multiplier, 160)) && typeof v.isDupe === "boolean";
 }
-function validScore(value: unknown, params: Record<string, unknown>, expectedRevision?: number) {
+function validScoreSummary(value: unknown, params: Record<string, unknown>, expectedRevision?: number) {
   const v = object(value);
   return !!v && sameContext(v, params) && uint(v.revision) && (expectedRevision === undefined || v.revision === expectedRevision) && uint(v.qsos) && uint(v.points) &&
-    uint(v.multipliers) && uint(v.claimedScore) && Array.isArray(v.multiplierLabels) && v.multiplierLabels.length <= 10_000 && v.multiplierLabels.every(x => text(x, 160)) &&
-    ["verified", "provisional", "unverified"].includes(String(v.sourceVerification));
+    uint(v.multipliers) && uint(v.claimedScore) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification));
+}
+function validScore(value: unknown, params: Record<string, unknown>, expectedRevision?: number) {
+  const v = object(value);
+  return validScoreSummary(value, params, expectedRevision) && !!v && Array.isArray(v.multiplierLabels) && v.multiplierLabels.length <= 10_000 && v.multiplierLabels.every(x => text(x, 160));
 }
 
 function validateResult<T>(method: ContestMethod, value: unknown, params: Record<string, unknown>): T {
@@ -92,7 +95,7 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
     const s = object(v?.session), d = object(v?.draft), receipt = object(v?.receipt);
     valid = !!v && validSession(s, params) && validDraft(d, params, params.draftID) && validReceipt(receipt, params) && s?.revision === d?.revision && s?.revision === receipt?.committedRevision;
     if (valid && method === "contest_create") valid = params.expectedRevision === 0 && s?.sessionID === params.sessionID;
-    if (valid && method === "contest_qso_commit") valid = validQSO(v!.qso, params) && validScore(v!.score, params, s?.revision as number);
+    if (valid && method === "contest_qso_commit") valid = validQSO(v!.qso, params) && validScoreSummary(v!.score, params, s?.revision as number) && !("multiplierLabels" in object(v!.score)!);
   } else if (method === "contest_operation_receipt") valid = !!v && (v.status === "not_found" || v.status === "committed" && validReceipt(v.receipt, params));
   else if (method === "contest_log_page") valid = !!v && sameContext(v, params) && v.revision === params.expectedRevision && Array.isArray(v.qsos) && v.qsos.length <= 200 && v.qsos.every(x => validQSO(x, params)) && uint(v.total) && v.offset === params.offset && v.limit === params.limit;
   else if (method === "contest_score") valid = validScore(v, params, params.expectedRevision as number);

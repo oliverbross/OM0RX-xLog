@@ -438,6 +438,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     view.append(&PredefinedMenuItem::separator(app)?)?;
     append_screen_group(app, &view, "View")?;
     append_logbook_menu(app, &menu)?;
+    if runtime_profile::CONTESTING_TEST { append_contesting_menu(app, &menu)?; }
     let station = Submenu::new(app, "Station", true)?;
     append_screen_group(app, &station, "Station")?;
     let items = menu.items()?;
@@ -495,6 +496,19 @@ fn append_logbook_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri
         .is_some_and(|submenu| submenu.text().is_ok_and(|text| text == "File")))
         .map(|index| index + 1).unwrap_or(1).min(items.len());
     menu.insert(&logbook, after_file)?;
+    Ok(())
+}
+
+fn append_contesting_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let screen = workspace_navigation::available_screen("contesting")
+        .expect("Contesting Test bundle must include its workspace screen");
+    let contesting = Submenu::new(app, "Contesting", true)?;
+    contesting.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
+        "Contest Manager / Desk", true, None::<&str>)?)?;
+    let items = menu.items()?;
+    let before_window = items.iter().position(|item| item.as_submenu()
+        .is_some_and(|submenu| submenu.id().0 == WINDOW_SUBMENU_ID)).unwrap_or(items.len());
+    menu.insert(&contesting, before_window)?;
     Ok(())
 }
 

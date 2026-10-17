@@ -173,6 +173,17 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "self_test",
         "integration_self_test",
         "cluster_classify",
+        "contest_catalog",
+        "contest_sessions",
+        "contest_create",
+        "contest_open",
+        "contest_draft_get",
+        "contest_draft_apply",
+        "contest_serial_reserve",
+        "contest_qso_commit",
+        "contest_operation_receipt",
+        "contest_log_page",
+        "contest_score",
         "workspace_status",
         "workspace_create",
         "workspace_preferences_load",
@@ -1436,6 +1447,19 @@ mod tests {
             "station_cat_servers",
         ] {
             assert!(validate_request(&json!({"id":"a","method":method,"params":{}})).is_ok());
+        }
+    }
+    #[test]
+    fn contest_lane_methods_are_explicitly_admitted_only_on_main_surface() {
+        for method in [
+            "contest_catalog", "contest_sessions", "contest_create", "contest_open",
+            "contest_draft_get", "contest_draft_apply", "contest_serial_reserve",
+            "contest_qso_commit", "contest_operation_receipt", "contest_log_page", "contest_score",
+        ] {
+            let request = json!({"id":"contest", "method":method, "params":{}});
+            assert!(validate_request(&request).is_ok(), "{method}");
+            assert!(validate_surface("main", &request).is_ok(), "{method}");
+            assert!(validate_surface("monitor", &request).is_err(), "{method}");
         }
     }
     #[test]
