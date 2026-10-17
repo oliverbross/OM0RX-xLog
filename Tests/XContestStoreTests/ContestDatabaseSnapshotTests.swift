@@ -514,6 +514,21 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         XCTAssertNoThrow(try windowsSnapshotPath(FileManager.default.temporaryDirectory.path))
     }
 
+    func testWindowsPublicationUsesExactRequestedDestinationName() async throws {
+        let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
+        _ = try await create(store)
+        let parent = temporaryDirectory()
+        let destination = parent.appendingPathComponent("published-exact-name", isDirectory: true)
+
+        _ = try await ContestDatabaseSnapshotter().createSnapshot(
+            sourceDatabaseURL: source, destinationDirectoryURL: destination)
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: parent.path),
+                       [destination.lastPathComponent])
+        let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
+        XCTAssertEqual(metadata.schemaVersion, 2)
+    }
+
     func testWindowsHeldHandlesDenyEarlyStagingAndParentMoves() async throws {
         let source = databaseURL(), store = try SQLiteContestStore(databaseURL: source)
         _ = try await create(store)

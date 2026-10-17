@@ -111,8 +111,10 @@ Supported publication primitives are:
   `ReplaceIfExists=FALSE` on the retained staging handle. Every existing
   ancestor through the destination parent is retained without delete sharing,
   so the absolute destination path cannot be redirected while publication is
-  active. Reparse points, multiply linked database files, UNC paths, and device
-  namespace paths are refused. `GetDriveTypeW` admits only fixed, removable,
+  active. The variable-length `FILE_RENAME_INFO` buffer includes an explicit
+  trailing wide NUL while `FileNameLength` excludes it. Reparse points,
+  multiply linked database files, UNC paths, and device namespace paths are
+  refused. `GetDriveTypeW` admits only fixed, removable,
   and RAM-disk volumes; remote, unknown, missing-root, and CD-ROM drives are
   refused before filesystem inspection or staging.
 
