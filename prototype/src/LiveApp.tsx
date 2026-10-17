@@ -98,10 +98,29 @@ import appLogo from "./assets/xlog-logo-mark.png";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 
+const callsignLookups = new WeakMap<Request, Map<string, Promise<any>>>();
+function ownedCallsignLookup(request: Request, call: string): Promise<any> {
+  let pending = callsignLookups.get(request);
+  if (!pending) { pending = new Map(); callsignLookups.set(request, pending); }
+  const key = normalizedCall(call) || call;
+  const existing = pending.get(key);
+  if (existing) return existing;
+  let work: Promise<any>;
+  work = Promise.resolve().then(() => request("lookup_call", { call })).finally(() => {
+    if (pending?.get(key) === work) {
+      pending.delete(key);
+      if (!pending.size) callsignLookups.delete(request);
+    }
+  });
+  pending.set(key, work);
+  return work;
+}
+
 export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 5_000): Promise<any> {
+  const lookup = ownedCallsignLookup(request, call);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Callsign lookup timed out.")), timeoutMs);
-    void request("lookup_call", { call }).then(
+    void lookup.then(
       value => { clearTimeout(timer); resolve(value); },
       cause => { clearTimeout(timer); reject(cause); },
     );

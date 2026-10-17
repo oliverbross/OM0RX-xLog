@@ -61,6 +61,27 @@ it("settles a stalled callsign lookup instead of leaving intelligence pending", 
   }
 });
 
+it("does not duplicate a timed-out callsign request and permits retry only after it settles", async () => {
+  vi.useFakeTimers();
+  try {
+    let settle!: (value: unknown) => void;
+    const request = vi.fn(() => request.mock.calls.length === 1
+      ? new Promise(resolve => { settle = resolve; })
+      : Promise.resolve({ call: "K1ABC", source: "Recovered lookup" }));
+    const first = expect(boundedCallsignLookup(request, "K1ABC", 100)).rejects.toThrow("Callsign lookup timed out");
+    await vi.advanceTimersByTimeAsync(100); await first;
+    const reused = boundedCallsignLookup(request, "k1abc", 100);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(1);
+    settle({ call: "K1ABC", source: "Late first lookup" });
+    await expect(reused).resolves.toMatchObject({ source: "Late first lookup" });
+    await expect(boundedCallsignLookup(request, "K1ABC", 100)).resolves.toMatchObject({ source: "Recovered lookup" });
+    expect(request).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("recovers a saved Operator Desk callsign after one transient launch lookup failure", async () => {
   exists = true;
   draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "K1ABC", band: "20m", mode: "SSB" });
@@ -254,8 +275,9 @@ it("logs through the shared draft receipt and keeps Follow radio enabled on norm
 
 it("recovers a lost Save acknowledgement without a second Save and leaves non-QSO navigation usable", async () => {
   exists = true;
-  const backend = calls.request.getMockImplementation()!;
+  const backend = calls.request.getMockImplementation()!; let receiptAvailable = false;
   calls.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_receipt" && !receiptAvailable) throw new Error("Receipt transport unavailable");
     const result = await backend(method, params);
     if (method === "logbook_operator_draft_apply" && params.action === "save") throw new Error("Acknowledgement lost");
     return result;
@@ -273,6 +295,7 @@ it("recovers a lost Save acknowledgement without a second Save and leaves non-QS
   } finally { vi.useRealTimers(); }
   expect(screen.getByLabelText("Callsign").closest("form")?.hasAttribute("inert")).toBe(true);
   expect(screen.getByRole("button", { name: "Settings" }).hasAttribute("disabled")).toBe(false);
+  receiptAvailable = true;
   fireEvent.click(screen.getByRole("button", { name: "Check saved operation" }));
   await waitFor(() => expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull());
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("");

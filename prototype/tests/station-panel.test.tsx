@@ -31,7 +31,7 @@ it("keeps a detached monitor read-only", async () => {
 
 it("allows Keychain interaction only for operator-triggered connect and reconnect", async () => {
   const state = { source: "direct_agent", available: false, radio: null, station: null, rotor: null };
-  const request = vi.fn(async () => state);
+  const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => state);
   render(<StationPanel snapshot={state} onRequest={request} onSnapshot={vi.fn()} />);
   await waitFor(() => expect(request).toHaveBeenCalledWith("station_snapshot", { provider: "direct_agent" }));
   fireEvent.change(screen.getByLabelText("Agent HTTPS URL"), { target: { value: "https://station.example" } });
