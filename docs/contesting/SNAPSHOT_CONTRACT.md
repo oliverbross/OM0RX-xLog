@@ -26,6 +26,8 @@ The caller supplies both URLs explicitly:
 - No production location or default path is selected by this API.
 
 Work occurs in a private mode-0700 staging directory beside the destination.
+On Windows the directory inherits the caller's parent ACL; the implementation
+does not attempt to translate POSIX mode bits.
 Failures and cancellation remove the staged database only while its retained
 identity still matches, then remove the owned staging name only while its
 directory identity still matches. A substituted object is preserved. The
@@ -105,18 +107,29 @@ Supported publication primitives are:
 
 - Darwin: `renameatx_np` with `RENAME_EXCL` and retained parent descriptor;
 - Linux: `renameat2` with `RENAME_NOREPLACE` and retained parent descriptor.
+- Windows: `SetFileInformationByHandle(FileRenameInfo)` with
+  `ReplaceIfExists=FALSE` on the retained staging handle. Every existing
+  ancestor through the destination parent is retained without delete sharing,
+  so the absolute destination path cannot be redirected while publication is
+  active. Reparse points, multiply linked database files, UNC paths, and device
+  namespace paths are refused. `GetDriveTypeW` admits only fixed, removable,
+  and RAM-disk volumes; remote, unknown, missing-root, and CD-ROM drives are
+  refused before filesystem inspection or staging.
 
 If the platform cannot provide that primitive, publication fails explicitly.
 A destination created by another process between validation and publication is
-never overwritten. Windows currently fails closed before staging because
-`MoveFileExW` cannot anchor ancestor traversal to the retained parent identity;
-support requires an equivalent handle-relative, no-replace rename.
+never overwritten. Windows retains read-attribute identity handles while SQLite
+is open. Cleanup requests delete access to that same file object with
+`ReOpenFile`; if the filesystem or sharing state refuses it, cleanup preserves
+the artifact instead of falling back to a pathname deletion.
 
-The native rename binds the staging *name* relative to the retained parent; the
-preceding identity check and rename are separate syscalls. The API therefore
-does not claim protection from a malicious same-UID process exchanging that
-name in the interval. Once the native rename succeeds, the directory is treated
-as published immediately. A later location check or caller hook may report an
+On Darwin and Linux, the native rename binds the staging *name* relative to the
+retained parent; the preceding identity check and rename are separate syscalls.
+On Windows, the rename binds the retained staging handle and the ancestor
+handles prevent destination-path redirection. The API does not claim protection
+from a malicious same-user process continuously racing arbitrary filesystem
+operations. Once the native rename succeeds, the directory is treated as
+published immediately. A later location check or caller hook may report an
 error, but failure cleanup never removes content from the published directory.
 
 ## Recovery boundary
