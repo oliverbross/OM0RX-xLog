@@ -159,6 +159,105 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
+    func testFourPilotCatalogAndSSBMutationRestartExportFlowUseEntryDescriptors() async throws {
+        let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-four-pilot-catalog-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: catalogRoot) }
+        let catalogLane = try ContestLane(databaseURL: catalogRoot.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
+        let catalog = try await catalogLane.handle(method: "contest_catalog", params: [:])
+        let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
+        XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
+                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb"])
+        for rule in rules {
+            let mode = try XCTUnwrap(rule["mode"] as? String)
+            let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
+            XCTAssertEqual(entry["mode"] as? String, mode)
+            XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String, mode == "CW" ? "599" : "59")
+        }
+
+        for ruleName in ["CQ WW SSB", "CQ WPX SSB"] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-ssb-lifecycle-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: root) }
+            let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
+            let (sessionID, draftID, created) = try await makeSession(lane, ruleName: ruleName)
+            let sessionRule = try XCTUnwrap(((created["session"] as? [String: Any])?["rule"] as? [String: Any]))
+            let entry = try XCTUnwrap(sessionRule["entry"] as? [String: Any])
+            XCTAssertEqual(sessionRule["mode"] as? String, "SSB")
+            XCTAssertEqual(entry["cabrilloProjectionFormatterVersion"] as? String, "ssb-pilot-2")
+            var revision = 1
+            if ruleName == "CQ WPX SSB" {
+                let reserved = try await lane.handle(method: "contest_serial_reserve", params: mutation(
+                    sessionID: sessionID, requestID: UUID(), revision: revision,
+                    timestamp: "2026-10-17T06:01:00.000Z", payload: [:], draftID: draftID))
+                XCTAssertEqual(((reserved["draft"] as? [String: Any])?["reservedSerial"] as? NSNumber)?.intValue, 1)
+                revision += 1
+            } else {
+                do {
+                    _ = try await lane.handle(method: "contest_serial_reserve", params: mutation(
+                        sessionID: sessionID, requestID: UUID(), revision: revision,
+                        timestamp: "2026-10-17T06:01:00.000Z", payload: [:], draftID: draftID))
+                    XCTFail("Expected WW SSB to reject serial reservation")
+                } catch let error as ContestLaneError { XCTAssertEqual(error.code, "serial_not_supported") }
+            }
+            let sent = ruleName == "CQ WPX SSB" ? "001" : "15"
+            let received = ruleName == "CQ WPX SSB" ? "101" : "5"
+            let fields: [String: Any] = ["callsign": "K1ABC", "sentReport": "59", "sentExchange": sent,
+                "receivedReport": "59", "receivedExchange": received, "frequencyHz": 14_250_000,
+                "band": "20m", "mode": "SSB"]
+            _ = try await lane.handle(method: "contest_draft_apply", params: mutation(
+                sessionID: sessionID, requestID: UUID(), revision: revision,
+                timestamp: "2026-10-17T06:02:00.000Z", payload: ["fields": fields], draftID: draftID))
+            revision += 1
+            let committed = try await lane.handle(method: "contest_qso_commit", params: mutation(
+                sessionID: sessionID, requestID: UUID(), revision: revision,
+                timestamp: "2026-10-17T06:03:00.000Z", payload: [:], draftID: draftID))
+            revision += 1
+            XCTAssertEqual((committed["qso"] as? [String: Any])?["mode"] as? String, "SSB")
+
+            for format in ["cabrillo", "adif"] {
+                let exportID = UUID()
+                let prepared = try await lane.handle(method: "contest_export_prepare", params: [
+                    "exportID": wireID(exportID), "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                    "expectedRevision": revision, "generatedAtUTC": "2026-10-17T06:04:00.000Z", "format": format,
+                    "header": ["callsign": "OM0RX", "categoryOperator": "SINGLE-OP", "categoryAssisted": "NON-ASSISTED",
+                               "categoryBand": "ALL", "categoryMode": "SSB", "categoryTransmitter": "ONE", "categoryPower": "LOW",
+                               "operators": ["OM0RX"], "location": "DX", "name": "Oliver Operator", "addressLines": [], "email": ""],
+                ])
+                XCTAssertEqual(prepared["formatterVersion"] as? String, format == "cabrillo" ? "ssb-pilot-2" : "ssb-pilot-1")
+                let byteLength = try XCTUnwrap((prepared["byteLength"] as? NSNumber)?.intValue)
+                let chunk = try await lane.handle(method: "contest_export_read", params: [
+                    "exportID": wireID(exportID), "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                    "offset": 0, "length": byteLength,
+                ])
+                let data = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(chunk["dataBase64"] as? String)))
+                let document = try XCTUnwrap(String(data: data, encoding: .utf8))
+                XCTAssertTrue(format == "cabrillo" ? document.contains(" PH ") : document.contains("<MODE:3>SSB"))
+                XCTAssertEqual(document.contains("<STX:"), format == "adif" && ruleName == "CQ WPX SSB")
+                _ = try await lane.handle(method: "contest_export_release", params: [
+                    "exportID": wireID(exportID), "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                ])
+            }
+
+            let qsoID = try XCTUnwrap((committed["qso"] as? [String: Any])?["qsoID"] as? String)
+            let got = try await qsoGet(lane, sessionID: sessionID, qsoID: UUID(uuidString: qsoID)!, revision: revision)
+            var qso = try XCTUnwrap(got["qso"] as? [String: Any]); qso.removeValue(forKey: "entity")
+            qso["callsign"] = "DL1AAA"; qso["receivedExchange"] = ruleName == "CQ WPX SSB" ? "102" : "14"
+            qso["normalizedReceivedExchange"] = qso["receivedExchange"]
+            let correction = mutation(sessionID: sessionID, requestID: UUID(), revision: revision,
+                timestamp: "2026-10-17T06:05:00.000Z", payload: ["qso": qso, "reason": "Correct copied call"])
+            let corrected = try await lane.handle(method: "contest_qso_correct", params: correction); revision += 1
+            let deletion = mutation(sessionID: sessionID, requestID: UUID(), revision: revision,
+                timestamp: "2026-10-17T06:06:00.000Z", payload: ["qsoID": qsoID, "reason": "Remove invalid contact"])
+            let deleted = try await lane.handle(method: "contest_qso_delete", params: deletion); revision += 1
+            let reopened = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
+            let replayedCorrection = try await reopened.handle(method: "contest_qso_correct", params: correction)
+            let replayedDeletion = try await reopened.handle(method: "contest_qso_delete", params: deletion)
+            XCTAssertEqual(try canonicalJSON(replayedCorrection), try canonicalJSON(corrected))
+            XCTAssertEqual(try canonicalJSON(replayedDeletion), try canonicalJSON(deleted))
+            let open = try await reopened.handle(method: "contest_open", params: ["sessionID": wireID(sessionID), "workspaceGeneration": generation])
+            XCTAssertEqual(((open["session"] as? [String: Any])?["revision"] as? NSNumber)?.intValue, revision)
+        }
+    }
+
     func testQSOGetCorrectionDeletionReplayAndStrictFailures() async throws {
         let (root, lane) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let (sessionID, draftID, _) = try await makeSession(lane)
@@ -495,6 +594,10 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
+        XCTAssertEqual(rules.count, 4)
+        XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
+                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb"])
+        XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let rule = try XCTUnwrap(rules.first { $0["displayName"] as? String == "CQ WPX CW" })
         let sessionID = UUID(uuidString: "f7654321-89ab-4cde-8fab-0123456789ab")!
         let createID = UUID(uuidString: "a7654321-89ab-4cde-8fab-0123456789ab")!
@@ -596,7 +699,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((receipt["result"] as? [String: Any])?["status"] as? String, "committed")
 
         if let output = ProcessInfo.processInfo.environment["XLOG_CONTEST_FIXTURE_OUTPUT"] {
-            let fixture: [String: Any] = ["schemaVersion": 3,
+            let fixture: [String: Any] = ["schemaVersion": 4,
                 "requests": ["create": createParams, "reserve": reserveParams, "apply": applyParams,
                              "commit": commitParams, "qsoGet": getParams, "qsoCorrect": correctionParams,
                              "qsoDelete": deletionParams, "postCommitApply": uncertainParams],

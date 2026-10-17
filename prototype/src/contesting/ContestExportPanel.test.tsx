@@ -9,7 +9,7 @@ import type { ContestPreparedExport, ContestSessionSummary } from "./types";
 
 const session: ContestSessionSummary = { sessionID: "20000000-0000-4000-8000-000000000002", workspaceGeneration: "30000000-0000-4000-8000-000000000003",
   revision: 7, name: "WW", rule: { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "fixture" },
-    displayName: "CQ WW CW", mode: "CW", referenceDataVersion: "cty", sourceVerification: "provisional", sourceNote: "Preview" },
+    displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: { mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", cabrilloFormatterVersion: "pilot-1", cabrilloProjectionFormatterVersion: "pilot-2", report: { format: "cwRST", defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3 }, exchange: { sent: "cqZone", received: "cqZone", sentDefault: "stationSnapshot", adifFields: "none" }, serial: { requirement: "none", allowedScopes: [] } }, referenceDataVersion: "cty", sourceVerification: "provisional", sourceNote: "Preview" },
   referenceDataVersion: "cty", station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovakia" },
   operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 2, updatedAt: "2026-10-18T00:00:00.000Z" };
 const prepared: ContestPreparedExport = { artifactID: "10000000-0000-4000-8000-000000000001", sessionID: session.sessionID,
@@ -18,13 +18,13 @@ const prepared: ContestPreparedExport = { artifactID: "10000000-0000-4000-8000-0
   byteLength: 450, sha256: "a".repeat(64), chunkLimit: 64, expiresAfterSeconds: 60 };
 afterEach(cleanup);
 
-function setup(adapter?: ContestExportSaveAdapter, category = "Single Operator") {
+function setup(adapter?: ContestExportSaveAdapter, category = "Single Operator", selectedSession = session) {
   adapter ??= vi.fn(async () => ({ status: "saved" as const, artifactID: prepared.artifactID, sha256: prepared.sha256, filename: "ww.cbr" }));
   const opener = createRef<HTMLButtonElement>(); document.body.append(Object.assign(document.createElement("button"), { textContent: "Export" }));
   opener.current = document.body.lastElementChild as HTMLButtonElement; opener.current.focus();
   const prepare = vi.fn(async () => prepared), release = vi.fn(async () => ({})), onClose = vi.fn(), onSaved = vi.fn();
   const owner = new ContestExportSaveOwner(adapter, new MemoryContestRecoveryStorage());
-  const view = render(<ContestExportPanel session={{ ...session, operator: { ...session.operator, category } }} opener={opener} saveOwner={owner}
+  const view = render(<ContestExportPanel session={{ ...selectedSession, operator: { ...selectedSession.operator, category } }} opener={opener} saveOwner={owner}
     prepare={prepare} release={release} onClose={onClose} onSaved={onSaved}/>);
   return { view, owner, prepare, release, onClose, onSaved, adapter, opener };
 }
@@ -37,6 +37,18 @@ it("uses fixed preview categories, prepares once, and shows a compact non-sensit
   expect(prepare).toHaveBeenCalledWith("cabrillo", expect.objectContaining({ callsign: "OM0RX", categoryOperator: "SINGLE-OP", categoryMode: "CW", categoryTransmitter: "ONE", operators: ["OM0RX"], location: "DX", name: "Operator" }));
   expect(screen.getByText("Revision").nextSibling?.textContent).toBe("7");
   expect(screen.queryByText(prepared.artifactID)).toBeNull(); expect(screen.queryByText(prepared.sha256)).toBeNull();
+});
+
+it("derives the SSB Cabrillo mode from the pinned entry descriptor", async () => {
+  const ssb = { ...session, rule: { ...session.rule, identity: { ...session.rule.identity, id: "cq-ww-ssb" as const },
+    displayName: "CQ WW SSB" as const, mode: "SSB" as const,
+    entry: { ...session.rule.entry, mode: "SSB" as const, adifMode: "SSB" as const, cabrilloQSOType: "PH" as const,
+      cabrilloFormatterVersion: "ssb-pilot-1" as const, cabrilloProjectionFormatterVersion: "ssb-pilot-2" as const,
+      report: { format: "phoneRS" as const, defaultSent: "59", defaultReceived: "59", maximumUTF8Bytes: 2 as const } } } };
+  const { prepare } = setup(undefined, "Single Operator", ssb);
+  fillAndPrepare();
+  await screen.findByRole("region", { name: "Prepared export summary" });
+  expect(prepare).toHaveBeenCalledWith("cabrillo", expect.objectContaining({ categoryMode: "SSB" }));
 });
 
 it("does not relabel unsupported stored categories", () => {

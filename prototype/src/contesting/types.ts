@@ -10,9 +10,21 @@ export type ContestWorkerResponse<T> = { id: string; ok: true; result: T } | { i
 export type ContestRequest = <T = unknown>(method: ContestMethod, params?: Record<string, unknown>) => Promise<ContestWorkerResponse<T>>;
 export type SourceVerificationStatus = "verified" | "provisional" | "unverified";
 
-export type ContestRuleIdentity = { id: "cq-ww-cw" | "cq-wpx-cw"; version: string; edition: string; sourceRevision: string };
+export type ContestMode = "CW" | "SSB";
+export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb";
+export type ContestRuleIdentity = { id: ContestRuleID; version: string; edition: string; sourceRevision: string };
+export type ContestEntryDescriptor = {
+  mode: ContestMode; adifMode: ContestMode; cabrilloQSOType: "CW" | "PH";
+  cabrilloFormatterVersion: "pilot-1" | "ssb-pilot-1";
+  cabrilloProjectionFormatterVersion: "pilot-2" | "ssb-pilot-2";
+  report: { format: "cwRST" | "phoneRS"; defaultSent: string; defaultReceived: string; maximumUTF8Bytes: 2 | 3 };
+  exchange: { sent: "cqZone" | "serialNumber"; received: "cqZone" | "serialNumber"; sentDefault: "stationSnapshot" | "reservedSerial"; adifFields: "none" | "stxSrx" };
+  serial: { requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[] };
+};
 export type ContestRuleMetadata = {
-  identity: ContestRuleIdentity; displayName: "CQ WW CW" | "CQ WPX CW"; mode: "CW";
+  identity: ContestRuleIdentity; displayName: "CQ WW CW" | "CQ WPX CW" | "CQ WW SSB" | "CQ WPX SSB"; mode: ContestMode;
+  entryDescriptorVersion: 1;
+  entry: ContestEntryDescriptor;
   referenceDataVersion: string; sourceVerification: SourceVerificationStatus; sourceNote: string;
 };
 export type ContestStationSnapshot = { callsign: string; cqZone: string; dxccEntity: string };
@@ -24,7 +36,7 @@ export type ContestSessionSummary = {
 };
 export type ContestDraftFields = {
   callsign: string; sentReport: string; sentExchange: string; receivedReport: string; receivedExchange: string;
-  frequencyHz: number | null; band: string; mode: "CW";
+  frequencyHz: number | null; band: string; mode: ContestMode;
 };
 export type ContestDraftSnapshot = {
   draftID: string; sessionID: string; workspaceGeneration: string; revision: number; fields: ContestDraftFields;
@@ -32,7 +44,7 @@ export type ContestDraftSnapshot = {
   dupe: { state: "clear" | "duplicate" | "unchecked"; reason: string }; updatedAt: string;
 };
 export type ContestQSO = {
-  qsoID: string; sessionID: string; workedAt: string; callsign: string; band: string; mode: "CW";
+  qsoID: string; sessionID: string; workedAt: string; callsign: string; band: string; mode: ContestMode;
   sentExchange: string; receivedExchange: string; points: number; multiplier: string | null; isDupe: boolean;
 };
 export type ContestEntity = { adif: number; name: string; countryPrefix: string; continent: string; cqZone: number };
@@ -41,7 +53,7 @@ export type ContestQSOProvenance = {
   sourceIdentity: string | null; importedClaimedScore: number | null;
 };
 export type ContestFullQSO = {
-  qsoID: string; sessionID: string; originalUTC: string; callsign: string; band: string; mode: "CW";
+  qsoID: string; sessionID: string; originalUTC: string; callsign: string; band: string; mode: ContestMode;
   frequencyHz: number; sentReport: string; receivedReport: string;
   sentExchange: string; normalizedSentExchange: string; allocatedSerial: string;
   receivedExchange: string; normalizedReceivedExchange: string; entity: ContestEntity | null;

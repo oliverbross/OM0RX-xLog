@@ -986,7 +986,7 @@
           "adifFields": "stxSrx"
         },
         "serial": {
-          "requirement": "requiredForOperatorEntry",
+          "requirement": "requiredForCommit",
           "allowedScopes": [
             "session",
             "band",
@@ -1380,7 +1380,7 @@
           "adifFields": "stxSrx"
         },
         "serial": {
-          "requirement": "requiredForOperatorEntry",
+          "requirement": "requiredForCommit",
           "allowedScopes": [
             "session",
             "band",

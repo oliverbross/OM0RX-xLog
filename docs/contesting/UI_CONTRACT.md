@@ -1,6 +1,6 @@
 # Contesting UI contract
 
-The first contest workspace is an isolated, local-only pilot for CQ WW CW and CQ WPX CW. It is not a menu route until the real worker implementation is integrated. The React component receives the existing worker request function and never calls station, radio, keying, network, normal-log, or generic service methods.
+The contest workspace is an isolated, local-only pilot for CQ WW and CQ WPX in CW and SSB. The React component receives the existing worker request function and never calls station, radio, keying, network, normal-log, or generic service methods.
 
 ## Request framing
 
@@ -23,7 +23,7 @@ Method names are:
 - `contest_log_page`
 - `contest_score`
 
-Wire DTOs use camel case and are defined in `prototype/src/contesting/types.ts`. `sessionID` always identifies one contest session. A rule is pinned by `ruleIdentity { id, version, edition, sourceRevision }` plus `referenceDataVersion`. Neither has an implicit active-session fallback.
+Wire DTOs use camel case and are defined in `prototype/src/contesting/types.ts`. `sessionID` always identifies one contest session. A rule is pinned by `ruleIdentity { id, version, edition, sourceRevision }` plus `referenceDataVersion`. Neither has an implicit active-session fallback. Catalog and session rule projections carry `entryDescriptorVersion: 1` plus the authoritative mode, Cabrillo QSO type and formatter policies, report defaults and UTF-8 bound, exchange meanings, ADIF exchange mapping, and serial requirement/scopes. The client rejects unknown descriptor versions or internally contradictory policies.
 
 ## Mutation scope and replay
 
@@ -31,7 +31,7 @@ Every mutation carries `sessionID`, `workspaceGeneration`, `requestID`, `expecte
 
 For the pilot, create maps `operationTimestamp` to the session start and initial draft timestamp, draft apply maps it to draft update time, and QSO commit maps it to the logged contact `workedAt`. Serial reservation uses the same immutable operation time for its durable transition. The UI does not generate a different timestamp on retry.
 
-The revision is the session aggregate revision. Draft apply, serial reserve, QSO commit, correction, and deletion compare it and atomically advance it. Draft mutations return the same new revision on the session, draft, and receipt; commit also returns that revision on the score. A correction or deletion returns a distinct bounded change result with its session revision, scalar score, QSO count, current target or tombstone, audit reference, and receipt. It never returns or replaces the operating draft. Pages, full-QSO reads, and scores carry the requested session, generation, and revision. Dates must be finite ISO timestamps and contest mode is exactly `CW`.
+The revision is the session aggregate revision. Draft apply, serial reserve, QSO commit, correction, and deletion compare it and atomically advance it. Draft mutations return the same new revision on the session, draft, and receipt; commit also returns that revision on the score. A correction or deletion returns a distinct bounded change result with its session revision, scalar score, QSO count, current target or tombstone, audit reference, and receipt. It never returns or replaces the operating draft. Pages, full-QSO reads, and scores carry the requested session, generation, and revision. Dates must be finite ISO timestamps. Mode, report widths/defaults, exchange fields, and serial admission come from the pinned entry descriptor; they are not inferred from a rule ID in the UI.
 
 The shared session owner writes a mutation to its generation-scoped recovery journal before transport dispatch. A malformed or stale successful mutation response is still uncertain because the server may have committed it; only a validated success or an explicit confirmed rejection clears the journal. An unconfirmed mutation keeps its original method, scope, request ID, digest, timestamp, and payload across remounts. `contest_operation_receipt` receives exactly `sessionID`, `workspaceGeneration`, `requestID`, and `payloadDigest`. A `not_found` result remains unresolved: it is not success and does not allow the UI to mint a new ID. An explicit retry resends the same logical operation with the same identity and payload. A retry on a newly constructed owner reopens the pinned session after the exact mutation response before adopting state or loading projections. Receipt recovery retains the pending operation until that authoritative reopen succeeds.
 
@@ -45,9 +45,9 @@ The backend owns durable sessions, drafts, serial reservations, QSOs, receipts, 
 
 The workspace uses xLog's existing colors, typography, field controls, table density, focus rings, and responsive card-to-row behavior. It provides:
 
-- a manager to create/open CQ WW CW and CQ WPX CW sessions;
+- a manager to create/open CQ WW and CQ WPX CW/SSB sessions;
 - immutable station, operator, CQ zone, and DXCC entity snapshots;
-- compact CW callsign, report, exchange, band, frequency, and serial fields;
+- compact mode-specific callsign, report, exchange, band, frequency, and serial fields;
 - explicit validation and contest-dupe state;
 - plain local Log QSO with no transmit, ESM, spot, or radio controls;
 - paged contest-only contacts and score/multiplier projections;

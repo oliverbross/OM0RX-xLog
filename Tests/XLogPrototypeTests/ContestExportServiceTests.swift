@@ -11,13 +11,14 @@ final class ContestExportServiceTests: XCTestCase {
     private let usa = ContestEntitySnapshot(adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5)
     private let germany = ContestEntitySnapshot(adif: 230, name: "GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14)
 
-    func testActualSQLiteBothPilotsProduceBothImmutableFormats() async throws {
-        for rule in [CQWWCWRule() as any ContestRule, CQWPXCWRule() as any ContestRule] {
+    func testActualSQLiteFourPilotsProduceBothImmutableFormats() async throws {
+        for rule in [CQWWCWRule() as any ContestRule, CQWPXCWRule() as any ContestRule,
+                     CQWWSSBRule() as any ContestRule, CQWPXSSBRule() as any ContestRule] {
             let fixture = try await makeFixture(rule: rule, category: "Single Operator")
             _ = try await commit(fixture, number: 1, call: "K1ABC", entity: usa)
             let stored = try await fixture.store.openSession(id: fixture.sessionID)
             let service = ContestExportService(repository: fixture.store)
-            let header = makeHeader(name: "Oliver Operator")
+            let header = makeHeader(name: "Oliver Operator", mode: rule.metadata.entry.mode)
             let cabrillo = try await service.export(sessionID: fixture.sessionID, expectedWorkspaceGeneration: generation,
                 expectedRevision: stored.revision, generatedAtUTC: baseDate.addingTimeInterval(100),
                 format: .cabrillo, header: header)
@@ -28,10 +29,16 @@ final class ContestExportServiceTests: XCTestCase {
             XCTAssertEqual(adif.qsoCount, 1)
             XCTAssertEqual(cabrillo.ruleIdentity, rule.metadata.identity)
             XCTAssertEqual(adif.ruleIdentity, rule.metadata.identity)
+            XCTAssertEqual(cabrillo.formatterVersion, rule.metadata.entry.cabrilloProjectionFormatterVersion)
+            XCTAssertEqual(adif.formatterVersion, rule.metadata.entry.cabrilloFormatterVersion)
+            let cabrilloText = try XCTUnwrap(String(data: cabrillo.data, encoding: .utf8))
+            let adifText = try XCTUnwrap(String(data: adif.data, encoding: .utf8))
+            XCTAssertTrue(cabrilloText.contains(" \(rule.metadata.entry.cabrilloQSOType) "))
+            XCTAssertTrue(adifText.contains("<MODE:\(rule.metadata.entry.adifMode.utf8.count)>\(rule.metadata.entry.adifMode)"))
+            XCTAssertEqual(adifText.contains("<STX:"), rule.metadata.entry.exchange.adifFields == .stxSrx)
+            XCTAssertEqual(adifText.contains("<SRX:"), rule.metadata.entry.exchange.adifFields == .stxSrx)
             XCTAssertEqual(cabrillo.sessionName, stored.metadata.name)
             XCTAssertEqual(cabrillo.requestedHeader.name, "Oliver Operator")
-            XCTAssertEqual(cabrillo.formatterVersion, ContestExportInput.submissionProjectionFormatterVersion)
-            XCTAssertEqual(adif.formatterVersion, ContestExportInput.legacyFormatterVersion)
             XCTAssertEqual(cabrillo.station.location, "")
             XCTAssertEqual(String(data: cabrillo.data, encoding: .utf8)?.contains("CONTEST: \(rule.metadata.cabrilloName)"), true)
             XCTAssertEqual(String(data: adif.data, encoding: .utf8)?.contains("<CONTEST_ID:\(rule.metadata.cabrilloName.count)>\(rule.metadata.cabrilloName)"), true)
@@ -244,12 +251,13 @@ final class ContestExportServiceTests: XCTestCase {
         let store = try SQLiteContestStore(databaseURL: root.appendingPathComponent("contests.sqlite"))
         let sessionID = UUID(), draftID = UUID()
         let station = ContestStationSnapshot(callsign: "OM0RX", entity: om,
-            sentExchange: rule.metadata.identity == CQWWCWRule.identity ? "15" : "001",
+            sentExchange: rule.metadata.entry.exchange.sentDefault == .stationSnapshot ? "15" : "001",
             operatorCallsigns: stationOperators, location: stationLocation)
         let session = ContestSessionSnapshot(id: sessionID, workspaceGeneration: generation,
             rule: rule.metadata.identity, referenceDataVersion: "cty-fixture-1", startedAt: baseDate, station: station)
         let draft = ContestDraftSnapshot(id: draftID, sessionID: sessionID, revision: 1, updatedAt: baseDate,
-            callsign: "", band: "20m", mode: "CW", frequencyHz: 14_025_000, rstSent: "599", rstReceived: "599",
+            callsign: "", band: "20m", mode: rule.metadata.entry.mode, frequencyHz: 14_025_000,
+            rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
             exchange: .init(rawSent: station.sentExchange, normalizedSent: station.sentExchange,
                             rawReceived: "", normalizedReceived: ""), entity: nil,
             operatorCallsign: operatorCallsign, stationLocation: stationLocation)
@@ -268,7 +276,8 @@ final class ContestExportServiceTests: XCTestCase {
         let stored = try await fixture.store.openSession(id: fixture.sessionID)
         var revision = stored.revision
         var reservation: ContestSerialReservation?
-        if fixture.rule == CQWPXCWRule.identity {
+        let rule = try XCTUnwrap(ContestRuleRegistry.pilots.rule(for: fixture.rule))
+        if rule.metadata.entry.serial.requirement == .requiredForCommit {
             let result = try await fixture.store.reserveSerial(reservationID: fixedUUID(1_000 + number), serialScope: .session,
                 scopeValue: "", scope: scope(fixture, request: 100 + number, revision: revision,
                                               digest: "reserve-\(number)"),
@@ -278,11 +287,12 @@ final class ContestExportServiceTests: XCTestCase {
         }
         let sent = reservation?.transmittedText ?? "15"
         let qso = ContestQSO(id: fixedUUID(2_000 + number), sessionID: fixture.sessionID,
-            timestampUTC: baseDate.addingTimeInterval(Double(number)), callsign: call, band: band, mode: "CW",
-            frequencyHz: band == "40m" ? 7_025_000 : 14_025_000, rstSent: "599", rstReceived: "599",
+            timestampUTC: baseDate.addingTimeInterval(Double(number)), callsign: call, band: band, mode: rule.metadata.entry.mode,
+            frequencyHz: band == "40m" ? 7_025_000 : 14_025_000,
+            rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
             exchange: .init(rawSent: sent, normalizedSent: sent,
-                            rawReceived: fixture.rule == CQWWCWRule.identity ? "5" : "101",
-                            normalizedReceived: fixture.rule == CQWWCWRule.identity ? "5" : "101"),
+                            rawReceived: rule.metadata.entry.exchange.received == .cqZone ? "5" : "101",
+                            normalizedReceived: rule.metadata.entry.exchange.received == .cqZone ? "5" : "101"),
             entity: entity, operatorCallsign: fixture.operatorCallsign,
             stationLocation: fixture.stationLocation,
             provenance: .init(source: .operatorEntry))
@@ -300,9 +310,10 @@ final class ContestExportServiceTests: XCTestCase {
     private func makeHeader(name: String, categoryOperator: String = "SINGLE-OP",
                             club: String? = "OM CONTEST CLUB", addressLines: [String] = ["Test Street 1"],
                              operators: [String] = ["OM0RX"], location: String = "DX",
-                             band: String = "ALL", overlay: String? = nil) -> CabrilloHeader {
+                             band: String = "ALL", overlay: String? = nil,
+                             mode: String = "CW") -> CabrilloHeader {
         CabrilloHeader(callsign: "OM0RX", categoryOperator: categoryOperator, categoryAssisted: "NON-ASSISTED",
-            categoryBand: band, categoryMode: "CW", categoryTransmitter: "ONE", categoryPower: "LOW",
+            categoryBand: band, categoryMode: mode, categoryTransmitter: "ONE", categoryPower: "LOW",
             categoryOverlay: overlay, operators: operators, location: location, club: club,
             name: name, addressLines: addressLines, email: "operator@example.test")
     }

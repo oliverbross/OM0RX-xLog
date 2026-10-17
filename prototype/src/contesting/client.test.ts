@@ -1,12 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateCreateInput, validateDraftFields } from "./client";
-import type { ContestDraftFields, ContestRequest, ContestScoreSummary, ContestSessionSummary } from "./types";
+import type { ContestDraftFields, ContestRequest, ContestRuleMetadata, ContestScoreSummary, ContestSessionSummary } from "./types";
 
-const rule = { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "source-1" }, displayName: "CQ WW CW", mode: "CW", referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked" } as const;
+const rule: ContestRuleMetadata = { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "source-1" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1,
+  entry: { mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", cabrilloFormatterVersion: "pilot-1", cabrilloProjectionFormatterVersion: "pilot-2",
+    report: { format: "cwRST", defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3 },
+    exchange: { sent: "cqZone", received: "cqZone", sentDefault: "stationSnapshot", adifFields: "none" }, serial: { requirement: "none", allowedScopes: [] } },
+  referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked" };
 const session: ContestSessionSummary = { sessionID: "session-1", workspaceGeneration: "generation-1", revision: 7, name: "WW", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T00:00:00Z" };
 const fields: ContestDraftFields = { callsign: "K1ABC", sentReport: "599", sentExchange: "15", receivedReport: "599", receivedExchange: "05", frequencyHz: 14025000, band: "20m", mode: "CW" };
 function draft(revision = 8) { return { draftID: "draft-1", sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision, fields, reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" }, updatedAt: "2026-10-17T00:00:01Z" }; }
 function result(params: Record<string, unknown>) { const next = { ...session, revision: 8 }; return { session: next, draft: draft(), receipt: { requestID: params.requestID, payloadDigest: params.payloadDigest, committedRevision: 8, committedAt: "2026-10-17T00:00:01Z" } }; }
+function ssbSession(): ContestSessionSummary {
+  return { ...session, rule: { ...rule, identity: { ...rule.identity, id: "cq-ww-ssb" }, displayName: "CQ WW SSB", mode: "SSB",
+    entry: { ...rule.entry, mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", cabrilloFormatterVersion: "ssb-pilot-1",
+      cabrilloProjectionFormatterVersion: "ssb-pilot-2", report: { format: "phoneRS", defaultSent: "59", defaultReceived: "59", maximumUTF8Bytes: 2 } } } };
+}
 
 describe("ContestClient", () => {
   it("keeps durable commit score summaries scalar", () => {
@@ -49,6 +58,41 @@ describe("ContestClient", () => {
       const client = new ContestClient(request, () => "request", async () => "digest");
       await expect(client.applyDraft(session, "draft-1", fields)).rejects.toMatchObject({ name: "ContestMutationUncertain", operation: { scope: { requestID: "request" } } });
     }
+  });
+
+  it("rejects crossed rule families and missing or unknown descriptor versions before any mutation", async () => {
+    const crossedMode = structuredClone(rule) as unknown as Record<string, unknown>;
+    crossedMode.mode = "SSB"; crossedMode.entry = ssbSession().rule.entry;
+    const crossedFamily = structuredClone(rule) as unknown as Record<string, unknown>;
+    crossedFamily.entry = { ...rule.entry, exchange: { sent: "serialNumber", received: "serialNumber", sentDefault: "reservedSerial", adifFields: "stxSrx" },
+      serial: { requirement: "requiredForCommit", allowedScopes: ["session", "band", "transmitter"] } };
+    const missingVersion = structuredClone(rule) as unknown as Record<string, unknown>; delete missingVersion.entryDescriptorVersion;
+    const unknownVersion = { ...rule, entryDescriptorVersion: 2 };
+    for (const badRule of [crossedMode, crossedFamily, missingVersion, unknownVersion]) {
+      const request = vi.fn(async () => ({ id: "frame", ok: true as const, result: { workspaceGeneration: "generation-1", rules: [badRule] } }));
+      const client = new ContestClient(request as ContestRequest);
+      await expect(client.catalog()).rejects.toThrow("Malformed or stale contest_catalog response");
+      expect(request.mock.calls).toEqual([["contest_catalog", {}]]);
+    }
+  });
+
+  it("rejects an oversized SSB report in reads and treats it as uncertain after a mutation", async () => {
+    const selected = ssbSession();
+    const badFields: ContestDraftFields = { ...fields, mode: "SSB", sentReport: "599", receivedReport: "59" };
+    const badDraft = { ...draft(7), revision: 7, fields: badFields };
+    const openRequest = vi.fn(async () => ({ id: "frame", ok: true as const, result: { session: selected, draft: badDraft } }));
+    await expect(new ContestClient(openRequest as ContestRequest).open(selected.sessionID, selected.workspaceGeneration))
+      .rejects.toThrow("Malformed or stale contest_open response");
+    expect(openRequest.mock.calls).toEqual([["contest_open", { sessionID: selected.sessionID, workspaceGeneration: selected.workspaceGeneration }]]);
+
+    const mutationRequest = vi.fn(async (_method: string, params: Record<string, unknown> = {}) => ({ id: "frame", ok: true as const, result: {
+      session: { ...selected, revision: 8 }, draft: { ...badDraft, revision: 8 },
+      receipt: { requestID: params.requestID, payloadDigest: params.payloadDigest, committedRevision: 8, committedAt: "2026-10-17T00:00:01Z" },
+    } }));
+    const client = new ContestClient(mutationRequest as ContestRequest, () => "request", async () => "digest");
+    await expect(client.applyDraft(selected, badDraft.draftID, { ...badDraft.fields, sentReport: "59" }))
+      .rejects.toMatchObject({ name: "ContestMutationUncertain", operation: { scope: { requestID: "request" } } });
+    expect(mutationRequest).toHaveBeenCalledTimes(1);
   });
 
   it("rejects non-finite and oversized outbound values before digesting", async () => {
