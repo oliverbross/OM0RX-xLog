@@ -1,0 +1,59 @@
+{
+  "proposalDate": "2026-10-18",
+  "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
+  "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
+  "applyToPublishedFiles": false,
+  "nextReportSource": {
+    "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
+    "reviewedCombinedCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
+    "boundary": "F18 core/service is integrated; picker, worker, UI and prefill remain open. Preserve the explicit evidence boundary and do not claim full call-history parity."
+  },
+  "validationEvidence": [
+    {
+      "source": "34de5291eb067aa8387a5a0032e3a038534f1ab0",
+      "workflowRun": "39076722839",
+      "status": "passed",
+      "result": "All six native Swift/Rust jobs passed across macOS, Linux and Windows.",
+      "additionalWindowsLog": {
+        "path": "/tmp/xlog-foundation-34de529-windows-ci.log",
+        "sha256": "91ee08ec555bdbbd67abb54ccee6adb3f8a12ca6334bfbda718e4e1689f76833",
+        "scope": "ARRL DX ADIF, JIDX worker and ARRL DX worker executed and passed."
+      }
+    },
+    {
+      "source": "d764479a028760704990c803650dea653cb3ea39",
+      "workflowRun": "39076611158",
+      "status": "passed",
+      "result": "All six native Swift/Rust jobs passed across macOS, Linux and Windows."
+    },
+    {
+      "source": "6f09668f61b374d5577b67b46103115795ddd480",
+      "workflowRun": "39077722192",
+      "status": "pending-at-proposal",
+      "result": "Do not infer a pass until the run completes."
+    },
+    {
+      "source": "dc323465f6565d891f43626da80dc08aad70e6e7",
+      "workflowRun": "39077685821",
+      "status": "pending-at-proposal",
+      "result": "Do not infer a pass until the run completes."
+    },
+    {
+      "source": "6f09668f61b374d5577b67b46103115795ddd480",
+      "validation": "combined portable test log",
+      "status": "passed",
+      "result": "50 portable tests passed.",
+      "log": {
+        "path": "/tmp/xlog-history-worker-merge-portable.log",
+        "sha256": "af815ce794ede36638ab08c2cd0fd587237bad397a37e674a502d725008ad470"
+      }
+    }
+  ],
+  "naqpBoundary": {
+    "status": "changes-requested",
+    "finding": "A missing-name early return masks invalid nonempty DX/mobile-location input.",
+    "workInProgress": "SOL repair is active.",
+    "acceptance": "No NAQP acceptance upgrade; dirty development evidence remains diagnostic."
+  },
+  "refreshGate": "After the two pending workflow runs resolve and the NAQP repair receives reviewed clean acceptance, update the report source claims and regenerate to an alternate output directory for review. Replace the published snapshot only after its workbook is no longer open and the report delta is accepted."
+}

@@ -94,6 +94,10 @@ public struct ContestExportService: Sendable {
             throw ContestExportServiceError.unknownRule(stored.session.rule)
         }
         let category = try Self.canonicalOperatorCategory(stored.metadata.operatorCategory)
+        if [JIDXCWRule.identity, JIDXSSBRule.identity, ARRLDXCWRule.identity, ARRLDXSSBRule.identity]
+            .contains(stored.session.rule), category != "SINGLE-OP" {
+            throw ContestExportServiceError.unsupportedOperatorCategory(stored.metadata.operatorCategory)
+        }
         try Self.validate(header: header, stored: stored, qsos: snapshot.qsos,
                           canonicalCategory: category)
 

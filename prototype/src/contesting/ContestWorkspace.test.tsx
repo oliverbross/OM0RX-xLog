@@ -407,6 +407,68 @@ it("loads the full contact before editing, autosaves the entry draft, and preser
   expect((entryCall as HTMLInputElement).value).toBe("N0CALL"); expect(screen.getByRole("button", { name: "Serial 7" })).toBeTruthy();
 });
 
+it("uppercases the normalized NAQP correction aggregate while preserving mixed-case raw input", async () => {
+  const rule = rules[rules.length - 1];
+  let session: ContestSessionSummary = { sessionID: "naqp-session", workspaceGeneration: "generation-1", revision: 3,
+    name: "NAQP correction", rule, referenceDataVersion: rule.referenceDataVersion,
+    station: { callsign: "K1AAA", cqZone: "5", dxccEntity: "UNITED STATES", exchangeFields: { name: "AL", location: "CA" } },
+    operator: { callsign: "K1AAA", category: "Single Operator" }, qsoCount: 1, updatedAt: "2026-10-18T23:00:00Z" };
+  const draft: ContestDraftSnapshot = { ...draftFor(session), revision: 3,
+    fields: { ...draftFor(session).fields, sentExchange: "AL CA", sentExchangeFields: { name: "AL", location: "CA" } } };
+  let qso: ContestFullQSO = { qsoID: "naqp-qso", sessionID: session.sessionID, originalUTC: "2026-10-18T22:59:00Z",
+    callsign: "K1ABC", band: "20m", mode: "RTTY", frequencyHz: 14_080_000, sentReport: "", receivedReport: "",
+    sentExchange: "AL CA", normalizedSentExchange: "AL CA", allocatedSerial: "AL CA",
+    receivedExchange: "BOB CT", normalizedReceivedExchange: "BOB CT",
+    sentExchangeFields: { name: "AL", location: "CA" }, receivedExchangeFields: { name: "BOB", location: "CT" },
+    entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 },
+    operatorCallsign: "K1AAA", stationLocation: "CA", provenance: { source: "operatorEntry", sourceIdentity: "cty-2026.10", importedClaimedScore: null },
+    ruleIdentity: rule.identity, referenceDataVersion: rule.referenceDataVersion };
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const ok = (result: unknown) => ({ id: method, ok: true as const, result });
+    if (method === "contest_catalog") return ok({ workspaceGeneration: session.workspaceGeneration, rules });
+    if (method === "contest_sessions") return ok({ sessions: [session] });
+    if (method === "contest_open") return ok({ session, draft });
+    if (method === "contest_log_page") return ok({ sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+      revision: session.revision, qsos: [{ qsoID: qso.qsoID, sessionID: qso.sessionID, workedAt: qso.originalUTC,
+        callsign: qso.callsign, band: qso.band, mode: qso.mode, sentExchange: qso.sentExchange,
+        receivedExchange: qso.receivedExchange, points: 1, multiplier: "naqp-location:CT:contest",
+        multiplierDisplayLabels: ["CT"], isDupe: false }], total: 1, offset: params.offset, limit: params.limit });
+    if (method === "contest_score") return ok({ sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+      revision: session.revision, qsos: 1, points: 1, multipliers: 1, claimedScore: 1,
+      multiplierLabels: ["naqp-location:CT:contest"], multiplierDisplayLabels: ["CT"], sourceVerification: "provisional" });
+    if (method === "contest_qso_get") return ok({ sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+      revision: session.revision, qso });
+    if (method === "contest_qso_correct") {
+      qso = { ...qso, ...((params.payload as any).qso), entity: qso.entity };
+      session = { ...session, revision: 4, updatedAt: "2026-10-18T23:01:00Z" };
+      const changeSession = { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+        revision: session.revision, name: session.name, ruleIdentity: session.rule.identity,
+        referenceDataVersion: session.referenceDataVersion, qsoCount: session.qsoCount, updatedAt: session.updatedAt };
+      return ok({ session: changeSession, operation: "correction", qsoID: qso.qsoID, qsoCount: 1,
+        score: { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: 4,
+          qsos: 1, points: 1, multipliers: 1, claimedScore: 1, sourceVerification: "provisional" },
+        currentTarget: qso, auditReference: { sessionID: session.sessionID, qsoID: qso.qsoID,
+          requestID: params.requestID, revision: 4 }, receipt: { requestID: params.requestID,
+          payloadDigest: params.payloadDigest, committedRevision: 4, committedAt: "2026-10-18T23:01:00Z" } });
+    }
+    if (method === "contest_draft_get") return ok({ session, draft: { ...draft, revision: session.revision } });
+    if (method === "contest_scp_status") return ok({ available: false, reason: "No data" });
+    throw new Error(`Unexpected ${method}`);
+  });
+  render(<ContestWorkspace request={request as ContestRequest} createRequestID={() => "naqp-correction-request"}
+    digestPayload={async () => "a".repeat(64)} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  fireEvent.click(await screen.findByRole("button", { name: /NAQP correction/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1ABC" }));
+  const editor = await screen.findByRole("form", { name: "Edit K1ABC" });
+  fireEvent.change(within(editor).getByLabelText("Received Name"), { target: { value: "Sam" } });
+  fireEvent.click(within(editor).getByRole("button", { name: "Save correction" }));
+  await screen.findByText(/Saved K1ABC/);
+  const correction = request.mock.calls.find(([method]) => method === "contest_qso_correct")![1] as any;
+  expect(correction.payload.qso).toMatchObject({ receivedExchange: "Sam CT", normalizedReceivedExchange: "SAM CT",
+    receivedExchangeFields: { name: "Sam", location: "CT" } });
+  expect(qso).toMatchObject({ receivedExchange: "Sam CT", normalizedReceivedExchange: "SAM CT" });
+});
+
 it("renders an explicit empty multiplier display list as no credited multiplier", async () => {
   const { request } = fixture({ qsoSession: "session-1", emptyMultiplierDisplay: true });
   await open(request);

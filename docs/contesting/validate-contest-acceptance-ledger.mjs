@@ -110,18 +110,24 @@ requireThat(ledger.plugins.length === 94, `expected 94 ledger rows, found ${ledg
 requireThat(ledger.upstream.excluded.length === 1 && ledger.upstream.excluded[0].path === "not1mm/plugins/__init__.py",
   "only not1mm/plugins/__init__.py may be excluded");
 requireThat(ledger.upstream.excluded[0].reason.length > 20, "initializer exclusion requires a reason");
-const expectedPilotBoundary = "Exactly twelve xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; and one official-rules ARRL RTTY Roundup plain-logging preview. Evidence is scoped by field and is not current sponsor, application, package, submission, full-port, digital-output, or operator acceptance.";
+const expectedPilotBoundary = "Exactly sixteen xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; one official-rules ARRL RTTY Roundup plain-logging preview; two official-rules ARRL DX practice previews in CW and SSB; and two official-rules JIDX 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, native-package, submission, full-port, real-radio/keying, full Run/S&P, or operator acceptance.";
 const expectedOfficialCorrectionBoundary = "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.";
 const expectedNAQPAuthorityBoundary = "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness.";
 const expectedARRLRTTYAuthorityBoundary = "ARRL RTTY Roundup uses the published ARRL Rules v3.0b plus pinned ARRL/RAC section and current DXCC authority as primary authority. The pinned Python plugin remains a compatibility comparator with recorded gaps; its commit is not the rule sourceRevision. This is a plain-logging preview with versioned Cabrillo and ADIF output, not a claim of full Run/S&P operation, real RTTY generation/keying, category/date/operating-time enforcement, sponsor certification, or submission readiness.";
+const expectedARRLDXAuthorityBoundary = "ARRL DX CW and SSB use the published ARRL DX Rules v2.0, pinned US, Canadian, and W/VE multiplier lists, contest-section guidance, current DXCC authority, and supplemental ARRL power-normalization guidance as primary authority. The pinned Python plugins remain compatibility comparators with recorded directional, multiplier, exchange, and export gaps; their commit is not the ARRL DX rule sourceRevision. These are shared-UI practice previews with versioned Cabrillo and ADIF output, not claims of browser-worker Run/S&P, operator-profile coverage, native-package launch, full-category enforcement, cross-platform acceptance, sponsor certification, or submission readiness.";
+const expectedJIDXAuthorityBoundary = "JIDX CW and SSB use the published JIDX 2026-10 rules, multiplier list, electronic-log guide, upload pages, ADIF 3.1.7, and pinned callsign/reference authorities as primary evidence. The pinned Python plugins remain compatibility comparators with recorded scoring, role, multiplier-scope, and export-token gaps; their commit is not the JIDX rule sourceRevision. These are shared-UI practice previews with versioned Cabrillo and ADIF output, not claims of native-package launch, full Run/S&P operation, real radio/keying, full-category enforcement, sponsor certification, or submission readiness.";
 requireThat(ledger.interpretation.pilotBoundary === expectedPilotBoundary,
-  "pilot boundary must record exactly twelve bounded rule implementations");
+  "pilot boundary must record exactly sixteen bounded rule implementations");
 requireThat(ledger.interpretation.officialCorrectionBoundary === expectedOfficialCorrectionBoundary,
   "official-corrected SAC boundary is missing");
 requireThat(ledger.interpretation.naqpAuthorityBoundary === expectedNAQPAuthorityBoundary,
   "NAQP primary-authority boundary is missing");
 requireThat(ledger.interpretation.arrlRTTYAuthorityBoundary === expectedARRLRTTYAuthorityBoundary,
   "ARRL RTTY primary-authority boundary is missing");
+requireThat(ledger.interpretation.arrlDXAuthorityBoundary === expectedARRLDXAuthorityBoundary,
+  "ARRL DX primary-authority boundary is missing");
+requireThat(ledger.interpretation.jidxAuthorityBoundary === expectedJIDXAuthorityBoundary,
+  "JIDX primary-authority boundary is missing");
 
 requireThat(existsSync(upstreamRoot), `upstream checkout does not exist: ${upstreamRoot}`);
 const actualHead = execFileSync("git", ["-C", upstreamRoot, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -155,13 +161,22 @@ const sourcePilotIDs = new Set(["cq_ww_cw", "cq_ww_ssb", "cq_wpx_cw", "cq_wpx_ss
 const practicePreviewIDs = new Set(["sac_cw", "sac_ssb"]);
 const naqpPreviewIDs = new Set(["naqp_cw", "naqp_rtty", "naqp_ssb"]);
 const arrlRTTYPreviewIDs = new Set(["arrl_rtty_ru"]);
-const officialRulesPreviewIDs = new Set([...naqpPreviewIDs, ...arrlRTTYPreviewIDs]);
+const arrlDXPreviewIDs = new Set(["arrl_dx_cw", "arrl_dx_ssb"]);
+const jidxPreviewIDs = new Set(["jidx_cw", "jidx_ph"]);
+const officialRulesPlainLoggingPreviewIDs = new Set([...naqpPreviewIDs, ...arrlRTTYPreviewIDs]);
+const officialRulesPracticePreviewIDs = new Set([...arrlDXPreviewIDs, ...jidxPreviewIDs]);
+const officialRulesPreviewIDs = new Set([...officialRulesPlainLoggingPreviewIDs, ...officialRulesPracticePreviewIDs]);
 const implementedIDs = new Set([...sourcePilotIDs, ...practicePreviewIDs, ...officialRulesPreviewIDs]);
 const naqpRulesSHA = "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8";
 const arrlRTTYRulesSHA = "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce";
+const arrlDXRulesSHA = "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9";
+const jidxRulesSHA = "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa";
 const naqpAuthority = JSON.parse(readFileSync(join(repositoryRoot, "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json"), "utf8"));
 const arrlRTTYAuthority = JSON.parse(readFileSync(join(repositoryRoot, "Tests/XContestCoreTests/SourceFixtures/arrl-rtty-roundup-authority.json"), "utf8"));
-requireThat(implementedIDs.size === 12, "expected exactly twelve bounded rule implementations");
+const arrlDXAuthority = JSON.parse(readFileSync(join(repositoryRoot, "Tests/XContestCoreTests/SourceFixtures/arrl-dx-authority.json"), "utf8"));
+const jidxAuthority = JSON.parse(readFileSync(join(repositoryRoot, "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json"), "utf8"));
+requireThat(implementedIDs.size === 16, "expected exactly sixteen bounded rule implementations");
+requireThat(ledger.plugins.length - implementedIDs.size === 78, "expected exactly seventy-eight pending plugins");
 requireThat(naqpAuthority.rulesURL === "https://ncjweb.com/NAQP-Rules.pdf" && naqpAuthority.rulesSHA256 === naqpRulesSHA,
   "NAQP primary rules authority mismatch");
 requireThat(naqpAuthority.multiplierFormURL === "https://ncjweb.com/NAQP-Paper-Log-Form.pdf" &&
@@ -174,6 +189,64 @@ requireThat(arrlRTTYAuthority.sourceComparator?.revision === ledger.upstream.com
   arrlRTTYAuthority.sourceComparator?.path === "not1mm/plugins/arrl_rtty_ru.py" &&
   arrlRTTYAuthority.sourceComparator?.fileSha256 === ledger.plugins.find((row) => row.pluginID === "arrl_rtty_ru")?.source.sha256,
   "ARRL RTTY compatibility comparator mismatch");
+const arrlDXRulesAuthority = arrlDXAuthority.primaryAuthorities.find((item) => item.name === "ARRL DX Rules v2.0");
+const arrlDXUSAuthority = arrlDXAuthority.primaryAuthorities.find((item) => item.name === "ARRL United States contest multipliers v1.2.0");
+const arrlDXCanadianAuthority = arrlDXAuthority.primaryAuthorities.find((item) => item.name === "ARRL Canadian contest multipliers v1.2.0");
+const arrlDXDXCCAuthority = arrlDXAuthority.primaryAuthorities.find((item) => item.name === "ARRL DXCC Current Entities January 2026");
+const arrlDXSectionAuthority = arrlDXAuthority.primaryAuthorities.find((item) => item.name === "ARRL contest-section guidance");
+const arrlDXWVEAuthority = arrlDXAuthority.primaryAuthorities.find((item) => item.name === "ARRL and RAC section list v1.2.0");
+requireThat(arrlDXRulesAuthority?.url === "https://contests.arrl.org/ContestRules/DX-Rules.pdf" &&
+  arrlDXRulesAuthority?.sha256 === arrlDXRulesSHA && arrlDXRulesAuthority?.bytes === 250769,
+  "ARRL DX primary rules authority mismatch");
+requireThat(arrlDXUSAuthority?.url === "https://contests.arrl.org/contestmultipliers.php?a=usa" &&
+  arrlDXUSAuthority?.sha256 === "4d87d53ca04a5cc9e4439508c61a690d073c193477687743f929cb56d1b0a914" &&
+  arrlDXUSAuthority?.bytes === 5793, "ARRL DX US multiplier authority mismatch");
+requireThat(arrlDXCanadianAuthority?.url === "https://contests.arrl.org/contestmultipliers.php?a=ve" &&
+  arrlDXCanadianAuthority?.sha256 === "f7e617b05918c63aa568672b63d38b33bd7d6f784f2073a0fb4086f914037c1a" &&
+  arrlDXCanadianAuthority?.bytes === 4428, "ARRL DX Canadian multiplier authority mismatch");
+requireThat(arrlDXDXCCAuthority?.url === "https://www.arrl.org/files/file/DXCC/DXCC_Current.pdf" &&
+  arrlDXDXCCAuthority?.sha256 === "409d7f5842375468f559753c41c5569115fa57401d587aa4573829d275f92c2c" &&
+  arrlDXDXCCAuthority?.bytes === 156080 &&
+  arrlDXAuthority.sharedCurrentDXCCAuthority === "arrl-rtty-roundup-authority.json#currentDXCCEntityAuthority",
+  "ARRL DX current DXCC authority mismatch");
+requireThat(arrlDXSectionAuthority?.url === "https://www.arrl.org/contest-sections-list" &&
+  arrlDXSectionAuthority?.sha256 === "d841c2faad5cc6b37d73a13289f5cd8fad2924b75ac701c5c3820b0aab812a6f" &&
+  arrlDXSectionAuthority?.bytes === 35066, "ARRL DX section authority mismatch");
+requireThat(arrlDXWVEAuthority?.url === "https://contests.arrl.org/contestmultipliers.php?a=wve" &&
+  arrlDXWVEAuthority?.sha256 === "5618ceeeb46494dd94313f32a9f33f2fd5a8d5be96693a502de5b147f927ebe6" &&
+  arrlDXWVEAuthority?.bytes === 9535, "ARRL DX W/VE section-list authority mismatch");
+requireThat(arrlDXAuthority.supplementalAuthority?.url === "https://www.arrl.org/contest-update-issues?issue=2020-02-05" &&
+  arrlDXAuthority.supplementalAuthority?.sha256 === "8bbe551e561cd919c6d53e9bb58866303eb9106edf1b46b1a9ebbaad99863a80",
+  "ARRL DX power-normalization authority mismatch");
+requireThat(arrlDXAuthority.sourceComparators?.length === 2 && arrlDXAuthority.sourceComparators.every((item) =>
+  item.revision === ledger.upstream.commit && item.fileSha256 === ledger.plugins.find((row) => row.source.path === item.path)?.source.sha256),
+  "ARRL DX compatibility comparator mismatch");
+const jidxRulesAuthority = jidxAuthority.primaryAuthorities.find((item) => item.name === "JIDX Contest Rules 2026-10");
+const jidxMultiplierAuthority = jidxAuthority.primaryAuthorities.find((item) => item.name === "JIDX Multiplier List");
+const jidxElectronicLogAuthority = jidxAuthority.primaryAuthorities.find((item) => item.name === "JIDX Electronic Log Submission Guide");
+const jidxUploadFormAuthority = jidxAuthority.primaryAuthorities.find((item) => item.name === "JIDX Web Log Submission Form");
+const jidxUploadInstructionsAuthority = jidxAuthority.primaryAuthorities.find((item) => item.name === "JIDX Web Log Upload Instructions 2023-11");
+const jidxADIFAuthority = jidxAuthority.primaryAuthorities.find((item) => item.name === "ADIF 3.1.7 Specification");
+requireThat(jidxRulesAuthority?.url === "https://www.jidx.org/jidxrule-e.html" &&
+  jidxRulesAuthority?.sha256 === jidxRulesSHA, "JIDX primary rules authority mismatch");
+requireThat(jidxMultiplierAuthority?.url === "https://www.jidx.org/jidxmult.lst" &&
+  jidxMultiplierAuthority?.sha256 === "8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5",
+  "JIDX multiplier authority mismatch");
+requireThat(jidxElectronicLogAuthority?.url === "https://www.jidx.org/jidxelog-e.html" &&
+  jidxElectronicLogAuthority?.sha256 === "9db44ff6abe9927db969ffc765462fd47cc95055d03a211fb66e3a0b65752f36",
+  "JIDX electronic-log authority mismatch");
+requireThat(jidxUploadFormAuthority?.url === "https://www.jidx.org/upload/uplog.html" &&
+  jidxUploadFormAuthority?.sha256 === "245ca84d936d144a6e9cf2001df7de0601af6623f2c01747d68ff5e5b0ed11dc",
+  "JIDX upload-form authority mismatch");
+requireThat(jidxUploadInstructionsAuthority?.url === "https://www.jidx.org/upload/HowToUpload.html" &&
+  jidxUploadInstructionsAuthority?.sha256 === "6bfafeb45659842f554f97ef77f4d7323e9e68aa3b5e56c74c08e0e50bfb4623",
+  "JIDX upload-instructions authority mismatch");
+requireThat(jidxADIFAuthority?.url === "https://www.adif.org/317/ADIF_317.htm" &&
+  jidxADIFAuthority?.sha256 === "b766703277e952e6b548ccdc73e32ff16e10f84c060be616cf110449eddc5c97" &&
+  jidxADIFAuthority?.evidence === "Contest ID enumeration: JIDX-CW and JIDX-SSB", "JIDX ADIF authority mismatch");
+requireThat(jidxAuthority.sourceComparators?.length === 2 && jidxAuthority.sourceComparators.every((item) =>
+  item.revision === ledger.upstream.commit && item.fileSha256 === ledger.plugins.find((row) => row.source.path === item.path)?.source.sha256),
+  "JIDX compatibility comparator mismatch");
 const ruleIdentities = {
   cq_ww_cw: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   cq_ww_ssb: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
@@ -187,6 +260,10 @@ const ruleIdentities = {
   naqp_rtty: { id: "naqp-rtty", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: naqpRulesSHA },
   naqp_ssb: { id: "naqp-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: naqpRulesSHA },
   arrl_rtty_ru: { id: "arrl-rtty-roundup", version: "1.0.0-3.0b-preview", edition: "rules-3.0b-preview", sourceRevision: arrlRTTYRulesSHA },
+  arrl_dx_cw: { id: "arrl-dx-cw", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview", sourceRevision: arrlDXRulesSHA },
+  arrl_dx_ssb: { id: "arrl-dx-ssb", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview", sourceRevision: arrlDXRulesSHA },
+  jidx_cw: { id: "jidx-cw", version: "1.0.0-2026-rules-preview", edition: "2026-10-rules-preview", sourceRevision: jidxRulesSHA },
+  jidx_ph: { id: "jidx-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-10-rules-preview", sourceRevision: jidxRulesSHA },
 };
 const implementationStatuses = {
   cq_ww_cw: "source-derived-pilot", cq_ww_ssb: "source-derived-pilot",
@@ -195,6 +272,8 @@ const implementationStatuses = {
   sac_cw: "official-corrected-practice-preview", sac_ssb: "official-corrected-practice-preview",
   naqp_cw: "official-rules-plain-logging-preview", naqp_rtty: "official-rules-plain-logging-preview", naqp_ssb: "official-rules-plain-logging-preview",
   arrl_rtty_ru: "official-rules-plain-logging-preview",
+  arrl_dx_cw: "official-rules-practice-preview", arrl_dx_ssb: "official-rules-practice-preview",
+  jidx_cw: "official-rules-practice-preview", jidx_ph: "official-rules-practice-preview",
 };
 const ruleAuditStatuses = {
   cq_ww_cw: "audited-gaps-open", cq_ww_ssb: "audited-gaps-open",
@@ -203,6 +282,8 @@ const ruleAuditStatuses = {
   sac_cw: "official-corrected-audited-gaps-open", sac_ssb: "official-corrected-audited-gaps-open",
   naqp_cw: "official-rules-audited-gaps-open", naqp_rtty: "official-rules-audited-gaps-open", naqp_ssb: "official-rules-audited-gaps-open",
   arrl_rtty_ru: "official-rules-audited-gaps-open",
+  arrl_dx_cw: "official-rules-audited-gaps-open", arrl_dx_ssb: "official-rules-audited-gaps-open",
+  jidx_cw: "official-rules-audited-gaps-open", jidx_ph: "official-rules-audited-gaps-open",
 };
 const scoringStatuses = {
   cq_ww_cw: "source-derived-tested", cq_ww_ssb: "source-derived-tested",
@@ -211,6 +292,8 @@ const scoringStatuses = {
   sac_cw: "official-corrected-practice-tested", sac_ssb: "official-corrected-practice-tested",
   naqp_cw: "official-rules-and-compatibility-tested", naqp_rtty: "official-rules-and-compatibility-tested", naqp_ssb: "official-rules-and-compatibility-tested",
   arrl_rtty_ru: "official-rules-and-compatibility-tested",
+  arrl_dx_cw: "official-rules-and-compatibility-tested", arrl_dx_ssb: "official-rules-and-compatibility-tested",
+  jidx_cw: "official-rules-and-compatibility-tested", jidx_ph: "official-rules-and-compatibility-tested",
 };
 const independentScoringStatuses = {
   cq_ww_cw: "independent-fixture-recorded",
@@ -225,6 +308,8 @@ const independentScoringStatuses = {
   naqp_rtty: "independent-arithmetic-tested",
   naqp_ssb: "independent-arithmetic-tested",
   arrl_rtty_ru: "independent-arithmetic-tested",
+  arrl_dx_cw: "independent-arithmetic-tested", arrl_dx_ssb: "independent-arithmetic-tested",
+  jidx_cw: "independent-arithmetic-tested", jidx_ph: "independent-arithmetic-tested",
 };
 const mutationRestartStatuses = {
   cq_ww_cw: "process-and-store-tested",
@@ -239,6 +324,10 @@ const mutationRestartStatuses = {
   naqp_rtty: "store-and-worker-lifecycle-tested",
   naqp_ssb: "store-and-worker-lifecycle-tested",
   arrl_rtty_ru: "store-and-worker-lifecycle-tested",
+  arrl_dx_cw: "store-worker-four-way-shared-ui-fixture-tested",
+  arrl_dx_ssb: "store-worker-four-way-shared-ui-fixture-tested",
+  jidx_cw: "store-worker-bounded-shared-ui-lifecycle-tested",
+  jidx_ph: "store-and-worker-session-create-client-decode-tested",
 };
 const exportStatuses = {
   cq_ww_cw: "source-derived-tested", cq_ww_ssb: "source-derived-tested",
@@ -247,6 +336,8 @@ const exportStatuses = {
   sac_cw: "practice-preview-goldens-tested", sac_ssb: "practice-preview-goldens-tested",
   naqp_cw: "versioned-preview-goldens-tested", naqp_rtty: "versioned-preview-goldens-tested", naqp_ssb: "versioned-preview-goldens-tested",
   arrl_rtty_ru: "versioned-preview-goldens-tested",
+  arrl_dx_cw: "versioned-practice-preview-goldens-tested", arrl_dx_ssb: "versioned-practice-preview-goldens-tested",
+  jidx_cw: "versioned-practice-preview-goldens-tested", jidx_ph: "versioned-practice-preview-goldens-tested",
 };
 const certifications = {
   cq_ww_cw: "source-derived preview; operator and sponsor acceptance remain pending",
@@ -261,10 +352,43 @@ const certifications = {
   naqp_rtty: "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending",
   naqp_ssb: "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending",
   arrl_rtty_ru: "official-rules plain-logging preview; full operator, digital-output, sponsor, category/date, and submission acceptance remain pending",
+  arrl_dx_cw: "official-rules practice preview; browser-worker Run/S&P, native-package, real radio/keying or voice, operator profiles, full-category, cross-platform, sponsor, and submission acceptance remain pending",
+  arrl_dx_ssb: "official-rules practice preview; browser-worker Run/S&P, native-package, real radio/keying or voice, operator profiles, full-category, cross-platform, sponsor, and submission acceptance remain pending",
+  jidx_cw: "official-rules practice preview; native-package, operator Run/S&P, real radio/keying, sponsor full-category, and submission acceptance remain pending",
+  jidx_ph: "official-rules practice preview; native-package, operator Run/S&P, real radio/keying, sponsor full-category, and submission acceptance remain pending",
 };
 const expectedPlatformNote = "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance.";
 const expectedNAQPPlatformNote = "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; run 39062402856 passed all six native jobs at that integration. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance.";
 const expectedARRLRTTYPlatformNote = "ARRL station-resolved core/store policy 5f9344145cf185df510443118e730fcd9f1f3df1 completed its three-platform matrix. Export d7cfa55f0d95ee4d96d39af1039ed3e1c9abeb73 passed all six jobs at 89bff236cf58e917b19dced947f48c803de95b25 in run 39063447673, and stage 1 authority wire 3e3da866ed7fd9d200f518319d7d4badb133702c passed all six jobs in run 39064390063. Entry 003b30ab5ed79ac96e502859e772075e49be1a92 has accepted source and focused local evidence; its integrated native matrix remains pending. This partial evidence does not prove package, radio, digital-output, full operator, sponsor, or submission acceptance.";
+const expectedARRLDXPlatformNote = "ARRL DX core de3606d8d2d97d8a625778fa468046aec13b6145, exports cea99e1d583f71efc6c7810dc105df0b7b664cbc, and activation d764479a028760704990c803650dea653cb3ea39 have reviewed source plus focused native, portable, real-worker, fixture-backed React, and frontend-build evidence. The exact activation-SHA catalog matrix is pending; native-package launch, browser-worker Run/S&P, real radio/keying or voice, operator profiles, full-category validation, cross-platform acceptance, sponsor certification, and upload acceptance remain pending.";
+const expectedJIDXPlatformNote = "JIDX core f1d7956, store/export 117fadb, and worker/shared-UI activation 896fa939 have reviewed source plus focused native, portable, and frontend evidence. A single exact-SHA three-platform matrix, native-package launch, operator Run/S&P, real radio/keying, sponsor full-category validation, and sponsor upload acceptance remain pending.";
+const expectedJIDXMutationNotes = {
+  jidx_cw: "Both modes have core and store coverage. The CW worker covers DX and maritime-mobile create/open/draft/apply/commit/edit/restart and export, with DX deletion and maritime-mobile commit replay; the shared UI covers CW maritime-mobile create/apply/correction only. Single-digit raw evidence such as 3 and 5 remains raw while normalized scoring/Cabrillo projections remain 03 and 05 across the covered returned-draft, correction, reopen, and replay paths. JA/SSB worker coverage is limited to session creation, and client coverage is decode-only.",
+  jidx_ph: "Both modes have core and store coverage, including raw and normalized persistence. JIDX Phone worker coverage is limited to JA session creation, and client coverage is decode-only; no Phone worker mutation/restart/export or shared-UI lifecycle is evidenced. The returned-draft, correction, reopen, and replay lifecycle for single-digit raw 3 and 5 versus normalized 03 and 05 is evidenced only on the covered CW paths.",
+};
+const expectedJIDXExportNotes = {
+  jidx_cw: "Core/export-layer versioned CW and Phone Cabrillo and ADIF bytes cover JA, DX, maritime-mobile, leading-zero normalization, deterministic order, and single-band projection. Worker export coverage is CW DX and maritime-mobile only; no shared-UI export flow is evidenced. Multi-operator output, the inferred maritime-mobile ENTITY token, full-category rules, and sponsor upload acceptance remain open.",
+  jidx_ph: "Core/export-layer versioned CW and Phone Cabrillo and ADIF bytes cover JA, DX, maritime-mobile, leading-zero normalization, deterministic order, and single-band projection. No Phone worker or shared-UI export flow is evidenced. Multi-operator output, the inferred maritime-mobile ENTITY token, full-category rules, and sponsor upload acceptance remain open.",
+};
+const expectedARRLDXMutationNote = "Core and store coverage spans both modes and both contest directions. The real worker fixture covers W/VE and DX in CW and SSB through create, two sequential returned-draft commits, reset, commit replay, restart/reopen, received-exchange correction, deletion, and Cabrillo/ADIF export. Its forged correction clears wire consistency and is rejected by the authoritative stored-QSO immutability guard for allocatedSentSerial; this is not isolated directional-validator evidence. Fixture-backed React tests cover four creation/input paths plus partial K/KI/KIL/KILO entry and invalid 2000 then valid 100 correction recovery. No browser-worker Run/S&P or packaged operator lifecycle is evidenced.";
+const expectedARRLDXExportNote = "Core/export-layer versioned CW and SSB Cabrillo and ADIF goldens cover both directions, section-independent LOCATION, raw and normalized power, bounded over-width power projection, state-versus-power ADIF fields, deterministic order, and strict identities. The real worker fixture exports both formats in all four direction/mode scenarios. Shared-UI export flow, full categories and operator profiles, sponsor validation/upload, and submission readiness remain open.";
+const expectedARRLDXMutationEvidence = [
+  "Tests/XContestStoreTests/ContestARRLDXStoreTests.swift",
+  "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift",
+  "docs/contesting/fixtures/arrl-dx-worker-wire.json",
+  "prototype/src/contesting/arrlDXWireFixture.test.ts",
+  "prototype/src/contesting/ContestWorkspace.arrlDX.test.tsx",
+  "docs/contesting/ARRL_DX_CONTRACT.md",
+];
+const expectedARRLDXExportEvidence = [
+  "Tests/XContestCoreTests/SourceFixtures/Exports/arrl-dx-preview-1.json",
+  "Tests/XContestCoreTests/ContestARRLDXExportTests.swift",
+  "Tests/XLogPrototypeTests/ContestARRLDXADIFExportTests.swift",
+  "Tests/XContestCoreTests/SourceFixtures/arrl-dx-export-authority.json",
+  "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift",
+  "docs/contesting/fixtures/arrl-dx-worker-wire.json",
+  "docs/contesting/ARRL_DX_CONTRACT.md",
+];
 const actualReference = fnv64(readFileSync(join(repositoryRoot, "Sources/XLogCore/Resources/cty.csv"), "utf8"));
 const actualReferenceSHA = sha256(join(repositoryRoot, "Sources/XLogCore/Resources/cty.csv"));
 const observationCounts = { "source-static": 0, "dynamic-unresolved": 0, absent: 0 };
@@ -346,11 +470,29 @@ for (const row of ledger.plugins) {
     requireThat(row.xlogAcceptance.mutationRestart.evidence.length > 0, `restart evidence missing for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.exportGoldens.evidence.length > 0, `export evidence missing for ${row.pluginID}`);
     const expectedPluginPlatformNote = naqpPreviewIDs.has(row.pluginID) ? expectedNAQPPlatformNote :
-      arrlRTTYPreviewIDs.has(row.pluginID) ? expectedARRLRTTYPlatformNote : expectedPlatformNote;
+      arrlRTTYPreviewIDs.has(row.pluginID) ? expectedARRLRTTYPlatformNote :
+      arrlDXPreviewIDs.has(row.pluginID) ? expectedARRLDXPlatformNote :
+      jidxPreviewIDs.has(row.pluginID) ? expectedJIDXPlatformNote : expectedPlatformNote;
     requireThat(row.xlogAcceptance.platform.note === expectedPluginPlatformNote,
       `platform evidence scope mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.certification === certifications[row.pluginID],
       `certification status mismatch for ${row.pluginID}`);
+    if (jidxPreviewIDs.has(row.pluginID)) {
+      requireThat(row.xlogAcceptance.mutationRestart.note === expectedJIDXMutationNotes[row.pluginID],
+        `JIDX mode/layer lifecycle scope mismatch for ${row.pluginID}`);
+      requireThat(row.xlogAcceptance.exportGoldens.note === expectedJIDXExportNotes[row.pluginID],
+        `JIDX mode/layer export scope mismatch for ${row.pluginID}`);
+    }
+    if (arrlDXPreviewIDs.has(row.pluginID)) {
+      requireThat(equalJSON(row.xlogAcceptance.mutationRestart.evidence, expectedARRLDXMutationEvidence),
+        `ARRL DX lifecycle evidence mismatch for ${row.pluginID}`);
+      requireThat(row.xlogAcceptance.mutationRestart.note === expectedARRLDXMutationNote,
+        `ARRL DX layer and lifecycle scope mismatch for ${row.pluginID}`);
+      requireThat(equalJSON(row.xlogAcceptance.exportGoldens.evidence, expectedARRLDXExportEvidence),
+        `ARRL DX export evidence mismatch for ${row.pluginID}`);
+      requireThat(row.xlogAcceptance.exportGoldens.note === expectedARRLDXExportNote,
+        `ARRL DX export scope mismatch for ${row.pluginID}`);
+    }
   } else {
     requireThat(row.xlogAcceptance.ruleIdentity === null, `unimplemented rule identity present for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.referenceIdentity.status === "pending", `unimplemented reference identity present for ${row.pluginID}`);
@@ -379,7 +521,8 @@ const summary = {
   implementedRulePreviews: implementedIDs.size,
   implementedPilots: [...sourcePilotIDs].sort(),
   officialCorrectedPracticePreviews: [...practicePreviewIDs].sort(),
-  officialRulesPlainLoggingPreviews: [...officialRulesPreviewIDs].sort(),
+  officialRulesPlainLoggingPreviews: [...officialRulesPlainLoggingPreviewIDs].sort(),
+  officialRulesPracticePreviews: [...officialRulesPracticePreviewIDs].sort(),
   pendingPlugins: ledger.plugins.length - implementedIDs.size,
   observationCounts,
   customDupePlugins: customDupePlugins.sort(),
@@ -403,6 +546,21 @@ if (process.argv.includes("--self-test")) {
       ["missing-arrl-rtty-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_rtty_ru").xlogAcceptance.mutationRestart.evidence = []; }, "restart evidence missing"],
       ["premature-arrl-rtty-digital-output-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_rtty_ru").xlogAcceptance.runSP.status = "digital-output-accepted"; }, "RunSP must remain pending"],
       ["premature-arrl-rtty-submission-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_rtty_ru").xlogAcceptance.certification = "submission-ready"; }, "certification status mismatch"],
+      ["wrong-arrl-dx-authority", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_dx_cw").xlogAcceptance.ruleIdentity.sourceRevision = copy.upstream.commit; }, "rule identity mismatch"],
+      ["missing-arrl-dx-worker-evidence", (copy) => { const evidence = copy.plugins.find((row) => row.pluginID === "arrl_dx_ssb").xlogAcceptance.mutationRestart.evidence; evidence.splice(evidence.indexOf("Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift"), 1); }, "ARRL DX lifecycle evidence mismatch"],
+      ["missing-arrl-dx-export-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_dx_cw").xlogAcceptance.exportGoldens.evidence.pop(); }, "ARRL DX export evidence mismatch"],
+      ["overclaimed-arrl-dx-directional-guard", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_dx_cw").xlogAcceptance.mutationRestart.note = expectedARRLDXMutationNote.replace("authoritative stored-QSO immutability guard for allocatedSentSerial", "isolated ARRL DX directional validator"); }, "ARRL DX layer and lifecycle scope mismatch"],
+      ["premature-arrl-dx-runsp-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_dx_ssb").xlogAcceptance.runSP.status = "browser-worker-accepted"; }, "RunSP must remain pending"],
+      ["premature-arrl-dx-platform-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_dx_cw").xlogAcceptance.platform.status = "three-platform-accepted"; }, "platform status mismatch"],
+      ["premature-arrl-dx-submission-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "arrl_dx_ssb").xlogAcceptance.certification = "submission-ready"; }, "certification status mismatch"],
+      ["wrong-jidx-authority", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_cw").xlogAcceptance.ruleIdentity.sourceRevision = copy.upstream.commit; }, "rule identity mismatch"],
+      ["missing-jidx-raw-normalized-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_cw").xlogAcceptance.mutationRestart.note = "Lifecycle tested."; }, "JIDX mode/layer lifecycle scope mismatch"],
+      ["overclaimed-jidx-phone-worker-lifecycle", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_ph").xlogAcceptance.mutationRestart.status = "store-worker-bounded-shared-ui-lifecycle-tested"; }, "restart status mismatch"],
+      ["overclaimed-jidx-phone-shared-ui-lifecycle", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_ph").xlogAcceptance.mutationRestart.note = expectedJIDXMutationNotes.jidx_cw; }, "JIDX mode/layer lifecycle scope mismatch"],
+      ["overclaimed-jidx-phone-worker-export", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_ph").xlogAcceptance.exportGoldens.note = expectedJIDXExportNotes.jidx_cw; }, "JIDX mode/layer export scope mismatch"],
+      ["overclaimed-jidx-cw-shared-ui-export", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_cw").xlogAcceptance.exportGoldens.note = copy.plugins.find((row) => row.pluginID === "jidx_cw").xlogAcceptance.exportGoldens.note.replace("no shared-UI export flow is evidenced", "shared-UI export is covered"); }, "JIDX mode/layer export scope mismatch"],
+      ["premature-jidx-native-package-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_cw").xlogAcceptance.platform.status = "native-package-accepted"; }, "platform status mismatch"],
+      ["premature-jidx-sponsor-category-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "jidx_ph").xlogAcceptance.certification = "sponsor-full-category-accepted"; }, "certification status mismatch"],
       ["falsely-completed-unsupported-plugin", (copy) => { copy.plugins.find((row) => row.pluginID === "cq_wpx_rtty").xlogAcceptance.certification = "complete"; }, "unimplemented certification status mismatch"],
     ];
     for (const [name, mutate, expected] of mutations) {

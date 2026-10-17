@@ -90,6 +90,7 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
     case cqZone
     case operatorName
     case subdivision
+    case power
     case dxccPrefix
     case jarlPrefectureNumber
     case maidenheadGrid4
@@ -109,6 +110,8 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
             return contestASCIIBytes(value, count: 1...8) { byte, _ in
                 contestIsUppercaseLetter(byte) || contestIsDigit(byte)
             }
+        case .power:
+            return Int(value).map { (1...1_500).contains($0) && String($0) == value } == true
         case .dxccPrefix:
             return contestASCIIBytes(value, count: 1...8) { byte, _ in
                 contestIsUppercaseLetter(byte) || contestIsDigit(byte) || byte == 47
@@ -495,8 +498,13 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
                     stationFields[0].role == .cabrilloLocation && stationFields[0].required &&
                     stationFields[0].maximumUTF8Bytes == 3
             } else {
+                let cabrilloLocationIsCoherent = stationFields.isEmpty ||
+                    stationFields.count == 1 && stationFields[0].id == "section" &&
+                    stationFields[0].label == "Cabrillo section" &&
+                    stationFields[0].role == .cabrilloLocation && stationFields[0].required &&
+                    stationFields[0].maximumUTF8Bytes == 3
                 serialIsCoherent = serial.requirement == .none
-                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty && stationFields.isEmpty
+                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty && cabrilloLocationIsCoherent
                     : !serial.allowedScopes.isEmpty && Set(serial.allowedScopes).count == serial.allowedScopes.count &&
                         serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber] &&
                         stationFields.isEmpty
@@ -664,9 +672,17 @@ public struct ContestRuleEvaluation: Sendable {
     }
 }
 
+public enum ContestDraftResetSentProjection: Sendable, Equatable {
+    case stationAggregate
+    case soleStationField
+}
+
 public protocol ContestRule: Sendable {
     var metadata: ContestRuleMetadata { get }
+    var draftResetSentProjection: ContestDraftResetSentProjection { get }
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue]
+    func validateDraft(_ draft: ContestDraftSnapshot,
+                       in session: ContestSessionSnapshot) -> [ContestValidationIssue]
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement
     func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation
     func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
@@ -680,11 +696,23 @@ public protocol ContestRuleStationEntityPolicy: ContestRule {
     func allowsMissingStationEntity(in session: ContestSessionSnapshot) -> Bool
 }
 
+/// Narrow runtime-only opt-in for rules that preserve a bounded raw exchange token
+/// while validating against a distinct canonical value. Non-adopting rules keep the
+/// parser's existing uppercase projection unchanged.
+public protocol ContestRuleExchangeFieldProjection: ContestRule {
+    func projectExchangeFields(
+        _ fields: [String: ContestExchangeFieldValue]
+    ) -> [String: ContestExchangeFieldValue]
+}
+
 public extension ContestRule {
     func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
                              validation: [ContestValidationIssue]) -> String? { nil }
 
+    var draftResetSentProjection: ContestDraftResetSentProjection { .stationAggregate }
     func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
+    func validateDraft(_ draft: ContestDraftSnapshot,
+                       in session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
 
     func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement {
         guard session.rule == metadata.identity else { throw ContestSerialResolutionError.ruleIdentityMismatch }

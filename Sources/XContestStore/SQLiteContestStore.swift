@@ -849,11 +849,23 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let resolvedSerial = try rule.resolvedSerialRequirement(in: session)
         let usesStationExchange = entry.exchange.sentDefault == .stationSnapshot ||
             entry.exchange.sentDefault == .stationFields
-        let clearedSentExchange = usesStationExchange ? session.station.sentExchange : ""
         var clearedSentFields = entry.exchange.sentDefault == .stationFields
             ? session.station.sentExchangeFields : [:]
         if let allocatedSerialFieldID = resolvedSerial.allocatedFieldID {
             clearedSentFields.removeValue(forKey: allocatedSerialFieldID)
+        }
+        let stationAggregate = usesStationExchange ? session.station.sentExchange : ""
+        let clearedSentExchange: String
+        let clearedNormalizedSentExchange: String
+        switch rule.draftResetSentProjection {
+        case .stationAggregate:
+            clearedSentExchange = stationAggregate
+            clearedNormalizedSentExchange = stationAggregate
+        case .soleStationField:
+            let soleStationField = entry.exchange.sentDefault == .stationFields && clearedSentFields.count == 1
+                ? clearedSentFields.values.first : nil
+            clearedSentExchange = soleStationField?.raw ?? stationAggregate
+            clearedNormalizedSentExchange = soleStationField?.normalized ?? stationAggregate
         }
         let defaultReport = entry.modeProfile(for: old.mode)?.report ?? entry.report
         let updated = ContestDraftSnapshot(
@@ -862,7 +874,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             frequencyHz: old.frequencyHz, rstSent: clearContact ? defaultReport.defaultSent : old.rstSent,
             rstReceived: clearContact ? defaultReport.defaultReceived : old.rstReceived,
             exchange: clearContact ? ContestExchangeSnapshot(rawSent: clearedSentExchange,
-                                                              normalizedSent: clearedSentExchange,
+                                                              normalizedSent: clearedNormalizedSentExchange,
                                                                rawReceived: "", normalizedReceived: "",
                                                                sentFields: clearedSentFields) : old.exchange,
             entity: clearContact ? nil : old.entity, operatorCallsign: old.operatorCallsign,
@@ -989,6 +1001,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let descriptorIssues = entry.structuralIssues(mode: draft.mode, rstSent: draft.rstSent,
                                                       rstReceived: draft.rstReceived,
                                                       exchange: draft.exchange, allowIncomplete: true)
+        let ruleDraftIssues = rule.validateDraft(draft, in: session)
         let reportBound = entry.modeProfile(for: draft.mode)?.report.maximumUTF8Bytes
         let exchangeValues = [draft.exchange.rawSent, draft.exchange.normalizedSent,
                               draft.exchange.rawReceived, draft.exchange.normalizedReceived]
@@ -998,6 +1011,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
               entry.isCoherent(supportedModes: rule.metadata.supportedModes), reportBound != nil,
               draft.rstSent.utf8.count <= (reportBound ?? 0),
               draft.rstReceived.utf8.count <= (reportBound ?? 0), descriptorIssues.isEmpty,
+              !ruleDraftIssues.contains(where: { $0.severity == .error }),
               exchangeValues.allSatisfy({ $0.utf8.count <= 64 }),
               validCallsign(draft.operatorCallsign), session.station.operatorCallsigns.contains(draft.operatorCallsign),
               draft.stationLocation.utf8.count <= 128,

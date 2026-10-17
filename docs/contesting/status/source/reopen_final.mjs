@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { SpreadsheetFile, FileBlob } from '@oai/artifact-tool';
+const workbook=path.resolve(process.argv[2] || fileURLToPath(new URL('../CONTESTING_PARITY_MATRIX_2026-10-18.xlsx',import.meta.url)));
+const w=await SpreadsheetFile.importXlsx(await FileBlob.load(workbook));
+const counts=w.worksheets.getItem('Summary').getRange('B6:B10').values.flat();
+if(JSON.stringify(counts)!==JSON.stringify([94,16,78,0,33]))throw Error(JSON.stringify(counts));
+const ids=w.worksheets.getItem('94ContestMatrix').getRange('B6:B99').values.flat();
+const fids=w.worksheets.getItem('33FeatureMatrix').getRange('A6:A38').values.flat();
+if(new Set(ids).size!==94||new Set(fids).size!==33)throw Error('IDs');
+const errors=await w.inspect({kind:'match',searchTerm:'#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A|#NUM!|#NULL!|#SPILL!|#CALC!|HYPERLINK is not implemented',options:{useRegex:true,maxResults:10},maxChars:1000});
+const errorEntries=errors.ndjson.trim().split('\n').filter(Boolean).map(line=>JSON.parse(line));
+const matchedErrors=errorEntries.filter(entry=>entry.kind!=='notice'||entry.message!=='Cell search matched 0 entries.');
+if(!errors.ndjson.trim()||matchedErrors.length)throw Error('Workbook error scan was not clean: '+errors.ndjson);
+console.log('Final XLSX reopen:',counts,errors.ndjson);
+await fs.rm(workbook+'.inspect.ndjson',{force:true});

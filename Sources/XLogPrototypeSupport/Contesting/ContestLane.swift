@@ -18,6 +18,7 @@ actor ContestLane {
         CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
         OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
         NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
+        JIDXCWRule(), JIDXSSBRule(), ARRLDXCWRule(), ARRLDXSSBRule(),
     ])
     private let rules: ContestRuleRegistry
     private var store: SQLiteContestStore?
@@ -272,16 +273,38 @@ actor ContestLane {
         try Wire.exact(operatorInput, ["callsign", "category"])
         let stationCall = try Wire.callsign(stationInput, "callsign")
         let zoneText = try Wire.text(stationInput, "cqZone", max: 8)
-        guard let zone = Int(zoneText), (1...40).contains(zone),
-              let country = reference.resolve(stationCall, at: request.timestamp), country.cqZone == zone,
-              country.name.caseInsensitiveCompare(try Wire.text(stationInput, "dxccEntity", max: 160)) == .orderedSame else {
+        let entityText = try Wire.text(stationInput, "dxccEntity", max: 160, empty: true)
+        guard let zone = Int(zoneText), (1...40).contains(zone) else {
             throw ContestLaneError.confirmed("station_mismatch", "The station snapshot does not match bundled offline CTY data.")
         }
         let operatorCall = try Wire.callsign(operatorInput, "callsign")
-        let parsedStationFields = rule.metadata.entry.version == .v2
+        var parsedStationFields = rule.metadata.entry.version == .v2
             ? try Wire.exchangeFields(Wire.object(stationInput, "exchangeFields"), descriptors: rule.metadata.entry.exchange.sentFields)
             : [:]
-        let stationFields = parsedStationFields.mapValues {
+        let isJIDX = [JIDXCWRule.identity, JIDXSSBRule.identity].contains(identity)
+        if isJIDX { parsedStationFields = Wire.normalizedJIDXNumberFields(parsedStationFields) }
+        if let projection = rule as? any ContestRuleExchangeFieldProjection {
+            parsedStationFields = projection.projectExchangeFields(parsedStationFields)
+        }
+        let stationEntity: ContestEntitySnapshot?
+        if entityText.isEmpty {
+            guard isJIDX, stationCall.hasSuffix("/MM"),
+                  parsedStationFields["number"]?.normalized == String(format: "%02d", zone) else {
+                throw ContestLaneError.confirmed("station_mismatch", "Only a validated JIDX maritime-mobile station may omit its land entity.")
+            }
+            stationEntity = nil
+        } else {
+            guard !(isJIDX && stationCall.hasSuffix("/MM")) else {
+                throw ContestLaneError.confirmed("station_mismatch", "A JIDX maritime-mobile station must not claim a land entity.")
+            }
+            guard let country = reference.resolve(stationCall, at: request.timestamp), country.cqZone == zone,
+                  country.name.caseInsensitiveCompare(entityText) == .orderedSame else {
+                throw ContestLaneError.confirmed("station_mismatch", "The station snapshot does not match bundled offline CTY data.")
+            }
+            stationEntity = try reference.entity(country)
+        }
+        let preservesRawFields = isJIDX || rule is any ContestRuleExchangeFieldProjection
+        let stationFields = preservesRawFields ? parsedStationFields : parsedStationFields.mapValues {
             ContestExchangeFieldValue(raw: $0.normalized, normalized: $0.normalized)
         }
         let structuredStationFields = rule.metadata.entry.stationFields.isEmpty
@@ -289,13 +312,15 @@ actor ContestLane {
             : try Wire.stationFields(Wire.object(stationInput, "stationFields"),
                                      descriptors: rule.metadata.entry.stationFields)
         let stationExchange = rule.metadata.entry.version == .v2
-            ? Wire.aggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
+            ? (rule is any ContestRuleExchangeFieldProjection
+                ? Wire.aggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
+                : Wire.normalizedAggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields))
             : (rule.metadata.entry.exchange.sentDefault == .stationSnapshot ? zoneText : "")
         let metadata = ContestSessionMetadata(name: try Wire.text(request.payload, "name", max: 128), operatorCallsign: operatorCall,
                                               operatorCategory: try Wire.text(operatorInput, "category", max: 80))
         let session = ContestSessionSnapshot(id: request.sessionID, workspaceGeneration: try Wire.generationID(generation), rule: identity,
             referenceDataVersion: referenceVersion, startedAt: request.timestamp,
-            station: ContestStationSnapshot(callsign: stationCall, entity: try reference.entity(country),
+            station: ContestStationSnapshot(callsign: stationCall, entity: stationEntity,
                 sentExchange: stationExchange, operatorCallsigns: [operatorCall],
                 location: rule.metadata.entry.cabrilloLocationField.flatMap { structuredStationFields[$0.id] }
                     ?? stationFields["location"]?.normalized ?? "",
@@ -303,7 +328,12 @@ actor ContestLane {
         let draft = ContestDraftSnapshot(id: request.requestID, sessionID: request.sessionID, revision: 1, updatedAt: request.timestamp,
             callsign: "", band: "20m", mode: rule.metadata.entry.mode, frequencyHz: nil,
             rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
-            exchange: .init(rawSent: session.station.sentExchange, normalizedSent: session.station.sentExchange,
+            exchange: .init(rawSent: rule.metadata.entry.version == .v2
+                                ? Wire.aggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
+                                : session.station.sentExchange,
+                            normalizedSent: rule.metadata.entry.version == .v2
+                                ? Wire.normalizedAggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
+                                : session.station.sentExchange,
                             rawReceived: "", normalizedReceived: "", sentFields: session.station.sentExchangeFields),
             entity: nil, operatorCallsign: operatorCall, stationLocation: session.station.location)
         let scope = request.coreScope(generation: session.workspaceGeneration, draftID: draft.id)
@@ -347,14 +377,20 @@ actor ContestLane {
         guard let rule = rules.rule(for: stored.session.rule) else {
             throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
         }
-        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), entry: rule.metadata.entry)
+        let isJIDX = [JIDXCWRule.identity, JIDXSSBRule.identity].contains(stored.session.rule)
+        let projection = rule as? any ContestRuleExchangeFieldProjection
+        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), entry: rule.metadata.entry,
+                                          normalizeJIDXNumbers: isJIDX,
+                                          projection: projection.map { policy in { policy.projectExchangeFields($0) } })
         let entity = try fields.callsign.isEmpty ? nil : reference.resolve(fields.callsign, at: request.timestamp).map(reference.entity)
         let next = ContestDraftSnapshot(id: current.id, sessionID: current.sessionID,
             revision: prior?.committedRevision ?? (stored.revision + 1), updatedAt: request.timestamp,
             callsign: fields.callsign, band: fields.band, mode: fields.mode, frequencyHz: fields.frequencyHz,
             rstSent: fields.sentReport, rstReceived: fields.receivedReport,
-            exchange: .init(rawSent: fields.sentExchange, normalizedSent: fields.sentExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
-                            rawReceived: fields.receivedExchange, normalizedReceived: fields.receivedExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+            exchange: .init(rawSent: fields.sentExchange,
+                            normalizedSent: isJIDX || projection != nil ? Wire.normalizedAggregate(fields.sentExchangeFields, descriptors: rule.metadata.entry.exchange.sentFields) : fields.sentExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                            rawReceived: fields.receivedExchange,
+                            normalizedReceived: isJIDX || projection != nil ? Wire.normalizedAggregate(fields.receivedExchangeFields, descriptors: rule.metadata.entry.exchange.receivedFields) : fields.receivedExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
                             sentFields: fields.sentExchangeFields, receivedFields: fields.receivedExchangeFields),
             entity: entity, operatorCallsign: current.operatorCallsign, stationLocation: current.stationLocation)
         let result = try await repository().updateDraft(next, scope: request.coreScope(generation: stored.session.workspaceGeneration), committedAt: request.timestamp)
@@ -410,13 +446,15 @@ actor ContestLane {
             guard let rule = rules.rule(for: stored.session.rule) else {
                 throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
             }
-            let sent = rule.metadata.entry.exchange.sentDefault == .reservedSerial
+            let normalizedSent = rule.metadata.entry.exchange.sentDefault == .reservedSerial
                 ? (reservation?.transmittedText ?? draft.exchange.normalizedSent)
                 : draft.exchange.normalizedSent
+            let rawSent = rule.draftResetSentProjection == .soleStationField
+                ? draft.exchange.rawSent : normalizedSent
             qso = ContestQSO(id: request.requestID, sessionID: request.sessionID, timestampUTC: request.timestamp,
                 callsign: draft.callsign, band: draft.band, mode: draft.mode, frequencyHz: draft.frequencyHz ?? 0,
                 rstSent: draft.rstSent, rstReceived: draft.rstReceived,
-                exchange: .init(rawSent: sent, normalizedSent: sent,
+                exchange: .init(rawSent: rawSent, normalizedSent: normalizedSent,
                                 rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived,
                                 sentFields: draft.exchange.sentFields, receivedFields: draft.exchange.receivedFields),
                 entity: draft.entity, operatorCallsign: draft.operatorCallsign, stationLocation: draft.stationLocation,
@@ -576,10 +614,17 @@ actor ContestLane {
         guard let suppliedCount, let suppliedDate else {
             throw ContestLaneError.uncertain("invalid_result", "Contest session projection requires one coherent read snapshot.")
         }
-        guard let rule = rules.rule(for: stored.session.rule), let entity = stored.session.station.entity else { throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.") }
+        guard let rule = rules.rule(for: stored.session.rule) else { throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.") }
         let metadata = rule.metadata
+        let entity = stored.session.station.entity
+        guard entity != nil || (rule as? ContestRuleStationEntityPolicy)?.allowsMissingStationEntity(in: stored.session) == true else {
+            throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.")
+        }
+        let projectedZone = entity.map { String($0.cqZone) }
+            ?? stored.session.station.sentExchangeFields["number"]?.normalized
+            ?? ""
         var station: [String: Any] = ["callsign": stored.session.station.callsign,
-            "cqZone": String(entity.cqZone), "dxccEntity": entity.name]
+            "cqZone": projectedZone, "dxccEntity": entity?.name ?? ""]
         if metadata.entry.version == .v2 {
             station["exchangeFields"] = Wire.exchangeFieldsWire(stored.session.station.sentExchangeFields,
                                                                   descriptors: metadata.entry.exchange.sentFields)
@@ -618,9 +663,11 @@ actor ContestLane {
         let sent = rule.metadata.entry.exchange.sentDefault == .reservedSerial
             ? (serial?.transmittedText ?? draft.exchange.rawSent)
             : draft.exchange.rawSent
+        let normalizedSent = rule.draftResetSentProjection == .soleStationField
+            ? draft.exchange.normalizedSent : sent.uppercased()
         let candidate = ContestQSO(id: UUID(), sessionID: draft.sessionID, timestampUTC: draft.updatedAt, callsign: draft.callsign,
             band: draft.band, mode: draft.mode, frequencyHz: draft.frequencyHz ?? 0, rstSent: draft.rstSent, rstReceived: draft.rstReceived,
-            exchange: .init(rawSent: sent, normalizedSent: sent.uppercased(),
+            exchange: .init(rawSent: sent, normalizedSent: normalizedSent,
                             rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived,
                             sentFields: draft.exchange.sentFields, receivedFields: draft.exchange.receivedFields),
             entity: draft.entity, operatorCallsign: draft.operatorCallsign, stationLocation: draft.stationLocation,
@@ -702,6 +749,7 @@ actor ContestLane {
         }
         let rawSent = try Wire.text(value, "sentExchange", max: 64, empty: true)
         let normalizedSent = try Wire.text(value, "normalizedSentExchange", max: 64, empty: true)
+        let normalizedReceived = try Wire.text(value, "normalizedReceivedExchange", max: 64, empty: true)
         guard try Wire.text(value, "allocatedSerial", max: 64, empty: true) == normalizedSent else {
             throw ContestLaneError.confirmed("invalid_params", "The allocated sent value is inconsistent.")
         }
@@ -715,13 +763,27 @@ actor ContestLane {
         }
         let provenance = try Wire.provenance(Wire.object(value, "provenance"))
         let structured = rule.metadata.entry.version == .v2
-        let sentFields = structured ? try Wire.exchangeFields(Wire.object(value, "sentExchangeFields"), descriptors: rule.metadata.entry.exchange.sentFields) : [:]
-        let receivedFields = structured ? try Wire.exchangeFields(Wire.object(value, "receivedExchangeFields"), descriptors: rule.metadata.entry.exchange.receivedFields) : [:]
+        let isJIDX = [JIDXCWRule.identity, JIDXSSBRule.identity].contains(stored.session.rule)
+        var sentFields = structured ? try Wire.exchangeFields(Wire.object(value, "sentExchangeFields"), descriptors: rule.metadata.entry.exchange.sentFields) : [:]
+        var receivedFields = structured ? try Wire.exchangeFields(Wire.object(value, "receivedExchangeFields"), descriptors: rule.metadata.entry.exchange.receivedFields) : [:]
+        if isJIDX {
+            sentFields = Wire.normalizedJIDXNumberFields(sentFields)
+            receivedFields = Wire.normalizedJIDXNumberFields(receivedFields)
+        }
+        if let projection = rule as? any ContestRuleExchangeFieldProjection {
+            sentFields = projection.projectExchangeFields(sentFields)
+            receivedFields = projection.projectExchangeFields(receivedFields)
+        }
         let rawReceived = try Wire.text(value, "receivedExchange", max: 64, empty: true)
         if structured,
            (rawSent != Wire.aggregate(sentFields, descriptors: rule.metadata.entry.exchange.sentFields) ||
             rawReceived != Wire.aggregate(receivedFields, descriptors: rule.metadata.entry.exchange.receivedFields)) {
             throw ContestLaneError.confirmed("invalid_params", "Structured correction aggregates do not match their fields.")
+        }
+        if (isJIDX || rule is any ContestRuleExchangeFieldProjection),
+           (normalizedSent != Wire.normalizedAggregate(sentFields, descriptors: rule.metadata.entry.exchange.sentFields) ||
+            normalizedReceived != Wire.normalizedAggregate(receivedFields, descriptors: rule.metadata.entry.exchange.receivedFields)) {
+            throw ContestLaneError.confirmed("invalid_params", "Structured correction normalization does not match its fields.")
         }
         return ContestQSO(id: qsoID, sessionID: sessionID, timestampUTC: originalUTC,
             callsign: callsign, band: band, mode: mode, frequencyHz: Int64(frequency),
@@ -729,7 +791,7 @@ actor ContestLane {
             rstReceived: try Wire.text(value, "receivedReport", max: 3, empty: true),
             exchange: .init(rawSent: rawSent, normalizedSent: normalizedSent,
                             rawReceived: rawReceived,
-                            normalizedReceived: try Wire.text(value, "normalizedReceivedExchange", max: 64, empty: true),
+                            normalizedReceived: normalizedReceived,
                             sentFields: sentFields, receivedFields: receivedFields),
             entity: resolvedEntity, operatorCallsign: try Wire.callsign(value, "operatorCallsign"),
             stationLocation: try Wire.text(value, "stationLocation", max: 128, empty: true),
@@ -849,6 +911,8 @@ actor ContestLane {
         case ContestStoreError.qsoDeleted: return .confirmed("qso_deleted", "The contest contact has already been deleted.")
         case ContestStoreError.invalidCorrectionReason: return .confirmed("invalid_params", "A bounded correction reason is required.")
         case ContestStoreError.immutableQSOField(let field): return .confirmed("immutable_qso", "The correction changed immutable field \(field).")
+        case ContestExportServiceError.unsupportedOperatorCategory(let category):
+            return .confirmed("unsupported_category", "Contest export does not support stored operator category \(category).")
         case is ContestEvaluationError: return .confirmed("invalid_qso", "The contest contact is invalid.")
         default: return .uncertain("contest_store_failed", "The contest operation did not return a confirmed result.")
         }
@@ -1220,12 +1284,22 @@ private enum Wire {
     static func aggregate(_ value: [String: ContestExchangeFieldValue], descriptors: [ContestExchangeFieldDescriptor]) -> String {
         descriptors.compactMap { value[$0.id]?.raw }.filter { !$0.isEmpty }.joined(separator: " ")
     }
+    static func normalizedAggregate(_ value: [String: ContestExchangeFieldValue], descriptors: [ContestExchangeFieldDescriptor]) -> String {
+        descriptors.compactMap { value[$0.id]?.normalized }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    static func normalizedJIDXNumberFields(_ value: [String: ContestExchangeFieldValue]) -> [String: ContestExchangeFieldValue] {
+        guard value.count == 1, let number = value["number"], let numeric = Int(number.raw) else { return value }
+        return ["number": .init(raw: number.raw, normalized: String(format: "%02d", numeric))]
+    }
     struct DraftFields {
         let callsign, sentReport, sentExchange, receivedReport, receivedExchange, band, mode: String
         let frequencyHz: Int64?
         let sentExchangeFields, receivedExchangeFields: [String: ContestExchangeFieldValue]
     }
-    static func draftFields(_ value: [String: Any], entry: ContestEntryDescriptor) throws -> DraftFields {
+    static func draftFields(_ value: [String: Any], entry: ContestEntryDescriptor,
+                            normalizeJIDXNumbers: Bool = false,
+                            projection: (([String: ContestExchangeFieldValue]) ->
+                                [String: ContestExchangeFieldValue])? = nil) throws -> DraftFields {
         var keys: Set<String> = ["callsign", "sentReport", "sentExchange", "receivedReport", "receivedExchange", "frequencyHz", "band", "mode"]
         if entry.version == .v2 { keys.formUnion(["sentExchangeFields", "receivedExchangeFields"]) }
         try exact(value, keys)
@@ -1240,8 +1314,16 @@ private enum Wire {
         else { let number = try uint(value, "frequencyHz"); guard number <= 100_000_000_000 else { throw ContestLaneError.confirmed("invalid_params", "Contest frequency is invalid.") }; frequency = Int64(number) }
         let sentReport = try text(value, "sentReport", max: entry.report.maximumUTF8Bytes, empty: true)
         let receivedReport = try text(value, "receivedReport", max: entry.report.maximumUTF8Bytes, empty: true)
-        let sentFields = entry.version == .v2 ? try exchangeFields(object(value, "sentExchangeFields"), descriptors: entry.exchange.sentFields, allowIncomplete: true) : [:]
-        let receivedFields = entry.version == .v2 ? try exchangeFields(object(value, "receivedExchangeFields"), descriptors: entry.exchange.receivedFields, allowIncomplete: true) : [:]
+        var sentFields = entry.version == .v2 ? try exchangeFields(object(value, "sentExchangeFields"), descriptors: entry.exchange.sentFields, allowIncomplete: true) : [:]
+        var receivedFields = entry.version == .v2 ? try exchangeFields(object(value, "receivedExchangeFields"), descriptors: entry.exchange.receivedFields, allowIncomplete: true) : [:]
+        if normalizeJIDXNumbers {
+            sentFields = normalizedJIDXNumberFields(sentFields)
+            receivedFields = normalizedJIDXNumberFields(receivedFields)
+        }
+        if let projection {
+            sentFields = projection(sentFields)
+            receivedFields = projection(receivedFields)
+        }
         let rawSent = try text(value, "sentExchange", max: 64, empty: true)
         let rawReceived = try text(value, "receivedExchange", max: 64, empty: true)
         if entry.version == .v2,

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://om0rx.example/schemas/contest-plugin-inventory-1.0.0.json",
+  "title": "Pinned Python contest plugin AST inventory",
+  "type": "object",
+  "required": ["schemaVersion", "extractor", "upstream", "ledgerReconciliation", "coverage", "plugins"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "extractor": {"type": "object", "required": ["name", "version", "python"]},
+    "upstream": {
+      "type": "object",
+      "required": ["repository", "commit", "pluginRoot", "pythonFileCount", "contestPluginCount", "excluded"]
+    },
+    "ledgerReconciliation": {
+      "type": "object",
+      "required": ["path", "sha256", "pluginIDsExact", "activePreviewCount", "activePreviewPluginIDs"]
+    },
+    "coverage": {"type": "object", "required": ["dispositions", "boundary"]},
+    "plugins": {
+      "type": "array",
+      "minItems": 94,
+      "maxItems": 94,
+      "items": {
+        "type": "object",
+        "required": ["pluginID", "source", "declarations", "ui", "behavior", "coverageDisposition", "coverageReasons"],
+        "properties": {
+          "coverageDisposition": {"enum": ["automatic", "needs-adapter", "manual", "unknown"]},
+          "source": {"type": "object", "required": ["path", "sha256", "bytes"]}
+        }
+      }
+    }
+  }
+}

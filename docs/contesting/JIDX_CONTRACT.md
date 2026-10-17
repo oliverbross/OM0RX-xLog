@@ -1,6 +1,6 @@
 # JIDX CW and Phone 2026 implementation contract
 
-Status: inactive implementation and acceptance contract. No JIDX rule is registered, exposed through the worker or UI, packaged, installed, or represented as sponsor-ready by this change.
+Status: practice-preview activation contract. The reviewed JIDX rules are exposed through the local contest worker and shared UI catalog, while the frozen pilot registry remains unchanged. This does not package or install JIDX and does not represent either export as sponsor-ready.
 
 ## Authority and frozen identity
 
@@ -86,7 +86,7 @@ Exact CW and phone golden files must cover a Japanese entrant, a non-JA entrant,
 
 ## Remaining acceptance gates
 
-Implementation is not activation. Each gate needs evidence at the same candidate commit:
+Practice-preview activation is not sponsor readiness. Each gate needs evidence at the same candidate commit:
 
 1. Core: two inactive rules, fixture decoding, all scoring/validation oracles, and unchanged legacy rule identities and tests.
 2. Store: draft, commit, replay, reopen, correction, deletion, rescore, immutable sent field, and no schema regression. Any transmitter-ID addition requires migration and rollback tests.
@@ -97,4 +97,4 @@ Implementation is not activation. Each gate needs evidence at the same candidate
 7. Sponsor: current M1/M2 category and transmitter-ID syntax resolved with primary evidence; Cabrillo accepted through the JIDX submission path or validator; CW and phone deadlines and the one-log policy presented accurately.
 8. Operating evidence: no radio/keying claim is made here. Frequency readback, actual mode, legal sub-band use, and on-air/repeater compliance remain separate from source, test, export, and package evidence.
 
-Until all applicable gates pass, JIDX remains outside `ContestRuleRegistry.pilots`, the public rule catalog, the production worker allowlist, and packaged UI.
+JIDX remains outside `ContestRuleRegistry.pilots`. The local contest catalog and shared practice UI may expose both modes only with authoritative session validation, the generated worker lifecycle fixture, and the preview warning described above. Packaging, installation, sponsor-ready labeling, multi-operator export, and sponsor acceptance of the inferred maritime-mobile `ENTITY` token remain gated.

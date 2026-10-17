@@ -1,0 +1,31 @@
+{
+  "retrieved": "2026-10-18",
+  "rules": {
+    "url": "https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+    "cachePath": "/tmp/arrl-dx-rules-v2.0-2026-10-18.pdf",
+    "bytes": 250769,
+    "sha256": "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+    "semantics": "CW and Phone are separate contests; W/VE sends location, DX sends power as a number or abbreviation; single-band entries retain contacts from other bands; Cabrillo is the official electronic format."
+  },
+  "cabrilloHeader": {
+    "url": "https://wwrof.org/cabrillo/cabrillo-v3-header/",
+    "cachePath": "/tmp/wwrof-cabrillo-v3-header-2026.html",
+    "bytes": 48109,
+    "sha256": "e3a4cd4a4749394dd944f4316eec467904df44c7668b29e7c5fd5fa617a08fcc",
+    "semantics": "LOCATION is required for ARRL contests and follows ARRL/RAC section versus DX policy; CATEGORY-TRANSMITTER is required for multi-operator entries; CATEGORY-STATION is optional in this supported SINGLE-OP/ONE preview subset."
+  },
+  "cabrilloQSO": {
+    "url": "https://wwrof.org/cabrillo/cabrillo-qso-data/",
+    "cachePath": "/tmp/wwrof-cabrillo-qso-data-2026.html",
+    "bytes": 42571,
+    "sha256": "39b1df572ebc9d08c6e0fbe320d26565aa76000e8ab6c4e645339073afe79b56",
+    "semantics": "QSO records contain frequency, mode, UTC date and time, both callsigns, reports and six-character exchange templates; sponsors accept space-delimited fields, and transmitter ID is not used for single-operator entries."
+  },
+  "adif": {
+    "url": "https://www.adif.org/318/ADIF_318_annotated.htm",
+    "cachePath": "/tmp/adif-318-annotated-2026.html",
+    "bytes": 650320,
+    "sha256": "3ba54cb29b4dc5333c81f38f53e9d5ca503ff47a917acffa64e4cc469464d5ef",
+    "semantics": "STX_STRING and SRX_STRING preserve exchange text; MY_DXCC and DXCC identify entities; MY_STATE and STATE apply to subdivisions, including ADIF NL for Newfoundland and Labrador."
+  }
+}
