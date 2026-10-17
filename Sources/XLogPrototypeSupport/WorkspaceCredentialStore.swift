@@ -16,9 +16,10 @@ struct WorkspaceCredentialStore {
         case ftpBackupPassword = "ftp-backup-password"
     }
     let service: String
-    func load(_ account: Account) throws -> String? {
+    func load(_ account: Account, allowInteraction: Bool = true) throws -> String? {
         #if os(macOS)
-        return try SecretStore(service: service).load(SecretStore.Account(rawValue: account.rawValue)!)
+        return try SecretStore(service: service).load(SecretStore.Account(rawValue: account.rawValue)!,
+                                                      allowInteraction: allowInteraction)
         #else
         return try NativeCredentialStore(service: service).load(account.rawValue)
         #endif

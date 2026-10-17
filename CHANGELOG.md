@@ -4,6 +4,7 @@
 
 ## 1.0.0-beta.3 — 2026-10-17
 
+- Prevented automatic Wavelog synchronization from presenting repeated macOS Keychain dialogs or blocking the Sync status and schedule controls. Legacy credentials can be authorized once from a user-started sync with **Always Allow**.
 - Fixed macOS cluster startup ordering so the callsign, optional password and skimmer preference are delivered before the automatic `sh/dx/100` request.
 - Warmed the retained Chaser snapshot and default Awards catalogue after the Operator Desk paints, without preloading network feeds or keeping hidden screens mounted.
 - Reduced Chaser render work by reusing date formatters, memoizing facets and skipping map projection while the map is hidden.

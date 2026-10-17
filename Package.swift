@@ -18,7 +18,7 @@ let liveCoreName = "XLogCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
 let prototypeCoreTargets: [Target] = [
     .target(name: "XLogCore", dependencies: ["CCurlBackup"], resources: [.process("Resources")], linkerSettings: [
-        .linkedFramework("Network"), .linkedFramework("Security"), .linkedLibrary("sqlite3"), .linkedLibrary("z")
+        .linkedFramework("LocalAuthentication"), .linkedFramework("Network"), .linkedFramework("Security"), .linkedLibrary("sqlite3"), .linkedLibrary("z")
     ]),
     .target(name: "XCatIntegrationCore", linkerSettings: [.linkedFramework("Network"), .linkedFramework("Security")])
 ]

@@ -11,6 +11,11 @@ import XLogPortableCore
 #endif
 
 final class AutomaticSyncTests: XCTestCase {
+    func testOnlyUserStartedSyncMayPresentKeychainAuthorization() {
+        XCTAssertFalse(LiveServiceMethods.syncCredentialAllowsInteraction(automatic: true))
+        XCTAssertTrue(LiveServiceMethods.syncCredentialAllowsInteraction(automatic: false))
+    }
+
     func testConsentPersistsAcrossOwnersButIsNotEnabledByOrdinarySettings() throws {
         let fixture = try SyncFixture()
         defer { fixture.clean() }

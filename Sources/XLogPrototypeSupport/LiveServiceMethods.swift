@@ -1,4 +1,7 @@
 import Foundation
+#if os(macOS)
+import Security
+#endif
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -437,7 +440,9 @@ actor LiveServiceMethods {
         guard !stopped, syncTask == nil else { throw WorkerFailure("sync_busy", "Synchronization is already running or stopping.") }
         let configuration: WavelogConfiguration?
         if operation != nil { configuration = nil } else {
-            guard let url = URL(string: settings.wavelogURL), let token = try workspaceSecrets().load(.wavelogToken) else {
+            guard let url = URL(string: settings.wavelogURL),
+                  let token = try workspaceSecrets().load(.wavelogToken,
+                      allowInteraction: Self.syncCredentialAllowsInteraction(automatic: automatic)) else {
                 throw WorkerFailure("sync_configuration_required", "Configure the Wavelog URL, station ID and token first.")
             }
             configuration = try WavelogConfiguration(baseURL: url, token: token, stationID: settings.wavelogStationID)
@@ -473,12 +478,27 @@ actor LiveServiceMethods {
         }
     }
 
+    /// Background scheduling must fail closed instead of displaying a modal
+    /// Keychain prompt. A user-started synchronization remains the explicit
+    /// one-time authorization path for a legacy credential ACL.
+    static func syncCredentialAllowsInteraction(automatic: Bool) -> Bool { !automatic }
+
     /// Dependency messages and decoding contexts can contain credentials, URLs
     /// or contact data. Project only known types and fixed, bounded guidance.
     private static func syncFailure(_ error: Error, phase: String) -> [String: Any] {
         let code: String
         let detail: String
         var httpStatus: Int?
+        #if os(macOS)
+        let keychainInteractionDenied: Bool
+        if case let SecretStoreError.keychain(status) = error {
+            keychainInteractionDenied = status == errSecInteractionNotAllowed
+        } else {
+            keychainInteractionDenied = false
+        }
+        #else
+        let keychainInteractionDenied = false
+        #endif
         if let error = error as? WavelogClientError {
             switch error {
             case .invalidConfiguration, .invalidURL:
@@ -521,6 +541,9 @@ actor LiveServiceMethods {
         } else if error is CancellationError {
             code = "cancelled"
             detail = "Synchronization was cancelled."
+        } else if keychainInteractionDenied {
+            code = "keychain_permission"
+            detail = "Open Sync and start synchronization once, then choose Always Allow in the macOS Keychain prompt."
         } else if let error = error as? WorkerFailure,
                   ["sync_configuration_required", "sync_configuration_changed", "sync_busy", "sync_disabled", "sync_mode_local"].contains(error.code) {
             code = error.code

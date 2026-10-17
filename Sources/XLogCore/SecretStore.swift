@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Security
 
 public enum SecretStoreError: Error, LocalizedError {
@@ -27,14 +28,26 @@ public struct SecretStore: Sendable {
     private let serviceName: String
     public init(service: String = Self.service) { self.serviceName = service }
 
-    public func load(_ account: Account) throws -> String? {
-        let query: [String: Any] = [
+    public func load(_ account: Account, allowInteraction: Bool = true) throws -> String? {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: account.rawValue,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
+        // Background services must never put up an authorization dialog. A
+        // legacy Keychain ACL can otherwise block Sync and its status controls
+        // until the native worker times out.
+        if !allowInteraction {
+            if #available(macOS 11.0, *) {
+                let context = LAContext()
+                context.interactionNotAllowed = true
+                query[kSecUseAuthenticationContext as String] = context
+            } else {
+                query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+            }
+        }
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
