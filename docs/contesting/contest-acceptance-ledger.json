@@ -22,11 +22,12 @@
   "interpretation": {
     "selectorAvailability": "A selector row means the pinned upstream UI can name and import the plugin; it is not xLog implementation or acceptance evidence.",
     "sourceExtraction": "Mode, exchange and duplicate policy fields are static observations from each pinned plugin source. Missing or dynamic values remain unresolved.",
-    "pilotBoundary": "Exactly twelve xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; and one official-rules ARRL RTTY Roundup plain-logging preview. Evidence is scoped by field and is not current sponsor, application, package, submission, full-port, digital-output, or operator acceptance.",
+    "pilotBoundary": "Exactly fourteen xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY; one official-rules ARRL RTTY Roundup plain-logging preview; and two official-rules JIDX 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, native-package, submission, full-port, real-radio/keying, full Run/S&P, or operator acceptance.",
     "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin.",
     "officialCorrectionBoundary": "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.",
     "naqpAuthorityBoundary": "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness.",
-    "arrlRTTYAuthorityBoundary": "ARRL RTTY Roundup uses the published ARRL Rules v3.0b plus pinned ARRL/RAC section and current DXCC authority as primary authority. The pinned Python plugin remains a compatibility comparator with recorded gaps; its commit is not the rule sourceRevision. This is a plain-logging preview with versioned Cabrillo and ADIF output, not a claim of full Run/S&P operation, real RTTY generation/keying, category/date/operating-time enforcement, sponsor certification, or submission readiness."
+    "arrlRTTYAuthorityBoundary": "ARRL RTTY Roundup uses the published ARRL Rules v3.0b plus pinned ARRL/RAC section and current DXCC authority as primary authority. The pinned Python plugin remains a compatibility comparator with recorded gaps; its commit is not the rule sourceRevision. This is a plain-logging preview with versioned Cabrillo and ADIF output, not a claim of full Run/S&P operation, real RTTY generation/keying, category/date/operating-time enforcement, sponsor certification, or submission readiness.",
+    "jidxAuthorityBoundary": "JIDX CW and SSB use the published JIDX 2026-10 rules, multiplier list, electronic-log guide, upload pages, ADIF 3.1.7, and pinned callsign/reference authorities as primary evidence. The pinned Python plugins remain compatibility comparators with recorded scoring, role, multiplier-scope, and export-token gaps; their commit is not the JIDX rule sourceRevision. These are shared-UI practice previews with versioned Cabrillo and ADIF output, not claims of native-package launch, full Run/S&P operation, real radio/keying, full-category enforcement, sponsor certification, or submission readiness."
   },
   "validation": {
     "script": "docs/contesting/validate-contest-acceptance-ledger.mjs",
@@ -5412,46 +5413,84 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-practice-preview",
+        "ruleIdentity": {
+          "id": "jidx-cw",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-10-rules-preview",
+          "sourceRevision": "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/JIDXRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "The JIDX 2026-10 rules, multiplier list, electronic-log guide, upload pages, ADIF 3.1.7, RSGB prefix guidance, and pinned CTY/DXCC data are primary authority. The pinned Python comparator has role-validation, per-band multiplier, Japanese-entity, phone-token, and category/export gaps."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/JIDXRules.swift",
+            "Tests/XContestCoreTests/ContestJIDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Official CW/phone point weights, JA-versus-DX/MM role validation, per-band duplicate/multiplier scope, and explicit pinned-Python deviations are tested; this is not a claim of exact comparator parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestJIDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Independent fixtures prove non-JA score 40 and JA score 48 across six band weights, duplicates, Japanese locations, DXCC entities, CQ zones, and maritime-mobile zone-only credit; they are not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-worker-bounded-shared-ui-lifecycle-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestJIDXStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestJIDXWorkerWireTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/fixtures/jidx-worker-wire.json",
+            "prototype/src/contesting/jidxWireFixture.test.ts",
+            "prototype/src/contesting/ContestWorkspace.jidx.test.tsx",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Both modes have core and store coverage. The CW worker covers DX and maritime-mobile create/open/draft/apply/commit/edit/restart and export, with DX deletion and maritime-mobile commit replay; the shared UI covers CW maritime-mobile create/apply/correction only. Single-digit raw evidence such as 3 and 5 remains raw while normalized scoring/Cabrillo projections remain 03 and 05 across the covered returned-draft, correction, reopen, and replay paths. JA/SSB worker coverage is limited to session creation, and client coverage is decode-only."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-practice-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/jidx-preview-1.json",
+            "Tests/XContestCoreTests/ContestJIDXExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestJIDXADIFExportTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Core/export-layer versioned CW and Phone Cabrillo and ADIF bytes cover JA, DX, maritime-mobile, leading-zero normalization, deterministic order, and single-band projection. Worker export coverage is CW DX and maritime-mobile only; no shared-UI export flow is evidenced. Multi-operator output, the inferred maritime-mobile ENTITY token, full-category rules, and sponsor upload acceptance remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No full Run/S&P, real radio/keying, or packaged operator acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "JIDX core f1d7956, store/export 117fadb, and worker/shared-UI activation 896fa939 have reviewed source plus focused native, portable, and frontend evidence. A single exact-SHA three-platform matrix, native-package launch, operator Run/S&P, real radio/keying, sponsor full-category validation, and sponsor upload acceptance remain pending."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules practice preview; native-package, operator Run/S&P, real radio/keying, sponsor full-category, and submission acceptance remain pending"
       }
     },
     {
@@ -5508,46 +5547,82 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-rules-practice-preview",
+        "ruleIdentity": {
+          "id": "jidx-ssb",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-10-rules-preview",
+          "sourceRevision": "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/JIDXRules.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "The JIDX 2026-10 rules, multiplier list, electronic-log guide, upload pages, ADIF 3.1.7, RSGB prefix guidance, and pinned CTY/DXCC data are primary authority. The pinned Python comparator has role-validation, per-band multiplier, Japanese-entity, phone-token, and category/export gaps."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-rules-and-compatibility-tested",
+          "evidence": [
+            "Sources/XContestCore/JIDXRules.swift",
+            "Tests/XContestCoreTests/ContestJIDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Official CW/phone point weights, JA-versus-DX/MM role validation, per-band duplicate/multiplier scope, and explicit pinned-Python deviations are tested; this is not a claim of exact comparator parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestJIDXTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Independent fixtures prove non-JA score 40 and JA score 48 across six band weights, duplicates, Japanese locations, DXCC entities, CQ zones, and maritime-mobile zone-only credit; they are not operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "store-and-worker-session-create-client-decode-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestJIDXStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestJIDXWorkerWireTests.swift",
+            "docs/contesting/fixtures/jidx-worker-wire.json",
+            "prototype/src/contesting/jidxWireFixture.test.ts",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Both modes have core and store coverage, including raw and normalized persistence. JIDX Phone worker coverage is limited to JA session creation, and client coverage is decode-only; no Phone worker mutation/restart/export or shared-UI lifecycle is evidenced. The returned-draft, correction, reopen, and replay lifecycle for single-digit raw 3 and 5 versus normalized 03 and 05 is evidenced only on the covered CW paths."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "versioned-practice-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/jidx-preview-1.json",
+            "Tests/XContestCoreTests/ContestJIDXExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestJIDXADIFExportTests.swift",
+            "Tests/XContestCoreTests/SourceFixtures/jidx-2026-authority.json",
+            "docs/contesting/JIDX_CONTRACT.md"
+          ],
+          "note": "Core/export-layer versioned CW and Phone Cabrillo and ADIF bytes cover JA, DX, maritime-mobile, leading-zero normalization, deterministic order, and single-band projection. No Phone worker or shared-UI export flow is evidenced. Multi-operator output, the inferred maritime-mobile ENTITY token, full-category rules, and sponsor upload acceptance remain open."
         },
         "runSP": {
           "status": "pending",
           "evidence": [],
-          "note": "No RunSP acceptance evidence is recorded for this plugin."
+          "note": "No full Run/S&P, real radio/keying, or packaged operator acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "JIDX core f1d7956, store/export 117fadb, and worker/shared-UI activation 896fa939 have reviewed source plus focused native, portable, and frontend evidence. A single exact-SHA three-platform matrix, native-package launch, operator Run/S&P, real radio/keying, sponsor full-category validation, and sponsor upload acceptance remain pending."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-rules practice preview; native-package, operator Run/S&P, real radio/keying, sponsor full-category, and submission acceptance remain pending"
       }
     },
     {
