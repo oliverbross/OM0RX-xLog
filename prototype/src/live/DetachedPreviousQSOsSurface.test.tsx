@@ -88,9 +88,10 @@ it("drags a header edge to resize its column", async () => {
   await screen.findByText("JN88AA");
   const handle = screen.getByRole("separator", { name: "Resize UTC column" });
   handle.setPointerCapture = vi.fn();
-  fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100 });
-  fireEvent.pointerMove(handle, { pointerId: 1, clientX: 126 });
-  fireEvent.pointerUp(handle, { pointerId: 1 });
+  // jsdom does not provide PointerEvent fields; use an explicit pointer-like event.
+  const pointer = (type: string, x: number) => { const event = new Event(type, { bubbles: true });
+    Object.assign(event, { button: 0, pointerId: 1, clientX: x }); fireEvent(handle, event); };
+  pointer("pointerdown", 100); pointer("pointermove", 126); pointer("pointerup", 126);
   expect(handle.getAttribute("aria-valuenow")).toBe("180");
 });
 

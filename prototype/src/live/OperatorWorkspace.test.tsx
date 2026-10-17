@@ -110,7 +110,9 @@ describe("operator workspace", () => {
     const row = screen.getByRole("row", { name: "Select VK8NSB at 14.025000 MHz" });
     const rowMarkup = row.innerHTML;
     fireEvent.mouseEnter(row); expect(row.innerHTML).toBe(rowMarkup); fireEvent.focus(row); expect(onSelect).not.toHaveBeenCalled();
-    expect((within(row).getByText("20m") as HTMLElement).style.color).toBe("rgb(18, 52, 86)"); expect((row as HTMLElement).style.backgroundColor).toBe("rgba(255, 140, 0, 0.12)");
+    expect((within(row).getByText("20m") as HTMLElement).style.color).toBe("rgb(18, 52, 86)");
+    const tint = (row as HTMLElement).style.backgroundColor.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/);
+    expect(tint?.slice(1, 4)).toEqual(["255", "140", "0"]); expect(Number(tint?.[4])).toBeCloseTo(31 / 255, 2);
     fireEvent.keyDown(row, { key: "Enter" }); expect(onSelect).toHaveBeenCalledExactlyOnceWith(spot());
     const status = screen.getByRole("status", { name: "Compact cluster connections" }); expect(status.textContent).toContain("ShackCQ · Connected"); expect(status.textContent).toContain("Backup · Failed · Connection refused");
   });

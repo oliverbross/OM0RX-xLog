@@ -37,7 +37,10 @@ it.each(["locked", "refused route"])("does not bypass a %s or fake keyboard focu
   vi.useFakeTimers();
   const context = fixture(reason === "locked", reason === "refused route");
   const rejected = expect(verifyEditorFocus(context)).rejects.toThrow("Timed out: editable full editor");
-  await vi.advanceTimersByTimeAsync(20_050); await rejected;
+  await vi.advanceTimersByTimeAsync(0);
+  await act(async () => {});
+  vi.setSystemTime(Date.now() + 20_000);
+  await vi.advanceTimersToNextTimerAsync(); await rejected;
   expect(document.activeElement).not.toBe(document.querySelector(".qso-call input"));
   expect(context.worker).toHaveBeenCalledOnce();
   for (const mutation of [context.write, context.save, context.clear]) expect(mutation).not.toHaveBeenCalled();

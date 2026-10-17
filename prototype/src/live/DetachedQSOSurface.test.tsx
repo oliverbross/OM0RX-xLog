@@ -201,7 +201,8 @@ it("loads the canonical full editor with read-only context, no main controller, 
   expect(api.changes.mock.invocationCallOrder[0]).toBeLessThan(api.draft.mock.invocationCallOrder[0]);
   expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1")).toBeNull();
   await waitFor(() => expect(api.read.mock.calls.some(([method]) => method === "lookup_call")).toBe(true));
-  expect(api.read.mock.calls.every(([method]) => ["lookup_call", "logbook_previous", "logbook_matrix", "cluster_history"].includes(method))).toBe(true);
+  await waitFor(() => expect(api.read).toHaveBeenCalledWith("logbook_duplicate", { call: "K1ABC", band: "20m", mode: "CW" }));
+  expect(api.read.mock.calls.every(([method]) => ["lookup_call", "logbook_previous", "logbook_duplicate", "logbook_matrix", "cluster_history"].includes(method))).toBe(true);
   expect(api.dock).not.toHaveBeenCalled();
   view.unmount();
   expect(api.changes.mock.results[0].value).toHaveBeenCalledOnce(); expect(api.protect.mock.results[0].value).toHaveBeenCalledOnce();
