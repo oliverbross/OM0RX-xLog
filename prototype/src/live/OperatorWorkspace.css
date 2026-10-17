@@ -38,6 +38,9 @@
 .operator-compact-table tbody tr:hover { box-shadow: inset 0 0 0 1px #4a9eff99; }
 .operator-compact-table tbody tr:focus-visible { outline: 2px solid #71baf7; outline-offset: -2px; }
 .operator-compact-table tbody tr[aria-selected="true"] { background: #244768; }
+.operator-compact-table .live-cluster-age-strip { display: block; min-height: 28px; margin: -3px -5px; padding: 6px 5px 3px; box-sizing: border-box; }
+.operator-compact-table tbody tr:hover .live-cluster-age-strip { box-shadow: inset 0 0 0 1px #bfe4ff; }
+.operator-compact-table tbody tr[aria-selected="true"] .live-cluster-age-strip { box-shadow: inset 0 0 0 2px #bfe4ff; }
 .operator-compact-table .live-cluster-category { font-size: 11px; }
 .operator-compact-table .live-cluster-status-column { text-align: center; }
 .operator-compact-table .live-cluster-special-tag { margin-right: 3px; }

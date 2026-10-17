@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ClusterPanel, fullClusterColumnsKey } from "./ClusterPanel";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 const palette = ["bands", "modes", "continents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
@@ -43,6 +43,28 @@ describe("DX Cluster filter colours", () => {
       const background = luminance(match![2]);
       expect((foreground + 0.05) / (background + 0.05), category).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+describe("DX Cluster spot age strip", () => {
+  it("keeps the current For label while applying age colour through hover and selection", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date((812_000_000 + 978_307_200) * 1000));
+    const data = response();
+    (data.snapshot.spots as any[]).push({ id: "age-spot", receivedAt: 812_000_000 - 15 * 60,
+      clusterName: "ShackCQ", spotter: "OM0RX", frequencyKHz: 14025, frequencyText: "14.025", callsign: "VK8NSB", comment: "",
+      band: "20m", mode: "CW", country: "Australia", continent: "OC", cqZone: 29, callStatus: "New Call", dxccStatus: "ATNO",
+      specialTags: [], score: 90, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["OM0RX"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
+    const { rerender } = render(<ClusterPanel passive snapshot={data} onRequest={vi.fn()} onSelect={vi.fn()} />);
+    expect(screen.getByRole("columnheader", { name: /^For/ })).toBeTruthy();
+    const age = screen.getByText("15 min");
+    expect(age.classList.contains("live-cluster-age-strip")).toBe(true);
+    expect((age as HTMLElement).style.backgroundColor).toBe("rgb(133, 77, 14)");
+    fireEvent.mouseEnter(age.closest("tr")!);
+    expect((age as HTMLElement).style.backgroundColor).toBe("rgb(133, 77, 14)");
+    rerender(<ClusterPanel passive snapshot={data} selectedSpotId="age-spot" onRequest={vi.fn()} onSelect={vi.fn()} />);
+    expect(screen.getByText("15 min").closest("tr")?.classList.contains("is-selected")).toBe(true);
+    expect((screen.getByText("15 min") as HTMLElement).style.backgroundColor).toBe("rgb(133, 77, 14)");
   });
 });
 

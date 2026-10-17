@@ -70,6 +70,19 @@ describe("operator workspace", () => {
     act(() => vi.advanceTimersByTime(60_000));
     expect(screen.getByText("1 min")).toBeTruthy();
   });
+  it("uses the same accessible age strip in the compact cluster and retains it when selected", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date((812_000_000 + 978_307_200) * 1000));
+    const preferences = defaultWorkspacePreferences();
+    window.localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ ...preferences, activeTab: "cluster", columns: ["time"] }));
+    const view = render(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={projection(1)} onSelect={vi.fn()} />);
+    const age = screen.getByText("Now");
+    expect(age.classList.contains("live-cluster-age-strip")).toBe(true);
+    expect((age as HTMLElement).style.backgroundColor).toBe("rgb(22, 101, 52)");
+    view.rerender(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={projection(1)} selectedSpotId="feed-0" onSelect={vi.fn()} />);
+    expect(screen.getByRole("row", { name: "Select VK8NSB at 14.025000 MHz" }).getAttribute("aria-selected")).toBe("true");
+    expect((screen.getByText("Now") as HTMLElement).style.backgroundColor).toBe("rgb(22, 101, 52)");
+  });
   it("retains map and band-map local state across tab switches, with accessible keyboard tabs", () => {
     const mounted = vi.fn(), unmounted = vi.fn();
     function Persistent() { const [count, setCount] = useState(0); useEffect(() => { mounted(); return unmounted; }, []); return <button onClick={() => setCount(count + 1)}>Pan state {count}</button>; }

@@ -4,7 +4,7 @@ import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
-import { formatSpotAge, useSpotAgeClock } from "./spotAge";
+import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
 import "./OperatorWorkspace.css";
 
@@ -25,7 +25,7 @@ function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): st
   }
 }
 function cell(column: CompactColumn, spot: LiveClusterSpot, now: number, palette?: ClusterPalette): ReactNode {
-  if (column === "time") return <span className="live-cluster-age">{spotText(column, spot, now)}</span>;
+  if (column === "time") return <span className="live-cluster-age live-cluster-age-strip" style={{ backgroundColor: spotAgeColor(spot.receivedAt, now) }}>{spotText(column, spot, now)}</span>;
   if (column === "band" || column === "mode") return <span className="live-cluster-category" style={{ color: paletteColor(spot[column], palette?.[column], column === "band" ? clusterBandColors : clusterModeColors) }}>{spot[column]}</span>;
   if (column === "callStatus" || column === "dxccStatus") return <span className="live-cluster-status" style={{ color: paletteColor(spot[column], palette?.status, clusterStatusColors) }}>{clusterStatusCode(spot[column])}</span>;
   if (column === "score") return <span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span>;

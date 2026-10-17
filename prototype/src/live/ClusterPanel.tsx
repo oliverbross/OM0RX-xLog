@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, readWorkspacePreferences, type CompactColumn } from "./operatorWorkspacePreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
-import { formatSpotAge, useSpotAgeClock } from "./spotAge";
+import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
 import "./ClusterPanel.css";
 
@@ -331,7 +331,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
       style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
       onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
-      <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age">{formatSpotAge(spot.receivedAt, ageClock)}</td>
+      <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age live-cluster-age-strip"
+        style={{ backgroundColor: spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
       <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
       <td hidden={!visibleColumns.has("band")}><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
       <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
