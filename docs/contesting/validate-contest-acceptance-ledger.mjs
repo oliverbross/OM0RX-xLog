@@ -110,12 +110,12 @@ requireThat(ledger.plugins.length === 94, `expected 94 ledger rows, found ${ledg
 requireThat(ledger.upstream.excluded.length === 1 && ledger.upstream.excluded[0].path === "not1mm/plugins/__init__.py",
   "only not1mm/plugins/__init__.py may be excluded");
 requireThat(ledger.upstream.excluded[0].reason.length > 20, "initializer exclusion requires a reason");
-const expectedPilotBoundary = "Exactly six xLog source-derived pilots are recorded: CQ WW and CQ WPX in CW and SSB, plus Oceania DX in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, or operator acceptance.";
-const expectedSeparateCandidateBoundary = "Corrected SAC scoring exists separately at c406a5fcfc1168b1f7c8c455d0d00486a425c380 and is not integrated into this six-pilot baseline; SAC remains pending in this ledger.";
+const expectedPilotBoundary = "Exactly eight xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB, plus two official-corrected SAC 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, submission, or operator acceptance.";
+const expectedOfficialCorrectionBoundary = "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.";
 requireThat(ledger.interpretation.pilotBoundary === expectedPilotBoundary,
-  "pilot boundary must record exactly six source-derived pilots");
-requireThat(ledger.interpretation.separateCandidateBoundary === expectedSeparateCandidateBoundary,
-  "separate SAC candidate boundary is missing");
+  "pilot boundary must record exactly eight bounded rule implementations");
+requireThat(ledger.interpretation.officialCorrectionBoundary === expectedOfficialCorrectionBoundary,
+  "official-corrected SAC boundary is missing");
 
 requireThat(existsSync(upstreamRoot), `upstream checkout does not exist: ${upstreamRoot}`);
 const actualHead = execFileSync("git", ["-C", upstreamRoot, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -145,14 +145,36 @@ const sourcePaths = new Set();
 const sourceHashes = new Set();
 const selectorLabelSet = new Set();
 const allowedObservation = new Set(["source-static", "dynamic-unresolved", "absent"]);
-const pilotIDs = new Set(["cq_ww_cw", "cq_ww_ssb", "cq_wpx_cw", "cq_wpx_ssb", "oceania_dx_cw", "oceania_dx_ssb"]);
-const pilotRuleIdentities = {
+const sourcePilotIDs = new Set(["cq_ww_cw", "cq_ww_ssb", "cq_wpx_cw", "cq_wpx_ssb", "oceania_dx_cw", "oceania_dx_ssb"]);
+const practicePreviewIDs = new Set(["sac_cw", "sac_ssb"]);
+const implementedIDs = new Set([...sourcePilotIDs, ...practicePreviewIDs]);
+const ruleIdentities = {
   cq_ww_cw: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   cq_ww_ssb: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   cq_wpx_cw: { id: "cq-wpx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   cq_wpx_ssb: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   oceania_dx_cw: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   oceania_dx_ssb: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
+  sac_cw: { id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: ledger.upstream.commit },
+  sac_ssb: { id: "sac-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: ledger.upstream.commit },
+};
+const implementationStatuses = {
+  cq_ww_cw: "source-derived-pilot", cq_ww_ssb: "source-derived-pilot",
+  cq_wpx_cw: "source-derived-pilot", cq_wpx_ssb: "source-derived-pilot",
+  oceania_dx_cw: "source-derived-pilot", oceania_dx_ssb: "source-derived-pilot",
+  sac_cw: "official-corrected-practice-preview", sac_ssb: "official-corrected-practice-preview",
+};
+const ruleAuditStatuses = {
+  cq_ww_cw: "audited-gaps-open", cq_ww_ssb: "audited-gaps-open",
+  cq_wpx_cw: "audited-gaps-open", cq_wpx_ssb: "audited-gaps-open",
+  oceania_dx_cw: "audited-gaps-open", oceania_dx_ssb: "audited-gaps-open",
+  sac_cw: "official-corrected-audited-gaps-open", sac_ssb: "official-corrected-audited-gaps-open",
+};
+const scoringStatuses = {
+  cq_ww_cw: "source-derived-tested", cq_ww_ssb: "source-derived-tested",
+  cq_wpx_cw: "source-derived-tested", cq_wpx_ssb: "source-derived-tested",
+  oceania_dx_cw: "source-derived-tested", oceania_dx_ssb: "source-derived-tested",
+  sac_cw: "official-corrected-practice-tested", sac_ssb: "official-corrected-practice-tested",
 };
 const independentScoringStatuses = {
   cq_ww_cw: "independent-fixture-recorded",
@@ -161,6 +183,8 @@ const independentScoringStatuses = {
   cq_wpx_ssb: "independent-fixture-recorded",
   oceania_dx_cw: "independent-arithmetic-tested",
   oceania_dx_ssb: "independent-arithmetic-tested",
+  sac_cw: "independent-arithmetic-tested",
+  sac_ssb: "independent-arithmetic-tested",
 };
 const mutationRestartStatuses = {
   cq_ww_cw: "process-and-store-tested",
@@ -169,8 +193,26 @@ const mutationRestartStatuses = {
   cq_wpx_ssb: "native-store-and-local-worker-tested",
   oceania_dx_cw: "native-store-and-local-worker-tested",
   oceania_dx_ssb: "native-store-and-local-worker-tested",
+  sac_cw: "native-store-and-worker-tested",
+  sac_ssb: "native-store-and-worker-tested",
 };
-const expectedPlatformNote = "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance.";
+const exportStatuses = {
+  cq_ww_cw: "source-derived-tested", cq_ww_ssb: "source-derived-tested",
+  cq_wpx_cw: "source-derived-tested", cq_wpx_ssb: "source-derived-tested",
+  oceania_dx_cw: "source-derived-tested", oceania_dx_ssb: "source-derived-tested",
+  sac_cw: "practice-preview-goldens-tested", sac_ssb: "practice-preview-goldens-tested",
+};
+const certifications = {
+  cq_ww_cw: "source-derived preview; operator and sponsor acceptance remain pending",
+  cq_ww_ssb: "source-derived preview; operator and sponsor acceptance remain pending",
+  cq_wpx_cw: "source-derived preview; operator and sponsor acceptance remain pending",
+  cq_wpx_ssb: "source-derived preview; operator and sponsor acceptance remain pending",
+  oceania_dx_cw: "source-derived preview; operator and sponsor acceptance remain pending",
+  oceania_dx_ssb: "source-derived preview; operator and sponsor acceptance remain pending",
+  sac_cw: "official-corrected practice preview; operator, sponsor, and submission acceptance remain pending",
+  sac_ssb: "official-corrected practice preview; operator, sponsor, and submission acceptance remain pending",
+};
+const expectedPlatformNote = "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance.";
 const actualReference = fnv64(readFileSync(join(repositoryRoot, "Sources/XLogCore/Resources/cty.csv"), "utf8"));
 const actualReferenceSHA = sha256(join(repositoryRoot, "Sources/XLogCore/Resources/cty.csv"));
 const observationCounts = { "source-static": 0, "dynamic-unresolved": 0, absent: 0 };
@@ -220,8 +262,8 @@ for (const row of ledger.plugins) {
     customDupePlugins.push(row.pluginID);
   }
 
-  const isPilot = pilotIDs.has(row.pluginID);
-  requireThat(row.xlogAcceptance.implementationStatus === (isPilot ? "source-derived-pilot" : "pending"),
+  const isImplemented = implementedIDs.has(row.pluginID);
+  requireThat(row.xlogAcceptance.implementationStatus === (isImplemented ? implementationStatuses[row.pluginID] : "pending"),
     `implementation status mismatch for ${row.pluginID}`);
   const evidenceGroups = ["ruleAudit", "sourceDerivedScoringCases", "independentScoringCases", "mutationRestart", "exportGoldens", "runSP", "platform"];
   for (const group of evidenceGroups) {
@@ -231,32 +273,34 @@ for (const row of ledger.plugins) {
   }
   requireThat(row.xlogAcceptance.runSP.status === "pending" && row.xlogAcceptance.runSP.evidence.length === 0,
     `RunSP must remain pending for ${row.pluginID}`);
-  if (isPilot) {
-    requireThat(equalJSON(row.xlogAcceptance.ruleIdentity, pilotRuleIdentities[row.pluginID]), `pilot rule identity mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.ruleAudit.status === "audited-gaps-open", `pilot audit status mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.sourceDerivedScoringCases.status === "source-derived-tested", `pilot scoring status mismatch for ${row.pluginID}`);
+  if (isImplemented) {
+    requireThat(equalJSON(row.xlogAcceptance.ruleIdentity, ruleIdentities[row.pluginID]), `rule identity mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.ruleAudit.status === ruleAuditStatuses[row.pluginID], `rule audit status mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.sourceDerivedScoringCases.status === scoringStatuses[row.pluginID], `scoring status mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.independentScoringCases.status === independentScoringStatuses[row.pluginID],
-      `pilot independent scoring status mismatch for ${row.pluginID}`);
+      `independent scoring status mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.mutationRestart.status === mutationRestartStatuses[row.pluginID],
-      `pilot restart status mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.exportGoldens.status === "source-derived-tested", `pilot export status mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.platform.status === "partial", `pilot platform status mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.referenceIdentity.status === "runtime-derived-pinned-resource", `pilot reference status mismatch for ${row.pluginID}`);
+      `restart status mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.exportGoldens.status === exportStatuses[row.pluginID], `export status mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.platform.status === "partial", `platform status mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.referenceIdentity.status === "runtime-derived-pinned-resource", `reference status mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.referenceIdentity.value === actualReference, `reference identity mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.referenceIdentity.source === "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
       `reference source mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.referenceIdentity.resourceSha256 === actualReferenceSHA, `reference resource hash mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.ruleAudit.evidence.length > 0, `pilot rule audit evidence missing for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.sourceDerivedScoringCases.evidence.length > 0, `pilot scoring evidence missing for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.independentScoringCases.evidence.length > 0, `pilot independent scoring evidence missing for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.mutationRestart.evidence.length > 0, `pilot restart evidence missing for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.exportGoldens.evidence.length > 0, `pilot export evidence missing for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.platform.note === expectedPlatformNote, `pilot platform evidence scope mismatch for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.certification === "source-derived preview; operator and sponsor acceptance remain pending",
-      `pilot certification status mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.ruleAudit.evidence.length > 0, `rule audit evidence missing for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.sourceDerivedScoringCases.evidence.length > 0, `scoring evidence missing for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.independentScoringCases.evidence.length > 0, `independent scoring evidence missing for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.mutationRestart.evidence.length > 0, `restart evidence missing for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.exportGoldens.evidence.length > 0, `export evidence missing for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.platform.note === expectedPlatformNote, `platform evidence scope mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.certification === certifications[row.pluginID],
+      `certification status mismatch for ${row.pluginID}`);
   } else {
     requireThat(row.xlogAcceptance.ruleIdentity === null, `unimplemented rule identity present for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.referenceIdentity.status === "pending", `unimplemented reference identity present for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.certification === "not implemented or accepted",
+      `unimplemented certification status mismatch for ${row.pluginID}`);
     for (const group of ["ruleAudit", "sourceDerivedScoringCases", "independentScoringCases", "mutationRestart", "exportGoldens", "platform"]) {
       requireThat(row.xlogAcceptance[group].status === "pending" && row.xlogAcceptance[group].evidence.length === 0,
         `unimplemented ${group} evidence present for ${row.pluginID}`);
@@ -277,8 +321,9 @@ const summary = {
   pluginRows: ledger.plugins.length,
   selectorEntries: selectorLabels.length,
   uniqueSourceHashes: sourceHashes.size,
-  implementedPilots: [...pilotIDs].sort(),
-  pendingPlugins: ledger.plugins.length - pilotIDs.size,
+  implementedPilots: [...sourcePilotIDs].sort(),
+  officialCorrectedPracticePreviews: [...practicePreviewIDs].sort(),
+  pendingPlugins: ledger.plugins.length - implementedIDs.size,
   observationCounts,
   customDupePlugins: customDupePlugins.sort(),
 };
@@ -288,11 +333,11 @@ if (process.argv.includes("--self-test")) {
   const checks = [];
   try {
     const mutations = [
-      ["wrong-mode", (copy) => { copy.plugins.find((row) => row.pluginID === "cq_ww_ssb").upstreamContract.modes.value = "CW"; }, "source observation mismatch"],
+      ["wrong-mode", (copy) => { copy.plugins.find((row) => row.pluginID === "sac_ssb").upstreamContract.modes.value = "CW"; }, "source observation mismatch"],
       ["wrong-dupe", (copy) => { copy.plugins.find((row) => row.pluginID === "oceania_dx_cw").upstreamContract.dupePolicy.value = 4; }, "source observation mismatch"],
-      ["missing-pilot-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "cq_wpx_ssb").xlogAcceptance.exportGoldens.evidence = []; }, "pilot export evidence missing"],
-      ["fake-rule-identity", (copy) => { copy.plugins.find((row) => row.pluginID === "oceania_dx_ssb").xlogAcceptance.ruleIdentity.id = "fake-oceania"; }, "pilot rule identity mismatch"],
-      ["falsely-completed-unsupported-plugin", (copy) => { copy.plugins.find((row) => row.pluginID === "cq_wpx_rtty").xlogAcceptance.implementationStatus = "complete"; }, "implementation status mismatch"],
+      ["missing-rule-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "sac_cw").xlogAcceptance.exportGoldens.evidence = []; }, "export evidence missing"],
+      ["fake-rule-identity", (copy) => { copy.plugins.find((row) => row.pluginID === "sac_ssb").xlogAcceptance.ruleIdentity.id = "fake-sac"; }, "rule identity mismatch"],
+      ["falsely-completed-unsupported-plugin", (copy) => { copy.plugins.find((row) => row.pluginID === "cq_wpx_rtty").xlogAcceptance.certification = "complete"; }, "unimplemented certification status mismatch"],
     ];
     for (const [name, mutate, expected] of mutations) {
       const copy = JSON.parse(JSON.stringify(ledger));

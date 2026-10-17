@@ -22,9 +22,9 @@
   "interpretation": {
     "selectorAvailability": "A selector row means the pinned upstream UI can name and import the plugin; it is not xLog implementation or acceptance evidence.",
     "sourceExtraction": "Mode, exchange and duplicate policy fields are static observations from each pinned plugin source. Missing or dynamic values remain unresolved.",
-    "pilotBoundary": "Exactly six xLog source-derived pilots are recorded: CQ WW and CQ WPX in CW and SSB, plus Oceania DX in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, or operator acceptance.",
+    "pilotBoundary": "Exactly eight xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB, plus two official-corrected SAC 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, submission, or operator acceptance.",
     "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin.",
-    "separateCandidateBoundary": "Corrected SAC scoring exists separately at c406a5fcfc1168b1f7c8c455d0d00486a425c380 and is not integrated into this six-pilot baseline; SAC remains pending in this ledger."
+    "officialCorrectionBoundary": "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness."
   },
   "validation": {
     "script": "docs/contesting/validate-contest-acceptance-ledger.mjs",
@@ -2446,7 +2446,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
         "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
@@ -2668,7 +2668,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
         "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
@@ -2791,7 +2791,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
         "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
@@ -3010,7 +3010,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
         "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
@@ -6393,7 +6393,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
         "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
@@ -6517,7 +6517,7 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
         "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
@@ -7917,34 +7917,63 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-corrected-practice-preview",
+        "ruleIdentity": {
+          "id": "sac-cw",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-rules-preview",
+          "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-corrected-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/SACRules.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "Operational behavior is checked against the published SAC 2026 rules and records deliberate corrections to pinned-source defects; category, date-window, and submission gaps remain open."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-corrected-practice-tested",
+          "evidence": [
+            "Sources/XContestCore/SACRules.swift",
+            "Tests/XContestCoreTests/ContestSACTests.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "Tests cover the official-corrected practice behavior and pinned comparison outcomes; this status does not claim exact upstream parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestSACTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "Independent 44-point CW and 12-point SSB arithmetic is exercised through the core and worker lanes; this is not executed operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "native-store-and-worker-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestSACStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/STORE_CONTRACT.md",
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Native store and worker coverage includes reservation, commit/reopen, correction/deletion, serial non-reuse, and independent scoring for both SAC modes."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "practice-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/sac-cw-pilot.json",
+            "Tests/XContestCoreTests/ContestSACTests.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "The golden proves deterministic preview layout only; the generic exporter is not SAC submission-ready."
         },
         "runSP": {
           "status": "pending",
@@ -7952,11 +7981,13 @@
           "note": "No RunSP acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-corrected practice preview; operator, sponsor, and submission acceptance remain pending"
       }
     },
     {
@@ -8012,34 +8043,63 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "official-corrected-practice-preview",
+        "ruleIdentity": {
+          "id": "sac-ssb",
+          "version": "1.0.0-2026-rules-preview",
+          "edition": "2026-rules-preview",
+          "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-corrected-audited-gaps-open",
+          "evidence": [
+            "Sources/XContestCore/SACRules.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "Operational behavior is checked against the published SAC 2026 rules and records deliberate corrections to pinned-source defects; category, date-window, and submission gaps remain open."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "official-corrected-practice-tested",
+          "evidence": [
+            "Sources/XContestCore/SACRules.swift",
+            "Tests/XContestCoreTests/ContestSACTests.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "Tests cover the official-corrected practice behavior and pinned comparison outcomes; this status does not claim exact upstream parity."
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestSACTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "Independent 44-point CW and 12-point SSB arithmetic is exercised through the core and worker lanes; this is not executed operator acceptance."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "native-store-and-worker-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestSACStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/STORE_CONTRACT.md",
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Native store and worker coverage includes reservation, commit/reopen, correction/deletion, serial non-reuse, and independent scoring for both SAC modes."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "practice-preview-goldens-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/sac-ssb-pilot.json",
+            "Tests/XContestCoreTests/ContestSACTests.swift",
+            "docs/contesting/SAC_RULE_CONTRACT.md"
+          ],
+          "note": "The golden proves deterministic preview layout only; the generic exporter is not SAC submission-ready."
         },
         "runSP": {
           "status": "pending",
@@ -8047,11 +8107,13 @@
           "note": "No RunSP acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "official-corrected practice preview; operator, sponsor, and submission acceptance remain pending"
       }
     },
     {
