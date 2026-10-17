@@ -1010,7 +1010,7 @@ function MainLiveApp() {
       spotAwaitingActivation.current = spot;
       pendingTune.current = true;
       setSelected(spot.id);
-      setMessage(`Latest spot retained: ${spot.call || "selected report"}. It will tune as soon as the current confirmed activation closes.`);
+      setMessage("");
       setError("");
       return;
     }
@@ -1132,7 +1132,7 @@ function MainLiveApp() {
     </header>
     <aside className="sidebar" style={separateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
       <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
-        if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
+        if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(cause => setError(String(cause)));
         else void run(async()=>{await request("station_action",{action});});
       }} />
       {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
@@ -1243,8 +1243,9 @@ function MainLiveApp() {
     </main></div>;
 }
 
-function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
+export function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
   const s = snapshot?.station, local = provider === "hamlib", flex = provider === "direct_flex_lan", tci = provider === "direct_tci";
+  const native = nativeStationSelection();
   const detail = (text: string | undefined, prefix: string) => text?.split(/[|·]/).map(v => v.trim()).find(v => v.toUpperCase().startsWith(prefix + " "))?.slice(prefix.length).trim();
   const band = (text: string | undefined) => text?.split(/[|·]/).map(v => v.trim()).find(v => /^\d+(\.\d+)?[cm]+$/i.test(v));
   const antenna = s?.kat_detail_primary?.match(/\bANT\s*\d+\b/)?.[0];
@@ -1259,6 +1260,6 @@ function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
   return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex || tci ? "cyan" : "amber"}>{tci ? "DIRECT TCI · READ ONLY" : flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
     {tci && <p>Direct TCI · read only</p>}
-    {!local && !flex && !tci && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={nativeStationSelection() && action === "standby" ? false : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{nativeStationSelection() && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
+    {!local && !flex && !tci && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={native ? action !== "standby" && !s?.allowed_actions?.includes(action) : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{native && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }

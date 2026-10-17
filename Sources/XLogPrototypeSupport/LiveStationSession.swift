@@ -634,8 +634,9 @@ actor LiveStationSession {
             guard generation == connectionGeneration, sessionID == powerSessionID,
                   self.client === client else { throw lifecycleChanged() }
             try requireActive()
-            if observed.transportReceivedAt.map({ $0 > startedAt }) == true,
-               Self.confirmsSimplex(observed, frequencyHz: frequencyHz, mode: normalized) {
+            if Self.exactReceiveConfirmed(observed, after: startedAt, matches: {
+                Self.confirmsReceiveTarget($0, frequencyHz: frequencyHz, mode: normalized)
+            }) {
                 let rotorProjection = await rotor.projection()
                 reconcilePowerObservationSession()
                 guard generation == connectionGeneration, sessionID == powerSessionID,
@@ -651,7 +652,7 @@ actor LiveStationSession {
             guard generation == connectionGeneration, sessionID == powerSessionID,
                   self.client === client else { throw lifecycleChanged() }
         }
-        throw WorkerFailure("station_timeout", "The radio did not confirm the requested simplex target.")
+        throw WorkerFailure("station_timeout", "The radio did not confirm the requested receive target.")
     }
 
     func action(_ name: String, expectedGeneration: UInt64? = nil, expectedNativeIntent: UInt64? = nil) async throws -> [String: Any] {
@@ -1189,6 +1190,11 @@ actor LiveStationSession {
             && observed.transmitSlice.uppercased() == "A"
             && observed.vfo("A")?.isReceive == true
             && observed.vfo("A")?.isTransmit == true
+    }
+
+    static func confirmsReceiveTarget(_ observed: XCatIntegrationCore.RadioSnapshot,
+                                      frequencyHz: Int64, mode: String) -> Bool {
+        observed.frequencyHz == frequencyHz && observed.mode.uppercased() == mode
     }
 
     static func project(_ observed: XCatIntegrationCore.RadioSnapshot,

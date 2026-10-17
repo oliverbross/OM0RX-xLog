@@ -305,6 +305,8 @@ it("retains only the latest selection while an activation is in flight", async (
   fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
   expect(host.activate).toHaveBeenCalledOnce();
   expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
+  expect(screen.queryByText(/Latest spot retained:/)).toBeNull();
+  expect(screen.queryByText(/It will tune/)).toBeNull();
   await act(async () => complete());
   await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
   expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
