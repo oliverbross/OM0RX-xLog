@@ -6,7 +6,7 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 import { contactEditFixture } from "./contact-edit-fixture";
 
 const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanvas: false,
-  nativeEditor: false, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
+  nativeEditor: false, followEnabled: true, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
   readiness: null as null | ((snapshot: any) => { ready: boolean }),
   navigate: undefined as undefined | ((title: string) => void),
   dock: undefined as undefined | ((kind: string) => void),
@@ -15,7 +15,7 @@ const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanv
 }));
 vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof import("@tauri-apps/api/core")>(),
   invoke: (command: string, params: any) => command.startsWith("operator_draft_read_radio") ? host.invoke(command, params) : Promise.resolve({}) }));
-vi.mock("../src/live/useFollowRadio", () => ({ useFollowRadio: () => ({ state: { enabled: true }, error: "", set: host.follow }) }));
+vi.mock("../src/live/useFollowRadio", () => ({ useFollowRadio: () => ({ state: { enabled: host.followEnabled }, error: "", set: host.follow }) }));
 vi.mock("../src/live/useSharedCW", () => ({ useSharedCW: () => ({ profile: { showOnDesk: false, macros: [] }, context: null, state: {}, controller: {}, provider: null }) }));
 vi.mock("../src/live/useSpotEditor", async () => {
   const { useEffect } = await import("react");
@@ -53,7 +53,7 @@ vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }
 
 beforeEach(() => {
   localStorage.clear(); host.request.mockReset(); host.activate.mockReset(); host.customCanvas = false;
-  host.nativeEditor = false; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
+  host.nativeEditor = false; host.followEnabled = true; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
   host.navigate = undefined; host.dock = undefined; host.close = undefined; host.telemetry = undefined;
   const initial = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const draft = operatorDraftFixture(initial);
@@ -154,6 +154,27 @@ it.each(["confirmed", "blocked"])("recovers a retained main Read radio after rem
   fireEvent.click(screen.getByRole("button", { name: "Check Read radio" }));
   await waitFor(() => expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull());
   expect(host.invoke).toHaveBeenCalledOnce(); expect(host.close?.blocked()).toBe(false);
+});
+
+it("retires an obsolete Read radio receipt before enabling Follow radio and accepts the next spot", async () => {
+  host.nativeEditor = true; host.followEnabled = false;
+  const operationId = crypto.randomUUID();
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1.readRadio", JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
+  host.invoke.mockImplementation(async (command, params) => {
+    expect(command).toBe("operator_draft_read_radio_recover");
+    expect(params).toEqual({ operationId, generation: testWorkspaceGeneration });
+    return { operationId, phase: "blocked", reservationActive: false, tuneConfirmed: false, rotor: "not-requested",
+      error: "Old receipt retired without replaying a radio read." };
+  });
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Follow radio" }));
+  await waitFor(() => expect(host.follow).toHaveBeenCalledWith(true));
+  expect(host.reconcile).toHaveBeenCalledOnce();
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull();
+  sidebar("DX Cluster");
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(screen.queryByText(/Follow Radio authority is unavailable|Durable radio-read receipt did not match|Previous activation outcome is uncertain/)).toBeNull();
 });
 
 it("keeps the main editor and Close frozen while native Read radio prepares", async () => {
@@ -308,6 +329,19 @@ it("retains only the latest selection while an activation is in flight", async (
   expect(screen.queryByText(/Latest spot retained:/)).toBeNull();
   expect(screen.queryByText(/It will tune/)).toBeNull();
   await act(async () => complete());
+  await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
+  expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
+});
+
+it("continues with the latest selection after an uncertain operation is confirmed closed", async () => {
+  let complete!: (value: any) => void;
+  host.activate.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
+  await act(async () => complete({ phase: "uncertain", reservationActive: false }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
   expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
 });

@@ -75,7 +75,7 @@ it("removes the global tuning status row while retaining the authoritative tune 
   expect(call).toHaveBeenNthCalledWith(1, "activate_spot", { operationId, spotId: "native-report", ...activation });
   expect(call).toHaveBeenNthCalledWith(2, "spot_activation_reconcile", { operationId });
   render(<SpotActivationStatus status={client.getSnapshot().status} error={client.getSnapshot().error} reconcile={() => {}} />);
-  expect(screen.getByRole("status").textContent).toContain("radio tune is not confirmed");
+  expect(screen.queryByRole("status")).toBeNull();
   expect(screen.queryByRole("button", { name: "Check activation" })).toBeNull();
   expect(client.getSnapshot().status).toMatchObject({ tuneConfirmed: false });
   expect(activationMessage(client.getSnapshot().status)).toContain("radio tune is not confirmed");

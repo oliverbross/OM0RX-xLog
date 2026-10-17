@@ -330,17 +330,29 @@ function MainLiveApp() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(busy); busyRef.current = busy;
   const nativeFollow = useFollowRadio();
+  const reconcileSpotEditor = useRef<(snapshot?: any) => Promise<boolean>>(async () => false);
   const [browserFollow, setBrowserFollow] = useState(true);
   const follow = nativeSpotEditor() ? nativeFollow.state?.enabled === true : browserFollow;
   const latestFollow = useRef(follow); latestFollow.current = follow;
   const changeFollow = useCallback(async (value: boolean) => {
     latestFollow.current = value;
-    if (nativeSpotEditor()) await nativeFollow.set(value);
+    if (nativeSpotEditor()) {
+      const journal = value ? readOperation.current : null;
+      if (journal) {
+        const recovered = await invoke("operator_draft_read_radio_recover", journal);
+        if (!validSpotActivationSnapshot(recovered) || recovered.operationId !== journal.operationId ||
+            !["confirmed", "blocked"].includes(recovered.phase) || recovered.reservationActive === true ||
+            !await reconcileSpotEditor.current(recovered))
+          throw new Error("Previous radio read is active. Follow Radio was not enabled.");
+        localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+      }
+      await nativeFollow.set(value);
+    }
     else setBrowserFollow(value);
   }, [nativeFollow.set]);
   const setFollowImmediate = useCallback((value: boolean) => {
     latestFollow.current = value;
-    void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : "Follow Radio authority is unavailable."));
+    void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : typeof cause === "string" && cause ? cause : "Follow Radio authority is unavailable."));
   }, [changeFollow]);
   const spotEditor = useSpotEditor([draftSession, contactSession], snapshot => {
     if (readOperation.current && snapshot.operationId !== readOperation.current.operationId)
@@ -358,6 +370,7 @@ function MainLiveApp() {
     return busyRef.current || logbookWorkingRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
       ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true };
   });
+  reconcileSpotEditor.current = spotEditor.reconcile;
   const spotActivation = useSpotActivation();
   const canChangeMode = (ownTransition = false) => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
@@ -1063,7 +1076,7 @@ function MainLiveApp() {
         activationStarted.current = true;
         return Promise.resolve(spotActivation.activate(spot)).then(result => {
           const queued = spotAwaitingActivation.current;
-          const safeToAdvance = !result || result.reservationActive === false && result.phase !== "uncertain";
+          const safeToAdvance = !result || result.reservationActive !== true;
           if (queued && safeToAdvance) {
             spotAwaitingActivation.current = null;
             window.setTimeout(() => selectSpotRef.current(queued), 0);
@@ -1071,13 +1084,21 @@ function MainLiveApp() {
           return result;
         }).finally(() => { activationStarted.current = false; });
       }).catch(cause => {
-        spotAwaitingActivation.current = null;
         const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
         if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
       }).finally(() => { if (selection.current === generation) pendingTune.current = false; });
     }, spotSelectionDebounceMs);
   };
   selectSpotRef.current = selectSpot;
+  const spotReservationActive = spotActivation.status?.phase === "idle" || !spotActivation.status
+    ? false : spotActivation.status.reservationActive === true;
+  useEffect(() => {
+    const queued = spotAwaitingActivation.current;
+    if (!queued || activationStarted.current || spotActivation.requesting ||
+        spotReservationActive) return;
+    spotAwaitingActivation.current = null;
+    window.setTimeout(() => selectSpotRef.current(queued), 0);
+  }, [spotActivation.requesting, spotActivation.status?.operationId, spotActivation.status?.phase, spotReservationActive]);
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
@@ -1126,7 +1147,7 @@ function MainLiveApp() {
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
       <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
-      <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} reconcile={() => {}} />
+      <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
@@ -1147,9 +1168,7 @@ function MainLiveApp() {
           <button type="button" onClick={() => setView("Settings")}>Review Settings</button>
         </div>}
       {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
-      <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
-        retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
-        reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />
+      <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting} />
       {nativeAutoRotor.error && <p className="live-error" role="status">{nativeAutoRotor.error}</p>}
       {nativeFollow.error && <p className="live-error" role="status">{nativeFollow.error}</p>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
@@ -1260,6 +1279,6 @@ export function SidebarStation({ snapshot, provider, busy, onAction }: { snapsho
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
   return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex || tci ? "cyan" : "amber"}>{tci ? "DIRECT TCI · READ ONLY" : flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
     {tci && <p>Direct TCI · read only</p>}
-    {!local && !flex && !tci && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={native ? action !== "standby" && !s?.allowed_actions?.includes(action) : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{native && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
+    {!local && !flex && !tci && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={native ? action !== "standby" && !s?.allowed_actions?.includes(action) : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }

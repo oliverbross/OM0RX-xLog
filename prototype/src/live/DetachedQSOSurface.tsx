@@ -139,7 +139,7 @@ export function DetachedQSOSurface() {
     session.setLocalInputPending(value);
   }, [session]);
   const setFollow = useCallback((value: boolean) => {
-    void nativeFollow.set(value).catch(cause => report(cause instanceof Error ? cause.message : "Follow Radio authority is unavailable."));
+    void nativeFollow.set(value).catch(cause => report(cause instanceof Error ? cause.message : "Follow unavailable."));
   }, [nativeFollow.set, report]);
   useEffect(() => protectOperatorDraftClose(cannotClose, explainClose, report, closeState), [cannotClose, explainClose, report, closeState]);
   const setDraft = useCallback((next: SetStateAction<Record<string, any> | null>) => {

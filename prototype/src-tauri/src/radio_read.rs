@@ -91,12 +91,17 @@ impl Coordinator {
             return Ok(terminal(operation, "No durable Read radio receipt exists in the original workspace. The current draft was checked; no radio read was repeated."));
         }
         let receipt = &result["receipt"];
-        let canonical = Canonical { worker: 0, generation: generation.into(),
-            draft: receipt["mutation"]["draftID"].as_str().filter(|id| uuid::Uuid::parse_str(id).is_ok()).ok_or("Recovered draft identity is invalid.")?.into(),
-            revision: receipt["mutation"]["expectedRevision"].as_u64().filter(|revision| *revision < MAX_REVISION).ok_or("Recovered draft revision is invalid.")? };
-        let evidence = Evidence { frequency_hz: receipt["draft"]["qso"]["frequencyHz"].as_u64().filter(|value| (1..=1_000_000_000_000).contains(value)).ok_or("Recovered radio frequency is invalid.")?,
-            observed_mode: String::new() };
-        verify(operation, &canonical, &evidence, &json!({"status":"applied","receipt":receipt}))?;
+        let verified = (|| -> Result<(), String> {
+            let canonical = Canonical { worker: 0, generation: generation.into(),
+                draft: receipt["mutation"]["draftID"].as_str().filter(|id| uuid::Uuid::parse_str(id).is_ok()).ok_or("Recovered draft identity is invalid.")?.into(),
+                revision: receipt["mutation"]["expectedRevision"].as_u64().filter(|revision| *revision < MAX_REVISION).ok_or("Recovered draft revision is invalid.")? };
+            let evidence = Evidence { frequency_hz: receipt["draft"]["qso"]["frequencyHz"].as_u64().filter(|value| (1..=1_000_000_000_000).contains(value)).ok_or("Recovered radio frequency is invalid.")?,
+                observed_mode: String::new() };
+            verify(operation, &canonical, &evidence, &json!({"status":"applied","receipt":receipt}))
+        })();
+        if verified.is_err() {
+            return Ok(terminal(operation, "The old Read radio receipt no longer matches its admitted transaction. It was retired without replaying a radio read."));
+        }
         Ok(json!({"operationId":operation,"phase":"confirmed","barrier":null,"admitted":true,
             "reservationActive":false,"draftOnly":true,"intent":"read-radio","tuneConfirmed":false,"rotor":"not-requested"}))
     }
@@ -416,9 +421,12 @@ mod tests {
         for result in [json!({"receipt":null}), json!({"status":"workspace_changed","generation":id()})] {
             assert_eq!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(result)).unwrap()["phase"], "blocked");
         }
-        assert!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(json!({}))).is_err());
+        assert_eq!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(json!({}))).unwrap()["phase"], "blocked");
         let mut wrong = result; wrong["receipt"]["draft"]["generation"] = json!(id());
-        assert!(owner.recover(&operation, Some(&canonical.generation), |_| Ok(wrong)).is_err());
+        let retired = owner.recover(&operation, Some(&canonical.generation), |_| Ok(wrong)).unwrap();
+        assert_eq!(retired["phase"], "blocked");
+        assert_eq!(retired["reservationActive"], false);
+        assert!(retired["error"].as_str().unwrap().contains("retired without replaying"));
         assert_eq!(owner.recover(&operation, None, |_| panic!("legacy recovery must not invent a workspace")).unwrap()["phase"], "blocked");
         let _active = owner.active.lock().unwrap();
         assert!(owner.recover(&operation, Some(&canonical.generation), |_| panic!("active read cannot prove receipt absence")).is_err());

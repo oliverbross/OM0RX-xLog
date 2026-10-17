@@ -16,11 +16,9 @@ it("uses the exact opportunity command and recovers lost replies without resubmi
   const confirmed = { ...result(), draftOnly:true, tuneConfirmed:false };
   const call = vi.fn(async (command: string) => { if (command === "activate_opportunity") throw new Error("lost reply"); return confirmed; });
   const client = new SpotActivationClient(call, () => operationId, "activate_opportunity");
-  await expect(client.activate(report)).rejects.toThrow("lost reply");
-  await expect(client.activate(report)).rejects.toThrow("existing");
-  await client.refresh();
+  await client.activate(report);
   expect(call).toHaveBeenNthCalledWith(1,"activate_opportunity",{ operationId, sourceEpoch:token.sourceEpoch, spotId:report.id, spotVersion:token.spotVersion });
-  expect(call).toHaveBeenLastCalledWith("spot_activation_status",{ operationId });
+  expect(call).toHaveBeenLastCalledWith("spot_activation_reconcile",{ operationId });
   expect(activationMessage(client.getSnapshot().status)).toContain("no station command was sent");
   expect(call.mock.calls.filter(([command]) => command.startsWith("activate_"))).toHaveLength(1);
 });
@@ -30,16 +28,13 @@ it("does not allocate an operation for an unannotated, malformed, or removed ide
     await expect(client.activate(spot)).rejects.toThrow("Refresh");
   expect(call).not.toHaveBeenCalled(); expect(uuid).not.toHaveBeenCalled();
 });
-it("retains one operation after lost acknowledgement and checks status/reconciles without replaying activation", async () => {
+it("automatically reconciles one operation after a lost acknowledgement without replaying activation", async () => {
   const call = vi.fn(async (command: string) => { if (command === "activate_spot") throw new Error("IPC lost"); return result("uncertain"); });
   const uuid = vi.fn(() => operationId), client = new SpotActivationClient(call, uuid);
-  await expect(client.activate(report)).rejects.toThrow("IPC lost");
-  await expect(client.activate(report)).rejects.toThrow("existing");
-  await client.refresh();
-  expect(call).toHaveBeenLastCalledWith("spot_activation_status", { operationId });
-  await client.reconcile(); expect(call).toHaveBeenLastCalledWith("spot_activation_reconcile", { operationId });
+  await client.activate(report);
+  expect(call).toHaveBeenLastCalledWith("spot_activation_reconcile", { operationId });
   expect(call.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1); expect(uuid).toHaveBeenCalledOnce();
-  expect(client.getSnapshot()).toMatchObject({ checked: true, status: { phase: "uncertain" } });
+  expect(client.getSnapshot()).toMatchObject({ checked: false, status: { phase: "idle" } });
 });
 it("rejects overlapping clicks and never lets a late activation reply roll a verified terminal status backwards", async () => {
   const held = deferred<any>();
@@ -64,35 +59,32 @@ it("terminal uncertain receipts with an explicitly closed reservation never bloc
   await client.activate({ ...report, id: "new-report" });
   expect(call.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1);
 });
-it("explicit receipt retirement recovers a missing acknowledgement without replay and ignores obsolete snapshots", async () => {
+it("automatically retires a closed uncertain receipt and ignores its obsolete snapshots", async () => {
   const nextId = crypto.randomUUID(); let clicks = 0;
   const call = vi.fn(async (command: string) => {
     if (command === "activate_spot") { if (++clicks === 1) throw Error("lost reply"); return { ...result(), operationId: nextId }; }
-    if (command === "spot_activation_status") throw Error("Not retained by this session");
     return result("uncertain");
   });
   const uuid = vi.fn().mockReturnValueOnce(operationId).mockReturnValue(nextId), client = new SpotActivationClient(call, uuid);
-  await expect(client.activate(report)).rejects.toThrow("lost reply");
-  await client.refresh(); expect(client.getSnapshot().error).toContain("Not retained");
-  expect(await client.retire()).toBe(true);
+  await client.activate(report);
   expect(client.getSnapshot().status?.phase).toBe("idle");
   await client.refresh(); expect(client.getSnapshot().status?.phase).toBe("idle");
   await client.activate({ ...report, id: "new-report" });
   expect(clicks).toBe(2); expect(call.mock.calls.filter(([command]) => command === "spot_activation_reconcile")).toHaveLength(1);
 });
-it("failed retirement cannot unlock an unverified reservation or manufacture permission", async () => {
+it("failed automatic reconciliation cannot unlock an unverified reservation or manufacture permission", async () => {
   const call = vi.fn(async (command: string) => {
     if (command === "spot_activation_reconcile") throw Error("receipt unreadable");
     return result("uncertain", true);
   });
   const client = new SpotActivationClient(call, () => operationId);
-  await client.refresh(); expect(await client.retire()).toBe(false);
+  await client.refresh();
   await expect(client.activate(report)).rejects.toThrow("existing");
   expect(call.mock.calls.every(([command]) => !command.startsWith("activate_"))).toBe(true);
 });
 it("keeps active reservations/miscorrelated replies fenced and discards disposed results", async () => {
   const call = vi.fn().mockResolvedValue(result("uncertain", true)), client = new SpotActivationClient(call, () => operationId);
-  await client.activate(report); await client.reconcile(); await expect(client.activate(report)).rejects.toThrow("existing");
+  await client.activate(report); await expect(client.activate(report)).rejects.toThrow("existing");
   call.mockResolvedValue({ ...result(), operationId: crypto.randomUUID() }); await client.refresh();
   expect(client.getSnapshot().error).toContain("correlated");
   const held = deferred<any>(); call.mockReturnValue(held.promise); const refreshing = client.refresh(); client.dispose(); held.resolve(result()); await refreshing;
