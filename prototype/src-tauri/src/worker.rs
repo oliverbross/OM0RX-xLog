@@ -919,7 +919,8 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
-        "logbook_matrix" | "cluster_history" | "reference_resolve"
+        "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
+        "wsjtx_snapshot" | "reference_resolve"
     ))
 }
 
@@ -1650,6 +1651,7 @@ mod tests {
             (json!({"id":"radio","method":"station_action","params":{"action":"cancel"}}), true),
             (json!({"id":"rotor","method":"rotor_goto","params":{"azimuth":120}}), true),
             (json!({"id":"qso","method":"logbook_contact_apply","params":{"action":"save"}}), false),
+            (json!({"id":"cluster","method":"cluster_resume","params":{}}), false),
         ] {
             let method = request["method"].as_str().unwrap().to_owned();
             let session = scripted_session("IFS= read -r request; sleep 2");
@@ -1667,7 +1669,8 @@ mod tests {
         for method in [
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
             "lookup_call", "logbook_previous", "logbook_duplicate",
-            "logbook_matrix", "cluster_history", "reference_resolve",
+            "logbook_matrix", "cluster_history", "cluster_snapshot",
+            "wsjtx_snapshot", "reference_resolve",
         ] {
             let script = format!(
                 "IFS= read -r stale; sleep 0.1; printf '%s\\n' '{{\"id\":\"stale\",\"ok\":true,\"result\":{{}}}}'; IFS= read -r health; printf '%s\\n' '{{\"id\":\"health\",\"ok\":true,\"result\":{{}}}}'; cat >/dev/null"
@@ -1698,7 +1701,8 @@ mod tests {
         for method in [
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
             "lookup_call", "logbook_previous", "logbook_duplicate",
-            "logbook_matrix", "cluster_history", "reference_resolve",
+            "logbook_matrix", "cluster_history", "cluster_snapshot",
+            "wsjtx_snapshot", "reference_resolve",
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})), PASSIVE_READ_TIMEOUT, "{method}");
@@ -1709,6 +1713,7 @@ mod tests {
             "rotor_goto", "rotor_stop", "rotor_park", "logbook_operator_draft_apply",
             "logbook_contact_apply", "logbook_save", "logbook_delete", "logbook_undo",
             "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
+            "cluster_resume",
         ] {
             assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");

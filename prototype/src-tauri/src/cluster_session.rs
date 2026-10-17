@@ -70,6 +70,7 @@ pub struct ClusterSession {
     projection: Mutex<Projection>,
     started: AtomicBool,
     stopped: AtomicBool,
+    startup_resume_started: AtomicBool,
     restored_worker_generation: AtomicU64,
     sequence: AtomicU64,
     selection_holds: AtomicUsize,
@@ -99,6 +100,7 @@ impl ClusterSession {
             }),
             started: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
+            startup_resume_started: AtomicBool::new(false),
             restored_worker_generation: AtomicU64::new(0),
             sequence: AtomicU64::new(0),
             selection_holds: AtomicUsize::new(0),
@@ -115,6 +117,11 @@ impl ClusterSession {
     }
 
     fn snapshot_request(&self) -> Value {
+        json!({"id":format!("native-cluster-{}", self.sequence.fetch_add(1, Ordering::AcqRel)),
+            "method":"cluster_snapshot","params":{}})
+    }
+
+    fn resume_request(&self) -> Value {
         json!({"id":format!("native-cluster-{}", self.sequence.fetch_add(1, Ordering::AcqRel)),
             "method":"cluster_resume","params":{}})
     }
@@ -203,7 +210,15 @@ impl ClusterSession {
         };
         self.active()?;
         let generation = crate::worker::generation();
-        let result = (self.transport)(self.snapshot_request()).and_then(|response| self.accept(&response, generation));
+        // Startup owns exactly one resume attempt. Every later cycle is a
+        // passive snapshot; a timed-out resume is never replayed in the same
+        // worker generation.
+        let request = if !self.startup_resume_started.swap(true, Ordering::AcqRel) {
+            self.resume_request()
+        } else {
+            self.snapshot_request()
+        };
+        let result = (self.transport)(request).and_then(|response| self.accept(&response, generation));
         if result.is_err() {
             self.unavailable();
         }
@@ -246,7 +261,7 @@ impl ClusterSession {
             return Ok(());
         }
         self.unavailable();
-        let response = dispatch(self.snapshot_request())?;
+        let response = dispatch(self.resume_request())?;
         self.accept_at_generation(&response, worker_generation, current_generation())
     }
 
@@ -510,8 +525,29 @@ mod tests {
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
+
     #[test]
-    fn replacement_worker_is_restored_once_per_generation_with_exact_snapshot_request() {
+    fn startup_resumes_once_and_periodic_refreshes_are_passive_snapshots() {
+        let methods = Arc::new(Mutex::new(Vec::new()));
+        let recorded = methods.clone();
+        let owner = ClusterSession::new(
+            Arc::new(move |request| {
+                recorded.lock().unwrap().push(request["method"].as_str().unwrap().to_owned());
+                Ok(reply(&request, "refresh"))
+            }),
+            Arc::new(|_| {}),
+        );
+        owner.refresh().unwrap();
+        owner.refresh().unwrap();
+        owner.refresh().unwrap();
+        assert_eq!(
+            *methods.lock().unwrap(),
+            ["cluster_resume", "cluster_snapshot", "cluster_snapshot"]
+        );
+    }
+
+    #[test]
+    fn replacement_worker_is_resumed_once_per_generation_with_exact_resume_request() {
         let owner = ClusterSession::new(
             Arc::new(|_| panic!("retained transport must not replace the exact worker dispatch")),
             Arc::new(|_| {}),
@@ -531,6 +567,8 @@ mod tests {
         }).unwrap();
         owner.resume_after_worker_restart_with_generation(3, || 3, |request| {
             calls += 1;
+            assert_eq!(request["method"], "cluster_resume");
+            assert_eq!(request["params"], json!({}));
             Ok(reply(&request, "generation-3"))
         }).unwrap();
         assert_eq!(calls, 2);
