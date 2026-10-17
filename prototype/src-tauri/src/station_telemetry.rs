@@ -4,7 +4,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Condvar, Mutex, OnceLock,
 };
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 type Read = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
 type Publish = dyn Fn(Value) + Send + Sync;
@@ -155,10 +155,30 @@ impl StationTelemetry {
         self.receive_control_at(generation, identity, connection, control, now)
     }
     pub fn spot_tune_control(self: &Arc<Self>, generation: u64, identity: &str) -> Result<ControlFence, String> {
-        let connection = self.state.lock().map_err(|_| "Radio telemetry unavailable")?.projection["snapshot"]["generation"]
-            .as_u64().ok_or("A fresh observed radio connection is required before spot tuning.")?;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
-        self.receive_control_at(generation, identity, connection, "tune_simplex", now)
+        self.spot_tune_control_with_timeout(generation, identity, Duration::from_millis(1500))
+    }
+    fn spot_tune_control_with_timeout(self: &Arc<Self>, generation: u64, identity: &str, timeout: Duration) -> Result<ControlFence, String> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let connection = self.state.lock().map_err(|_| "Radio telemetry unavailable")?.projection["snapshot"]["generation"]
+                .as_u64().ok_or("A fresh observed radio connection is required before spot tuning.")?;
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
+            match self.receive_control_at(generation, identity, connection, "tune_simplex", now) {
+                Ok(fence) => return Ok(fence),
+                Err(error) => {
+                    let retryable = self.state.lock().map_err(|_| "Radio telemetry unavailable").map(|state| {
+                        !self.stopped.load(Ordering::Acquire) && state.controls == 0
+                            && state.selection_id.as_deref() == Some(identity)
+                            && state.selection_generation == Some(generation)
+                            && matches!(state.provider.as_deref(), Some("direct_agent" | "direct_flex_lan" | "hamlib"))
+                            && state.projection["available"] != true
+                    })?;
+                    if !retryable || Instant::now() >= deadline { return Err(error); }
+                    self.wake.1.notify_all();
+                    std::thread::sleep(Duration::from_millis(20).min(deadline.saturating_duration_since(Instant::now())));
+                }
+            }
+        }
     }
     fn receive_control_at(self: &Arc<Self>, generation: u64, identity: &str, connection: u64, control: &str, now: u64) -> Result<ControlFence, String> {
         let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
@@ -641,6 +661,28 @@ mod tests {
             }}
             assert!(owner.receive_control_at(2, &identity, 13, "set_receive_frequency_a", 10000).is_err(), "{change}");
         }
+    }
+    #[test]
+    fn spot_tune_waits_for_post_control_telemetry_refresh() {
+        let (owner, identity) = receive_fixture("direct_agent");
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        owner.state.lock().unwrap().projection["received_at_ms"] = json!(now);
+        let preceding = owner.spot_tune_control_with_timeout(2, &identity, Duration::ZERO).unwrap();
+        drop(preceding);
+        assert_eq!(owner.snapshot().unwrap()["available"], false);
+
+        let refreshed = owner.clone();
+        let refresh = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(40));
+            let mut state = refreshed.state.lock().unwrap();
+            state.projection["available"] = json!(true);
+            state.projection["received_at_ms"] = json!(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64);
+            drop(state);
+            refreshed.wake.1.notify_all();
+        });
+        let next = owner.spot_tune_control_with_timeout(2, &identity, Duration::from_millis(250)).unwrap();
+        refresh.join().unwrap();
+        drop(next);
     }
     #[test]
     fn monitor_cancel_remains_possible_during_stale_disconnected_or_inflight_observation() {

@@ -88,7 +88,7 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return ["protocol_version": 1, "revision": revision,
-            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz", "station_operate", "station_standby"]],
+            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz", "set_frequency_mode", "tune_simplex", "station_operate", "station_standby"]],
             "radio": ["connected": true, "known": true, "stale": false, "station_bound": true,
                 "mox": true, "frequency_hz": 14_025_000, "mode": "CW",
                 "observed_at": formatter.string(from: observed)],
@@ -132,6 +132,19 @@ private final class ObservedCallbackProtocol: URLProtocol {
 }
 
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
+    func testSimplexTuneMakesOneBoundedAttemptWhenReplyIsLost() async throws {
+        try await fixture(commands: [], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "set_frequency_mode")
+            XCTAssertEqual(script.sentTimeouts, [RemoteAgentClient.receiveTuneCommandTimeout])
+        }) { client, _ in
+            do {
+                try await client.tuneSimplex(7_187_000, mode: "LSB")
+                XCTFail("Lost tune reply reported success")
+            } catch {}
+        }
+    }
+
     func testGUIPTTMakesExactlyOneHTTPAttemptForOnAndOff() async throws {
         for enabled in [true,false] {try await fixture(commands:[],verify:{script in
             XCTAssertEqual(script.sentCommands.count,1);XCTAssertEqual(script.sentCommands.first?["command"] as? String,"set_ptt")

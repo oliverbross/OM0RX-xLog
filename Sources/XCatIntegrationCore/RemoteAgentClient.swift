@@ -64,6 +64,7 @@ struct PendingRadioWrites: Sendable {
 }
 
 public actor RemoteAgentClient: RadioControlling {
+    static let receiveTuneCommandTimeout: TimeInterval = 5
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
 
@@ -220,19 +221,41 @@ public actor RemoteAgentClient: RadioControlling {
         let normalized = mode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !normalized.isEmpty else { throw XCatError.invalidMode }
         guard value.remoteStationStatus?.supportedCommands.contains("tune_simplex") == true else {
-            try await tuneSimplexLegacy(frequencyHz, mode: normalized)
+            try await tuneSimplexLegacyBounded(frequencyHz, mode: normalized)
             return
         }
         // Keep the existing one-request fast path for an already-simplex A.
         if value.slice.uppercased() == "A", value.transmitSlice.uppercased() == "A" {
-            try await setFrequencyAndMode(frequencyHz, mode: normalized)
+            try await execute(.frequencyAndMode(frequencyHz, mode: normalized, vfo: "A"), attempts: 1,
+                              timeoutInterval: Self.receiveTuneCommandTimeout)
+            recordSimplexTarget(frequencyHz, mode: normalized)
             return
         }
-        try await execute(.tuneSimplex(frequencyHz, mode: normalized))
+        try await execute(.tuneSimplex(frequencyHz, mode: normalized), attempts: 1,
+                          timeoutInterval: Self.receiveTuneCommandTimeout)
+        recordSimplexTarget(frequencyHz, mode: normalized)
+    }
+
+    private func recordSimplexTarget(_ frequencyHz: Int64, mode: String) {
         pendingWrites.expectFrequency(frequencyHz, vfo: "A")
-        pendingWrites.expectMode(normalized, vfo: "A")
+        pendingWrites.expectMode(mode, vfo: "A")
         publishPendingWrites()
         scheduleFrequencyVerification(frequencyHz, vfo: "A")
+    }
+
+    private func tuneSimplexLegacyBounded(_ frequencyHz: Int64, mode: String) async throws {
+        let before = value
+        if before.slice.uppercased() != "A" {
+            try await execute(.receiveVFO("A"), attempts: 1,
+                              timeoutInterval: Self.receiveTuneCommandTimeout)
+        }
+        if before.transmitSlice.uppercased() != "A" {
+            try await execute(.split(false, txFrequencyHz: nil), attempts: 1,
+                              timeoutInterval: Self.receiveTuneCommandTimeout)
+        }
+        try await execute(.frequencyAndMode(frequencyHz, mode: mode, vfo: "A"), attempts: 1,
+                          timeoutInterval: Self.receiveTuneCommandTimeout)
+        recordSimplexTarget(frequencyHz, mode: mode)
     }
 
     public func setSecondaryFrequency(_ frequencyHz: Int64) async throws {

@@ -614,19 +614,20 @@ actor LiveStationSession {
         }
         let normalized = Self.radioMode(mode, frequencyHz: frequencyHz)
         let startedAt = Date()
+        var tuneError: (any Error)?
         do {
             try await client.tuneSimplex(frequencyHz, mode: normalized)
         } catch {
             reconcilePowerObservationSession()
             guard generation == connectionGeneration, sessionID == powerSessionID,
                   self.client === client else { throw lifecycleChanged() }
-            throw WorkerFailure("station_rejected", "The Remote Station Agent rejected the tune.")
+            tuneError = error
         }
         reconcilePowerObservationSession()
         guard generation == connectionGeneration, sessionID == powerSessionID,
               self.client === client else { throw lifecycleChanged() }
         let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(12))
+        let deadline = clock.now.advanced(by: receiveReadbackTimeout)
         while clock.now < deadline {
             try Task.checkCancellation()
             let observed = await client.observedSnapshot()
@@ -651,6 +652,9 @@ actor LiveStationSession {
             reconcilePowerObservationSession()
             guard generation == connectionGeneration, sessionID == powerSessionID,
                   self.client === client else { throw lifecycleChanged() }
+        }
+        if tuneError != nil {
+            throw WorkerFailure("station_rejected", "The Remote Station Agent did not confirm the tune request.")
         }
         throw WorkerFailure("station_timeout", "The radio did not confirm the requested receive target.")
     }
