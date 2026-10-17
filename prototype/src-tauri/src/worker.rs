@@ -14,7 +14,7 @@ static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
 const MAX_IN_FLIGHT: usize = 16;
 const MAX_ABANDONED: usize = MAX_IN_FLIGHT;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(45);
-const PASSIVE_STATION_STATUS_TIMEOUT: Duration = Duration::from_secs(5);
+const PASSIVE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
@@ -876,16 +876,16 @@ fn request_in_session(
             .map_err(|_| service_request_failure("timed out", control_request))
             .and_then(|value| value)
             .and_then(|value| validate_response(value, &id));
-        if timed_out && request_is_passive_station_status(&request) {
+        if timed_out && request_is_non_retiring_read(&request) {
             session.abandon(&id)?;
         }
-        // Radio and rotor snapshots are passive observations. Their Swift
-        // handlers may be queued behind an explicit Keychain interaction, but
-        // they cannot have changed RF or antenna state. Let a late response be
+        // Passive snapshots and lookup projections cannot change RF, antenna,
+        // or QSO state. Their Swift handlers may be queued behind an explicit
+        // Keychain interaction (notably QRZ enrichment). Let a late response be
         // routed to the now-dropped receiver; never kill the shared worker (or
-        // turn an unrelated lifecycle receipt unknown) just because this poll
+        // turn an unrelated lifecycle receipt unknown) just because this read
         // reached its local deadline.
-        if reply.is_err() && !(timed_out && request_is_passive_station_status(&request)) {
+        if reply.is_err() && !(timed_out && request_is_non_retiring_read(&request)) {
             session.retire("Station service request failed; control outcome unknown");
         }
         let write_deadline = written
@@ -915,15 +915,17 @@ fn request_can_change_station_state(request: &Value) -> bool {
     ))
 }
 
-fn request_is_passive_station_status(request: &Value) -> bool {
+fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
-        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot"
+        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
+        "lookup_call" | "logbook_previous" | "logbook_duplicate" |
+        "logbook_matrix" | "cluster_history" | "reference_resolve"
     ))
 }
 
 fn request_timeout(request: &Value) -> Duration {
-    if request_is_passive_station_status(request) {
-        PASSIVE_STATION_STATUS_TIMEOUT
+    if request_is_non_retiring_read(request) {
+        PASSIVE_READ_TIMEOUT
     } else {
         RESPONSE_TIMEOUT
     }
@@ -1643,22 +1645,30 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn timeout_retires_generation_with_uncertain_outcome() {
-        let session = scripted_session("IFS= read -r request; sleep 2");
-        let result = request_in_session(
-            &session,
-            json!({"id":"uncertain","method":"station_action","params":{"action":"cancel"}}),
-            Duration::from_millis(50),
-        );
-        assert!(result.unwrap_err().contains("outcome unknown"));
-        assert!(!session.alive.load(Ordering::Acquire));
-        assert!(session.register("next").is_err());
+    fn state_changing_timeout_retires_generation_with_uncertain_outcome() {
+        for (request, control) in [
+            (json!({"id":"radio","method":"station_action","params":{"action":"cancel"}}), true),
+            (json!({"id":"rotor","method":"rotor_goto","params":{"azimuth":120}}), true),
+            (json!({"id":"qso","method":"logbook_contact_apply","params":{"action":"save"}}), false),
+        ] {
+            let method = request["method"].as_str().unwrap().to_owned();
+            let session = scripted_session("IFS= read -r request; sleep 2");
+            let result = request_in_session(&session, request, Duration::from_millis(50));
+            let error = result.unwrap_err();
+            assert_eq!(error.contains("outcome unknown"), control, "{method}");
+            assert!(!session.alive.load(Ordering::Acquire), "{method}");
+            assert!(session.register("next").is_err(), "{method}");
+        }
     }
 
     #[cfg(unix)]
     #[test]
-    fn passive_station_status_timeout_keeps_generation_and_routes_late_reply() {
-        for method in ["station_snapshot", "station_rotor_snapshot", "rotor_snapshot"] {
+    fn passive_read_timeout_keeps_generation_and_routes_late_reply() {
+        for method in [
+            "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
+            "lookup_call", "logbook_previous", "logbook_duplicate",
+            "logbook_matrix", "cluster_history", "reference_resolve",
+        ] {
             let script = format!(
                 "IFS= read -r stale; sleep 0.1; printf '%s\\n' '{{\"id\":\"stale\",\"ok\":true,\"result\":{{}}}}'; IFS= read -r health; printf '%s\\n' '{{\"id\":\"health\",\"ok\":true,\"result\":{{}}}}'; cat >/dev/null"
             );
@@ -1684,12 +1694,24 @@ mod tests {
     }
 
     #[test]
-    fn passive_station_status_uses_bounded_timeout_without_widening_control_policy() {
-        for method in ["station_snapshot", "station_rotor_snapshot", "rotor_snapshot"] {
-            assert_eq!(request_timeout(&json!({"method":method})), PASSIVE_STATION_STATUS_TIMEOUT);
+    fn passive_reads_use_bounded_timeout_without_widening_mutation_policy() {
+        for method in [
+            "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
+            "lookup_call", "logbook_previous", "logbook_duplicate",
+            "logbook_matrix", "cluster_history", "reference_resolve",
+        ] {
+            assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
+            assert_eq!(request_timeout(&json!({"method":method})), PASSIVE_READ_TIMEOUT, "{method}");
         }
-        for method in ["station_connect", "station_tune", "station_action", "rotor_goto", "rotor_stop"] {
-            assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT);
+        for method in [
+            "station_connect", "station_tune", "station_action", "station_radio_control",
+            "station_rotor_goto", "station_rotor_stop", "rotor_connect", "rotor_disconnect",
+            "rotor_goto", "rotor_stop", "rotor_park", "logbook_operator_draft_apply",
+            "logbook_contact_apply", "logbook_save", "logbook_delete", "logbook_undo",
+            "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
+        ] {
+            assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
+            assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");
         }
     }
 
