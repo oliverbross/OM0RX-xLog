@@ -389,7 +389,10 @@ The repaired integration is pushed at
 Inspected Linux job `117472135407` and macOS job `117472135211` logs show
 all three export-wire, 16 lifecycle and four SCP-worker tests passing. This
 confirms the original Linux failure is repaired in the integrated source.
-Windows Swift job `117472135347` is still running at this checkpoint.
+Windows Swift job `117472135347` subsequently passed. Its inspected log
+confirms all three export-wire, 16 lifecycle and four SCP-worker tests,
+including the filesystem-root ancestry regression. The run is now complete
+with all six jobs successful; no skipped or cancelled run is counted.
 
 All three native Rust jobs passed: macOS `117472135489`, Linux
 `117472135329`, Windows `117472135296`. Their inspected logs show 18 export,
@@ -397,3 +400,22 @@ five admission and one passive-read timeout-policy test passing on each OS.
 Raw logs are `/tmp/xlog-89d1b56-*-ci.log`. This establishes actual hosted
 execution of the newly added native SCP coverage; it does not establish
 native chooser interaction or packaged operator acceptance.
+
+## NAQP versioned export preview
+
+At `5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d`,
+[run 39058874450](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39058874450)
+has passed its Linux and macOS Swift jobs. Inspected logs for jobs
+`117472494380` and `117472494496` each show five NAQP core export tests
+and five NAQP ADIF export tests passing, including mobile subdivision
+omission. The three native Rust jobs also passed; Windows Swift remains
+pending at this checkpoint. Raw inspected logs are
+`/tmp/xlog-5ee75ea-{linux,macos}-ci.log`.
+
+Combined source `6db070e0c49950c8d0fce29d6c1d233640a79ee0` preserves both
+the SCP and NAQP workflow coverage. It passed 11 combined NAQP core/store
+tests and 15 combined export tests locally before commit. Foundation
+integration has identical Sources, Tests, prototype and workflow contents
+to this reviewed checkpoint; project records are the only additional
+changes. This remains inactive-rule/export source, not NAQP operator or
+submission acceptance.

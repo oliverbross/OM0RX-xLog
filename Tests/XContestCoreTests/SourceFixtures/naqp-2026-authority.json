@@ -1,0 +1,17 @@
+{
+  "retrievedOn": "2026-10-18",
+  "rulesURL": "https://ncjweb.com/NAQP-Rules.pdf",
+  "rulesSHA256": "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+  "multiplierFormURL": "https://ncjweb.com/NAQP-Paper-Log-Form.pdf",
+  "multiplierFormSHA256": "6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d",
+  "statesAndDC": ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC"],
+  "canadianProvinces": ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"],
+  "otherNorthAmericanPrefixes": ["4U1/U", "6Y", "8P", "C6", "CM", "CY9", "CY0", "FG", "FJ", "FM", "FO", "FP", "FS", "HH", "HI", "HK0", "HP", "HR", "J3", "J6", "J7", "J8", "KG4", "KP1", "KP2", "KP4", "KP5", "OX", "PJ5", "PJ7", "TG", "TI", "TI9", "V2", "V3", "V4", "VP2E", "VP2M", "VP2V", "VP5", "VP9", "XE", "XF4", "YN", "YS", "YV0", "ZF"],
+  "bundledCTYEntities": [
+    {"adif": 289, "countryPrefix": "4U1U", "continent": "NA", "officialToken": "4U1/U", "eligible": true},
+    {"adif": 36, "countryPrefix": "FO/c", "continent": "NA", "officialToken": "FO", "eligible": true},
+    {"adif": 216, "countryPrefix": "HK0/a", "continent": "NA", "officialToken": "HK0", "eligible": true},
+    {"adif": 175, "countryPrefix": "FO", "continent": "OC", "officialToken": "DX", "eligible": false},
+    {"adif": 161, "countryPrefix": "HK0/m", "continent": "SA", "officialToken": "DX", "eligible": false}
+  ]
+}

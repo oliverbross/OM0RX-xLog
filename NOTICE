@@ -26,9 +26,10 @@ their own data terms and visible source attribution. No third-party calendar
 code or raw provider data is bundled.
 
 The initial CQ WW CW, CQ WPX CW, CQ WW SSB, CQ WPX SSB, Oceania DX CW,
-Oceania DX SSB, SAC CW and SAC SSB contest-rule and Cabrillo QSO-layout behavior
+Oceania DX SSB, SAC CW, SAC SSB, and the isolated NAQP CW/SSB/RTTY preview
 in Sources/XContestCore/PilotRules.swift, Sources/XContestCore/OceaniaRules.swift,
 Sources/XContestCore/SACRules.swift and Sources/XContestCore/Cabrillo.swift
+and Sources/XContestCore/NAQPRules.swift
 is a Swift translation adapted from
 Not1MM by Michael Bridak (GPL-3.0-or-later), using Oliver Bross's read-only
 contest-sw fork at revision 7c8b499225a73f7f8f792246881bd7aefc05452f.
@@ -37,8 +38,14 @@ not1mm/plugins/cq_wpx_cw.py, not1mm/plugins/cq_ww_ssb.py,
 not1mm/plugins/cq_wpx_ssb.py, not1mm/plugins/oceania_dx_cw.py,
 not1mm/plugins/oceania_dx_ssb.py, not1mm/plugins/sac_cw.py,
 not1mm/plugins/sac_ssb.py, not1mm/lib/ham_utility.py,
+not1mm/plugins/naqp_cw.py, not1mm/plugins/naqp_ssb.py,
+not1mm/plugins/naqp_rtty.py,
 not1mm/lib/database.py and duplicate dispatch in not1mm/__main__.py. The
 translation was modified for OM0RX-xLog on 17-18 October 2026; exact behavioral
 scope and differences are recorded in docs/contesting/CORE_CONTRACT.md,
 docs/contesting/SSB_RULE_CONTRACT.md, docs/contesting/OCEANIA_RULE_CONTRACT.md
-and docs/contesting/SAC_RULE_CONTRACT.md.
+docs/contesting/SAC_RULE_CONTRACT.md and docs/contesting/NAQP_RULE_CONTRACT.md.
+The NAQP export layout also references the NCJ Cabrillo template at
+https://ncjweb.com/NAQP_Cabrillo_Template.txt and the ADIF 3.1.8 annotated
+specification at https://www.adif.org/318/ADIF_318_annotated.htm, both retrieved
+18 October 2026; exact hashes are recorded in the NAQP rule contract.

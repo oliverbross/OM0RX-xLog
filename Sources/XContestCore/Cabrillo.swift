@@ -67,26 +67,37 @@ public enum CabrilloExporter {
         let recomputed: ContestScore
         let renderedQSOs: [ContestQSO]
         do {
-            switch formatterVersion {
-            case rule.metadata.entry.cabrilloFormatterVersion:
-                let categoryBand = header.categoryBand.uppercased()
-                let usedBands = Set(qsos.map(\.band))
-                if categoryBand != "ALL" {
-                    let expectedBand = categoryBand.lowercased()
-                    guard rule.metadata.supportedBands.contains(expectedBand),
-                          usedBands.allSatisfy({ $0 == expectedBand }) else {
-                        throw CabrilloExportError.invalidHeader("categoryBand")
-                    }
+            if formatterVersion == ContestExportInput.naqpPreviewFormatterVersion {
+                guard rule.metadata.entry.cabrilloFormatterVersion == formatterVersion,
+                      rule.metadata.entry.cabrilloProjectionFormatterVersion == formatterVersion else {
+                    throw CabrilloExportError.invalidHeader("formatterVersion")
                 }
-                recomputed = try ContestEngine.score(qsos, session: session, rule: rule)
-                renderedQSOs = qsos
-            case rule.metadata.entry.cabrilloProjectionFormatterVersion:
                 let projection = try ContestSubmissionProjection.make(qsos: qsos, session: session,
                                                                        header: header, rule: rule)
                 recomputed = projection.score
                 renderedQSOs = projection.renderedQSOs
-            default:
-                throw CabrilloExportError.invalidHeader("formatterVersion")
+            } else {
+                switch formatterVersion {
+                case rule.metadata.entry.cabrilloFormatterVersion:
+                    let categoryBand = header.categoryBand.uppercased()
+                    let usedBands = Set(qsos.map(\.band))
+                    if categoryBand != "ALL" {
+                        let expectedBand = categoryBand.lowercased()
+                        guard rule.metadata.supportedBands.contains(expectedBand),
+                              usedBands.allSatisfy({ $0 == expectedBand }) else {
+                            throw CabrilloExportError.invalidHeader("categoryBand")
+                        }
+                    }
+                    recomputed = try ContestEngine.score(qsos, session: session, rule: rule)
+                    renderedQSOs = qsos
+                case rule.metadata.entry.cabrilloProjectionFormatterVersion:
+                    let projection = try ContestSubmissionProjection.make(qsos: qsos, session: session,
+                                                                           header: header, rule: rule)
+                    recomputed = projection.score
+                    renderedQSOs = projection.renderedQSOs
+                default:
+                    throw CabrilloExportError.invalidHeader("formatterVersion")
+                }
             }
         } catch let error as CabrilloExportError { throw error }
         catch { throw CabrilloExportError.invalidHeader("score") }
@@ -124,6 +135,9 @@ public enum CabrilloExporter {
 
     public static func qsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
                                rule: any ContestRule) throws -> String {
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion {
+            return try naqpQsoLine(qso, session: session, rule: rule)
+        }
         guard qso.sessionID == session.id else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "sessionID") }
         guard session.rule == rule.metadata.identity else { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule") }
         guard qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite else {
@@ -149,6 +163,68 @@ public enum CabrilloExporter {
         return "QSO: \(leftPad(String(frequency), 5)) \(mode) \(date(qso.timestampUTC)) \(time(qso.timestampUTC)) " +
             "\(rightPad(values[0], 13)) \(rightPad(values[1], 3)) \(rightPad(values[2], 6)) " +
             "\(rightPad(values[3], 13)) \(rightPad(values[4], 3)) \(rightPad(values[5], 6))"
+    }
+
+    private static func naqpQsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
+                                    rule: any ContestRule) throws -> String {
+        guard qso.sessionID == session.id else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "sessionID")
+        }
+        guard session.rule == rule.metadata.identity else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule")
+        }
+        guard qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "timestampUTC")
+        }
+        let evaluation: ContestRuleEvaluation
+        do { evaluation = try ContestEngine.evaluate(qso, session: session, rule: rule, allowIncomplete: false) }
+        catch { throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "qso") }
+        if let issue = evaluation.validation.first(where: { $0.severity == .error }) {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: issue.field)
+        }
+        guard qso.frequencyHz > 0 else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz")
+        }
+        let wholeKHz = qso.frequencyHz / 1_000
+        let remainder = qso.frequencyHz % 1_000
+        let frequency = remainder < 500 ? wholeKHz : remainder > 500 ? wholeKHz + 1 :
+            (wholeKHz.isMultiple(of: 2) ? wholeKHz : wholeKHz + 1)
+        guard frequency > 0 && frequency <= 99_999,
+              let profile = rule.metadata.entry.modeProfile(for: qso.mode) else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz")
+        }
+        let sentName = qso.exchange.sentFields["name"]?.normalized ?? ""
+        let sentLocation = qso.exchange.sentFields["location"]?.normalized ?? "DX"
+        let receivedName = qso.exchange.receivedFields["name"]?.normalized ?? ""
+        let receivedLocation = qso.exchange.receivedFields["location"]?.normalized ?? ""
+        guard naqpRawExchangeIsSafe(qso.exchange.rawSent), naqpRawExchangeIsSafe(qso.exchange.rawReceived) else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "exchange")
+        }
+        try requireNAQPASCII(session.station.callsign, maximum: 13, field: "stationCallsign", qsoID: qso.id,
+                             allowsSlash: true)
+        try requireNAQPASCII(qso.callsign, maximum: 13, field: "callsign", qsoID: qso.id, allowsSlash: true)
+        try requireNAQPASCII(sentName, maximum: 32, field: "sentName", qsoID: qso.id, allowsPunctuation: true)
+        try requireNAQPASCII(sentLocation, maximum: 8, field: "sentLocation", qsoID: qso.id, allowsSlash: true)
+        try requireNAQPASCII(receivedName, maximum: 32, field: "receivedName", qsoID: qso.id, allowsPunctuation: true)
+        try requireNAQPASCII(receivedLocation, maximum: 8, field: "receivedLocation", qsoID: qso.id, allowsSlash: true)
+        return "QSO: \(leftPad(String(frequency), 5)) \(profile.cabrilloQSOType) \(date(qso.timestampUTC)) \(time(qso.timestampUTC)) " +
+            "\(rightPad(session.station.callsign, 13)) \(rightPad(sentName, 10)) \(rightPad(sentLocation, 3)) " +
+            "\(rightPad(qso.callsign, 13)) \(rightPad(receivedName, 10)) \(rightPad(receivedLocation, 3))"
+    }
+
+    private static func requireNAQPASCII(_ value: String, maximum: Int, field: String, qsoID: UUID,
+                                         allowsSlash: Bool = false, allowsPunctuation: Bool = false) throws {
+        let bytes = Array(value.utf8)
+        guard !bytes.isEmpty, bytes.count <= maximum, bytes.allSatisfy({ byte in
+            (65...90).contains(byte) || (48...57).contains(byte) ||
+                (allowsSlash && byte == 47) || (allowsPunctuation && (byte == 39 || byte == 45))
+        }) else {
+            throw CabrilloExportError.invalidQSO(qsoID: qsoID, field: field)
+        }
+    }
+
+    private static func naqpRawExchangeIsSafe(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.count <= 41 && value.unicodeScalars.allSatisfy { (32...126).contains($0.value) }
     }
 
     private static func safe(_ value: String, field: String, required: Bool = false) throws -> String {
