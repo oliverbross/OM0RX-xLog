@@ -57,7 +57,9 @@ let prototypeCoreTargets: [Target] = [
 ]
 #endif
 
-let package = portableOnly ? Package(
+let package: Package
+if portableOnly {
+    package = Package(
     name: "OM0RXXLogPrototype",
     platforms: [.macOS(.v14)],
     products: [
@@ -84,7 +86,9 @@ let package = portableOnly ? Package(
         .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
         .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
     ]
-) : Package(
+    )
+} else {
+    package = Package(
     name: "OM0RXXLog",
     platforms: [.macOS(.v13)],
     products: [
@@ -125,4 +129,5 @@ let package = portableOnly ? Package(
         .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
         .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
     ]
-)
+    )
+}

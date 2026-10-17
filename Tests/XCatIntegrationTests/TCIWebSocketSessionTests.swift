@@ -5,6 +5,7 @@ import Foundation
 import XCTest
 @testable import XCatIntegrationCore
 
+#if os(macOS)
 final class TCIWebSocketSessionTests: XCTestCase {
     private let endpoint = URL(string: "ws://127.0.0.1:40001")!
     private let address = TCIReceiverAddress(trx: 0, channel: 0)
@@ -2029,3 +2030,4 @@ private actor FakeTCIWebSocketConnector: TCIWebSocketConnecting {
 
     func connectCount() -> Int { calls }
 }
+#endif
