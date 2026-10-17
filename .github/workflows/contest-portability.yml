@@ -119,6 +119,7 @@ jobs:
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestStoreTests\.ContestStoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestADIFExportTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestNAQPADIFExportTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportServiceTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportLaneTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportWorkerWireTests/')" -ge 1
@@ -134,18 +135,20 @@ jobs:
           $core = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCoreTests/' }).Count
           $store = @($discovered | Where-Object { $_ -match '^XContestStoreTests\.ContestStoreTests/' }).Count
           $adif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestADIFExportTests/' }).Count
+          $naqpAdif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestNAQPADIFExportTests/' }).Count
           $service = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportServiceTests/' }).Count
           $lane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportLaneTests/' }).Count
           $wire = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportWorkerWireTests/' }).Count
           $contestingLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestingLaneTests/' }).Count
           $assistanceLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestAssistanceLaneTests/' }).Count
-          if ($core -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1) { throw "Expected contest test targets were not discovered." }
+          if ($core -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1) { throw "Expected contest test targets were not discovered." }
       - name: Test contest core, store, and export support (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestCoreTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestADIFExportTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestNAQPADIFExportTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportServiceTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportLaneTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportWorkerWireTests
@@ -159,7 +162,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests')) {
+          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestNAQPADIFExportTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests')) {
             swift test --jobs 2 --scratch-path .build/contest-platform --filter $filter -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
