@@ -42,7 +42,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "c7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "commit" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -54,7 +54,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "create" : {
       "expectedRevision" : 0,
@@ -82,7 +82,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "a7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "postCommitApply" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -103,7 +103,7 @@
       "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "requestID" : "e7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "qsoCorrect" : {
       "expectedRevision" : 4,
@@ -112,14 +112,7 @@
         "qso" : {
           "allocatedSerial" : "001",
           "band" : "20m",
-          "callsign" : "K2ABC",
-          "entity" : {
-            "adif" : 291,
-            "continent" : "NA",
-            "countryPrefix" : "K",
-            "cqZone" : 5,
-            "name" : "UNITED STATES"
-          },
+          "callsign" : "DL1AAA",
           "frequencyHz" : 14025000,
           "mode" : "CW",
           "normalizedReceivedExchange" : "2",
@@ -151,7 +144,7 @@
       "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
       "requestID" : "17654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "qsoDelete" : {
       "expectedRevision" : 5,
@@ -163,13 +156,13 @@
       "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
       "requestID" : "27654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "qsoGet" : {
       "expectedRevision" : 4,
       "qsoID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     },
     "reserve" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -181,12 +174,12 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "b7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+      "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
     }
   },
   "responses" : {
     "apply" : {
-      "id" : "dee3548f-f3d7-422b-910a-7df6fc21ece5",
+      "id" : "74468d5d-ab63-4285-a9d2-10c42ed26473",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -217,7 +210,7 @@
 
             ]
           },
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:02:00.000Z",
@@ -254,12 +247,12 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:02:00.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
     "catalog" : {
-      "id" : "6d0e20f5-a4f4-4537-b662-b32eb5eb2e0b",
+      "id" : "6bd8ecfd-338f-40b7-a249-d5ced2ddb3c7",
       "ok" : true,
       "result" : {
         "rules" : [
@@ -290,11 +283,11 @@
             "sourceVerification" : "provisional"
           }
         ],
-        "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+        "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
       }
     },
     "commit" : {
-      "id" : "fb1738f4-8a28-4f76-b04b-fb166ee3cbd6",
+      "id" : "82d4a83f-d682-4f80-87b9-75c89397dcf8",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -329,7 +322,7 @@
 
             ]
           },
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "qso" : {
           "band" : "20m",
@@ -358,7 +351,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -389,7 +382,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
@@ -399,11 +392,11 @@
         "message" : "Contest identity must be a canonical lowercase UUID.",
         "outcome" : "confirmed"
       },
-      "id" : "198ff268-416d-48a4-be67-a8e8f4199fe7",
+      "id" : "d83e557a-bbe9-4fd4-aa44-25413444ddbb",
       "ok" : false
     },
     "create" : {
-      "id" : "370dca83-9de2-4879-8cea-cf1edd490935",
+      "id" : "c94533ee-62af-4c43-bade-29486f4c880a",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -439,7 +432,7 @@
 
             ]
           },
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:00:00.000Z",
@@ -476,7 +469,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:00:00.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
@@ -490,7 +483,7 @@
       "ok" : false
     },
     "qsoCorrect" : {
-      "id" : "fdb68b86-07b4-4693-ad94-841132348efc",
+      "id" : "0400ab46-27cc-4bf6-92a2-07798a58dfeb",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -502,13 +495,13 @@
         "currentTarget" : {
           "allocatedSerial" : "001",
           "band" : "20m",
-          "callsign" : "K2ABC",
+          "callsign" : "DL1AAA",
           "entity" : {
-            "adif" : 291,
-            "continent" : "NA",
-            "countryPrefix" : "K",
-            "cqZone" : 5,
-            "name" : "UNITED STATES"
+            "adif" : 230,
+            "continent" : "EU",
+            "countryPrefix" : "DL",
+            "cqZone" : 14,
+            "name" : "FED. REP. OF GERMANY"
           },
           "frequencyHz" : 14025000,
           "mode" : "CW",
@@ -546,14 +539,14 @@
           "requestID" : "17654321-89ab-4cde-8fab-0123456789ab"
         },
         "score" : {
-          "claimedScore" : 3,
+          "claimedScore" : 1,
           "multipliers" : 1,
-          "points" : 3,
+          "points" : 1,
           "qsos" : 1,
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -568,12 +561,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
     "qsoCorrectReplayAfterDelete" : {
-      "id" : "f3139f39-dfb7-4cbc-84c8-5e309f12ca75",
+      "id" : "0dc4b8c9-afc6-4d30-bea7-7f9d1cfe806a",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -585,13 +578,13 @@
         "currentTarget" : {
           "allocatedSerial" : "001",
           "band" : "20m",
-          "callsign" : "K2ABC",
+          "callsign" : "DL1AAA",
           "entity" : {
-            "adif" : 291,
-            "continent" : "NA",
-            "countryPrefix" : "K",
-            "cqZone" : 5,
-            "name" : "UNITED STATES"
+            "adif" : 230,
+            "continent" : "EU",
+            "countryPrefix" : "DL",
+            "cqZone" : 14,
+            "name" : "FED. REP. OF GERMANY"
           },
           "frequencyHz" : 14025000,
           "mode" : "CW",
@@ -629,14 +622,14 @@
           "requestID" : "17654321-89ab-4cde-8fab-0123456789ab"
         },
         "score" : {
-          "claimedScore" : 3,
+          "claimedScore" : 1,
           "multipliers" : 1,
-          "points" : 3,
+          "points" : 1,
           "qsos" : 1,
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -651,12 +644,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
     "qsoDelete" : {
-      "id" : "070732d4-94c7-41fb-8fe6-d90a9ef79719",
+      "id" : "b2bc11cd-ccdc-4d7e-8da4-7a378e855dd9",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -683,7 +676,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -698,12 +691,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
     "qsoDeleteReplay" : {
-      "id" : "defe3247-2e2f-4116-bd25-47f91a8cb070",
+      "id" : "50d1480b-7797-434f-8768-4ad27651f03d",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -730,7 +723,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -745,12 +738,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
     "qsoGet" : {
-      "id" : "335683fb-db59-4870-8cd5-08d9c3ec53bd",
+      "id" : "fba1ff40-38ad-4149-b6c8-45761b6430a0",
       "ok" : true,
       "result" : {
         "qso" : {
@@ -792,11 +785,11 @@
         },
         "revision" : 4,
         "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+        "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
       }
     },
     "receiptAfterUncertain" : {
-      "id" : "a19a6b2a-7857-4334-9518-afc06985c5b3",
+      "id" : "7b5aad32-81a5-422d-9270-55626b381775",
       "ok" : true,
       "result" : {
         "receipt" : {
@@ -809,7 +802,7 @@
       }
     },
     "replay" : {
-      "id" : "0e1b704e-384d-4c6e-9a38-756ae908312e",
+      "id" : "52ba9ac0-4771-4265-890c-4a4292187a4c",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -844,7 +837,7 @@
 
             ]
           },
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "qso" : {
           "band" : "20m",
@@ -873,7 +866,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -904,12 +897,12 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     },
     "reserve" : {
-      "id" : "28a7bfa0-1f47-419c-b493-bd3fa2ef849b",
+      "id" : "2bbef711-002d-46c5-a3aa-8c7a2ad00038",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -944,7 +937,7 @@
 
             ]
           },
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:01:00.000Z",
@@ -981,7 +974,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:01:00.000Z",
-          "workspaceGeneration" : "af62c25d-0a8d-472a-8197-5670b83a739e"
+          "workspaceGeneration" : "54d216a2-314e-4691-b1fb-0a2d5af3ebd8"
         }
       }
     }

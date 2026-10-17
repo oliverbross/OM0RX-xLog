@@ -1,7 +1,7 @@
 import type {
   ContestCommitResult, ContestCreateInput, ContestCreateResult, ContestDraftFields, ContestDraftResult,
-  ContestLogPage, ContestMethod, ContestMutationScope, ContestOpenResult, ContestOperationReceiptResult,
-  ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary, ContestWorkerError,
+  ContestFullQSO, ContestLogPage, ContestMethod, ContestMutationScope, ContestOpenResult, ContestOperationReceiptResult,
+  ContestQSOChangeResult, ContestQSOReadResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary, ContestWorkerError,
 } from "./types";
 
 type IDFactory = () => string;
@@ -33,6 +33,7 @@ function text(value: unknown, max = 256, allowEmpty = false): value is string {
   return typeof value === "string" && new TextEncoder().encode(value).length <= max && (allowEmpty || value.length > 0);
 }
 function uint(value: unknown): value is number { return Number.isSafeInteger(value) && (value as number) >= 0; }
+function exact(value: Record<string, unknown>, keys: string[]) { return Object.keys(value).length === keys.length && keys.every(key => key in value); }
 function iso(value: unknown): value is string { return text(value, 64) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().length > 0; }
 function utcOperationISO(value: unknown): value is string { return iso(value) && new Date(value).toISOString() === value; }
 function sameContext(item: Record<string, unknown>, params: Record<string, unknown>) { return item.sessionID === params.sessionID && item.workspaceGeneration === params.workspaceGeneration; }
@@ -70,10 +71,53 @@ function validReceipt(value: unknown, params: Record<string, unknown>) {
   const v = object(value);
   return !!v && v.requestID === params.requestID && v.payloadDigest === params.payloadDigest && text(v.requestID, 128) && text(v.payloadDigest, 512) && uint(v.committedRevision) && iso(v.committedAt);
 }
-function validQSO(value: unknown, params: Record<string, unknown>) {
+function validLogQSO(value: unknown, params: Record<string, unknown>) {
   const v = object(value);
   return !!v && v.sessionID === params.sessionID && text(v.qsoID, 128) && iso(v.workedAt) && text(v.callsign, 32) && text(v.band, 8) && BANDS.has(v.band) &&
     v.mode === "CW" && text(v.sentExchange, 32, true) && text(v.receivedExchange, 32, true) && uint(v.points) && (v.multiplier === null || text(v.multiplier, 160)) && typeof v.isDupe === "boolean";
+}
+function validEntity(value: unknown) {
+  if (value === null) return true;
+  const v = object(value);
+  return !!v && exact(v, ["adif", "name", "countryPrefix", "continent", "cqZone"]) && uint(v.adif) && text(v.name, 128) &&
+    text(v.countryPrefix, 16) && text(v.continent, 4) && uint(v.cqZone);
+}
+function validProvenance(value: unknown) {
+  const v = object(value);
+  return !!v && exact(v, ["source", "sourceIdentity", "importedClaimedScore"]) &&
+    ["operatorEntry", "importFile", "digitalReceiver", "networkPeer"].includes(String(v.source)) &&
+    (v.sourceIdentity === null || text(v.sourceIdentity, 160)) && (v.importedClaimedScore === null || uint(v.importedClaimedScore));
+}
+function validFullQSO(value: unknown, params: Record<string, unknown>, expectedQSOID?: unknown) {
+  const v = object(value);
+  if (!v || !exact(v, ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode", "frequencyHz", "sentReport", "receivedReport",
+    "sentExchange", "normalizedSentExchange", "allocatedSerial", "receivedExchange", "normalizedReceivedExchange", "entity", "operatorCallsign",
+    "stationLocation", "provenance", "ruleIdentity", "referenceDataVersion"])) return false;
+  return v.sessionID === params.sessionID && (expectedQSOID === undefined || v.qsoID === expectedQSOID) && text(v.qsoID, 128) && iso(v.originalUTC) &&
+    text(v.callsign, 32) && text(v.band, 8) && BANDS.has(v.band) && v.mode === "CW" && uint(v.frequencyHz) && (v.frequencyHz as number) <= 100_000_000_000 &&
+    text(v.sentReport, 3, true) && text(v.receivedReport, 3, true) && text(v.sentExchange, 64, true) && text(v.normalizedSentExchange, 64, true) &&
+    text(v.allocatedSerial, 64, true) && v.allocatedSerial === v.normalizedSentExchange && text(v.receivedExchange, 64, true) &&
+    text(v.normalizedReceivedExchange, 64, true) && validEntity(v.entity) && text(v.operatorCallsign, 32, true) && text(v.stationLocation, 128, true) &&
+    validProvenance(v.provenance) && validIdentity(v.ruleIdentity) && text(v.referenceDataVersion, 160);
+}
+function validChangeSession(value: unknown, params: Record<string, unknown>) {
+  const v = object(value);
+  return !!v && exact(v, ["sessionID", "workspaceGeneration", "revision", "name", "ruleIdentity", "referenceDataVersion", "qsoCount", "updatedAt"]) &&
+    sameContext(v, params) && uint(v.revision) && text(v.name, 128) && validIdentity(v.ruleIdentity) && text(v.referenceDataVersion, 160) && uint(v.qsoCount) && iso(v.updatedAt);
+}
+function validQSOChange(value: unknown, params: Record<string, unknown>, operation: "correction" | "deletion") {
+  const v = object(value), s = object(v?.session), score = object(v?.score), receipt = object(v?.receipt), audit = object(v?.auditReference);
+  const payload = object(params.payload), qso = object(payload?.qso), expectedQSOID = operation === "correction" ? qso?.qsoID : payload?.qsoID;
+  if (!v || !s || !score || !receipt || !audit || !exact(v, ["session", "operation", "qsoID", "qsoCount", "score", "currentTarget", "auditReference", "receipt"]) ||
+      v.operation !== operation || v.qsoID !== expectedQSOID || !text(v.qsoID, 128) || !uint(v.qsoCount) || !validChangeSession(s, params) ||
+      s.qsoCount !== v.qsoCount || !validScoreSummary(score, params, s.revision as number) || "multiplierLabels" in score || score.qsos !== v.qsoCount ||
+      !validReceipt(receipt, params) || receipt.committedRevision !== s.revision ||
+      !exact(audit, ["sessionID", "qsoID", "requestID", "revision"]) || audit.sessionID !== params.sessionID || audit.qsoID !== v.qsoID ||
+      audit.requestID !== params.requestID || audit.revision !== s.revision) return false;
+  if (operation === "deletion") return v.currentTarget === null;
+  const target = object(v.currentTarget);
+  return validFullQSO(target, params, v.qsoID) && canonicalJSON(target!.ruleIdentity) === canonicalJSON(s.ruleIdentity) &&
+    target!.referenceDataVersion === s.referenceDataVersion;
 }
 function validScoreSummary(value: unknown, params: Record<string, unknown>, expectedRevision?: number) {
   const v = object(value);
@@ -95,15 +139,21 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
     const s = object(v?.session), d = object(v?.draft), receipt = object(v?.receipt);
     valid = !!v && validSession(s, params) && validDraft(d, params, params.draftID) && validReceipt(receipt, params) && s?.revision === d?.revision && s?.revision === receipt?.committedRevision;
     if (valid && method === "contest_create") valid = params.expectedRevision === 0 && s?.sessionID === params.sessionID;
-    if (valid && method === "contest_qso_commit") valid = validQSO(v!.qso, params) && validScoreSummary(v!.score, params, s?.revision as number) && !("multiplierLabels" in object(v!.score)!);
+    if (valid && method === "contest_qso_commit") valid = validLogQSO(v!.qso, params) && validScoreSummary(v!.score, params, s?.revision as number) && !("multiplierLabels" in object(v!.score)!);
+  } else if (method === "contest_qso_get") {
+    valid = !!v && exact(v, ["sessionID", "workspaceGeneration", "revision", "qso"]) && sameContext(v, params) && v.revision === params.expectedRevision && validFullQSO(v.qso, params, params.qsoID);
+  } else if (method === "contest_qso_correct") {
+    valid = validQSOChange(v, params, "correction");
+  } else if (method === "contest_qso_delete") {
+    valid = validQSOChange(v, params, "deletion");
   } else if (method === "contest_operation_receipt") valid = !!v && (v.status === "not_found" || v.status === "committed" && validReceipt(v.receipt, params));
-  else if (method === "contest_log_page") valid = !!v && sameContext(v, params) && v.revision === params.expectedRevision && Array.isArray(v.qsos) && v.qsos.length <= 200 && v.qsos.every(x => validQSO(x, params)) && uint(v.total) && v.offset === params.offset && v.limit === params.limit;
+  else if (method === "contest_log_page") valid = !!v && sameContext(v, params) && v.revision === params.expectedRevision && Array.isArray(v.qsos) && v.qsos.length <= 200 && v.qsos.every(x => validLogQSO(x, params)) && uint(v.total) && v.offset === params.offset && v.limit === params.limit;
   else if (method === "contest_score") valid = validScore(v, params, params.expectedRevision as number);
   if (!valid) throw new Error(`Malformed or stale ${method} response.`);
   return value as T;
 }
 
-export type ContestMutation = { method: "contest_create" | "contest_draft_apply" | "contest_serial_reserve" | "contest_qso_commit"; scope: ContestMutationScope; payload: Record<string, unknown> };
+export type ContestMutation = { method: "contest_create" | "contest_draft_apply" | "contest_serial_reserve" | "contest_qso_commit" | "contest_qso_correct" | "contest_qso_delete"; scope: ContestMutationScope; payload: Record<string, unknown> };
 export class ContestServerError extends Error {
   constructor(readonly code: string, message: string, readonly outcome: "confirmed" | "uncertain") { super(message); this.name = "ContestServerError"; }
 }
@@ -124,6 +174,7 @@ export class ContestClient {
   draft(session: ContestSessionSummary) { return this.read<ContestOpenResult>("contest_draft_get", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration }); }
   logPage(session: ContestSessionSummary, offset: number, limit: number) { return this.read<ContestLogPage>("contest_log_page", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision, offset, limit }); }
   score(session: ContestSessionSummary) { return this.read<ContestScore>("contest_score", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision }); }
+  qso(session: ContestSessionSummary, qsoID: string) { return this.read<ContestQSOReadResult>("contest_qso_get", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision, qsoID }); }
   private async mutate<T>(operation: ContestMutation): Promise<T> {
     this.observeOperation?.(operation, "inflight");
     try {
@@ -153,7 +204,17 @@ export class ContestClient {
   async applyDraft(session: ContestSessionSummary, draftID: string, fields: ContestDraftFields) { validateDraftFields(fields); return this.mutate<ContestDraftResult>(await this.operation("contest_draft_apply", session.sessionID, session.workspaceGeneration, session.revision, { fields }, draftID)); }
   async reserveSerial(session: ContestSessionSummary, draftID: string) { return this.mutate<ContestDraftResult>(await this.operation("contest_serial_reserve", session.sessionID, session.workspaceGeneration, session.revision, {}, draftID)); }
   async commitQSO(session: ContestSessionSummary, draftID: string) { return this.mutate<ContestCommitResult>(await this.operation("contest_qso_commit", session.sessionID, session.workspaceGeneration, session.revision, {}, draftID)); }
-  retry(operation: ContestMutation) { canonicalJSON(operation.payload); if (!utcOperationISO(operation.scope.operationTimestamp)) throw new Error("Contest operation timestamp must be a canonical UTC ISO timestamp."); return this.mutate<ContestCreateResult | ContestDraftResult | ContestCommitResult>(operation); }
+  async correctQSO(session: ContestSessionSummary, qso: ContestFullQSO, reason: string) {
+    if (!validFullQSO(qso, { sessionID: session.sessionID }) || canonicalJSON(qso.ruleIdentity) !== canonicalJSON(session.rule.identity) ||
+        qso.referenceDataVersion !== session.referenceDataVersion || !text(reason, 1_024) || !reason.trim()) throw new Error("Contest correction contains an invalid or oversized field.");
+    const { entity: _serverResolvedEntity, ...correction } = qso;
+    return this.mutate<ContestQSOChangeResult>(await this.operation("contest_qso_correct", session.sessionID, session.workspaceGeneration, session.revision, { qso: correction, reason }));
+  }
+  async deleteQSO(session: ContestSessionSummary, qsoID: string, reason: string) {
+    if (!text(qsoID, 128) || !text(reason, 1_024) || !reason.trim()) throw new Error("Contest deletion contains an invalid or oversized field.");
+    return this.mutate<ContestQSOChangeResult>(await this.operation("contest_qso_delete", session.sessionID, session.workspaceGeneration, session.revision, { qsoID, reason }));
+  }
+  retry(operation: ContestMutation) { canonicalJSON(operation.payload); if (!utcOperationISO(operation.scope.operationTimestamp)) throw new Error("Contest operation timestamp must be a canonical UTC ISO timestamp."); return this.mutate<ContestCreateResult | ContestDraftResult | ContestCommitResult | ContestQSOChangeResult>(operation); }
   receipt(operation: ContestMutation) { const { sessionID, workspaceGeneration, requestID, payloadDigest } = operation.scope; return this.read<ContestOperationReceiptResult>("contest_operation_receipt", { sessionID, workspaceGeneration, requestID, payloadDigest }); }
 }
 

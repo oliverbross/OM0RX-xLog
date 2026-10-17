@@ -114,6 +114,40 @@ describe("Swift contest worker wire fixture", () => {
     expect(observed.map(([, state]) => state)).toEqual(["inflight", "confirmed"]);
   });
 
+  it("parses generated full-QSO reads and server-resolved correction and deletion results", async () => {
+    const committed = fixture.responses.commit.ok ? fixture.responses.commit.result as { session: ContestSessionSummary } : null;
+    if (!committed || !fixture.responses.qsoGet.ok || !fixture.responses.qsoCorrect.ok || !fixture.responses.qsoDelete.ok) {
+      throw new Error("Generated QSO change fixture is incomplete.");
+    }
+    const generated = [fixture.requests.qsoGet, fixture.requests.qsoCorrect, fixture.requests.qsoDelete];
+    const replies = [fixture.responses.qsoGet, fixture.responses.qsoCorrect, fixture.responses.qsoDelete];
+    const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+      const expected = generated.shift();
+      expect(method).toBe(expected === fixture.requests.qsoGet ? "contest_qso_get" : expected === fixture.requests.qsoCorrect ? "contest_qso_correct" : "contest_qso_delete");
+      expect(params).toEqual(expected);
+      return replies.shift()!;
+    }) as ContestRequest;
+    const ids = [fixture.requests.qsoCorrect.requestID, fixture.requests.qsoDelete.requestID] as string[];
+    const digests = [fixture.requests.qsoCorrect.payloadDigest, fixture.requests.qsoDelete.payloadDigest] as string[];
+    const timestamps = [fixture.requests.qsoCorrect.operationTimestamp, fixture.requests.qsoDelete.operationTimestamp] as string[];
+    const client = new ContestClient(request, () => ids.shift()!, async () => digests.shift()!, undefined, () => timestamps.shift()!);
+    const qsoID = fixture.requests.qsoGet.qsoID as string;
+
+    const read = await client.qso(committed.session, qsoID);
+    const corrected = await client.correctQSO(committed.session, {
+      ...read.qso, callsign: "DL1AAA", receivedReport: "579", receivedExchange: "2", normalizedReceivedExchange: "2",
+    }, "Correct copied call");
+    const correctedRequestQSO = (fixture.requests.qsoCorrect.payload as { qso: Record<string, unknown> }).qso;
+    expect(correctedRequestQSO).not.toHaveProperty("entity");
+    expect(corrected.currentTarget).toMatchObject({ callsign: "DL1AAA", entity: { countryPrefix: "DL", name: "FED. REP. OF GERMANY" } });
+    expect(corrected.score).toMatchObject({ qsos: 1, points: 1, multipliers: 1, claimedScore: 1 });
+
+    const nextSession = { ...committed.session, ...corrected.session };
+    const deleted = await client.deleteQSO(nextSession, qsoID, "Remove invalid contact");
+    expect(deleted).toMatchObject({ operation: "deletion", qsoID, qsoCount: 0, currentTarget: null, score: { claimedScore: 0 } });
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
   it("retains the exact generated draft operation through a post-commit uncertainty and receipt check", async () => {
     const generated = fixture.requests.postCommitApply;
     const requestID = generated.requestID as string;

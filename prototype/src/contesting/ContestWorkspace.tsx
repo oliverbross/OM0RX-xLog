@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Database, RefreshCw, Trophy } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Database, Pencil, Trash2, Trophy, X } from "lucide-react";
 import { ContestMutationUncertain, ContestServerError } from "./client";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
-import type { ContestCreateInput, ContestDraftFields, ContestLogPage, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
+import type { ContestCreateInput, ContestDraftFields, ContestFullQSO, ContestLogPage, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
 import "./ContestWorkspace.css";
 
 const PAGE_SIZE = 20;
 type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage };
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 function defaultStorage(): ContestRecoveryStorage | undefined { try { return globalThis.localStorage; } catch { return undefined; } }
+function isQSOChange(result: unknown): result is ContestQSOChangeResult { return !!result && typeof result === "object" && "operation" in result; }
 
 export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage }: Props) {
   const owner = useMemo(() => sharedContestSessionOwner(request, createRequestID, digestPayload, recoveryStorage ?? defaultStorage()), [request, createRequestID, digestPayload, recoveryStorage]);
@@ -26,7 +27,13 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const [score, setScore] = useState<ContestScore | null>(null);
   const [offset, setOffset] = useState(0);
   const [frequencyText, setFrequencyText] = useState("");
-  const [inputError, setInputError] = useState("");
+  const [editing, setEditing] = useState<{ original: ContestFullQSO; qso: ContestFullQSO } | null>(null);
+  const [editFrequencyText, setEditFrequencyText] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("Operator correction");
+  const [deletionReason, setDeletionReason] = useState("Operator deletion");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [operatingFrequencyError, setOperatingFrequencyError] = useState("");
+  const [editorFrequencyError, setEditorFrequencyError] = useState("");
   const [create, setCreate] = useState({ name: "", ruleID: "cq-ww-cw", station: "", operator: "", cqZone: "", entity: "", category: "Single Operator" });
   const actionLock = useRef(false);
   const contextTicket = useRef(0);
@@ -48,7 +55,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     return () => { cancelled = true; if (saveTimer.current !== null) window.clearTimeout(saveTimer.current); };
   }, [client, owner]);
   const frequencyContext = active && draft ? `${active.sessionID}/${active.workspaceGeneration}/${draft.draftID}` : "";
-  useEffect(() => { setFrequencyText(draft?.fields.frequencyHz?.toString() ?? ""); setInputError(""); }, [frequencyContext]);
+  useEffect(() => { setFrequencyText(draft?.fields.frequencyHz?.toString() ?? ""); setOperatingFrequencyError(""); }, [frequencyContext]);
 
   function admissionScope() { const lease = leaseRef.current, admission = owner.beginAdmission(lease); return { lease, admission }; }
   function capturedScope() { const lease = leaseRef.current, admission = owner.captureAdmission(lease); return { lease, admission }; }
@@ -74,7 +81,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       const result = await client.open(sessionID, workspaceGeneration);
       if (ticket !== contextTicket.current || !accepts(scope)) return;
       if (!owner.activate(result.session, result.draft, scope.lease!, scope.admission!)) return;
-      setManager(false); setNeedsRefresh(false);
+      setEditing(null); setConfirmDelete(false); setManager(false); setNeedsRefresh(false);
       await owner.flush();
       if (ticket !== contextTicket.current || !accepts(scope) || !owner.session) return;
       await projections(owner.session, 0, ticket, scope);
@@ -91,10 +98,10 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   function changeFrequency(raw: string) {
     if (busy || blockingOperation) return;
     setFrequencyText(raw);
-    if (!/^[0-9]{0,11}$/.test(raw)) { setInputError("Frequency must contain digits only."); return; }
+    if (!/^[0-9]{0,11}$/.test(raw)) { setOperatingFrequencyError("Frequency must contain digits only."); return; }
     const parsed = raw === "" ? null : Number(raw);
-    if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed > 100_000_000_000)) { setInputError("Frequency is outside the supported range."); return; }
-    setInputError(""); changeField("frequencyHz", parsed);
+    if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed > 100_000_000_000)) { setOperatingFrequencyError("Frequency is outside the supported range."); return; }
+    setOperatingFrequencyError(""); changeField("frequencyHz", parsed);
   }
 
   async function createSession(event: FormEvent) {
@@ -110,7 +117,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       const result = await client.create(workspaceGeneration, input);
       if (ticket !== contextTicket.current || !accepts(scope)) return;
       if (!owner.activate(result.session, result.draft, scope.lease!, scope.admission!)) return;
-      setSessions(items => [...items.filter(item => item.sessionID !== result.session.sessionID), result.session]); setManager(false);
+      setEditing(null); setConfirmDelete(false); setSessions(items => [...items.filter(item => item.sessionID !== result.session.sessionID), result.session]); setManager(false);
       await projections(result.session, 0, ticket, scope);
     } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
   }
@@ -125,7 +132,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
   }
   async function logQSO(event: FormEvent) {
-    event.preventDefault(); if (!active || !draft || blockingOperation || inputError || draft.validation.errors.length || draft.dupe.state === "duplicate" || !beginAction()) return;
+    event.preventDefault(); if (!active || !draft || blockingOperation || operatingFrequencyError || draft.validation.errors.length || draft.dupe.state === "duplicate" || !beginAction()) return;
     const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, scope = admissionScope();
     try {
       await owner.flush(); if (!accepts(scope) || owner.pendingOperation) return; const current = owner.session!, result = await client.commitQSO(current, owner.draft!.draftID);
@@ -134,14 +141,72 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       setScore(null); setNotice(`Logged ${result.qso.callsign}.`); await projections(result.session, 0, ticket, scope);
     } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
   }
+  async function editQSO(qsoID: string) {
+    if (!active || uncertain || !beginAction()) return;
+    const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, scope = admissionScope();
+    try {
+      await owner.flush();
+      if (!accepts(scope) || owner.pendingOperation || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      const result = await client.qso(owner.session, qsoID);
+      if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      setEditing({ original: result.qso, qso: result.qso }); setEditFrequencyText(String(result.qso.frequencyHz));
+      setCorrectionReason("Operator correction"); setDeletionReason("Operator deletion"); setConfirmDelete(false); setEditorFrequencyError("");
+    } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
+  }
+  function changeQSO<K extends keyof ContestFullQSO>(key: K, value: ContestFullQSO[K]) {
+    if (busy || blockingOperation) return;
+    setEditing(current => current ? { ...current, qso: { ...current.qso, [key]: value } } : current);
+  }
+  function changeQSOFrequency(raw: string) {
+    if (busy || blockingOperation) return;
+    setEditFrequencyText(raw);
+    if (!/^[0-9]{1,11}$/.test(raw)) { setEditorFrequencyError("Frequency must contain digits only."); return; }
+    const parsed = Number(raw);
+    if (!Number.isSafeInteger(parsed) || parsed > 100_000_000_000) { setEditorFrequencyError("Frequency is outside the supported range."); return; }
+    setEditorFrequencyError(""); changeQSO("frequencyHz", parsed);
+  }
+  async function refreshAfterChange(session: ContestSessionSummary, ticket: number, scope: ReturnType<typeof admissionScope>) {
+    const refreshed = await client.draft(session);
+    if (ticket !== contextTicket.current || !accepts(scope) || !owner.rebase(refreshed.session, refreshed.draft, scope.lease!, scope.admission!)) return false;
+    const adopted = owner.session!;
+    setSessions(items => items.map(item => item.sessionID === adopted.sessionID ? adopted : item));
+    await projections(adopted, 0, ticket, scope);
+    return true;
+  }
+  async function applyQSOChange(kind: "correction" | "deletion") {
+    if (!active || !editing || uncertain || kind === "correction" && editorFrequencyError || !beginAction()) return;
+    const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, target = editing.qso, scope = admissionScope();
+    try {
+      await owner.flush();
+      if (!accepts(scope) || owner.pendingOperation || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      const result = kind === "correction"
+        ? await client.correctQSO(owner.session, target, correctionReason)
+        : await client.deleteQSO(owner.session, target.qsoID, deletionReason);
+      if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      if (!owner.applyChange(result, scope.lease!, scope.admission!)) return;
+      const adopted = owner.session!;
+      setEditing(null); setConfirmDelete(false); setScore(null);
+      const country = result.currentTarget?.entity?.name;
+      setNotice(kind === "correction" ? `Saved ${result.currentTarget!.callsign}${country ? ` · ${country}` : ""}.` : `Deleted ${target.callsign}. Score recalculated.`);
+      await refreshAfterChange(adopted, ticket, scope);
+    } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
+  }
   async function checkReceipt(retry = false) {
     if (!uncertain || !beginAction()) return; const ticket = contextTicket.current, operation = uncertain, scope = admissionScope();
     try {
       if (retry) {
         const result = await client.retry(operation);
         if (ticket !== contextTicket.current || !accepts(scope)) return;
-        if (!owner.activate(result.session, result.draft, scope.lease!, scope.admission!)) return;
-        setManager(false); await projections(result.session, 0, ticket, scope);
+        if (isQSOChange(result)) {
+          const opened = await client.open(operation.scope.sessionID, operation.scope.workspaceGeneration);
+          if (ticket !== contextTicket.current || !accepts(scope) || !owner.rebase(opened.session, opened.draft, scope.lease!, scope.admission!)) return;
+          setSessions(items => items.map(item => item.sessionID === opened.session.sessionID ? opened.session : item));
+          setEditing(null); setConfirmDelete(false); setManager(false); setNotice(result.operation === "correction" ? "Saved." : "Deleted. Score recalculated.");
+          await projections(opened.session, 0, ticket, scope);
+        } else {
+          if (!owner.activate(result.session, result.draft, scope.lease!, scope.admission!)) return;
+          setManager(false); await projections(result.session, 0, ticket, scope);
+        }
       } else {
         const result = await client.receipt(operation);
         if (ticket !== contextTicket.current || !accepts(scope)) return;
@@ -149,8 +214,10 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
         else {
           const opened = await client.open(operation.scope.sessionID, operation.scope.workspaceGeneration);
           if (ticket !== contextTicket.current || !accepts(scope) || opened.session.workspaceGeneration !== operation.scope.workspaceGeneration) return;
+          const qsoChange = operation.method === "contest_qso_correct" || operation.method === "contest_qso_delete";
+          if (!(qsoChange ? owner.rebase(opened.session, opened.draft, scope.lease!, scope.admission!) : owner.activate(opened.session, opened.draft, scope.lease!, scope.admission!))) return;
           if (!owner.confirmPending(operation, scope.lease!, scope.admission!)) return;
-          if (!owner.activate(opened.session, opened.draft, scope.lease!, scope.admission!)) return;
+          if (qsoChange) { setEditing(null); setConfirmDelete(false); setNotice("Saved. Contest totals refreshed."); }
           setManager(false); await projections(opened.session, 0, ticket, scope);
         }
       }
@@ -174,18 +241,24 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     <header className="contest-header"><div><p>CONTESTING PILOT</p><h1>{active ? `${active.rule.displayName} · ${active.name}` : "Contest Workspace"}</h1></div><button type="button" disabled={disabled} onClick={() => setManager(value => !value)}><Database size={15}/>Contest Manager</button></header>
     {error && <p className="contest-alert is-error" role="alert"><AlertTriangle size={15}/>{error}{needsRefresh && <button type="button" onClick={() => void refreshDraft()}>Refresh draft</button>}</p>}
     {notice && <p className="contest-alert" role="status"><CheckCircle2 size={15}/>{notice}</p>}
-    {uncertain && <section className="contest-alert is-uncertain"><div><strong>{owner.pendingPhase === "inflight" ? "Save in progress" : "Save status unknown"}</strong><p>Request <code>{uncertain.scope.requestID}</code> remains pinned to this exact operation.</p></div>{owner.pendingPhase === "uncertain" && <><button disabled={busy} onClick={() => void checkReceipt(false)}>Check receipt</button><button disabled={busy} onClick={() => void checkReceipt(true)}>Retry same operation</button></>}</section>}
+    {uncertain && <section className="contest-alert is-uncertain"><div><strong>{owner.pendingPhase === "inflight" ? "Saving…" : busy ? "Checking save status…" : "Save status unknown"}</strong><p>The original save is preserved for receipt checking or an exact retry.</p></div>{owner.pendingPhase === "uncertain" && <><button disabled={busy} onClick={() => void checkReceipt(false)}>Check save status</button><button disabled={busy} onClick={() => void checkReceipt(true)}>Retry same save</button></>}</section>}
     {manager && <section className="contest-manager"><div className="contest-session-list"><h2>Contest sessions</h2>{sessions.map(session => <button type="button" key={session.sessionID} disabled={disabled} aria-current={active?.sessionID === session.sessionID || undefined} onClick={() => void openSession(session.sessionID)}><span><strong>{session.name}</strong><small>{session.rule.displayName} · {session.qsoCount} QSOs</small></span><time>{session.rule.identity.edition}</time></button>)}</div>
       <form className="contest-create" onSubmit={createSession} aria-label="Create contest session"><h2>New session</h2><label>Session name<input maxLength={128} value={create.name} onChange={e => setCreate({...create,name:e.target.value})}/></label><label>Contest<select value={create.ruleID} onChange={e => setCreate({...create,ruleID:e.target.value})}>{rules.map(rule => <option key={rule.identity.id} value={rule.identity.id}>{rule.displayName} · {rule.identity.edition}</option>)}</select></label><div className="contest-create-fields"><label>Station callsign<input maxLength={32} value={create.station} onChange={e => setCreate({...create,station:e.target.value})}/></label><label>Operator callsign<input maxLength={32} value={create.operator} onChange={e => setCreate({...create,operator:e.target.value})}/></label><label>CQ zone<input maxLength={8} value={create.cqZone} onChange={e => setCreate({...create,cqZone:e.target.value})}/></label><label>DXCC entity<input maxLength={160} value={create.entity} onChange={e => setCreate({...create,entity:e.target.value})}/></label></div><p className="contest-source">Exact rule and reference versions are pinned at creation.</p><button className="contest-primary" type="submit" disabled={disabled}>Create and open</button></form></section>}
     {active && draft && !manager && <>
       <section className="contest-snapshot" aria-label="Contest identity snapshot"><div><span>Station</span><strong>{active.station.callsign}</strong></div><div><span>Operator</span><strong>{active.operator.callsign}</strong></div><div><span>CQ zone</span><strong>{active.station.cqZone}</strong></div><div><span>Entity</span><strong>{active.station.dxccEntity}</strong></div><div><span>Rules</span><small className={`contest-source is-${active.rule.sourceVerification}`}>{active.rule.sourceVerification} · {active.rule.identity.version} · {active.referenceDataVersion}</small></div></section>
-      <div className="contest-operating-grid"><form className="contest-entry" aria-label="CW contest entry" onSubmit={logQSO}><header><h2>Plain Log · no transmit actions</h2><span>{owner.dirty ? "Saving draft…" : `Revision ${active.revision}`}</span></header>
+      <div className="contest-operating-grid"><form className="contest-entry" aria-label="CW contest entry" onSubmit={logQSO}><header><h2>Plain Log · no transmit actions</h2><span>{owner.dirty ? "Saving…" : "Saved"}</span></header>
         <div className="contest-entry-fields"><label className="contest-call">Callsign<input aria-label="Contest callsign" autoComplete="off" maxLength={32} disabled={entryDisabled} value={draft.fields.callsign} onChange={e => changeField("callsign", e.target.value.toUpperCase())}/></label><label>Sent report<input maxLength={3} disabled={entryDisabled} value={draft.fields.sentReport} onChange={e => changeField("sentReport", e.target.value)}/></label><label>Sent exchange<input maxLength={32} disabled={entryDisabled} value={draft.fields.sentExchange} onChange={e => changeField("sentExchange", e.target.value)}/></label><label>Received report<input maxLength={3} disabled={entryDisabled} value={draft.fields.receivedReport} onChange={e => changeField("receivedReport", e.target.value)}/></label><label>Received exchange<input maxLength={32} disabled={entryDisabled} value={draft.fields.receivedExchange} onChange={e => changeField("receivedExchange", e.target.value)}/></label></div>
         <div className="contest-entry-context"><div><span>Frequency Hz</span><input aria-label="Frequency Hz" inputMode="numeric" maxLength={11} disabled={entryDisabled} value={frequencyText} onChange={e => changeFrequency(e.target.value)}/></div><div><span>Band</span><select aria-label="Band" disabled={entryDisabled} value={draft.fields.band} onChange={e => changeField("band", e.target.value)}>{["160m","80m","40m","20m","15m","10m"].map(x => <option key={x}>{x}</option>)}</select></div><div><span>Mode</span><strong>CW</strong></div></div>
-        {inputError && <p className="contest-validation is-duplicate">{inputError}</p>}<div className={`contest-validation is-${draft.dupe.state}`}><strong>{draft.dupe.state === "duplicate" ? "Duplicate" : "Dupe check"}</strong><span>{draft.dupe.reason}</span>{[...draft.validation.errors,...draft.validation.warnings].map(item => <span key={item}>{item}</span>)}</div>
-        <footer>{active.rule.identity.id === "cq-wpx-cw" && <button type="button" disabled={disabled} onClick={() => void reserveSerial()}>{draft.reservedSerial ? `Serial ${draft.reservedSerial}` : "Reserve serial"}</button>}<button className="contest-primary" type="submit" disabled={entryDisabled || !!inputError || draft.validation.errors.length > 0 || draft.dupe.state === "duplicate"}>Log QSO</button></footer>
+        {operatingFrequencyError && <p className="contest-validation is-duplicate">{operatingFrequencyError}</p>}<div className={`contest-validation is-${draft.dupe.state}`}><strong>{draft.dupe.state === "duplicate" ? "Duplicate" : "Dupe check"}</strong><span>{draft.dupe.reason}</span>{[...draft.validation.errors,...draft.validation.warnings].map(item => <span key={item}>{item}</span>)}</div>
+        <footer>{active.rule.identity.id === "cq-wpx-cw" && <button type="button" disabled={disabled} onClick={() => void reserveSerial()}>{draft.reservedSerial ? `Serial ${draft.reservedSerial}` : "Reserve serial"}</button>}<button className="contest-primary" type="submit" disabled={entryDisabled || !!operatingFrequencyError || draft.validation.errors.length > 0 || draft.dupe.state === "duplicate"}>Log QSO</button></footer>
       </form><aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score & multipliers</h2><dl><div><dt>Claimed score</dt><dd>{score?.claimedScore.toLocaleString() ?? "—"}</dd></div><div><dt>QSOs</dt><dd>{score?.qsos ?? "—"}</dd></div><div><dt>Points</dt><dd>{score?.points ?? "—"}</dd></div><div><dt>Multipliers</dt><dd>{score?.multipliers ?? "—"}</dd></div></dl><div className="contest-multipliers">{score?.multiplierLabels.length ? score.multiplierLabels.map(x => <span key={x}>{x}</span>) : <p>No multipliers recorded.</p>}</div><p className={`contest-source is-${score?.sourceVerification ?? "unverified"}`}>Score source: {score?.sourceVerification ?? "unavailable"}</p></aside></div>
-      <section className="contest-log" aria-label="Contest log"><header><h2><ClipboardList size={15}/> Contest log</h2><p>This session only · {page?.total ?? 0} contacts</p></header><div className="contest-log-scroll"><table><thead><tr><th>UTC</th><th>Call</th><th>Band</th><th>Sent</th><th>Received</th><th>Pts</th><th>Mult</th></tr></thead><tbody>{page?.qsos.length ? page.qsos.map(qso => <tr key={qso.qsoID}><td data-label="UTC">{new Date(qso.workedAt).toISOString().slice(0,16).replace("T"," ")}</td><td data-label="Call"><strong>{qso.callsign}</strong></td><td data-label="Band">{qso.band}</td><td data-label="Sent">{qso.sentExchange}</td><td data-label="Received">{qso.receivedExchange}</td><td data-label="Points">{qso.points}</td><td data-label="Multiplier">{qso.multiplier ?? "—"}</td></tr>) : <tr><td colSpan={7}>No QSOs in this contest.</td></tr>}</tbody></table></div><footer><span>{page ? `${page.offset + (page.qsos.length ? 1 : 0)}–${page.offset + page.qsos.length} of ${page.total}` : "Loading…"}</span><div><button disabled={busy || offset===0} onClick={() => void movePage(Math.max(0,offset-PAGE_SIZE))}>Previous</button><button disabled={busy || !page || offset+page.limit>=page.total} onClick={() => void movePage(offset+PAGE_SIZE)}>Next</button></div></footer></section>
+      {editing && <form className="contest-qso-editor" aria-label={`Edit ${editing.original.callsign}`} onSubmit={event => { event.preventDefault(); void applyQSOChange("correction"); }}><header><div><h2><Pencil size={15}/> Edit {editing.original.callsign}</h2><p>Update the contact; score and duplicate credit are recalculated when saved.</p></div><button type="button" aria-label="Cancel contact edit" disabled={disabled} onClick={() => { setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); }}><X size={14}/>Cancel</button></header>
+        <div className="contest-qso-fields"><label>Callsign<input autoComplete="off" maxLength={32} disabled={disabled} value={editing.qso.callsign} onChange={event => changeQSO("callsign", event.target.value.toUpperCase())}/></label><label>Sent report<input maxLength={3} disabled={disabled} value={editing.qso.sentReport} onChange={event => changeQSO("sentReport", event.target.value)}/></label><label>Received report<input maxLength={3} disabled={disabled} value={editing.qso.receivedReport} onChange={event => changeQSO("receivedReport", event.target.value)}/></label><label>Received exchange<input maxLength={64} disabled={disabled} value={editing.qso.receivedExchange} onChange={event => { changeQSO("receivedExchange", event.target.value); changeQSO("normalizedReceivedExchange", event.target.value); }}/></label><label>Frequency Hz<input inputMode="numeric" maxLength={11} disabled={disabled} value={editFrequencyText} onChange={event => changeQSOFrequency(event.target.value)}/></label><label>Band<select disabled={disabled} value={editing.qso.band} onChange={event => changeQSO("band", event.target.value)}>{["160m","80m","40m","20m","15m","10m"].map(value => <option key={value}>{value}</option>)}</select></label></div>
+        <div className="contest-qso-readonly" aria-label="Original contact details"><div><span>Original UTC</span><strong>{new Date(editing.original.originalUTC).toISOString().replace("T", " ").slice(0, 19)} Z</strong></div><div><span>Operator</span><strong>{editing.original.operatorCallsign || "Not recorded"}</strong></div><div><span>Station location</span><strong>{editing.original.stationLocation || "Not recorded"}</strong></div><div><span>Sent allocation</span><strong>{editing.original.sentExchange || "Not allocated"}</strong></div><div><span>{editing.qso.callsign === editing.original.callsign ? "Entity" : "Original entity"}</span><strong>{editing.original.entity?.name ?? "Unavailable"}</strong>{editing.qso.callsign !== editing.original.callsign && <small>New callsign country is checked against the pinned reference when saved.</small>}</div><div><span>Source</span><strong>{editing.original.provenance.source === "operatorEntry" ? "Operator entry" : "Imported contact"}</strong></div></div>
+        {editorFrequencyError && <p className="contest-validation is-duplicate">{editorFrequencyError}</p>}<label className="contest-qso-note">Correction note<input maxLength={1024} disabled={disabled} value={correctionReason} onChange={event => setCorrectionReason(event.target.value)}/></label>
+        {confirmDelete && <div className="contest-delete-confirm" role="alert"><div><strong>Delete {editing.original.callsign}?</strong><p>This removes the contact and recalculates score, multiplier, and duplicate credit.</p></div><label>Deletion note<input maxLength={1024} disabled={disabled} value={deletionReason} onChange={event => setDeletionReason(event.target.value)}/></label><button type="button" className="contest-danger" disabled={disabled || !deletionReason.trim()} onClick={() => void applyQSOChange("deletion")}><Trash2 size={14}/>Confirm deletion</button></div>}
+        <footer><button type="button" className="contest-danger-secondary" disabled={disabled} onClick={() => setConfirmDelete(value => !value)}><Trash2 size={14}/>{confirmDelete ? "Keep contact" : "Delete contact"}</button><button className="contest-primary" type="submit" disabled={disabled || !!editorFrequencyError || !correctionReason.trim()}>Save correction</button></footer></form>}
+      <section className="contest-log" aria-label="Contest log"><header><h2><ClipboardList size={15}/> Contest log</h2><p>This session only · {page?.total ?? 0} contacts</p></header><div className="contest-log-scroll"><table><thead><tr><th>UTC</th><th>Call</th><th>Band</th><th>Sent</th><th>Received</th><th>Pts</th><th>Mult</th><th><span className="contest-visually-hidden">Actions</span></th></tr></thead><tbody>{page?.qsos.length ? page.qsos.map(qso => <tr key={qso.qsoID}><td data-label="UTC">{new Date(qso.workedAt).toISOString().slice(0,16).replace("T"," ")}</td><td data-label="Call"><strong>{qso.callsign}</strong></td><td data-label="Band">{qso.band}</td><td data-label="Sent">{qso.sentExchange}</td><td data-label="Received">{qso.receivedExchange}</td><td data-label="Points">{qso.points}</td><td data-label="Multiplier">{qso.multiplier ?? "—"}</td><td data-label="Actions"><button type="button" disabled={disabled} aria-label={`Edit ${qso.callsign}`} onClick={() => void editQSO(qso.qsoID)}><Pencil size={13}/>Edit</button></td></tr>) : <tr><td colSpan={8}>No QSOs in this contest.</td></tr>}</tbody></table></div><footer><span>{page ? `${page.offset + (page.qsos.length ? 1 : 0)}–${page.offset + page.qsos.length} of ${page.total}` : "Loading…"}</span><div><button disabled={busy || offset===0} onClick={() => void movePage(Math.max(0,offset-PAGE_SIZE))}>Previous</button><button disabled={busy || !page || offset+page.limit>=page.total} onClick={() => void movePage(offset+PAGE_SIZE)}>Next</button></div></footer></section>
     </>}
   </main>;
 }

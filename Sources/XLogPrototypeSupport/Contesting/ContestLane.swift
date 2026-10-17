@@ -448,7 +448,7 @@ actor ContestLane {
         try Wire.exact(value, ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode",
                                "frequencyHz", "sentReport", "receivedReport", "sentExchange",
                                "normalizedSentExchange", "allocatedSerial", "receivedExchange",
-                               "normalizedReceivedExchange", "entity", "operatorCallsign", "stationLocation",
+                               "normalizedReceivedExchange", "operatorCallsign", "stationLocation",
                                "provenance", "ruleIdentity", "referenceDataVersion"])
         let qsoID = try Wire.uuid(value, "qsoID")
         let sessionID = try Wire.uuid(value, "sessionID")
@@ -472,10 +472,9 @@ actor ContestLane {
         guard try Wire.text(value, "allocatedSerial", max: 64, empty: true) == normalizedSent else {
             throw ContestLaneError.confirmed("invalid_params", "The allocated sent value is inconsistent.")
         }
-        let suppliedEntity = try Wire.entity(Wire.object(value, "entity"))
         guard let country = reference.resolve(callsign, at: originalUTC),
-              let resolvedEntity = try? reference.entity(country), suppliedEntity == resolvedEntity else {
-            throw ContestLaneError.confirmed("reference_mismatch", "The corrected callsign entity does not match pinned CTY data.")
+              let resolvedEntity = try? reference.entity(country) else {
+            throw ContestLaneError.confirmed("reference_mismatch", "The corrected callsign does not resolve in pinned CTY data.")
         }
         guard try Wire.ruleIdentity(Wire.object(value, "ruleIdentity")) == stored.session.rule,
               try Wire.text(value, "referenceDataVersion", max: 160) == stored.session.referenceDataVersion else {
