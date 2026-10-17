@@ -497,7 +497,7 @@ final class OnlineLogURLSessionClient: OnlineLogHTTPClient, @unchecked Sendable 
         }
 
         func cancel() {
-            let task = lock.withLock { cancelled = true; return task }
+            let task = lock.withLock { cancelled = true; return self.task }
             task?.cancel()
         }
 
