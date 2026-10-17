@@ -27,6 +27,9 @@ The harness records requests, framed responses, process exits, stderr, descripto
 - health does not report the isolated test profile;
 - a contest request becomes usable before an empty workspace is created;
 - CQ WW or CQ WPX create, draft, reserve, commit, read, replay, receipt, or restart recovery fails;
+- a full QSO read, country-changing correction, deletion tombstone, exact post-restart replay, or mutation receipt fails;
+- correction accepts caller-supplied entity data, or stale generation/revision fences are bypassed;
+- a corrected contact does not revalidate the operating draft duplicate state, or deletion/recommit reuses an allocated WPX serial;
 - an external service request is admitted;
 - the worker owns a network socket or radio-like device descriptor during the sampled checks;
 - any protected production database or SQLite sidecar metadata changes; or
@@ -37,9 +40,27 @@ The descriptor checks are sampled process evidence. The stronger prevention boun
 
 The harness does not monitor every filesystem path. Its outside-root evidence is limited to before/after metadata for the two protected production SQLite databases and their sidecars, plus the observed synthetic test support root. The synthetic-home inventory covers only that home. The acceptance harness and documentation may be uncommitted while they collect evidence, but `Package.swift`, `Sources`, and `Tests` must match the expected commit. Re-run this gate for the final packaged application after the approved main-line merge.
 
+## Pending correction/deletion extension
+
+The reviewed source extension after the `ff2b8e3` run has not yet been built or executed. A future run from the exact integrated commit will retain the same bootstrap, profile, synthetic home, external-I/O denials, descriptor samples, protected metadata checks, normal isolated-log zero assertions, and build-manifest provenance. Each framed exchange now receives a monotonically numbered `operation` in the evidence report, which also records its exact process lifecycle and method. The source bounds the two-process scenario to exactly 56 framed operations and fails if that ledger changes without review.
+
+After the first WPX contact is committed with serial `001`, the extended scenario will:
+
+1. read the complete revision-bound QSO and verify its original UTC, resolved DL entity, operator provenance, sent exchange, and allocated serial;
+2. reject a generation-mismatched read;
+3. reserve serial `002`, apply a synthetic K1ABC operating draft, and verify that it is initially clear;
+4. reject a correction containing caller-supplied entity data and reject a separately identified stale-revision correction;
+5. correct the stored DL contact to K1ABC using the entity-free full-QSO payload derived from the read, verify the server-resolved K entity and rescored scalar result, and retrieve its durable receipt;
+6. reread the operating draft and require duplicate state while preserving its fields and active serial `002`;
+7. delete the corrected contact, require a tombstone on full-QSO read, retrieve the deletion receipt, and require the same draft to become clear without losing serial `002`;
+8. commit that draft with serial `002` and require the next reservation to be `003`; and
+9. restart the real worker, verify both mutation receipts, replay the exact correction and deletion responses after the later delete/recommit sequence, recheck the tombstone, and verify the replacement live contact uses serial `002`.
+
+The new helper has a focused Node test proving that correction construction removes `entity` and refuses harness changes to immutable identity, UTC, provenance, sent allocation, rule, and reference fields. Source validation is not worker-process acceptance. A fresh release worker and new evidence directory must be produced only after this script is reviewed and committed; the historical binary below does not contain or test the integrated correction/deletion implementation.
+
 ## Accepted worker-process run
 
-The real-process gate passed on 17 October 2026 at clean source `ff2b8e3476187ed19db0711aa16786a90bad2165`, using Apple Swift 6.4 (`swiftlang-6.4.0.34.1`, target `arm64-apple-macosx27.0.0`). The fresh release build used the recorded two-job SwiftPM/Xcode command. Its worker was 35,711,176 bytes with SHA-256 `6dab1e5b431a7a39f3136b978e0705c37d9cf6e85b65f7efbf3d14738c85c4ad`; the resource manifest tree SHA-256 was `748093a0e25253926e8440a7afc997947da0211c1a7d11ee4d695e57cdc3d1b3`. The build manifest SHA-256 was `8f6f6ed096276a5e90d40ac1391b50c351ba054362338834c217afd4ce300f6b`.
+The historical real-process gate passed on 17 October 2026 at clean source `ff2b8e3476187ed19db0711aa16786a90bad2165`, using Apple Swift 6.4 (`swiftlang-6.4.0.34.1`, target `arm64-apple-macosx27.0.0`). The fresh release build used the recorded two-job SwiftPM/Xcode command. Its worker was 35,711,176 bytes with SHA-256 `6dab1e5b431a7a39f3136b978e0705c37d9cf6e85b65f7efbf3d14738c85c4ad`; the resource manifest tree SHA-256 was `748093a0e25253926e8440a7afc997947da0211c1a7d11ee4d695e57cdc3d1b3`. The build manifest SHA-256 was `8f6f6ed096276a5e90d40ac1391b50c351ba054362338834c217afd4ce300f6b`.
 
 The harness completed 35 framed exchanges across the initial process and a clean restart; both exited zero with empty stderr. It proved missing-profile failure, isolated health and Foundation support-root resolution, empty-workspace onboarding, CQ WW scoring at 3 points / 2 multipliers / claimed score 6, CQ WPX reserve and commit at 2 points / 1 multiplier / claimed score 2, exact mutation replay, durable receipts and reopen after restart. It did not simulate a crash. Cluster, station, online-log and network lookup requests were denied. The separate normal isolated logbook remained at zero QSOs, pending sync operations and outbox entries. Staged executable and resource hashes were unchanged after the run. The protected normal production database and sidecars remained absent; the existing Integrated Preview database and sidecar metadata were unchanged, without reading their contents.
 
