@@ -10,6 +10,10 @@ Multiplier authority is separately pinned to the ARRL [Canadian list](https://co
 
 ## Station-resolved exchange
 
+The first worker boundary remains inactive in the production catalog while its authority contract is exercised with an injected registry. Version-two metadata may declare exactly one separate required `cabrilloLocation` station field for this station-resolved policy. It is stored in the existing immutable `ContestStationSnapshot.location`; it is not an exchange field and it is never inferred from the on-air subdivision. A continental-US station may therefore send `CA` while retaining the independent Cabrillo section `EB`. Invalid section/entity combinations fail before session creation and create no receipt or partial database row.
+
+ARRL session and draft responses conditionally expose the server-resolved serial requirement, allowed scopes, and allocated field identifier. W/VE responses forbid serial reservation; DX responses require session-scoped allocation. Creation hints are descriptive only: the lane resolves the frozen station entity, and the store remains the authority for reservation and commit. Existing version-one and NAQP version-two metadata, station, session, and draft wire objects omit these new conditional members exactly.
+
 `ContestStationResolvedSerialDescriptor` is an optional version-two entry descriptor. Absence maps exactly to the established static `ContestSerialDescriptor`; version-one descriptors reject the new key even when it is JSON `null`. The only admitted policy in this slice is `arrlRTTYRoundupWVEOrDX`. Rule metadata declares one optional `location` subdivision field, one optional `serial` numeric field, and session serial scope. Metadata coherence rejects duplicate or ambiguous fields, static/conditional contradictions, unsupported scope sets, and unknown policies.
 
 The throwing `ContestRule.resolvedSerialRequirement(in:)` resolves only after the immutable rule identity, descriptor, and frozen station snapshot agree:
@@ -19,7 +23,7 @@ The throwing `ContestRule.resolvedSerialRequirement(in:)` resolves only after th
 
 Drafts may keep an incomplete received exchange while editing. A W/VE draft must retain the station subdivision and cannot reserve a serial. A DX reservation atomically allocates `001`, binds it into the typed raw and normalized serial field and both sent aggregates, and survives restart. Commit verifies all four text projections against the durable reservation. A failed, forged, foreign, or exhausted reservation attempt changes no session revision, draft, counter, reservation, QSO, or receipt. Successful commit consumes the reservation and reset clears the allocated serial while preserving nonserial station fields. Existing correction paths continue to retain immutable sent fields.
 
-No SQLite schema change is required: station policy belongs to immutable rule metadata; sessions, drafts, reservations, QSOs, operations, and canonical request bytes keep their existing shapes. Existing contest identities and version-one encodings remain unchanged.
+No SQLite schema change or exposed-session migration is required: station policy belongs to immutable rule metadata; sessions, drafts, reservations, QSOs, operations, and canonical request bytes keep their existing shapes. Existing contest identities and version-one encodings remain unchanged. Tightening the invalid placeholder sections in inactive core fixtures establishes the future admission boundary; it does not migrate an activated user session.
 
 ## Inactive scoring preview
 

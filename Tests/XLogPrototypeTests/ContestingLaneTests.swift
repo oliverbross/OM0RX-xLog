@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import XContestCore
 @testable import XLogPrototypeSupport
 
 final class ContestingLaneTests: XCTestCase {
@@ -221,6 +222,8 @@ final class ContestingLaneTests: XCTestCase {
                 XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 1)
                 XCTAssertNil(entry["version"])
             }
+            XCTAssertNil(entry["stationFields"])
+            XCTAssertNil(entry["stationResolvedSerial"])
         }
 
         for ruleName in ["CQ WW SSB", "CQ WPX SSB", "Oceania DX CW", "Oceania DX SSB",
@@ -229,6 +232,11 @@ final class ContestingLaneTests: XCTestCase {
             defer { try? FileManager.default.removeItem(at: root) }
             let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
             let (sessionID, draftID, created) = try await makeSession(lane, ruleName: ruleName)
+            let createdSession = try XCTUnwrap(created["session"] as? [String: Any])
+            let createdDraft = try XCTUnwrap(created["draft"] as? [String: Any])
+            XCTAssertNil(createdSession["resolvedSerial"])
+            XCTAssertNil((createdSession["station"] as? [String: Any])?["stationFields"])
+            XCTAssertNil(createdDraft["resolvedSerial"])
             let sessionRule = try XCTUnwrap(((created["session"] as? [String: Any])?["rule"] as? [String: Any]))
             let entry = try XCTUnwrap(sessionRule["entry"] as? [String: Any])
             let mode = ruleName.hasSuffix("CW") ? "CW" : "SSB"
@@ -314,6 +322,86 @@ final class ContestingLaneTests: XCTestCase {
             let open = try await reopened.handle(method: "contest_open", params: ["sessionID": wireID(sessionID), "workspaceGeneration": generation])
             XCTAssertEqual(((open["session"] as? [String: Any])?["revision"] as? NSNumber)?.intValue, revision)
         }
+    }
+
+    func testInactiveARRLWireUsesFrozenSectionAndStationResolvedSerialAuthority() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-arrl-rtty-lane-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let registry = ContestRuleRegistry([ARRLRTTYRoundupRule()])
+        let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite"),
+                                   generationSource: { [generation] in generation }, rules: registry)
+        let catalog = try await lane.handle(method: "contest_catalog", params: [:])
+        let rule = try XCTUnwrap((catalog["rules"] as? [[String: Any]])?.first)
+        let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
+        XCTAssertEqual((entry["stationFields"] as? [[String: Any]])?.first?["id"] as? String, "section")
+        XCTAssertEqual((entry["stationResolvedSerial"] as? [String: Any])?["policy"] as? String,
+                       "arrlRTTYRoundupWVEOrDX")
+
+        func create(_ sessionID: UUID, _ requestID: UUID, call: String, zone: String,
+                    entity: String, exchange: [String: String], section: String) async throws -> [String: Any] {
+            try await lane.handle(method: "contest_create", params: mutation(
+                sessionID: sessionID, requestID: requestID, revision: 0,
+                timestamp: "2026-10-18T15:00:00.000Z", payload: [
+                    "sessionID": wireID(sessionID), "name": "ARRL RTTY inactive wire",
+                    "ruleIdentity": try XCTUnwrap(rule["identity"] as? [String: Any]),
+                    "referenceDataVersion": try XCTUnwrap(rule["referenceDataVersion"] as? String),
+                    "station": ["callsign": call, "cqZone": zone, "dxccEntity": entity,
+                                "exchangeFields": exchange, "stationFields": ["section": section]],
+                    "operator": ["callsign": call, "category": "Single Operator"],
+                ]))
+        }
+
+        let usSession = UUID(), usDraft = UUID()
+        let usCreated = try await create(usSession, usDraft, call: "K1AAA", zone: "5",
+                                         entity: "UNITED STATES",
+                                         exchange: ["location": "CA", "serial": ""], section: "EB")
+        let usSessionWire = try XCTUnwrap(usCreated["session"] as? [String: Any])
+        XCTAssertEqual((usSessionWire["station"] as? [String: Any])?["stationFields"] as? [String: String],
+                       ["section": "EB"])
+        let usSessionPolicy = try XCTUnwrap(usSessionWire["resolvedSerial"] as? [String: Any])
+        let usDraftPolicy = try XCTUnwrap((usCreated["draft"] as? [String: Any])?["resolvedSerial"] as? [String: Any])
+        XCTAssertEqual(usSessionPolicy["requirement"] as? String, "none")
+        XCTAssertEqual(try canonicalJSON(usSessionPolicy), try canonicalJSON(usDraftPolicy))
+        do {
+            _ = try await lane.handle(method: "contest_serial_reserve", params: mutation(
+                sessionID: usSession, requestID: UUID(), revision: 1,
+                timestamp: "2026-10-18T15:01:00.000Z", payload: [:], draftID: usDraft))
+            XCTFail("Expected W/VE serial reservation to reject before mutation")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "serial_not_supported") }
+        let usOpen = try await lane.handle(method: "contest_open", params: [
+            "sessionID": wireID(usSession), "workspaceGeneration": generation])
+        XCTAssertEqual(((usOpen["session"] as? [String: Any])?["revision"] as? NSNumber)?.intValue, 1)
+
+        let invalidSession = UUID(), invalidDraft = UUID()
+        do {
+            _ = try await create(invalidSession, invalidDraft, call: "K1BBB", zone: "5",
+                                 entity: "UNITED STATES",
+                                 exchange: ["location": "CA", "serial": ""], section: "CA")
+            XCTFail("Expected invalid section to fail before durable creation")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "invalid_session") }
+        let afterInvalid = try await lane.handle(method: "contest_sessions", params: [:])
+        XCTAssertEqual((afterInvalid["sessions"] as? [[String: Any]])?.count, 1)
+
+        let dxSession = UUID(), dxDraft = UUID(), reserveID = UUID()
+        let dxCreated = try await create(dxSession, dxDraft, call: "DL1AAA", zone: "14",
+                                         entity: "FED. REP. OF GERMANY",
+                                         exchange: ["location": "", "serial": ""], section: "DX")
+        XCTAssertEqual((((dxCreated["session"] as? [String: Any])?["resolvedSerial"] as? [String: Any])?["allocatedFieldID"] as? String),
+                       "serial")
+        let reserveParams = mutation(sessionID: dxSession, requestID: reserveID, revision: 1,
+                                     timestamp: "2026-10-18T15:02:00.000Z", payload: [:], draftID: dxDraft)
+        let reserved = try await lane.handle(method: "contest_serial_reserve", params: reserveParams)
+        XCTAssertEqual((((reserved["draft"] as? [String: Any])?["fields"] as? [String: Any])?["sentExchangeFields"] as? [String: String])?["serial"],
+                       "001")
+        let replayed = try await lane.handle(method: "contest_serial_reserve", params: reserveParams)
+        XCTAssertEqual(try canonicalJSON(reserved), try canonicalJSON(replayed))
+
+        let reopened = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite"),
+                                       generationSource: { [generation] in generation }, rules: registry)
+        let dxOpen = try await reopened.handle(method: "contest_open", params: [
+            "sessionID": wireID(dxSession), "workspaceGeneration": generation])
+        XCTAssertEqual((((dxOpen["draft"] as? [String: Any])?["fields"] as? [String: Any])?["sentExchangeFields"] as? [String: String])?["serial"],
+                       "001")
     }
 
     func testOceaniaWorkerScoringMatchesIndependentFiftyOneAndOneHundredOracles() async throws {
@@ -884,6 +972,9 @@ final class ContestingLaneTests: XCTestCase {
             ], workspaceGeneration: workspaceGeneration)
         let naqpCreated = try await workerRequest(worker, method: "contest_create", params: naqpCreate)
         let naqpCreatedResult = try XCTUnwrap(naqpCreated["result"] as? [String: Any])
+        XCTAssertNil((naqpCreatedResult["session"] as? [String: Any])?["resolvedSerial"])
+        XCTAssertNil(((naqpCreatedResult["session"] as? [String: Any])?["station"] as? [String: Any])?["stationFields"])
+        XCTAssertNil((naqpCreatedResult["draft"] as? [String: Any])?["resolvedSerial"])
         XCTAssertEqual(((naqpCreatedResult["session"] as? [String: Any])?["station"] as? [String: Any])?["exchangeFields"] as? [String: String],
                        ["name": "AL", "location": ""])
         XCTAssertEqual(((naqpCreatedResult["draft"] as? [String: Any])?["fields"] as? [String: Any])?["receivedExchangeFields"] as? [String: String],
