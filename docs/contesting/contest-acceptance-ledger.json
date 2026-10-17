@@ -22,8 +22,9 @@
   "interpretation": {
     "selectorAvailability": "A selector row means the pinned upstream UI can name and import the plugin; it is not xLog implementation or acceptance evidence.",
     "sourceExtraction": "Mode, exchange and duplicate policy fields are static observations from each pinned plugin source. Missing or dynamic values remain unresolved.",
-    "pilotBoundary": "Only CQ WW CW and CQ WPX CW are xLog source-derived pilots. Their evidence is source-derived and test-scoped, not current sponsor certification.",
-    "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin."
+    "pilotBoundary": "Exactly six xLog source-derived pilots are recorded: CQ WW and CQ WPX in CW and SSB, plus Oceania DX in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, or operator acceptance.",
+    "pendingBoundary": "pending and unknown fields are deliberate; no acceptance is inferred from source presence, selector presence, shared infrastructure, or another plugin.",
+    "separateCandidateBoundary": "Corrected SAC scoring exists separately at c406a5fcfc1168b1f7c8c455d0d00486a425c380 and is not integrated into this six-pilot baseline; SAC remains pending in this ledger."
   },
   "validation": {
     "script": "docs/contesting/validate-contest-acceptance-ledger.mjs",
@@ -2396,39 +2397,43 @@
         "ruleAudit": {
           "status": "audited-gaps-open",
           "evidence": [
-            "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md",
-            "docs/CONTESTING_PORT_PROJECT_PLAN_2026-10-17.md"
-          ]
+            "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md"
+          ],
+          "note": "Pinned source behavior is implemented; current sponsor reconciliation and open semantic gaps remain outside this status."
         },
         "sourceDerivedScoringCases": {
           "status": "source-derived-tested",
           "evidence": [
             "Sources/XContestCore/PilotRules.swift",
             "Tests/XContestCoreTests/ContestCoreTests.swift",
-            "Tests/XContestCoreTests/SourceFixtures/probe_wpx_prefix.py",
-            "Tests/XContestCoreTests/SourceFixtures/wpx_prefix_expected.json",
-            "docs/contesting/CORE_CONTRACT.md"
+            "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md"
           ]
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "Current pilot scoring tests derive expected behavior from the pinned translation source; independent current-sponsor cases remain pending."
+          "status": "independent-fixture-recorded",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/four-pilot-operator-oracles.json",
+            "docs/contesting/FOUR_PILOT_OPERATOR_SCENARIOS.md"
+          ],
+          "note": "The arithmetic fixture is independent from the Swift rule engine but is not wired to an executed operator acceptance test."
         },
         "mutationRestart": {
-          "status": "pilot-integrated-tested",
+          "status": "process-and-store-tested",
           "evidence": [
             "Tests/XContestStoreTests/ContestStoreTests.swift",
             "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
             "docs/contesting/STORE_CONTRACT.md",
             "docs/contesting/WORKER_PROCESS_ACCEPTANCE.md"
-          ]
+          ],
+          "note": "Historical isolated worker-process acceptance covers this CW pilot; the current six-pilot ContestingLaneTests evidence remains local at 6e721cdd2a15c850302a938c550892b0bf26c31a."
         },
         "exportGoldens": {
           "status": "source-derived-tested",
           "evidence": [
             "Tests/XContestCoreTests/SourceFixtures/Exports/cq-wpx-cw-pilot.cbr",
-            "Tests/XContestCoreTests/ContestExportTests.swift"
+            "Tests/XContestCoreTests/ContestExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestADIFExportTests.swift",
+            "docs/contesting/EXPORT_FORMAT_CONTRACT.md"
           ]
         },
         "runSP": {
@@ -2441,9 +2446,9 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Platform evidence is checkpoint-specific; it is not sponsor certification or full plugin acceptance."
+          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
         },
-        "certification": "source-derived preview; not sponsor-certified"
+        "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
     },
     {
@@ -2598,34 +2603,60 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "source-derived-pilot",
+        "ruleIdentity": {
+          "id": "cq-wpx-ssb",
+          "version": "1.0.0-source-spike",
+          "edition": "source-26.10.11",
+          "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "audited-gaps-open",
+          "evidence": [
+            "docs/contesting/SSB_RULE_CONTRACT.md"
+          ],
+          "note": "Pinned source behavior is implemented; current sponsor reconciliation and open semantic gaps remain outside this status."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Sources/XContestCore/PilotRules.swift",
+            "Tests/XContestCoreTests/ContestSSBTests.swift",
+            "docs/contesting/SSB_RULE_CONTRACT.md"
+          ]
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-fixture-recorded",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/four-pilot-operator-oracles.json",
+            "docs/contesting/FOUR_PILOT_OPERATOR_SCENARIOS.md"
+          ],
+          "note": "The arithmetic fixture is independent from the Swift rule engine but is not wired to an executed operator acceptance test."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "native-store-and-local-worker-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestSSBStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/STORE_CONTRACT.md",
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Store coverage ran in the native matrix; six-pilot ContestingLaneTests lifecycle coverage remains local at 6e721cdd2a15c850302a938c550892b0bf26c31a."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/cq-wpx-ssb-pilot.json",
+            "Tests/XContestCoreTests/ContestSSBTests.swift",
+            "Tests/XLogPrototypeTests/ContestADIFExportTests.swift",
+            "docs/contesting/EXPORT_FORMAT_CONTRACT.md"
+          ]
         },
         "runSP": {
           "status": "pending",
@@ -2633,11 +2664,13 @@
           "note": "No RunSP acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
     },
     {
@@ -2709,38 +2742,43 @@
         "ruleAudit": {
           "status": "audited-gaps-open",
           "evidence": [
-            "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md",
-            "docs/CONTESTING_PORT_PROJECT_PLAN_2026-10-17.md"
-          ]
+            "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md"
+          ],
+          "note": "Pinned source behavior is implemented; current sponsor reconciliation and open semantic gaps remain outside this status."
         },
         "sourceDerivedScoringCases": {
           "status": "source-derived-tested",
           "evidence": [
             "Sources/XContestCore/PilotRules.swift",
             "Tests/XContestCoreTests/ContestCoreTests.swift",
-            "docs/contesting/CORE_CONTRACT.md"
+            "docs/contesting/PILOT_SPONSOR_RULE_AUDIT.md"
           ]
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "Current pilot scoring tests derive expected behavior from the pinned translation source; independent current-sponsor cases remain pending."
+          "status": "independent-fixture-recorded",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/four-pilot-operator-oracles.json",
+            "docs/contesting/FOUR_PILOT_OPERATOR_SCENARIOS.md"
+          ],
+          "note": "The arithmetic fixture is independent from the Swift rule engine but is not wired to an executed operator acceptance test."
         },
         "mutationRestart": {
-          "status": "pilot-integrated-tested",
+          "status": "process-and-store-tested",
           "evidence": [
             "Tests/XContestStoreTests/ContestStoreTests.swift",
             "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
             "docs/contesting/STORE_CONTRACT.md",
             "docs/contesting/WORKER_PROCESS_ACCEPTANCE.md"
-          ]
+          ],
+          "note": "Historical isolated worker-process acceptance covers this CW pilot; the current six-pilot ContestingLaneTests evidence remains local at 6e721cdd2a15c850302a938c550892b0bf26c31a."
         },
         "exportGoldens": {
           "status": "source-derived-tested",
           "evidence": [
             "Tests/XContestCoreTests/SourceFixtures/Exports/cq-ww-cw-pilot.cbr",
-            "Tests/XContestCoreTests/SourceFixtures/Exports/cq-ww-cw-pilot-2-single-band.cbr",
-            "Tests/XContestCoreTests/ContestExportTests.swift"
+            "Tests/XContestCoreTests/ContestExportTests.swift",
+            "Tests/XLogPrototypeTests/ContestADIFExportTests.swift",
+            "docs/contesting/EXPORT_FORMAT_CONTRACT.md"
           ]
         },
         "runSP": {
@@ -2753,9 +2791,9 @@
           "evidence": [
             "docs/contesting/PLATFORM_VALIDATION.md"
           ],
-          "note": "Platform evidence is checkpoint-specific; it is not sponsor certification or full plugin acceptance."
+          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
         },
-        "certification": "source-derived preview; not sponsor-certified"
+        "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
     },
     {
@@ -2907,34 +2945,60 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "source-derived-pilot",
+        "ruleIdentity": {
+          "id": "cq-ww-ssb",
+          "version": "1.0.0-source-spike",
+          "edition": "source-26.10.11",
+          "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "audited-gaps-open",
+          "evidence": [
+            "docs/contesting/SSB_RULE_CONTRACT.md"
+          ],
+          "note": "Pinned source behavior is implemented; current sponsor reconciliation and open semantic gaps remain outside this status."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Sources/XContestCore/PilotRules.swift",
+            "Tests/XContestCoreTests/ContestSSBTests.swift",
+            "docs/contesting/SSB_RULE_CONTRACT.md"
+          ]
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-fixture-recorded",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/four-pilot-operator-oracles.json",
+            "docs/contesting/FOUR_PILOT_OPERATOR_SCENARIOS.md"
+          ],
+          "note": "The arithmetic fixture is independent from the Swift rule engine but is not wired to an executed operator acceptance test."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "native-store-and-local-worker-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestSSBStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/STORE_CONTRACT.md",
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Store coverage ran in the native matrix; six-pilot ContestingLaneTests lifecycle coverage remains local at 6e721cdd2a15c850302a938c550892b0bf26c31a."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/cq-ww-ssb-pilot.json",
+            "Tests/XContestCoreTests/ContestSSBTests.swift",
+            "Tests/XLogPrototypeTests/ContestADIFExportTests.swift",
+            "docs/contesting/EXPORT_FORMAT_CONTRACT.md"
+          ]
         },
         "runSP": {
           "status": "pending",
@@ -2942,11 +3006,13 @@
           "note": "No RunSP acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
     },
     {
@@ -6262,34 +6328,60 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "source-derived-pilot",
+        "ruleIdentity": {
+          "id": "oceania-dx-cw",
+          "version": "1.0.0-source-spike",
+          "edition": "source-26.10.11",
+          "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "audited-gaps-open",
+          "evidence": [
+            "docs/contesting/OCEANIA_RULE_CONTRACT.md"
+          ],
+          "note": "Pinned source behavior is implemented; current sponsor reconciliation and open semantic gaps remain outside this status."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Sources/XContestCore/OceaniaRules.swift",
+            "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+            "docs/contesting/OCEANIA_RULE_CONTRACT.md"
+          ]
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+            "docs/contesting/OCEANIA_RULE_CONTRACT.md"
+          ],
+          "note": "Expected arithmetic is stated independently from the Swift rule implementation. This is not an executed operator acceptance scenario."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "native-store-and-local-worker-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestOceaniaStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/STORE_CONTRACT.md",
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Store coverage ran in the native matrix; six-pilot ContestingLaneTests lifecycle coverage remains local at 6e721cdd2a15c850302a938c550892b0bf26c31a."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/oceania-dx-cw-pilot.json",
+            "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+            "Tests/XLogPrototypeTests/ContestADIFExportTests.swift",
+            "docs/contesting/EXPORT_FORMAT_CONTRACT.md"
+          ]
         },
         "runSP": {
           "status": "pending",
@@ -6297,11 +6389,13 @@
           "note": "No RunSP acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
     },
     {
@@ -6358,34 +6452,60 @@
         "extraction": "Python AST top-level literal assignments; dynamic or absent values remain unresolved"
       },
       "xlogAcceptance": {
-        "implementationStatus": "pending",
-        "ruleIdentity": null,
+        "implementationStatus": "source-derived-pilot",
+        "ruleIdentity": {
+          "id": "oceania-dx-ssb",
+          "version": "1.0.0-source-spike",
+          "edition": "source-26.10.11",
+          "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+        },
         "referenceIdentity": {
-          "status": "pending",
-          "value": null,
-          "source": null,
-          "resourceSha256": null
+          "status": "runtime-derived-pinned-resource",
+          "value": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "source": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift#ContestReferenceData.bundled",
+          "resourceSha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
         },
         "ruleAudit": {
-          "status": "pending",
-          "evidence": []
+          "status": "audited-gaps-open",
+          "evidence": [
+            "docs/contesting/OCEANIA_RULE_CONTRACT.md"
+          ],
+          "note": "Pinned source behavior is implemented; current sponsor reconciliation and open semantic gaps remain outside this status."
         },
         "sourceDerivedScoringCases": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Sources/XContestCore/OceaniaRules.swift",
+            "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+            "docs/contesting/OCEANIA_RULE_CONTRACT.md"
+          ]
         },
         "independentScoringCases": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No independent scoring evidence is recorded."
+          "status": "independent-arithmetic-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+            "docs/contesting/OCEANIA_RULE_CONTRACT.md"
+          ],
+          "note": "Expected arithmetic is stated independently from the Swift rule implementation. This is not an executed operator acceptance scenario."
         },
         "mutationRestart": {
-          "status": "pending",
-          "evidence": []
+          "status": "native-store-and-local-worker-tested",
+          "evidence": [
+            "Tests/XContestStoreTests/ContestOceaniaStoreTests.swift",
+            "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+            "docs/contesting/STORE_CONTRACT.md",
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Store coverage ran in the native matrix; six-pilot ContestingLaneTests lifecycle coverage remains local at 6e721cdd2a15c850302a938c550892b0bf26c31a."
         },
         "exportGoldens": {
-          "status": "pending",
-          "evidence": []
+          "status": "source-derived-tested",
+          "evidence": [
+            "Tests/XContestCoreTests/SourceFixtures/Exports/oceania-dx-ssb-pilot.json",
+            "Tests/XContestCoreTests/ContestOceaniaTests.swift",
+            "Tests/XLogPrototypeTests/ContestADIFExportTests.swift",
+            "docs/contesting/EXPORT_FORMAT_CONTRACT.md"
+          ]
         },
         "runSP": {
           "status": "pending",
@@ -6393,11 +6513,13 @@
           "note": "No RunSP acceptance evidence is recorded for this plugin."
         },
         "platform": {
-          "status": "pending",
-          "evidence": [],
-          "note": "No plugin-specific platform evidence is recorded."
+          "status": "partial",
+          "evidence": [
+            "docs/contesting/PLATFORM_VALIDATION.md"
+          ],
+          "note": "Run 39050582252 at e70f3bd0778d9938bba046aae1ec87cd1e5df56b passed 44 core tests, 49 store/snapshot tests on macOS and Linux, 54 store/snapshot tests on Windows, and 27 export-support tests on all three platforms. It did not execute ContestingLaneTests; that six-pilot worker lifecycle suite has local source evidence at 6e721cdd2a15c850302a938c550892b0bf26c31a only. This is not application, operator, sponsor, package, or save-dialog acceptance."
         },
-        "certification": "not implemented or accepted"
+        "certification": "source-derived preview; operator and sponsor acceptance remain pending"
       }
     },
     {
