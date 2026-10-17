@@ -77,18 +77,31 @@ describe("generation and contact scoped lookup cache", () => {
       expect(read).toHaveBeenCalledTimes(2);
     } finally { vi.useRealTimers(); }
   });
-  it("retries a fulfilled settings-loading result once before caching", async () => {
+  it("never caches settings-busy results and retries until a terminal profile", async () => {
     vi.useFakeTimers();
     try {
       const read = vi.fn()
-        .mockResolvedValueOnce({ call: "TEST1", qrz_status: "unavailable", lookup_warning: "Workspace settings are still loading. Offline CTY result retained." })
+        .mockResolvedValueOnce({ call: "TEST1", qrz_status: "settings_busy", lookup_warning: "Workspace settings are busy. Offline CTY result retained." })
+        .mockResolvedValueOnce({ call: "TEST1", qrz_status: "settings_busy", lookup_warning: "Workspace settings are busy. Offline CTY result retained." })
         .mockResolvedValueOnce({ call: "TEST1", qrz_status: "matched", source: "QRZ" });
       const cache = new CallsignLookupCache(read);
       const lookup = cache.lookup("key", "TEST1");
-      await vi.advanceTimersByTimeAsync(750);
+      await vi.advanceTimersByTimeAsync(500);
       await expect(lookup).resolves.toMatchObject({ qrz_status: "matched" });
       await cache.lookup("key", "TEST1");
-      expect(read).toHaveBeenCalledTimes(2);
+      expect(read).toHaveBeenCalledTimes(3);
+    } finally { vi.useRealTimers(); }
+  });
+  it("times out repeated settings-busy results without caching the sentinel", async () => {
+    vi.useFakeTimers();
+    try {
+      const read = vi.fn().mockResolvedValue({ call: "TEST1", qrz_status: "settings_busy" });
+      const cache = new CallsignLookupCache(read, Date.now, 600);
+      const timedOut = expect(cache.lookup("key", "TEST1")).rejects.toThrow("timed out");
+      await vi.advanceTimersByTimeAsync(601); await timedOut;
+      read.mockResolvedValueOnce({ call: "TEST1", qrz_status: "matched", source: "QRZ" });
+      await expect(cache.lookup("key", "TEST1")).resolves.toMatchObject({ qrz_status: "matched" });
+      expect(read.mock.calls.length).toBeGreaterThanOrEqual(4);
     } finally { vi.useRealTimers(); }
   });
 });

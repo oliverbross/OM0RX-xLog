@@ -61,6 +61,31 @@ it("settles a stalled callsign lookup instead of leaving intelligence pending", 
   }
 });
 
+it("retries settings-busy profiles until success without settling the sentinel", async () => {
+  vi.useFakeTimers();
+  try {
+    const request = vi.fn()
+      .mockResolvedValueOnce({ call: "K1ABC", qrz_status: "settings_busy" })
+      .mockResolvedValueOnce({ call: "K1ABC", qrz_status: "settings_busy" })
+      .mockResolvedValueOnce({ call: "K1ABC", qrz_status: "matched", source: "QRZ" });
+    const lookup = boundedCallsignLookup(request, "K1ABC", 1_000);
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(lookup).resolves.toMatchObject({ qrz_status: "matched" });
+    expect(request).toHaveBeenCalledTimes(3);
+  } finally { vi.useRealTimers(); }
+});
+
+it("bounds repeated settings-busy profiles with the lookup deadline", async () => {
+  vi.useFakeTimers();
+  try {
+    const request = vi.fn().mockResolvedValue({ call: "K1ABC", qrz_status: "settings_busy" });
+    const lookup = boundedCallsignLookup(request, "K1ABC", 600);
+    const rejected = expect(lookup).rejects.toThrow("Callsign lookup timed out");
+    await vi.advanceTimersByTimeAsync(600); await rejected;
+    expect(request.mock.calls.length).toBeGreaterThanOrEqual(3);
+  } finally { vi.useRealTimers(); }
+});
+
 it("single-flights callsign lookup until timeout, then lets a restarted worker retry", async () => {
   vi.useFakeTimers();
   try {

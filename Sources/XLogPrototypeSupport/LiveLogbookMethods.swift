@@ -25,6 +25,12 @@ struct LiveClusterClassificationSnapshot: Sendable {
     let resolver: CTYResolver
 }
 
+enum LiveSettingsAvailability: Sendable {
+    case ready(XLogSettings)
+    case busy
+    case unavailable
+}
+
 /// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
 public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, RemoteBackupWorkspaceSnapshotSource, @unchecked Sendable {
@@ -163,10 +169,12 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     /// Passive callsign rendering must not queue behind imports, startup
     /// recovery or another long-lived logbook owner. Missing this snapshot is
     /// not an error: callers retain bundled CTY identity and can retry later.
-    func currentSettingsIfReady() -> XLogSettings? {
-        guard lock.try() else { return nil }
+    func currentSettingsAvailability() -> LiveSettingsAvailability {
+        guard fileManager.fileExists(atPath: workspaceURL.path) else { return .unavailable }
+        guard lock.try() else { return .busy }
         defer { lock.unlock() }
-        return try? currentSettings()
+        do { return .ready(try currentSettings()) }
+        catch { return .unavailable }
     }
 
     public func withCurrentWorkspaceGeneration<T: Sendable>(_ body: (UUID) throws -> T) throws -> T {

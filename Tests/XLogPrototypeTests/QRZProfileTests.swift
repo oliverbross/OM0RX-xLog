@@ -83,7 +83,7 @@ struct QRZProfileTests {
         #expect(profile["country"] as? String == "SLOVAK REPUBLIC")
         #expect(profile["dxcc"] as? Int == 504)
         #expect(profile["source"] as? String == "CTY approximate")
-        #expect(profile["qrz_status"] as? String == "unavailable")
+        #expect(profile["qrz_status"] as? String == "workspace_unavailable")
         #expect((profile["lookup_warning"] as? String)?.contains("Offline CTY result retained") == true)
         #expect(!String(describing: response).contains("Operation failed"))
 
@@ -97,11 +97,12 @@ struct QRZProfileTests {
         await worker.shutdown()
     }
 
-    @Test("Passive VK8NSB lookup settles from bundled CTY while the logbook owner is busy")
+    @Test("Passive VK8NSB lookup waits through more than 750 ms of logbook contention")
     func lookupSettlesDuringLogbookContention() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
         let worker = LiveWorker(logbook: logbook)
         let acquired = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
         let owner = Task.detached { hold(logbook, acquired: acquired, release: release) }
@@ -109,8 +110,12 @@ struct QRZProfileTests {
         let request = try JSONSerialization.data(withJSONObject: [
             "id": "busy-lookup", "method": "lookup_call", "params": ["call": "VK8NSB"],
         ])
+        let delayedRelease = Task.detached {
+            try? await Task.sleep(for: .milliseconds(900))
+            release.signal()
+        }
         let response = await worker.response(to: request)
-        release.signal()
+        await delayedRelease.value
         await owner.value
         let object = try #require(JSONSerialization.jsonObject(with: response) as? [String: Any])
         #expect(object["ok"] as? Bool == true)
@@ -119,7 +124,8 @@ struct QRZProfileTests {
         #expect(profile["country"] as? String == "AUSTRALIA")
         #expect(profile["dxcc"] as? Int == 150)
         #expect(profile["source"] as? String == "CTY approximate")
-        #expect(profile["qrz_status"] as? String == "unavailable")
+        #expect(profile["qrz_status"] == nil)
+        #expect(profile["lookup_warning"] == nil)
         #expect(!String(describing: object).contains("Operation failed"))
         await worker.shutdown()
     }

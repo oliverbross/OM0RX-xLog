@@ -144,9 +144,15 @@ actor LiveServiceMethods {
             guard let rawCall = params["call"] else { throw invalid() }
             let call = try LocalCallsignProfile.validatedCall(["call": rawCall])
             var profile = try LocalCallsignProfile.base(call, logbook: logbook)
-            guard let settings = logbook.currentSettingsIfReady() else {
-                profile["lookup_warning"] = "Workspace settings are still loading. Offline CTY result retained."
-                profile["qrz_status"] = "unavailable"
+            let availability = await passiveSettingsAvailability()
+            guard case .ready(let settings) = availability else {
+                if case .busy = availability {
+                    profile["lookup_warning"] = "Workspace settings are busy. Offline CTY result retained."
+                    profile["qrz_status"] = "settings_busy"
+                } else {
+                    profile["lookup_warning"] = "Workspace settings are unavailable. Offline CTY result retained."
+                    profile["qrz_status"] = "workspace_unavailable"
+                }
                 return profile
             }
             if settings.qrzEnabled {
@@ -334,6 +340,21 @@ actor LiveServiceMethods {
             try db.resolveConflict(conflict, merged: merged)
             return ["resolved": true, "queued": true]
         default: throw WorkerFailure("method_not_allowed", "Unknown service operation.")
+        }
+    }
+
+    /// Passive enrichment may briefly overlap a durable logbook operation. Wait
+    /// without occupying the logbook lock or this actor's executor, then copy the
+    /// settings value before any Keychain or network work begins.
+    private func passiveSettingsAvailability() async -> LiveSettingsAvailability {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while true {
+            let availability = logbook.currentSettingsAvailability()
+            guard case .busy = availability else { return availability }
+            guard clock.now < deadline else { return .busy }
+            do { try await Task.sleep(for: .milliseconds(50)) }
+            catch { return .busy }
         }
     }
 

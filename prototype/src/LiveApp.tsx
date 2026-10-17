@@ -126,18 +126,29 @@ function ownedCallsignLookup(request: Request, call: string): Promise<any> {
 // Native QRZ has a 40-second authenticated refresh worst case and the worker
 // owns a 45-second deadline. This outer deadline must be the last one to fire.
 export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 46_000): Promise<any> {
-  const lookup = ownedCallsignLookup(request, call);
   return new Promise((resolve, reject) => {
+    let active: Promise<any> | null = null, retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const attempt = () => {
+      active = ownedCallsignLookup(request, call);
+      void active.then(value => {
+        if (settled) return;
+        if (settingsLoadingLookup(value)) { retryTimer = setTimeout(attempt, 250); return; }
+        settled = true; clearTimeout(timer); resolve(value);
+      }, cause => {
+        if (settled) return;
+        settled = true; clearTimeout(timer); reject(cause);
+      });
+    };
     const timer = setTimeout(() => {
+      settled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       // A worker restart can abandon the transport promise forever. Retire that
       // ownership so the existing UI retry can reach the replacement worker.
-      releaseCallsignLookup(request, call, lookup);
+      if (active) releaseCallsignLookup(request, call, active);
       reject(new Error("Callsign lookup timed out."));
     }, timeoutMs);
-    void lookup.then(
-      value => { clearTimeout(timer); resolve(value); },
-      cause => { clearTimeout(timer); reject(cause); },
-    );
+    attempt();
   });
 }
 export const syncSettingsDestination = (logbookMode: unknown): "Logbook" | "Sync" => logbookMode === "local" ? "Logbook" : "Sync";

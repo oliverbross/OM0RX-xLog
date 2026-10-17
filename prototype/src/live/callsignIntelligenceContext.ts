@@ -53,7 +53,7 @@ export const intelligenceIdentity = (snapshot: DraftSnapshot | null) => snapshot
 
 export const settingsLoadingLookup = (profile: unknown): profile is Record<string, any> => {
   const value = profile as Record<string, any> | null;
-  return value?.qrz_status === "unavailable" &&
+  return value?.qrz_status === "settings_busy" || value?.qrz_status === "unavailable" &&
     typeof value.lookup_warning === "string" && value.lookup_warning.startsWith("Workspace settings are still loading.");
 };
 
@@ -74,13 +74,13 @@ export class CallsignLookupCache {
       const timer = setTimeout(() => {
         settled = true; reject(new Error("Callsign lookup timed out."));
       }, this.timeoutMs);
-      const fetch = async () => {
-        let profile = await this.request("lookup_call", { call });
-        if (settingsLoadingLookup(profile)) {
-          await new Promise(done => setTimeout(done, 750));
-          profile = await this.request("lookup_call", { call });
+      const fetch = async (): Promise<Record<string, any>> => {
+        while (!settled) {
+          const profile = await this.request("lookup_call", { call });
+          if (!settingsLoadingLookup(profile)) return profile;
+          await new Promise(done => setTimeout(done, 250));
         }
-        return profile;
+        throw new Error("Callsign lookup timed out.");
       };
       void fetch().then(profile => {
         if (settled) return;
