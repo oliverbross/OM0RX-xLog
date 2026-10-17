@@ -114,6 +114,10 @@ Oceania DX CW/SSB core and store source is approved and pushed at `0c9a4d1` on i
 
 Four-pilot worker/UI integration and the pure Run/Search & Pounce intent reducer are frozen for Astra review. The reducer has 15 focused tests, 78 contesting tests and a passing TypeScript check; it has no live macro sink or operator runtime acceptance. Four-pilot integration review requires binding each contest ID to its mode/exchange family and validating incoming report bounds before approval. Main release 1.2.14 is still under live testing; no new main baseline has been adopted.
 
+**Review repair checkpoint:** both candidates are held for targeted repairs. The four-pilot client needs the contest/descriptor binding and incoming report bounds above. The Run/S&P reducer needs authoritative reservation-successor identity adoption, consumed-draft invalidation after confirmed commit, latest-target ownership across multiple deferred context changes, and independent snapshots of caller/intent tokens. Tests must cover each lifecycle edge before approval. These findings have not shipped in the foundation branch.
+
+Local release SCP measurements are preserved in [latency evidence](contesting/SCP_LATENCY_EVIDENCE.md): repeated-query p95 is 1.75–2.18 ms on 50,003 imported MASTER.SCP records and 3.02–8.11 ms on 100,000 synthetic records. Index construction is separate (25.6/45.5 ms). This supports the core-query budget on this macOS host only; UI typing and other-platform performance remain open. Fresh source validation runs are `39048913988` at foundation `db99b31` for the LF fix and `39048732300` at Oceania `0c9a4d1`; neither is counted as passed while incomplete.
+
 ## 1. Review decision
 
 Recommended approach: build contesting inside the existing React/Tauri/Swift application. Reuse xLog's visual components and service owners; port contest rules into a portable, independently tested contest core. Do not embed the Qt application or add a production Python runtime by default.
