@@ -76,6 +76,18 @@ Direct liaison is active with the main chat, currently titled **Move station con
 
 Astra High reviews architecture and code; at most three SOL 5.6 Medium implementation workers may operate concurrently. Direct user authorization permits bounded test packaging from this implementation worktree; production release packaging and installation remain canonical-checkout gates.
 
+### Next implementation batches after export integration
+
+The next functional slice removes the remaining CW-only entry assumptions and adds **CQ WW SSB and CQ WPX SSB**. A bounded descriptor contract will define mode, reports, received exchange and serial requirements. Core/store changes precede dependent worker, TypeScript and UI changes; the existing CW rule identities, canonical receipts and export goldens remain stable. Acceptance covers all four contests through create, draft, reservation where applicable, commit, correction, deletion, restart and export, including two-digit SSB reports and the appropriate Cabrillo mode.
+
+The following parallel slice covers the Run/Search & Pounce operator state machine with simulated CW/voice outputs, offline Super Check Partial and history suggestions, and small individually reviewed rule-family packs, beginning with Oceania, SAC and JIDX. Tests must cover double Enter, corrected calls, IME input, cancellation, uncertain send, serial recovery and stale-context events without transmission. Suggestions require explicit selection and must not overwrite typed exchanges. Each added plugin needs independent score, mutation and export cases.
+
+After the latest installed main release is accepted, integrate the Normal Logging/Contesting choice through the existing station service owners. Preserve both drafts, drain or block unresolved mutations, disarm simulated automation on switching, advance the operating-context generation and reject stale logging or transmission intents. Richer name/state exchanges, digital contracts and VHF locator/distance/output families then extend the same boundaries. These are ordered delivery batches, not a reduction of the full 94-entry scope.
+
+A machine-readable acceptance ledger is being prepared against the exact pinned selector and plugin files. Every entry will record source hashes, rule/reference identity, implemented modes/exchanges/duplicates, independent scoring, mutation/restart, export, Run/Search & Pounce and platform evidence. Unknown fields remain explicit. Catalog presence and a disposition label do not constitute working contest acceptance.
+
+Native export saving is accepted at `45b5bd6`, integrated at `2a372a7`, with 18 focused Rust tests and a successful default Cargo check. It verifies prepared-artifact coordinates and bytes, retains save ownership through cancellation, uses the native chooser and exclusively publishes the selected file. Native dialog/application runtime and cross-platform save evidence remain pending. The export UI remains held for session/generation scoping, unused-artifact cleanup and explicit preparation recovery after definite failure. The latest snapshot matrix at `2a372a7` passed macOS/Linux but still failed native Windows publication cleanup; that defect is under review, not accepted.
+
 ## 1. Review decision
 
 Recommended approach: build contesting inside the existing React/Tauri/Swift application. Reuse xLog's visual components and service owners; port contest rules into a portable, independently tested contest core. Do not embed the Qt application or add a production Python runtime by default.
