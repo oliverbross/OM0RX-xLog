@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Database, Pencil, Trash2, Trophy, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Database, Download, Pencil, Trash2, Trophy, X } from "lucide-react";
 import { ContestMutationUncertain, ContestServerError } from "./client";
+import { ContestExportPanel } from "./ContestExportPanel";
+import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
-import type { ContestCreateInput, ContestDraftFields, ContestFullQSO, ContestLogPage, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
+import type { ContestCabrilloHeader, ContestCreateInput, ContestDraftFields, ContestExportFormat, ContestFullQSO, ContestLogPage, ContestPreparedExport, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
 import "./ContestWorkspace.css";
 
 const PAGE_SIZE = 20;
-type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage };
+type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter };
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 function defaultStorage(): ContestRecoveryStorage | undefined { try { return globalThis.localStorage; } catch { return undefined; } }
 function isQSOChange(result: unknown): result is ContestQSOChangeResult { return !!result && typeof result === "object" && "operation" in result; }
 
-export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage }: Props) {
-  const owner = useMemo(() => sharedContestSessionOwner(request, createRequestID, digestPayload, recoveryStorage ?? defaultStorage()), [request, createRequestID, digestPayload, recoveryStorage]);
+export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave }: Props) {
+  const storage = recoveryStorage ?? defaultStorage();
+  const owner = useMemo(() => sharedContestSessionOwner(request, createRequestID, digestPayload, storage), [request, createRequestID, digestPayload, storage]);
+  const exportSaveOwner = useMemo(() => sharedContestExportSaveOwner(exportSave, storage), [exportSave, storage]);
   const client = owner.client;
   const [, redraw] = useState(0);
   const [rules, setRules] = useState<ContestRuleMetadata[]>([]);
@@ -32,11 +36,13 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const [correctionReason, setCorrectionReason] = useState("Operator correction");
   const [deletionReason, setDeletionReason] = useState("Operator deletion");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [operatingFrequencyError, setOperatingFrequencyError] = useState("");
   const [editorFrequencyError, setEditorFrequencyError] = useState("");
   const [create, setCreate] = useState({ name: "", ruleID: "cq-ww-cw", station: "", operator: "", cqZone: "", entity: "", category: "Single Operator" });
   const actionLock = useRef(false);
   const contextTicket = useRef(0);
+  const exportTicket = useRef(0), exportButton = useRef<HTMLButtonElement>(null);
   const leaseRef = useRef<ContestOwnerLease | null>(null);
   const saveTimer = useRef<number | null>(null);
   const active = owner.session, draft = owner.draft, uncertain = owner.pendingOperation;
@@ -56,6 +62,9 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   }, [client, owner]);
   const frequencyContext = active && draft ? `${active.sessionID}/${active.workspaceGeneration}/${draft.draftID}` : "";
   useEffect(() => { setFrequencyText(draft?.fields.frequencyHz?.toString() ?? ""); setOperatingFrequencyError(""); }, [frequencyContext]);
+  const exportContext = active ? `${active.sessionID}/${active.workspaceGeneration}` : "";
+  useEffect(() => { exportTicket.current += 1; setExportOpen(false); }, [exportContext]);
+  useEffect(() => () => { exportTicket.current += 1; }, []);
 
   function admissionScope() { const lease = leaseRef.current, admission = owner.beginAdmission(lease); return { lease, admission }; }
   function capturedScope() { const lease = leaseRef.current, admission = owner.captureAdmission(lease); return { lease, admission }; }
@@ -234,11 +243,25 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     if (!active || !beginAction()) return; const ticket = contextTicket.current, scope = admissionScope();
     try { await projections(active, next, ticket, scope); } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
   }
+  function closeExport() { exportTicket.current += 1; setExportOpen(false); }
+  async function prepareExport(format: ContestExportFormat, header: ContestCabrilloHeader): Promise<ContestPreparedExport | null> {
+    const token = ++exportTicket.current, sessionID = owner.session?.sessionID, generation = owner.session?.workspaceGeneration;
+    if (!sessionID || !generation || owner.pendingOperation) throw new Error("Finish the current contest save before exporting.");
+    await owner.flush();
+    const current = owner.session;
+    if (token !== exportTicket.current || !current || current.sessionID !== sessionID || current.workspaceGeneration !== generation || owner.pendingOperation) return null;
+    const prepared = await client.prepareExport({ exportID: crypto.randomUUID(), sessionID, workspaceGeneration: generation,
+      expectedRevision: current.revision, generatedAtUTC: new Date().toISOString(), format, header });
+    if (token !== exportTicket.current || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) {
+      void client.releaseExport(prepared).catch(() => {}); return null;
+    }
+    return prepared;
+  }
 
   const disabled = busy || !!uncertain;
   const entryDisabled = busy || blockingOperation;
   return <main className="contest-workspace">
-    <header className="contest-header"><div><p>CONTESTING PILOT</p><h1>{active ? `${active.rule.displayName} · ${active.name}` : "Contest Workspace"}</h1></div><button type="button" disabled={disabled} onClick={() => setManager(value => !value)}><Database size={15}/>Contest Manager</button></header>
+    <header className="contest-header"><div><p>CONTESTING PILOT</p><h1>{active ? `${active.rule.displayName} · ${active.name}` : "Contest Workspace"}</h1></div><div className="contest-header-actions">{active && !manager && <button ref={exportButton} type="button" disabled={disabled} aria-haspopup="dialog" onClick={() => setExportOpen(true)}><Download size={15}/>Export…</button>}<button type="button" disabled={disabled} onClick={() => { closeExport(); setManager(value => !value); }}><Database size={15}/>Contest Manager</button></div></header>
     {error && <p className="contest-alert is-error" role="alert"><AlertTriangle size={15}/>{error}{needsRefresh && <button type="button" onClick={() => void refreshDraft()}>Refresh draft</button>}</p>}
     {notice && <p className="contest-alert" role="status"><CheckCircle2 size={15}/>{notice}</p>}
     {uncertain && <section className="contest-alert is-uncertain"><div><strong>{owner.pendingPhase === "inflight" ? "Saving…" : busy ? "Checking save status…" : "Save status unknown"}</strong><p>The original save is preserved for receipt checking or an exact retry.</p></div>{owner.pendingPhase === "uncertain" && <><button disabled={busy} onClick={() => void checkReceipt(false)}>Check save status</button><button disabled={busy} onClick={() => void checkReceipt(true)}>Retry same save</button></>}</section>}
@@ -260,6 +283,10 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
         <footer><button type="button" className="contest-danger-secondary" disabled={disabled} onClick={() => setConfirmDelete(value => !value)}><Trash2 size={14}/>{confirmDelete ? "Keep contact" : "Delete contact"}</button><button className="contest-primary" type="submit" disabled={disabled || !!editorFrequencyError || !correctionReason.trim()}>Save correction</button></footer></form>}
       <section className="contest-log" aria-label="Contest log"><header><h2><ClipboardList size={15}/> Contest log</h2><p>This session only · {page?.total ?? 0} contacts</p></header><div className="contest-log-scroll"><table><thead><tr><th>UTC</th><th>Call</th><th>Band</th><th>Sent</th><th>Received</th><th>Pts</th><th>Mult</th><th><span className="contest-visually-hidden">Actions</span></th></tr></thead><tbody>{page?.qsos.length ? page.qsos.map(qso => <tr key={qso.qsoID}><td data-label="UTC">{new Date(qso.workedAt).toISOString().slice(0,16).replace("T"," ")}</td><td data-label="Call"><strong>{qso.callsign}</strong></td><td data-label="Band">{qso.band}</td><td data-label="Sent">{qso.sentExchange}</td><td data-label="Received">{qso.receivedExchange}</td><td data-label="Points">{qso.points}</td><td data-label="Multiplier">{qso.multiplier ?? "—"}</td><td data-label="Actions"><button type="button" disabled={disabled} aria-label={`Edit ${qso.callsign}`} onClick={() => void editQSO(qso.qsoID)}><Pencil size={13}/>Edit</button></td></tr>) : <tr><td colSpan={8}>No QSOs in this contest.</td></tr>}</tbody></table></div><footer><span>{page ? `${page.offset + (page.qsos.length ? 1 : 0)}–${page.offset + page.qsos.length} of ${page.total}` : "Loading…"}</span><div><button disabled={busy || offset===0} onClick={() => void movePage(Math.max(0,offset-PAGE_SIZE))}>Previous</button><button disabled={busy || !page || offset+page.limit>=page.total} onClick={() => void movePage(offset+PAGE_SIZE)}>Next</button></div></footer></section>
     </>}
+    {exportOpen && active && <ContestExportPanel session={active} opener={exportButton} saveOwner={exportSaveOwner}
+      prepare={prepareExport} release={prepared => client.releaseExport(prepared)} onClose={closeExport}
+      onSaved={filename => { setNotice(`Saved ${filename}.`); closeExport(); }}
+    />}
   </main>;
 }
 export default ContestWorkspace;
