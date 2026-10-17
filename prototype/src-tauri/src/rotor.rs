@@ -93,7 +93,9 @@ impl RotorCoordinator {
         if monitor_stop && (params.len() != 1 || !params.contains_key("owner")) {
             return Err("Native Monitor Stop accepts only its observed owner".into());
         }
-        let manual = automatic.is_none() && matches!(method, "rotor_connect" | "rotor_disconnect" | "rotor_goto" | "rotor_park" | "rotor_stop");
+        // Bootstrap connect is part of the saved startup Arm transaction. It
+        // cannot move and must not revoke the epoch reserved before webviews.
+        let manual = !startup && automatic.is_none() && matches!(method, "rotor_connect" | "rotor_disconnect" | "rotor_goto" | "rotor_park" | "rotor_stop");
         // Revoke queued automatic work before waiting behind driver transport.
         // A turn already admitted under the lock remains ordered before Stop.
         if manual { self.automatic.revoke(); }
@@ -548,6 +550,25 @@ mod tests {
             assert!(fresh.handle_scoped(json!({"id":"motion","method":method,"params":{"owner":"native_dcu1","generation":0,"bearing":90}}),
                 None, true, |_| panic!("Startup issued motion")).is_err());
         }
+    }
+
+    #[test]
+    fn startup_connection_preserves_reserved_arm_but_explicit_connect_revokes_it() {
+        let startup_authority = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
+        startup_authority.arm("native_dcu1", 7).unwrap();
+        let startup = RotorCoordinator::with_authority(startup_authority.clone());
+        let connect = json!({"id":"startup","method":"rotor_connect",
+            "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
+        startup.handle_scoped(connect.clone(), None, true, |request| {
+            Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))
+        }).unwrap();
+        assert!(startup_authority.test_armed());
+
+        let manual_authority = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
+        manual_authority.arm("native_dcu1", 7).unwrap();
+        let manual = RotorCoordinator::with_authority(manual_authority.clone());
+        manual.handle(connect, |_| Ok(success("startup", json!({"connected":true})))).unwrap();
+        assert!(!manual_authority.test_armed());
     }
 
     #[test]

@@ -130,9 +130,13 @@ impl AutomaticRotor {
         Ok(())
     }
     #[cfg(test)]
-    fn arm(&self, owner: &str, generation: u64) -> Result<Value, String> {
+    pub(crate) fn testing() -> Self { Self::new() }
+    #[cfg(test)]
+    pub(crate) fn arm(&self, owner: &str, generation: u64) -> Result<Value, String> {
         self.arm_at_epoch(owner, generation, self.epoch(), &["20m".into()])
     }
+    #[cfg(test)]
+    pub(crate) fn test_armed(&self) -> bool { self.armed() }
     pub(crate) fn revoke(&self) {
         // Revoke before taking any lock: a queued automatic turn cannot become
         // valid while a manual Stop waits behind an already-admitted driver RPC.

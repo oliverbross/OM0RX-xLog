@@ -635,10 +635,12 @@ fn active_session() -> Result<Arc<Session>, String> {
     session_from_registry(SESSION.get_or_init(|| Mutex::new(None)), start, announce_session)
 }
 
+fn replaces_worker_generation(generation: u64) -> bool { generation > 1 }
 fn announce_session(session: &Arc<Session>) {
-    // A fresh canonical worker must require an explicit fresh automatic Arm;
-    // a new follow permit cannot inherit the previous worker's armed state.
-    crate::auto_rotor::revoke();
+    // Process generation one starts with no inherited authority. Revoking it
+    // would invalidate the launch Arm reserved before this worker is started.
+    // Replacement workers still retire every permit from the previous child.
+    if replaces_worker_generation(session.generation) { crate::auto_rotor::revoke(); }
     if LOCAL_ACCEPTANCE.get() != Some(&true) {
         let exact_session = session.clone();
         crate::station_selection::worker_generation_started(
@@ -950,6 +952,13 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn initial_worker_preserves_launch_arm_and_replacements_revoke_it() {
+        assert!(!super::replaces_worker_generation(1));
+        assert!(super::replaces_worker_generation(2));
+        assert!(super::replaces_worker_generation(u64::MAX));
+    }
+
     #[test]
     fn previous_qsos_can_only_read_canonical_draft_and_local_history() {
         for method in ["logbook_operator_draft", "cluster_history"] {
