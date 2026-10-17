@@ -77,6 +77,8 @@ xLog must preserve compatible useful data while intentionally rejecting lossy or
 
 These are deliberate xLog safety and preservation rules. The limits for the first implementation are 16 MiB per source file, 100,000 data records, 128 headers, 64 UTF-8 bytes per header, 4,096 UTF-8 bytes per value, and 16 KiB per physical line. The 16 MiB and 100,000-record limits reuse the current SCP service bounds; the other limits are proposed xLog admission bounds, not upstream claims. A preview exceeding any limit fails without changing the active dataset.
 
+The absolute 16 MiB source ceiling is checked before hashing, provenance validation, or caller-supplied limit validation. A source beyond that ceiling is neither retained nor hashed; its blocking preview has empty source bytes and an empty digest. Bounded input is hashed once and may be retained in a rejected preview for transparent diagnostics, while input exceeding a valid narrower configured limit keeps its bounded digest but not its source bytes.
+
 ## Dataset, duplicates, and persistence
 
 Call history is a persistent reference dataset. It is not a contest session, QSO log, SCP dataset, or `LocalContactHistory` projection. The service must use an independent typed model and storage envelope while reusing the existing immutable-dataset, digest, generation, bounded-read, and atomic-replacement patterns.
@@ -157,5 +159,17 @@ The first bounded implementation is core and service infrastructure only:
 2. After review, add private picker and worker preview/commit/status/query/select routes plus a shared read-only result panel. Prove all stale-generation and owner/admission fences before enabling proposal application.
 3. Add typed blank-only projections for CQ WW and NAQP first, then ARRL RTTY. Add ARRL DX mappings only with that rule's activation. Do not activate assistance for any other rule until its own pinned contract and tests exist.
 4. Run portable and native core/store/worker/frontend/build checks, followed by native package and operator-flow acceptance when those stages are separately authorized.
+
+### Phase 1 implementation checkpoint
+
+The review candidate implements only step 1 in `ContestCallHistory.swift` and `ContestCallHistoryService.swift`. The core stores original source bytes, digest, provenance, ordered headers, compact ordered physical values, logical trailing empty values, source ordinals, duplicate rows, and retained unindexable rows. It provides strict preview diagnostics, immutable dataset generations, exact normalized-call lookup returning every duplicate in source order, and selection validation against dataset generation, digest, full context, and authoritative record membership. Its context type carries the eventual session, workspace, revision, draft, request, rule, and reference identities; phase 1 compares those values but does not claim worker authority or live owner validation.
+
+The support service keeps one bounded in-memory preview, requires its ID and digest plus explicit advisory confirmation, reparses before commit, writes a versioned envelope atomically, and publishes the replacement only after persistence succeeds. Reopen reparses the retained source bytes and verifies the stored digest. Invalid previews, digest mismatch, corrupt cache, and failed atomic writes do not replace the active in-memory dataset; a failed atomic write also leaves the prior envelope on disk. The 100,000-row/128-header fixture proves rows do not allocate materialized empty values for every missing trailing column.
+
+The persisted JSON encoder disables slash escaping so a valid near-limit binary source remains below the 24 MiB envelope-read ceiling after base64 encoding. Commit also checks the actual encoded size before any write or in-memory publication. An encoded envelope above that ceiling fails atomically and retains the previous cache and active generation.
+
+Phase 1 does not expose its pending preview outside the actor and does not yet assign it an expiry, bind it to the active dataset generation, or provide an explicit cancellation operation. Before any worker route or picker is exposed, phase 2 must add an expiring preview token, bind commit to the generation that was active when preview began, invalidate the token on cancellation or replacement, and test each stale or cancelled case. The synchronous phase 1 commit path has no actor suspension point, so its atomic disk-then-memory publication is evidence for this internal slice only; it is not evidence for future worker admission or cancellation fencing.
+
+There are still no worker routes, private picker, UI, draft mutation, rule projection, QSO mutation, history export, or catalog activation. Those remain later review gates.
 
 F18 remains pending until the applicable phase has runtime evidence. This contract provides no native package, real-radio/keying, operator-run, current external-format compatibility, automatic prefill, call-history generation/export, or sponsor acceptance evidence. Those exclusions must remain visible in acceptance records.
