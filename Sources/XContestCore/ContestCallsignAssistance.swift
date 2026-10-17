@@ -218,7 +218,7 @@ public struct ContestSCPIndex: Sendable {
             value.unicodeScalars.allSatisfy { $0.value >= 32 && $0.value != 127 }
     }
 
-    private static func normalizedCallsign(_ value: String) -> String? {
+    static func normalizedCallsign(_ value: String) -> String? {
         guard value.utf8.allSatisfy({ $0 < 128 }) else { return nil }
         let call = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !call.isEmpty, call.utf8.count <= 32,
@@ -244,7 +244,7 @@ public struct ContestSCPIndex: Sendable {
         value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
     }
 
-    private static func sha256(_ data: Data) -> String {
+    static func sha256(_ data: Data) -> String {
         let constants: [UInt32] = [
             0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
             0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
