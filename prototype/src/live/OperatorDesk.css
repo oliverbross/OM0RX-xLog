@@ -56,7 +56,9 @@
 .desk-rotor { gap: 8px; }
 .desk-rotor-heading { display: flex; align-items: center; gap: 8px; }
 .desk-rotor-body { position: relative; min-width: 0; min-height: 132px; flex: 1 1 0; overflow: hidden; container-type: size; }
-.desk-rotor-body > .rotor-dial-shell { position: absolute; left: 50%; top: 50%; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); transform: translate(-50%, -50%); }
+.desk-rotor-body > .rotor-dial-shell { position: absolute; inset: 0; width: auto; height: auto; aspect-ratio: auto; }
+.desk-rotor-body > .rotor-dial-shell > .rotor-dial { position: absolute; left: 50%; top: 50%; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); transform: translate(-50%, -50%); }
+@container (max-aspect-ratio: 4 / 5) { .desk-rotor-body .rotor-path-controls button { width: min(30%, 72px); } }
 .desk-rotor-connection { margin-left: auto; font-size: 8px; font-weight: 700; white-space: nowrap; }
 .desk-compass { position: relative; width: 100%; max-width: 160px; aspect-ratio: 1; border: 2px solid #12536a; border-radius: 50%; background: radial-gradient(circle, #102337 0, #081624 68%); }
 .compass-ticks { position: absolute; inset: 7%; border: 1px solid #17384e; border-radius: 50%; background: repeating-conic-gradient(from -1deg, #66879c 0deg 1deg, transparent 1deg 10deg); mask: radial-gradient(circle, transparent 64%, #000 65%, #000 70%, transparent 71%); }

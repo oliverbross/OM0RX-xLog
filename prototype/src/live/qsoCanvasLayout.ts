@@ -1,3 +1,5 @@
+import { moveCanvasRect, resizeCanvasRect, resizeEdges, type ResizeEdge } from "./canvasGeometry";
+
 export const qsoCanvasPanelIDs = ["active-contact", "qso-details", "callsign-intelligence", "previous-qsos", "band-mode-matrix"] as const;
 export type QSOCanvasPanelID = typeof qsoCanvasPanelIDs[number];
 export type QSOCanvasRect = { x: number; y: number; width: number; height: number };
@@ -13,8 +15,8 @@ const minimums: Record<QSOCanvasPanelID, [number, number]> = {
   "previous-qsos": [300, 200], "band-mode-matrix": [480, 220],
 };
 
-export const qsoCanvasResizeEdges = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const;
-export type QSOCanvasResizeEdge = typeof qsoCanvasResizeEdges[number];
+export const qsoCanvasResizeEdges = resizeEdges;
+export type QSOCanvasResizeEdge = ResizeEdge;
 
 export function defaultQSOCanvasLayout(): QSOCanvasLayout {
   return { version: 1, width: qsoCanvasWidth, height: qsoCanvasHeight, panels: [
@@ -53,17 +55,10 @@ export function readQSOCanvasLayout(raw: string | null): QSOCanvasLayout {
 
 export function moveQSOCanvasPanel(panel: QSOCanvasPanelLayout, dx: number, dy: number): QSOCanvasPanelLayout {
   if (![dx, dy].every(Number.isFinite)) return panel;
-  const snap = (value: number) => Math.round(value / 8) * 8;
-  return { ...panel, rect: clampRect(panel.id, { ...panel.rect, x: snap(panel.rect.x + dx), y: snap(panel.rect.y + dy) }) };
+  return { ...panel, rect: moveCanvasRect(panel.rect, { width: qsoCanvasWidth, height: qsoCanvasHeight, snap: true }, dx, dy) };
 }
 
 export function resizeQSOCanvasPanel(panel: QSOCanvasPanelLayout, edge: QSOCanvasResizeEdge, dx: number, dy: number): QSOCanvasPanelLayout {
   if (![dx, dy].every(Number.isFinite)) return panel;
-  const snap = (value: number) => Math.round(value / 8) * 8, [minWidth, minHeight] = minimums[panel.id], original = panel.rect;
-  let { x, y, width, height } = original;
-  if (edge.includes("w")) { x = Math.max(0, Math.min(original.x + original.width - minWidth, snap(original.x + dx))); width = original.x + original.width - x; }
-  if (edge.includes("e")) width = Math.max(minWidth, Math.min(qsoCanvasWidth - original.x, snap(original.width + dx)));
-  if (edge.includes("n")) { y = Math.max(0, Math.min(original.y + original.height - minHeight, snap(original.y + dy))); height = original.y + original.height - y; }
-  if (edge.includes("s")) height = Math.max(minHeight, Math.min(qsoCanvasHeight - original.y, snap(original.height + dy)));
-  return { ...panel, rect: clampRect(panel.id, { x, y, width, height }) };
+  return { ...panel, rect: resizeCanvasRect(panel.rect, { width: qsoCanvasWidth, height: qsoCanvasHeight, snap: true }, minimums[panel.id], edge, dx, dy) };
 }

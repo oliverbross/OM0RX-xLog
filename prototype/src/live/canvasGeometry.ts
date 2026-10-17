@@ -2,27 +2,40 @@ import { panelMinimum, type LayoutPreset, type PanelLayout, type LayoutRect } fr
 
 export const resizeEdges = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const;
 export type ResizeEdge = typeof resizeEdges[number];
+export type CanvasBounds = { width: number; height: number; snap: boolean };
+
+const snapped = (value: number, snap: boolean) => Math.round(value / (snap ? 8 : 1)) * (snap ? 8 : 1);
+const clamped = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, value));
+
+/** Shared bounded-canvas movement used by every arrangeable workspace. */
+export function moveCanvasRect(rect: LayoutRect, canvas: CanvasBounds, dx: number, dy: number): LayoutRect {
+  return { ...rect,
+    x: clamped(snapped(rect.x + dx, canvas.snap), 0, canvas.width - rect.width),
+    y: clamped(snapped(rect.y + dy, canvas.snap), 0, canvas.height - rect.height) };
+}
+
+/** Shared edge/corner resizing while anchoring every opposite edge. */
+export function resizeCanvasRect(rect: LayoutRect, canvas: CanvasBounds, minimum: readonly [number, number], edge: ResizeEdge, dx: number, dy: number): LayoutRect {
+  const [minWidth, minHeight] = minimum;
+  let { x, y, width, height } = rect;
+  if (edge.includes("w")) { x = clamped(snapped(rect.x + dx, canvas.snap), 0, rect.x + rect.width - minWidth); width = rect.x + rect.width - x; }
+  if (edge.includes("e")) width = clamped(snapped(rect.width + dx, canvas.snap), minWidth, canvas.width - rect.x);
+  if (edge.includes("n")) { y = clamped(snapped(rect.y + dy, canvas.snap), 0, rect.y + rect.height - minHeight); height = rect.y + rect.height - y; }
+  if (edge.includes("s")) height = clamped(snapped(rect.height + dy, canvas.snap), minHeight, canvas.height - rect.y);
+  return { x, y, width, height };
+}
 
 /** Resize selected edges while anchoring the opposite edges in canvas units. */
 export function resizePanel(panel: PanelLayout, preset: LayoutPreset, edge: ResizeEdge, dx: number, dy: number): PanelLayout {
   if (![dx, dy].every(Number.isFinite)) return panel;
-  const step = preset.snap ? 8 : 1, snap = (value: number) => Math.round(value / step) * step;
-  const [minWidth, minHeight] = panelMinimum(panel.id), r = panel.rect;
-  let { x, y, width, height } = r;
-  if (edge.includes("w")) { x = Math.max(0, Math.min(r.x + r.width - minWidth, snap(r.x + dx))); width = r.x + r.width - x; }
-  if (edge.includes("e")) width = Math.max(minWidth, Math.min(preset.width - r.x, snap(r.width + dx)));
-  if (edge.includes("n")) { y = Math.max(0, Math.min(r.y + r.height - minHeight, snap(r.y + dy))); height = r.y + r.height - y; }
-  if (edge.includes("s")) height = Math.max(minHeight, Math.min(preset.height - r.y, snap(r.height + dy)));
-  return { ...panel, rect: { x, y, width, height }, z: Math.min(10000, Math.max(...preset.panels.map(item => item.z)) + 1) };
+  return { ...panel, rect: resizeCanvasRect(panel.rect, preset, panelMinimum(panel.id), edge, dx, dy),
+    z: Math.min(10000, Math.max(...preset.panels.map(item => item.z)) + 1) };
 }
 
 export function adjustPanel(panel: PanelLayout, preset: LayoutPreset, kind: "move" | "resize", dx: number, dy: number): PanelLayout {
   if (![dx, dy].every(Number.isFinite)) return panel;
-  const step = preset.snap ? 8 : 1, snap = (value: number) => Math.round(value / step) * step;
-  const [minWidth, minHeight] = panelMinimum(panel.id), r = panel.rect;
-  const rect: LayoutRect = kind === "move"
-    ? { ...r, x: Math.max(0, Math.min(preset.width - r.width, snap(r.x + dx))), y: Math.max(0, Math.min(preset.height - r.height, snap(r.y + dy))) }
-    : { ...r, width: Math.max(minWidth, Math.min(preset.width - r.x, snap(r.width + dx))), height: Math.max(minHeight, Math.min(preset.height - r.y, snap(r.height + dy))) };
+  const rect = kind === "move" ? moveCanvasRect(panel.rect, preset, dx, dy)
+    : resizeCanvasRect(panel.rect, preset, panelMinimum(panel.id), "se", dx, dy);
   return { ...panel, rect, z: Math.min(10000, Math.max(...preset.panels.map(item => item.z)) + 1) };
 }
 

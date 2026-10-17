@@ -47,6 +47,39 @@ describe("DX Cluster filter colours", () => {
 });
 
 describe("cluster toolbar panels", () => {
+  it("reuses the complete revision-checked Cluster editor in Settings without the live workspace", async () => {
+    const data = response();
+    const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => data);
+    render(<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={vi.fn()} />);
+
+    await screen.findByLabelText("ShackCQ host");
+    expect(request).toHaveBeenCalledWith("cluster_snapshot", {});
+    expect(screen.getByLabelText("DX Cluster settings")).toBeTruthy();
+    expect(screen.queryByRole("table", { name: "Live cluster spots" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
+    expect((screen.getByLabelText("Password · none") as HTMLInputElement).type).toBe("password");
+
+    fireEvent.change(screen.getByLabelText("ShackCQ host"), { target: { value: "settings.example.invalid" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hide WSPR spots" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", expect.objectContaining({
+      base_configuration: data.configuration,
+      configuration: expect.objectContaining({
+        hideWSPRSpots: true,
+        servers: [expect.objectContaining({ host: "settings.example.invalid" })],
+      }),
+    })));
+
+    const password = screen.getByLabelText("Password · none") as HTMLInputElement;
+    fireEvent.change(password, { target: { value: "test-only-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_password_set", {
+      server_id: "server", password: "test-only-password",
+    }));
+    expect(password.value).toBe("");
+    expect(JSON.stringify(request.mock.calls.filter(([method]) => method === "cluster_configure"))).not.toContain("test-only-password");
+  });
+
   it("remembers full-table columns and widths independently without any cluster request", () => {
     const request = vi.fn(async () => ({}));
     const props = { passive: true, snapshot: response(), onRequest: request, onSelect: vi.fn() };

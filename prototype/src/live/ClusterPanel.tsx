@@ -45,7 +45,8 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
   country: string; cq_zone?: number | null; grid: string; dxcc_contact_count: number;
   matrix: { band: string; mode: string; worked: boolean; confirmed: boolean }[] };
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
-  passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean };
+  passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
+  settingsOnly?: boolean };
 
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 const modes = ["CW", "SSB", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI", "AM", "FM"];
@@ -70,7 +71,7 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     value={draft} onChange={event => setDraft(event.currentTarget.value)} onBlur={commit}
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
-export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false }: Props) {
+export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
   const panelId = useId();
@@ -88,7 +89,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   useEffect(() => {
     try { localStorage.setItem(fullClusterColumnsKey, JSON.stringify(columnPreferences)); } catch { /* Keep usable in memory if storage is unavailable. */ }
   }, [columnPreferences]);
-  const [consoleOpen, setConsoleOpen] = useState(false), [settingsOpen, setSettingsOpen] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false), [settingsOpen, setSettingsOpen] = useState(settingsOnly);
   const requestRef = useRef(onRequest);
   const filterVersion = useRef(0);
   const lastRemoteFilter = useRef("");
@@ -248,6 +249,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     bands: "Bands", modes: "Modes", continents: "Continent", callStatuses: "Call status",
     dxccStatuses: "DXCC status", specials: "Special", sources: "Source", worked: "Worked",
   };
+
+  if (settingsOnly) return <section className="live-cluster" aria-label="DX Cluster settings">
+    {error && <p className="live-cluster-error" role="alert">{error}</p>}
+    {message && <p className="live-cluster-message" role="status">{message}</p>}{saveToast.toast}
+    {renderToolbarPanels()}
+  </section>;
 
   return <section className="live-cluster" aria-label="Live DX Cluster">
     <header className="live-cluster-head">

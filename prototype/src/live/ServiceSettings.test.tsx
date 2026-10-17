@@ -2,6 +2,7 @@
 import { useState, type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ClusterPanel } from "./ClusterPanel";
 import ServiceSettings from "./ServiceSettings";
 afterEach(cleanup);
 const values = { operatorCall: "OM0RX", stationCall: "OM0RX", wavelogURL: "https://example.invalid", wavelogStationID: 1, qrzUsername: "operator", qrzEnabled: true, clubLogCTYURL: "https://example.invalid/cty", lotwActivityURL: "https://example.invalid/lotw", preservedUnknown: "retain" };
@@ -15,6 +16,27 @@ function SettingsHarness({ values: initial, onSave = async () => {}, ...props }:
   return <ServiceSettings {...props} values={values} onChanged={setValues} onSave={onSave} />;
 }
 describe("grouped service settings", () => {
+  it("exposes Cluster as a first-class tab backed by the Cluster snapshot", async () => {
+    const configuration = { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }],
+      connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false,
+      showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [],
+      palette: { status: { Worked: "#112233" }, band: { "20m": "#223344" }, mode: { CW: "#334455" } },
+      filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" },
+      commandPresets: [], forwardSpotsToFlex: false };
+    const request = vi.fn(async (method: string) => method === "cluster_snapshot" ? { configuration, password_servers: [] } : {});
+    render(<SettingsHarness values={values} request={request}
+      clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={vi.fn()} />} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cluster" }));
+    await screen.findByLabelText("ShackCQ host");
+    expect(request).toHaveBeenCalledWith("cluster_snapshot", {});
+    expect(screen.getByLabelText("Worked")).toBeTruthy();
+    expect(screen.getByLabelText("20m")).toBeTruthy();
+    expect(screen.getByLabelText("CW")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Save cluster settings" })).toBeTruthy();
+  });
+
   it("defaults measured power capture OFF and saves opt-in only with settings", async () => {
     const request = vi.fn();
     const profile = { ...values, defaultPower: "100", automaticTransmitPower: false }, saved = vi.fn(async () => {});

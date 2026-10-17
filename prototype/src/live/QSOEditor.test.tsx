@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import QSOEditor, { safeProfileURL } from "./QSOEditor";
-import { qsoCanvasLayoutKey } from "./qsoCanvasLayout";
+import { defaultQSOCanvasLayout, qsoCanvasLayoutKey } from "./qsoCanvasLayout";
 import { qsoDetailsFieldsKey } from "./qsoEditorPreferences";
 const editorCSS = readFileSync("src/live/QSOEditor.css", "utf8");
 
@@ -43,6 +43,22 @@ describe("QSOEditor", () => {
     fireEvent.keyDown(move, { key: "ArrowRight" }); fireEvent.keyUp(move, { key: "ArrowRight" });
     const saved = JSON.parse(localStorage.getItem(qsoCanvasLayoutKey)!);
     expect(saved.panels.find((panel: any) => panel.id === "active-contact").rect.x).toBe(8);
+  });
+  it("resizes and resets the saved layout, then restores normal form interaction", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x:0, y:0, top:0, left:0, right:1440, bottom:1120, width:1440, height:1120, toJSON: () => ({}) });
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Arrange panels" }));
+    const resize = screen.getByRole("button", { name: "Resize QSO details right edge" });
+    fireEvent.keyDown(resize, { key: "ArrowLeft" }); fireEvent.keyUp(resize, { key: "ArrowLeft" });
+    let saved = JSON.parse(localStorage.getItem(qsoCanvasLayoutKey)!);
+    expect(saved.panels.find((panel: any) => panel.id === "qso-details").rect.width).toBe(992);
+    fireEvent.click(screen.getByRole("button", { name: "Reset layout" }));
+    saved = JSON.parse(localStorage.getItem(qsoCanvasLayoutKey)!);
+    expect(saved).toEqual(defaultQSOCanvasLayout());
+    fireEvent.click(screen.getByRole("button", { name: "Finish arranging" }));
+    expect(screen.queryByRole("button", { name: /Move Active contact/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "VK8AA" } });
+    expect(value().call).toBe("VK8AA");
   });
   it("honours Display settings field visibility while retaining core logging controls", () => {
     localStorage.setItem(qsoDetailsFieldsKey, JSON.stringify({ version: 1, fields: ["name"] }));

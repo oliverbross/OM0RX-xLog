@@ -17,6 +17,9 @@ vi.mock("maplibre-gl", () => {
     ready = harness.startReady;
     styleBusy = false;
     zoom = 2;
+    center = { lng: -15, lat: 38 };
+    bearing = 0;
+    pitch = 0;
     layers: any[];
     layoutCalls: any[][] = [];
     featureStateCalls: any[] = [];
@@ -28,6 +31,10 @@ vi.mock("maplibre-gl", () => {
       this.options = options;
       this.element = options.container;
       this.layers = options.style.layers;
+      this.center = { lng: options.center[0], lat: options.center[1] };
+      this.zoom = options.zoom;
+      this.bearing = options.bearing ?? 0;
+      this.pitch = options.pitch ?? 0;
       Object.defineProperties(this.element, {
         clientWidth: { get: () => harness.initialSize.width, configurable: true },
         clientHeight: { get: () => harness.initialSize.height, configurable: true },
@@ -63,7 +70,10 @@ vi.mock("maplibre-gl", () => {
     }
     getContainer() { return this.element; }
     getCanvas() { return this.canvas; }
+    getCenter() { return this.center; }
     getZoom() { return this.zoom; }
+    getBearing() { return this.bearing; }
+    getPitch() { return this.pitch; }
     getBounds() { return { getWest: () => -180, getEast: () => 180, getSouth: () => -85, getNorth: () => 85 }; }
     project() { return { x: 400, y: 200 }; }
     getLayer() { return true; }
@@ -81,8 +91,8 @@ vi.mock("maplibre-gl", () => {
     fitBounds(bounds: [[number, number], [number, number]], options: any) {
       this.fitCalls.push({ bounds, options, viewport: { width: this.element.clientWidth, height: this.element.clientHeight } });
     }
-    jumpTo() {}
-    easeTo(options: any) { this.easeCalls.push(options); }
+    jumpTo(options: any) { if (options.center) this.center = { lng: options.center[0], lat: options.center[1] }; if (options.zoom != null) this.zoom = options.zoom; }
+    easeTo(options: any) { this.easeCalls.push(options); if (options.center) this.center = { lng: options.center[0], lat: options.center[1] }; }
     resize = vi.fn(() => { this.canvasSize = { width: this.element.clientWidth || 400, height: this.element.clientHeight || 300 }; });
     triggerRepaint = vi.fn();
     setLayoutProperty(...args: any[]) { this.layoutCalls.push(args); }
@@ -213,12 +223,15 @@ describe("map container resizing", () => {
     expect(harness.maps).toHaveLength(1);
   });
 
-  it("repairs a route-remounted map at its returned dimensions without retaining old observers", () => {
+  it("repairs a route-remounted map at its returned dimensions without retaining old observers or losing its view", () => {
     const resize = resizeHarness();
-    const route = (show: boolean) => show ? <WorldMap data={[spot()]} selected="feed-1" /> : <div>Logbook route</div>;
+    const route = (show: boolean) => show ? <WorldMap data={[spot()]} selected="feed-1" persistenceKey="desk-test" /> : <div>Logbook route</div>;
     const view = render(route(true)), first = harness.maps[0];
     resize.flush();
     fireEvent.change(screen.getByLabelText("Map overlay"), { target: { value: "Spots" } });
+    fireEvent.change(screen.getByLabelText("Map appearance"), { target: { value: "Standard" } });
+    first.center = { lng: 42, lat: -19 }; first.zoom = 4.25; first.bearing = 12; first.pitch = 8;
+    first.fire("moveend", {});
     view.rerender(route(false));
     expect(first.remove).toHaveBeenCalledTimes(1);
     expect(resize.observers.size).toBe(0);
@@ -234,6 +247,12 @@ describe("map container resizing", () => {
     expect(returned.canvasSize).toEqual({ width, height });
     expect(returned.triggerRepaint).toHaveBeenCalledTimes(1);
     expect(resize.observers.size).toBe(1);
+    expect(returned.options.center).toEqual([42, -19]);
+    expect(returned.options.zoom).toBe(4.25);
+    expect(returned.options.bearing).toBe(12);
+    expect(returned.options.pitch).toBe(8);
+    expect(screen.getByLabelText<HTMLSelectElement>("Map overlay").value).toBe("Spots");
+    expect(screen.getByLabelText<HTMLSelectElement>("Map appearance").value).toBe("Standard");
     returned.resize.mockClear();
     fireEvent(document, new Event("visibilitychange"));
     expect(returned.resize).toHaveBeenCalledTimes(1);

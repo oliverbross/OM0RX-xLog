@@ -18,11 +18,38 @@ type OverlayMode = "Spots" | "DXCC" | "Both";
 type MapAppearance = "Hybrid" | "Satellite" | "Standard";
 type MapPreset = "Simple" | "Detailed" | "DX";
 type DXCCStatus = "needed" | "worked" | "confirmed";
+type MapCamera = { center: Coordinate; zoom: number; bearing: number; pitch: number; routeKey: string | null;
+  fitToDataKey?: string; selected: string | null; homeKey: string | null };
+type StoredMapState = { overlayMode?: OverlayMode; appearance?: MapAppearance; preset?: MapPreset; showSun?: boolean;
+  showGrayline?: boolean; showGrid?: boolean; longPath?: boolean; statusFilter?: DXCCStatus[]; camera?: MapCamera };
 type GeoJSONGeometry = { type: "MultiPolygon" | "Polygon"; coordinates: number[][][][] | number[][][] };
 type DXCCFeature = { properties: { dxcc_entity_code: number; dxcc_name: string | null; dxcc_prefix: string | null }; geometry: GeoJSONGeometry };
 const imageryTiles = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 const emptyLines = { type: "FeatureCollection" as const, features: [] };
 const gridPreferenceKey = "xlog.worldMap.maidenheadGrid";
+
+function storedMapState(key: string | undefined): StoredMapState | null {
+  if (!key) return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(`xlog.worldMap.${key}.v1`) || "null");
+    return parsed && typeof parsed === "object" ? parsed as StoredMapState : null;
+  } catch { return null; }
+}
+
+function validCamera(value: MapCamera | undefined): MapCamera | null {
+  if (!value || !Array.isArray(value.center) || value.center.length !== 2
+    || ![...value.center, value.zoom, value.bearing, value.pitch].every(Number.isFinite)) return null;
+  return value;
+}
+
+function routeStateKey(home: MapPoint | null | undefined, target: MapPoint | null | undefined, longPath: boolean) {
+  return home && target && [home.lon, home.lat, target.lon, target.lat].every(Number.isFinite)
+    ? `${home.call?.trim().toUpperCase() ?? ""}:${home.lon},${home.lat}:${target.call?.trim().toUpperCase() ?? ""}:${target.lon},${target.lat}:${longPath}` : null;
+}
+
+function homeStateKey(home: MapPoint | null | undefined) {
+  return home && [home.lon, home.lat].every(Number.isFinite) ? `${home.lon},${home.lat}` : null;
+}
 
 function savedGridPreference() {
   try { return window.localStorage.getItem(gridPreferenceKey) === "true"; } catch { return false; }
@@ -140,6 +167,7 @@ export default function WorldMap({
   spotActionLabel = "Activate to tune",
   locationLabel = "CTY approximate spot locations",
   fitToDataKey,
+  persistenceKey,
 }: {
   selected: string | null;
   onSpot?: (spot: MapSpot) => void;
@@ -155,7 +183,9 @@ export default function WorldMap({
   spotActionLabel?: string;
   locationLabel?: string;
   fitToDataKey?: string;
+  persistenceKey?: string;
 }) {
+  const [restoredState] = useState(() => storedMapState(persistenceKey));
   const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
   const detailID = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -163,24 +193,52 @@ export default function WorldMap({
   const [viewportRevision, setViewportRevision] = useState(0);
   const [error, setError] = useState("");
   const [imageryUnavailable, setImageryUnavailable] = useState(false);
-  const [overlayMode, setOverlayMode] = useState<OverlayMode>(fixture || acceptanceActive ? "Spots" : "Both");
-  const [appearance, setAppearance] = useState<MapAppearance>(fixture || acceptanceActive ? "Standard" : "Hybrid");
-  const [preset, setPreset] = useState<MapPreset>(fixture || acceptanceActive ? "Simple" : "Detailed");
-  const [showSun, setShowSun] = useState(!(fixture || acceptanceActive));
-  const [showGrayline, setShowGrayline] = useState(!(fixture || acceptanceActive));
-  const [showGrid, setShowGrid] = useState(() => !(fixture || acceptanceActive) && savedGridPreference());
-  const [longPath, setLongPath] = useState(initialLongPath);
-  useEffect(() => { setLongPath(initialLongPath); }, [initialLongPath]);
-  const [statusFilter, setStatusFilter] = useState<DXCCStatus[]>(["needed", "worked", "confirmed"]);
+  const restoredOverlay = ["Spots", "DXCC", "Both"].includes(restoredState?.overlayMode ?? "") ? restoredState!.overlayMode : undefined;
+  const restoredAppearance = ["Hybrid", "Satellite", "Standard"].includes(restoredState?.appearance ?? "") ? restoredState!.appearance : undefined;
+  const restoredPreset = ["Simple", "Detailed", "DX"].includes(restoredState?.preset ?? "") ? restoredState!.preset : undefined;
+  const restoredStatuses = Array.isArray(restoredState?.statusFilter)
+    ? restoredState.statusFilter.filter(status => ["needed", "worked", "confirmed"].includes(status)) : undefined;
+  const [overlayMode, setOverlayMode] = useState<OverlayMode>(restoredOverlay ?? (fixture || acceptanceActive ? "Spots" : "Both"));
+  const [appearance, setAppearance] = useState<MapAppearance>(restoredAppearance ?? (fixture || acceptanceActive ? "Standard" : "Hybrid"));
+  const [preset, setPreset] = useState<MapPreset>(restoredPreset ?? (fixture || acceptanceActive ? "Simple" : "Detailed"));
+  const [showSun, setShowSun] = useState(typeof restoredState?.showSun === "boolean" ? restoredState.showSun : !(fixture || acceptanceActive));
+  const [showGrayline, setShowGrayline] = useState(typeof restoredState?.showGrayline === "boolean" ? restoredState.showGrayline : !(fixture || acceptanceActive));
+  const [showGrid, setShowGrid] = useState(() => typeof restoredState?.showGrid === "boolean"
+    ? restoredState.showGrid : !(fixture || acceptanceActive) && savedGridPreference());
+  const [longPath, setLongPath] = useState(typeof restoredState?.longPath === "boolean" ? restoredState.longPath : initialLongPath);
+  const initialLongPathRef = useRef(initialLongPath);
+  useEffect(() => {
+    if (initialLongPathRef.current === initialLongPath) return;
+    initialLongPathRef.current = initialLongPath;
+    setLongPath(initialLongPath);
+  }, [initialLongPath]);
+  const [statusFilter, setStatusFilter] = useState<DXCCStatus[]>(restoredStatuses ?? ["needed", "worked", "confirmed"]);
   const [solarDate, setSolarDate] = useState(() => new Date());
+  const routeKey = routeStateKey(home, target, longPath);
+  const homeKey = homeStateKey(home);
+  const restoredCamera = validCamera(restoredState?.camera);
+  const initialCamera = restoredCamera?.routeKey === routeKey && restoredCamera?.fitToDataKey === fitToDataKey
+    && restoredCamera?.selected === selected && restoredCamera?.homeKey === homeKey ? restoredCamera : null;
+  const restoredSelection = initialCamera && selected ? mappedSpots.find(spot => spot.id === selected) : undefined;
+  const cameraRef = useRef<MapCamera | null>(initialCamera);
+  const cameraContextRef = useRef({ routeKey, fitToDataKey, selected, homeKey });
+  cameraContextRef.current = { routeKey, fitToDataKey, selected, homeKey };
+  const optionsRef = useRef({ overlayMode, appearance, preset, showSun, showGrayline, showGrid, longPath, statusFilter });
+  optionsRef.current = { overlayMode, appearance, preset, showSun, showGrayline, showGrid, longPath, statusFilter };
+  const persistState = () => {
+    if (!persistenceKey) return;
+    try { window.localStorage.setItem(`xlog.worldMap.${persistenceKey}.v1`, JSON.stringify({ ...optionsRef.current, camera: cameraRef.current })); }
+    catch { /* Map state persistence is optional. */ }
+  };
+  useEffect(persistState, [persistenceKey, overlayMode, appearance, preset, showSun, showGrayline, showGrid, longPath, statusFilter]);
   const callback = useRef(onSpot);
   const actionLabel = useRef(spotActionLabel); actionLabel.current = spotActionLabel;
   const fitDataRef = useRef(fitToDataKey); fitDataRef.current = fitToDataKey;
-  const fittedDataKey = useRef<string | null>(null);
+  const fittedDataKey = useRef<string | null>(initialCamera && fitToDataKey != null ? fitToDataKey : null);
   const selection = useRef(selected);
-  const preserveCamera = useRef(Boolean(selected));
-  const fittedRouteKey = useRef<string | null>(null);
-  const centeredSelectionKey = useRef<string | null>(null);
+  const preserveCamera = useRef(Boolean(selected) || Boolean(initialCamera));
+  const fittedRouteKey = useRef<string | null>(initialCamera ? routeKey : null);
+  const centeredSelectionKey = useRef<string | null>(restoredSelection ? `${selected}:${restoredSelection.call}` : null);
   const spotsRef = useRef(mappedSpots);
   const selectedCallRef = useRef<string | null>(null);
   const previousSelectionRef = useRef(selected);
@@ -464,8 +522,10 @@ export default function WorldMap({
         // same countries. A transient fallback camera must never render
         // multiple wrapped copies while the Desk is returning.
         renderWorldCopies: false,
-        center: [-15, 38],
-        zoom: 1.65,
+        center: initialCamera?.center ?? [-15, 38],
+        zoom: initialCamera?.zoom ?? 1.65,
+        bearing: initialCamera?.bearing ?? 0,
+        pitch: initialCamera?.pitch ?? 0,
         attributionControl: false,
         style: {
           version: 8,
@@ -581,14 +641,20 @@ export default function WorldMap({
       // Read framebuffer pixels synchronously at the end of a requested frame,
       // before the browser discards its non-preserved drawing buffer.
       map.on("render", evidence);
+      const rememberCamera = () => {
+        const center = map.getCenter(), context = cameraContextRef.current;
+        cameraRef.current = { center: [center.lng, center.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), ...context };
+        persistState();
+      };
       map.on("moveend", redrawLabels);
       map.on("moveend", redrawGrid);
+      map.on("moveend", rememberCamera);
       document.addEventListener("xlog-native-acceptance", requestEvidence);
       document.addEventListener("xlog-native-map-evidence", requestEvidence);
       window.addEventListener("focus", repaint);
       const visible = () => { if (document.visibilityState === "visible") repaint(); };
       document.addEventListener("visibilitychange", visible);
-      fitFixture();
+      if (!initialCamera) fitFixture();
       map.on("movestart", (event) => {
         if (event.originalEvent) preserveCamera.current = true;
       });
@@ -684,6 +750,7 @@ export default function WorldMap({
       // Resize once after layout even when ResizeObserver coalesces that reveal.
       scheduleResize();
       return () => {
+        rememberCamera();
         disposed = true;
         document.removeEventListener("xlog-native-acceptance", requestEvidence);
         document.removeEventListener("xlog-native-map-evidence", requestEvidence);
@@ -724,8 +791,6 @@ export default function WorldMap({
     centeredSelectionKey.current = key;
     redrawRef.current();
   }, [selected, selectedSpot?.call, home?.lat, home?.lon, target?.lat, target?.lon]);
-  const routeKey = home && target && [home.lon, home.lat, target.lon, target.lat].every(Number.isFinite)
-    ? `${home.call?.trim().toUpperCase() ?? ""}:${home.lon},${home.lat}:${target.call?.trim().toUpperCase() ?? ""}:${target.lon},${target.lat}:${longPath}` : null;
   useEffect(() => {
     const map = mapRef.current;
     if (!routeKey || !home || !target || !map) {

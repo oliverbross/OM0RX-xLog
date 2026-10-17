@@ -32,12 +32,18 @@ describe("telemetry compass", () => {
     expect(view.container.querySelector(".rotor-observed-needle")).toBeNull();
     expect(view.container.querySelector(".rotor-target-arc")).toBeNull();
   });
-  it("renders optional path controls inside the dial", () => {
+  it("keeps optional path controls outside the circular dial at opposite shell corners", () => {
     const selected: Array<"SP" | "LP"> = [];
     const view = render(<RotorCompass connected azimuth={53} target={73} path="SP" readout={{ call: "W7AIT" }}
       pathControls={{ shortBearing: 73, longBearing: 253, onSelect: path => selected.push(path) }} />);
-    expect(view.container.querySelector(".rotor-dial-shell > .rotor-dial")).toBeTruthy();
-    screen.getByRole("button", { name: "Turn rotor long path" }).click();
+    const dial = view.container.querySelector(".rotor-dial-shell > .rotor-dial"), controls = view.container.querySelector(".rotor-path-controls")!;
+    const shortPath = screen.getByRole("button", { name: "Turn rotor short path" }), longPath = screen.getByRole("button", { name: "Turn rotor long path" });
+    expect(dial).toBeTruthy();
+    expect(controls.parentElement).toBe(dial?.parentElement);
+    expect(dial?.contains(shortPath)).toBe(false);
+    expect(controls.firstElementChild).toBe(shortPath);
+    expect(controls.lastElementChild).toBe(longPath);
+    longPath.click();
     expect(selected).toEqual(["LP"]);
   });
 });

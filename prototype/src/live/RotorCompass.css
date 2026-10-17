@@ -22,12 +22,12 @@
 .rotor-readout-label { fill:#abc0cf; font-size:6.5px; letter-spacing:1px; }
 .rotor-readout-target { fill:#ef9bda; font-size:9px; font-weight:750; }
 .rotor-readout-distance { fill:#abc0cf; font-size:8px; }
-.rotor-dial-shell { position:relative; }
+.rotor-dial-shell { position:relative; width:100%; aspect-ratio:1; }
 .rotor-dial-shell > .rotor-dial { width:100%; height:100%; max-width:none; }
 .rotor-path-controls { position:absolute; inset:0; pointer-events:none; }
-.rotor-path-controls button { position:absolute; bottom:3%; width:27%; height:11%; min-width:0; padding:1px 3px; border:1px solid #315b72; border-radius:5px; background:#102b3e; color:#cae6f4; font-family:inherit; font-size:clamp(7px,5cqh,11px); font-weight:700; line-height:1; pointer-events:auto; }
-.rotor-path-controls button:first-child { left:3%; }
-.rotor-path-controls button:last-child { right:3%; }
+.rotor-path-controls button { position:absolute; bottom:0; width:min(24%,64px); height:11%; min-width:0; padding:1px 3px; border:1px solid #315b72; border-radius:5px; background:#102b3e; color:#cae6f4; font-family:inherit; font-size:clamp(7px,5cqh,11px); font-weight:700; line-height:1; pointer-events:auto; white-space:nowrap; }
+.rotor-path-controls button:first-child { left:0; }
+.rotor-path-controls button:last-child { right:0; }
 .rotor-path-controls button[aria-pressed="true"] { border-color:#4ccceb; background:#17536d; color:#fff; }
 .rotor-path-controls button:disabled { opacity:.42; cursor:not-allowed; }
 .rotor-path-controls button:focus-visible { outline:2px solid #58dbf6; outline-offset:-2px; }

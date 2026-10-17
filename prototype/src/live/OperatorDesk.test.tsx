@@ -139,7 +139,7 @@ it("does not let stale draft country/location label a new call's matched intelli
   expect(intelligence.getByText("JN88WT")).toBeTruthy();
   expect(draft()).toEqual(entered);
 });
-it("uses observed compass telemetry and sends only explicit generation-fenced in-dial path motion", async () => {
+it("uses observed compass telemetry and sends only explicit generation-fenced path motion", async () => {
   const request = vi.fn(async (_method: string, _params?: Record<string, any>) => ({})), onManualRotor = vi.fn();
   render(<Harness request={request} onManualRotor={onManualRotor} />);
   expect(screen.getByLabelText("Observed rotor bearing 53 degrees")).toBeTruthy();
@@ -151,17 +151,22 @@ it("uses observed compass telemetry and sends only explicit generation-fenced in
   expect(screen.queryByRole("button", { name: "Stop desk rotor" })).toBeNull();
   expect(onManualRotor).toHaveBeenCalledTimes(1);
 });
-it("keeps callsign, observed bearing, target, distance and SP/LP controls inside the responsive dial", async () => {
+it("keeps the dial readout responsive while placing SP/LP in opposite Rotor card corners", async () => {
   render(<Harness />);
   const panel = screen.getByRole("region", { name: "Rotor" });
   const dial = within(panel).getByRole("img", { name: "Observed rotor bearing 53 degrees" });
   for (const text of ["W7AIT", "053°", "OBSERVED", "SP 73° TARGET", "12,500 km"]) expect(within(dial).getByText(text)).toBeTruthy();
   expect(panel.querySelector(".desk-rotor-target")).toBeNull();
-  expect(within(panel).getByRole("button", { name: "Turn rotor short path" })).toBeTruthy();
-  expect(within(panel).getByRole("button", { name: "Turn rotor long path" })).toBeTruthy();
+  const controls = panel.querySelector<HTMLElement>(".rotor-path-controls")!;
+  const shortPath = within(controls).getByRole("button", { name: "Turn rotor short path" });
+  const longPath = within(controls).getByRole("button", { name: "Turn rotor long path" });
+  expect(controls.firstElementChild).toBe(shortPath);
+  expect(controls.lastElementChild).toBe(longPath);
   expect(panel.querySelector(".desk-rotor-controls")).toBeNull();
   expect(panel.querySelector(".desk-rotor-body > .rotor-dial-shell > .rotor-dial")).toBe(dial);
-  fireEvent.click(within(panel).getByRole("button", { name: "Turn rotor long path" }));
+  expect(panel.querySelector(".desk-rotor-body > .rotor-dial-shell > .rotor-path-controls")).toBe(controls);
+  expect(dial.parentElement).toBe(controls.parentElement);
+  fireEvent.click(longPath);
   await waitFor(() => expect(within(dial).getByText("LP 253° TARGET")).toBeTruthy());
   expect(within(dial).getByText("27,530 km")).toBeTruthy();
   expect(within(dial).getByText("053°")).toBeTruthy();

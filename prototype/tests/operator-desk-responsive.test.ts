@@ -34,6 +34,13 @@ it("keeps the actual-component geometry matrix around the reported width and fra
   expect(geometry).toContain("RST field no longer has a readable minimum width");
 });
 
+it("checks that Rotor path controls occupy opposite card corners without crossing the dial", () => {
+  expect(geometry).toContain("SP control overlaps the circular dial");
+  expect(geometry).toContain("LP control overlaps the circular dial");
+  expect(geometry).toContain("SP control left the Rotor card bottom-left corner");
+  expect(geometry).toContain("LP control left the Rotor card bottom-right corner");
+});
+
 it("reflows standalone data tables into labelled records while allowing the Desk logbook to retain columns", () => {
   expect(logbook).toMatch(/@container logbook-responsive \(max-width:\s*1200px\)/);
   expect(logbook).toMatch(/@container logbook-responsive \(max-width:\s*520px\)/);

@@ -32,13 +32,33 @@
     if (width <= 1420 && !stacked) failures.push("Narrow layout should retain the full-width Active QSO");
     if (width > 1840 && active.height > 282)
       failures.push("Unnecessary wrapping has enlarged the top row");
+    let pathControls = null;
+    if (rotor) {
+      const dial = measure(rotor.querySelector(".rotor-dial"));
+      const body = measure(rotor.querySelector(".desk-rotor-body"));
+      const shortPath = measure(rotor.querySelector('[aria-label="Turn rotor short path"]'));
+      const longPath = measure(rotor.querySelector('[aria-label="Turn rotor long path"]'));
+      const radius = dial.width * .48, centreX = dial.x + dial.width / 2, centreY = dial.y + dial.height / 2;
+      const overlapsDial = control => {
+        const nearestX = Math.max(control.x, Math.min(centreX, control.right));
+        const nearestY = Math.max(control.y, Math.min(centreY, control.bottom));
+        return Math.hypot(nearestX - centreX, nearestY - centreY) < radius - .5;
+      };
+      if (overlapsDial(shortPath)) failures.push("SP control overlaps the circular dial");
+      if (overlapsDial(longPath)) failures.push("LP control overlaps the circular dial");
+      if (Math.abs(shortPath.x - body.x) > 1 || Math.abs(shortPath.bottom - body.bottom) > 1)
+        failures.push("SP control left the Rotor card bottom-left corner");
+      if (Math.abs(longPath.right - body.right) > 1 || Math.abs(longPath.bottom - body.bottom) > 1)
+        failures.push("LP control left the Rotor card bottom-right corner");
+      pathControls = { shortPath, longPath };
+    }
     const primary = document.querySelector(".desk-active-primary");
     const primaryWidth = primary.getBoundingClientRect().width;
     const rstWidths = [...primary.querySelectorAll('input[aria-label="Desk RST S"], input[aria-label="Desk RST R"]')].map(field => measure(field).width);
     if (rstWidths.some(value => value < 44)) failures.push("RST field no longer has a readable minimum width");
     results.push({ width, stacked, activeHeight: active.height,
       primaryWidth, primaryColumns: getComputedStyle(primary).gridTemplateColumns, rstWidths,
-      dialWidth: rotor ? measure(rotor.querySelector(".rotor-dial")).width : null, failures });
+      dialWidth: rotor ? measure(rotor.querySelector(".rotor-dial")).width : null, pathControls, failures });
   }
   root.style.removeProperty("width");
   return { passed: results.every(result => result.failures.length === 0), results };
