@@ -12,7 +12,7 @@ export function connectSpotEditor(participants: readonly SpotEditorParticipant[]
   changed: (snapshot: SpotActivationSnapshot) => void, failed: (message: string) => void,
   adapter: Adapter = native, before: Promise<unknown> = Promise.resolve(), instance: string = crypto.randomUUID()) {
   const editor = new SpotActivationEditor(participants, () => adapter.call("spot_editor_state"), readiness);
-  let active = true, started = false, registered = false, reading = false, again = false, epoch = 0;
+  let active = true, started = false, registered = false, registering = false, reading = false, again = false, epoch = 0;
   let stop: (() => void) | undefined;
   const acknowledgements = new Set<string>();
   const followSettlements = new Set<string>();
@@ -37,7 +37,8 @@ export function connectSpotEditor(participants: readonly SpotEditorParticipant[]
     }
   };
   const recover = async () => {
-    if (!active || !registered) { again = true; return; }
+    if (!active) return;
+    if (!registered) { void register(); return; }
     if (reading) { again = true; return; }
     reading = true;
     try {
@@ -46,25 +47,45 @@ export function connectSpotEditor(participants: readonly SpotEditorParticipant[]
         try {
           const snapshot = await adapter.call("spot_activation_snapshot");
           if (active && captured === epoch) await adopt(snapshot);
-        } catch (cause) { if (active && captured === epoch) failed(cause instanceof Error ? cause.message : "Spot activation status is unavailable. Keep this editor open and check its status."); }
+        } catch (cause) {
+          if (active && captured === epoch) {
+            registered = false; participants.forEach(participant => participant.setSpotEditorRegistered(false));
+            failed(cause instanceof Error ? cause.message : "Spot activation status is unavailable. Keep this editor open and check its status.");
+          }
+        }
       } while (active && again);
     } finally { reading = false; }
   };
   const wake = () => { epoch++; void recover(); };
   window.addEventListener("focus", wake);
   const timer = window.setInterval(() => void recover(), 1500);
-  const registration = (async () => {
-    await before.catch(() => {});
-    if (!active) return;
-    stop = await adapter.listen(wake);
-    if (!active) { stop(); stop = undefined; return; }
-    started = true;
-    const snapshot = await adapter.call("spot_editor_register", { instance });
-    if (!active) return;
-    await adopt(snapshot, true);
-    registered = true;
-    if (active) void recover();
-  })().catch(cause => { if (active) failed(cause instanceof Error ? cause.message : "Editor registration is unavailable. Keep your text and reopen this editor before activating a spot."); });
+  let registration: Promise<void> = Promise.resolve();
+  const register = () => {
+    if (!active || registered || registering) return registration;
+    registering = true;
+    registration = (async () => {
+      await before.catch(() => {});
+      if (!active) return;
+      if (!stop) {
+        stop = await adapter.listen(wake);
+        if (!active) { stop(); stop = undefined; return; }
+      }
+      // Even when the reply is lost, unregister this instance during disposal.
+      started = true;
+      const snapshot = await adapter.call("spot_editor_register", { instance });
+      if (!active) return;
+      await adopt(snapshot, true);
+      registered = true;
+      if (active) void recover();
+    })().catch(cause => {
+      if (active) {
+        registered = false; participants.forEach(participant => participant.setSpotEditorRegistered(false));
+        failed(`QSO editor registration is unavailable; retrying safely. Spot selection remains disabled and your draft is retained.${cause instanceof Error && cause.message ? ` ${cause.message}` : ""}`);
+      }
+    }).finally(() => { registering = false; });
+    return registration;
+  };
+  void register();
   let disposal: Promise<void> | null = null;
   return {
     refresh: wake,

@@ -80,6 +80,28 @@ it("cleans a late listener and never registers or adopts a disposed editor", asy
   const connection = f.connect(); await settle(); const disposal = connection.dispose(); held.resolve(f.stop); await disposal;
   expect(f.stop).toHaveBeenCalledOnce(); expect(f.call).not.toHaveBeenCalled(); expect(f.changed).not.toHaveBeenCalled(); expect(f.session.canAcceptLocalInput()).toBe(false);
 });
+it("retries a failed registration on the bounded recovery timer without unfreezing early", async () => {
+  const f = await fixture(), original = f.call.getMockImplementation()!;
+  f.call.mockImplementationOnce(async () => { throw new Error("temporary registration failure"); }).mockImplementation(original);
+  const connection = f.connect(); await settle();
+  expect(f.failed).toHaveBeenCalledWith(expect.stringContaining("retrying safely"));
+  expect(f.session.canAcceptLocalInput()).toBe(false);
+  await vi.advanceTimersByTimeAsync(1500);
+  expect(f.call.mock.calls.filter(([method]) => method === "spot_editor_register")).toHaveLength(2);
+  expect(f.session.canAcceptLocalInput()).toBe(true);
+  await connection.dispose();
+});
+it("re-registers fail-closed after a status adoption failure", async () => {
+  const f = await fixture(), connection = f.connect(); await settle();
+  expect(f.session.canAcceptLocalInput()).toBe(true);
+  f.snapshot = { invalid: true }; f.wake(); await settle();
+  expect(f.session.canAcceptLocalInput()).toBe(false);
+  f.snapshot = { phase: "idle", operationId: null, barrier: null };
+  await vi.advanceTimersByTimeAsync(1500);
+  expect(f.call.mock.calls.filter(([method]) => method === "spot_editor_register")).toHaveLength(2);
+  expect(f.session.canAcceptLocalInput()).toBe(true);
+  await connection.dispose();
+});
 it("returns false for a still-admitted operation and true only after its canonical reconciliation", async () => {
   const f = await fixture(), connection = f.connect(); await settle();
   f.snapshot = preparing(); f.wake(); await settle();

@@ -414,6 +414,8 @@ function MainLiveApp() {
   const selection = useRef(0);
   const activationStarted = useRef(false);
   const spotPreparation = useRef<Promise<void> | null>(null);
+  const spotDraftRecovery = useRef<Promise<void> | null>(null);
+  const spotAwaitingDraftRecovery = useRef<Data | null>(null);
   const [spotEditorEpoch, setSpotEditorEpoch] = useState(0);
   const stationPolling = useRef(false);
   const clusterPolling = useRef(false);
@@ -946,6 +948,27 @@ function MainLiveApp() {
     if (monitor) return;
     const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
     if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) return;
+    if ((draftState.activationFrozen || contactState.activationFrozen) && spotEditor.initializing) {
+      setError(spotEditor.error || "QSO editor registration is still initializing. Spot selection remains disabled and your draft is retained; recovery retries automatically.");
+      return;
+    }
+    if (draftState.pending && !draftState.workspaceChanged && !draftState.activationFrozen && !contactState.activationFrozen) {
+      // A lost acknowledgement may already have a durable receipt. Re-check it
+      // before presenting a permanent selection barrier; never replay here.
+      spotAwaitingDraftRecovery.current = spot;
+      setError("");
+      if (!spotDraftRecovery.current) {
+        spotDraftRecovery.current = draftSession.reconcile().then(() => {
+          const requested = spotAwaitingDraftRecovery.current;
+          spotAwaitingDraftRecovery.current = null;
+          const current = draftSession.getSnapshot();
+          if (!current.pending && requested) selectSpot(requested);
+          else setError(current.error || "Resolve the current QSO operation before selecting another spot.");
+        }).catch(cause => setError(cause instanceof Error ? cause.message : "The saved QSO operation could not be checked."))
+          .finally(() => { spotDraftRecovery.current = null; });
+      }
+      return;
+    }
     if (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
       readingRadio.current || readOperation.current || mainClosing.current || layoutChanging.current || editorTransition.current ||
       draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged || draftState.activationFrozen ||

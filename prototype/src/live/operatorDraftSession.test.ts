@@ -209,6 +209,24 @@ describe("workspace operator draft client", () => {
     expect(restored.getSnapshot().locked).toBe(false);
     expect(f.request.mock.calls.slice(calls).map(([method]) => method)).toEqual(["logbook_operator_draft_receipt", "logbook_operator_draft"]);
   });
+  it("coalesces concurrent read-only checks of a retained operation", async () => {
+    const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
+    const backend = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (method, params) => {
+      const result = await backend(method, params);
+      if (method === "logbook_operator_draft_apply" && params.action === "save") throw new Error("lost acknowledgement");
+      if (method === "logbook_operator_draft_receipt") return { receipt: null };
+      return result;
+    });
+    await expect(session.commit("save")).rejects.toThrow();
+    const gate = deferred<any>();
+    f.request.mockImplementation(async (method, params) => method === "logbook_operator_draft_receipt" ? gate.promise : backend(method, params));
+    const first = session.reconcile(), second = session.reconcile();
+    expect(first).toBe(second);
+    expect(f.request.mock.calls.filter(([method]) => method === "logbook_operator_draft_receipt")).toHaveLength(2);
+    gate.resolve({ receipt: null }); await first;
+    expect(session.getSnapshot().pending).toBeTruthy();
+  });
   it("retries a not-delivered Save with the identical persisted operation", async () => {
     const f = fixture(), session = f.make(); await session.load(); type(session, "K1ABC"); await session.flush();
     const backend = f.request.getMockImplementation()!;

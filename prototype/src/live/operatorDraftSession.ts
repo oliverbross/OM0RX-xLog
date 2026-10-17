@@ -121,6 +121,7 @@ export class OperatorDraftSession {
   private work: Promise<void> | null = null;
   private action: Promise<DraftQSO | null> | null = null;
   private loading: Promise<void> | null = null;
+  private receiptCheck: Promise<void> | null = null;
   private resolving = false;
   private restoring = false;
   private version = 0;
@@ -382,7 +383,12 @@ export class OperatorDraftSession {
     })().finally(() => { this.action = null; this.update({ locked: !this.state.workspaceChanged && !!this.state.pending && this.state.pending.action !== "replace" }, false); });
     return this.action;
   }
-  async reconcile() {
+  reconcile() {
+    if (this.receiptCheck) return this.receiptCheck;
+    this.receiptCheck = this.reconcilePending().finally(() => { this.receiptCheck = null; });
+    return this.receiptCheck;
+  }
+  private async reconcilePending() {
     this.spotFence.assertWritable();
     const pending = this.state.pending;
     if (!pending || this.work || this.action || this.state.workspaceChanged) return;

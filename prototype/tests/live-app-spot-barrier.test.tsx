@@ -248,6 +248,32 @@ it("discards a different callsign draft before activating the selected report", 
   expect(host.request.mock.calls.some(([method]) => method === "logbook_operator_draft_apply")).toBe(false);
 });
 
+it("checks a retained lost QSO receipt before selecting a spot without replaying the operation", async () => {
+  const qso = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
+  const operationID = crypto.randomUUID();
+  const mutation = { operationID, draftID: qso.id, expectedRevision: 0, generation: testWorkspaceGeneration,
+    action: "replace", qso };
+  const current = { revision: 1, qso, generation: testWorkspaceGeneration };
+  const receipt = { mutation, draft: current };
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1", JSON.stringify({
+    draft: qso, base: { revision: 0, qso, generation: testWorkspaceGeneration }, pending: mutation,
+  }));
+  const backend = host.request.getMockImplementation()!;
+  let receiptChecks = 0;
+  host.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_receipt")
+      return { result: { receipt: ++receiptChecks === 1 ? null : receipt } };
+    if (method === "logbook_operator_draft" && receiptChecks > 1) return { result: { draft: current } };
+    return backend(method, params);
+  });
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(receiptChecks).toBe(2);
+  expect(host.request.mock.calls.filter(([method]) => method === "logbook_operator_draft_apply")).toHaveLength(0);
+  expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
+});
+
 it("cancels an unsaved logged-contact edit before loading a cluster report", async () => {
   await openEditor(false); sidebar("Logbook");
   fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" }));
