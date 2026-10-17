@@ -30,7 +30,8 @@ struct LoTWConfirmationPreviewTests {
     @Test func onlyConfirmationFieldsChangeAndInputsRemainFrozen() throws {
         let local = contact(extra: ["QSLRDATE": "20200101", "COMMENT": "untouched"])
         let result = try preview([record(mode: "CW")], [local])
-        #expect(result == (try preview([record(mode: "CW")], [local])))
+        let repeated = try preview([record(mode: "CW")], [local])
+        #expect(result == repeated)
         #expect(result.changedCount == 1)
         #expect(result.changeCount == 3)
         #expect(result.items[0].fence == LoTWConfirmationPreview.Fence(generation: generation, contactID: local.qso.id, revision: 7))

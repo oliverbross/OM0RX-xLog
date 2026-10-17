@@ -229,7 +229,9 @@ import Testing
         let record = root.appendingPathComponent(plan.backupID.uuidString.lowercased() + ".json")
         let original = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: record)) as? [String: Any])
         let originalOperation = try #require(original["operation"] as? [String: Any])
-        #expect(original["sha256"] as? String == BackupPackageSeal.hash(try JSONSerialization.data(withJSONObject: originalOperation, options: [.sortedKeys])))
+        let originalData = try JSONSerialization.data(withJSONObject: originalOperation, options: [.sortedKeys])
+        let originalHash = BackupPackageSeal.hash(originalData)
+        #expect(original["sha256"] as? String == originalHash)
         for (key, value) in [("destinationRevision", 0), ("packageByteCount", 0), ("workspaceGeneration", 0), ("scheduleHours", -1)] {
             var json = original
             var operation = try #require(json["operation"] as? [String: Any])

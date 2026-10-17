@@ -20,7 +20,8 @@ struct LoTWConfirmationReportTests {
     @Test func validReportRetainsOnlyLoTWEvidenceAndIsDeterministic() throws {
         let input = "LoTW report\n" + header() + record() + "<EOR>"
         let result = try parser.parse(input)
-        #expect(result == (try parser.parse(input)))
+        let repeated = try parser.parse(input)
+        #expect(result == repeated)
         #expect(result.declaredRecordCount == 1)
         #expect(result.lastQSL == "2026-10-16 01:02:03")
         #expect(!result.hasDeprecatedEOFMarker)
