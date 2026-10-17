@@ -1,0 +1,327 @@
+{
+  "assertions" : {
+    "historicalReadAfterLaterMutation" : true,
+    "prepareDidNotAdvanceRevision" : true,
+    "releasedReadUnavailable" : true,
+    "replayResultExactlyEqual" : true
+  },
+  "provenance" : {
+    "liveWorkerResponses" : true,
+    "wrongWindow" : "Validated by native worker surface-admission tests; Swift LiveWorker has no window label."
+  },
+  "requests" : {
+    "laterMutation" : {
+      "draftID" : "e2111111-2222-4333-8444-555555555555",
+      "expectedRevision" : 3,
+      "operationTimestamp" : "2026-10-17T03:04:00.000Z",
+      "payload" : {
+        "fields" : {
+          "band" : "20m",
+          "callsign" : "K1\/",
+          "frequencyHz" : null,
+          "mode" : "CW",
+          "receivedExchange" : "",
+          "receivedReport" : "599",
+          "sentExchange" : "15",
+          "sentReport" : "599"
+        }
+      },
+      "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
+      "requestID" : "e6111111-2222-4333-8444-555555555555",
+      "sessionID" : "e1111111-2222-4333-8444-555555555555",
+      "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+    },
+    "prepare" : {
+      "expectedRevision" : 3,
+      "exportID" : "e5111111-2222-4333-8444-555555555555",
+      "format" : "cabrillo",
+      "generatedAtUTC" : "2026-10-17T03:03:00.000Z",
+      "header" : {
+        "addressLines" : [
+          "Test Street 1"
+        ],
+        "callsign" : "OM0RX",
+        "categoryAssisted" : "NON-ASSISTED",
+        "categoryBand" : "ALL",
+        "categoryMode" : "CW",
+        "categoryOperator" : "SINGLE-OP",
+        "categoryPower" : "LOW",
+        "categoryTransmitter" : "ONE",
+        "email" : "operator@example.test",
+        "location" : "DX",
+        "name" : "Oliver Operator",
+        "operators" : [
+          "OM0RX"
+        ]
+      },
+      "sessionID" : "e1111111-2222-4333-8444-555555555555",
+      "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+    },
+    "reads" : [
+      {
+        "exportID" : "e5111111-2222-4333-8444-555555555555",
+        "length" : 450,
+        "offset" : 0,
+        "sessionID" : "e1111111-2222-4333-8444-555555555555",
+        "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+      }
+    ],
+    "release" : {
+      "exportID" : "e5111111-2222-4333-8444-555555555555",
+      "sessionID" : "e1111111-2222-4333-8444-555555555555",
+      "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+    }
+  },
+  "responses" : {
+    "laterMutation" : {
+      "id" : "export-contest_draft_apply",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "e2111111-2222-4333-8444-555555555555",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "K1\/",
+            "frequencyHz" : null,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedReport" : "599",
+            "sentExchange" : "15",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : null,
+          "revision" : 4,
+          "sessionID" : "e1111111-2222-4333-8444-555555555555",
+          "updatedAt" : "2026-10-17T03:04:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A valid callsign is required.",
+              "A positive frequency is required.",
+              "CQ zone must be an integer from 1 through 40."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-17T03:04:00.000Z",
+          "committedRevision" : 4,
+          "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
+          "requestID" : "e6111111-2222-4333-8444-555555555555"
+        },
+        "session" : {
+          "name" : "Export wire fixture",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 1,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 4,
+          "rule" : {
+            "displayName" : "CQ WW CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-ww-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "e1111111-2222-4333-8444-555555555555",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T03:04:00.000Z",
+          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        }
+      }
+    },
+    "openAfterPrepare" : {
+      "id" : "export-contest_open",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "e2111111-2222-4333-8444-555555555555",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : 14024500,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedReport" : "599",
+            "sentExchange" : "15",
+            "sentReport" : "599"
+          },
+          "reservedSerial" : null,
+          "revision" : 3,
+          "sessionID" : "e1111111-2222-4333-8444-555555555555",
+          "updatedAt" : "2026-10-17T03:02:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A valid callsign is required.",
+              "Contest geography could not be resolved.",
+              "CQ zone must be an integer from 1 through 40."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        },
+        "session" : {
+          "name" : "Export wire fixture",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 1,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 3,
+          "rule" : {
+            "displayName" : "CQ WW CW",
+            "identity" : {
+              "edition" : "source-26.10.11",
+              "id" : "cq-ww-cw",
+              "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+              "version" : "1.0.0-source-spike"
+            },
+            "mode" : "CW",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          "sessionID" : "e1111111-2222-4333-8444-555555555555",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC"
+          },
+          "updatedAt" : "2026-10-17T03:02:00.000Z",
+          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        }
+      }
+    },
+    "prepare" : {
+      "id" : "export-contest_export_prepare",
+      "ok" : true,
+      "result" : {
+        "artifactID" : "e5111111-2222-4333-8444-555555555555",
+        "byteLength" : 450,
+        "chunkLimit" : 65536,
+        "claimedScore" : 6,
+        "expiresAfterSeconds" : 600,
+        "format" : "cabrillo",
+        "formatterVersion" : "pilot-1",
+        "generatedAtUTC" : "2026-10-17T03:03:00.000Z",
+        "inputSchemaVersion" : "1",
+        "multiplierCount" : 2,
+        "qsoCount" : 1,
+        "revision" : 3,
+        "sessionID" : "e1111111-2222-4333-8444-555555555555",
+        "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
+        "totalPoints" : 3,
+        "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+      }
+    },
+    "reads" : [
+      {
+        "id" : "export-contest_export_read",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "e5111111-2222-4333-8444-555555555555",
+          "byteLength" : 450,
+          "dataBase64" : "U1RBUlQtT0YtTE9HOiAzLjANCkNSRUFURUQtQlk6IE9NMFJYLXhMb2cNCkNPTlRFU1Q6IENRLVdXLUNXDQpDQUxMU0lHTjogT00wUlgNCkxPQ0FUSU9OOiBEWA0KQ0FURUdPUlktT1BFUkFUT1I6IFNJTkdMRS1PUA0KQ0FURUdPUlktQVNTSVNURUQ6IE5PTi1BU1NJU1RFRA0KQ0FURUdPUlktQkFORDogQUxMDQpDQVRFR09SWS1NT0RFOiBDVw0KQ0FURUdPUlktVFJBTlNNSVRURVI6IE9ORQ0KQ0FURUdPUlktUE9XRVI6IExPVw0KQ0xBSU1FRC1TQ09SRTogNg0KT1BFUkFUT1JTOiBPTTBSWA0KTkFNRTogT2xpdmVyIE9wZXJhdG9yDQpBRERSRVNTOiBUZXN0IFN0cmVldCAxDQpFTUFJTDogb3BlcmF0b3JAZXhhbXBsZS50ZXN0DQpRU086IDE0MDI0IENXIDIwMjYtMTAtMTcgMDMwMiBPTTBSWCAgICAgICAgIDU5OSAxNSAgICAgSzFBQkMgICAgICAgICA1OTkgMDUgICAgDQpFTkQtT0YtTE9HOg0K",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 3,
+          "sessionID" : "e1111111-2222-4333-8444-555555555555",
+          "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
+          "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+        }
+      }
+    ],
+    "release" : {
+      "id" : "export-contest_export_release",
+      "ok" : true,
+      "result" : {
+        "artifactID" : "e5111111-2222-4333-8444-555555555555",
+        "released" : true
+      }
+    },
+    "replay" : {
+      "id" : "export-contest_export_prepare",
+      "ok" : true,
+      "result" : {
+        "artifactID" : "e5111111-2222-4333-8444-555555555555",
+        "byteLength" : 450,
+        "chunkLimit" : 65536,
+        "claimedScore" : 6,
+        "expiresAfterSeconds" : 600,
+        "format" : "cabrillo",
+        "formatterVersion" : "pilot-1",
+        "generatedAtUTC" : "2026-10-17T03:03:00.000Z",
+        "inputSchemaVersion" : "1",
+        "multiplierCount" : 2,
+        "qsoCount" : 1,
+        "revision" : 3,
+        "sessionID" : "e1111111-2222-4333-8444-555555555555",
+        "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
+        "totalPoints" : 3,
+        "workspaceGeneration" : "1ef311b6-5820-4caa-8b56-a1146299f147"
+      }
+    },
+    "stopped" : {
+      "error" : {
+        "code" : "worker_stopping",
+        "message" : "The worker is shutting down; no new service request was started.",
+        "outcome" : "confirmed"
+      },
+      "id" : "export-contest_export_prepare",
+      "ok" : false
+    },
+    "unavailable" : {
+      "error" : {
+        "code" : "artifact_unavailable",
+        "message" : "The prepared export is unavailable or expired.",
+        "outcome" : "confirmed"
+      },
+      "id" : "export-contest_export_read",
+      "ok" : false
+    },
+    "unknownMethod" : {
+      "error" : {
+        "code" : "unknown_method",
+        "message" : "Unknown contest method.",
+        "outcome" : "confirmed"
+      },
+      "id" : "export-contest_export_unknown",
+      "ok" : false
+    },
+    "wrongProfile" : {
+      "error" : {
+        "code" : "contest_profile_required",
+        "message" : "Contest storage is available only in OM0RX-xLog Contesting Test.",
+        "outcome" : "confirmed"
+      },
+      "id" : "export-contest_export_prepare",
+      "ok" : false
+    }
+  },
+  "schemaVersion" : 1
+}

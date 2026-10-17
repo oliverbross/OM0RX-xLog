@@ -1,6 +1,7 @@
 import type {
   ContestCommitResult, ContestCreateInput, ContestCreateResult, ContestDraftFields, ContestDraftResult,
-  ContestFullQSO, ContestLogPage, ContestMethod, ContestMutationScope, ContestOpenResult, ContestOperationReceiptResult,
+  ContestExportChunk, ContestExportPrepareRequest, ContestExportReadRequest, ContestExportReleaseResult,
+  ContestFullQSO, ContestLogPage, ContestMethod, ContestMutationScope, ContestOpenResult, ContestOperationReceiptResult, ContestPreparedExport,
   ContestQSOChangeResult, ContestQSOReadResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary, ContestWorkerError,
 } from "./types";
 
@@ -9,6 +10,11 @@ type DigestFactory = (payload: unknown) => Promise<string>;
 export type ContestOperationState = "inflight" | "uncertain" | "confirmed";
 export type ContestOperationObserver = (operation: ContestMutation, state: ContestOperationState) => void;
 const BANDS = new Set(["160m", "80m", "40m", "20m", "15m", "10m"]);
+const MAX_EXPORT_BYTES = 32 * 1_024 * 1_024;
+const MAX_EXPORT_CHUNK = 64 * 1_024;
+const MAX_EXPORT_BASE64 = 4 * Math.ceil(MAX_EXPORT_CHUNK / 3);
+const SHA256 = /^[0-9a-f]{64}$/;
+const LOWER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function canonicalJSON(value: unknown): string {
   if (typeof value === "number" && !Number.isFinite(value)) throw new Error("Contest requests require finite numbers.");
@@ -37,6 +43,44 @@ function exact(value: Record<string, unknown>, keys: string[]) { return Object.k
 function iso(value: unknown): value is string { return text(value, 64) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().length > 0; }
 function utcOperationISO(value: unknown): value is string { return iso(value) && new Date(value).toISOString() === value; }
 function sameContext(item: Record<string, unknown>, params: Record<string, unknown>) { return item.sessionID === params.sessionID && item.workspaceGeneration === params.workspaceGeneration; }
+function validExportCoordinate(value: Record<string, unknown>, params: Record<string, unknown>) {
+  return value.artifactID === params.exportID && value.sessionID === params.sessionID && value.workspaceGeneration === params.workspaceGeneration;
+}
+function validExportPrepareRequest(value: ContestExportPrepareRequest) {
+  const request = object(value), header = object(request?.header);
+  const requiredHeader = ["callsign", "categoryOperator", "categoryAssisted", "categoryBand", "categoryMode",
+    "categoryTransmitter", "categoryPower", "operators", "location", "name", "addressLines", "email"];
+  const allowedHeader = new Set([...requiredHeader, "categoryOverlay", "club"]);
+  return !!request && exact(request, ["exportID", "sessionID", "workspaceGeneration", "expectedRevision", "generatedAtUTC", "format", "header"]) &&
+    LOWER_UUID.test(String(request.exportID)) && LOWER_UUID.test(String(request.sessionID)) && LOWER_UUID.test(String(request.workspaceGeneration)) &&
+    uint(request.expectedRevision) && utcOperationISO(request.generatedAtUTC) && ["cabrillo", "adif"].includes(String(request.format)) && !!header &&
+    requiredHeader.every(key => key in header) && Object.keys(header).every(key => allowedHeader.has(key)) &&
+    text(header.callsign, 32) && text(header.categoryOperator, 32) && text(header.categoryAssisted, 32) &&
+    text(header.categoryBand, 16) && text(header.categoryMode, 16) && text(header.categoryTransmitter, 32) &&
+    text(header.categoryPower, 16) && (header.categoryOverlay === undefined || text(header.categoryOverlay, 64, true)) &&
+    Array.isArray(header.operators) && header.operators.length <= 16 && header.operators.every(value => text(value, 32)) &&
+    text(header.location, 64) && (header.club === undefined || text(header.club, 128, true)) && text(header.name, 75) &&
+    Array.isArray(header.addressLines) && header.addressLines.length <= 8 && header.addressLines.every(value => text(value, 160)) &&
+    text(header.email, 254, true);
+}
+function validPreparedExport(value: unknown, params: Record<string, unknown>) {
+  const v = object(value);
+  return !!v && exact(v, ["artifactID", "sessionID", "workspaceGeneration", "revision", "format", "inputSchemaVersion",
+    "formatterVersion", "generatedAtUTC", "qsoCount", "totalPoints", "multiplierCount", "claimedScore", "byteLength",
+    "sha256", "chunkLimit", "expiresAfterSeconds"]) && validExportCoordinate(v, params) && v.revision === params.expectedRevision &&
+    v.format === params.format && v.generatedAtUTC === params.generatedAtUTC && text(v.inputSchemaVersion, 64) &&
+    text(v.formatterVersion, 64) && uint(v.qsoCount) && uint(v.totalPoints) && uint(v.multiplierCount) && uint(v.claimedScore) &&
+    uint(v.byteLength) && (v.byteLength as number) <= MAX_EXPORT_BYTES && text(v.sha256, 64) && SHA256.test(v.sha256 as string) &&
+    uint(v.chunkLimit) && (v.chunkLimit as number) > 0 && (v.chunkLimit as number) <= MAX_EXPORT_CHUNK &&
+    uint(v.expiresAfterSeconds) && (v.expiresAfterSeconds as number) > 0;
+}
+function validExportChunk(value: unknown, params: Record<string, unknown>) {
+  const v = object(value);
+  return !!v && exact(v, ["artifactID", "sessionID", "workspaceGeneration", "revision", "offset", "dataBase64", "eof", "byteLength", "sha256"]) &&
+    validExportCoordinate(v, params) && uint(v.revision) && v.offset === params.offset && text(v.dataBase64, MAX_EXPORT_BASE64, true) &&
+    typeof v.eof === "boolean" && uint(v.byteLength) && (v.byteLength as number) <= MAX_EXPORT_BYTES &&
+    text(v.sha256, 64) && SHA256.test(v.sha256 as string);
+}
 
 function validIdentity(value: unknown) {
   const v = object(value);
@@ -149,6 +193,9 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
   } else if (method === "contest_operation_receipt") valid = !!v && (v.status === "not_found" || v.status === "committed" && validReceipt(v.receipt, params));
   else if (method === "contest_log_page") valid = !!v && sameContext(v, params) && v.revision === params.expectedRevision && Array.isArray(v.qsos) && v.qsos.length <= 200 && v.qsos.every(x => validLogQSO(x, params)) && uint(v.total) && v.offset === params.offset && v.limit === params.limit;
   else if (method === "contest_score") valid = validScore(v, params, params.expectedRevision as number);
+  else if (method === "contest_export_prepare") valid = validPreparedExport(v, params);
+  else if (method === "contest_export_read") valid = validExportChunk(v, params);
+  else if (method === "contest_export_release") valid = !!v && exact(v, ["artifactID", "released"]) && v.artifactID === params.exportID && typeof v.released === "boolean";
   if (!valid) throw new Error(`Malformed or stale ${method} response.`);
   return value as T;
 }
@@ -159,6 +206,22 @@ export class ContestServerError extends Error {
 }
 export class ContestMutationUncertain extends Error {
   constructor(readonly operation: ContestMutation, readonly cause: unknown) { super("The save reply was not confirmed. Check the original operation receipt before continuing."); this.name = "ContestMutationUncertain"; }
+}
+
+function decodeBase64(value: string, expectedLength: number): Uint8Array {
+  if (!globalThis.atob || !globalThis.btoa || value.length !== 4 * Math.ceil(expectedLength / 3) ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+    throw new Error("Contest export chunk encoding is invalid.");
+  }
+  const binary = globalThis.atob(value);
+  if (globalThis.btoa(binary) !== value || binary.length > expectedLength) throw new Error("Contest export chunk encoding is invalid.");
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+async function sha256Bytes(value: Uint8Array): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("Secure contest export verification is unavailable.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", Uint8Array.from(value).buffer);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export class ContestClient {
@@ -175,6 +238,46 @@ export class ContestClient {
   logPage(session: ContestSessionSummary, offset: number, limit: number) { return this.read<ContestLogPage>("contest_log_page", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision, offset, limit }); }
   score(session: ContestSessionSummary) { return this.read<ContestScore>("contest_score", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision }); }
   qso(session: ContestSessionSummary, qsoID: string) { return this.read<ContestQSOReadResult>("contest_qso_get", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision, qsoID }); }
+  prepareExport(request: ContestExportPrepareRequest) {
+    if (!validExportPrepareRequest(request)) throw new Error("Contest export preparation request is invalid or oversized.");
+    return this.read<ContestPreparedExport>("contest_export_prepare", request);
+  }
+  readExport(request: ContestExportReadRequest) {
+    const raw = object(request);
+    if (!raw || !exact(raw, ["exportID", "sessionID", "workspaceGeneration", "offset", "length"]) ||
+        !LOWER_UUID.test(request.exportID) || !LOWER_UUID.test(request.sessionID) || !LOWER_UUID.test(request.workspaceGeneration) ||
+        !uint(request.offset) || !uint(request.length) || request.length <= 0 || request.length > MAX_EXPORT_CHUNK) {
+      throw new Error("Contest export read request is invalid or oversized.");
+    }
+    return this.read<ContestExportChunk>("contest_export_read", request);
+  }
+  releaseExport(prepared: ContestPreparedExport) {
+    return this.read<ContestExportReleaseResult>("contest_export_release", {
+      exportID: prepared.artifactID, sessionID: prepared.sessionID, workspaceGeneration: prepared.workspaceGeneration,
+    });
+  }
+  async readPreparedExport(prepared: ContestPreparedExport): Promise<Uint8Array> {
+    if (prepared.byteLength > MAX_EXPORT_BYTES || prepared.chunkLimit <= 0 || prepared.chunkLimit > MAX_EXPORT_CHUNK) {
+      throw new Error("Prepared contest export exceeds client limits.");
+    }
+    const bytes = new Uint8Array(prepared.byteLength);
+    let offset = 0;
+    while (offset < prepared.byteLength) {
+      const length = Math.min(prepared.chunkLimit, prepared.byteLength - offset);
+      const chunk = await this.readExport({ exportID: prepared.artifactID, sessionID: prepared.sessionID,
+        workspaceGeneration: prepared.workspaceGeneration, offset, length });
+      if (chunk.revision !== prepared.revision || chunk.byteLength !== prepared.byteLength || chunk.sha256 !== prepared.sha256) {
+        throw new Error("Contest export chunk coordinate changed.");
+      }
+      const decoded = decodeBase64(chunk.dataBase64, length);
+      if (decoded.length !== length || chunk.eof !== (offset + length === prepared.byteLength)) {
+        throw new Error("Contest export chunk boundary is invalid.");
+      }
+      bytes.set(decoded, offset); offset += length;
+    }
+    if (await sha256Bytes(bytes) !== prepared.sha256) throw new Error("Contest export digest mismatch.");
+    return bytes;
+  }
   private async mutate<T>(operation: ContestMutation): Promise<T> {
     this.observeOperation?.(operation, "inflight");
     try {

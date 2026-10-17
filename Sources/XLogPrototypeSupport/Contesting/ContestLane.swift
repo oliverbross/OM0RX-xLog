@@ -16,16 +16,24 @@ actor ContestLane {
     private let reference: ContestReferenceData
     private let rules = ContestRuleRegistry.pilots
     private var store: SQLiteContestStore?
+    private var exportLane: ContestExportLane?
     private var tail: Task<Void, Never>?
+    private var terminalShutdown = false
 
-    init(databaseURL: URL, generationSource: @escaping GenerationSource) throws {
+    init(databaseURL: URL, generationSource: @escaping GenerationSource,
+         exportLane: ContestExportLane? = nil) throws {
         self.databaseURL = databaseURL
         self.generationSource = generationSource
+        self.exportLane = exportLane
         self.reference = try ContestReferenceData.bundled()
         try ContestDatabaseBoundary.validate(databaseURL: databaseURL)
     }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
+        if Self.isExportMethod(method) {
+            try requireExportRunning()
+            return try await perform(method: method, params: params)
+        }
         let previous = tail
         let operation = Task { [self] in
             await previous?.value
@@ -35,8 +43,15 @@ actor ContestLane {
         return try await operation.value
     }
 
+    func shutdown() async {
+        terminalShutdown = true
+        await exportLane?.shutdown()
+    }
+
     private func perform(method: String, params: [String: Any]) async throws -> [String: Any] {
+        if Self.isExportMethod(method) { try requireExportRunning() }
         let before = try Wire.generation(try await generationSource())
+        if Self.isExportMethod(method) { try requireExportRunning() }
         let result: [String: Any]
         do {
             switch method {
@@ -54,16 +69,27 @@ actor ContestLane {
             case "contest_operation_receipt": result = try await receipt(params, generation: before)
             case "contest_log_page": result = try await logPage(params, generation: before)
             case "contest_score": result = try await score(params, generation: before)
+            case "contest_export_prepare", "contest_export_read", "contest_export_release":
+                result = try await exportTransport().handle(method: method, params: params)
             default: throw ContestLaneError.confirmed("unknown_method", "Unknown contest method.")
             }
         } catch let error as ContestLaneError { throw error }
+          catch let error as ContestExportLaneError { throw Self.map(error) }
           catch { throw Self.map(error) }
+        if Self.isExportMethod(method) { try requireExportRunning() }
         let after: String
         do { after = try Wire.generation(try await generationSource()) }
         catch {
+            if method.hasPrefix("contest_export_") {
+                throw ContestLaneError.uncertain("workspace_fence_failed", "The export response could not be fenced; retry the exact export ID and payload.")
+            }
             throw ContestLaneError.uncertain("workspace_fence_failed", "The workspace could not be verified after the contest request; check its receipt before retrying.")
         }
+        if Self.isExportMethod(method) { try requireExportRunning() }
         guard before == after else {
+            if method.hasPrefix("contest_export_") {
+                throw ContestLaneError.uncertain("stale_workspace", "The isolated workspace changed while the export request was running; retry only with its exact coordinate.")
+            }
             throw ContestLaneError.uncertain("stale_workspace", "The isolated workspace changed while the contest request was running.")
         }
         return result
@@ -78,6 +104,32 @@ actor ContestLane {
         let created = try SQLiteContestStore(databaseURL: databaseURL)
         store = created
         return created
+    }
+
+    private func exportTransport() throws -> ContestExportLane {
+        try requireExportRunning()
+        if let exportLane { return exportLane }
+        let service = ContestExportService(repository: try repository())
+        let generationSource = self.generationSource
+        let created = ContestExportLane(service: service) {
+            let raw = try await generationSource()
+            guard let generation = UUID(uuidString: raw), raw == generation.uuidString.lowercased() else {
+                throw ContestExportLaneError("workspace_fence_failed", "The workspace generation could not be verified.")
+            }
+            return generation
+        }
+        exportLane = created
+        return created
+    }
+
+    private static func isExportMethod(_ method: String) -> Bool {
+        method == "contest_export_prepare" || method == "contest_export_read" || method == "contest_export_release"
+    }
+
+    private func requireExportRunning() throws {
+        guard !terminalShutdown else {
+            throw ContestLaneError.confirmed("artifact_unavailable", "The contest export lane is shut down.")
+        }
     }
 
     private func catalog(_ params: [String: Any], generation: String) throws -> [String: Any] {
@@ -556,6 +608,13 @@ actor ContestLane {
     private func receiptWire(_ value: ContestMutationReceipt) -> [String: Any] {
         ["requestID": Wire.uuidString(value.requestID), "payloadDigest": value.payloadDigest,
          "committedRevision": value.committedRevision, "committedAt": Wire.iso(value.committedAt)]
+    }
+
+    private static func map(_ error: ContestExportLaneError) -> ContestLaneError {
+        if ["workspace_fence_failed", "stale_workspace"].contains(error.code) {
+            return .uncertain(error.code, error.message)
+        }
+        return .confirmed(error.code, error.message)
     }
 
     private static func map(_ error: Error) -> ContestLaneError {

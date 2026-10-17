@@ -192,6 +192,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_operation_receipt",
         "contest_log_page",
         "contest_score",
+        "contest_export_prepare",
+        "contest_export_read",
+        "contest_export_release",
         "workspace_status",
         "workspace_create",
         "workspace_preferences_load",
@@ -954,7 +957,8 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
-        "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get"
+        "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get" |
+        "contest_export_prepare" | "contest_export_read" | "contest_export_release"
     ))
 }
 
@@ -1468,6 +1472,7 @@ mod tests {
             "contest_draft_get", "contest_draft_apply", "contest_serial_reserve",
             "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
             "contest_operation_receipt", "contest_log_page", "contest_score",
+            "contest_export_prepare", "contest_export_read", "contest_export_release",
         ] {
             let request = json!({"id":"contest", "method":method, "params":{}});
             assert!(validate_request(&request).is_ok(), "{method}");
@@ -1734,6 +1739,7 @@ mod tests {
             "lookup_call", "logbook_previous", "logbook_duplicate",
             "logbook_matrix", "cluster_history", "cluster_snapshot",
             "wsjtx_snapshot", "reference_resolve", "contest_qso_get",
+            "contest_export_prepare", "contest_export_read", "contest_export_release",
         ] {
             let script = format!(
                 "IFS= read -r stale; sleep 0.1; printf '%s\\n' '{{\"id\":\"stale\",\"ok\":true,\"result\":{{}}}}'; IFS= read -r health; printf '%s\\n' '{{\"id\":\"health\",\"ok\":true,\"result\":{{}}}}'; cat >/dev/null"
@@ -1765,7 +1771,8 @@ mod tests {
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
             "lookup_call", "logbook_previous", "logbook_duplicate",
             "logbook_matrix", "cluster_history", "cluster_snapshot",
-            "wsjtx_snapshot", "reference_resolve",
+            "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
+            "contest_export_read", "contest_export_release",
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})),
