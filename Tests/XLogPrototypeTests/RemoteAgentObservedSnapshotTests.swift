@@ -26,13 +26,15 @@ private final class ObservedCallbackScript: @unchecked Sendable {
     private var commands: [Double?]
     private var commandBodies: [[String: Any]] = []
     private var commandTimeouts: [TimeInterval] = []
+    private var commandFailures: [String]
     private let commandDelay: TimeInterval
     private let commandRevision: Int
     private let onCommand: @Sendable () -> Void
 
-    init(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
+    init(commands: [Double?], commandFailures: [String] = [], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
          onCommand: @escaping @Sendable () -> Void = {}) {
         self.commands = commands
+        self.commandFailures = commandFailures
         self.commandDelay = commandDelay
         self.commandRevision = commandRevision
         self.onCommand = onCommand
@@ -54,6 +56,10 @@ private final class ObservedCallbackScript: @unchecked Sendable {
             }
             onCommand()
             if commandDelay > 0 { Thread.sleep(forTimeInterval: commandDelay) }
+            if let failure = lock.withLock({ commandFailures.isEmpty ? nil : commandFailures.removeFirst() }) {
+                envelope = ["success": false, "error": ["code": failure, "message": "Synthetic \(failure) rejection"]]
+                break
+            }
             let watts = try lock.withLock { () throws -> Double? in
                 guard !commands.isEmpty else { throw URLError(.badServerResponse) }
                 return commands.removeFirst()
@@ -155,6 +161,26 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
         }
     }
 
+    func testSimplexTuneRetriesOnlyAnExplicitStationBusyRejection() async throws {
+        try await fixture(commands: [nil], commandFailures: ["station-busy", "station-busy"], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 3)
+            XCTAssertEqual(Set(script.sentCommands.compactMap { $0["request_id"] as? String }).count, 1)
+        }) { client, _ in
+            try await client.tuneSimplex(7_188_000, mode: "LSB")
+        }
+    }
+
+    func testSimplexTuneDoesNotRetryADifferentStructuredRejection() async throws {
+        try await fixture(commands: [nil], commandFailures: ["digital-engine-owns-radio"], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+        }) { client, _ in
+            do {
+                try await client.tuneSimplex(7_189_000, mode: "LSB")
+                XCTFail("Structured rejection reported success")
+            } catch {}
+        }
+    }
+
     func testGUIPTTMakesExactlyOneHTTPAttemptForOnAndOff() async throws {
         for enabled in [true,false] {try await fixture(commands:[],verify:{script in
             XCTAssertEqual(script.sentCommands.count,1);XCTAssertEqual(script.sentCommands.first?["command"] as? String,"set_ptt")
@@ -179,12 +205,12 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
             XCTAssertEqual(failure?.message,"KPA standby confirmed; drive restoration unproved")
         }
     }
-    private func fixture(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
+    private func fixture(commands: [Double?], commandFailures: [String] = [], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
                          onCommand: @escaping @Sendable () -> Void = {},
                          verify: ((ObservedCallbackScript) -> Void)? = nil,
                          operation: (RemoteAgentClient, ObservedCallbackRecorder) async throws -> Void) async throws {
         let host = "observed-\(UUID().uuidString.lowercased()).invalid"
-        let script = ObservedCallbackScript(commands: commands, commandDelay: commandDelay,
+        let script = ObservedCallbackScript(commands: commands, commandFailures: commandFailures, commandDelay: commandDelay,
                                             commandRevision: commandRevision, onCommand: onCommand)
         ObservedCallbackProtocol.install(script, host: host)
         defer { ObservedCallbackProtocol.remove(host: host) }

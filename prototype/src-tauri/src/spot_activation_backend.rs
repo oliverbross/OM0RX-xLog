@@ -55,6 +55,19 @@ fn result(request: &Value, response: Value) -> Result<Value, String> {
     if !response["result"].is_object() || !response["error"].is_null() { return Err("Native worker response was malformed".into()); }
     Ok(response["result"].clone())
 }
+/// These worker failures prove that native control admission stopped before a
+/// radio command was dispatched. Lost replies and post-dispatch readback errors
+/// deliberately stay outside this list and therefore remain uncertain.
+fn definitely_not_admitted(response: &Value) -> bool {
+    response["ok"] == false && matches!(response["error"]["code"].as_str(), Some(
+        "station_busy" | "station_changed" | "station_unavailable" |
+        "station-busy" | "station-stopped" | "station-training-active" |
+        "station-maintenance-active" | "startup-recovery-required" |
+        "station-control-lease-unavailable" | "digital-engine-owns-radio" |
+        "flex-station-unbound" | "agent-not-ready" |
+        "frequency-outside-policy" | "mode-invalid"
+    ))
+}
 fn call(worker: u64, method: &str, params: Value) -> Result<Value, String> {
     let request = json!({"id":format!("native-activation-{}",uuid::Uuid::new_v4()),"method":method,"params":params});
     let response = crate::worker::request_existing_generation(request.clone(), worker)?;
@@ -306,8 +319,10 @@ impl Backend for NativeBackend {
         }, |request| {
             crate::worker::require_existing_generation(worker)?;
             *effect_started = true;
-            if provider == "hamlib" { crate::hamlib::request(request) }
-            else { crate::worker::request_existing_generation(request, worker) }
+            let response = if provider == "hamlib" { crate::hamlib::request(request) }
+                else { crate::worker::request_existing_generation(request, worker) };
+            if response.as_ref().is_ok_and(definitely_not_admitted) { *effect_started = false; }
+            response
         })?;
         let tuned = result(&json!({"id":id}), response)?;
         if crate::worker::generation() != worker { return Err("Worker changed during tuning; no automatic turn is permitted".into()); }
@@ -365,6 +380,17 @@ impl Backend for NativeBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_pre_dispatch_worker_failures_are_definitively_not_admitted() {
+        for code in ["station-busy", "station_busy", "digital-engine-owns-radio", "station_unavailable"] {
+            assert!(definitely_not_admitted(&json!({"ok":false,"error":{"code":code}})), "{code}");
+        }
+        for code in ["station_timeout", "station_rejected", "route-readback-mismatch"] {
+            assert!(!definitely_not_admitted(&json!({"ok":false,"error":{"code":code}})), "{code}");
+        }
+        assert!(!definitely_not_admitted(&json!({"ok":true,"error":null})));
+    }
     fn context() -> Context {
         Context { request:Request { operation_id:uuid::Uuid::new_v4().to_string(),source_epoch:uuid::Uuid::new_v4().to_string(),
             spot_id:"fixture".into(),spot_version:uuid::Uuid::new_v4().to_string() }, worker:7,

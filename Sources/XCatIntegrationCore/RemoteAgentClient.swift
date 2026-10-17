@@ -65,10 +65,13 @@ struct PendingRadioWrites: Sendable {
 
 public actor RemoteAgentClient: RadioControlling {
     // The guarded Remote Agent tune route is serialized with station safety reads and
-    // has been observed taking just over seven seconds across the AU-SK link. Keep one
-    // request (never replay a tune), but allow that request to finish before dispatching
-    // the latest queued spot.
+    // has been observed taking just over seven seconds across the AU-SK link. A lost
+    // reply is never replayed. The one exception is an explicit station-busy rejection:
+    // the Agent guarantees that response was returned before the FLEX command was sent,
+    // so the same idempotency identity may wait briefly for the coordinator and retry.
     static let receiveTuneCommandTimeout: TimeInterval = 12
+    static let receiveTuneBusyAttempts = 4
+    static let receiveTuneRetryableFailures: Set<String> = ["station-busy"]
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
 
@@ -230,13 +233,17 @@ public actor RemoteAgentClient: RadioControlling {
         }
         // Keep the existing one-request fast path for an already-simplex A.
         if value.slice.uppercased() == "A", value.transmitSlice.uppercased() == "A" {
-            try await execute(.frequencyAndMode(frequencyHz, mode: normalized, vfo: "A"), attempts: 1,
-                              timeoutInterval: Self.receiveTuneCommandTimeout)
+            try await execute(.frequencyAndMode(frequencyHz, mode: normalized, vfo: "A"),
+                              attempts: Self.receiveTuneBusyAttempts,
+                              timeoutInterval: Self.receiveTuneCommandTimeout,
+                              retryableFailures: Self.receiveTuneRetryableFailures)
             recordSimplexTarget(frequencyHz, mode: normalized)
             return
         }
-        try await execute(.tuneSimplex(frequencyHz, mode: normalized), attempts: 1,
-                          timeoutInterval: Self.receiveTuneCommandTimeout)
+        try await execute(.tuneSimplex(frequencyHz, mode: normalized),
+                          attempts: Self.receiveTuneBusyAttempts,
+                          timeoutInterval: Self.receiveTuneCommandTimeout,
+                          retryableFailures: Self.receiveTuneRetryableFailures)
         recordSimplexTarget(frequencyHz, mode: normalized)
     }
 
@@ -257,8 +264,10 @@ public actor RemoteAgentClient: RadioControlling {
             try await execute(.split(false, txFrequencyHz: nil), attempts: 1,
                               timeoutInterval: Self.receiveTuneCommandTimeout)
         }
-        try await execute(.frequencyAndMode(frequencyHz, mode: mode, vfo: "A"), attempts: 1,
-                          timeoutInterval: Self.receiveTuneCommandTimeout)
+        try await execute(.frequencyAndMode(frequencyHz, mode: mode, vfo: "A"),
+                          attempts: Self.receiveTuneBusyAttempts,
+                          timeoutInterval: Self.receiveTuneCommandTimeout,
+                          retryableFailures: Self.receiveTuneRetryableFailures)
         recordSimplexTarget(frequencyHz, mode: mode)
     }
 
@@ -513,7 +522,8 @@ public actor RemoteAgentClient: RadioControlling {
     }
 
     private func execute(_ command: RemoteAgentCommand, expectedSpot: FlexSpot? = nil,
-                         attempts: Int = 2, timeoutInterval: TimeInterval? = nil) async throws {
+                         attempts: Int = 2, timeoutInterval: TimeInterval? = nil,
+                         retryableFailures: Set<String> = []) async throws {
         guard shouldRun else { throw XCatError.notConnected }
         let commandGeneration = generation
         guard value.remoteStationStatus?.supportedCommands.contains(command.name) == true else {
@@ -546,9 +556,13 @@ public actor RemoteAgentClient: RadioControlling {
             } catch {
                 lastError = error
                 if attempt + 1 < attempts {
-                    try? await Task.sleep(for: .milliseconds(200))
-                    continue
+                    if retryableFailures.isEmpty ||
+                        (error as? RemoteAgentCommandFailure).map({ retryableFailures.contains($0.code) }) == true {
+                        try await Task.sleep(for: .milliseconds(200))
+                        continue
+                    }
                 }
+                break
             }
         }
         throw lastError ?? XCatError.server("Remote Agent command failed.")

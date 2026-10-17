@@ -370,7 +370,7 @@ it("retains only the latest selection while an activation is in flight", async (
   expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
 });
 
-it("continues with the latest selection after an uncertain operation is confirmed closed", async () => {
+it.each(["uncertain", "failed"])("continues with the latest selection after a closed %s operation", async phase => {
   let complete!: (value: any) => void;
   host.activate.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
   await openEditor(false);
@@ -378,7 +378,7 @@ it("continues with the latest selection after an uncertain operation is confirme
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
   fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
   fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
-  await act(async () => complete({ phase: "uncertain", reservationActive: false }));
+  await act(async () => complete({ phase, reservationActive: false }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
   expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
 });
