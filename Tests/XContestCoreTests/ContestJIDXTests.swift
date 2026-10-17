@@ -15,7 +15,7 @@ final class ContestJIDXTests: XCTestCase {
     private let germany = ContestEntitySnapshot(adif: 230, name: "GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14)
     private let scotland = ContestEntitySnapshot(adif: 279, name: "SCOTLAND", countryPrefix: "GM", continent: "EU", cqZone: 14)
 
-    func testDescriptorsAreDedicatedButInactiveAndHaveNoSerial() throws {
+    func testDescriptorsAreDedicatedV2PracticePreviewsAndHaveNoSerial() throws {
         XCTAssertNil(ContestRuleRegistry.pilots.rule(for: JIDXCWRule.identity))
         XCTAssertNil(ContestRuleRegistry.pilots.rule(for: JIDXSSBRule.identity))
         XCTAssertEqual(ContestRuleRegistry.pilots.metadata.count, 8)

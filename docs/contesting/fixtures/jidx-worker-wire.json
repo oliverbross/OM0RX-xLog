@@ -1,0 +1,3903 @@
+{
+  "catalog" : {
+    "id" : "4000be59-7fe8-48b2-a7fd-cc6f3d451cf6",
+    "ok" : true,
+    "result" : {
+      "rules" : [
+        {
+          "displayName" : "ARRL RTTY Roundup Preview",
+          "entry" : {
+            "adifMode" : "RTTY",
+            "cabrilloFormatterVersion" : "arrl-rtty-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-rtty-preview-1",
+            "cabrilloQSOType" : "RY",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "serialNumber"
+                  ],
+                  "adifField" : null,
+                  "id" : "exchange",
+                  "label" : "State, province, or serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "RTTY",
+            "modeProfiles" : [
+              {
+                "adifMode" : "RTTY",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "RY",
+                "mode" : "RTTY",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "digitalRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "digitalRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "stationResolvedSerial" : {
+              "allocatedSerialFieldID" : "serial",
+              "allowedScopes" : [
+                "session"
+              ],
+              "locationFieldID" : "location",
+              "policy" : "arrlRTTYRoundupWVEOrDX"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-3.0b-preview",
+            "id" : "arrl-rtty-roundup",
+            "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
+            "version" : "1.0.0-3.0b-preview"
+          },
+          "mode" : "RTTY",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "CQ WPX CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "stxSrx",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-wpx-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "CQ WPX SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "stxSrx",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-wpx-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "CQ WW CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-ww-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "CQ WW SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-ww-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_ssb.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "JIDX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "jidx-preview-1",
+            "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-cw",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "JIDX Phone Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "jidx-preview-1",
+            "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-ssb",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "North American QSO Party CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-cw",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "North American QSO Party RTTY",
+          "entry" : {
+            "adifMode" : "RTTY",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "RY",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "RTTY",
+            "modeProfiles" : [
+              {
+                "adifMode" : "RTTY",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "RY",
+                "mode" : "RTTY",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-rtty",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "RTTY",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "North American QSO Party SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-ssb",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "Oceania DX CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "oceania-dx-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "Oceania DX SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "oceania-dx-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "Scandinavian Activity Contest CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "sac-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_cw.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "Scandinavian Activity Contest SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "sac-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+          "sourceVerification" : "provisional"
+        }
+      ],
+      "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+    }
+  },
+  "creates" : {
+    "dx" : {
+      "request" : {
+        "expectedRevision" : 0,
+        "operationTimestamp" : "2026-10-18T20:00:00.000Z",
+        "payload" : {
+          "name" : "JIDX CW DX",
+          "operator" : {
+            "callsign" : "OM0RX",
+            "category" : "Single Operator"
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "ruleIdentity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-cw",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+          "station" : {
+            "callsign" : "OM0RX",
+            "cqZone" : "15",
+            "dxccEntity" : "SLOVAK REPUBLIC",
+            "exchangeFields" : {
+              "number" : "15"
+            }
+          }
+        },
+        "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+        "requestID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "38209bfb-92fd-4614-ac61-bd0ca5fbea18",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : null,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "15",
+              "sentExchangeFields" : {
+                "number" : "15"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 1,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "updatedAt" : "2026-10-18T20:00:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "Frequency does not match the recorded contest band.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:00:00.000Z",
+            "committedRevision" : 1,
+            "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+            "requestID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819"
+          },
+          "session" : {
+            "name" : "JIDX CW DX",
+            "operator" : {
+              "callsign" : "OM0RX",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 0,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 1,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "station" : {
+              "callsign" : "OM0RX",
+              "cqZone" : "15",
+              "dxccEntity" : "SLOVAK REPUBLIC",
+              "exchangeFields" : {
+                "number" : "15"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:00:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "ja" : {
+      "request" : {
+        "expectedRevision" : 0,
+        "operationTimestamp" : "2026-10-18T20:00:00.000Z",
+        "payload" : {
+          "name" : "JIDX Phone JA",
+          "operator" : {
+            "callsign" : "JA1AAA",
+            "category" : "Single Operator"
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "ruleIdentity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-ssb",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "sessionID" : "05bc47b4-6380-48a1-9b18-f36331746277",
+          "station" : {
+            "callsign" : "JA1AAA",
+            "cqZone" : "25",
+            "dxccEntity" : "JAPAN",
+            "exchangeFields" : {
+              "number" : "13"
+            }
+          }
+        },
+        "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+        "requestID" : "a049c023-ca6e-4eb8-9bbb-c41328c54e7f",
+        "sessionID" : "05bc47b4-6380-48a1-9b18-f36331746277",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "6ff04076-3f09-420f-88d6-bf81108182c8",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "a049c023-ca6e-4eb8-9bbb-c41328c54e7f",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : null,
+              "mode" : "SSB",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "59",
+              "sentExchange" : "13",
+              "sentExchangeFields" : {
+                "number" : "13"
+              },
+              "sentReport" : "59"
+            },
+            "reservedSerial" : null,
+            "revision" : 1,
+            "sessionID" : "05bc47b4-6380-48a1-9b18-f36331746277",
+            "updatedAt" : "2026-10-18T20:00:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "Frequency does not match the recorded contest band.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:00:00.000Z",
+            "committedRevision" : 1,
+            "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+            "requestID" : "a049c023-ca6e-4eb8-9bbb-c41328c54e7f"
+          },
+          "session" : {
+            "name" : "JIDX Phone JA",
+            "operator" : {
+              "callsign" : "JA1AAA",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 0,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 1,
+            "rule" : {
+              "displayName" : "JIDX Phone Preview",
+              "entry" : {
+                "adifMode" : "SSB",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "PH",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "SSB",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "SSB",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "PH",
+                    "mode" : "SSB",
+                    "report" : {
+                      "defaultReceived" : "59",
+                      "defaultSent" : "59",
+                      "format" : "phoneRS",
+                      "maximumUTF8Bytes" : 2
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-ssb",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "SSB",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "05bc47b4-6380-48a1-9b18-f36331746277",
+            "station" : {
+              "callsign" : "JA1AAA",
+              "cqZone" : "25",
+              "dxccEntity" : "JAPAN",
+              "exchangeFields" : {
+                "number" : "13"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:00:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "mm" : {
+      "request" : {
+        "expectedRevision" : 0,
+        "operationTimestamp" : "2026-10-18T20:00:00.000Z",
+        "payload" : {
+          "name" : "JIDX CW MM",
+          "operator" : {
+            "callsign" : "OM0RX\/MM",
+            "category" : "Single Operator"
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "ruleIdentity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-cw",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+          "station" : {
+            "callsign" : "OM0RX\/MM",
+            "cqZone" : "3",
+            "dxccEntity" : "",
+            "exchangeFields" : {
+              "number" : "3"
+            }
+          }
+        },
+        "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+        "requestID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "ec8a2487-f478-4b03-aac6-0683f561727c",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : null,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 1,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:00:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "Frequency does not match the recorded contest band.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:00:00.000Z",
+            "committedRevision" : 1,
+            "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+            "requestID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 0,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 1,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:00:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    }
+  },
+  "exports" : {
+    "adif" : {
+      "prepareRequest" : {
+        "expectedRevision" : 4,
+        "exportID" : "1ed88e6e-b4d5-4666-b361-36d7c5e01c1e",
+        "format" : "adif",
+        "generatedAtUTC" : "2026-10-18T20:04:00.000Z",
+        "header" : {
+          "addressLines" : [
+
+          ],
+          "callsign" : "OM0RX",
+          "categoryAssisted" : "NON-ASSISTED",
+          "categoryBand" : "ALL",
+          "categoryMode" : "CW",
+          "categoryOperator" : "SINGLE-OP",
+          "categoryPower" : "LOW",
+          "categoryTransmitter" : "ONE",
+          "email" : "",
+          "location" : "DX",
+          "name" : "Operator",
+          "operators" : [
+            "OM0RX"
+          ]
+        },
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "prepareResponse" : {
+        "id" : "b641ffee-0213-485d-ae77-2e83801b0401",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "1ed88e6e-b4d5-4666-b361-36d7c5e01c1e",
+          "byteLength" : 1120,
+          "chunkLimit" : 65536,
+          "claimedScore" : 1,
+          "expiresAfterSeconds" : 600,
+          "format" : "adif",
+          "formatterVersion" : "jidx-preview-1",
+          "generatedAtUTC" : "2026-10-18T20:04:00.000Z",
+          "inputSchemaVersion" : "1",
+          "multiplierCount" : 1,
+          "qsoCount" : 1,
+          "revision" : 4,
+          "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+          "sha256" : "640906d783fdcb185eabdd3ef4bca5f382f270fc258c66dfb507c2ada16a8914",
+          "totalPoints" : 1,
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      },
+      "readRequest" : {
+        "exportID" : "1ed88e6e-b4d5-4666-b361-36d7c5e01c1e",
+        "length" : 1120,
+        "offset" : 0,
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "readResponse" : {
+        "id" : "74f5f64f-e9dc-4a41-9056-a47f153437ea",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "1ed88e6e-b4d5-4666-b361-36d7c5e01c1e",
+          "byteLength" : 1120,
+          "dataBase64" : "PEFESUZfVkVSOjU+My4xLjc8UFJPR1JBTUlEOjEwPk9NMFJYLXhMb2c8UFJPR1JBTVZFUlNJT046MTQ+amlkeC1wcmV2aWV3LTE8Q1JFQVRFRF9USU1FU1RBTVA6MTU+MjAyNjEwMTggMjAwNDAwPEVPSD4NCjxBUFBfT00wUlhYTE9HX0ZPUk1BVFRFUl9WRVJTSU9OOjE0PmppZHgtcHJldmlldy0xPEFQUF9PTTBSWFhMT0dfSU5QVVRfU0NIRU1BX1ZFUlNJT046MT4xPEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9JREVOVElUWTozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9TT1VSQ0U6MTM+b3BlcmF0b3JFbnRyeTxBUFBfT00wUlhYTE9HX1FTT19JRDozNj42Y2E0MTVlMC1kMmZmLTQ1MDEtODc5Mi02NDBkZWUwOTAwNDU8QVBQX09NMFJYWExPR19SRUZFUkVOQ0VfREFUQV9WRVJTSU9OOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19SVUxFX0VESVRJT046MjE+MjAyNi0xMC1ydWxlcy1wcmV2aWV3PEFQUF9PTTBSWFhMT0dfUlVMRV9JRDo3PmppZHgtY3c8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND4wMWY1MjlhYjAyYTcwYzcwZTMzZWNlMzQ3ZWU0Mzg3ZmViNTliNzc4NjA4NTc5NWVkNzYwOWQwYTdiZWJkNGFhPEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI0PjEuMC4wLTIwMjYtcnVsZXMtcHJldmlldzxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+MTY3NjZkZWMtNGE3OS00NTgwLWE2ZWMtOWZmYTdkNDZhOTMwPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoxPjQ8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj45MGE2YmE1ZC1mOTBmLTRkNTgtYWRlMS1kMDIyZTdjOGE3MTM8QkFORDozPjIwbTxDQUxMOjY+SkExQUFBPENPTlRFU1RfSUQ6Nz5KSURYLUNXPEZSRVE6OT4xNC4wMjUwMDA8TU9ERToyPkNXPE9QRVJBVE9SOjU+T00wUlg8UVNPX0RBVEU6OD4yMDI2MTAxODxSU1RfUkNWRDozPjU5OTxSU1RfU0VOVDozPjU5OTxTUlg6Mj4xNDxTUlhfU1RSSU5HOjI+MTQ8U1RBVElPTl9DQUxMU0lHTjo1Pk9NMFJYPFNUWDoyPjE1PFNUWF9TVFJJTkc6Mj4xNTxUSU1FX09OOjY+MjAwMjAwPEVPUj4NCg==",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 4,
+          "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+          "sha256" : "640906d783fdcb185eabdd3ef4bca5f382f270fc258c66dfb507c2ada16a8914",
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      }
+    },
+    "cabrillo" : {
+      "prepareRequest" : {
+        "expectedRevision" : 4,
+        "exportID" : "2cdb3401-0717-48cd-a2d2-2a599041b4b3",
+        "format" : "cabrillo",
+        "generatedAtUTC" : "2026-10-18T20:04:00.000Z",
+        "header" : {
+          "addressLines" : [
+
+          ],
+          "callsign" : "OM0RX",
+          "categoryAssisted" : "NON-ASSISTED",
+          "categoryBand" : "ALL",
+          "categoryMode" : "CW",
+          "categoryOperator" : "SINGLE-OP",
+          "categoryPower" : "LOW",
+          "categoryTransmitter" : "ONE",
+          "email" : "",
+          "location" : "DX",
+          "name" : "Operator",
+          "operators" : [
+            "OM0RX"
+          ]
+        },
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "prepareResponse" : {
+        "id" : "09b68931-9771-4d08-bce3-44d04fe09093",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "2cdb3401-0717-48cd-a2d2-2a599041b4b3",
+          "byteLength" : 276,
+          "chunkLimit" : 65536,
+          "claimedScore" : 1,
+          "expiresAfterSeconds" : 600,
+          "format" : "cabrillo",
+          "formatterVersion" : "jidx-preview-1",
+          "generatedAtUTC" : "2026-10-18T20:04:00.000Z",
+          "inputSchemaVersion" : "1",
+          "multiplierCount" : 1,
+          "qsoCount" : 1,
+          "revision" : 4,
+          "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+          "sha256" : "efbab19d321699e9c3781c5a1528f86d4b66f2938e1cd97509e52e79aefe2f70",
+          "totalPoints" : 1,
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      },
+      "readRequest" : {
+        "exportID" : "2cdb3401-0717-48cd-a2d2-2a599041b4b3",
+        "length" : 276,
+        "offset" : 0,
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "readResponse" : {
+        "id" : "bbcc5353-9f3f-402b-bb2d-9e8579b7cbd5",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "2cdb3401-0717-48cd-a2d2-2a599041b4b3",
+          "byteLength" : 276,
+          "dataBase64" : "U1RBUlQtT0YtTE9HOiAyLjANCkNBTExTSUdOOiBPTTBSWA0KQ09OVEVTVDogSklEWC1DVw0KQ0FURUdPUlk6IEFCTA0KQ0xBSU1FRC1TQ09SRTogMQ0KT1BFUkFUT1JTOiBPTTBSWA0KRU5USVRZOiBTTE9WQUsgUkVQVUJMSUMNCkNSRUFURUQtQlk6IE9NMFJYLXhMb2cNCk5BTUU6IE9wZXJhdG9yDQpTRU5UTlI6IDE1DQpRU086IDE0MDI1IENXIDIwMjYtMTAtMTggMjAwMiBPTTBSWCAgICAgICAgIDU5OSAxNSAgICAgSkExQUFBICAgICAgICA1OTkgMTQgICAgDQpFTkQtT0YtTE9HOg0K",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 4,
+          "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+          "sha256" : "efbab19d321699e9c3781c5a1528f86d4b66f2938e1cd97509e52e79aefe2f70",
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      }
+    }
+  },
+  "lifecycle" : {
+    "apply" : {
+      "request" : {
+        "draftID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+        "expectedRevision" : 1,
+        "operationTimestamp" : "2026-10-18T20:01:00.000Z",
+        "payload" : {
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "receivedExchange" : "13",
+            "receivedExchangeFields" : {
+              "number" : "13"
+            },
+            "receivedReport" : "599",
+            "sentExchange" : "15",
+            "sentExchangeFields" : {
+              "number" : "15"
+            },
+            "sentReport" : "599"
+          }
+        },
+        "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
+        "requestID" : "2fe354a7-ae8b-4cc8-a7b1-a65a01a5c370",
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "c60eddeb-d14e-47f1-a420-6f6fe3778639",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+            "dupe" : {
+              "reason" : "",
+              "state" : "clear"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "JA1AAA",
+              "frequencyHz" : 14025000,
+              "mode" : "CW",
+              "receivedExchange" : "13",
+              "receivedExchangeFields" : {
+                "number" : "13"
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "15",
+              "sentExchangeFields" : {
+                "number" : "15"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 2,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "updatedAt" : "2026-10-18T20:01:00.000Z",
+            "validation" : {
+              "errors" : [
+
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:01:00.000Z",
+            "committedRevision" : 2,
+            "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
+            "requestID" : "2fe354a7-ae8b-4cc8-a7b1-a65a01a5c370"
+          },
+          "session" : {
+            "name" : "JIDX CW DX",
+            "operator" : {
+              "callsign" : "OM0RX",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 0,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 2,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "station" : {
+              "callsign" : "OM0RX",
+              "cqZone" : "15",
+              "dxccEntity" : "SLOVAK REPUBLIC",
+              "exchangeFields" : {
+                "number" : "15"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:01:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "commit" : {
+      "request" : {
+        "draftID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+        "expectedRevision" : 2,
+        "operationTimestamp" : "2026-10-18T20:02:00.000Z",
+        "payload" : {
+
+        },
+        "payloadDigest" : "3333333333333333333333333333333333333333333333333333333333333333",
+        "requestID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "b97d22a8-e9d6-4952-9558-397580c00501",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : 14025000,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "15",
+              "sentExchangeFields" : {
+                "number" : "15"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 3,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "updatedAt" : "2026-10-18T20:02:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "qso" : {
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "isDupe" : false,
+            "mode" : "CW",
+            "multiplier" : "jidxLocation:13:20m",
+            "multiplierDisplayLabels" : [
+              "jidxLocation 13 · 20m"
+            ],
+            "points" : 1,
+            "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+            "receivedExchange" : "13",
+            "sentExchange" : "15",
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "workedAt" : "2026-10-18T20:02:00.000Z"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:02:00.000Z",
+            "committedRevision" : 3,
+            "payloadDigest" : "3333333333333333333333333333333333333333333333333333333333333333",
+            "requestID" : "6ca415e0-d2ff-4501-8792-640dee090045"
+          },
+          "score" : {
+            "claimedScore" : 1,
+            "multipliers" : 1,
+            "points" : 1,
+            "qsos" : 1,
+            "revision" : 3,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW DX",
+            "operator" : {
+              "callsign" : "OM0RX",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 1,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 3,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "station" : {
+              "callsign" : "OM0RX",
+              "cqZone" : "15",
+              "dxccEntity" : "SLOVAK REPUBLIC",
+              "exchangeFields" : {
+                "number" : "15"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:02:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "correct" : {
+      "request" : {
+        "expectedRevision" : 3,
+        "operationTimestamp" : "2026-10-18T20:03:00.000Z",
+        "payload" : {
+          "qso" : {
+            "allocatedSerial" : "15",
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "normalizedReceivedExchange" : "14",
+            "normalizedSentExchange" : "15",
+            "operatorCallsign" : "OM0RX",
+            "originalUTC" : "2026-10-18T20:02:00.000Z",
+            "provenance" : {
+              "importedClaimedScore" : null,
+              "source" : "operatorEntry",
+              "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+            },
+            "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+            "receivedExchange" : "14",
+            "receivedExchangeFields" : {
+              "number" : "14"
+            },
+            "receivedReport" : "599",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sentExchange" : "15",
+            "sentExchangeFields" : {
+              "number" : "15"
+            },
+            "sentReport" : "599",
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "stationLocation" : ""
+          },
+          "reason" : "Correct prefecture"
+        },
+        "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
+        "requestID" : "6163bb78-b036-42e0-a574-abce3f346057",
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "46b6535d-7915-4c2b-b571-655d0b7412a6",
+        "ok" : true,
+        "result" : {
+          "auditReference" : {
+            "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+            "requestID" : "6163bb78-b036-42e0-a574-abce3f346057",
+            "revision" : 4,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930"
+          },
+          "currentTarget" : {
+            "allocatedSerial" : "15",
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "entity" : {
+              "adif" : 339,
+              "continent" : "AS",
+              "countryPrefix" : "JA",
+              "cqZone" : 25,
+              "name" : "JAPAN"
+            },
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "normalizedReceivedExchange" : "14",
+            "normalizedSentExchange" : "15",
+            "operatorCallsign" : "OM0RX",
+            "originalUTC" : "2026-10-18T20:02:00.000Z",
+            "provenance" : {
+              "importedClaimedScore" : null,
+              "source" : "operatorEntry",
+              "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+            },
+            "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+            "receivedExchange" : "14",
+            "receivedExchangeFields" : {
+              "number" : "14"
+            },
+            "receivedReport" : "599",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sentExchange" : "15",
+            "sentExchangeFields" : {
+              "number" : "15"
+            },
+            "sentReport" : "599",
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "stationLocation" : ""
+          },
+          "operation" : "correction",
+          "qsoCount" : 1,
+          "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:03:00.000Z",
+            "committedRevision" : 4,
+            "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
+            "requestID" : "6163bb78-b036-42e0-a574-abce3f346057"
+          },
+          "score" : {
+            "claimedScore" : 1,
+            "multipliers" : 1,
+            "points" : 1,
+            "qsos" : 1,
+            "revision" : 4,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW DX",
+            "qsoCount" : 1,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 4,
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "updatedAt" : "2026-10-18T20:03:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "delete" : {
+      "request" : {
+        "expectedRevision" : 4,
+        "operationTimestamp" : "2026-10-18T20:05:00.000Z",
+        "payload" : {
+          "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+          "reason" : "Remove contact"
+        },
+        "payloadDigest" : "5555555555555555555555555555555555555555555555555555555555555555",
+        "requestID" : "8939b39e-de8d-4baa-add8-fe93e2d175a0",
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "5f73c35d-00c4-4896-a63a-405a24bbf378",
+        "ok" : true,
+        "result" : {
+          "auditReference" : {
+            "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+            "requestID" : "8939b39e-de8d-4baa-add8-fe93e2d175a0",
+            "revision" : 5,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930"
+          },
+          "currentTarget" : null,
+          "operation" : "deletion",
+          "qsoCount" : 0,
+          "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:05:00.000Z",
+            "committedRevision" : 5,
+            "payloadDigest" : "5555555555555555555555555555555555555555555555555555555555555555",
+            "requestID" : "8939b39e-de8d-4baa-add8-fe93e2d175a0"
+          },
+          "score" : {
+            "claimedScore" : 0,
+            "multipliers" : 0,
+            "points" : 0,
+            "qsos" : 0,
+            "revision" : 5,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW DX",
+            "qsoCount" : 0,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 5,
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "updatedAt" : "2026-10-18T20:05:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "get" : {
+      "request" : {
+        "expectedRevision" : 3,
+        "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "db049b05-4c8c-459c-bf35-bb6ce5309e37",
+        "ok" : true,
+        "result" : {
+          "qso" : {
+            "allocatedSerial" : "15",
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "entity" : {
+              "adif" : 339,
+              "continent" : "AS",
+              "countryPrefix" : "JA",
+              "cqZone" : 25,
+              "name" : "JAPAN"
+            },
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "normalizedReceivedExchange" : "13",
+            "normalizedSentExchange" : "15",
+            "operatorCallsign" : "OM0RX",
+            "originalUTC" : "2026-10-18T20:02:00.000Z",
+            "provenance" : {
+              "importedClaimedScore" : null,
+              "source" : "operatorEntry",
+              "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+            },
+            "qsoID" : "6ca415e0-d2ff-4501-8792-640dee090045",
+            "receivedExchange" : "13",
+            "receivedExchangeFields" : {
+              "number" : "13"
+            },
+            "receivedReport" : "599",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sentExchange" : "15",
+            "sentExchangeFields" : {
+              "number" : "15"
+            },
+            "sentReport" : "599",
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "stationLocation" : ""
+          },
+          "revision" : 3,
+          "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      }
+    },
+    "openAfterRestart" : {
+      "request" : {
+        "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "c21bd8f2-d420-4c54-9dbf-6849f573df16",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "16993c0a-eb2f-4a7c-8408-a25fc632a819",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : 14025000,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "15",
+              "sentExchangeFields" : {
+                "number" : "15"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 3,
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "updatedAt" : "2026-10-18T20:02:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A bounded ASCII callsign is required.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW DX",
+            "operator" : {
+              "callsign" : "OM0RX",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 1,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 3,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "16766dec-4a79-4580-a6ec-9ffa7d46a930",
+            "station" : {
+              "callsign" : "OM0RX",
+              "cqZone" : "15",
+              "dxccEntity" : "SLOVAK REPUBLIC",
+              "exchangeFields" : {
+                "number" : "15"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:02:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    }
+  },
+  "rejectedCreates" : {
+    "JIDX crossed MM" : {
+      "error" : {
+        "code" : "station_mismatch",
+        "message" : "Only a validated JIDX maritime-mobile station may omit its land entity.",
+        "outcome" : "confirmed"
+      },
+      "id" : "1eff4867-a3ef-45d7-b8e9-385ff850411f",
+      "ok" : false
+    },
+    "JIDX land nil" : {
+      "error" : {
+        "code" : "station_mismatch",
+        "message" : "Only a validated JIDX maritime-mobile station may omit its land entity.",
+        "outcome" : "confirmed"
+      },
+      "id" : "b63e1d81-37a2-44e2-95be-ce1725b4f2a0",
+      "ok" : false
+    },
+    "JIDX malformed" : {
+      "error" : {
+        "code" : "invalid_session",
+        "message" : "The contest session is invalid.",
+        "outcome" : "confirmed"
+      },
+      "id" : "7cf71ed8-f417-457b-a44e-db6474f13cb6",
+      "ok" : false
+    },
+    "JIDX MM entity" : {
+      "error" : {
+        "code" : "station_mismatch",
+        "message" : "A JIDX maritime-mobile station must not claim a land entity.",
+        "outcome" : "confirmed"
+      },
+      "id" : "39c29a70-9b99-43d5-b67e-2ff24f573c1b",
+      "ok" : false
+    }
+  },
+  "schemaVersion" : 1,
+  "singleDigitExports" : {
+    "adif" : {
+      "prepareRequest" : {
+        "expectedRevision" : 6,
+        "exportID" : "78747eb5-ee1f-4d39-935a-56c513af980f",
+        "format" : "adif",
+        "generatedAtUTC" : "2026-10-18T20:15:00.000Z",
+        "header" : {
+          "addressLines" : [
+
+          ],
+          "callsign" : "OM0RX\/MM",
+          "categoryAssisted" : "NON-ASSISTED",
+          "categoryBand" : "ALL",
+          "categoryMode" : "CW",
+          "categoryOperator" : "SINGLE-OP",
+          "categoryPower" : "LOW",
+          "categoryTransmitter" : "ONE",
+          "email" : "",
+          "location" : "DX",
+          "name" : "Operator",
+          "operators" : [
+            "OM0RX\/MM"
+          ]
+        },
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "prepareResponse" : {
+        "id" : "2fd907c8-04d8-4eea-9437-deace4a3bf68",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "78747eb5-ee1f-4d39-935a-56c513af980f",
+          "byteLength" : 2126,
+          "chunkLimit" : 65536,
+          "claimedScore" : 4,
+          "expiresAfterSeconds" : 600,
+          "format" : "adif",
+          "formatterVersion" : "jidx-preview-1",
+          "generatedAtUTC" : "2026-10-18T20:15:00.000Z",
+          "inputSchemaVersion" : "1",
+          "multiplierCount" : 2,
+          "qsoCount" : 2,
+          "revision" : 6,
+          "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+          "sha256" : "f9254c88f6b260a700c99314e101e93b0a27b632c661e8217a32ed95f092c375",
+          "totalPoints" : 2,
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      },
+      "readRequest" : {
+        "exportID" : "78747eb5-ee1f-4d39-935a-56c513af980f",
+        "length" : 2126,
+        "offset" : 0,
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "readResponse" : {
+        "id" : "0240360a-e505-43d4-a7f6-a3721988d66f",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "78747eb5-ee1f-4d39-935a-56c513af980f",
+          "byteLength" : 2126,
+          "dataBase64" : "PEFESUZfVkVSOjU+My4xLjc8UFJPR1JBTUlEOjEwPk9NMFJYLXhMb2c8UFJPR1JBTVZFUlNJT046MTQ+amlkeC1wcmV2aWV3LTE8Q1JFQVRFRF9USU1FU1RBTVA6MTU+MjAyNjEwMTggMjAxNTAwPEVPSD4NCjxBUFBfT00wUlhYTE9HX0ZPUk1BVFRFUl9WRVJTSU9OOjE0PmppZHgtcHJldmlldy0xPEFQUF9PTTBSWFhMT0dfSU5QVVRfU0NIRU1BX1ZFUlNJT046MT4xPEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9JREVOVElUWTozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9TT1VSQ0U6MTM+b3BlcmF0b3JFbnRyeTxBUFBfT00wUlhYTE9HX1FTT19JRDozNj4wODc0ZjMzZi1lMDgxLTQzNzItYjMwMS04ZjE3NGY5YTk1Zjk8QVBQX09NMFJYWExPR19SRUZFUkVOQ0VfREFUQV9WRVJTSU9OOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19SVUxFX0VESVRJT046MjE+MjAyNi0xMC1ydWxlcy1wcmV2aWV3PEFQUF9PTTBSWFhMT0dfUlVMRV9JRDo3PmppZHgtY3c8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND4wMWY1MjlhYjAyYTcwYzcwZTMzZWNlMzQ3ZWU0Mzg3ZmViNTliNzc4NjA4NTc5NWVkNzYwOWQwYTdiZWJkNGFhPEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI0PjEuMC4wLTIwMjYtcnVsZXMtcHJldmlldzxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+M2U1YzhkOTctZjQ2YS00NDY4LWJlMmItYjMwMmVhZDk3YWFiPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoxPjY8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj45MGE2YmE1ZC1mOTBmLTRkNTgtYWRlMS1kMDIyZTdjOGE3MTM8QkFORDozPjIwbTxDQUxMOjY+SkExQUFBPENPTlRFU1RfSUQ6Nz5KSURYLUNXPEZSRVE6OT4xNC4wMjUwMDA8TU9ERToyPkNXPE9QRVJBVE9SOjg+T00wUlgvTU08UVNPX0RBVEU6OD4yMDI2MTAxODxSU1RfUkNWRDozPjU5OTxSU1RfU0VOVDozPjU5OTxTUlg6MT4zPFNSWF9TVFJJTkc6MT4zPFNUQVRJT05fQ0FMTFNJR046OD5PTTBSWC9NTTxTVFg6MT4zPFNUWF9TVFJJTkc6MT4zPFRJTUVfT046Nj4yMDExMDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTQ+amlkeC1wcmV2aWV3LTE8QVBQX09NMFJYWExPR19JTlBVVF9TQ0hFTUFfVkVSU0lPTjoxPjE8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX0lERU5USVRZOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX1NPVVJDRToxMz5vcGVyYXRvckVudHJ5PEFQUF9PTTBSWFhMT0dfUVNPX0lEOjM2PjNlZTkwNzVhLWVlOGEtNDkzOS05NWRjLTFlMmNiMGNhZDg2MDxBUFBfT00wUlhYTE9HX1JFRkVSRU5DRV9EQVRBX1ZFUlNJT046MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1JVTEVfRURJVElPTjoyMT4yMDI2LTEwLXJ1bGVzLXByZXZpZXc8QVBQX09NMFJYWExPR19SVUxFX0lEOjc+amlkeC1jdzxBUFBfT00wUlhYTE9HX1JVTEVfU09VUkNFX1JFVklTSU9OOjY0PjAxZjUyOWFiMDJhNzBjNzBlMzNlY2UzNDdlZTQzODdmZWI1OWI3Nzg2MDg1Nzk1ZWQ3NjA5ZDBhN2JlYmQ0YWE8QVBQX09NMFJYWExPR19SVUxFX1ZFUlNJT046MjQ+MS4wLjAtMjAyNi1ydWxlcy1wcmV2aWV3PEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9JRDozNj4zZTVjOGQ5Ny1mNDZhLTQ0NjgtYmUyYi1iMzAyZWFkOTdhYWI8QVBQX09NMFJYWExPR19TRVNTSU9OX1JFVklTSU9OOjE+NjxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PjkwYTZiYTVkLWY5MGYtNGQ1OC1hZGUxLWQwMjJlN2M4YTcxMzxCQU5EOjM+MjBtPENBTEw6Nj5KQTFCQkI8Q09OVEVTVF9JRDo3PkpJRFgtQ1c8RlJFUTo5PjE0LjAyNjAwMDxNT0RFOjI+Q1c8T1BFUkFUT1I6OD5PTTBSWC9NTTxRU09fREFURTo4PjIwMjYxMDE4PFJTVF9SQ1ZEOjM+NTk5PFJTVF9TRU5UOjM+NTk5PFNSWDoxPjU8U1JYX1NUUklORzoxPjU8U1RBVElPTl9DQUxMU0lHTjo4Pk9NMFJYL01NPFNUWDoxPjM8U1RYX1NUUklORzoxPjM8VElNRV9PTjo2PjIwMTMwMDxFT1I+DQo=",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 6,
+          "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+          "sha256" : "f9254c88f6b260a700c99314e101e93b0a27b632c661e8217a32ed95f092c375",
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      }
+    },
+    "cabrillo" : {
+      "prepareRequest" : {
+        "expectedRevision" : 6,
+        "exportID" : "c1ef3d63-7b9f-44c7-a5ba-84bb86fb2d08",
+        "format" : "cabrillo",
+        "generatedAtUTC" : "2026-10-18T20:15:00.000Z",
+        "header" : {
+          "addressLines" : [
+
+          ],
+          "callsign" : "OM0RX\/MM",
+          "categoryAssisted" : "NON-ASSISTED",
+          "categoryBand" : "ALL",
+          "categoryMode" : "CW",
+          "categoryOperator" : "SINGLE-OP",
+          "categoryPower" : "LOW",
+          "categoryTransmitter" : "ONE",
+          "email" : "",
+          "location" : "DX",
+          "name" : "Operator",
+          "operators" : [
+            "OM0RX\/MM"
+          ]
+        },
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "prepareResponse" : {
+        "id" : "21887646-72f3-4282-afd7-a3d2ac43ba2f",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "c1ef3d63-7b9f-44c7-a5ba-84bb86fb2d08",
+          "byteLength" : 362,
+          "chunkLimit" : 65536,
+          "claimedScore" : 4,
+          "expiresAfterSeconds" : 600,
+          "format" : "cabrillo",
+          "formatterVersion" : "jidx-preview-1",
+          "generatedAtUTC" : "2026-10-18T20:15:00.000Z",
+          "inputSchemaVersion" : "1",
+          "multiplierCount" : 2,
+          "qsoCount" : 2,
+          "revision" : 6,
+          "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+          "sha256" : "a9e6a054991c5be1ae0d4e60b3385e17e45f27598f8341d42f35c42da5631a99",
+          "totalPoints" : 2,
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      },
+      "readRequest" : {
+        "exportID" : "c1ef3d63-7b9f-44c7-a5ba-84bb86fb2d08",
+        "length" : 362,
+        "offset" : 0,
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "readResponse" : {
+        "id" : "ee58b7fc-58c5-4d5f-9eeb-1fb245e91f94",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "c1ef3d63-7b9f-44c7-a5ba-84bb86fb2d08",
+          "byteLength" : 362,
+          "dataBase64" : "U1RBUlQtT0YtTE9HOiAyLjANCkNBTExTSUdOOiBPTTBSWC9NTQ0KQ09OVEVTVDogSklEWC1DVw0KQ0FURUdPUlk6IE1NDQpDTEFJTUVELVNDT1JFOiA0DQpPUEVSQVRPUlM6IE9NMFJYL01NDQpFTlRJVFk6IE1BUklUSU1FLU1PQklMRQ0KQ1JFQVRFRC1CWTogT00wUlgteExvZw0KTkFNRTogT3BlcmF0b3INClNFTlROUjogMDMNClFTTzogMTQwMjUgQ1cgMjAyNi0xMC0xOCAyMDExIE9NMFJYL01NICAgICAgNTk5IDAzICAgICBKQTFBQUEgICAgICAgIDU5OSAwMyAgICANClFTTzogMTQwMjYgQ1cgMjAyNi0xMC0xOCAyMDEzIE9NMFJYL01NICAgICAgNTk5IDAzICAgICBKQTFCQkIgICAgICAgIDU5OSAwNSAgICANCkVORC1PRi1MT0c6DQo=",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 6,
+          "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+          "sha256" : "a9e6a054991c5be1ae0d4e60b3385e17e45f27598f8341d42f35c42da5631a99",
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      }
+    }
+  },
+  "singleDigitLifecycle" : {
+    "applyFirst" : {
+      "request" : {
+        "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+        "expectedRevision" : 1,
+        "operationTimestamp" : "2026-10-18T20:10:00.000Z",
+        "payload" : {
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "receivedExchange" : "3",
+            "receivedExchangeFields" : {
+              "number" : "3"
+            },
+            "receivedReport" : "599",
+            "sentExchange" : "3",
+            "sentExchangeFields" : {
+              "number" : "3"
+            },
+            "sentReport" : "599"
+          }
+        },
+        "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
+        "requestID" : "41f325b4-d6cf-4afc-8932-bca71fb6be17",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "5f0d3ad8-9d3c-4bd5-8a66-fd18636d4991",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "",
+              "state" : "clear"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "JA1AAA",
+              "frequencyHz" : 14025000,
+              "mode" : "CW",
+              "receivedExchange" : "3",
+              "receivedExchangeFields" : {
+                "number" : "3"
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 2,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:10:00.000Z",
+            "validation" : {
+              "errors" : [
+
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:10:00.000Z",
+            "committedRevision" : 2,
+            "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
+            "requestID" : "41f325b4-d6cf-4afc-8932-bca71fb6be17"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 0,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 2,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:10:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "applySecond" : {
+      "request" : {
+        "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+        "expectedRevision" : 3,
+        "operationTimestamp" : "2026-10-18T20:12:00.000Z",
+        "payload" : {
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "JA1BBB",
+            "frequencyHz" : 14026000,
+            "mode" : "CW",
+            "receivedExchange" : "4",
+            "receivedExchangeFields" : {
+              "number" : "4"
+            },
+            "receivedReport" : "599",
+            "sentExchange" : "3",
+            "sentExchangeFields" : {
+              "number" : "3"
+            },
+            "sentReport" : "599"
+          }
+        },
+        "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
+        "requestID" : "29e7d576-ec70-4e1c-9b35-fb211882a5ca",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "df1dcdf4-7246-43bc-8c39-23e8af9d7b90",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "",
+              "state" : "clear"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "JA1BBB",
+              "frequencyHz" : 14026000,
+              "mode" : "CW",
+              "receivedExchange" : "4",
+              "receivedExchangeFields" : {
+                "number" : "4"
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 4,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:12:00.000Z",
+            "validation" : {
+              "errors" : [
+
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:12:00.000Z",
+            "committedRevision" : 4,
+            "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
+            "requestID" : "29e7d576-ec70-4e1c-9b35-fb211882a5ca"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 1,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 4,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:12:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "commitFirst" : {
+      "request" : {
+        "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+        "expectedRevision" : 2,
+        "operationTimestamp" : "2026-10-18T20:11:00.000Z",
+        "payload" : {
+
+        },
+        "payloadDigest" : "3333333333333333333333333333333333333333333333333333333333333333",
+        "requestID" : "0874f33f-e081-4372-b301-8f174f9a95f9",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "f0ee339a-d8f5-46cc-9bf6-b669077aa13b",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : 14025000,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 3,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:11:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "qso" : {
+            "band" : "20m",
+            "callsign" : "JA1AAA",
+            "isDupe" : false,
+            "mode" : "CW",
+            "multiplier" : "jidxLocation:03:20m",
+            "multiplierDisplayLabels" : [
+              "jidxLocation 03 · 20m"
+            ],
+            "points" : 1,
+            "qsoID" : "0874f33f-e081-4372-b301-8f174f9a95f9",
+            "receivedExchange" : "3",
+            "sentExchange" : "3",
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "workedAt" : "2026-10-18T20:11:00.000Z"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:11:00.000Z",
+            "committedRevision" : 3,
+            "payloadDigest" : "3333333333333333333333333333333333333333333333333333333333333333",
+            "requestID" : "0874f33f-e081-4372-b301-8f174f9a95f9"
+          },
+          "score" : {
+            "claimedScore" : 1,
+            "multipliers" : 1,
+            "points" : 1,
+            "qsos" : 1,
+            "revision" : 3,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 1,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 3,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:11:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "commitSecond" : {
+      "request" : {
+        "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+        "expectedRevision" : 4,
+        "operationTimestamp" : "2026-10-18T20:13:00.000Z",
+        "payload" : {
+
+        },
+        "payloadDigest" : "5555555555555555555555555555555555555555555555555555555555555555",
+        "requestID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "69a8fc8e-5e4e-4de3-bd77-4923c90f4067",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : 14026000,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 5,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:13:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "qso" : {
+            "band" : "20m",
+            "callsign" : "JA1BBB",
+            "isDupe" : false,
+            "mode" : "CW",
+            "multiplier" : "jidxLocation:04:20m",
+            "multiplierDisplayLabels" : [
+              "jidxLocation 04 · 20m"
+            ],
+            "points" : 1,
+            "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+            "receivedExchange" : "4",
+            "sentExchange" : "3",
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "workedAt" : "2026-10-18T20:13:00.000Z"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:13:00.000Z",
+            "committedRevision" : 5,
+            "payloadDigest" : "5555555555555555555555555555555555555555555555555555555555555555",
+            "requestID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860"
+          },
+          "score" : {
+            "claimedScore" : 4,
+            "multipliers" : 2,
+            "points" : 2,
+            "qsos" : 2,
+            "revision" : 5,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 2,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 5,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:13:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "correct" : {
+      "request" : {
+        "expectedRevision" : 5,
+        "operationTimestamp" : "2026-10-18T20:14:00.000Z",
+        "payload" : {
+          "qso" : {
+            "allocatedSerial" : "03",
+            "band" : "20m",
+            "callsign" : "JA1BBB",
+            "frequencyHz" : 14026000,
+            "mode" : "CW",
+            "normalizedReceivedExchange" : "05",
+            "normalizedSentExchange" : "03",
+            "operatorCallsign" : "OM0RX\/MM",
+            "originalUTC" : "2026-10-18T20:13:00.000Z",
+            "provenance" : {
+              "importedClaimedScore" : null,
+              "source" : "operatorEntry",
+              "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+            },
+            "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+            "receivedExchange" : "5",
+            "receivedExchangeFields" : {
+              "number" : "5"
+            },
+            "receivedReport" : "599",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sentExchange" : "3",
+            "sentExchangeFields" : {
+              "number" : "3"
+            },
+            "sentReport" : "599",
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "stationLocation" : ""
+          },
+          "reason" : "Correct prefecture"
+        },
+        "payloadDigest" : "6666666666666666666666666666666666666666666666666666666666666666",
+        "requestID" : "919521f5-d5f1-4f16-9f78-32064bf0cd6e",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "58297e81-ae6d-4991-ae17-14c25478b8c1",
+        "ok" : true,
+        "result" : {
+          "auditReference" : {
+            "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+            "requestID" : "919521f5-d5f1-4f16-9f78-32064bf0cd6e",
+            "revision" : 6,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab"
+          },
+          "currentTarget" : {
+            "allocatedSerial" : "03",
+            "band" : "20m",
+            "callsign" : "JA1BBB",
+            "entity" : {
+              "adif" : 339,
+              "continent" : "AS",
+              "countryPrefix" : "JA",
+              "cqZone" : 25,
+              "name" : "JAPAN"
+            },
+            "frequencyHz" : 14026000,
+            "mode" : "CW",
+            "normalizedReceivedExchange" : "05",
+            "normalizedSentExchange" : "03",
+            "operatorCallsign" : "OM0RX\/MM",
+            "originalUTC" : "2026-10-18T20:13:00.000Z",
+            "provenance" : {
+              "importedClaimedScore" : null,
+              "source" : "operatorEntry",
+              "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+            },
+            "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+            "receivedExchange" : "5",
+            "receivedExchangeFields" : {
+              "number" : "5"
+            },
+            "receivedReport" : "599",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sentExchange" : "3",
+            "sentExchangeFields" : {
+              "number" : "3"
+            },
+            "sentReport" : "599",
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "stationLocation" : ""
+          },
+          "operation" : "correction",
+          "qsoCount" : 2,
+          "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:14:00.000Z",
+            "committedRevision" : 6,
+            "payloadDigest" : "6666666666666666666666666666666666666666666666666666666666666666",
+            "requestID" : "919521f5-d5f1-4f16-9f78-32064bf0cd6e"
+          },
+          "score" : {
+            "claimedScore" : 4,
+            "multipliers" : 2,
+            "points" : 2,
+            "qsos" : 2,
+            "revision" : 6,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "qsoCount" : 2,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 6,
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:14:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "get" : {
+      "request" : {
+        "expectedRevision" : 5,
+        "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "98efbb13-92b7-4d01-b04e-ad2c779e8024",
+        "ok" : true,
+        "result" : {
+          "qso" : {
+            "allocatedSerial" : "03",
+            "band" : "20m",
+            "callsign" : "JA1BBB",
+            "entity" : {
+              "adif" : 339,
+              "continent" : "AS",
+              "countryPrefix" : "JA",
+              "cqZone" : 25,
+              "name" : "JAPAN"
+            },
+            "frequencyHz" : 14026000,
+            "mode" : "CW",
+            "normalizedReceivedExchange" : "04",
+            "normalizedSentExchange" : "03",
+            "operatorCallsign" : "OM0RX\/MM",
+            "originalUTC" : "2026-10-18T20:13:00.000Z",
+            "provenance" : {
+              "importedClaimedScore" : null,
+              "source" : "operatorEntry",
+              "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+            },
+            "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+            "receivedExchange" : "4",
+            "receivedExchangeFields" : {
+              "number" : "4"
+            },
+            "receivedReport" : "599",
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "ruleIdentity" : {
+              "edition" : "2026-10-rules-preview",
+              "id" : "jidx-cw",
+              "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+              "version" : "1.0.0-2026-rules-preview"
+            },
+            "sentExchange" : "3",
+            "sentExchangeFields" : {
+              "number" : "3"
+            },
+            "sentReport" : "599",
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "stationLocation" : ""
+          },
+          "revision" : 5,
+          "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+          "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+        }
+      }
+    },
+    "openAfterRestart" : {
+      "request" : {
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "c8cb5d75-f5d4-461a-8f96-889edac5312f",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : 14026000,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 5,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:13:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A bounded ASCII callsign is required.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 2,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 5,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:13:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    },
+    "replaySecondCommit" : {
+      "request" : {
+        "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+        "expectedRevision" : 4,
+        "operationTimestamp" : "2026-10-18T20:13:00.000Z",
+        "payload" : {
+
+        },
+        "payloadDigest" : "5555555555555555555555555555555555555555555555555555555555555555",
+        "requestID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+        "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+        "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+      },
+      "response" : {
+        "id" : "7a9affea-f543-4820-ba91-df24740264d2",
+        "ok" : true,
+        "result" : {
+          "draft" : {
+            "draftID" : "eb0d45ee-be6a-422f-a6cf-497e4d20e50d",
+            "dupe" : {
+              "reason" : "Reload the contest session to check duplicate state.",
+              "state" : "unchecked"
+            },
+            "fields" : {
+              "band" : "20m",
+              "callsign" : "",
+              "frequencyHz" : 14026000,
+              "mode" : "CW",
+              "receivedExchange" : "",
+              "receivedExchangeFields" : {
+                "number" : ""
+              },
+              "receivedReport" : "599",
+              "sentExchange" : "3",
+              "sentExchangeFields" : {
+                "number" : "3"
+              },
+              "sentReport" : "599"
+            },
+            "reservedSerial" : null,
+            "revision" : 5,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "updatedAt" : "2026-10-18T20:13:00.000Z",
+            "validation" : {
+              "errors" : [
+                "A required exchange field is missing.",
+                "A bounded ASCII callsign is required.",
+                "JIDX worked role could not be resolved from current entity and callsign evidence."
+              ],
+              "warnings" : [
+
+              ]
+            },
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "qso" : {
+            "band" : "20m",
+            "callsign" : "JA1BBB",
+            "isDupe" : false,
+            "mode" : "CW",
+            "multiplier" : "jidxLocation:04:20m",
+            "multiplierDisplayLabels" : [
+              "jidxLocation 04 · 20m"
+            ],
+            "points" : 1,
+            "qsoID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860",
+            "receivedExchange" : "4",
+            "sentExchange" : "3",
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "workedAt" : "2026-10-18T20:13:00.000Z"
+          },
+          "receipt" : {
+            "committedAt" : "2026-10-18T20:13:00.000Z",
+            "committedRevision" : 5,
+            "payloadDigest" : "5555555555555555555555555555555555555555555555555555555555555555",
+            "requestID" : "3ee9075a-ee8a-4939-95dc-1e2cb0cad860"
+          },
+          "score" : {
+            "claimedScore" : 4,
+            "multipliers" : 2,
+            "points" : 2,
+            "qsos" : 2,
+            "revision" : 5,
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "sourceVerification" : "provisional",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          },
+          "session" : {
+            "name" : "JIDX CW MM",
+            "operator" : {
+              "callsign" : "OM0RX\/MM",
+              "category" : "Single Operator"
+            },
+            "qsoCount" : 2,
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "revision" : 5,
+            "rule" : {
+              "displayName" : "JIDX CW Preview",
+              "entry" : {
+                "adifMode" : "CW",
+                "cabrilloFormatterVersion" : "jidx-preview-1",
+                "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+                "cabrilloQSOType" : "CW",
+                "exchange" : {
+                  "adifFields" : "exchangeStrings",
+                  "received" : "structured",
+                  "receivedFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "SRX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ],
+                  "sent" : "structured",
+                  "sentDefault" : "stationFields",
+                  "sentFields" : [
+                    {
+                      "acceptedKinds" : [
+                        "cqZone",
+                        "jarlPrefectureNumber"
+                      ],
+                      "adifField" : "STX",
+                      "id" : "number",
+                      "label" : "Prefecture or CQ Zone",
+                      "maximumUTF8Bytes" : 2,
+                      "required" : true
+                    }
+                  ]
+                },
+                "mode" : "CW",
+                "modeProfiles" : [
+                  {
+                    "adifMode" : "CW",
+                    "adifSubmode" : null,
+                    "cabrilloQSOType" : "CW",
+                    "mode" : "CW",
+                    "report" : {
+                      "defaultReceived" : "599",
+                      "defaultSent" : "599",
+                      "format" : "cwRST",
+                      "maximumUTF8Bytes" : 3
+                    }
+                  }
+                ],
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                },
+                "scorePolicy" : "pointsTimesMultipliers",
+                "serial" : {
+                  "allowedScopes" : [
+
+                  ],
+                  "requirement" : "none"
+                },
+                "version" : 2
+              },
+              "entryDescriptorVersion" : 2,
+              "identity" : {
+                "edition" : "2026-10-rules-preview",
+                "id" : "jidx-cw",
+                "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+                "version" : "1.0.0-2026-rules-preview"
+              },
+              "mode" : "CW",
+              "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+              "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+              "sourceVerification" : "provisional"
+            },
+            "sessionID" : "3e5c8d97-f46a-4468-be2b-b302ead97aab",
+            "station" : {
+              "callsign" : "OM0RX\/MM",
+              "cqZone" : "03",
+              "dxccEntity" : "",
+              "exchangeFields" : {
+                "number" : "3"
+              }
+            },
+            "updatedAt" : "2026-10-18T20:13:00.000Z",
+            "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+          }
+        }
+      }
+    }
+  },
+  "unsupportedExport" : {
+    "request" : {
+      "expectedRevision" : 1,
+      "exportID" : "ecd39051-298d-4521-9cdf-de3fc79f7d88",
+      "format" : "cabrillo",
+      "generatedAtUTC" : "2026-10-18T20:06:00.000Z",
+      "header" : {
+        "addressLines" : [
+
+        ],
+        "callsign" : "OM0RX",
+        "categoryAssisted" : "NON-ASSISTED",
+        "categoryBand" : "ALL",
+        "categoryMode" : "CW",
+        "categoryOperator" : "MULTI-OP",
+        "categoryPower" : "LOW",
+        "categoryTransmitter" : "ONE",
+        "email" : "",
+        "location" : "DX",
+        "name" : "Operator",
+        "operators" : [
+          "OM0RX"
+        ]
+      },
+      "sessionID" : "a9659afa-0585-4e04-b09d-a7e297acfadb",
+      "workspaceGeneration" : "90a6ba5d-f90f-4d58-ade1-d022e7c8a713"
+    },
+    "response" : {
+      "error" : {
+        "code" : "unsupported_category",
+        "message" : "Contest export does not support stored operator category Multi Operator.",
+        "outcome" : "confirmed"
+      },
+      "id" : "087f60ab-b463-479c-b920-a0aacbc045ce",
+      "ok" : false
+    }
+  }
+}
