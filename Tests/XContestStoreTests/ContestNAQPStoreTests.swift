@@ -108,6 +108,31 @@ final class ContestNAQPStoreTests: XCTestCase {
         }
     }
 
+    func testStructuredStationAggregateUsesDescriptorBoundsWithoutChangingLegacyLimit() async throws {
+        let validIDs = IDs(21)
+        let validStore = try makeStore(databaseURL())
+        let maximumName = String(repeating: "A", count: 32)
+        let validSession = session(ids: validIDs, rule: NAQPCWRule(), stationLocation: "CA", stationName: maximumName)
+        let created = try await validStore.createSession(
+            validSession, metadata: metadata(), initialDraft: emptyDraft(ids: validIDs, mode: "CW", stationName: maximumName),
+            scope: mutation(validIDs, request: 1, revision: 0, digest: "max-create"), committedAt: date)
+        XCTAssertEqual(created.session.session.station.sentExchange, "\(maximumName) CA")
+        XCTAssertEqual(created.session.session.station.sentExchange.utf8.count, 35)
+
+        let invalidIDs = IDs(22)
+        let invalidStore = try makeStore(databaseURL())
+        let oversizedName = String(repeating: "A", count: 33)
+        do {
+            _ = try await invalidStore.createSession(
+                session(ids: invalidIDs, rule: NAQPCWRule(), stationLocation: "CA", stationName: oversizedName),
+                metadata: metadata(), initialDraft: emptyDraft(ids: invalidIDs, mode: "CW", stationName: oversizedName),
+                scope: mutation(invalidIDs, request: 1, revision: 0, digest: "overflow-create"), committedAt: date)
+            XCTFail("Expected descriptor field limit rejection")
+        } catch let error as ContestStoreError {
+            XCTAssertEqual(error, .invalidSession)
+        }
+    }
+
     func testSelfContactCommitRollsBackAtomicallyInAllModes() async throws {
         let cases: [(any ContestRule, String, Int64)] = [
             (NAQPCWRule(), "CW", 14_050_000),
@@ -157,22 +182,23 @@ final class ContestNAQPStoreTests: XCTestCase {
             scope: mutation(ids, request: 1, revision: 0, digest: "create"), committedAt: date)
     }
 
-    private func session(ids: IDs, rule: any ContestRule, stationLocation: String) -> ContestSessionSnapshot {
+    private func session(ids: IDs, rule: any ContestRule, stationLocation: String,
+                         stationName: String = "AL") -> ContestSessionSnapshot {
         ContestSessionSnapshot(
             id: ids.session, workspaceGeneration: ids.generation, rule: rule.metadata.identity,
             referenceDataVersion: "cty-fixture", startedAt: date,
-            station: .init(callsign: "K1AAA", entity: usa, sentExchange: "AL \(stationLocation)",
+            station: .init(callsign: "K1AAA", entity: usa, sentExchange: "\(stationName) \(stationLocation)",
                            operatorCallsigns: ["K1AAA"], location: "MA",
-                           sentExchangeFields: stationFields(location: stationLocation)))
+                           sentExchangeFields: stationFields(name: stationName, location: stationLocation)))
     }
 
-    private func emptyDraft(ids: IDs, mode: String) -> ContestDraftSnapshot {
+    private func emptyDraft(ids: IDs, mode: String, stationName: String = "AL") -> ContestDraftSnapshot {
         ContestDraftSnapshot(id: ids.draft, sessionID: ids.session, revision: 1, updatedAt: date,
                              callsign: "", band: "20m", mode: mode, frequencyHz: frequency(mode),
                              rstSent: "", rstReceived: "",
-                             exchange: .init(rawSent: "AL CA", normalizedSent: "AL CA",
+                             exchange: .init(rawSent: "\(stationName) CA", normalizedSent: "\(stationName) CA",
                                              rawReceived: "", normalizedReceived: "",
-                                             sentFields: stationFields()),
+                                              sentFields: stationFields(name: stationName)),
                              entity: nil, operatorCallsign: "K1AAA", stationLocation: "MA")
     }
 
@@ -215,8 +241,8 @@ final class ContestNAQPStoreTests: XCTestCase {
                                "location": .init(raw: receivedLocation, normalized: receivedLocation)])
     }
 
-    private func stationFields(location: String = "CA") -> [String: ContestExchangeFieldValue] {
-        ["name": .init(raw: "AL", normalized: "AL"),
+    private func stationFields(name: String = "AL", location: String = "CA") -> [String: ContestExchangeFieldValue] {
+        ["name": .init(raw: name, normalized: name),
          "location": .init(raw: location, normalized: location)]
     }
     private func metadata() -> ContestSessionMetadata {

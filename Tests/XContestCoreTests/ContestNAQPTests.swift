@@ -147,6 +147,14 @@ final class ContestNAQPTests: XCTestCase {
                                                        name: "KAI", location: "HI")).isEmpty)
     }
 
+    func testStationNameDescriptorAcceptsThirtyTwoBytesAndRejectsOverflow() {
+        let rule = NAQPCWRule()
+        let maximumName = String(repeating: "A", count: 32)
+        XCTAssertTrue(rule.metadata.entry.stationExchangeIssues(exchangeFields(name: maximumName, location: "CA")).isEmpty)
+        let oversized = rule.metadata.entry.stationExchangeIssues(exchangeFields(name: maximumName + "A", location: "CA"))
+        XCTAssertTrue(oversized.map(\.code).contains("structuredExchangeFieldTooLong"))
+    }
+
     func testOfficialAuthorityFixturePinsRulesAndMultiplierForm() throws {
         struct Authority: Decodable {
             struct CTYEntity: Decodable {
