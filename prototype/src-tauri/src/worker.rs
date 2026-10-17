@@ -592,6 +592,7 @@ static SESSION: OnceLock<Mutex<Option<Arc<Session>>>> = OnceLock::new();
 static SESSION_GENERATION: AtomicU64 = AtomicU64::new(0);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
+static CONTESTING_TEST: OnceLock<bool> = OnceLock::new();
 pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
 pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
 
@@ -602,6 +603,13 @@ pub fn configure_local_acceptance(enabled: bool) -> Result<(), String> {
         return Err("Cannot change acceptance mode after worker startup".into());
     }
     LOCAL_ACCEPTANCE.set(enabled).map_err(|_| "Acceptance mode was already configured".into())
+}
+
+pub fn configure_contesting_test(enabled: bool) -> Result<(), String> {
+    if SESSION.get().is_some() {
+        return Err("Cannot change runtime profile after worker startup".into());
+    }
+    CONTESTING_TEST.set(enabled).map_err(|_| "Runtime profile was already configured".into())
 }
 
 fn start() -> Result<Arc<Session>, String> {
@@ -621,6 +629,8 @@ fn start() -> Result<Arc<Session>, String> {
     let mut command = Command::new(path);
     if LOCAL_ACCEPTANCE.get() == Some(&true) {
         command.arg("--local-ui-acceptance");
+    } else if CONTESTING_TEST.get() == Some(&true) {
+        command.arg("--runtime-profile=contesting-test");
     }
     let child = command
         .stdin(Stdio::piped())
@@ -641,7 +651,7 @@ fn announce_session(session: &Arc<Session>) {
     // would invalidate the launch Arm reserved before this worker is started.
     // Replacement workers still retire every permit from the previous child.
     if replaces_worker_generation(session.generation) { crate::auto_rotor::revoke(); }
-    if LOCAL_ACCEPTANCE.get() != Some(&true) {
+    if LOCAL_ACCEPTANCE.get() != Some(&true) && CONTESTING_TEST.get() != Some(&true) {
         let exact_session = session.clone();
         crate::station_selection::worker_generation_started(
             session.generation,

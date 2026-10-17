@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod worker;
+mod runtime_profile;
 mod acceptance;
 mod hamlib;
 mod rotor;
@@ -59,6 +60,28 @@ static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::
 pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
     SPOT_ACTIVATION.get_or_init(|| Arc::new(spot_activation::Coordinator::new(
         Arc::new(spot_activation_backend::NativeBackend::new(app.clone()))))).clone()
+}
+
+fn routes_native_rotor_configuration(method: &str, isolated: bool) -> bool {
+    !isolated && matches!(method, "workspace_rotor_configuration_save" | "backup_restore" | "workspace_create")
+}
+
+#[cfg(all(test, feature = "contesting-test"))]
+mod contesting_test_native_admission_tests {
+    #[test]
+    fn packaged_profile_reaches_native_device_validators() {
+        let isolated = crate::runtime_profile::isolated(false);
+        assert!(super::validate_spot_effect("chaser-dx", isolated, false).is_err());
+        assert!(super::validate_auto_rotor_set("main", isolated, false).is_err());
+        assert!(super::validate_rotor_stop("monitor", isolated, false).is_err());
+    }
+
+    #[test]
+    fn local_workspace_mutations_bypass_native_rotor_owner() {
+        let isolated = crate::runtime_profile::isolated(false);
+        assert!(!super::routes_native_rotor_configuration("workspace_create", isolated));
+        assert!(!super::routes_native_rotor_configuration("backup_restore", isolated));
+    }
 }
 fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Value, String> {
     let spot = activation_owner(app).snapshot()?;
@@ -174,7 +197,7 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
 #[tauri::command]
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
-    validate_spot_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_spot_effect(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::revoke_silently();
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
@@ -184,7 +207,7 @@ async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, stat
 #[tauri::command]
 async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
-    validate_opportunity_effect(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_opportunity_effect(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::revoke_silently();
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
@@ -213,7 +236,7 @@ fn validate_follow_set(label: &str, isolated: bool, exiting: bool, enabled: bool
 }
 #[tauri::command]
 async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String) -> Result<serde_json::Value, String> {
-    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_radio_read(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::revoke("An explicit radio read disabled Follow Radio.");
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let admission = radio_read::admit();
@@ -227,19 +250,19 @@ fn operator_draft_follow_snapshot(window: tauri::WebviewWindow, _state: tauri::S
 }
 #[tauri::command]
 async fn operator_draft_read_radio_recover(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String, generation: Option<String>) -> Result<serde_json::Value, String> {
-    validate_radio_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_radio_read(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     tauri::async_runtime::spawn_blocking(move || radio_read::recover(operation_id, generation)).await
         .map_err(|_| "Radio-read recovery task failed. No read was replayed.".to_string())?
 }
 #[tauri::command]
 async fn operator_draft_follow_set(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, enabled: bool, expected_epoch: u64) -> Result<serde_json::Value, String> {
-    validate_follow_set(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), enabled)?;
+    validate_follow_set(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), enabled)?;
     if enabled { qsy_clear::retire_terminal(); radio_read::retire_terminal(); }
     tauri::async_runtime::spawn_blocking(move || radio_follow::set(enabled, expected_epoch)).await.map_err(|_| "Follow Radio permission task failed".to_string())?
 }
 #[tauri::command]
 fn operator_draft_follow_settled(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, instance: String, operation_id: String) -> Result<(), String> {
-    validate_follow_settlement(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_follow_settlement(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     radio_follow::settled(window.label(), &instance, &operation_id)
 }
 fn validate_follow_settlement(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
@@ -247,7 +270,7 @@ fn validate_follow_settlement(label: &str, isolated: bool, exiting: bool) -> Res
 }
 #[tauri::command]
 fn auto_rotor_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    validate_auto_rotor_read(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_auto_rotor_read(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     auto_rotor::snapshot()
 }
 fn validate_auto_rotor_read(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
@@ -298,7 +321,7 @@ static AUTOMATIC_ROTOR_COMMANDS: AutomaticRotorCommands = AutomaticRotorCommands
 #[tauri::command]
 async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     armed: bool, owner: Option<String>, generation: Option<u64>) -> Result<serde_json::Value, String> {
-    validate_auto_rotor_set(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_auto_rotor_set(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     let command = AUTOMATIC_ROTOR_COMMANDS.begin(armed, || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()), auto_rotor::revoke)?;
     let result = tauri::async_runtime::spawn_blocking(move || {
         // Read the persisted band policy outside the command-ordering lock so
@@ -795,38 +818,38 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Re
 
 #[tauri::command]
 async fn rotor_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    rotor_telemetry::validate(window.label(), state.path.is_some())?;
+    rotor_telemetry::validate(window.label(), runtime_profile::isolated(state.path.is_some()))?;
     if window.label() == "rotor" { return rotor_telemetry::retained_snapshot(); }
     rotor_telemetry::owner(&app)?.snapshot()
 }
 
 #[tauri::command]
 async fn map_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    if state.path.is_some() {
+    if runtime_profile::isolated(state.path.is_some()) {
         state.require()?;
         map_context::validate(window.label(), false)?;
         return tauri::async_runtime::spawn_blocking(map_context::acceptance_snapshot).await
             .map_err(|_| "Isolated map context task failed".to_string())?;
     }
-    map_context::validate(window.label(), state.path.is_some())?;
+    map_context::validate(window.label(), runtime_profile::isolated(state.path.is_some()))?;
     tauri::async_runtime::spawn_blocking(move || map_context::snapshot(&app)).await
         .map_err(|_| "Map context task failed".to_string())?
 }
 
 #[tauri::command]
 async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, provider: Option<String>) -> Result<serde_json::Value, String> {
-    station_telemetry::validate(window.label(), state.path.is_some(), provider.is_some())?;
+    station_telemetry::validate(window.label(), runtime_profile::isolated(state.path.is_some()), provider.is_some())?;
     station_telemetry::owner(&app)?.snapshot()
 }
 
 #[tauri::command]
 fn station_status_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    monitor_context::status_read(window.label(), state.path.is_some(), monitor_context::status_snapshot)
+    monitor_context::status_read(window.label(), runtime_profile::isolated(state.path.is_some()), monitor_context::status_snapshot)
 }
 
 #[tauri::command]
 fn connection_doctor_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    connection_doctor::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    connection_doctor::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     let retained = monitor_context::status_snapshot()?;
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| "Connection Doctor clock is unavailable")?.as_secs_f64();
@@ -835,10 +858,10 @@ fn connection_doctor_snapshot(window: tauri::WebviewWindow, state: tauri::State<
 
 #[tauri::command]
 async fn connection_doctor_export(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, preview: connection_doctor::ExportPreview) -> Result<bool, String> {
-    let bytes = connection_doctor::prepare_export(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), &preview)?;
+    let bytes = connection_doctor::prepare_export(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), &preview)?;
     let _lease = connection_doctor::ExportLease::acquire()?;
     let path = choose_connection_doctor_export(window.clone()).await?;
-    connection_doctor::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    connection_doctor::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     tauri::async_runtime::spawn_blocking(move || connection_doctor::save_export(path, &bytes)).await
         .map_err(|_| "Redacted report could not be saved.".to_string())?
 }
@@ -874,57 +897,58 @@ async fn choose_connection_doctor_export(_window: tauri::WebviewWindow) -> Resul
 
 #[tauri::command]
 fn station_identity_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    station_identity::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    station_identity::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     station_identity::snapshot()
 }
 
 #[tauri::command]
 fn alerts_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     alerts::snapshot()
 }
 
 #[tauri::command]
 fn dx_alerts_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    dx_alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     dx_alerts::existing().ok_or("DX alerts are unavailable.")?.snapshot()
 }
 
 #[tauri::command]
 fn dx_alerts_save(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, expected_generation: String,
     expected_revision: u64, configuration: serde_json::Value) -> Result<serde_json::Value, String> {
-    dx_alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     dx_alerts::existing().ok_or("DX alerts are unavailable.")?.save(&expected_generation, expected_revision, configuration)
 }
 
 #[tauri::command]
 fn dx_alerts_test(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    dx_alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     dx_alerts::existing().ok_or("DX alerts are unavailable.")?.test_alert()
 }
 
 #[tauri::command]
 fn dx_alerts_clear(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    dx_alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     dx_alerts::existing().ok_or("DX alerts are unavailable.")?.clear()
 }
 
 #[tauri::command]
 fn dx_alerts_clear_selected(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, expected_epoch: String,
     ids: Vec<String>) -> Result<serde_json::Value, String> {
-    dx_alerts::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     dx_alerts::existing().ok_or("DX alerts are unavailable.")?.clear_selected(&expected_epoch, &ids)
 }
 
 #[tauri::command]
 fn antenna_snapshot(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    station_identity::validate_antenna(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    station_identity::validate_antenna(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     station_identity::antenna_snapshot()
 }
 
 #[tauri::command]
 async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, action: String, refresh_interval_seconds: Option<u64>) -> Result<serde_json::Value, String> {
-    propagation_session::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    runtime_profile::require_external_io_disabled()?;
+    propagation_session::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     if !matches!(action.as_str(), "snapshot" | "ensure" | "refresh") { return Err("Unknown propagation session action.".into()); }
     let refresh_interval = refresh_interval_seconds.unwrap_or(600);
     if !matches!(refresh_interval, 300 | 600 | 900 | 1800 | 3600) { return Err("Unknown propagation refresh interval.".into()); }
@@ -939,14 +963,15 @@ async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::A
 
 #[tauri::command]
 async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
-    monitor_context::read(window.label(), state.path.is_some(), || monitor_context::snapshot(&app), || {
+    monitor_context::read(window.label(), runtime_profile::isolated(state.path.is_some()), || monitor_context::snapshot(&app), || {
         state.require()?; monitor_context::acceptance_snapshot()
     })
 }
 
 #[tauri::command]
 async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, selection_id: String, provider: String, action: String) -> Result<serde_json::Value, String> {
-    monitor_context::validate(window.label(), state.path.is_some())?;
+    runtime_profile::require_external_io_disabled()?;
+    monitor_context::validate(window.label(), runtime_profile::isolated(state.path.is_some()))?;
     if requires_durable_station_action(&action) { return Err("Use the shared durable radio and amplifier owners.".into()); }
     let request = monitor_context::action_request(&provider, &action)?;
     let selection = station_selection::owner(&app)?;
@@ -958,8 +983,9 @@ async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHan
 
 #[tauri::command]
 async fn radio_release_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
     let action = params["action"].as_str().unwrap_or("");
-    radio_release::validate(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), action)?;
+    radio_release::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), action)?;
     let owner = radio_release::owner(&app)?;
     let keys: &[&str] = match action { "snapshot" => &["action"], "cancel" => &["action", "operation_id", "target"], _ => &["action", "operation_id"] };
     if params.as_object().is_none_or(|object| object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str()))) {
@@ -984,8 +1010,9 @@ async fn radio_release_request(app: tauri::AppHandle, window: tauri::WebviewWind
 
 #[tauri::command]
 async fn carrier_tune_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
     let action=params["action"].as_str().unwrap_or("");
-    carrier_tune::validate(window.label(),state.path.is_some(),APP_EXITING.load(Ordering::Acquire),action)?;
+    carrier_tune::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action {"snapshot"=>&["action"],"tune"=>&["action","operation_id","target"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|o|o.len()!=keys.len() || o.keys().any(|k|!keys.contains(&k.as_str()))) { return Err("Invalid carrier Tune request.".into()); }
     let owner=carrier_tune::owner(&app)?;
@@ -1002,14 +1029,15 @@ async fn carrier_tune_request(app: tauri::AppHandle, window: tauri::WebviewWindo
 
 #[tauri::command]
 async fn monitor_rotor_stop(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, owner: String) -> Result<serde_json::Value, String> {
-    validate_rotor_stop(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire))?;
+    validate_rotor_stop(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     tauri::async_runtime::spawn_blocking(move || rotor::monitor_stop(&owner))
         .await.map_err(|_| "Rotor Stop task failed".to_string())?
 }
 
 #[tauri::command]
 async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String>{
-    let action=params["action"].as_str().unwrap_or("");ptt_session::validate(window.label(),state.path.is_some(),APP_EXITING.load(Ordering::Acquire),action)?;
+    runtime_profile::require_external_io_disabled()?;
+    let action=params["action"].as_str().unwrap_or("");ptt_session::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action{"snapshot"=>&["action"],"prepare"=>&["action","enabled"],"recover"=>&["action","operation_id","owner_id","target"],"on"|"off"=>&["action","operation_id","target","intent"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|p|p.len()!=keys.len()||p.keys().any(|k|!keys.contains(&k.as_str()))){return Err("Invalid PTT request".into());}
     let owner=ptt_session::owner(&app)?;owner.reconcile(&station_telemetry::owner(&app)?.snapshot()?)?;
@@ -1026,8 +1054,9 @@ async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,st
 
 #[tauri::command]
 async fn amplifier_transition_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
     let action=params["action"].as_str().unwrap_or("");
-    amplifier_transition::validate(window.label(),state.path.is_some(),APP_EXITING.load(Ordering::Acquire),action)?;
+    amplifier_transition::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action {"snapshot"=>&["action"],"prepare"=>&["action","transition"],"operate"|"standby"=>&["action","operation_id","target","preparation"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|o|o.len()!=keys.len() || o.keys().any(|k|!keys.contains(&k.as_str()))) {return Err("Invalid amplifier request".into());}
     let owner=amplifier_transition::owner(&app)?;
@@ -1049,7 +1078,8 @@ async fn amplifier_transition_request(app: tauri::AppHandle, window: tauri::Webv
 
 #[tauri::command]
 async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, legacy: Option<String>) -> Result<serde_json::Value, String> {
-    station_selection::validate(window.label(), state.path.is_some(), legacy.is_some())?;
+    runtime_profile::require_external_io_disabled()?;
+    station_selection::validate(window.label(), runtime_profile::isolated(state.path.is_some()), legacy.is_some())?;
     let owner = station_selection::owner(&app)?;
     let main = window.label() == "main";
     let value = tauri::async_runtime::spawn_blocking(move || if main { owner.initialize(legacy.as_deref()) } else { owner.snapshot() })
@@ -1060,8 +1090,9 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
 
 #[tauri::command]
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
     let action = params["action"].as_str().unwrap_or("");
-    station_session::validate_live(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), action)?;
+    station_session::validate_live(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), action)?;
     if action == "hamlib_catalogue" {
         return tauri::async_runtime::spawn_blocking(move || station_session::hamlib_catalogue(&params, hamlib::request))
             .await.map_err(|_| "Radio model catalogue task failed.".to_string())?;
@@ -1120,8 +1151,9 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
 
 #[tauri::command]
 async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
     let action = params["action"].as_str().unwrap_or("");
-    manual_rotor::validate_surface(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), action)?;
+    manual_rotor::validate_surface(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), action)?;
     let owner = station_session::owner(&app)?;
     if action == "snapshot" {
         let station = owner.snapshot()?;
@@ -1152,7 +1184,8 @@ async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindo
 #[tauri::command]
 async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
-    cw_session::validate_surface(window.label(), state.path.is_some(), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
+    runtime_profile::require_external_io_disabled()?;
+    cw_session::validate_surface(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
     let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
     if matches!(params["action"].as_str(), Some("arm" | "send"))
         && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
@@ -1171,6 +1204,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if !runtime_profile::allows_worker_method(method) { runtime_profile::require_external_io_disabled()?; }
     if method == "station_action" && requires_durable_station_action(request["params"]["action"].as_str().unwrap_or("")) {
         return Err("Use the shared durable radio and amplifier owners.".into());
     }
@@ -1260,8 +1294,10 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
     let sync_changed = matches!(method, "sync_mutation" | "online_log_configure" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
     let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
-    let rotor_configuration_save = state.path.is_none() && method == "workspace_rotor_configuration_save";
-    let rotor_configuration_mutation = state.path.is_none() && (rotor_configuration_changed || method == "workspace_create");
+    let isolated = runtime_profile::isolated(state.path.is_some());
+    let native_rotor_configuration = routes_native_rotor_configuration(method, isolated);
+    let rotor_configuration_save = native_rotor_configuration && method == "workspace_rotor_configuration_save";
+    let rotor_configuration_mutation = native_rotor_configuration && (rotor_configuration_changed || method == "workspace_create");
     if rotor_configuration_mutation { rotor_session::invalidate_configuration(); }
     // Retire metadata before a restore/write can race a map's retained read.
     if map_changed { map_context::invalidate(); }
@@ -1285,7 +1321,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         // No draft/contact payload is broadcast. Each editor reloads canonical
         // state through its scoped IPC and retains its own unresolved journal.
         for label in ["main", "log-qso", "callsign-intelligence", "previous-qsos", "monitor"] { let _ = app.emit_to(label, OPERATOR_DRAFT_CHANGED, ()); }
-        if state.path.is_none() {
+        if !isolated {
             auto_rotor_reconcile::request(&app);
         }
     }
@@ -1329,7 +1365,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
 
 #[tauri::command]
 async fn pick_backup_package(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<Option<String>, String> {
-    if state.path.is_some() { return Err("External backup import is disabled in local acceptance.".into()); }
+    if runtime_profile::isolated(state.path.is_some()) { return Err("External backup import is disabled in isolated runtime.".into()); }
     if !matches!(window.label(), "main" | "settings") {
         return Err("Only a Settings surface can import a backup".into());
     }
@@ -1458,7 +1494,7 @@ fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHand
 #[tauri::command]
 async fn detached_cluster_ready(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<(), String> {
     if window.label() != "dx-cluster" { return Err("Only the detached cluster can announce readiness".into()); }
-    if state.path.is_some() { return Err("Live cluster access is disabled in isolated acceptance.".into()); }
+    if runtime_profile::isolated(state.path.is_some()) { return Err("Live cluster access is disabled in isolated runtime.".into()); }
     let session = cluster_session::owner(&app)?;
     tauri::async_runtime::spawn_blocking(move || session.refresh_and_publish()).await
         .map_err(|_| "Cluster session task failed".to_string())?
@@ -1466,7 +1502,7 @@ async fn detached_cluster_ready(window: tauri::WebviewWindow, app: tauri::AppHan
 
 #[tauri::command]
 fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, selected: Option<String>) -> Result<(), String> {
-    if window.label() != "main" || state.path.is_some() { return Err("Only the live QSO workspace can publish a cluster selection.".into()); }
+    if window.label() != "main" || runtime_profile::isolated(state.path.is_some()) { return Err("Only the live QSO workspace can publish a cluster selection.".into()); }
     cluster_session::owner(&app)?.select(selected)
 }
 
@@ -1635,13 +1671,21 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(2);
     });
+    let mut context = tauri::generate_context!();
+    runtime_profile::validate_host(&context.config().identifier).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
     worker::configure_local_acceptance(path.is_some()).unwrap_or_else(|error| {
         eprintln!("{error}");
         std::process::exit(2);
     });
-    let mut context = tauri::generate_context!();
+    worker::configure_contesting_test(runtime_profile::CONTESTING_TEST).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
     acceptance::isolate_browser_storage(context.config_mut(), path.is_some());
-    let isolated = path.is_some();
+    let isolated = path.is_some() || runtime_profile::CONTESTING_TEST;
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
@@ -1758,7 +1802,7 @@ fn main() {
             // not fail merely because hardware/session startup is suppressed.
             let activation = activation_owner(app.handle());
             radio_follow::install(app.handle(), activation.editors.clone());
-            if app.state::<acceptance::Acceptance>().path.is_none() {
+            if app.state::<acceptance::Acceptance>().path.is_none() && !runtime_profile::CONTESTING_TEST {
                 qsy_clear::install(app.handle(), activation.editors.clone());
                 radio_read::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());

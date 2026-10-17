@@ -34,12 +34,18 @@ enum LiveSettingsAvailability: Sendable {
 /// Shared local bridge to an explicitly created integration workspace. It never opens
 /// LogbookDatabase() without a URL, and it never constructs a Wavelog client.
 public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, RemoteBackupWorkspaceSnapshotSource, @unchecked Sendable {
-    public static let shared = LiveLogbookMethods()
+    public static let shared: LiveLogbookMethods = {
+        let profile = AppRuntimeProfile.current
+        return LiveLogbookMethods(supportDirectory: profile.supportDirectory,
+            inheritNativePreferences: profile == .production,
+            runtimeProfile: profile)
+    }()
 
     private let lock = NSRecursiveLock()
     private let fileManager: FileManager
     private let supportDirectory: URL
     private let inheritNativePreferences: Bool
+    private let runtimeProfile: AppRuntimeProfile
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
@@ -69,10 +75,17 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     }
     private var adifPreview: ADIFPreviewSession?
 
-    public init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
-                inheritNativePreferences: Bool = true) {
+    public convenience init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
+                            inheritNativePreferences: Bool = true) {
+        self.init(fileManager: fileManager, supportDirectory: supportDirectory,
+            inheritNativePreferences: inheritNativePreferences, runtimeProfile: .production)
+    }
+
+    init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
+         inheritNativePreferences: Bool = true, runtimeProfile: AppRuntimeProfile) {
         self.fileManager = fileManager
         self.inheritNativePreferences = inheritNativePreferences
+        self.runtimeProfile = runtimeProfile
         self.supportDirectory = supportDirectory ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -82,6 +95,15 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private var nativeDatabaseURL: URL {
         supportDirectory.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite")
+    }
+
+    private var protectedProductionDatabaseURLs: [URL] {
+        guard runtimeProfile != .production else { return [] }
+        let applicationSupport = supportDirectory.deletingLastPathComponent()
+        return [
+            applicationSupport.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite"),
+            applicationSupport.appendingPathComponent("OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite"),
+        ]
     }
 
     private var workspaceURL: URL {
@@ -523,11 +545,17 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("workspace_exists", "The integrated logbook already exists.")
                 }
                 let created: IntegrationWorkspace
+                if runtimeProfile != .production, mode != "empty" {
+                    throw WorkerFailure("test_workspace_empty_only", "Contesting Test can only create a new empty workspace.")
+                }
                 switch mode {
                 case "copy_native":
                     created = try IntegrationWorkspaceBootstrap.create(sourceDatabaseURL: nativeDatabaseURL, at: workspaceURL)
                 case "empty":
-                    created = try IntegrationWorkspaceBootstrap.createEmpty(at: workspaceURL)
+                    created = try IntegrationWorkspaceBootstrap.createEmpty(at: workspaceURL,
+                        identityPrefix: runtimeProfile == .production
+                            ? "com.oliverbross.OM0RXXLog.Integration."
+                            : AppRuntimeProfile.contestingIdentityPrefix)
                 default: throw invalid()
                 }
                 let nativeDefaults = inheritNativePreferences ? UserDefaults(suiteName: "com.oliverbross.OM0RXXLog") : nil
@@ -1445,7 +1473,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     try database.installRotorConfigurationAfterRestore(
                         restoreSettings ? restoredRotorConfiguration : retainedRotorConfiguration
                     )
-                    workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL)
+                    try validateWorkspaceLocation()
+                    workspace = try IntegrationWorkspaceBootstrap.open(at: workspaceURL,
+                        expectedIdentityPrefix: runtimeProfile.identityPrefix)
                     return ["restored": true, "qso_count": try database.count(),
                             "recovery_backup": rollbackName, "preferences_restored": restorePreferences,
                             "automatic_sync": false]
@@ -1621,21 +1651,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             try validateWorkspaceLocation()
             return
         }
+        try validateWorkspaceLocation()
         let loaded: IntegrationWorkspace
-        do { loaded = try IntegrationWorkspaceBootstrap.open(at: workspaceURL) }
+        do { loaded = try IntegrationWorkspaceBootstrap.open(at: workspaceURL,
+            expectedIdentityPrefix: runtimeProfile.identityPrefix) }
         catch IntegrationWorkspaceError.unsafePath {
             // Foundation may reject a Windows alias during bootstrap, before
             // the file-identity comparison below. Keep the same safe IPC error.
             throw WorkerFailure("unsafe_workspace", "The integration workspace path is unsafe.")
-        }
-        if fileManager.fileExists(atPath: nativeDatabaseURL.path) {
-            let native = try fileManager.attributesOfItem(atPath: nativeDatabaseURL.path)
-            let isolated = try fileManager.attributesOfItem(atPath: loaded.databaseURL.path)
-            if let nativeID = native[.systemFileNumber] as? NSNumber,
-               let isolatedID = isolated[.systemFileNumber] as? NSNumber,
-               nativeID == isolatedID {
-                throw WorkerFailure("unsafe_workspace", "The integration database aliases the native logbook.")
-            }
         }
         database = try LogbookDatabase(url: loaded.databaseURL)
         workspace = loaded
@@ -1643,16 +1666,34 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     }
 
     private func validateWorkspaceLocation() throws {
-        let directoryValues = try workspaceURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         let dbURL = workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite")
+        guard fileManager.fileExists(atPath: workspaceURL.path), fileManager.fileExists(atPath: dbURL.path) else {
+            throw WorkerFailure("workspace_required", "Create an isolated logbook workspace first.")
+        }
+        let boundary = supportDirectory.deletingLastPathComponent().standardizedFileURL
+        var ancestor = workspaceURL.standardizedFileURL
+        while ancestor.path != boundary.path {
+            if fileManager.fileExists(atPath: ancestor.path) {
+                let values = try ancestor.resourceValues(forKeys: [.isSymbolicLinkKey])
+                guard values.isSymbolicLink != true else {
+                    throw WorkerFailure("unsafe_workspace", "The integration workspace path is unsafe.")
+                }
+            }
+            let parent = ancestor.deletingLastPathComponent()
+            guard parent.path != ancestor.path else {
+                throw WorkerFailure("unsafe_workspace", "The integration workspace path is unsafe.")
+            }
+            ancestor = parent
+        }
+        let directoryValues = try workspaceURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         let databaseValues = try dbURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard directoryValues.isDirectory == true, directoryValues.isSymbolicLink != true,
               databaseValues.isRegularFile == true, databaseValues.isSymbolicLink != true else {
             throw WorkerFailure("unsafe_workspace", "The integration workspace path is unsafe.")
         }
-        if fileManager.fileExists(atPath: nativeDatabaseURL.path) {
-            let native = try fileManager.attributesOfItem(atPath: nativeDatabaseURL.path)
-            let isolated = try fileManager.attributesOfItem(atPath: dbURL.path)
+        let isolated = try fileManager.attributesOfItem(atPath: dbURL.path)
+        for protectedURL in protectedProductionDatabaseURLs where fileManager.fileExists(atPath: protectedURL.path) {
+            let native = try fileManager.attributesOfItem(atPath: protectedURL.path)
             if let nativeID = native[.systemFileNumber] as? NSNumber,
                let isolatedID = isolated[.systemFileNumber] as? NSNumber,
                nativeID == isolatedID {

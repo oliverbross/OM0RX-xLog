@@ -195,6 +195,7 @@ public actor LiveWSJTXBridge {
     private let workspaceAvailable: @Sendable () throws -> Bool
     private let importer: @Sendable (String) throws -> (imported: Int, skipped: Int)
     private let classificationLogbook: LiveLogbookMethods?
+    private let externalIOAllowed: @Sendable () -> Bool
     private let receiverFactory: @Sendable (@escaping @Sendable (Data, String) -> Void,
                                              @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving
     private var configuration: WSJTXBridgeConfiguration?
@@ -222,6 +223,7 @@ public actor LiveWSJTXBridge {
              try LiveLogbookMethods.shared.importLoggedADIF($0)
          },
          classificationLogbook: LiveLogbookMethods? = nil,
+         externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed },
          receiverFactory: @escaping @Sendable (@escaping @Sendable (Data, String) -> Void,
                                                 @escaping @Sendable (String) -> Void) -> WSJTXDatagramReceiving = {
              WSJTXUDPReceiver(onDatagram: $0, onEvent: $1)
@@ -231,13 +233,14 @@ public actor LiveWSJTXBridge {
         self.workspaceAvailable = workspaceAvailable
         self.importer = importer
         self.classificationLogbook = classificationLogbook ?? (configurationURL == nil ? .shared : nil)
+        self.externalIOAllowed = externalIOAllowed
         self.receiverFactory = receiverFactory
     }
 
     public func install(onImported: @escaping @Sendable () -> Void) { self.onImported = onImported }
 
     public func startIfEnabled() {
-        guard !terminalShutdown, workspaceSuspensionDepth == 0 else { return }
+        guard externalIOAllowed(), !terminalShutdown, workspaceSuspensionDepth == 0 else { return }
         guard (try? workspaceAvailable()) == true, let config = try? load(), config.enabled else { return }
         try? startReceiver(config)
     }
@@ -324,6 +327,9 @@ public actor LiveWSJTXBridge {
     }
 
     private func startReceiver(_ config: WSJTXBridgeConfiguration) throws {
+        guard externalIOAllowed() else {
+            throw WorkerFailure("external_io_disabled", "External services are disabled in OM0RX-xLog Contesting Test.")
+        }
         try requireStartAvailable()
         if receiver != nil { return }
         let generation = UUID(); receiverGeneration = generation

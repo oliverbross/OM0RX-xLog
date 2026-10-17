@@ -11,6 +11,16 @@ import Glibc
 let worker = PrototypeWorker()
 let output = FileHandle.standardOutput
 
+let runtimeProfile: AppRuntimeProfile
+do {
+    runtimeProfile = try AppRuntimeProfile.resolve(arguments: Array(CommandLine.arguments.dropFirst()),
+        executableURL: URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL)
+    try AppRuntimeProfile.configure(runtimeProfile)
+} catch {
+    FileHandle.standardError.write(Data("Runtime profile validation failed.\n".utf8))
+    exit(2)
+}
+
 private actor OutputWriter {
     func send(_ response: Data) {
         var frame = response
@@ -65,9 +75,11 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         output.write(Data("{\"id\":\"local-logbook-self-test\",\"ok\":false,\"error\":{\"code\":\"local_self_test_failed\",\"message\":\"Local logbook acceptance failed.\"}}\n".utf8))
         exit(1)
     }
-} else if CommandLine.arguments.count == 1 || CommandLine.arguments == [CommandLine.arguments[0], "--local-ui-acceptance"] {
+} else if CommandLine.arguments.count == 1
+            || CommandLine.arguments == [CommandLine.arguments[0], AppRuntimeProfile.contestingArgument]
+            || CommandLine.arguments == [CommandLine.arguments[0], "--local-ui-acceptance"] {
     let acceptance: LocalAcceptanceSession?
-    do { acceptance = CommandLine.arguments.count == 2 ? try LocalAcceptanceSession() : nil }
+    do { acceptance = CommandLine.arguments.last == "--local-ui-acceptance" ? try LocalAcceptanceSession() : nil }
     catch {
         FileHandle.standardError.write(Data("Could not create isolated local acceptance session.\n".utf8))
         exit(1)

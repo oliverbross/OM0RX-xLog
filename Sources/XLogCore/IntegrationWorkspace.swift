@@ -48,7 +48,12 @@ public struct IntegrationWorkspace: Sendable {
 }
 
 public enum IntegrationWorkspaceBootstrap {
-    public static func open(at directoryURL: URL) throws -> IntegrationWorkspace {
+    public static func open(at directoryURL: URL,
+                            expectedIdentityPrefix: String = "com.oliverbross.OM0RXXLog.Integration.") throws -> IntegrationWorkspace {
+        guard ["com.oliverbross.OM0RXXLog.Integration.",
+               "com.oliverbross.OM0RXXLog.ContestingTest.Integration."].contains(expectedIdentityPrefix) else {
+            throw IntegrationWorkspaceError.unsafePath
+        }
         let directory = directoryURL.standardizedFileURL
         let directoryValues = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         guard directoryValues.isDirectory == true, directoryValues.isSymbolicLink != true else {
@@ -59,8 +64,8 @@ public enum IntegrationWorkspaceBootstrap {
         let databaseURL = directory.appendingPathComponent("OM0RX-xLog.sqlite")
         let databaseValues = try databaseURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard databaseValues.isRegularFile == true, databaseValues.isSymbolicLink != true,
-              metadata.defaultsSuiteName.hasPrefix("com.oliverbross.OM0RXXLog.Integration."),
-              metadata.keychainService.hasPrefix("com.oliverbross.OM0RXXLog.Integration.") else {
+              metadata.defaultsSuiteName.hasPrefix(expectedIdentityPrefix),
+              metadata.keychainService.hasPrefix(expectedIdentityPrefix) else {
             throw IntegrationWorkspaceError.unsafePath
         }
         let counts = try inspect(databaseURL)
@@ -77,9 +82,10 @@ public enum IntegrationWorkspaceBootstrap {
 
     public static func createEmpty(
         at destinationDirectoryURL: URL,
+        identityPrefix: String = "com.oliverbross.OM0RXXLog.Integration.",
         fileManager: FileManager = .default
     ) throws -> IntegrationWorkspace {
-        try createStaged(at: destinationDirectoryURL, fileManager: fileManager) { databaseURL in
+        try createStaged(at: destinationDirectoryURL, identityPrefix: identityPrefix, fileManager: fileManager) { databaseURL in
             let database = try LogbookDatabase(url: databaseURL)
             database.close()
         }
@@ -99,16 +105,21 @@ public enum IntegrationWorkspaceBootstrap {
               !LocalFilePath.contains(source, in: destination) else {
             throw IntegrationWorkspaceError.unsafePath
         }
-        return try createStaged(at: destination, fileManager: fileManager) { stagedDatabase in
+        return try createStaged(at: destination, identityPrefix: "com.oliverbross.OM0RXXLog.Integration.", fileManager: fileManager) { stagedDatabase in
             try copyConsistentSnapshot(from: source, to: stagedDatabase)
         }
     }
 
     private static func createStaged(
         at destination: URL,
+        identityPrefix: String,
         fileManager: FileManager,
         populate: (URL) throws -> Void
     ) throws -> IntegrationWorkspace {
+        guard identityPrefix == "com.oliverbross.OM0RXXLog.Integration."
+                || identityPrefix == "com.oliverbross.OM0RXXLog.ContestingTest.Integration." else {
+            throw IntegrationWorkspaceError.unsafePath
+        }
         let parent = destination.deletingLastPathComponent()
         guard !fileManager.fileExists(atPath: destination.path),
               (try? destination.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink != true else {
@@ -135,8 +146,8 @@ public enum IntegrationWorkspaceBootstrap {
         let identity = IntegrationWorkspace(
             directoryURL: destination,
             databaseURL: destination.appendingPathComponent("OM0RX-xLog.sqlite"),
-            defaultsSuiteName: "com.oliverbross.OM0RXXLog.Integration.\(identifier)",
-            keychainService: "com.oliverbross.OM0RXXLog.Integration.\(identifier)",
+            defaultsSuiteName: "\(identityPrefix)\(identifier)",
+            keychainService: "\(identityPrefix)\(identifier)",
             qsoCount: counts.qsos,
             pendingSyncCount: counts.pending,
             outboxCount: counts.outbox

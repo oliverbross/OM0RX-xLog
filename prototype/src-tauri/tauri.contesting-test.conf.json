@@ -1,0 +1,20 @@
+{
+  "productName": "OM0RX-xLog Contesting Test",
+  "identifier": "com.oliverbross.xlog.contesting-test",
+  "app": {
+    "windows": [{
+      "label": "main",
+      "title": "OM0RX-xLog Contesting Test",
+      "width": 1440,
+      "height": 940,
+      "minWidth": 1000,
+      "minHeight": 720
+    }]
+  },
+  "bundle": {
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "infoPlist": "Info.contesting-test.plist"
+    }
+  }
+}

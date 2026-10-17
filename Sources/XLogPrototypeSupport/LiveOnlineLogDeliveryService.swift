@@ -21,14 +21,17 @@ actor LiveOnlineLogDeliveryService {
 
     private let logbook: LiveLogbookMethods
     private let providers: [Provider]
+    private let externalIOAllowed: @Sendable () -> Bool
     private var automaticTask: Task<Void, Never>?
     private var deliveryTask: Task<Void, Never>?
     private var recoveredGeneration: String?
     private var workspaceTransitions = 0
     private var stopped = false
 
-    init(logbook: LiveLogbookMethods = .shared) {
+    init(logbook: LiveLogbookMethods = .shared,
+         externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed }) {
         self.logbook = logbook
+        self.externalIOAllowed = externalIOAllowed
         let qrz = Provider(service: .qrz, credential: {
             let service = try logbook.currentKeychainService()
             guard let key = try WorkspaceCredentialStore(service: service).load(.qrzLogbookKey), Self.valid(accessKey: key) else {
@@ -62,9 +65,11 @@ actor LiveOnlineLogDeliveryService {
 
     /// QRZ-only injection seam retained for deterministic owner tests.
     init(logbook: LiveLogbookMethods,
+         externalIOAllowed: @escaping @Sendable () -> Bool = { true },
          credential: @escaping @Sendable () throws -> String?,
          delivery: @escaping @Sendable (LogbookDatabase, UUID, String, Date) async throws -> OnlineLogDeliveryReceipt) {
         self.logbook = logbook
+        self.externalIOAllowed = externalIOAllowed
         providers = [Provider(service: .qrz, credential: {
             guard let key = try credential(), Self.valid(accessKey: key) else { return nil }
             return .qrz(key)
@@ -75,7 +80,7 @@ actor LiveOnlineLogDeliveryService {
     }
 
     func startAutomaticDelivery() {
-        guard automaticTask == nil, !stopped else { return }
+        guard externalIOAllowed(), automaticTask == nil, !stopped else { return }
         requestDelivery()
         automaticTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -87,7 +92,7 @@ actor LiveOnlineLogDeliveryService {
 
     /// Schedules and coalesces a bounded pass; the caller never waits for HTTP.
     func requestDelivery() {
-        guard !stopped, workspaceTransitions == 0, deliveryTask == nil else { return }
+        guard externalIOAllowed(), !stopped, workspaceTransitions == 0, deliveryTask == nil else { return }
         deliveryTask = Task(priority: .utility) { [weak self] in
             await self?.runDue()
             await self?.finishDeliveryTask()
@@ -95,7 +100,7 @@ actor LiveOnlineLogDeliveryService {
     }
 
     func runDue(now: Date = Date()) async {
-        guard !stopped, workspaceTransitions == 0 else { return }
+        guard externalIOAllowed(), !stopped, workspaceTransitions == 0 else { return }
         do {
             let generation = try logbook.syncOwnerContext()["generation"] as? String
             guard let generation else { return }
@@ -156,6 +161,10 @@ actor LiveOnlineLogDeliveryService {
         let running = deliveryTask
         await running?.value
         deliveryTask = nil
+    }
+
+    func hasScheduledWorkForTesting() -> Bool {
+        automaticTask != nil || deliveryTask != nil
     }
 
     private func finishDeliveryTask() { deliveryTask = nil }

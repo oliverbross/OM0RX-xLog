@@ -4,7 +4,7 @@ import Foundation
 /// echoed into diagnostics. Creating a worker does not connect hardware or open
 /// the original application's database.
 public actor LiveWorker {
-    public static let shared = LiveWorker(ownsProcessSessions: true)
+    public static let shared = LiveWorker(ownsProcessSessions: true, runtimeProfile: AppRuntimeProfile.current)
     private let diagnostics = PrototypeWorker()
     private var terminalShutdown = false
     // Disk-backed logbook work is synchronous. Run it on its own actor so a
@@ -85,6 +85,7 @@ public actor LiveWorker {
     private let references: LiveReferenceMethods
     #endif
     private let localAcceptance: Bool
+    private let runtimeProfile: AppRuntimeProfile
     /// Only the process singleton owns hardware/service singletons. Disposable
     /// workers used by acceptance and unit tests must never terminate them.
     private let ownsProcessSessions: Bool
@@ -102,7 +103,8 @@ public actor LiveWorker {
           remoteBackupEnvironment: NativeRemoteBackupPresentationEnvironment? = nil,
          onlineLogs: LiveOnlineLogDeliveryService? = nil,
           contactRefresher: (@Sendable () async throws -> Void)? = nil,
-          ownsProcessSessions: Bool = false) {
+          ownsProcessSessions: Bool = false,
+          runtimeProfile: AppRuntimeProfile = .production) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         logbookLane = LogbookLane(service: logbook, power: powerCapture)
@@ -133,6 +135,7 @@ public actor LiveWorker {
         opportunities = opportunityMethods
         operatingGoals = LiveOperatingGoalMethods(logbook: logbook, opportunities: opportunityMethods)
         self.localAcceptance = localAcceptance
+        self.runtimeProfile = runtimeProfile
         self.ownsProcessSessions = ownsProcessSessions
     }
 
@@ -176,7 +179,7 @@ public actor LiveWorker {
     }
 
     public func startBackgroundServices() async {
-        guard !localAcceptance, !terminalShutdown else { return }
+        guard !localAcceptance, runtimeProfile.externalIOAllowed, !terminalShutdown else { return }
         await startPowerCapture()
         await services.startAutomaticSync()
         await onlineLogs.startAutomaticDelivery()
@@ -262,6 +265,9 @@ public actor LiveWorker {
                 }
                 try LocalAcceptanceSession.validate(method: method, params: params)
             }
+            if !runtimeProfile.externalIOAllowed, !Self.testProfileAllows(method) {
+                throw WorkerFailure("external_io_disabled", "External services and station I/O are disabled in OM0RX-xLog Contesting Test.")
+            }
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
@@ -281,6 +287,14 @@ public actor LiveWorker {
                     health["live_cluster"] = false
                     health["public_conditions"] = false
                     health["local_callsign_lookup"] = false
+                } else if !runtimeProfile.externalIOAllowed {
+                    health["mode"] = "contesting_test"
+                    health["platform_services"] = false
+                    health["isolated_workspace"] = true
+                    health["network_contact"] = false
+                    health["credentials_accessed"] = false
+                    health["live_cluster"] = false
+                    health["station_io"] = false
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
@@ -331,7 +345,8 @@ public actor LiveWorker {
                 }
                 if ["workspace_create", "backup_restore"].contains(method) { try await remoteBackup.stop() }
                 if method == "settings_save" { await remoteBackupPresentation.retireConfiguration() }
-                let changingWorkspace = !localAcceptance && ["workspace_create", "backup_restore"].contains(method)
+                let changingWorkspace = runtimeProfile.externalIOAllowed && !localAcceptance
+                    && ["workspace_create", "backup_restore"].contains(method)
                 if changingWorkspace {
                     // Retire queued publications before the database may be
                     // replaced; an old workspace cannot repaint the new one.
@@ -385,10 +400,10 @@ public actor LiveWorker {
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
                 #endif
                 let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
-                if !localAcceptance && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
+                if runtimeProfile.externalIOAllowed && !localAcceptance && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
                 }
-                if !localAcceptance && (draftLogged || method == "logbook_save") {
+                if runtimeProfile.externalIOAllowed && !localAcceptance && (draftLogged || method == "logbook_save") {
                     await onlineLogs.requestDelivery()
                 }
             } else if method == "remote_backup_request" {
@@ -450,6 +465,13 @@ public actor LiveWorker {
             // return arbitrary localizedDescription over the UI/log boundary.
             return encode(["id": id, "ok": false, "error": ["code": "operation_failed", "message": "Operation failed. Check the connection or configuration; no success has been confirmed."]])
         }
+    }
+
+    private static func testProfileAllows(_ method: String) -> Bool {
+        ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(method)
+            || method.hasPrefix("workspace_") || method.hasPrefix("logbook_")
+            || method.hasPrefix("settings_") || method.hasPrefix("backup_")
+            || method.hasPrefix("contest_")
     }
 
     static func fencesOnlineLogDelivery(method: String, params: [String: Any]) -> Bool {
