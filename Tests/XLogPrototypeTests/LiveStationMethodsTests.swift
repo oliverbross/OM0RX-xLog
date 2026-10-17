@@ -4,6 +4,7 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class LiveStationMethodsTests: XCTestCase {
+    #if os(macOS)
     func testAgentCredentialCacheReadsAStoredTokenOnlyOncePerWorker() throws {
         var cache = StationAgentCredentialCache()
         var reads = 0
@@ -183,6 +184,8 @@ final class LiveStationMethodsTests: XCTestCase {
         do { _ = try await flex.handle("station_tune", params: ["provider":"direct_flex_lan", "frequency_hz":14_074_000, "mode":"USB", "expected_generation":99]); XCTFail("Accepted stale FLEX generation") }
         catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "station_changed") }
     }
+    #endif
+
     func testJSONBooleanCannotBecomeANumericPort() throws {
         for literal in ["true", "false"] {
             let params = try XCTUnwrap(JSONSerialization.jsonObject(
@@ -219,8 +222,6 @@ final class LiveStationMethodsTests: XCTestCase {
     func testMalformedStationCommandsFailBeforeTransport() async {
         let invalidRequests: [(String, [String: Any])] = [
             ("station_snapshot", ["url": "https://example.invalid"]),
-            ("station_connect", ["provider": "direct_agent", "base_url": "https://station.example:8443",
-                "allow_transmit": false, "allow_keychain_interaction": "yes"]),
             ("station_tune", ["frequency_hz": true, "mode": "CW"]),
             ("station_tune", ["frequency_hz": 14_074_000.5, "mode": "CW"]),
             ("station_tune", ["frequency_hz": 14_074_000, "mode": "CW;TX"]),
@@ -242,6 +243,20 @@ final class LiveStationMethodsTests: XCTestCase {
     }
 
     #if os(macOS)
+    func testMalformedStationConnectFailsBeforeTransport() async {
+        do {
+            _ = try await LiveStationMethods.handle("station_connect", params: [
+                "provider": "direct_agent", "base_url": "https://station.example:8443",
+                "allow_transmit": false, "allow_keychain_interaction": "yes",
+            ])
+            XCTFail("Accepted malformed station_connect request")
+        } catch let failure as WorkerFailure {
+            XCTAssertEqual(failure.code, "invalid_params")
+        } catch {
+            XCTFail("Unexpected station_connect error: \(error)")
+        }
+    }
+
     func testRemoteCWGenerationFenceRejectsRequestsBeforeConnecting() async throws {
         let session = LiveStationSession()
         let snapshot = await session.snapshot()
