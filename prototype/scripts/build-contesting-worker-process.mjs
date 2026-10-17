@@ -21,9 +21,14 @@ assert.ok(!existsSync(output), "Build manifest output must be a new path.");
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: root, encoding: "utf8", ...options });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed (${result.status}): ${result.stderr}`);
-  return result.stdout.trim();
+  const rendered = `${command} ${args.join(" ")}`;
+  if (result.error) throw new Error(`${rendered} could not start: ${result.error.message}`, { cause: result.error });
+  if (result.status !== 0) {
+    const outcome = result.signal ? `signal ${result.signal}` : `exit ${result.status ?? "unknown"}`;
+    const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
+    throw new Error(`${rendered} failed (${outcome})${stderr ? `:\n${stderr}` : "."}`);
+  }
+  return typeof result.stdout === "string" ? result.stdout.trim() : "";
 }
 function hashFile(path) { return createHash("sha256").update(readFileSync(path)).digest("hex"); }
 function resourceManifest(directory) {
@@ -53,7 +58,7 @@ const buildArguments = [
   "-c", "release", "--product", "xlog-prototype-worker",
 ];
 const buildEnvironment = { ...process.env, XLOG_PORTABLE_ONLY: "1" };
-run(swiftPath, buildArguments, { env: buildEnvironment, stdio: ["ignore", "pipe", "pipe"] });
+run(swiftPath, buildArguments, { env: buildEnvironment, stdio: ["ignore", "inherit", "inherit"] });
 const binDirectory = run(swiftPath, [
   "build", "--build-system", "xcode", "-j", "2", "--scratch-path", scratchPath,
   "-c", "release", "--show-bin-path",
