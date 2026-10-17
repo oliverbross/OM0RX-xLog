@@ -1,7 +1,7 @@
 # OM0RX-xLog Contesting — porting and delivery plan
 
 **Date:** 17 October 2026, Australia/Darwin  
-**Status:** APPROVED — P1/P2 implementation in progress; no stage completion or sponsor-rule acceptance claimed
+**Status:** APPROVED — fixture-scoped P1/P2 foundation accepted; P3 durable store in progress; no full-stage or sponsor-rule acceptance claimed
 **Product owner:** Oliver Bross, OM0RX  
 **Delivery owner:** this contesting chat, alongside **OM0RX-xLog main**  
 **Source:** [oliverbross/contest-sw](https://github.com/oliverbross/contest-sw), a fork of Not1MM  
@@ -11,7 +11,17 @@
 
 **Authorization boundary:** Oliver approved the staged implementation programme on 17 October 2026. The current authorization covers the isolated contesting branch, portable-core/rule spike, test application and directly requested test packaging. It does not authorize production installation/deployment, modification of the pinned contest-sw checkout, or a claim that source-derived rules are current sponsor-approved rules.
 
-**Current implementation ledger (17 October 2026):** work is isolated at `/Users/oliver/.codex/worktrees/xlog-contesting/OM0RX-xLog` on `codex/contesting-foundation`, based on exact xLog commit `c5059ea5798edc6e3094e3d204fd9270de34916f` / application version 1.1.10. P1 and P2 are in progress. Astra High reviews architecture and code; at most three SOL 5.6 Medium implementation workers may operate concurrently. The first focused core run passed 10 tests, but Astra rejected that checkpoint for incomplete semantic validation, source differential evidence, deterministic input rejection, export compatibility, attribution and persistence value contracts. The correction set now passes 16 focused tests in native and portable-only manifests on macOS and is under re-review; a portable manifest on macOS is not Windows or Linux execution. No P1/P2 or cross-platform completion claim is accepted. The canonical main checkout has the active uncommitted **Move station control into Radio** task on `codex/dual-radio-settings`, covering grouped Radio 1/2, WSJT-X and RUMlog settings, and must not be edited, reset, stashed or absorbed here. Synchronization with that work is a later explicit integration step. Direct user authorization permits bounded test packaging from this implementation worktree; release packaging and production installation remain separate gates.
+**Current implementation ledger (17 October 2026):** work is isolated at `/Users/oliver/.codex/worktrees/xlog-contesting/OM0RX-xLog` on `codex/contesting-foundation`.
+
+- `71f71b2`: Astra-accepted fixture-scoped Foundation core; 16 focused tests passed in native and portable-only manifests on macOS. This is not three-OS or current sponsor-rule acceptance.
+- `c403ac8`: accepted test-application/runtime isolation boundary; runtime test-package acceptance remains unverified.
+- `7a0e8d9`: accepted component UI protocol after 24 focused tests, a 3,096-test frontend run and desktop/narrow render review.
+- `b02654f`: accepted frontend-only gate restricting contest workspace navigation to the isolated test profile. It is not a portability/CI checkpoint.
+- The uncommitted portability workflow and `PLATFORM_VALIDATION.md` are awaiting Astra review. Native CI jobs have not run, so there is no Windows/Linux execution claim.
+- P3 and the connected backend are **not approved**. Corrections remain in progress for full UUID workspace generations, coherent immutable mutation/read snapshots, reservation-preserving draft edits and converged structural validation.
+- The canonical `codex/dual-radio-settings` line has `9e26a7b`, version 1.2.0, including `da4b3c4` after `bca18b1`, but follow-up repairs are in progress for startup reconnect, Agent telemetry and spot-tuning `radio_id`. Contesting will wait for a corrected accepted milestone and will not absorb the current dirty fixes. `origin/main` remains `c5059ea`.
+
+Astra High reviews architecture and code; at most three SOL 5.6 Medium implementation workers may operate concurrently. Direct user authorization permits bounded test packaging from this implementation worktree; production release packaging and installation remain canonical-checkout gates.
 
 ## 1. Review decision
 
@@ -211,14 +221,14 @@ The original planning investigation sent no message to the main chat. This prese
 
 ## 8. Delivery stages and dependency plan
 
-P1 and P2 are **approved / in progress**. P3–P12 remain pending their ordered dependencies and review gates. P0 is the completed planning investigation. Estimates are engineering effort ranges, not elapsed promises; they include relevant tests/docs but exclude waiting for hardware, service credentials, review and distribution approval. Re-estimate after P2 and P4. No stage is complete until its documented build, fixture, review and platform gates pass.
+The fixture-scoped P1/P2 core foundation is approved at `71f71b2`, while the full P1/P2 stage gates remain open for three-OS builds and current-rule review. P3 is **in progress**; P4–P12 remain pending their ordered dependencies and review gates. P0 is the completed planning investigation. Estimates are engineering effort ranges, not elapsed promises; they include relevant tests/docs but exclude waiting for hardware, service credentials, review and distribution approval. Re-estimate after P2 and P4. No stage is complete until its documented build, fixture, review and platform gates pass.
 
 | Stage | Work and ordered tasks | Depends on | Deliverable / exit gate | Effort |
 |---|---|---|---|---|
 | P0 — Discovery | Download/pin source; reconcile selector; inspect architecture; write this plan | User request | Reviewable scope, reuse map, backlog and risks | Done: planning only |
-| P1 — Baseline and contracts (**in progress**) | 1. Agree main base/ownership. 2. Create worktree. 3. Audit licence/data notices. 4. Freeze rule/draft/serial/IPC/transfer contracts. 5. Build one portable target skeleton | Approval | Architecture record, clean three-OS build, scoped integration patch | 3–5 days |
-| P2 — Rule extraction spike (**in progress**) | 1. Build source-fixture harness. 2. Extract CQ WW CW and CQ WPX CW. 3. Compare exchanges/dupes/score/exports. 4. Assess Swift vs Python fallback using measured results | P1 | Same fixture results; documented source defects/rule disputes; revised estimate | 5–8 days |
-| P3 — Persistence and recovery | 1. Session/schema migrations. 2. Draft and operation receipts. 3. Serial reservations. 4. Edit/delete/recalculate. 5. Crash/restart/backup tests | P1; P2 contract feedback | Durable offline contest log; no normal-log writes; reservation recovery demonstrated | 5–8 days |
+| P1 — Baseline and contracts (**fixture foundation approved; full gate open**) | 1. Agree main base/ownership. 2. Create worktree. 3. Audit licence/data notices. 4. Freeze rule/draft/serial/IPC/transfer contracts. 5. Build one portable target skeleton | Approval | Architecture record, clean three-OS build, scoped integration patch | 3–5 days |
+| P2 — Rule extraction spike (**two pilot fixtures approved; full gate open**) | 1. Build source-fixture harness. 2. Extract CQ WW CW and CQ WPX CW. 3. Compare exchanges/dupes/score/exports. 4. Assess Swift vs Python fallback using measured results | P1 | Same fixture results; documented source defects/rule disputes; revised estimate | 5–8 days |
+| P3 — Persistence and recovery (**in progress; not approved**) | 1. Session/schema migrations. 2. Draft and operation receipts. 3. Serial reservations. 4. Edit/delete/recalculate. 5. Crash/restart/backup tests | P1; P2 contract feedback | Durable offline contest log; no normal-log writes; reservation recovery demonstrated | 5–8 days |
 | P4 — First complete desk | 1. Menu/manager. 2. Compact entry and table. 3. Score/multipliers. 4. Shared cluster/station read path. 5. Export. 6. Operator walkthrough in both workspace modes | P2, P3 | Two pilot contests usable end-to-end with isolated data; normal workflow unchanged | 5–8 days |
 | P5 — Full rule catalogue | 1. Port by families in Appendix A. 2. Sponsor/edition review. 3. Golden export and mutation tests per entry. 4. Finish special dupes/rover/bonus/EDI paths. 5. Review all 94 dispositions | P2; integrates through P4 | Catalogue complete with no unsupported entry mislabeled working | 20–40 days |
 | P6 — Keyboard, ESM and keying | 1. Focus/action state machine. 2. Macro migration/preview. 3. Serial bindings. 4. CW/WinKeyer/network keyer adapters. 5. Auto-CQ/Stop. 6. Voice/audio and memories | P3, P4; shared station contract | Simulator failures covered; operator hardware tests recorded by capability | 10–18 days |
@@ -312,7 +322,7 @@ Initial measurable targets, to be confirmed on documented reference machines at 
 |---|---|---|
 | Rules mixed with UI/SQL; 94 modules have uneven depth | Extract a stable contract, prove two contrasting contests first, then port by families | Contesting / P2 |
 | Sponsor rules and upstream code disagree or change yearly | Pin edition/source, retain evidence, require explicit rule updates | Product + rule review / P5 |
-| `main` advances after this provenance refresh | Reconfirm the current committed baseline; isolated worktree; narrow seam changes; never package/install from the noncanonical worktree | Main + contesting / P1 and each integration |
+| `main` advances after this provenance refresh | Reconfirm the current committed baseline; isolated worktree; narrow seam changes; use the directly authorized isolated test-package exception only for test evidence, while production packaging/installation remains canonical | Main + contesting / P1 and each integration |
 | Current normal draft/sync/WSJT-X endpoints assume normal logging | Introduce explicit operating-context routing before contest use | Shared integration / P3–P8 |
 | Serial sent before logging, uncertain send or network partition | Durable reservations; no automatic reuse; defined multi-station authority | Core/network / P3, P10 |
 | Existing Linux/Windows live service gaps | Continuous native builds from P1; per-feature capability matrix and real acceptance | Platform / P11 |
