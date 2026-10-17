@@ -1,0 +1,5 @@
+.contest-scp{display:grid;gap:10px;padding:14px 16px;border:1px solid rgb(53 82 106 / 65%);border-radius:12px;background:rgb(8 25 39 / 72%)}
+.contest-scp header{display:flex;align-items:center;justify-content:space-between;gap:12px}.contest-scp p,.contest-scp small{margin:0;color:#9fb7c8}
+.contest-scp-matches{display:flex;flex-wrap:wrap;gap:8px}.contest-scp-matches button{display:flex;align-items:center;gap:8px;padding:7px 10px}
+.contest-scp-matches span{font-variant-numeric:tabular-nums;color:#8eb4c9}
+@media(max-width:520px){.contest-scp header{align-items:flex-start;flex-direction:column}.contest-scp header button{width:100%}}

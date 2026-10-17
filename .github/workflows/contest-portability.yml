@@ -124,6 +124,7 @@ jobs:
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportWorkerWireTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestingLaneTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestAssistanceLaneTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestSCPWorkerIntegrationTests/')" -ge 1
       - name: Verify contest test discovery (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -139,7 +140,8 @@ jobs:
           $wire = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportWorkerWireTests/' }).Count
           $contestingLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestingLaneTests/' }).Count
           $assistanceLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestAssistanceLaneTests/' }).Count
-          if ($core -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1) { throw "Expected contest test targets were not discovered." }
+          $scpWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestSCPWorkerIntegrationTests/' }).Count
+          if ($core -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1) { throw "Expected contest test targets were not discovered." }
       - name: Test contest core, store, and export support (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
@@ -151,6 +153,7 @@ jobs:
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportWorkerWireTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestingLaneTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestAssistanceLaneTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestSCPWorkerIntegrationTests
       - name: Test contest core, store, and export support (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -159,7 +162,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests')) {
+          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests', 'XLogPrototypeTests.ContestSCPWorkerIntegrationTests')) {
             swift test --jobs 2 --scratch-path .build/contest-platform --filter $filter -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -206,26 +209,39 @@ jobs:
           rustc --version --verbose
           cargo --version --verbose
           node -e 'const c=JSON.parse(process.env.TAURI_CONFIG); if(c.productName!=="OM0RX-xLog Contesting Test"||c.identifier!=="com.oliverbross.xlog.contesting-test"||c.bundle?.active!==false||!Array.isArray(c.bundle?.externalBin)||c.bundle.externalBin.length!==0) process.exit(1)'
-      - name: Discover and run bounded native export tests
+      - name: Discover and run bounded native contest tests
         if: runner.os != 'Windows'
         working-directory: prototype/src-tauri
         shell: bash
         run: |
           target="${{ runner.temp }}/contest-native-target"
-          discovered="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests:: -- --list)"
-          printf '%s\n' "$discovered"
-          test "$(printf '%s\n' "$discovered" | grep -c '^contest_export::tests::')" -ge 1
+          export_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests:: -- --list)"
+          admission_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests:: -- --list)"
+          passive_read_test="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy -- --list)"
+          printf '%s\n%s\n%s\n' "$export_tests" "$admission_tests" "$passive_read_test"
+          test "$(printf '%s\n' "$export_tests" | grep -c '^contest_export::tests::')" -ge 1
+          test "$(printf '%s\n' "$admission_tests" | grep -c '^contesting_test_native_admission_tests::')" -eq 5
+          test "$(printf '%s\n' "$passive_read_test" | grep -c '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$')" -eq 1
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests::
-      - name: Discover and run bounded native export tests (Windows)
+          cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests::
+          cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy
+      - name: Discover and run bounded native contest tests (Windows)
         if: runner.os == 'Windows'
         working-directory: prototype/src-tauri
         shell: pwsh
         run: |
           $target = Join-Path $env:RUNNER_TEMP 'contest-native-target'
-          $discovered = & cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test 'contest_export::tests::' -- --list 2>&1
-          if ($LASTEXITCODE -ne 0) { $discovered | Write-Output; exit $LASTEXITCODE }
-          $discovered | Write-Output
-          $count = @($discovered | Where-Object { $_ -match '^contest_export::tests::' }).Count
-          if ($count -lt 1) { throw 'Expected native contest export tests were not discovered.' }
-          cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test 'contest_export::tests::'
-          exit $LASTEXITCODE
+          $filters = @(
+            @{ Name = 'export'; Filter = 'contest_export::tests::'; Pattern = '^contest_export::tests::'; Count = 0 },
+            @{ Name = 'admission'; Filter = 'contesting_test_native_admission_tests::'; Pattern = '^contesting_test_native_admission_tests::'; Count = 5 },
+            @{ Name = 'passive read'; Filter = 'worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy'; Pattern = '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$'; Count = 1 }
+          )
+          foreach ($entry in $filters) {
+            $discovered = & cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test $entry.Filter -- --list 2>&1
+            if ($LASTEXITCODE -ne 0) { $discovered | Write-Output; exit $LASTEXITCODE }
+            $discovered | Write-Output
+            $count = @($discovered | Where-Object { $_ -match $entry.Pattern }).Count
+            if (($entry.Count -eq 0 -and $count -lt 1) -or ($entry.Count -ne 0 -and $count -ne $entry.Count)) { throw "Expected native contest $($entry.Name) tests were not discovered." }
+            cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test $entry.Filter
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }

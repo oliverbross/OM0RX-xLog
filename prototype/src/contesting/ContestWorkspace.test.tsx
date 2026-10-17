@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ContestWorkspace } from "./ContestWorkspace";
+import { ContestWorkspace, projectSCPCallsign } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 
@@ -13,6 +13,15 @@ const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx
   report: { format: mode === "CW" ? "cwRST" : "phoneRS", defaultSent: mode === "CW" ? "599" : "59", defaultReceived: mode === "CW" ? "599" : "59", maximumUTF8Bytes: mode === "CW" ? 3 : 2 },
   exchange: { sent: serial ? "serialNumber" : "cqZone", received: serial ? "serialNumber" : "cqZone", sentDefault: serial ? "reservedSerial" : "stationSnapshot", adifFields },
   serial: { requirement: serial ? "requiredForCommit" : "none", allowedScopes: serial ? ["session", "band", "transmitter"] : [] },
+});
+
+it("projects an SCP choice onto current fields only and rejects a reset draft",()=>{
+  const session=sessions[0], draft=draftFor(session,"K1");
+  draft.fields.receivedExchange="99";draft.reservedSerial=42;
+  const scope={ownerLeaseID:7,sessionID:session.sessionID,workspaceGeneration:session.workspaceGeneration,draftID:draft.draftID,inputCallsign:"K1"};
+  expect(projectSCPCallsign(session,draft,scope,"K1ABC")).toEqual({...draft.fields,callsign:"K1ABC"});
+  expect(draft.reservedSerial).toBe(42);
+  expect(projectSCPCallsign(session,{...draft,draftID:"next-draft"},scope,"K1ABC")).toBeNull();
 });
 const rules: ContestRuleMetadata[] = [
   { identity: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
@@ -25,19 +34,27 @@ const rules: ContestRuleMetadata[] = [
   { identity: { id: "sac-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Scandinavian Activity Contest SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Practice scoring preview; submission categories and dates are not fully enforced." },
 ];
 const sessions: ContestSessionSummary[] = rules.slice(0, 2).map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
+const scpDataset={sourceID:"operator-managed-local",version:"tiny.scp",retrievedAtUTC:"2026-10-18T00:00:00.000Z",sha256:"a".repeat(64),byteCount:16,recordCount:1,duplicateCount:0,digestVerification:"computedOnly"};
 function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent; return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
 function fullQSO(session: ContestSessionSummary): ContestFullQSO { const report = session.rule.entry.report.defaultSent; return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: session.rule.mode, frequencyHz: 14025000, sentReport: report, receivedReport: report, sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
-function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean } = {}) {
-  const state = new Map(sessions.map(item => { const session = { ...item, qsoCount: options.qsoSession === item.sessionID ? 1 : item.qsoCount }; const draft = draftFor(session); if (options.qsoSession === "session-2") draft.reservedSerial = 7; return [item.sessionID, { session, draft }]; }));
+function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean; scp?: boolean } = {}) {
+  const fixtureSessions = options.scp ? sessions.map((item,index) => ({...item,sessionID:`00000000-0000-0000-0000-00000000000${index+1}`,workspaceGeneration:"10000000-0000-0000-0000-000000000001"})) : sessions;
+  const state = new Map(fixtureSessions.map(item => { const session = { ...item, qsoCount: options.qsoSession === item.sessionID ? 1 : item.qsoCount }; const draft = draftFor(session); if (options.qsoSession === "session-2") draft.reservedSerial = 7; return [item.sessionID, { session, draft }]; }));
   const contacts = new Map<string, ContestFullQSO>(); if (options.qsoSession) contacts.set(options.qsoSession, fullQSO(state.get(options.qsoSession)!.session));
   const calls: [string, Record<string, unknown>][] = []; let sequence = 0, applyCount = 0, createLost = false, changeLost = false;
   const changeResults = new Map<string, ContestQSOChangeResult>();
   const receipt = (params: Record<string, unknown>, revision: number) => ({ requestID: params.requestID as string, payloadDigest: params.payloadDigest as string, committedRevision: revision, committedAt: "2026-10-17T02:00:00Z" });
   const request: ContestRequest = vi.fn(async (method, params = {}) => {
     calls.push([method, params]); const ok = (result: unknown) => ({ id: `frame-${++sequence}`, ok: true as const, result });
-    if (method === "contest_catalog") return ok({ workspaceGeneration: "generation-1", rules });
+    if(options.scp&&method==="contest_scp_status")return ok({dataset:scpDataset,unavailableReason:null});
+    if(options.scp&&method==="contest_scp_query")return ok({sessionID:params.sessionID,workspaceGeneration:params.workspaceGeneration,
+      requestID:params.requestID,normalizedQuery:String(params.query).toUpperCase(),matches:[{matchID:`${scpDataset.sha256}:0`,callsign:"K1ABC",score:100,isPrefixMatch:true}],
+      dataset:scpDataset,evaluatedRecordCount:1,isPartial:false});
+    if(options.scp&&method==="contest_scp_select")return ok({callsign:"K1ABC"});
+    if(options.scp&&method==="contest_scp_cancel")return ok({cancelled:true});
+    if (method === "contest_catalog") return ok({ workspaceGeneration: fixtureSessions[0].workspaceGeneration, rules });
     if (method === "contest_sessions") return ok({ sessions: [...state.values()].map(x => x.session) });
     if (method === "contest_open" || method === "contest_draft_get") {
       const id = params.sessionID as string; await options.openDelay?.[id]; const value = state.get(id)!;
@@ -311,6 +328,26 @@ it("routes an armed simulated operator sequence through the existing draft and c
   expect(output.map(item => item.split(":")[1])).toEqual(["QRZ"]);
   expect(calls.every(([method]) => method.startsWith("contest_"))).toBe(true);
   expect(screen.getByText(/no CW, voice, PTT, audio, or radio output/i)).toBeTruthy();
+});
+
+it("revokes an armed operator sequence when SCP patches the current callsign", async () => {
+  const output: string[] = [], { request, calls } = fixture({ scp: true });
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}
+    simulateContestOutput={async entry => { output.push(`${entry.mode}:${entry.macro}:${entry.text}`); }}/>);
+  await screen.findByText("WW November"); fireEvent.click(screen.getByRole("button", { name: /WW November/ }));
+  const call = await screen.findByRole("textbox", { name: "Contest callsign" });
+  const exchange = screen.getByLabelText("Received exchange");
+  fireEvent.change(call, { target: { value: "K1" } }); fireEvent.change(exchange, { target: { value: "05" } });
+  await waitFor(() => expect(calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  const candidate = await screen.findByRole("button", { name: /K1ABC/ });
+  const arm = screen.getByRole("button", { name: "Arm simulation" }); fireEvent.click(arm);
+  expect(arm.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(candidate);
+  await waitFor(() => expect((call as HTMLInputElement).value).toBe("K1ABC"));
+  expect((exchange as HTMLInputElement).value).toBe("05");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Arm simulation" }).getAttribute("aria-pressed")).toBe("false"));
+  expect(output).toEqual([]);
+  expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(0);
 });
 
 it("consumes repeated owned Enter and guards implicit form submit while a sequence is pending", async () => {

@@ -301,3 +301,84 @@ These remain native source/test results. They do not exercise the GUI or
 prove operator acceptance, current sponsor submission readiness, real save
 dialogs or radio operation. The later structured-exchange, manual SCP import
 and Run/S&P UI candidates are not present at this SHA.
+
+## Structured exchanges and portable token validation
+
+[Run 39055996486](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39055996486)
+passed all six jobs at `0c881654f2c48c0a3d07d52ff7a2f51bd26fac4d`.
+Inspected native job logs establish:
+
+| Platform | Swift job | Core | Store/snapshot | Worker lifecycle | Assistance |
+| --- | --- | --- | --- | --- | --- |
+| macOS | `117463963220` | 67 | 55 | 14 | 13 |
+| Linux | `117463963466` | 67 | 55 | 14 | 13 |
+| Windows | `117463963450` | 67 | 60 | 14 | 13 |
+
+All listed tests and the 27 existing export-support tests passed on each OS.
+Rust jobs `117463963505` (macOS), `117463963459` (Linux), and
+`117463963392` (Windows) each passed 18 tests. The raw inspected logs are
+retained as `/tmp/xlog-0c88165-*-ci.log`.
+
+The earlier source at `924f2d2` and its integration at `f8c13b4` exposed
+platform-sensitive regular-expression end-anchor behavior: a mode token
+ending in a newline was accepted on Linux and Windows. The existing malformed
+descriptor regression correctly failed. This repaired run uses exact ASCII
+grammars and proves that regression on both affected platforms, while retaining
+the alphanumeric first-character rule. The failures remain recorded in their
+original runs; they were not converted to passing claims by rerunning unchanged
+source.
+
+This SHA includes structured core/store primitives and the existing eight
+catalog rules. It does not include the later Run/S&P UI, manual SCP import,
+NAQP family or browser-to-worker operator harness. No packaged GUI, native
+chooser, real transmission or sponsor submission acceptance is inferred.
+
+The combined foundation at `8c7eb5eebfd935918891c8d6e7ec48ec105ec435`
+also passed all six jobs in
+[run 39056519180](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39056519180).
+That source adds the reviewed Run/S&P UI. These native jobs do not drive that
+UI; its separate local frontend/navigation integration run passed 130 tests.
+Manual SCP import and the new browser-to-worker harness remain later slices.
+
+## NAQP core preview source
+
+[Run 39057341329](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39057341329)
+passed all six jobs at `2ee72e1c364199bcb38c185ed7b3a20c46a2bc84`.
+Inspected Swift logs from macOS job `117467906304`, Linux `117467906412`
+and Windows `117467906364` show the NAQP core and persistence suites
+executing successfully. Overall core counts are 74 on each platform;
+store/snapshot counts are 59 on macOS/Linux and 64 on Windows.
+Raw logs are `/tmp/xlog-2ee72e1-{macos,linux,windows}-ci.log`.
+
+These three rules remain inactive. This commit does not implement their
+exports, worker descriptors, UI integration or operator acceptance. The
+eight active rule identities are unchanged.
+
+## SCP import candidate: Linux defect retained
+
+[Run 39057048386](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39057048386)
+at `b526c2a227ed95ef6c4a157494abc3ec3e06a877` completed with a Linux Swift
+failure; macOS and Windows Swift and all three Rust jobs passed. Linux job
+`117467042363` failed
+`ContestExportWorkerWireTests.testPendingPrepareDoesNotBlockReleaseOrOrdinaryContestRequest`
+with `unsafe_workspace`. The shared private-file boundary rejected a valid
+path beneath filesystem root because string concatenation produced a `//`
+prefix. The failure log is `/tmp/xlog-b526c2a-linux-ci.log`.
+
+The foundation integration replaces that string comparison with strict
+standardized path-component ancestry, retaining self/sibling rejection and
+the existing symlink/protected-file checks. It adds a root-ancestor regression.
+Local validation of the repaired integration passed all 16 lifecycle tests
+and all three export-wire tests, including the original failing scenario.
+The temporary root-derivation helper in the new test initially looped past
+root; its bounded replacement passed before acceptance. Integration also
+passed 142 frontend/navigation tests, the frontend production build, four SCP
+worker tests, 13 assistance tests and ten SCP core tests. Raw evidence is
+retained under `/tmp/xlog-scp-integration-*.log`.
+Hosted validation of that repaired integration is pending. The old candidate
+run is not an accepted three-platform SCP result.
+
+The candidate's native jobs ran the existing 18 export tests only. The
+integration explicitly discovers and executes the five native admission
+tests and one passive-read timeout-policy test on every OS, so local SCP
+cancellation evidence is not mistaken for hosted coverage.

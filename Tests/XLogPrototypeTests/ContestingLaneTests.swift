@@ -29,6 +29,20 @@ final class ContestingLaneTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
     }
 
+    func testSCPStatusCannotCreateServiceAfterShutdownDuringInitialGenerationFence() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-scp-shutdown-fence-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let gate = ContestGenerationGate(value: generation)
+        let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { await gate.wait() }
+        let operation = Task { try await lane.handle(method: "contest_scp_status", params: [:]) }
+        await gate.awaiting()
+        await lane.shutdown()
+        await gate.release()
+        do { _ = try await operation.value; XCTFail("Expected terminal assistance lane") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "scp_unavailable") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Contesting/SuperCheckPartial").path))
+    }
+
     private func workerRequest(_ worker: LiveWorker, method: String, params: [String: Any] = [:],
                                id: UUID = UUID()) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": wireID(id), "method": method, "params": params])
@@ -688,6 +702,30 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual(try fileManager.contentsOfDirectory(atPath: redirected.path), [])
     }
 
+    func testPrivateBoundaryAcceptsStrictDescendantsWhenAncestorIsFilesystemRoot() throws {
+        let fileManager = FileManager.default
+        let trustedBase = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+            .resolvingSymlinksInPath()
+        let privateRoot = trustedBase.appendingPathComponent(".build/xlog-contest-root-boundary-\(UUID().uuidString)")
+        defer { try? fileManager.removeItem(at: privateRoot) }
+        try fileManager.createDirectory(at: privateRoot, withIntermediateDirectories: true)
+        let filesystemRoot = URL(fileURLWithPath: try XCTUnwrap(privateRoot.pathComponents.first), isDirectory: true)
+        let database = privateRoot.appendingPathComponent("contests.sqlite")
+        XCTAssertTrue(ContestDatabaseBoundary.isStrictDescendant(privateRoot, of: filesystemRoot))
+        XCTAssertTrue(ContestDatabaseBoundary.isStrictDescendant(database, of: privateRoot))
+        XCTAssertNoThrow(try ContestDatabaseBoundary.validatePrivateFile(database, privateRoot: privateRoot,
+            ancestorBoundary: filesystemRoot, protectedFiles: [], fileManager: fileManager))
+
+        let sibling = privateRoot.deletingLastPathComponent()
+            .appendingPathComponent(privateRoot.lastPathComponent + "-sibling/contests.sqlite")
+        XCTAssertFalse(ContestDatabaseBoundary.isStrictDescendant(privateRoot, of: privateRoot))
+        XCTAssertFalse(ContestDatabaseBoundary.isStrictDescendant(sibling, of: privateRoot))
+        XCTAssertThrowsError(try ContestDatabaseBoundary.validatePrivateFile(sibling, privateRoot: privateRoot,
+            ancestorBoundary: filesystemRoot, protectedFiles: [], fileManager: fileManager)) { error in
+            XCTAssertEqual((error as? ContestLaneError)?.code, "unsafe_workspace")
+        }
+    }
+
     func testLiveWorkerBrowserWireLifecycleAndCrossLanguageFixture() async throws {
         enum FenceFailure: Error { case unavailable }
         actor Fence {
@@ -861,4 +899,14 @@ final class ContestingLaneTests: XCTestCase {
         let response = try XCTUnwrap(JSONSerialization.jsonObject(with: responseData) as? [String: Any])
         XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? String, "contest_profile_required")
     }
+}
+
+private actor ContestGenerationGate {
+    let value: String
+    private var continuation: CheckedContinuation<Void,Never>?
+    private var waiting = false
+    init(value:String){self.value=value}
+    func wait() async -> String { await withCheckedContinuation{continuation=$0;waiting=true}; return value }
+    func awaiting() async { while !waiting { await Task.yield() } }
+    func release(){continuation?.resume();continuation=nil}
 }

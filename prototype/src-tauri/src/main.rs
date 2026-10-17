@@ -57,6 +57,7 @@ use std::time::{Duration, Instant};
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
+static SCP_IMPORT_ACTIVE: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
 pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
@@ -67,9 +68,32 @@ pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::C
 fn routes_native_rotor_configuration(method: &str, isolated: bool) -> bool {
     !isolated && matches!(method, "workspace_rotor_configuration_save" | "backup_restore" | "workspace_create")
 }
+fn native_only_worker_method(method: &str) -> bool { method == "contest_scp_import_private" }
+fn scp_import_final_admission(pinned: u64, current: u64, exiting: bool, main_present: bool) -> Result<(), String> {
+    if exiting || !main_present { return Err("SCP import was cancelled because the main window closed.".into()); }
+    if pinned != current { return Err("SCP import was cancelled because the worker restarted.".into()); }
+    Ok(())
+}
+fn dispatch_scp_import<T>(pinned:u64,current:u64,exiting:bool,main_present:bool,
+    send:impl FnOnce()->Result<T,String>)->Result<T,String>{
+    scp_import_final_admission(pinned,current,exiting,main_present)?;send()
+}
+
+struct SCPImportLease;
+impl SCPImportLease {
+    fn acquire() -> Result<Self, String> {
+        SCP_IMPORT_ACTIVE.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire)
+            .map(|_|Self).map_err(|_|"Another SCP import is already open.".into())
+    }
+}
+impl Drop for SCPImportLease { fn drop(&mut self){SCP_IMPORT_ACTIVE.store(false,Ordering::Release);} }
+fn with_scp_import_lease<T>(lease:SCPImportLease,operation:impl FnOnce()->T)->T{
+    let _lease=lease;operation()
+}
 
 #[cfg(all(test, feature = "contesting-test"))]
 mod contesting_test_native_admission_tests {
+    static SCP_LEASE_TEST_LOCK:std::sync::Mutex<()>=std::sync::Mutex::new(());
     #[test]
     fn packaged_profile_reaches_native_device_validators() {
         let isolated = crate::runtime_profile::isolated(false);
@@ -83,6 +107,61 @@ mod contesting_test_native_admission_tests {
         let isolated = crate::runtime_profile::isolated(false);
         assert!(!super::routes_native_rotor_configuration("workspace_create", isolated));
         assert!(!super::routes_native_rotor_configuration("backup_restore", isolated));
+    }
+
+    #[test]
+    fn scp_path_import_is_native_only() {
+        let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
+        assert!(super::native_only_worker_method("contest_scp_import_private"));
+        assert!(!super::native_only_worker_method("contest_scp_query"));
+        assert!(super::scp_import_final_admission(7,7,false,true).is_ok());
+        assert!(super::scp_import_final_admission(7,8,false,true).is_err());
+        assert!(super::scp_import_final_admission(7,7,true,true).is_err());
+        assert!(super::scp_import_final_admission(7,7,false,false).is_err());
+        let sent=std::sync::atomic::AtomicUsize::new(0);
+        assert!(super::dispatch_scp_import(7,8,false,true,||{sent.fetch_add(1,std::sync::atomic::Ordering::Relaxed);Ok(())}).is_err());
+        assert_eq!(sent.load(std::sync::atomic::Ordering::Relaxed),0);
+        assert!(super::dispatch_scp_import(7,7,true,true,||{sent.fetch_add(1,std::sync::atomic::Ordering::Relaxed);Ok(())}).is_err());
+        assert_eq!(sent.load(std::sync::atomic::Ordering::Relaxed),0);
+        let lease=super::SCPImportLease::acquire().unwrap();
+        assert!(super::SCPImportLease::acquire().is_err());
+        drop(lease);
+        assert!(super::SCPImportLease::acquire().is_ok());
+    }
+
+    #[test]
+    fn aborted_waiter_cannot_release_queued_chooser_lease() {
+        let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
+        let (start_sender,start_receiver)=std::sync::mpsc::sync_channel(1);
+        let (done_sender,done_receiver)=std::sync::mpsc::sync_channel(1);
+        let lease=super::SCPImportLease::acquire().unwrap();
+        let operation=tauri::async_runtime::spawn_blocking(move||{
+            start_receiver.recv().unwrap();super::with_scp_import_lease(lease,||());
+            done_sender.send(()).unwrap();
+        });
+        let waiter=tauri::async_runtime::spawn(async move{let _=operation.await;});
+        waiter.abort();
+        assert!(super::SCPImportLease::acquire().is_err());
+        start_sender.send(()).unwrap();
+        done_receiver.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert!(super::SCPImportLease::acquire().is_ok());
+    }
+
+    #[test]
+    fn aborted_waiter_cannot_release_worker_dispatch_lease() {
+        let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
+        let (started_sender,started_receiver)=std::sync::mpsc::sync_channel(1);
+        let (finish_sender,finish_receiver)=std::sync::mpsc::sync_channel(1);
+        let lease=super::SCPImportLease::acquire().unwrap();
+        let task=tauri::async_runtime::spawn_blocking(move||super::with_scp_import_lease(lease,||{
+            started_sender.send(()).unwrap();finish_receiver.recv().unwrap();
+        }));
+        started_receiver.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        task.abort();
+        assert!(super::SCPImportLease::acquire().is_err());
+        finish_sender.send(()).unwrap();
+        tauri::async_runtime::block_on(task).unwrap();
+        assert!(super::SCPImportLease::acquire().is_ok());
     }
 }
 fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Value, String> {
@@ -914,6 +993,66 @@ async fn contest_export_save(window: tauri::WebviewWindow, state: tauri::State<'
     contest_export::save(window, runtime_profile::isolated(state.path.is_some()), prepared).await
 }
 
+#[tauri::command]
+async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, String> {
+    if !runtime_profile::CONTESTING_TEST || window.label() != "main" || APP_EXITING.load(Ordering::Acquire) {
+        return Err("SCP import is unavailable in this window.".into());
+    }
+    let generation=worker::existing_generation()?;
+    let lease=SCPImportLease::acquire()?;
+    tauri::async_runtime::spawn_blocking(move || with_scp_import_lease(lease,||{
+        let Some(path) = choose_scp_file(window.clone(),generation)? else { return Ok(None) };
+        let app=window.app_handle().clone();
+        let source_name = path.file_name().and_then(|value| value.to_str())
+            .filter(|value| !value.is_empty() && value.len() <= 256)
+            .ok_or("The selected SCP filename is invalid.")?.to_string();
+        let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
+            "method":"contest_scp_import_private","params":{"path":path.to_string_lossy(),"sourceName":source_name}});
+        dispatch_scp_import(generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+            app.get_webview_window("main").is_some(),|| {
+                let response=worker::request_existing_generation(request,generation)?;
+                worker::require_existing_generation(generation)?;
+                Ok(response)
+            }).map(Some)
+    })).await
+        .map_err(|_| "SCP import worker task failed.".to_string())?
+}
+
+#[cfg(target_os = "macos")]
+fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::NSString;
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    let app=window.app_handle().clone();
+    window.run_on_main_thread(move || {
+        let selected = dispatch_scp_import(generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+            app.get_webview_window("main").is_some(),|| {
+            MainThreadMarker::new().ok_or_else(||"SCP chooser is unavailable.".to_string()).map(|main| {
+            let panel = NSOpenPanel::openPanel(main);
+            panel.setCanChooseFiles(true); panel.setCanChooseDirectories(false);
+            panel.setAllowsMultipleSelection(false); panel.setCanCreateDirectories(false);
+            panel.setMessage(Some(&NSString::from_str("Choose an operator-managed MASTER.SCP file")));
+            if panel.runModal() == NSModalResponseOK {
+                panel.URL().and_then(|url| url.path()).map(|path| std::path::PathBuf::from(path.to_string()))
+            } else { None }
+            })
+        });
+        let _ = sender.send(selected);
+    }).map_err(|_| "SCP chooser is unavailable.".to_string())?;
+    receiver.recv().map_err(|_| "SCP chooser closed unexpectedly.".to_string())?
+}
+
+#[cfg(not(target_os = "macos"))]
+fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
+    let app=window.app_handle().clone();
+    dispatch_scp_import(generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+        app.get_webview_window("main").is_some(),|| {
+        Ok(rfd::FileDialog::new().set_title("Choose an operator-managed MASTER.SCP file")
+            .add_filter("Super Check Partial", &["scp", "txt"]).pick_file())
+    })
+}
+
 #[cfg(target_os = "macos")]
 async fn choose_connection_doctor_export(window: tauri::WebviewWindow) -> Result<Option<std::path::PathBuf>, String> {
     use objc2::MainThreadMarker;
@@ -1275,6 +1414,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     // Only typed integration operations cross this boundary; never shell commands.
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if native_only_worker_method(method) {
+        return Err("Use the native SCP file chooser.".into());
+    }
     if !runtime_profile::allows_worker_method(method) { runtime_profile::require_external_io_disabled()?; }
     if method == "station_action" && requires_durable_station_action(request["params"]["action"].as_str().unwrap_or("")) {
         return Err("Use the shared durable radio and amplifier owners.".into());
@@ -1949,7 +2091,7 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,

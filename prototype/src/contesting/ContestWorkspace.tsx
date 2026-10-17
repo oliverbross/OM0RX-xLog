@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ClipboardList, Database, Download, Pencil,
 import { ContestMutationUncertain, ContestServerError } from "./client";
 import { ContestExportPanel } from "./ContestExportPanel";
 import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
+import { ContestAssistancePanel, type SCPSelectionScope } from "./ContestAssistancePanel";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
 import type { ContestCabrilloHeader, ContestCreateInput, ContestDraftFields, ContestExportFormat, ContestFullQSO, ContestLogPage, ContestPreparedExport, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
@@ -13,6 +14,12 @@ type Props = { request: ContestRequest; createRequestID?: () => string; digestPa
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 function defaultStorage(): ContestRecoveryStorage | undefined { try { return globalThis.localStorage; } catch { return undefined; } }
 function isQSOChange(result: unknown): result is ContestQSOChangeResult { return !!result && typeof result === "object" && "operation" in result; }
+export function projectSCPCallsign(session: ContestSessionSummary, draft: {draftID:string;fields:ContestDraftFields},
+  selection: SCPSelectionScope, callsign: string): ContestDraftFields|null {
+  if(session.sessionID!==selection.sessionID||session.workspaceGeneration!==selection.workspaceGeneration||draft.draftID!==selection.draftID||
+    draft.fields.callsign.trim().toUpperCase()!==selection.inputCallsign)return null;
+  return {...draft.fields,callsign};
+}
 
 export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput }: Props) {
   const storage = recoveryStorage ?? defaultStorage();
@@ -110,6 +117,16 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     const ticket = contextTicket.current, scope = capturedScope();
     saveTimer.current = window.setTimeout(() => void owner.flush().catch(cause => handleFailure(cause, ticket, scope)), 180);
+  }
+  function applyAssistanceCallsign(value: string, selection: SCPSelectionScope) {
+    const lease=leaseRef.current, admission=owner.captureAdmission(lease), currentSession=owner.session, currentDraft=owner.draft;
+    if(busy||blockingOperation||!lease||lease.id!==selection.ownerLeaseID||admission===null||!owner.accepts(lease,admission)||!currentSession||!currentDraft)return;
+    const fields=projectSCPCallsign(currentSession,currentDraft,selection,value);if(!fields)return;
+    setOperatorEditGeneration(generation=>generation+1);
+    owner.edit(fields);
+    const ticket=contextTicket.current, scope={lease,admission};
+    if(saveTimer.current!==null)window.clearTimeout(saveTimer.current);
+    saveTimer.current=window.setTimeout(()=>void owner.flush().catch(cause=>handleFailure(cause,ticket,scope)),180);
   }
   function changeFrequency(raw: string) {
     if (busy || blockingOperation) return;
@@ -308,6 +325,8 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
         {operatingFrequencyError && <p className="contest-validation is-duplicate">{operatingFrequencyError}</p>}<div className={`contest-validation is-${draft.dupe.state}`}><strong>{draft.dupe.state === "duplicate" ? "Duplicate" : "Dupe check"}</strong><span>{draft.dupe.reason}</span>{[...draft.validation.errors,...draft.validation.warnings].map(item => <span key={item}>{item}</span>)}</div>
         <footer>{active.rule.entry.serial.requirement === "requiredForCommit" && <button type="button" disabled={disabled} onClick={() => void reserveSerial().catch(() => {})}>{draft.reservedSerial ? `Serial ${draft.reservedSerial}` : "Reserve serial"}</button>}<button className="contest-primary" type="submit" disabled={entryDisabled || !!operatingFrequencyError || draft.validation.errors.length > 0 || draft.dupe.state === "duplicate"}>Log QSO</button></footer>
       </form><aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score & multipliers</h2><dl><div><dt>Claimed score</dt><dd>{score?.claimedScore.toLocaleString() ?? "—"}</dd></div><div><dt>QSOs</dt><dd>{score?.qsos ?? "—"}</dd></div><div><dt>Points</dt><dd>{score?.points ?? "—"}</dd></div><div><dt>Multipliers</dt><dd>{score?.multipliers ?? "—"}</dd></div></dl><div className="contest-multipliers">{score?.multiplierLabels.length ? score.multiplierLabels.map(x => <span key={x}>{x}</span>) : <p>No multipliers recorded.</p>}</div><p className={`contest-source is-${score?.sourceVerification ?? "unverified"}`}>Score source: {score?.sourceVerification ?? "unavailable"}</p></aside></div>
+      <ContestAssistancePanel request={request} ownerLeaseID={leaseRef.current?.id??0} sessionID={active.sessionID} workspaceGeneration={active.workspaceGeneration}
+        draftID={draft.draftID} callsign={draft.fields.callsign} disabled={entryDisabled} onSelect={applyAssistanceCallsign}/>
       {editing && <form className="contest-qso-editor" aria-label={`Edit ${editing.original.callsign}`} onSubmit={event => { event.preventDefault(); void applyQSOChange("correction"); }}><header><div><h2><Pencil size={15}/> Edit {editing.original.callsign}</h2><p>Update the contact; score and duplicate credit are recalculated when saved.</p></div><button type="button" aria-label="Cancel contact edit" disabled={disabled} onClick={() => { setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); }}><X size={14}/>Cancel</button></header>
         <div className="contest-qso-fields"><label>Callsign<input autoComplete="off" maxLength={32} disabled={disabled} value={editing.qso.callsign} onChange={event => changeQSO("callsign", event.target.value.toUpperCase())}/></label><label>Sent report<input maxLength={active.rule.entry.report.maximumUTF8Bytes} disabled={disabled} value={editing.qso.sentReport} onChange={event => changeQSO("sentReport", event.target.value)}/></label><label>Received report<input maxLength={active.rule.entry.report.maximumUTF8Bytes} disabled={disabled} value={editing.qso.receivedReport} onChange={event => changeQSO("receivedReport", event.target.value)}/></label><label>Received exchange<input maxLength={64} disabled={disabled} value={editing.qso.receivedExchange} onChange={event => { changeQSO("receivedExchange", event.target.value); changeQSO("normalizedReceivedExchange", event.target.value); }}/></label><label>Frequency Hz<input inputMode="numeric" maxLength={11} disabled={disabled} value={editFrequencyText} onChange={event => changeQSOFrequency(event.target.value)}/></label><label>Band<select disabled={disabled} value={editing.qso.band} onChange={event => changeQSO("band", event.target.value)}>{["160m","80m","40m","20m","15m","10m"].map(value => <option key={value}>{value}</option>)}</select></label></div>
         <div className="contest-qso-readonly" aria-label="Original contact details"><div><span>Original UTC</span><strong>{new Date(editing.original.originalUTC).toISOString().replace("T", " ").slice(0, 19)} Z</strong></div><div><span>Operator</span><strong>{editing.original.operatorCallsign || "Not recorded"}</strong></div><div><span>Station location</span><strong>{editing.original.stationLocation || "Not recorded"}</strong></div><div><span>Sent allocation</span><strong>{editing.original.sentExchange || "Not allocated"}</strong></div><div><span>{editing.qso.callsign === editing.original.callsign ? "Entity" : "Original entity"}</span><strong>{editing.original.entity?.name ?? "Unavailable"}</strong>{editing.qso.callsign !== editing.original.callsign && <small>New callsign country is checked against the pinned reference when saved.</small>}</div><div><span>Source</span><strong>{editing.original.provenance.source === "operatorEntry" ? "Operator entry" : "Imported contact"}</strong></div></div>
