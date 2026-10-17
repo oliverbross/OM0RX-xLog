@@ -44,17 +44,22 @@ result at its recorded commit, but it does not validate the newer source.
 
 | Platform | Required job | Current status |
 | --- | --- | --- |
-| macOS 14 | `Contest tests (macos-14)` | Passed at `59a38571f39acc7ed12fc07b8f43a4e7fcbe8b36`: 16 core and 23 store tests, Apple Swift 6.0.3 / Xcode 16.2. [Job 117400736183](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953/job/117400736183). |
-| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed at `59a38571f39acc7ed12fc07b8f43a4e7fcbe8b36`: 16 core and 23 store tests, Swift 6.3.3. [Job 117400736027](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953/job/117400736027). |
-| Windows Server 2022 | `Contest tests (windows-2022)` | Passed at `59a38571f39acc7ed12fc07b8f43a4e7fcbe8b36`: 16 core, 23 store, 6 ConnectionDoctor and 8 remote-backup presentation tests, Swift 6.3.3. [Job 117400736125](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953/job/117400736125). |
+| macOS 14 | `Contest tests (macos-14)` | Passed at `8fcb54e5409eeadeb7afa1fb76dc1dbe3fa3804c`: 22 core/export and 32 store tests, Apple Swift 6.0.3 / Xcode 16.2. [Job 117404114521](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39035403568/job/117404114521). |
+| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed at `8fcb54e5409eeadeb7afa1fb76dc1dbe3fa3804c`: 22 core/export and 32 store tests, Swift 6.3.3. [Job 117404114578](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39035403568/job/117404114578). |
+| Windows Server 2022 | `Contest tests (windows-2022)` | Passed at `8fcb54e5409eeadeb7afa1fb76dc1dbe3fa3804c`: 22 core/export, 32 store, 6 ConnectionDoctor and 8 remote-backup presentation tests, Swift 6.3.3. [Job 117404114561](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39035403568/job/117404114561). |
 
 [Run 39034236953](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953)
 is the first completed green three-platform matrix for this pilot baseline.
+The newer [run 39035403568](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39035403568)
+also passed all three jobs after integrating durable corrections/deletions and
+pilot export formatters. The table records that newer source checkpoint. ADIF
+tests were compiled by the portable manifest but were not executed by these
+focused hosted commands; their five passing tests are local evidence only.
 Earlier runs `39031590054` (`d1ab5aa`) and `39032872265` (`434e5de`)
 passed Linux and Windows but failed macOS during compilation, respectively in
 a portable backup test and the malformed TCI input test. The latest result does
-not retroactively validate those failed jobs or the subsequent, independently
-developed correction/deletion and export changes.
+not retroactively validate those failed jobs or subsequent worker, UI, snapshot
+and export-service changes beyond the exact commit recorded above.
 
 These are native Swift compile-and-test results for the workflow's portable
 manifest. They do not prove a packaged application, renderer or worker runtime,
