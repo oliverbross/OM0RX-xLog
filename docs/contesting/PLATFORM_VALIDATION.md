@@ -179,5 +179,31 @@ from 124 LF bytes (SHA-256 `6510d5f2076e8bec2e268290a24a5f6d963a2d6d30a4701e8dd6
 to 138 CRLF bytes. Reviewed fix `1b54a85`, integrated at `b7e442a`, pins only
 this fixture to `text eol=lf`; production raw-byte digest verification is
 unchanged. The same checkout experiment then preserved the expected bytes.
-Fresh native CI is required for this repair; no passing Windows SCP claim is
-made from the checkout experiment alone.
+The repair then passed all six jobs in
+[run 39048913988](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39048913988)
+at `db99b3133d9134ed53565d83abab0785f20ce7a7`. Windows Swift job
+`117443204511` executed all 10 SCP tests, including the exact digest assertion,
+with zero failures: 40 total core tests and 49 store/snapshot tests, including
+all 17 snapshot tests. macOS job `117443204272` and Linux job `117443204439`
+each passed 40 core and 44 store/snapshot tests. Export-support and all native
+Rust jobs also passed. The fixture byte-preservation fix now has actual Windows
+execution evidence. This SHA predates SSB worker/UI and Run/S&P integration.
+
+## Oceania core/store native matrix
+
+[Run 39048732300](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39048732300)
+passed all six jobs at `0c9a4d1ca5519bf546f1dfb718eec37768f5d2c5` on
+`codex/contest-oceania`. macOS Swift job `117442667998` and Linux Swift job
+`117442667973` each executed 44 core and 49 store/snapshot tests. Windows
+Swift job `117442668032` executed 44 core and 54 store/snapshot tests,
+including 17 snapshot tests without skips. Each core run includes 6 Oceania
+tests; each store run includes 2 Oceania lifecycle tests. All 27 existing
+export-support tests also passed on each OS; Windows additionally passed
+6 ConnectionDoctor and 8 backup-presentation tests. Toolchains remain Apple
+Swift 6.0.3 on macOS and Swift 6.3.3 on Linux/Windows, on the runner images
+listed above.
+
+This validates the Oceania rule/store source on native runners. It excludes
+the subsequent six-pilot worker/UI integration, corrected SAC candidate,
+SCP integration and full operator simulation; no package, save-dialog,
+sponsor approval or hardware acceptance is inferred.
