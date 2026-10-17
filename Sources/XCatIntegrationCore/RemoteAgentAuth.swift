@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import LocalAuthentication
 import Security
 
 public enum RemoteAgentCredentialError: LocalizedError, Sendable {
@@ -25,12 +26,15 @@ public struct RemoteAgentKeychain: Sendable {
     }
 
     public func loadToken() throws -> String? {
+        let authentication = LAContext()
+        authentication.interactionNotAllowed = true
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecReturnData as String: true,
+            kSecUseAuthenticationContext as String: authentication,
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)

@@ -98,7 +98,7 @@ impl RotorCoordinator {
         // A turn already admitted under the lock remains ordered before Stop.
         if manual { self.automatic.revoke(); }
         let mut state = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
-        if startup && (method != "rotor_connect" || state.owner.is_some() || state.generation != 0 || state.revision != 0) {
+        if startup && (method != "rotor_connect" || state.owner.is_some()) {
             return Err("Rotor owner changed; startup connection was not sent.".into());
         }
         // Also revoke at actual manual admission: an explicit Arm interleaved
@@ -471,6 +471,23 @@ pub(crate) fn request_manual_generation(request: Value, expected_worker: u64) ->
 pub(crate) fn request_startup(request: Value) -> Result<Value, String> {
     coordinator().handle_scoped(request, None, true, dispatch)
 }
+pub(crate) fn request_startup_with(
+    request: Value,
+    dispatch: impl FnOnce(Value) -> Result<Value, String>,
+) -> Result<Value, String> {
+    coordinator().handle_scoped(request, None, true, dispatch)
+}
+pub(crate) fn worker_restarted() -> Result<(), String> {
+    crate::auto_rotor::revoke();
+    let mut state = coordinator().state.lock().map_err(|_| "Rotor owner lock failed")?;
+    state.owner = None;
+    state.phase = None;
+    state.intent_id = None;
+    state.last_observed = None;
+    state.generation = state.generation.saturating_add(1);
+    state.revision = state.revision.saturating_add(1);
+    Ok(())
+}
 pub(crate) fn automatic_owner() -> Result<Option<(String, u64)>, String> { coordinator().automatic_owner() }
 pub(crate) fn with_automatic_owner<T>(owner: &str, generation: u64, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     coordinator().with_automatic_owner(owner, generation, action)
@@ -516,7 +533,7 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn startup_connection_is_fenced_by_prior_owner_activity_and_cannot_be_motion() {
+    fn startup_connection_is_fenced_by_an_owner_and_cannot_be_motion() {
         let coordinator = RotorCoordinator::new();
         let connect = json!({"id":"startup","method":"rotor_connect",
             "params":{"owner":"native_dcu1","host":"rotor.example.invalid","port":4001,"name":"ARCO"}});
@@ -526,9 +543,6 @@ mod tests {
             Ok(success("startup", json!({"connected":false})))
         }).unwrap();
         assert!(coordinator.handle_scoped(connect.clone(), None, true, |_| panic!("Second startup connection")).is_err());
-        coordinator.handle(json!({"id":"disconnect","method":"rotor_disconnect","params":{"owner":"native_dcu1","generation":1}}),
-            |_| Ok(success("disconnect", json!({})))).unwrap();
-        assert!(coordinator.handle_scoped(connect, None, true, |_| panic!("Startup reversed disconnect")).is_err());
         let fresh = RotorCoordinator::new();
         for method in ["rotor_goto", "rotor_stop", "rotor_park", "rotor_disconnect"] {
             assert!(fresh.handle_scoped(json!({"id":"motion","method":method,"params":{"owner":"native_dcu1","generation":0,"bearing":90}}),

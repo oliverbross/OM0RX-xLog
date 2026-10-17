@@ -70,6 +70,7 @@ pub struct ClusterSession {
     projection: Mutex<Projection>,
     started: AtomicBool,
     stopped: AtomicBool,
+    restored_worker_generation: AtomicU64,
     sequence: AtomicU64,
     selection_holds: AtomicUsize,
     wake: (Mutex<()>, Condvar),
@@ -98,6 +99,7 @@ impl ClusterSession {
             }),
             started: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
+            restored_worker_generation: AtomicU64::new(0),
             sequence: AtomicU64::new(0),
             selection_holds: AtomicUsize::new(0),
             wake: (Mutex::new(()), Condvar::new()),
@@ -134,9 +136,9 @@ impl ClusterSession {
         Ok(SelectionFence(self.clone()))
     }
 
-    fn accept(&self, response: &Value, generation: u64) -> Result<(), String> {
+    fn accept_at_generation(&self, response: &Value, generation: u64, current_generation: u64) -> Result<(), String> {
         self.active()?;
-        if generation != crate::worker::generation() { return Err("Cluster worker changed before the snapshot was accepted.".into()); }
+        if generation != current_generation { return Err("Cluster worker changed before the snapshot was accepted.".into()); }
         let payload = &response["result"];
         if response["ok"] != true
             || !payload["snapshot"]["spots"]
@@ -169,6 +171,10 @@ impl ClusterSession {
         }
         self.emit();
         Ok(())
+    }
+
+    fn accept(&self, response: &Value, generation: u64) -> Result<(), String> {
+        self.accept_at_generation(response, generation, crate::worker::generation())
     }
 
     fn emit(&self) {
@@ -208,6 +214,40 @@ impl ClusterSession {
         self.refresh()?;
         self.emit();
         Ok(())
+    }
+
+    pub(crate) fn resume_after_worker_restart(
+        &self,
+        worker_generation: u64,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>,
+    ) -> Result<(), String> {
+        self.resume_after_worker_restart_with_generation(
+            worker_generation,
+            crate::worker::generation,
+            dispatch,
+        )
+    }
+
+    fn resume_after_worker_restart_with_generation(
+        &self,
+        worker_generation: u64,
+        current_generation: impl FnOnce() -> u64,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>,
+    ) -> Result<(), String> {
+        if worker_generation <= 1 { return Ok(()); }
+        let _guard = self.command.try_lock()
+            .map_err(|_| "Cluster session is busy; its regular poll will resume the replacement worker.".to_string())?;
+        self.active()?;
+        if self.restored_worker_generation.fetch_update(
+            Ordering::AcqRel,
+            Ordering::Acquire,
+            |previous| (worker_generation > previous).then_some(worker_generation),
+        ).is_err() {
+            return Ok(());
+        }
+        self.unavailable();
+        let response = dispatch(self.snapshot_request())?;
+        self.accept_at_generation(&response, worker_generation, current_generation())
     }
 
     /// Immutable fields come exclusively from this native retained snapshot.
@@ -354,6 +394,10 @@ impl ClusterSession {
 static OWNER: OnceLock<Arc<ClusterSession>> = OnceLock::new();
 static STOPPED: AtomicBool = AtomicBool::new(false);
 
+pub(crate) fn retained_owner() -> Option<Arc<ClusterSession>> {
+    if STOPPED.load(Ordering::Acquire) { None } else { OWNER.get().cloned() }
+}
+
 pub fn owner(app: &tauri::AppHandle) -> Result<Arc<ClusterSession>, String> {
     if STOPPED.load(Ordering::Acquire) {
         return Err("The cluster session is shutting down.".into());
@@ -465,6 +509,34 @@ mod tests {
             );
         }
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+    #[test]
+    fn replacement_worker_is_restored_once_per_generation_with_exact_snapshot_request() {
+        let owner = ClusterSession::new(
+            Arc::new(|_| panic!("retained transport must not replace the exact worker dispatch")),
+            Arc::new(|_| {}),
+        );
+        let mut calls = 0;
+        owner.resume_after_worker_restart_with_generation(1, || 1, |_| {
+            panic!("initial worker generation must not be restored")
+        }).unwrap();
+        owner.resume_after_worker_restart_with_generation(2, || 2, |request| {
+            calls += 1;
+            assert_eq!(request["method"], "cluster_resume");
+            assert_eq!(request["params"], json!({}));
+            Ok(reply(&request, "generation-2"))
+        }).unwrap();
+        owner.resume_after_worker_restart_with_generation(2, || 2, |_| {
+            panic!("same worker generation restored twice")
+        }).unwrap();
+        owner.resume_after_worker_restart_with_generation(3, || 3, |request| {
+            calls += 1;
+            Ok(reply(&request, "generation-3"))
+        }).unwrap();
+        assert_eq!(calls, 2);
+        let projection = owner.projection_value().unwrap();
+        assert_eq!(projection["available"], true);
+        assert_eq!(projection["response"]["query"], "generation-3");
     }
     #[test]
     fn failed_cluster_reads_still_sample_passive_activity_each_cycle() {

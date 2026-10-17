@@ -1,5 +1,6 @@
 import Foundation
 #if os(macOS)
+import LocalAuthentication
 import Security
 import XCatIntegrationCore
 #endif
@@ -584,10 +585,14 @@ struct ClusterCredentialVault: ClusterCredentialStoring {
     private let service = "com.oliverbross.xlog.integration.cluster"
 
     func load(_ id: UUID) throws -> String? {
+        let authentication = LAContext()
+        authentication.interactionNotAllowed = true
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service,
                                     kSecAttrAccount as String: id.uuidString,
-                                    kSecReturnData as String: true]
+                                    kSecReturnData as String: true,
+                                    kSecMatchLimit as String: kSecMatchLimitOne,
+                                    kSecUseAuthenticationContext as String: authentication]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }

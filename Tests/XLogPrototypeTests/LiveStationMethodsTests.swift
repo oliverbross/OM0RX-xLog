@@ -164,6 +164,8 @@ final class LiveStationMethodsTests: XCTestCase {
     func testMalformedStationCommandsFailBeforeTransport() async {
         let invalidRequests: [(String, [String: Any])] = [
             ("station_snapshot", ["url": "https://example.invalid"]),
+            ("station_connect", ["provider": "direct_agent", "base_url": "https://station.example:8443",
+                "allow_transmit": false, "allow_keychain_interaction": "yes"]),
             ("station_tune", ["frequency_hz": true, "mode": "CW"]),
             ("station_tune", ["frequency_hz": 14_074_000.5, "mode": "CW"]),
             ("station_tune", ["frequency_hz": 14_074_000, "mode": "CW;TX"]),

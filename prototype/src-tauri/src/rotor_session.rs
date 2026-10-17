@@ -1,7 +1,7 @@
 //! Native saved rotor connection intent. Startup never issues a motion command.
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{io::Write, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Mutex, OnceLock}};
+use std::{io::Write, path::PathBuf, sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Mutex, OnceLock}};
 use tauri::Manager;
 
 pub(crate) struct AutomaticPolicy {
@@ -45,6 +45,7 @@ struct Session {
     checked: AtomicBool,
     invalidated: AtomicBool,
     stopped: AtomicBool,
+    restored_worker_generation: AtomicU64,
 }
 
 fn connection(snapshot: &Value) -> Result<Option<Value>, String> {
@@ -82,7 +83,8 @@ fn connection_settings(configuration: &Value) -> Option<Value> {
 impl Session {
     fn new(path: PathBuf) -> Self {
         Self { path, operation: Mutex::new(()), checked: AtomicBool::new(false),
-            invalidated: AtomicBool::new(false), stopped: AtomicBool::new(false) }
+            invalidated: AtomicBool::new(false), stopped: AtomicBool::new(false),
+            restored_worker_generation: AtomicU64::new(0) }
     }
     fn read(&self) -> Result<Option<Receipt>, String> {
         let bytes = match std::fs::read(&self.path) {
@@ -134,13 +136,36 @@ impl Session {
         self.active()?;
         if self.invalidated.load(Ordering::Acquire) { return Ok(None); }
         let previous = self.read()?;
-        if previous.as_ref().is_some_and(|receipt| receipt.status != "acknowledged" || receipt.action == "disconnect") {
+        if previous.as_ref().is_some_and(|receipt| receipt.action == "disconnect") {
             return Ok(None);
         }
         let saved = load()?;
         let Some(params) = connection(&saved)? else { return Ok(None); };
         if self.invalidated.load(Ordering::Acquire)
             || previous.as_ref().is_some_and(|receipt| receipt.configuration != saved) { return Ok(None); }
+        let request = json!({"id":uuid::Uuid::new_v4().to_string(),"method":"rotor_connect","params":params});
+        self.dispatch(request, saved, dispatch).map(Some)
+    }
+    fn resume_after_worker_restart(&self, worker_generation: u64,
+        reset: impl FnOnce() -> Result<(), String>, load: impl FnOnce() -> Result<Value, String>,
+        dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Option<Value>, String> {
+        let _operation = self.operation.lock().map_err(|_| "Rotor session is unavailable.")?;
+        self.active()?;
+        if worker_generation <= 1
+            || self.restored_worker_generation.fetch_update(
+                Ordering::AcqRel,
+                Ordering::Acquire,
+                |previous| (worker_generation > previous).then_some(worker_generation),
+            ).is_err()
+        {
+            return Ok(None);
+        }
+        reset()?;
+        let previous = self.read()?;
+        if previous.as_ref().is_some_and(|receipt| receipt.action == "disconnect") { return Ok(None); }
+        let saved = load()?;
+        let Some(params) = connection(&saved)? else { return Ok(None); };
+        if previous.as_ref().is_some_and(|receipt| receipt.configuration != saved) { return Ok(None); }
         let request = json!({"id":uuid::Uuid::new_v4().to_string(),"method":"rotor_connect","params":params});
         self.dispatch(request, saved, dispatch).map(Some)
     }
@@ -207,6 +232,12 @@ fn load() -> Result<Value, String> {
     if reply["id"] != id || reply["ok"] != true { return Err("Saved rotor configuration is unavailable.".into()); }
     Ok(reply["result"].clone())
 }
+fn load_with(dispatch: &dyn Fn(Value) -> Result<Value, String>) -> Result<Value, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let reply = dispatch(json!({"id":id,"method":"workspace_rotor_configuration_load","params":{}}))?;
+    if reply["id"] != id || reply["ok"] != true { return Err("Saved rotor configuration is unavailable.".into()); }
+    Ok(reply["result"].clone())
+}
 pub fn install(app: &tauri::AppHandle) -> Result<(), String> {
     let path = app.path().app_config_dir().map_err(|_| "Rotor connection storage is unavailable.")?.join("rotor-session.json");
     OWNER.get_or_init(|| Session::new(path));
@@ -232,6 +263,18 @@ pub fn resume() -> Result<Option<AutomaticStartup>, String> {
     let (owner, generation) = crate::rotor::automatic_owner()?
         .ok_or("Observe a connected rotor before enabling automatic turns.")?;
     Ok(Some(AutomaticStartup { owner, generation, bands: policy.unwrap().bands }))
+}
+pub(crate) fn resume_after_worker_restart(
+    worker_generation: u64,
+    dispatch: std::sync::Arc<dyn Fn(Value) -> Result<Value, String> + Send + Sync>,
+) -> Result<(), String> {
+    let loader = dispatch.clone();
+    owner()?.resume_after_worker_restart(
+        worker_generation,
+        crate::rotor::worker_restarted,
+        || load_with(loader.as_ref()),
+        |request| crate::rotor::request_startup_with(request, |request| dispatch(request)),
+    ).map(|_| ())
 }
 pub fn request(request: Value) -> Result<Value, String> {
     if matches!(request["method"].as_str(), Some("rotor_connect" | "rotor_disconnect")) {
@@ -293,9 +336,11 @@ mod tests {
             || panic!("Disconnect must not depend on a workspace read"), reply).unwrap();
         let restored = Session::new(directory.path().join("rotor-session.json"));
         assert!(restored.resume(|| panic!("Disconnect intent was ignored"), forbidden).unwrap().is_none());
+        assert!(restored.resume_after_worker_restart(2, || Ok(()),
+            || panic!("Disconnect intent was ignored"), forbidden).unwrap().is_none());
     }
     #[test]
-    fn startup_does_not_replay_pending_unknown_or_lost_acknowledgement() {
+    fn uncertain_connect_restores_once_per_new_process_or_worker_generation_without_motion() {
         for status in ["pending", "unknown", "lost_ack"] {
             let (directory, session, saved) = fixture();
             if status == "lost_ack" {
@@ -306,7 +351,26 @@ mod tests {
                     action:"connect".into(), status:status.into(), configuration:saved.clone() }).unwrap();
             }
             let restored = Session::new(directory.path().join("rotor-session.json"));
-            assert!(restored.resume(|| panic!("Uncertain receipt loaded configuration"), forbidden).unwrap().is_none());
+            let connect_only = |request: Value| {
+                assert_eq!(request["method"], "rotor_connect");
+                assert_eq!(request["params"], json!({"owner":"native_dcu1",
+                    "host":"rotor.example.invalid","port":4001,"name":"ARCO"}));
+                assert_eq!(request.as_object().unwrap().len(), 3);
+                reply(request)
+            };
+            assert!(restored.resume(|| Ok(saved.clone()), connect_only).unwrap().is_some(), "{status}");
+
+            let worker = Session::new(directory.path().join("rotor-session.json"));
+            let resets = std::cell::Cell::new(0);
+            assert!(worker.resume_after_worker_restart(1, || panic!("generation one reset"),
+                || panic!("generation one loaded"), forbidden).unwrap().is_none());
+            assert!(worker.resume_after_worker_restart(2, || { resets.set(resets.get() + 1); Ok(()) },
+                || Ok(saved.clone()), connect_only).unwrap().is_some());
+            assert!(worker.resume_after_worker_restart(2, || panic!("same generation reset"),
+                || panic!("same generation loaded"), forbidden).unwrap().is_none());
+            assert!(worker.resume_after_worker_restart(3, || { resets.set(resets.get() + 1); Ok(()) },
+                || Ok(saved.clone()), connect_only).unwrap().is_some());
+            assert_eq!(resets.get(), 2);
         }
     }
     #[test]
@@ -406,7 +470,7 @@ mod tests {
         }
     }
     #[test]
-    fn policy_save_does_not_promote_an_uncertain_connection() {
+    fn policy_save_does_not_make_an_uncertain_receipt_match_new_configuration() {
         let (directory, session, saved) = fixture();
         session.persist(&Receipt { version: 1, operation_id: uuid::Uuid::new_v4().to_string(),
             action: "connect".into(), status: "unknown".into(), configuration: saved.clone() }).unwrap();
@@ -417,7 +481,7 @@ mod tests {
         session.save_configuration(request, |request| saved_reply(request, next.clone())).unwrap();
         assert_eq!(session.read().unwrap().unwrap().status, "unknown");
         let restored = Session::new(directory.path().join("rotor-session.json"));
-        assert!(restored.resume(|| panic!("Uncertain intent must not load settings"), forbidden).unwrap().is_none());
+        assert!(restored.resume(|| Ok(next), forbidden).unwrap().is_none());
     }
     #[test]
     fn automatic_policy_defaults_on_for_legacy_settings_and_preserves_explicit_off() {

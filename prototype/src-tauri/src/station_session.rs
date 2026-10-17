@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{
     io::Write,
     path::PathBuf,
-    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock},
+    sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc, Mutex, OnceLock},
 };
 use tauri::Manager;
 
@@ -35,6 +35,7 @@ pub struct Session {
     state: Mutex<Saved>,
     operation: Mutex<()>,
     resume_checked: AtomicBool,
+    restored_worker_generation: AtomicU64,
 }
 
 pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String> {
@@ -331,6 +332,7 @@ impl Session {
             state: Mutex::new(saved),
             operation: Mutex::new(()),
             resume_checked: AtomicBool::new(false),
+            restored_worker_generation: AtomicU64::new(0),
         })
     }
     fn persist(&self, saved: &Saved) -> Result<(), String> {
@@ -408,21 +410,32 @@ impl Session {
         Ok(json!(&state.receipts[index]))
     }
     /// Only native application startup may restore the saved Agent connection.
-    /// Journal a fresh connection with station controls available. Never replay
-    /// an uncertain operation or override explicit disconnect/credential removal.
+    /// Journal a fresh connection with station controls available. Reconcile a
+    /// prior uncertain connect with a new identity, but never override an
+    /// explicit disconnect or credential removal.
     pub fn resume_saved_agent(
         &self,
         selection: &Value,
         dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
     ) -> Result<Option<Value>, String> {
-        if self.resume_checked.swap(true, Ordering::AcqRel)
-            || selection["provider"] != "direct_agent"
-            || selection["generation"] != 0 || selection["control_revision"] != 0 {
+        if self.resume_checked.swap(true, Ordering::AcqRel) {
+            return Ok(None);
+        }
+        self.resume_saved_agent_inner(selection, dispatch)
+    }
+    fn resume_saved_agent_inner(
+        &self,
+        selection: &Value,
+        dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
+    ) -> Result<Option<Value>, String> {
+        if selection["provider"] != "direct_agent"
+            || selection["generation"].as_u64().is_none_or(|value| value > MAX_REVISION)
+            || selection["control_revision"].as_u64().is_none_or(|value| value > MAX_REVISION)
+            || selection["selection_id"].as_str().is_none_or(|value| uuid::Uuid::parse_str(value).is_err()) {
             return Ok(None);
         }
         let state = self.state.lock().map_err(|_| "Station Control state is unavailable.")?;
         if state.base_url.is_empty()
-            || state.receipts.iter().any(|receipt| matches!(receipt.status.as_str(), "pending" | "unknown"))
             || state.receipts.iter().rev().find(|receipt| matches!(receipt.request["action"].as_str(),
                 Some("connect" | "disconnect" | "forget")))
                 .is_some_and(|receipt| receipt.request["action"] != "connect") {
@@ -431,11 +444,28 @@ impl Session {
         let params = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
             "generation":state.generation,"revision":state.revision,
             "selection_generation":selection["generation"],"selection_id":selection["selection_id"],
-            "allow_transmit":true});
+            "allow_transmit":true,"allow_keychain_interaction":false});
         drop(state);
         // The existing admission path persists pending before transport, fences
         // concurrent setup edits, and lets Swift load only this endpoint's token.
         self.apply(&params, dispatch).map(Some)
+    }
+    pub(crate) fn resume_saved_agent_after_worker_restart(
+        &self,
+        worker_generation: u64,
+        selection: &Value,
+        dispatch: impl FnOnce(Value, u64, &str) -> Result<Value, String>,
+    ) -> Result<Option<Value>, String> {
+        if worker_generation <= 1
+            || self.restored_worker_generation.fetch_update(
+                Ordering::AcqRel,
+                Ordering::Acquire,
+                |previous| (worker_generation > previous).then_some(worker_generation),
+            ).is_err()
+        {
+            return Ok(None);
+        }
+        self.resume_saved_agent_inner(selection, dispatch)
     }
     pub fn apply(
         &self,
@@ -458,6 +488,11 @@ impl Session {
                 | "receive_frequency" | "receive_mode" | "manual_tune" | "tci_receive_filter" | "manual_rotor_goto"
         ) {
             return Err("Unknown Station Control action.".into());
+        }
+        if action == "connect"
+            && params.get("allow_keychain_interaction").is_some_and(|value| !value.is_boolean())
+        {
+            return Err("Invalid Keychain interaction policy.".into());
         }
         if matches!(action, "save_tci" | "connect_tci" | "disconnect_tci") {
             let keys: &[&str] = if action == "save_tci" {
@@ -646,6 +681,12 @@ impl Session {
                     }
                     connection["token"] = token.clone();
                 }
+                if action == "connect" {
+                    connection["allow_keychain_interaction"] = json!(params
+                        .get("allow_keychain_interaction")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(true));
+                }
             }
             // Every admitted lifecycle command advances shared command state,
             // fencing a second action composed against an older connection view.
@@ -722,6 +763,9 @@ pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Session>, String> {
     let session = Arc::new(Session::new(path)?);
     *owner = Some(session.clone());
     Ok(session)
+}
+pub(crate) fn retained_owner() -> Option<Arc<Session>> {
+    OWNER.get().and_then(|slot| slot.lock().ok()?.clone())
 }
 
 #[cfg(test)]
@@ -955,7 +999,8 @@ mod tests {
             assert_eq!(identity, selection["selection_id"].as_str().unwrap());
             assert_eq!(request["method"], "station_connect");
             assert_eq!(request["params"], json!({"provider":"direct_agent",
-                "base_url":"https://station.example:8443","allow_transmit":true}));
+                "base_url":"https://station.example:8443","allow_transmit":true,
+                "allow_keychain_interaction":false}));
             assert_eq!(session.receipt(request["id"].as_str().unwrap()).unwrap()["status"], "pending");
             let disk: Value = serde_json::from_slice(&std::fs::read(directory.path().join("session.json")).unwrap()).unwrap();
             assert_eq!(disk["receipts"][1]["status"], "pending");
@@ -966,7 +1011,7 @@ mod tests {
         assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
     }
     #[test]
-    fn startup_does_not_connect_unselected_unsaved_or_already_changed_radios() {
+    fn startup_does_not_connect_unselected_unsaved_or_invalid_radios() {
         for provider in [Value::Null, json!("hamlib"), json!("xcat_loopback"), json!("direct_flex_lan")] {
             let (_directory, session, save) = setup();
             session.apply(&save, passive).unwrap();
@@ -976,45 +1021,68 @@ mod tests {
         for key in ["generation", "control_revision"] {
             let (_directory, session, save) = setup();
             session.apply(&save, passive).unwrap();
-            let mut selection = startup_selection(); selection[key] = json!(1);
+            let mut selection = startup_selection(); selection[key] = json!(MAX_REVISION + 1);
             assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
         }
+        let (_directory, session, save) = setup();
+        session.apply(&save, passive).unwrap();
+        let mut selection = startup_selection(); selection["selection_id"] = json!("not-a-uuid");
+        assert!(session.resume_saved_agent(&selection, passive).unwrap().is_none());
         let (_directory, session, _) = setup();
         assert!(session.resume_saved_agent(&startup_selection(), passive).unwrap().is_none());
     }
     #[test]
-    fn startup_respects_disconnect_forget_and_all_uncertain_receipts_after_restart() {
-        for (action, status) in [("disconnect", "acknowledged"), ("forget", "acknowledged"),
-            ("connect", "unknown"), ("connect", "pending")] {
+    fn startup_and_worker_restart_respect_explicit_disconnect_and_forget() {
+        for action in ["disconnect", "forget"] {
             let (directory, session, save) = setup();
             session.apply(&save, passive).unwrap();
             let selection = startup_selection();
             let command = json!({"action":action,"operation_id":uuid::Uuid::new_v4().to_string(),
                 "generation":save["generation"],"revision":1,"selection_generation":0,
-                "selection_id":selection["selection_id"],"allow_transmit":true});
+                "selection_id":selection["selection_id"],"allow_transmit":true,
+                "allow_keychain_interaction":true});
             session.apply(&command, |request, _, _| Ok(json!({"id":request["id"],"ok":true}))).unwrap();
-            // A later passive endpoint save cannot clear a disconnect or an
-            // uncertain earlier command, even when it is no longer last_receipt.
+            // A later passive endpoint save cannot clear an explicit lifecycle barrier.
             let mut later_save = save.clone();
             later_save["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
             later_save["revision"] = json!(2);
             session.apply(&later_save, passive).unwrap();
-            let mut saved = session.state.lock().unwrap().clone();
-            saved.receipts[1].status = status.into();
-            session.persist(&saved).unwrap();
             let restored = Session::new(directory.path().join("session.json")).unwrap();
-            assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none(), "{action}/{status}");
+            assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none(), "{action}");
+            assert!(restored.resume_saved_agent_after_worker_restart(2, &selection, passive).unwrap().is_none(), "{action}");
         }
     }
     #[test]
-    fn lost_startup_acknowledgement_is_not_retried_on_next_launch() {
-        let (directory, session, save) = setup();
-        session.apply(&save, passive).unwrap();
-        let selection = startup_selection();
-        let receipt = session.resume_saved_agent(&selection, |_, _, _| Err("transport lost".into())).unwrap().unwrap();
-        assert_eq!(receipt["status"], "unknown");
-        let restored = Session::new(directory.path().join("session.json")).unwrap();
-        assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none());
+    fn uncertain_connect_intent_restores_once_per_new_process_or_worker_generation_without_rf_action() {
+        for status in ["pending", "unknown"] {
+            let (directory, session, save) = setup();
+            session.apply(&save, passive).unwrap();
+            let selection = startup_selection();
+            let command = json!({"action":"connect","operation_id":uuid::Uuid::new_v4().to_string(),
+                "generation":save["generation"],"revision":1,"selection_generation":0,
+                "selection_id":selection["selection_id"],"allow_transmit":true,
+                "allow_keychain_interaction":true});
+            session.apply(&command, |request, _, _| Ok(json!({"id":request["id"],"ok":true}))).unwrap();
+            let mut saved = session.state.lock().unwrap().clone();
+            saved.receipts[1].status = status.into();
+            session.persist(&saved).unwrap();
+
+            let restored = Session::new(directory.path().join("session.json")).unwrap();
+            let assert_connect_only = |request: Value, _: u64, _: &str| {
+                assert_eq!(request["method"], "station_connect");
+                assert_eq!(request["params"], json!({"provider":"direct_agent",
+                    "base_url":"https://station.example:8443","allow_transmit":true,
+                    "allow_keychain_interaction":false}));
+                Ok(json!({"id":request["id"],"ok":true}))
+            };
+            assert!(restored.resume_saved_agent(&selection, assert_connect_only).unwrap().is_some(), "{status}");
+
+            let worker = Session::new(directory.path().join("session.json")).unwrap();
+            assert!(worker.resume_saved_agent_after_worker_restart(1, &selection, passive).unwrap().is_none());
+            assert!(worker.resume_saved_agent_after_worker_restart(2, &selection, assert_connect_only).unwrap().is_some());
+            assert!(worker.resume_saved_agent_after_worker_restart(2, &selection, passive).unwrap().is_none());
+            assert!(worker.resume_saved_agent_after_worker_restart(3, &selection, assert_connect_only).unwrap().is_some());
+        }
     }
     #[test]
     fn shared_setup_is_durable_revision_fenced_and_exactly_replayed() {

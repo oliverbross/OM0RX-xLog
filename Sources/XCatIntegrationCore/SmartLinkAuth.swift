@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Security
 import CryptoKit
 
@@ -40,12 +41,15 @@ public struct SmartLinkKeychain: Sendable {
     }
 
     private func load(account: String) throws -> String? {
+        let authentication = LAContext()
+        authentication.interactionNotAllowed = true
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecReturnData as String: true,
+            kSecUseAuthenticationContext as String: authentication,
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -113,8 +117,11 @@ public struct SmartLinkCertificatePinStore: Sendable {
             kSecAttrAccount as String: identity,
         ]
         var query = identity
+        let authentication = LAContext()
+        authentication.interactionNotAllowed = true
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
+        query[kSecUseAuthenticationContext as String] = authentication
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecSuccess,

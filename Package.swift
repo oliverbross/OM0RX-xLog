@@ -20,7 +20,9 @@ let prototypeCoreTargets: [Target] = [
     .target(name: "XLogCore", dependencies: ["CCurlBackup"], resources: [.process("Resources")], linkerSettings: [
         .linkedFramework("LocalAuthentication"), .linkedFramework("Network"), .linkedFramework("Security"), .linkedLibrary("sqlite3"), .linkedLibrary("z")
     ]),
-    .target(name: "XCatIntegrationCore", linkerSettings: [.linkedFramework("Network"), .linkedFramework("Security")])
+    .target(name: "XCatIntegrationCore", linkerSettings: [
+        .linkedFramework("LocalAuthentication"), .linkedFramework("Network"), .linkedFramework("Security")
+    ])
 ]
 #else
 let portableDependencies: [Package.Dependency] = [

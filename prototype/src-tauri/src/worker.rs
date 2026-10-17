@@ -621,6 +621,46 @@ fn announce_session(session: &Arc<Session>) {
                 request_in_session(&exact_session, request, RESPONSE_TIMEOUT)
             }),
         );
+        if session.generation > 1 {
+            let generation = session.generation;
+            let exact_session = session.clone();
+            let transport: Arc<dyn Fn(Value) -> Result<Value, String> + Send + Sync> = Arc::new(move |request| {
+                validate_request(&request)?;
+                request_in_session(&exact_session, request, RESPONSE_TIMEOUT)
+            });
+            let _ = std::thread::Builder::new()
+                .name("xlog-connection-restore".into())
+                .spawn(move || {
+                    if let (Some(station), Ok(selection)) = (
+                        crate::station_session::retained_owner(),
+                        crate::station_selection::retained_snapshot(),
+                    ) {
+                        let control_revision = selection["control_revision"].as_u64().unwrap_or(u64::MAX);
+                        let radio_transport = transport.clone();
+                        if let Err(error) = station.resume_saved_agent_after_worker_restart(
+                            generation,
+                            &selection,
+                            |request, expected, identity| crate::station_selection::restore_receive_control(
+                                request,
+                                expected,
+                                identity,
+                                control_revision,
+                                |request| radio_transport(request),
+                            ),
+                        ) {
+                            eprintln!("Saved radio connection could not be restored after worker restart: {error}");
+                        }
+                    }
+                    if let Err(error) = crate::rotor_session::resume_after_worker_restart(generation, transport.clone()) {
+                        eprintln!("Saved rotor connection could not be restored after worker restart: {error}");
+                    }
+                    if let Some(cluster) = crate::cluster_session::retained_owner() {
+                        if let Err(error) = cluster.resume_after_worker_restart(generation, |request| transport(request)) {
+                            eprintln!("Cluster connection could not be restored after worker restart: {error}");
+                        }
+                    }
+                });
+        }
     }
 }
 

@@ -3,6 +3,7 @@ import AppKit
 import CryptoKit
 import Darwin
 import Foundation
+import LocalAuthentication
 import Security
 import XCatIntegrationCore
 import XLogCore
@@ -246,10 +247,18 @@ actor LiveStationSession {
             catServers = servers; catConfiguration = nextConfiguration
             return await snapshot()
         case "station_connect":
-            try requireKeys(params, allowed: ["provider", "base_url", "token", "allow_transmit"])
+            try requireKeys(params, allowed: ["provider", "base_url", "token", "allow_transmit", "allow_keychain_interaction"])
             let endpoint = try Self.validatedURL(params["base_url"])
             let enteredToken = params["token"] as? String
             guard params["token"] == nil || enteredToken != nil else { throw Self.invalidParams() }
+            let allowKeychainInteraction: Bool
+            if let rawInteraction = params["allow_keychain_interaction"] {
+                guard let value = rawInteraction as? NSNumber,
+                      CFGetTypeID(value) == CFBooleanGetTypeID() else { throw Self.invalidParams() }
+                allowKeychainInteraction = value.boolValue
+            } else {
+                allowKeychainInteraction = false
+            }
             let transmit: Bool
             if let rawTransmit = params["allow_transmit"] {
                 guard let value = rawTransmit as? NSNumber,
@@ -260,7 +269,7 @@ actor LiveStationSession {
             }
             let keychain = StationAgentKeychain(endpoint: endpoint)
             let token = try enteredToken?.trimmingCharacters(in: .whitespacesAndNewlines)
-                ?? keychain.load()
+                ?? keychain.load(interactionAllowed: allowKeychainInteraction)
             guard let token, !token.isEmpty, token.utf8.count <= 4_096 else {
                 throw WorkerFailure("station_credentials_required", "Enter a Remote Station Agent token.")
             }
@@ -1222,9 +1231,9 @@ private struct StationAgentKeychain {
             .map { String(format: "%02x", $0) }.joined()
     }
 
-    func load() throws -> String? {
+    func load(interactionAllowed: Bool) throws -> String? {
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(query(returnData: true) as CFDictionary, &item)
+        let status = SecItemCopyMatching(query(returnData: true, interactionAllowed: interactionAllowed) as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = item as? Data,
               let token = String(data: data, encoding: .utf8) else {
@@ -1256,13 +1265,18 @@ private struct StationAgentKeychain {
         }
     }
 
-    private func query(returnData: Bool = false) -> [String: Any] {
+    private func query(returnData: Bool = false, interactionAllowed: Bool = false) -> [String: Any] {
         var fields: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                      kSecAttrService as String: service,
                                      kSecAttrAccount as String: account]
         if returnData {
             fields[kSecReturnData as String] = true
             fields[kSecMatchLimit as String] = kSecMatchLimitOne
+        }
+        if returnData && !interactionAllowed {
+            let authentication = LAContext()
+            authentication.interactionNotAllowed = true
+            fields[kSecUseAuthenticationContext as String] = authentication
         }
         return fields
     }

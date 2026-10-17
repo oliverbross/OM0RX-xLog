@@ -555,6 +555,10 @@ impl Selection {
         admit: impl FnOnce() -> Result<G, String>) -> Result<Value, String> {
         self.control_scoped_dispatch(request, Some((expected, identity, Some(control_revision))), admit, |request| (self.transport)(request))
     }
+    pub(crate) fn receive_control_with_dispatch<G>(&self, request: Value, expected: u64, identity: &str, control_revision: u64,
+        admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
+        self.control_scoped_dispatch(request, Some((expected, identity, Some(control_revision))), admit, dispatch)
+    }
     pub fn manual_tune<G>(&self, request: Value, expected: u64, identity: &str, control_revision: u64,
         admit: impl FnOnce() -> Result<G, String>, dispatch: impl FnOnce(Value) -> Result<Value, String>) -> Result<Value, String> {
         let state = self.state.try_lock().map_err(|_| "Radio selection is busy")?;
@@ -788,6 +792,17 @@ pub(crate) fn worker_generation_started(generation: u64, transport: Arc<Transpor
             }
         }
     }
+}
+pub(crate) fn restore_receive_control(
+    request: Value,
+    expected: u64,
+    identity: &str,
+    control_revision: u64,
+    dispatch: impl FnOnce(Value) -> Result<Value, String>,
+) -> Result<Value, String> {
+    let owner = OWNER.get().and_then(|slot| slot.lock().ok()?.clone())
+        .ok_or("Radio selection is unavailable")?;
+    owner.receive_control_with_dispatch(request, expected, identity, control_revision, || Ok(()), dispatch)
 }
 pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Selection>, String> {
     if STOPPED.load(Ordering::Acquire) {
@@ -2041,6 +2056,27 @@ mod tests {
         owner.receive_control(request(), 0, identity, revision, || Ok(())).unwrap();
         assert!(owner.receive_control(request(), 0, identity, revision, || -> Result<(), String> { panic!("duplicate observation admitted") }).is_err());
         assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == "station_radio_control").count(), 1);
+    }
+    #[test]
+    fn restart_receive_control_uses_exact_dispatch_and_consumes_the_control_epoch_once() {
+        let (_directory, owner, calls) = fixture();
+        let selected = initialized(&owner, Some("direct_agent"));
+        let identity = selected["selection_id"].as_str().unwrap();
+        let revision = selected["control_revision"].as_u64().unwrap();
+        let request = || json!({"id":"restore","method":"station_connect",
+            "params":{"provider":"direct_agent","base_url":"https://station.example:8443",
+                "allow_transmit":true,"allow_keychain_interaction":false}});
+        let mut dispatched = 0;
+        owner.receive_control_with_dispatch(request(), 0, identity, revision, || Ok(()), |sent| {
+            dispatched += 1;
+            assert_eq!(sent["method"], "station_connect");
+            Ok(reply(&sent, true))
+        }).unwrap();
+        assert_eq!(dispatched, 1);
+        assert!(owner.receive_control_with_dispatch(request(), 0, identity, revision,
+            || -> Result<(), String> { panic!("duplicate restore admitted") },
+            |_| -> Result<Value, String> { panic!("duplicate restore dispatched") }).is_err());
+        assert_eq!(calls.lock().unwrap().iter().filter(|item| item["method"] == "station_connect").count(), 0);
     }
     #[test]
     fn tci_filter_rejects_stale_selection_and_consumed_control_epoch() {
