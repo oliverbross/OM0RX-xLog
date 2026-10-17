@@ -10,15 +10,21 @@ const fixture = arrlFixtureJSON as any;
 afterEach(cleanup);
 
 function setup(branch: "wve" | "dx") {
-  const item = fixture[branch], createIDs = [item.createRequest.sessionID, item.createRequest.requestID];
+  const item = fixture[branch], createIDs = [item.createRequest.sessionID, item.createRequest.requestID, item.reserveRequest.requestID,
+    item.applyRequest?.requestID, item.commitRequest?.requestID].filter(Boolean);
+  let session = item.createResponse.result.session;
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     if (method === "contest_catalog") return fixture.catalog;
     if (method === "contest_sessions") return { id: "sessions", ok: true, result: { sessions: [] } };
-    if (method === "contest_create") return item.createResponse;
-    const session = item.createResponse.result.session;
+    if (method === "contest_create") { session = item.createResponse.result.session; return item.createResponse; }
+    if (method === "contest_serial_reserve") { session = item.reserveResponse.result?.session ?? session; return item.reserveResponse; }
+    if (method === "contest_draft_apply") { session = item.applyResponse.result.session; return item.applyResponse; }
+    if (method === "contest_qso_commit") { session = item.commitResponse.result.session; return item.commitResponse; }
     if (method === "contest_log_page") return { id: "log", ok: true, result: { sessionID: session.sessionID,
-      workspaceGeneration: session.workspaceGeneration, revision: session.revision, qsos: [], total: 0, offset: params.offset, limit: params.limit } };
-    if (method === "contest_score") return { id: "score", ok: true, result: { sessionID: session.sessionID,
+      workspaceGeneration: session.workspaceGeneration, revision: session.revision,
+      qsos: session.qsoCount ? [item.commitResponse.result.qso] : [], total: session.qsoCount, offset: params.offset, limit: params.limit } };
+    if (method === "contest_score") return { id: "score", ok: true, result: session.qsoCount ? { ...item.commitResponse.result.score,
+      multiplierLabels: [item.commitResponse.result.qso.multiplier], multiplierDisplayLabels: item.commitResponse.result.qso.multiplierDisplayLabels } : { sessionID: session.sessionID,
       workspaceGeneration: session.workspaceGeneration, revision: session.revision, qsos: 0, points: 0, multipliers: 0,
       claimedScore: 0, multiplierLabels: [], multiplierDisplayLabels: [], sourceVerification: "provisional" } };
     if (method === "contest_scp_status") return { id: "scp", ok: true, result: { available: false, reason: "No data" } };
@@ -50,40 +56,83 @@ it("creates a W/VE session from generic descriptors without exposing serial rese
   const request = setup("wve"); await fillARRL("wve");
   await screen.findByText(/ARRL RTTY Roundup Preview · ARRL RTTY WVE/);
   expect(screen.queryByRole("button", { name: "Reserve serial" })).toBeNull();
+  const sent = await screen.findByLabelText("Sent exchange");
+  expect(within(sent).getByText("Sent State or province")).toBeTruthy();
+  expect(within(sent).getByText("CA")).toBeTruthy();
+  expect(within(sent).queryByText("Sent Serial")).toBeNull();
   const create = request.mock.calls.find(call => call[0] === "contest_create")![1] as any;
   expect(create.payload.station).toEqual({ callsign: "K1AAA", cqZone: "5", dxccEntity: "UNITED STATES",
     exchangeFields: { location: "CA", serial: "" }, stationFields: { section: "EB" } });
 });
 
-it("shows reservation only from the authoritative DX resolved policy", async () => {
-  setup("dx"); await fillARRL("dx");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Reserve serial" })).toBeTruthy());
+it("uses authoritative DX allocation and sends nondefault reports through apply and log", async () => {
+  const request = setup("dx"); await fillARRL("dx");
+  const sent = await screen.findByLabelText("Sent exchange");
+  expect(within(sent).getByText("Sent Serial")).toBeTruthy();
+  expect(within(sent).getByText("Awaiting reservation")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Reserve serial" }));
+  await waitFor(() => expect(within(sent).getByText("001")).toBeTruthy());
   expect((screen.getByLabelText("Sent report") as HTMLInputElement).value).toBe("599");
   expect((screen.getByLabelText("Received report") as HTMLInputElement).value).toBe("599");
   expect(screen.getByLabelText("Received State, province, or serial")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Contest callsign"), { target: { value: "K1AAA" } });
+  fireEvent.change(screen.getByLabelText("Sent report"), { target: { value: "589" } });
+  fireEvent.change(screen.getByLabelText("Received report"), { target: { value: "579" } });
+  fireEvent.change(screen.getByLabelText("Received State, province, or serial"), { target: { value: "CA" } });
+  await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  const apply = request.mock.calls.find(([method]) => method === "contest_draft_apply")![1] as any;
+  expect([apply.payload.fields.sentReport, apply.payload.fields.receivedReport]).toEqual(["589", "579"]);
+  expect(apply.payload.fields.sentExchangeFields).toEqual({ location: "", serial: "001" });
+  fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+  await screen.findByText("Logged K1AAA.");
+  const commit = request.mock.calls.find(([method]) => method === "contest_qso_commit")![1] as any;
+  expect(commit).toMatchObject({ draftID: fixture.dx.commitRequest.draftID, expectedRevision: 3, payload: {} });
 });
 
-it("renders nondefault reports for structured ARRL correction while NAQP remains report-free", async () => {
+it("sends nondefault reports from the structured ARRL correction editor", async () => {
   const item = fixture.dx, session = item.openResponse.result.session;
+  let revision = session.revision;
+  let currentQSO = item.getResponse.result.qso;
   const qsoSummary = item.commitResponse.result.qso;
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     if (method === "contest_catalog") return fixture.catalog;
     if (method === "contest_sessions") return { id: "sessions", ok: true, result: { sessions: [session] } };
     if (method === "contest_open") return item.openResponse;
     if (method === "contest_log_page") return { id: "log", ok: true, result: { sessionID: session.sessionID,
-      workspaceGeneration: session.workspaceGeneration, revision: session.revision, qsos: [qsoSummary], total: 1,
+      workspaceGeneration: session.workspaceGeneration, revision, qsos: [qsoSummary], total: 1,
       offset: params.offset, limit: params.limit } };
     if (method === "contest_score") return { id: "score", ok: true, result: { ...item.commitResponse.result.score,
-      revision: session.revision, multiplierLabels: [qsoSummary.multiplier], multiplierDisplayLabels: qsoSummary.multiplierDisplayLabels } };
-    if (method === "contest_qso_get") return item.getResponse;
+      revision, multiplierLabels: [qsoSummary.multiplier], multiplierDisplayLabels: qsoSummary.multiplierDisplayLabels } };
+    if (method === "contest_qso_get") return { ...item.getResponse, result: { ...item.getResponse.result, revision, qso: currentQSO } };
+    if (method === "contest_qso_correct") {
+      revision = item.correctionResponse.result.session.revision;
+      currentQSO = { ...item.correctionResponse.result.currentTarget, ...(params.payload as any).qso };
+      return { ...item.correctionResponse, result: { ...item.correctionResponse.result, currentTarget: currentQSO } };
+    }
     if (method === "contest_scp_status") return { id: "scp", ok: true, result: { available: false, reason: "No data" } };
     throw new Error(`Unexpected ${method}`);
   });
-  render(<ContestWorkspace request={request as ContestRequest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  render(<ContestWorkspace request={request as ContestRequest} createRequestID={() => item.correctionRequest.requestID}
+    digestPayload={async () => item.correctionRequest.payloadDigest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
   fireEvent.click(await screen.findByRole("button", { name: /ARRL RTTY DX/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Edit K1AAA" }));
   const editor = await screen.findByRole("form", { name: "Edit K1AAA" });
   expect((within(editor).getByLabelText("Sent report") as HTMLInputElement).value).toBe("589");
   expect((within(editor).getByLabelText("Received report") as HTMLInputElement).value).toBe("579");
   expect(within(editor).getByLabelText("Received State, province, or serial")).toBeTruthy();
+  const frozen = within(editor).getByLabelText("Frozen sent exchange");
+  expect(within(frozen).getByText("Sent Serial")).toBeTruthy();
+  expect(within(frozen).getByText("001")).toBeTruthy();
+  fireEvent.change(within(editor).getByLabelText("Sent report"), { target: { value: "588" } });
+  fireEvent.change(within(editor).getByLabelText("Received report"), { target: { value: "578" } });
+  fireEvent.click(within(editor).getByRole("button", { name: "Save correction" }));
+  await screen.findByText(/Saved K1AAA/);
+  const correction = request.mock.calls.find(([method]) => method === "contest_qso_correct")![1] as any;
+  expect([correction.payload.qso.sentReport, correction.payload.qso.receivedReport]).toEqual(["588", "578"]);
+  expect(correction.payload.qso.sentExchangeFields).toEqual({ location: "", serial: "001" });
+  expect([currentQSO.sentReport, currentQSO.receivedReport]).toEqual(["588", "578"]);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit K1AAA" }));
+  const reopened = await screen.findByRole("form", { name: "Edit K1AAA" });
+  expect((within(reopened).getByLabelText("Sent report") as HTMLInputElement).value).toBe("588");
+  expect((within(reopened).getByLabelText("Received report") as HTMLInputElement).value).toBe("578");
 });

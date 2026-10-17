@@ -69,6 +69,10 @@
 .contest-entry>header span,.contest-entry>footer>span { color:var(--secondary,#a6b6ca); font-size:10px; }
 .contest-entry-fields { display:grid; grid-template-columns:minmax(170px,1.3fr) 72px minmax(100px,.8fr) 72px minmax(120px,1fr); gap:8px; align-items:end; margin-top:10px; }
 .contest-call input { color:var(--teal,#12d6a0); font:700 21px/1.1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; }
+.contest-sent-exchange { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:1px; margin-top:8px; border:1px solid #304b68; border-radius:6px; overflow:hidden; background:#304b68; }
+.contest-sent-exchange>div { display:flex; flex-direction:column; gap:2px; min-width:0; padding:7px 8px; background:#102137; }
+.contest-sent-exchange span { color:var(--secondary,#a6b6ca); font-size:9px; font-weight:700; text-transform:uppercase; }
+.contest-sent-exchange strong { overflow-wrap:anywhere; font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace; }
 .contest-entry-context { display:grid; grid-template-columns:130px minmax(150px,.6fr) minmax(180px,1fr); gap:8px; align-items:end; margin-top:8px; }
 .contest-entry-context>div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:3px 7px; min-height:51px; padding:5px 8px; border:1px solid #304b68; border-radius:6px; background:#102137; }
 .contest-entry-context>div>span { grid-column:1/-1; }
