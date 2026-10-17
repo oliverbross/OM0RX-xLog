@@ -147,10 +147,13 @@ impl RotorCoordinator {
                     current.last_observed = Some(Instant::now());
                 } else {
                     current.last_observed = None;
-                    // Only the untouched, disarmed startup reservation gets a
-                    // readiness grace period. An intervening Arm or Off changes
-                    // authority, so this failed telemetry must revoke normally.
-                    if !startup_observation.is_some_and(|epoch| self.automatic.disarmed_at_epoch(epoch)) {
+                    // A transport miss removes turn eligibility immediately,
+                    // but it is not an operator Off. Preserve armed intent so a
+                    // later fresh observation can recover it. An authoritative
+                    // invalid readback, or changed startup authority, revokes.
+                    let startup_changed = startup_observation
+                        .is_some_and(|epoch| !self.automatic.disarmed_at_epoch(epoch));
+                    if (backend_available && startup_observation.is_none()) || startup_changed {
                         self.automatic.revoke();
                     }
                 }
@@ -584,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn startup_observation_preserves_exact_disarmed_epoch_but_an_ordinary_failure_revokes() {
+    fn unavailable_snapshot_preserves_armed_intent_but_removes_turn_eligibility() {
         let authority = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
         let startup_epoch = authority.test_epoch();
         let coordinator = RotorCoordinator::with_authority(authority.clone());
@@ -605,7 +608,8 @@ mod tests {
 
         authority.arm("native_dcu1", 7).unwrap();
         coordinator.handle(snapshot, |_| Err("DCU-1 stopped responding".into())).unwrap();
-        assert!(!authority.test_armed());
+        assert!(authority.test_armed());
+        assert!(coordinator.automatic_owner().unwrap().is_none());
     }
 
     #[test]

@@ -526,6 +526,23 @@ mod tests {
         assert!(coordinator.automatic_owner().unwrap().is_none());
     }
     #[test]
+    fn unavailable_readback_keeps_intent_but_blocks_an_existing_permit_before_motion() {
+        let (owner, coordinator, generation) = coordinator_fixture();
+        let permit = owner.begin(target("OM0RX"), false,
+            Some(("native_dcu1".into(), generation))).unwrap();
+        coordinator.handle(json!({"id":"unavailable","method":"rotor_snapshot","params":{}}),
+            |_| Err("temporary transport miss".into())).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["armed"], true);
+        assert!(coordinator.automatic_owner().unwrap().is_none());
+        let motion = std::sync::atomic::AtomicUsize::new(0);
+        assert!(coordinator.handle_automatic(permit.request(90.0).unwrap(), &permit, |_| {
+            motion.fetch_add(1, Ordering::SeqCst);
+            panic!("stale telemetry reached rotor motion")
+        }).is_err());
+        assert_eq!(motion.load(Ordering::SeqCst), 0);
+        assert_eq!(owner.snapshot().unwrap()["armed"], true);
+    }
+    #[test]
     fn revocation_does_not_wait_for_admitted_driver_and_stop_stays_after_goto() {
         use std::sync::mpsc;
         use std::time::Duration;
