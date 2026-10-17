@@ -11,6 +11,14 @@ private struct UnavailableClusterTestVault: ClusterCredentialStoring {
     }
 }
 
+private struct FailingClusterTestVault: ClusterCredentialStoring {
+    let available = true
+    func load(_ id: UUID) throws -> String? {
+        throw WorkerFailure("credential_interaction_required", "Fixture credential needs authorization.")
+    }
+    func save(_ password: String, serverID: UUID) throws {}
+}
+
 private final class WorkerClusterFixture: ClusterConnectionTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var starts = 0, stops = 0
@@ -34,6 +42,32 @@ struct LiveClusterMethodsTests {
     private func request(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": method, "method": method, "params": params])
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
+    }
+
+    @Test("Connect resolves cluster credentials before persisting connected intent")
+    func credentialFailurePrecedesResumeIntent() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ])).write(to: configurationURL)
+        let fixture = WorkerClusterFixture()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+                                         vault: FailingClusterTestVault(),
+                                         transportFactory: { _, _, _, _, _, _ in fixture })
+
+        do {
+            _ = try await cluster.handle(method: "cluster_connect", params: [:])
+            Issue.record("Credential failure was hidden")
+        } catch let error as WorkerFailure {
+            #expect(error.code == "credential_interaction_required")
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("cluster-session.json").path))
+        #expect(fixture.counts.0 == 0)
+        await cluster.terminate()
     }
 
     @Test("Workspace-owned cluster persists configuration, joins Chaser and rejects late requests after shutdown")

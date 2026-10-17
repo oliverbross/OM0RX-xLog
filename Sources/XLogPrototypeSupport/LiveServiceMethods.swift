@@ -140,15 +140,7 @@ actor LiveServiceMethods {
             return values
         case "lookup_call":
             #if os(macOS)
-            let keys = Set(params.keys)
-            guard keys == ["call"] || keys == ["call", "allow_credential_interaction"] else { throw invalid() }
-            let allowCredentialInteraction: Bool
-            if let value = params["allow_credential_interaction"] {
-                guard let number = value as? NSNumber, isJSONBoolean(number) else { throw invalid() }
-                allowCredentialInteraction = number.boolValue
-            } else {
-                allowCredentialInteraction = false
-            }
+            guard Set(params.keys) == ["call"] else { throw invalid() }
             guard let rawCall = params["call"] else { throw invalid() }
             let call = try LocalCallsignProfile.validatedCall(["call": rawCall])
             var profile = try LocalCallsignProfile.base(call, logbook: logbook)
@@ -161,7 +153,7 @@ actor LiveServiceMethods {
                 var client = settings.qrzUsername == qrzClientUsername ? qrzClient : nil
                 if client == nil {
                     do {
-                        let password = try workspaceSecrets().load(.qrzPassword, allowInteraction: allowCredentialInteraction)
+                        let password = try workspaceSecrets().load(.qrzPassword)
                         if let password, !password.isEmpty {
                             client = try cachedQRZClient(username: settings.qrzUsername, password: password)
                         } else {
@@ -170,9 +162,7 @@ actor LiveServiceMethods {
                         }
                     } catch {
                         profile["qrz_status"] = "credential_required"
-                        profile["lookup_warning"] = allowCredentialInteraction
-                            ? "QRZ password access was not authorized. Offline CTY result retained."
-                            : "QRZ password needs operator authorization. Use Test QRZ lookup in Settings. Offline CTY result retained."
+                        profile["lookup_warning"] = "QRZ password needs operator authorization. Save it again in Settings. Offline CTY result retained."
                     }
                 }
                 if let client {

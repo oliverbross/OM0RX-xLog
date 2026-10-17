@@ -12,7 +12,7 @@ export default function QRZLookupTest({ request, defaultCall }: { request: Reque
     if (busy || !/^[A-Z0-9/]{3,32}$/.test(normalized)) return;
     setBusy(true); setMessage("");
     try {
-      const profile = await request("lookup_call", { call: normalized, allow_credential_interaction: true });
+      const profile = await request("lookup_call", { call: normalized });
       setMessage(profile.qrz_status === "matched"
         ? `QRZ matched ${profile.call}${profile.country ? ` · ${profile.country}` : ""}.`
         : String(profile.lookup_warning || "QRZ did not return an online match. Offline CTY data remains available."));

@@ -133,7 +133,7 @@ describe("grouped service settings", () => {
     fireEvent.change(screen.getByLabelText("QRZ test callsign"), { target: { value: "om0aao" } });
     fireEvent.click(screen.getByRole("button", { name: "Test QRZ lookup" }));
     await screen.findByText("QRZ matched OM0AAO · SLOVAK REPUBLIC.");
-    expect(request).toHaveBeenCalledWith("lookup_call", { call: "OM0AAO", allow_credential_interaction: true });
+    expect(request).toHaveBeenCalledWith("lookup_call", { call: "OM0AAO" });
   });
   it("shows the retained offline result when an authorized QRZ test cannot reach the provider", async () => {
     const warning = "QRZ request timed out. Check the connection and try again. Offline CTY result retained.";

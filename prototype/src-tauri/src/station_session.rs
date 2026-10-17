@@ -94,6 +94,15 @@ fn endpoint(value: &str) -> Result<String, String> {
 }
 fn is_save(action: &str) -> bool { matches!(action, "save" | "save_hamlib" | "save_flex" | "save_tci") }
 fn is_receive(action: &str) -> bool { matches!(action, "receive_frequency" | "receive_mode") }
+fn is_credential_rejection(action: &str, id: &str, response: &Value) -> bool {
+    action == "connect"
+        && response["id"] == id
+        && response["ok"] == false
+        && matches!(
+            response["error"]["code"].as_str(),
+            Some("station_credentials_required" | "station_credentials_unavailable")
+        )
+}
 fn receive_params(value: &Value) -> Result<Value, String> {
     let action = value["action"].as_str().unwrap_or("");
     let provider = value["provider"].as_str().unwrap_or("");
@@ -247,7 +256,7 @@ impl Session {
                 || !identities.insert(&receipt.operation_id)
                 || !matches!(
                     receipt.status.as_str(),
-                    "saved" | "pending" | "acknowledged" | "unknown" | "confirmed" | "reviewed"
+                    "saved" | "pending" | "acknowledged" | "unknown" | "confirmed" | "reviewed" | "rejected"
                 )
                 || !matches!(
                     action,
@@ -258,6 +267,7 @@ impl Session {
                         | "receive_frequency" | "receive_mode" | "manual_tune" | "tci_receive_filter" | "manual_rotor_goto"
                 )
                 || is_save(action) != (receipt.status == "saved")
+                || receipt.status == "rejected" && action != "connect"
                 || receipt.status == "confirmed" && !matches!(action, "manual_tune" | "tci_receive_filter")
                 || receipt.status == "reviewed" && !matches!(action, "manual_tune" | "tci_receive_filter" | "manual_rotor_goto")
                 || receipt.request["generation"] != saved.generation
@@ -440,7 +450,9 @@ impl Session {
             Some("connect" | "disconnect" | "forget")
         ));
         if state.base_url.is_empty()
-            || last_lifecycle.is_some_and(|receipt| receipt.request["action"] != "connect") {
+            || last_lifecycle.is_some_and(|receipt| {
+                receipt.request["action"] != "connect" || receipt.status == "rejected"
+            }) {
             return Ok(None);
         }
         let allow_transmit = last_lifecycle
@@ -599,7 +611,7 @@ impl Session {
             let lifecycle = next.receipts.iter().rposition(|receipt| matches!(receipt.request["action"].as_str(),
                 Some("connect" | "disconnect" | "forget" | "connect_tci" | "disconnect_tci")));
             if let Some(index) = next.receipts.iter().enumerate().find_map(|(index, receipt)|
-                (Some(index) != lifecycle && matches!(receipt.status.as_str(), "saved" | "acknowledged" | "confirmed" | "reviewed")).then_some(index)) {
+                (Some(index) != lifecycle && matches!(receipt.status.as_str(), "saved" | "acknowledged" | "confirmed" | "reviewed" | "rejected")).then_some(index)) {
                 next.receipts.remove(index);
             } else {
                 return Err("Station Control operation journal has no safely removable receipt; no action was sent.".into());
@@ -687,10 +699,9 @@ impl Session {
                     connection["token"] = token.clone();
                 }
                 if action == "connect" {
-                    connection["allow_keychain_interaction"] = json!(params
-                        .get("allow_keychain_interaction")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(true));
+                    // Durable connects must never trigger UI from the worker.
+                    // Operators authorize/save credentials through Settings.
+                    connection["allow_keychain_interaction"] = json!(false);
                 }
             }
             // Every admitted lifecycle command advances shared command state,
@@ -737,6 +748,11 @@ impl Session {
             else if action == "manual_tune" { if crate::manual_tune::confirmed(&receipt.request, result.as_ref().unwrap()) { "confirmed" } else { "unknown" } }
             else if action == "manual_rotor_goto" { if crate::manual_rotor::acknowledged(&receipt.request, result.as_ref().unwrap()) { "acknowledged" } else { "unknown" } }
             else { "acknowledged" }
+        } else if result
+            .as_ref()
+            .is_ok_and(|response| is_credential_rejection(action, id, response))
+        {
+            "rejected"
         } else {
             "unknown"
         }
@@ -1165,6 +1181,61 @@ mod tests {
         let disk = std::fs::read_to_string(directory.path().join("session.json")).unwrap();
         assert!(!disk.contains("secret-token"));
         assert!(!disk.contains("never-store-response"));
+    }
+    #[test]
+    fn credential_rejections_are_terminal_passive_and_never_auto_resumed() {
+        for code in [
+            "station_credentials_required",
+            "station_credentials_unavailable",
+        ] {
+            let (directory, session, save) = setup();
+            session.apply(&save, passive).unwrap();
+            let selection = startup_selection();
+            let id = uuid::Uuid::new_v4().to_string();
+            let command = json!({"action":"connect","operation_id":id,"generation":save["generation"],"revision":1,
+                "selection_generation":0,"selection_id":selection["selection_id"],"allow_transmit":false,
+                "allow_keychain_interaction":true});
+            let receipt = session
+                .apply(&command, |request, _, _| {
+                    assert_eq!(request["params"]["allow_keychain_interaction"], false);
+                    Ok(json!({"id":id,"ok":false,"error":{"code":code,"message":"sensitive detail"}}))
+                })
+                .unwrap();
+            assert_eq!(receipt["status"], "rejected");
+            let disk = std::fs::read_to_string(directory.path().join("session.json")).unwrap();
+            assert!(!disk.contains(code));
+            assert!(!disk.contains("sensitive detail"));
+
+            let restored = Session::new(directory.path().join("session.json")).unwrap();
+            assert_eq!(restored.receipt(&id).unwrap()["status"], "rejected");
+            assert!(restored.resume_saved_agent(&selection, passive).unwrap().is_none());
+            assert!(restored
+                .resume_saved_agent_after_worker_restart(2, &selection, passive)
+                .unwrap()
+                .is_none());
+        }
+    }
+    #[test]
+    fn noncredential_connect_failures_remain_unknown_and_resumable() {
+        let (directory, session, save) = setup();
+        session.apply(&save, passive).unwrap();
+        let selection = startup_selection();
+        let id = uuid::Uuid::new_v4().to_string();
+        let command = json!({"action":"connect","operation_id":id,"generation":save["generation"],"revision":1,
+            "selection_generation":0,"selection_id":selection["selection_id"],"allow_transmit":false});
+        let receipt = session
+            .apply(&command, |_, _, _| {
+                Ok(json!({"id":id,"ok":false,"error":{"code":"transport_failed"}}))
+            })
+            .unwrap();
+        assert_eq!(receipt["status"], "unknown");
+        let restored = Session::new(directory.path().join("session.json")).unwrap();
+        assert!(restored
+            .resume_saved_agent(&selection, |request, _, _| {
+                Ok(json!({"id":request["id"],"ok":true}))
+            })
+            .unwrap()
+            .is_some());
     }
     #[test]
     fn lost_acknowledgement_and_crash_admission_remain_inspectable_unknowns() {

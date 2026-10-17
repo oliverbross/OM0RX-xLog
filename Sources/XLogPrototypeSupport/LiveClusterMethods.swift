@@ -223,8 +223,9 @@ public actor LiveClusterMethods {
         case "cluster_connect":
             try require(params, allowed: [])
             resumeChecked = true; resumeError = nil
+            let passwords = try resolvedPasswords()
             try saveResumeIntent(.connected)
-            try await connect(service)
+            try await connect(service, passwords: passwords)
         case "cluster_disconnect":
             try require(params, allowed: [])
             resumeChecked = true; resumeError = nil
@@ -283,7 +284,15 @@ public actor LiveClusterMethods {
                 "forwarding": ["accepted_count": forwardAcceptedCount, "status": forwardStatus]]
     }
 
-    private func connect(_ service: ClusterSessionService) async throws {
+    private func resolvedPasswords() throws -> [UUID: String] {
+        var passwords: [UUID: String] = [:]
+        for server in try currentConfiguration().servers.filter(\.enabled) {
+            passwords[server.id] = try vault.load(server.id) ?? ""
+        }
+        return passwords
+    }
+
+    private func connect(_ service: ClusterSessionService, passwords preloadedPasswords: [UUID: String]? = nil) async throws {
         let workspaceStatus = try logbook.handle(method: "workspace_status", params: [:])
         if workspaceStatus["workspace_exists"] as? Bool == true { try await refreshContacts() }
         else {
@@ -293,8 +302,7 @@ public actor LiveClusterMethods {
             await service.invalidateContacts(publicationRevision: revision)
         }
         try requireRunning()
-        var passwords: [UUID: String] = [:]
-        for server in try currentConfiguration().servers.filter(\.enabled) { passwords[server.id] = try vault.load(server.id) ?? "" }
+        let passwords = try preloadedPasswords ?? resolvedPasswords()
         try await service.connect(passwords: passwords)
     }
 

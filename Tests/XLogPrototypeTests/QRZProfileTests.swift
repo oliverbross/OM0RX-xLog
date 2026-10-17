@@ -86,6 +86,14 @@ struct QRZProfileTests {
         #expect(profile["qrz_status"] as? String == "unavailable")
         #expect((profile["lookup_warning"] as? String)?.contains("Offline CTY result retained") == true)
         #expect(!String(describing: response).contains("Operation failed"))
+
+        let interactiveRequest = try JSONSerialization.data(withJSONObject: [
+            "id": "interactive-lookup", "method": "lookup_call",
+            "params": ["call": "OM0AAO", "allow_credential_interaction": true],
+        ])
+        let rejected = try #require(JSONSerialization.jsonObject(with: await worker.response(to: interactiveRequest)) as? [String: Any])
+        #expect(rejected["ok"] as? Bool == false)
+        #expect((rejected["error"] as? [String: Any])?["code"] as? String == "invalid_params")
         await worker.shutdown()
     }
 

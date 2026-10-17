@@ -282,13 +282,9 @@ actor LiveStationSession {
             let endpoint = try Self.validatedURL(params["base_url"])
             let enteredToken = params["token"] as? String
             guard params["token"] == nil || enteredToken != nil else { throw Self.invalidParams() }
-            let allowKeychainInteraction: Bool
             if let rawInteraction = params["allow_keychain_interaction"] {
                 guard let value = rawInteraction as? NSNumber,
                       CFGetTypeID(value) == CFBooleanGetTypeID() else { throw Self.invalidParams() }
-                allowKeychainInteraction = value.boolValue
-            } else {
-                allowKeychainInteraction = false
             }
             let transmit: Bool
             if let rawTransmit = params["allow_transmit"] {
@@ -300,7 +296,7 @@ actor LiveStationSession {
             }
             let keychain = StationAgentKeychain(endpoint: endpoint)
             let token = try enteredToken?.trimmingCharacters(in: .whitespacesAndNewlines)
-                ?? credentialCache.resolve(endpoint: endpoint, interactionAllowed: allowKeychainInteraction) {
+                ?? credentialCache.resolve(endpoint: endpoint, interactionAllowed: false) {
                     try keychain.load(interactionAllowed: $0)
                 }
             guard let token, !token.isEmpty, token.utf8.count <= 4_096 else {
