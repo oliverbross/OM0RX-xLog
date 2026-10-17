@@ -521,6 +521,8 @@ it("logs repeated report-free NAQP RTTY entries and preserves station exchange f
   await waitFor(() => expect((screen.getByRole("button", { name: "Create and open" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
   await screen.findByRole("form", { name: "RTTY contest entry" });
+  expect(screen.getByLabelText("Received Name").getAttribute("data-contest-operator-field")).toBe("exchange");
+  expect(screen.getByLabelText("Received Location").getAttribute("data-contest-operator-field")).toBe("exchange");
   expect(screen.queryByLabelText("Sent report")).toBeNull();
   expect(screen.queryByLabelText("Received report")).toBeNull();
   expect(screen.queryByRole("button", { name: /Reserve serial/ })).toBeNull();

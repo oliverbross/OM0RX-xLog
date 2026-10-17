@@ -64,6 +64,10 @@ public struct NAQPCWRule: ContestRule {
     public func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation {
         naqpEvaluate(qso, session: session, metadata: metadata)
     }
+    public func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
+                                    validation: [ContestValidationIssue]) -> String? {
+        naqpPartialDraftDupeKey(qso, validation: validation)
+    }
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
 
@@ -82,6 +86,10 @@ public struct NAQPSSBRule: ContestRule {
     public func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation {
         naqpEvaluate(qso, session: session, metadata: metadata)
     }
+    public func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
+                                    validation: [ContestValidationIssue]) -> String? {
+        naqpPartialDraftDupeKey(qso, validation: validation)
+    }
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
 
@@ -99,6 +107,10 @@ public struct NAQPRTTYRule: ContestRule {
     }
     public func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation {
         naqpEvaluate(qso, session: session, metadata: metadata)
+    }
+    public func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
+                                    validation: [ContestValidationIssue]) -> String? {
+        naqpPartialDraftDupeKey(qso, validation: validation)
     }
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
@@ -161,6 +173,56 @@ private func naqpEvaluate(_ qso: ContestQSO, session: ContestSessionSnapshot,
     let invalid = issues.contains { $0.severity == .error }
     return .init(validation: issues, dupeKey: naqpDupeKey(qso), points: invalid ? 0 : 1,
                  multiplierCandidates: invalid ? [] : Set(multiplier.map { [$0] } ?? []))
+}
+
+private func naqpPartialDraftDupeKey(_ qso: ContestQSO,
+                                     validation: [ContestValidationIssue]) -> String? {
+    let fields = qso.exchange.receivedFields
+    func isGenuinelyBlank(_ id: String) -> Bool {
+        guard let value = fields[id] else { return true }
+        return value.raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            value.normalized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    let nameIsBlank = isGenuinelyBlank("name")
+    let locationIsBlank = isGenuinelyBlank("location")
+    guard nameIsBlank || locationIsBlank else { return nil }
+
+    // The ordinary exchange validator reports a missing name before it reaches
+    // location semantics.  Partial duplicate projection must still validate a
+    // supplied location against the resolved worked entity; otherwise a DX or
+    // mobile contact could borrow a North American token while the name is blank.
+    if !locationIsBlank {
+        guard let worked = qso.entity, naqpValidEntity(worked),
+              let location = fields["location"]?.normalized else { return nil }
+        if naqpIsAirOrMaritimeMobile(qso.callsign) {
+            guard location == "DX" else { return nil }
+        } else if naqpIsNorthAmerican(worked) {
+            guard naqpMultiplier(entity: worked, location: location, band: "session") != nil else { return nil }
+        } else {
+            guard location == "DX" else { return nil }
+        }
+    }
+
+    let errors = validation.filter { $0.severity == .error }
+    guard !errors.isEmpty, errors.allSatisfy({ issue in
+        switch (issue.code, issue.field) {
+        case ("missingStructuredExchangeField", "exchange.received.name"),
+             ("invalidStructuredExchangeField", "exchange.received.name"):
+            return nameIsBlank
+        case ("missingStructuredExchangeField", "exchange.received.location"),
+             ("invalidStructuredExchangeField", "exchange.received.location"):
+            return locationIsBlank
+        case ("missingNAQPName", "received.name"):
+            return nameIsBlank
+        case ("invalidNAQPLocation", "received.location"),
+             ("invalidDXLocation", "received.location"),
+             ("invalidMultiplierLocation", "exchange.received.location"):
+            return locationIsBlank
+        default:
+            return false
+        }
+    }) else { return nil }
+    return naqpDupeKey(qso)
 }
 
 private func naqpSessionIssues(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] {

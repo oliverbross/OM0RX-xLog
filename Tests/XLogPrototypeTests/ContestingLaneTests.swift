@@ -1209,6 +1209,25 @@ final class ContestingLaneTests: XCTestCase {
                 "receivedExchangeFields": ["name": "SAM", "location": "ON"]]
             var applyRevision = 1
             if offset == 0 {
+                for (call, location) in [("DL1ABC", "CA"), ("K1ABC/MM", "CA")] {
+                    var invalidPartialFields = fields
+                    invalidPartialFields["callsign"] = call
+                    invalidPartialFields["receivedExchange"] = location
+                    invalidPartialFields["receivedExchangeFields"] = ["name": "", "location": location]
+                    let invalidPartial = mutation(sessionID: sessionID, requestID: UUID(), revision: applyRevision,
+                        timestamp: "2026-10-18T00:00:20.000Z", payload: ["fields": invalidPartialFields],
+                        draftID: createID, workspaceGeneration: generation)
+                    let invalidResponse = try await workerRequest(worker, method: "contest_draft_apply", params: invalidPartial)
+                    let invalidResult = try XCTUnwrap(invalidResponse["result"] as? [String: Any])
+                    let invalidDraft = try XCTUnwrap(invalidResult["draft"] as? [String: Any])
+                    XCTAssertEqual((invalidDraft["dupe"] as? [String: Any])?["state"] as? String, "unchecked")
+                    XCTAssertFalse(try XCTUnwrap((invalidDraft["validation"] as? [String: Any])?["errors"] as? [String]).isEmpty)
+                    applyRevision += 1
+                }
+                let emptyPage = try await workerRequest(worker, method: "contest_log_page", params: [
+                    "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                    "expectedRevision": applyRevision, "offset": 0, "limit": 10])
+                XCTAssertEqual((((emptyPage["result"] as? [String: Any])?["qsos"] as? [[String: Any]])?.count), 0)
                 var incompleteFields = fields
                 incompleteFields["receivedExchange"] = "SAM"
                 incompleteFields["receivedExchangeFields"] = ["name": "SAM", "location": ""]

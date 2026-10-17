@@ -180,7 +180,10 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let validation = evaluation.validation + semanticFrequencyIssues(band: candidate.band,
                                                                           frequencyHz: candidate.frequencyHz)
         let incomplete = validation.contains { $0.severity == .error }
-        let isDuplicate: Bool? = incomplete ? nil : evaluation.dupeKey.map { key in
+        let projectedDupeKey = incomplete
+            ? rule.partialDraftDupeKey(for: candidate, in: session.session, validation: validation)
+            : evaluation.dupeKey
+        let isDuplicate: Bool? = projectedDupeKey.map { key in
             score.qsos.contains { $0.disposition != .invalid && $0.dupeKey == key }
         }
         let summary = ContestScoreSummarySnapshot(sessionID: sessionID,
@@ -190,7 +193,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                                   multiplierCount: score.multiplierCount,
                                                   claimedScore: score.claimedScore)
         let draftEvaluation = ContestDraftEvaluationSnapshot(validation: validation,
-                                                             dupeKey: incomplete ? nil : evaluation.dupeKey,
+                                                             dupeKey: projectedDupeKey,
                                                              isDuplicate: isDuplicate)
         return ContestMutationProjection(session: session, draft: currentDraft,
                                          activeReservations: active, score: summary,
