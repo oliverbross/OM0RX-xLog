@@ -2,7 +2,8 @@ export type ContestMethod =
   | "contest_catalog" | "contest_sessions" | "contest_create" | "contest_open"
   | "contest_draft_get" | "contest_draft_apply" | "contest_serial_reserve"
   | "contest_qso_commit" | "contest_qso_get" | "contest_qso_correct" | "contest_qso_delete"
-  | "contest_operation_receipt" | "contest_log_page" | "contest_score";
+  | "contest_operation_receipt" | "contest_log_page" | "contest_score"
+  | "contest_export_prepare" | "contest_export_read" | "contest_export_release";
 
 export type ContestWorkerError = { code?: string; message?: string; outcome?: "confirmed" | "uncertain" };
 export type ContestWorkerResponse<T> = { id: string; ok: true; result: T } | { id: string; ok: false; error: ContestWorkerError };
@@ -84,3 +85,28 @@ export type ContestCreateInput = {
   name: string; ruleIdentity: ContestRuleIdentity; referenceDataVersion: string;
   station: ContestStationSnapshot; operator: ContestOperatorSnapshot;
 };
+
+export type ContestExportFormat = "cabrillo" | "adif";
+export type ContestCabrilloHeader = {
+  callsign: string; categoryOperator: string; categoryAssisted: string; categoryBand: string;
+  categoryMode: string; categoryTransmitter: string; categoryPower: string; categoryOverlay?: string;
+  operators: string[]; location: string; club?: string; name: string; addressLines: string[]; email: string;
+};
+export type ContestExportPrepareRequest = {
+  exportID: string; sessionID: string; workspaceGeneration: string; expectedRevision: number;
+  generatedAtUTC: string; format: ContestExportFormat; header: ContestCabrilloHeader;
+};
+export type ContestPreparedExport = {
+  artifactID: string; sessionID: string; workspaceGeneration: string; revision: number;
+  format: ContestExportFormat; inputSchemaVersion: string; formatterVersion: string; generatedAtUTC: string;
+  qsoCount: number; totalPoints: number; multiplierCount: number; claimedScore: number;
+  byteLength: number; sha256: string; chunkLimit: number; expiresAfterSeconds: number;
+};
+export type ContestExportReadRequest = {
+  exportID: string; sessionID: string; workspaceGeneration: string; offset: number; length: number;
+};
+export type ContestExportChunk = {
+  artifactID: string; sessionID: string; workspaceGeneration: string; revision: number; offset: number;
+  dataBase64: string; eof: boolean; byteLength: number; sha256: string;
+};
+export type ContestExportReleaseResult = { artifactID: string; released: boolean };

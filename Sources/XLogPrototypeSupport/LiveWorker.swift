@@ -169,6 +169,7 @@ public actor LiveWorker {
 
     func beginTerminalShutdown() async {
         terminalShutdown = true
+        await contestLane?.shutdown()
         powerCapture.terminate()
         cancelContactRefresh()
         remoteBackup.beginTermination()
