@@ -44,17 +44,17 @@ result at its recorded commit, but it does not validate the newer source.
 
 | Platform | Required job | Current status |
 | --- | --- | --- |
-| macOS 14 | `Contest tests (macos-14)` | Passed at `049d36d69f78c3b40782216cb7f35424907a3bdc`: 23 core/export and 32 store tests, Apple Swift 6.0.3 / Xcode 16.2. [Job 117408894823](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39037051303/job/117408894823). |
-| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed at `049d36d69f78c3b40782216cb7f35424907a3bdc`: 23 core/export and 32 store tests, Swift 6.3.3. [Job 117408894962](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39037051303/job/117408894962). |
-| Windows Server 2022 | `Contest tests (windows-2022)` | Passed at `049d36d69f78c3b40782216cb7f35424907a3bdc`: 23 core/export, 32 store, 6 ConnectionDoctor and 8 remote-backup presentation tests, Swift 6.3.3. [Job 117408894928](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39037051303/job/117408894928). |
+| macOS 14 | `Contest tests (macos-14)` | Passed at `478269e9adce94d1eec8ec9f7282c9e7406e8b54`: 23 core/export and 44 store/snapshot tests, Apple Swift 6.0.3 / Xcode 16.2. [Job 117415329219](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39039297251/job/117415329219). |
+| Ubuntu 24.04 | `Contest tests (ubuntu-24.04)` | Passed at `478269e9adce94d1eec8ec9f7282c9e7406e8b54`: 23 core/export and 44 store/snapshot tests, Swift 6.3.3. [Job 117415328940](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39039297251/job/117415328940). |
+| Windows Server 2022 | `Contest tests (windows-2022)` | Passed at `478269e9adce94d1eec8ec9f7282c9e7406e8b54`: 23 core/export, 32 store, 4 snapshot, 6 ConnectionDoctor and 8 backup-presentation tests; 9 snapshot publication tests explicitly skipped. Swift 6.3.3. [Job 117415329174](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39039297251/job/117415329174). |
 
 [Run 39034236953](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39034236953)
 is the first completed green three-platform matrix for this pilot baseline.
 The newer [run 39035403568](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39035403568)
 also passed all three jobs after integrating durable corrections/deletions and
-pilot export formatters. The latest [run 39037051303](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39037051303)
-passed all three jobs after export metadata/service integration; the table
-records that source checkpoint. ADIF and export-service tests were compiled
+pilot export formatters. [Run 39037051303](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39037051303)
+passed all three jobs after export metadata/service integration. The table now
+records the later snapshot/compatibility integration below. ADIF and export-service tests were compiled
 by the portable manifest but were not executed by these focused hosted
 commands; their five ADIF and seven service passing tests are local evidence only.
 Earlier runs `39031590054` (`d1ab5aa`) and `39032872265` (`434e5de`)
@@ -77,10 +77,11 @@ declare `UUID`. Reviewed commit `09cd62d` adds a Linux-only C wrapper with
 add an overwrite fallback. The Linux libc binding requires glibc 2.28 or newer;
 the selected Ubuntu 24.04 runner satisfies that requirement.
 
-Integrated run `39039297251` at
-`478269e9adce94d1eec8ec9f7282c9e7406e8b54` is pending. The workflow filters
-the whole `XContestStoreTests` target, so the snapshot class is included.
-Windows snapshot publication currently fails closed; capability-specific
-publication tests are explicitly skipped and independent inspection/configuration
-tests remain runnable. Passing those tests will not establish Windows publication
-support. Its native implementation is a separate, unfinished slice.
+Integrated [run 39039297251](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39039297251) at
+`478269e9adce94d1eec8ec9f7282c9e7406e8b54` passed all three jobs. The workflow
+filters the whole `XContestStoreTests` target: macOS and Linux executed all 12
+snapshot tests plus 32 existing store tests. Windows ran 4 independent snapshot
+tests plus 32 store tests and explicitly skipped 9 publication-dependent tests.
+Windows snapshot publication at that SHA fails closed; this passing matrix does
+not establish Windows publication support. Its native implementation remains a
+separate slice awaiting its own hosted acceptance.
