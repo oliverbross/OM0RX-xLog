@@ -57,24 +57,88 @@ public enum ContestADIFExport {
             "QSO_DATE": utc("yyyyMMdd", qso.timestampUTC),
             "TIME_ON": utc("HHmmss", qso.timestampUTC),
             "BAND": qso.band,
-            "MODE": qso.mode,
+            "MODE": rule.metadata.entry.modeProfile(for: qso.mode)?.adifMode ?? qso.mode,
             "FREQ": String(format: "%.6f", Double(qso.frequencyHz) / 1_000_000.0),
-            "RST_SENT": qso.rstSent,
-            "RST_RCVD": qso.rstReceived,
             "STATION_CALLSIGN": input.session.station.callsign,
             "OPERATOR": qso.operatorCallsign.isEmpty ? input.metadata.operatorCallsign : qso.operatorCallsign,
             "CONTEST_ID": rule.metadata.cabrilloName,
             "STX_STRING": qso.exchange.rawSent,
             "SRX_STRING": qso.exchange.rawReceived,
         ]
+        if !qso.rstSent.isEmpty { fields["RST_SENT"] = qso.rstSent }
+        if !qso.rstReceived.isEmpty { fields["RST_RCVD"] = qso.rstReceived }
+        if let submode = rule.metadata.entry.modeProfile(for: qso.mode)?.adifSubmode {
+            fields["SUBMODE"] = submode
+        }
         switch rule.metadata.entry.exchange.adifFields {
         case .stxSrx:
             if let sent = Int(qso.exchange.normalizedSent) { fields["STX"] = String(sent) }
             if let received = Int(qso.exchange.normalizedReceived) { fields["SRX"] = String(received) }
-        case .none, .exchangeStrings:
+        case .exchangeStrings:
+            addStructuredExchangeFields(to: &fields, qso: qso, input: input, rule: rule)
+        case .none:
             break
         }
         return fields
+    }
+
+    private static func addStructuredExchangeFields(to fields: inout [String: String], qso: ContestQSO,
+                                                     input: ContestExportInput, rule: any ContestRule) {
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
+            addARRLRTTYExchangeFields(to: &fields, qso: qso, input: input)
+            return
+        }
+        guard rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion else { return }
+        if let name = qso.exchange.sentFields["name"]?.normalized { fields["MY_NAME"] = name }
+        if let name = qso.exchange.receivedFields["name"]?.normalized { fields["NAME"] = name }
+        if let entity = input.session.station.entity,
+           !isAirOrMaritimeMobile(input.session.station.callsign), adifStateIsApplicable(entity),
+           let state = qso.exchange.sentFields["location"]?.normalized {
+            fields["MY_STATE"] = state
+        }
+        if let entity = qso.entity, !isAirOrMaritimeMobile(qso.callsign),
+           adifStateIsApplicable(entity),
+           let state = qso.exchange.receivedFields["location"]?.normalized {
+            fields["STATE"] = state
+        }
+    }
+
+    private static func addARRLRTTYExchangeFields(to fields: inout [String: String], qso: ContestQSO,
+                                                   input: ContestExportInput) {
+        if let own = input.session.station.entity {
+            fields["MY_DXCC"] = String(own.adif)
+            if own.adif == 291 || own.adif == 1 {
+                if let location = qso.exchange.sentFields["location"]?.normalized {
+                    fields["MY_STATE"] = arrlADIFSubdivision(location, entityADIF: own.adif)
+                }
+            } else if let serial = qso.exchange.sentFields["serial"]?.normalized,
+                      Int(serial).map({ $0 > 0 }) == true {
+                fields["STX"] = serial
+            }
+        }
+        if let worked = qso.entity {
+            fields["DXCC"] = String(worked.adif)
+            if worked.adif == 291 || worked.adif == 1 {
+                if let location = qso.exchange.receivedFields["exchange"]?.normalized {
+                    fields["STATE"] = arrlADIFSubdivision(location, entityADIF: worked.adif)
+                }
+            } else if let serial = qso.exchange.receivedFields["exchange"]?.normalized,
+                      Int(serial).map({ $0 > 0 }) == true {
+                fields["SRX"] = serial
+            }
+        }
+    }
+
+    private static func arrlADIFSubdivision(_ value: String, entityADIF: Int) -> String {
+        entityADIF == 1 && (value == "LB" || value == "NF") ? "NL" : value
+    }
+
+    private static func adifStateIsApplicable(_ entity: ContestEntitySnapshot) -> Bool {
+        [1, 6, 110, 291].contains(entity.adif)
+    }
+
+    private static func isAirOrMaritimeMobile(_ callsign: String) -> Bool {
+        callsign.split(separator: "/").contains { $0 == "MM" || $0 == "AM" }
     }
 
     private static func extensionFields(qso: ContestQSO, input: ContestExportInput) -> [String: String] {

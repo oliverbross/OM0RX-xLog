@@ -43,6 +43,10 @@ function supported(session: ContestSessionSummary) {
   return AUDITED_RULES.has(session.rule.identity.id) && session.rule.identity.version === "1.0.0-source-spike" &&
     session.rule.identity.edition === "source-26.10.11" && session.rule.identity.sourceRevision === PINNED_SOURCE;
 }
+function operatorSignalMode(session: ContestSessionSummary): "CW" | "SSB" {
+  if (session.rule.mode === "CW" || session.rule.mode === "SSB") return session.rule.mode;
+  throw new Error("Operator flow is unavailable for this contest mode.");
+}
 function valueState(value: string, pattern: RegExp): "empty" | "valid" | "invalid" {
   return value.trim() === "" ? "empty" : pattern.test(value.trim()) ? "valid" : "invalid";
 }
@@ -71,8 +75,9 @@ function rendered(macro: OperatorMacroRole, session: ContestSessionSummary, draf
 
 export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration, disabled, recovery, reserveSerial, commitQSO,
   admitIntent, guardFormSubmit, focusField, simulateOutput = immediateSimulation }: Props) {
+  const signalMode = operatorSignalMode(session);
   const contextRef = useRef<OperatorFlowContext>({ sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
-    contextGeneration: 1, signalMode: session.rule.mode, serialRequired: session.rule.entry.serial.requirement === "requiredForCommit" });
+    contextGeneration: 1, signalMode, serialRequired: session.rule.entry.serial.requirement === "requiredForCommit" });
   const [state, setState] = useState<OperatorFlowState>(() => createOperatorFlow(contextRef.current));
   const stateRef = useRef(state), draftRef = useRef(draft), sessionRef = useRef(session), disabledRef = useRef(disabled);
   const admitIntentRef = useRef(admitIntent);
@@ -152,7 +157,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     if (intent.kind === "send") {
       if (!admits(intent) || !sendReady(intent.macro)) { settle(intent.token, "failed"); return; }
       const admittedSession = sessionRef.current, admittedDraft = draftRef.current;
-      const entry: ContestSimulationEntry = { operationID: intent.token.operationID, mode: admittedSession.rule.mode, macro: intent.macro,
+      const entry: ContestSimulationEntry = { operationID: intent.token.operationID, mode: operatorSignalMode(admittedSession), macro: intent.macro,
         text: rendered(intent.macro, admittedSession, admittedDraft) };
       setTrace(items => [...items, { ...entry, status: "pending" as const }].slice(-MAX_TRACE));
       try {

@@ -29,6 +29,20 @@ final class ContestingLaneTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
     }
 
+    func testSCPStatusCannotCreateServiceAfterShutdownDuringInitialGenerationFence() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-scp-shutdown-fence-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let gate = ContestGenerationGate(value: generation)
+        let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { await gate.wait() }
+        let operation = Task { try await lane.handle(method: "contest_scp_status", params: [:]) }
+        await gate.awaiting()
+        await lane.shutdown()
+        await gate.release()
+        do { _ = try await operation.value; XCTFail("Expected terminal assistance lane") }
+        catch let error as ContestLaneError { XCTAssertEqual(error.code, "scp_unavailable") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Contesting/SuperCheckPartial").path))
+    }
+
     private func workerRequest(_ worker: LiveWorker, method: String, params: [String: Any] = [:],
                                id: UUID = UUID()) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": wireID(id), "method": method, "params": params])
@@ -180,7 +194,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
-    func testEightPilotCatalogAndPhoneMutationRestartExportFlowUseEntryDescriptors() async throws {
+    func testElevenRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
         let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-eight-pilot-catalog-\(UUID().uuidString)")
         defer {
             if FileManager.default.fileExists(atPath: catalogRoot.path) {
@@ -191,12 +205,22 @@ final class ContestingLaneTests: XCTestCase {
         let catalog = try await catalogLane.handle(method: "contest_catalog", params: [:])
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"])
+                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
+                        "naqp-cw", "naqp-ssb", "naqp-rtty"])
         for rule in rules {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
             XCTAssertEqual(entry["mode"] as? String, mode)
-            XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String, mode == "CW" ? "599" : "59")
+            let ruleID = try XCTUnwrap((rule["identity"] as? [String: Any])?["id"] as? String)
+            XCTAssertEqual((entry["report"] as? [String: Any])?["defaultSent"] as? String,
+                           ruleID.hasPrefix("naqp-") ? "" : mode == "CW" ? "599" : "59")
+            if ruleID.hasPrefix("naqp-") {
+                XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 2)
+                XCTAssertEqual((entry["version"] as? NSNumber)?.intValue, 2)
+            } else {
+                XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 1)
+                XCTAssertNil(entry["version"])
+            }
         }
 
         for ruleName in ["CQ WW SSB", "CQ WPX SSB", "Oceania DX CW", "Oceania DX SSB",
@@ -688,6 +712,30 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual(try fileManager.contentsOfDirectory(atPath: redirected.path), [])
     }
 
+    func testPrivateBoundaryAcceptsStrictDescendantsWhenAncestorIsFilesystemRoot() throws {
+        let fileManager = FileManager.default
+        let trustedBase = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+            .resolvingSymlinksInPath()
+        let privateRoot = trustedBase.appendingPathComponent(".build/xlog-contest-root-boundary-\(UUID().uuidString)")
+        defer { try? fileManager.removeItem(at: privateRoot) }
+        try fileManager.createDirectory(at: privateRoot, withIntermediateDirectories: true)
+        let filesystemRoot = URL(fileURLWithPath: try XCTUnwrap(privateRoot.pathComponents.first), isDirectory: true)
+        let database = privateRoot.appendingPathComponent("contests.sqlite")
+        XCTAssertTrue(ContestDatabaseBoundary.isStrictDescendant(privateRoot, of: filesystemRoot))
+        XCTAssertTrue(ContestDatabaseBoundary.isStrictDescendant(database, of: privateRoot))
+        XCTAssertNoThrow(try ContestDatabaseBoundary.validatePrivateFile(database, privateRoot: privateRoot,
+            ancestorBoundary: filesystemRoot, protectedFiles: [], fileManager: fileManager))
+
+        let sibling = privateRoot.deletingLastPathComponent()
+            .appendingPathComponent(privateRoot.lastPathComponent + "-sibling/contests.sqlite")
+        XCTAssertFalse(ContestDatabaseBoundary.isStrictDescendant(privateRoot, of: privateRoot))
+        XCTAssertFalse(ContestDatabaseBoundary.isStrictDescendant(sibling, of: privateRoot))
+        XCTAssertThrowsError(try ContestDatabaseBoundary.validatePrivateFile(sibling, privateRoot: privateRoot,
+            ancestorBoundary: filesystemRoot, protectedFiles: [], fileManager: fileManager)) { error in
+            XCTAssertEqual((error as? ContestLaneError)?.code, "unsafe_workspace")
+        }
+    }
+
     func testLiveWorkerBrowserWireLifecycleAndCrossLanguageFixture() async throws {
         enum FenceFailure: Error { case unavailable }
         actor Fence {
@@ -713,9 +761,10 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 8)
+        XCTAssertEqual(rules.count, 11)
         XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb"])
+                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
+                        "naqp-cw", "naqp-ssb", "naqp-rtty"])
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let rule = try XCTUnwrap(rules.first { $0["displayName"] as? String == "CQ WPX CW" })
         let sessionID = UUID(uuidString: "f7654321-89ab-4cde-8fab-0123456789ab")!
@@ -817,8 +866,60 @@ final class ContestingLaneTests: XCTestCase {
         ])
         XCTAssertEqual((receipt["result"] as? [String: Any])?["status"] as? String, "committed")
 
+        let naqpRule = try XCTUnwrap(rules.first { (($0["identity"] as? [String: Any])?["id"] as? String) == "naqp-cw" })
+        let naqpSessionID = UUID(uuidString: "37654321-89ab-4cde-8fab-0123456789ab")!
+        let naqpCreateID = UUID(uuidString: "47654321-89ab-4cde-8fab-0123456789ab")!
+        let naqpPartialID = UUID(uuidString: "57654321-89ab-4cde-8fab-0123456789ab")!
+        let naqpResetID = UUID(uuidString: "67654321-89ab-4cde-8fab-0123456789ab")!
+        let naqpCompleteID = UUID(uuidString: "77654321-89ab-4cde-8fab-0123456789ab")!
+        let naqpCommitID = UUID(uuidString: "87654321-89ab-4cde-8fab-0123456789ab")!
+        let naqpCreate = mutation(sessionID: naqpSessionID, requestID: naqpCreateID, revision: 0,
+            timestamp: "2026-10-18T11:00:00.000Z", payload: [
+                "sessionID": wireID(naqpSessionID), "name": "NAQP generated wire",
+                "ruleIdentity": try XCTUnwrap(naqpRule["identity"] as? [String: Any]),
+                "referenceDataVersion": try XCTUnwrap(naqpRule["referenceDataVersion"] as? String),
+                "station": ["callsign": "DL1AAA", "cqZone": "14", "dxccEntity": "FED. REP. OF GERMANY",
+                            "exchangeFields": ["name": "Al", "location": ""]],
+                "operator": ["callsign": "DL1AAA", "category": "Single Operator"],
+            ], workspaceGeneration: workspaceGeneration)
+        let naqpCreated = try await workerRequest(worker, method: "contest_create", params: naqpCreate)
+        let naqpCreatedResult = try XCTUnwrap(naqpCreated["result"] as? [String: Any])
+        XCTAssertEqual(((naqpCreatedResult["session"] as? [String: Any])?["station"] as? [String: Any])?["exchangeFields"] as? [String: String],
+                       ["name": "AL", "location": ""])
+        XCTAssertEqual(((naqpCreatedResult["draft"] as? [String: Any])?["fields"] as? [String: Any])?["receivedExchangeFields"] as? [String: String],
+                       ["name": "", "location": ""])
+        let naqpPartialFields: [String: Any] = ["callsign": "K1ABC", "sentReport": "", "sentExchange": "AL",
+            "receivedReport": "", "receivedExchange": "Sam", "frequencyHz": 14_050_000,
+            "band": "20m", "mode": "CW", "sentExchangeFields": ["name": "AL", "location": ""],
+            "receivedExchangeFields": ["name": "Sam", "location": ""]]
+        let naqpPartial = mutation(sessionID: naqpSessionID, requestID: naqpPartialID, revision: 1,
+            timestamp: "2026-10-18T11:01:00.000Z", payload: ["fields": naqpPartialFields],
+            draftID: naqpCreateID, workspaceGeneration: workspaceGeneration)
+        let naqpPartiallyApplied = try await workerRequest(worker, method: "contest_draft_apply", params: naqpPartial)
+        let naqpResetFields: [String: Any] = ["callsign": "", "sentReport": "", "sentExchange": "AL",
+            "receivedReport": "", "receivedExchange": "", "frequencyHz": NSNull(),
+            "band": "20m", "mode": "CW", "sentExchangeFields": ["name": "AL", "location": ""],
+            "receivedExchangeFields": ["name": "", "location": ""]]
+        let naqpReset = mutation(sessionID: naqpSessionID, requestID: naqpResetID, revision: 2,
+            timestamp: "2026-10-18T11:02:00.000Z", payload: ["fields": naqpResetFields],
+            draftID: naqpCreateID, workspaceGeneration: workspaceGeneration)
+        let naqpResetApplied = try await workerRequest(worker, method: "contest_draft_apply", params: naqpReset)
+        let naqpOpenParams: [String: Any] = ["sessionID": wireID(naqpSessionID), "workspaceGeneration": workspaceGeneration]
+        let naqpReopened = try await workerRequest(worker, method: "contest_open", params: naqpOpenParams)
+        var naqpCompleteFields = naqpPartialFields
+        naqpCompleteFields["receivedExchange"] = "Sam ca"
+        naqpCompleteFields["receivedExchangeFields"] = ["name": "Sam", "location": "ca"]
+        let naqpComplete = mutation(sessionID: naqpSessionID, requestID: naqpCompleteID, revision: 3,
+            timestamp: "2026-10-18T11:03:00.000Z", payload: ["fields": naqpCompleteFields],
+            draftID: naqpCreateID, workspaceGeneration: workspaceGeneration)
+        let naqpCompleted = try await workerRequest(worker, method: "contest_draft_apply", params: naqpComplete)
+        let naqpCommit = mutation(sessionID: naqpSessionID, requestID: naqpCommitID, revision: 4,
+            timestamp: "2026-10-18T11:04:00.000Z", payload: [:], draftID: naqpCreateID,
+            workspaceGeneration: workspaceGeneration)
+        let naqpCommitted = try await workerRequest(worker, method: "contest_qso_commit", params: naqpCommit)
+
         if let output = ProcessInfo.processInfo.environment["XLOG_CONTEST_FIXTURE_OUTPUT"] {
-            let fixture: [String: Any] = ["schemaVersion": 6,
+            let fixture: [String: Any] = ["schemaVersion": 7,
                 "requests": ["create": createParams, "reserve": reserveParams, "apply": applyParams,
                              "commit": commitParams, "qsoGet": getParams, "qsoCorrect": correctionParams,
                              "qsoDelete": deletionParams, "postCommitApply": uncertainParams],
@@ -827,6 +928,10 @@ final class ContestingLaneTests: XCTestCase {
                               "qsoCorrectReplayAfterDelete": correctionReplay, "qsoDeleteReplay": deletionReplay,
                               "replay": replayed, "confirmedError": confirmed, "postCommitUncertain": uncertainFrame,
                               "receiptAfterUncertain": receipt],
+                "naqp": ["requests": ["create": naqpCreate, "partial": naqpPartial, "reset": naqpReset,
+                                          "open": naqpOpenParams, "complete": naqpComplete, "commit": naqpCommit],
+                         "responses": ["create": naqpCreated, "partial": naqpPartiallyApplied, "reset": naqpResetApplied,
+                                           "open": naqpReopened, "complete": naqpCompleted, "commit": naqpCommitted]],
                 "provenance": ["liveWorkerResponses": ["catalog", "create", "reserve", "apply", "commit", "qsoGet", "qsoCorrect", "qsoDelete", "qsoCorrectReplayAfterDelete", "qsoDeleteReplay", "replay", "confirmedError", "receiptAfterUncertain"],
                                "postCommitUncertain": "actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response"],
                 "assertions": ["replayResultExactlyEqual": true, "qsoChangeReplayAfterDeleteExactlyEqual": true,
@@ -835,6 +940,201 @@ final class ContestingLaneTests: XCTestCase {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
         }
+    }
+
+    func testLiveWorkerNAQPThreeModeStructuredEntryAndExports() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-naqp-worker-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
+        guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected contest test profile") }
+        let logbook = LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: false, runtimeProfile: profile)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
+        let catalogResponse = try await workerRequest(worker, method: "contest_catalog")
+        let catalog = try XCTUnwrap(catalogResponse["result"] as? [String: Any])
+        let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
+        let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
+
+        for (offset, item) in [("naqp-cw", "CW", 14_050_000), ("naqp-ssb", "SSB", 14_250_000), ("naqp-rtty", "RTTY", 14_080_000)].enumerated() {
+            let rule = try XCTUnwrap(rules.first { (($0["identity"] as? [String: Any])?["id"] as? String) == item.0 })
+            XCTAssertEqual((rule["entryDescriptorVersion"] as? NSNumber)?.intValue, 2)
+            let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
+            XCTAssertEqual(((entry["report"] as? [String: Any])?["format"] as? String), "none")
+            let sessionID = UUID(), createID = UUID(), applyID = UUID(), commitID = UUID()
+            let create = mutation(sessionID: sessionID, requestID: createID, revision: 0,
+                timestamp: "2026-10-18T0\(offset):00:00.000Z", payload: [
+                    "sessionID": wireID(sessionID), "name": "NAQP \(item.1) worker",
+                    "ruleIdentity": try XCTUnwrap(rule["identity"] as? [String: Any]),
+                    "referenceDataVersion": try XCTUnwrap(rule["referenceDataVersion"] as? String),
+                    "station": ["callsign": "K1AAA", "cqZone": "5", "dxccEntity": "United States",
+                                "exchangeFields": ["name": "AL", "location": "CA"]],
+                    "operator": ["callsign": "K1AAA", "category": "Single Operator"],
+                ], workspaceGeneration: generation)
+            let createResponse = try await workerRequest(worker, method: "contest_create", params: create)
+            let created = try XCTUnwrap(createResponse["result"] as? [String: Any])
+            let initialDraft = try XCTUnwrap(created["draft"] as? [String: Any])
+            XCTAssertNil(initialDraft["reservedSerial"] as? NSNumber)
+            let initialFields = try XCTUnwrap(initialDraft["fields"] as? [String: Any])
+            XCTAssertEqual(initialFields["sentReport"] as? String, "")
+            XCTAssertEqual(initialFields["sentExchange"] as? String, "AL CA")
+            let fields: [String: Any] = ["callsign": "VE3AAA", "sentReport": "", "sentExchange": "AL CA",
+                "receivedReport": "", "receivedExchange": "SAM ON", "frequencyHz": item.2,
+                "band": "20m", "mode": item.1, "sentExchangeFields": ["name": "AL", "location": "CA"],
+                "receivedExchangeFields": ["name": "SAM", "location": "ON"]]
+            var applyRevision = 1
+            if offset == 0 {
+                var incompleteFields = fields
+                incompleteFields["receivedExchange"] = "SAM"
+                incompleteFields["receivedExchangeFields"] = ["name": "SAM", "location": ""]
+                let incomplete = mutation(sessionID: sessionID, requestID: UUID(), revision: applyRevision,
+                    timestamp: "2026-10-18T00:00:30.000Z", payload: ["fields": incompleteFields], draftID: createID,
+                    workspaceGeneration: generation)
+                let incompleteResponse = try await workerRequest(worker, method: "contest_draft_apply", params: incomplete)
+                let incompleteResult = try XCTUnwrap(incompleteResponse["result"] as? [String: Any])
+                let incompleteDraft = try XCTUnwrap(incompleteResult["draft"] as? [String: Any])
+                let validation = try XCTUnwrap(incompleteDraft["validation"] as? [String: Any])
+                XCTAssertFalse(try XCTUnwrap(validation["errors"] as? [String]).isEmpty)
+                applyRevision += 1
+            }
+            let apply = mutation(sessionID: sessionID, requestID: applyID, revision: applyRevision,
+                timestamp: "2026-10-18T0\(offset):01:00.000Z", payload: ["fields": fields], draftID: createID,
+                workspaceGeneration: generation)
+            let applied = try await workerRequest(worker, method: "contest_draft_apply", params: apply)
+            XCTAssertEqual(applied["ok"] as? Bool, true)
+            let commit = mutation(sessionID: sessionID, requestID: commitID, revision: applyRevision + 1,
+                timestamp: "2026-10-18T0\(offset):02:00.000Z", payload: [:], draftID: createID,
+                workspaceGeneration: generation)
+            let commitResponse = try await workerRequest(worker, method: "contest_qso_commit", params: commit)
+            let committed = try XCTUnwrap(commitResponse["result"] as? [String: Any])
+            XCTAssertEqual(((committed["score"] as? [String: Any])?["claimedScore"] as? NSNumber)?.intValue, 1)
+            let nextFields = try XCTUnwrap((committed["draft"] as? [String: Any])?["fields"] as? [String: Any])
+            XCTAssertEqual(nextFields["sentExchange"] as? String, "AL CA")
+            XCTAssertEqual(nextFields["receivedExchange"] as? String, "")
+            XCTAssertEqual(nextFields["sentReport"] as? String, "")
+
+            let revision = try XCTUnwrap(((committed["session"] as? [String: Any])?["revision"] as? NSNumber)?.uint64Value)
+            for format in ["cabrillo", "adif"] {
+                let exportID = UUID()
+                let prepare: [String: Any] = ["exportID": wireID(exportID), "sessionID": wireID(sessionID),
+                    "workspaceGeneration": generation, "expectedRevision": revision,
+                    "generatedAtUTC": "2026-10-18T0\(offset):03:00.000Z", "format": format,
+                    "header": ["callsign": "K1AAA", "categoryOperator": "SINGLE-OP", "categoryAssisted": "NON-ASSISTED",
+                        "categoryBand": "ALL", "categoryMode": item.1, "categoryTransmitter": "ONE", "categoryPower": "LOW",
+                        "operators": ["K1AAA"], "location": "CA", "name": "AL Operator", "addressLines": [], "email": ""]]
+                let prepareResponse = try await workerRequest(worker, method: "contest_export_prepare", params: prepare)
+                XCTAssertEqual(prepareResponse["ok"] as? Bool, true, "\(prepareResponse)")
+                let prepared = try XCTUnwrap(prepareResponse["result"] as? [String: Any])
+                let length = try XCTUnwrap((prepared["byteLength"] as? NSNumber)?.intValue)
+                let read = try await workerRequest(worker, method: "contest_export_read", params: [
+                    "exportID": wireID(exportID), "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                    "offset": 0, "length": length])
+                let chunk = try XCTUnwrap(read["result"] as? [String: Any])
+                let bytes = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(chunk["dataBase64"] as? String)))
+                let text = try XCTUnwrap(String(data: bytes, encoding: .utf8))
+                XCTAssertTrue(text.contains("VE3AAA")); XCTAssertTrue(text.contains("SAM"))
+                if format == "adif" {
+                    XCTAssertFalse(text.contains("<RST_SENT:")); XCTAssertFalse(text.contains("<RST_RCVD:"))
+                } else {
+                    let qsoLine = try XCTUnwrap(text.components(separatedBy: "\r\n").first { $0.hasPrefix("QSO:") })
+                    XCTAssertFalse(qsoLine.contains(" 599 "), qsoLine)
+                }
+                _ = try await workerRequest(worker, method: "contest_export_release", params: [
+                    "exportID": wireID(exportID), "sessionID": wireID(sessionID), "workspaceGeneration": generation])
+            }
+
+            let openResponse = try await workerRequest(worker, method: "contest_open", params: [
+                "sessionID": wireID(sessionID), "workspaceGeneration": generation])
+            let opened = try XCTUnwrap(openResponse["result"] as? [String: Any])
+            XCTAssertEqual(((opened["session"] as? [String: Any])?["revision"] as? NSNumber)?.uint64Value, revision)
+            let qsoID = try XCTUnwrap((committed["qso"] as? [String: Any])?["qsoID"] as? String)
+            let getResponse = try await workerRequest(worker, method: "contest_qso_get", params: [
+                "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                "expectedRevision": revision, "qsoID": qsoID])
+            let got = try XCTUnwrap(getResponse["result"] as? [String: Any])
+            var correctedQSO = try XCTUnwrap(got["qso"] as? [String: Any]); correctedQSO.removeValue(forKey: "entity")
+            correctedQSO["receivedExchange"] = "TOM ON"; correctedQSO["normalizedReceivedExchange"] = "TOM ON"
+            correctedQSO["receivedExchangeFields"] = ["name": "TOM", "location": "ON"]
+            let correctionID = UUID()
+            let correction = mutation(sessionID: sessionID, requestID: correctionID, revision: Int(revision),
+                timestamp: "2026-10-18T0\(offset):04:00.000Z", payload: ["qso": correctedQSO, "reason": "Correct copied name"],
+                workspaceGeneration: generation)
+            let correctionResponse = try await workerRequest(worker, method: "contest_qso_correct", params: correction)
+            let corrected = try XCTUnwrap(correctionResponse["result"] as? [String: Any])
+            XCTAssertEqual(((corrected["score"] as? [String: Any])?["claimedScore"] as? NSNumber)?.intValue, 1)
+            let scoreResponse = try await workerRequest(worker, method: "contest_score", params: [
+                "sessionID": wireID(sessionID), "workspaceGeneration": generation, "expectedRevision": revision + 1])
+            let rescored = try XCTUnwrap(scoreResponse["result"] as? [String: Any])
+            XCTAssertEqual((rescored["claimedScore"] as? NSNumber)?.intValue, 1)
+            let deletionID = UUID()
+            let deletion = mutation(sessionID: sessionID, requestID: deletionID, revision: Int(revision + 1),
+                timestamp: "2026-10-18T0\(offset):05:00.000Z", payload: ["qsoID": qsoID, "reason": "Remove test contact"],
+                workspaceGeneration: generation)
+            let deletionResponse = try await workerRequest(worker, method: "contest_qso_delete", params: deletion)
+            let deleted = try XCTUnwrap(deletionResponse["result"] as? [String: Any])
+            XCTAssertEqual(((deleted["score"] as? [String: Any])?["claimedScore"] as? NSNumber)?.intValue, 0)
+        }
+
+        let scoreRule = try XCTUnwrap(rules.first { (($0["identity"] as? [String: Any])?["id"] as? String) == "naqp-cw" })
+        let scoreSessionID = UUID(), scoreDraftID = UUID()
+        let scoreCreate = mutation(sessionID: scoreSessionID, requestID: scoreDraftID, revision: 0,
+            timestamp: "2026-10-18T10:00:00.000Z", payload: [
+                "sessionID": wireID(scoreSessionID), "name": "NAQP independent score oracle",
+                "ruleIdentity": try XCTUnwrap(scoreRule["identity"] as? [String: Any]),
+                "referenceDataVersion": try XCTUnwrap(scoreRule["referenceDataVersion"] as? String),
+                "station": ["callsign": "K1AAA", "cqZone": "5", "dxccEntity": "United States",
+                            "exchangeFields": ["name": "AL", "location": "CA"]],
+                "operator": ["callsign": "K1AAA", "category": "Single Operator"],
+            ], workspaceGeneration: generation)
+        _ = try await workerRequest(worker, method: "contest_create", params: scoreCreate)
+        let contacts: [(String, String, String, String, Int)] = [
+            ("K2AAA", "BOB", "CA", "20m", 14_050_000),
+            ("KH6AAA", "KAI", "HI", "20m", 14_051_000),
+            ("HI8AAA", "ANA", "HI", "20m", 14_052_000),
+            ("VE3AAA", "SAM", "ON", "20m", 14_053_000),
+            ("K3AAA", "LEE", "CA", "40m", 7_050_000),
+            ("DL1AAA", "MAX", "DX", "20m", 14_054_000),
+            ("K2AAA", "BOB", "CA", "20m", 14_055_000),
+        ]
+        var scoreRevision = 1
+        var finalCommit: [String: Any] = [:]
+        for (index, contact) in contacts.enumerated() {
+            let fields: [String: Any] = [
+                "callsign": contact.0, "sentReport": "", "sentExchange": "AL CA",
+                "receivedReport": "", "receivedExchange": "\(contact.1) \(contact.2)",
+                "frequencyHz": contact.4, "band": contact.3, "mode": "CW",
+                "sentExchangeFields": ["name": "AL", "location": "CA"],
+                "receivedExchangeFields": ["name": contact.1, "location": contact.2],
+            ]
+            let apply = mutation(sessionID: scoreSessionID, requestID: UUID(), revision: scoreRevision,
+                timestamp: "2026-10-18T10:\(String(format: "%02d", index * 2 + 1)):00.000Z",
+                payload: ["fields": fields], draftID: scoreDraftID, workspaceGeneration: generation)
+            _ = try await workerRequest(worker, method: "contest_draft_apply", params: apply)
+            scoreRevision += 1
+            let commit = mutation(sessionID: scoreSessionID, requestID: UUID(), revision: scoreRevision,
+                timestamp: "2026-10-18T10:\(String(format: "%02d", index * 2 + 2)):00.000Z",
+                payload: [:], draftID: scoreDraftID, workspaceGeneration: generation)
+            let response = try await workerRequest(worker, method: "contest_qso_commit", params: commit)
+            finalCommit = try XCTUnwrap(response["result"] as? [String: Any])
+            scoreRevision += 1
+        }
+        let score = try XCTUnwrap(finalCommit["score"] as? [String: Any])
+        XCTAssertEqual((score["points"] as? NSNumber)?.intValue, 6)
+        XCTAssertEqual((score["multipliers"] as? NSNumber)?.intValue, 5)
+        XCTAssertEqual((score["claimedScore"] as? NSNumber)?.intValue, 30)
+        XCTAssertEqual((finalCommit["qso"] as? [String: Any])?["isDupe"] as? Bool, true)
+        let projectedScoreResponse = try await workerRequest(worker, method: "contest_score", params: [
+            "sessionID": wireID(scoreSessionID), "workspaceGeneration": generation, "expectedRevision": scoreRevision])
+        let projectedScore = try XCTUnwrap(projectedScoreResponse["result"] as? [String: Any])
+        let displayLabels = try XCTUnwrap(projectedScore["multiplierDisplayLabels"] as? [String])
+        XCTAssertTrue(displayLabels.contains("Hawaii · 20m"))
+        XCTAssertTrue(displayLabels.contains("Dominican Republic · 20m"))
+        let pageResponse = try await workerRequest(worker, method: "contest_log_page", params: [
+            "sessionID": wireID(scoreSessionID), "workspaceGeneration": generation, "expectedRevision": scoreRevision,
+            "offset": 0, "limit": 20])
+        let page = try XCTUnwrap(pageResponse["result"] as? [String: Any])
+        let projectedQSOs = try XCTUnwrap(page["qsos"] as? [[String: Any]])
+        XCTAssertEqual(projectedQSOs.first { $0["callsign"] as? String == "KH6AAA" }?["multiplierDisplayLabels"] as? [String], ["Hawaii · 20m"])
+        XCTAssertEqual(projectedQSOs.first { $0["callsign"] as? String == "HI8AAA" }?["multiplierDisplayLabels"] as? [String], ["Dominican Republic · 20m"])
     }
 
     func testWorkerAllowsContestOnlyInBoundTestProfileAndStillDeniesExternalIO() async throws {
@@ -861,4 +1161,14 @@ final class ContestingLaneTests: XCTestCase {
         let response = try XCTUnwrap(JSONSerialization.jsonObject(with: responseData) as? [String: Any])
         XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? String, "contest_profile_required")
     }
+}
+
+private actor ContestGenerationGate {
+    let value: String
+    private var continuation: CheckedContinuation<Void,Never>?
+    private var waiting = false
+    init(value:String){self.value=value}
+    func wait() async -> String { await withCheckedContinuation{continuation=$0;waiting=true}; return value }
+    func awaiting() async { while !waiting { await Task.yield() } }
+    func release(){continuation?.resume();continuation=nil}
 }

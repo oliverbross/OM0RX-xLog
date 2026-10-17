@@ -1,0 +1,9 @@
+{
+  "retrieved": "2026-10-18",
+  "cabrilloTemplateURL": "https://ncjweb.com/NAQP_Cabrillo_Template.txt",
+  "cabrilloTemplateSHA256": "b4e9c221d498cd126054fada0854379d36e45d9a4b09b1b920285a8157575fa4",
+  "historicalTemplateQSO": "QSO: 28048 CW 2014-01-11 1800 N5KO            TREY       CA  N4PN            PAUL       GA",
+  "historicalTemplateDXExample": "QSO: 28048 CW 2014-01-11 1803 N5KO            TREY       CA  HI8A            AKI        DX",
+  "adifSpecificationURL": "https://www.adif.org/318/ADIF_318_annotated.htm",
+  "adifSpecificationSHA256": "3ba54cb29b4dc5333c81f38f53e9d5ca503ff47a917acffa64e4cc469464d5ef"
+}

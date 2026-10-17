@@ -110,12 +110,15 @@ requireThat(ledger.plugins.length === 94, `expected 94 ledger rows, found ${ledg
 requireThat(ledger.upstream.excluded.length === 1 && ledger.upstream.excluded[0].path === "not1mm/plugins/__init__.py",
   "only not1mm/plugins/__init__.py may be excluded");
 requireThat(ledger.upstream.excluded[0].reason.length > 20, "initializer exclusion requires a reason");
-const expectedPilotBoundary = "Exactly eight xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB, plus two official-corrected SAC 2026 practice previews in CW and SSB. Evidence is scoped by field and is not current sponsor, application, package, submission, or operator acceptance.";
+const expectedPilotBoundary = "Exactly eleven xLog rule implementations are recorded: six source-derived pilots for CQ WW, CQ WPX, and Oceania DX in CW and SSB; two official-corrected SAC 2026 practice previews in CW and SSB; and three official-rules NAQP 2026 plain-logging previews in CW, SSB, and RTTY. Evidence is scoped by field and is not current sponsor, application, package, submission, full-port, or operator acceptance.";
 const expectedOfficialCorrectionBoundary = "SAC CW and SSB use the published SAC 2026 rules as operational authority and deliberately correct identified pinned-source defects. They are official-corrected practice and scoring previews, not claims of exact upstream parity or submission readiness.";
+const expectedNAQPAuthorityBoundary = "NAQP CW, SSB, and RTTY use the published NCJ 2026 rules and multiplier form as primary authority. The pinned Python plugins remain compatibility comparators with recorded gaps; their commit is not the NAQP rule sourceRevision. These are plain-logging previews, not claims of exact upstream parity, full operating support, sponsor certification, or submission readiness.";
 requireThat(ledger.interpretation.pilotBoundary === expectedPilotBoundary,
-  "pilot boundary must record exactly eight bounded rule implementations");
+  "pilot boundary must record exactly eleven bounded rule implementations");
 requireThat(ledger.interpretation.officialCorrectionBoundary === expectedOfficialCorrectionBoundary,
   "official-corrected SAC boundary is missing");
+requireThat(ledger.interpretation.naqpAuthorityBoundary === expectedNAQPAuthorityBoundary,
+  "NAQP primary-authority boundary is missing");
 
 requireThat(existsSync(upstreamRoot), `upstream checkout does not exist: ${upstreamRoot}`);
 const actualHead = execFileSync("git", ["-C", upstreamRoot, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -147,7 +150,16 @@ const selectorLabelSet = new Set();
 const allowedObservation = new Set(["source-static", "dynamic-unresolved", "absent"]);
 const sourcePilotIDs = new Set(["cq_ww_cw", "cq_ww_ssb", "cq_wpx_cw", "cq_wpx_ssb", "oceania_dx_cw", "oceania_dx_ssb"]);
 const practicePreviewIDs = new Set(["sac_cw", "sac_ssb"]);
-const implementedIDs = new Set([...sourcePilotIDs, ...practicePreviewIDs]);
+const officialRulesPreviewIDs = new Set(["naqp_cw", "naqp_rtty", "naqp_ssb"]);
+const implementedIDs = new Set([...sourcePilotIDs, ...practicePreviewIDs, ...officialRulesPreviewIDs]);
+const naqpRulesSHA = "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8";
+const naqpAuthority = JSON.parse(readFileSync(join(repositoryRoot, "Tests/XContestCoreTests/SourceFixtures/naqp-2026-authority.json"), "utf8"));
+requireThat(implementedIDs.size === 11, "expected exactly eleven bounded rule implementations");
+requireThat(naqpAuthority.rulesURL === "https://ncjweb.com/NAQP-Rules.pdf" && naqpAuthority.rulesSHA256 === naqpRulesSHA,
+  "NAQP primary rules authority mismatch");
+requireThat(naqpAuthority.multiplierFormURL === "https://ncjweb.com/NAQP-Paper-Log-Form.pdf" &&
+  naqpAuthority.multiplierFormSHA256 === "6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d",
+  "NAQP multiplier authority mismatch");
 const ruleIdentities = {
   cq_ww_cw: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   cq_ww_ssb: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
@@ -157,24 +169,30 @@ const ruleIdentities = {
   oceania_dx_ssb: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: ledger.upstream.commit },
   sac_cw: { id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: ledger.upstream.commit },
   sac_ssb: { id: "sac-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: ledger.upstream.commit },
+  naqp_cw: { id: "naqp-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: naqpRulesSHA },
+  naqp_rtty: { id: "naqp-rtty", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: naqpRulesSHA },
+  naqp_ssb: { id: "naqp-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: naqpRulesSHA },
 };
 const implementationStatuses = {
   cq_ww_cw: "source-derived-pilot", cq_ww_ssb: "source-derived-pilot",
   cq_wpx_cw: "source-derived-pilot", cq_wpx_ssb: "source-derived-pilot",
   oceania_dx_cw: "source-derived-pilot", oceania_dx_ssb: "source-derived-pilot",
   sac_cw: "official-corrected-practice-preview", sac_ssb: "official-corrected-practice-preview",
+  naqp_cw: "official-rules-plain-logging-preview", naqp_rtty: "official-rules-plain-logging-preview", naqp_ssb: "official-rules-plain-logging-preview",
 };
 const ruleAuditStatuses = {
   cq_ww_cw: "audited-gaps-open", cq_ww_ssb: "audited-gaps-open",
   cq_wpx_cw: "audited-gaps-open", cq_wpx_ssb: "audited-gaps-open",
   oceania_dx_cw: "audited-gaps-open", oceania_dx_ssb: "audited-gaps-open",
   sac_cw: "official-corrected-audited-gaps-open", sac_ssb: "official-corrected-audited-gaps-open",
+  naqp_cw: "official-rules-audited-gaps-open", naqp_rtty: "official-rules-audited-gaps-open", naqp_ssb: "official-rules-audited-gaps-open",
 };
 const scoringStatuses = {
   cq_ww_cw: "source-derived-tested", cq_ww_ssb: "source-derived-tested",
   cq_wpx_cw: "source-derived-tested", cq_wpx_ssb: "source-derived-tested",
   oceania_dx_cw: "source-derived-tested", oceania_dx_ssb: "source-derived-tested",
   sac_cw: "official-corrected-practice-tested", sac_ssb: "official-corrected-practice-tested",
+  naqp_cw: "official-rules-and-compatibility-tested", naqp_rtty: "official-rules-and-compatibility-tested", naqp_ssb: "official-rules-and-compatibility-tested",
 };
 const independentScoringStatuses = {
   cq_ww_cw: "independent-fixture-recorded",
@@ -185,6 +203,9 @@ const independentScoringStatuses = {
   oceania_dx_ssb: "independent-arithmetic-tested",
   sac_cw: "independent-arithmetic-tested",
   sac_ssb: "independent-arithmetic-tested",
+  naqp_cw: "independent-arithmetic-tested",
+  naqp_rtty: "independent-arithmetic-tested",
+  naqp_ssb: "independent-arithmetic-tested",
 };
 const mutationRestartStatuses = {
   cq_ww_cw: "process-and-store-tested",
@@ -195,12 +216,16 @@ const mutationRestartStatuses = {
   oceania_dx_ssb: "native-store-and-local-worker-tested",
   sac_cw: "native-store-and-worker-tested",
   sac_ssb: "native-store-and-worker-tested",
+  naqp_cw: "store-and-worker-lifecycle-tested",
+  naqp_rtty: "store-and-worker-lifecycle-tested",
+  naqp_ssb: "store-and-worker-lifecycle-tested",
 };
 const exportStatuses = {
   cq_ww_cw: "source-derived-tested", cq_ww_ssb: "source-derived-tested",
   cq_wpx_cw: "source-derived-tested", cq_wpx_ssb: "source-derived-tested",
   oceania_dx_cw: "source-derived-tested", oceania_dx_ssb: "source-derived-tested",
   sac_cw: "practice-preview-goldens-tested", sac_ssb: "practice-preview-goldens-tested",
+  naqp_cw: "versioned-preview-goldens-tested", naqp_rtty: "versioned-preview-goldens-tested", naqp_ssb: "versioned-preview-goldens-tested",
 };
 const certifications = {
   cq_ww_cw: "source-derived preview; operator and sponsor acceptance remain pending",
@@ -211,8 +236,12 @@ const certifications = {
   oceania_dx_ssb: "source-derived preview; operator and sponsor acceptance remain pending",
   sac_cw: "official-corrected practice preview; operator, sponsor, and submission acceptance remain pending",
   sac_ssb: "official-corrected practice preview; operator, sponsor, and submission acceptance remain pending",
+  naqp_cw: "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending",
+  naqp_rtty: "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending",
+  naqp_ssb: "official-rules plain-logging preview; operator, native-entry, sponsor, and submission acceptance remain pending",
 };
 const expectedPlatformNote = "Run 39053085696 at 38fd897a3ac7ac2a16cc8f1ceff131c83cfba628 passed on macOS, Linux, and Windows: 62 core tests per OS; 51 store/snapshot tests on macOS and Linux and 56 on Windows; 14 worker lifecycle and 13 assistance tests per OS; and 27 export-support and 18 Rust tests per OS. This is native source/test evidence only and does not prove GUI, operator, sponsor, package, save-dialog, radio, or submission acceptance.";
+const expectedNAQPPlatformNote = "NAQP core 2ee72e1c364199bcb38c185ed7b3a20c46a2bc84 and export 5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d passed their three-platform matrices. Structured entry d22107292532a8f77737b4fcf68134f547ca7be4 is integrated at c0ac00ff05968d3fb90484643e22732451170121; its newer native entry matrix remains pending. This partial evidence does not prove full operator, package, radio, sponsor, or submission acceptance.";
 const actualReference = fnv64(readFileSync(join(repositoryRoot, "Sources/XLogCore/Resources/cty.csv"), "utf8"));
 const actualReferenceSHA = sha256(join(repositoryRoot, "Sources/XLogCore/Resources/cty.csv"));
 const observationCounts = { "source-static": 0, "dynamic-unresolved": 0, absent: 0 };
@@ -293,7 +322,8 @@ for (const row of ledger.plugins) {
     requireThat(row.xlogAcceptance.independentScoringCases.evidence.length > 0, `independent scoring evidence missing for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.mutationRestart.evidence.length > 0, `restart evidence missing for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.exportGoldens.evidence.length > 0, `export evidence missing for ${row.pluginID}`);
-    requireThat(row.xlogAcceptance.platform.note === expectedPlatformNote, `platform evidence scope mismatch for ${row.pluginID}`);
+    requireThat(row.xlogAcceptance.platform.note === (officialRulesPreviewIDs.has(row.pluginID) ? expectedNAQPPlatformNote : expectedPlatformNote),
+      `platform evidence scope mismatch for ${row.pluginID}`);
     requireThat(row.xlogAcceptance.certification === certifications[row.pluginID],
       `certification status mismatch for ${row.pluginID}`);
   } else {
@@ -321,8 +351,10 @@ const summary = {
   pluginRows: ledger.plugins.length,
   selectorEntries: selectorLabels.length,
   uniqueSourceHashes: sourceHashes.size,
+  implementedRulePreviews: implementedIDs.size,
   implementedPilots: [...sourcePilotIDs].sort(),
   officialCorrectedPracticePreviews: [...practicePreviewIDs].sort(),
+  officialRulesPlainLoggingPreviews: [...officialRulesPreviewIDs].sort(),
   pendingPlugins: ledger.plugins.length - implementedIDs.size,
   observationCounts,
   customDupePlugins: customDupePlugins.sort(),
@@ -337,6 +369,11 @@ if (process.argv.includes("--self-test")) {
       ["wrong-dupe", (copy) => { copy.plugins.find((row) => row.pluginID === "oceania_dx_cw").upstreamContract.dupePolicy.value = 4; }, "source observation mismatch"],
       ["missing-rule-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "sac_cw").xlogAcceptance.exportGoldens.evidence = []; }, "export evidence missing"],
       ["fake-rule-identity", (copy) => { copy.plugins.find((row) => row.pluginID === "sac_ssb").xlogAcceptance.ruleIdentity.id = "fake-sac"; }, "rule identity mismatch"],
+      ["wrong-naqp-authority", (copy) => { copy.plugins.find((row) => row.pluginID === "naqp_cw").xlogAcceptance.ruleIdentity.sourceRevision = copy.upstream.commit; }, "rule identity mismatch"],
+      ["missing-naqp-evidence", (copy) => { copy.plugins.find((row) => row.pluginID === "naqp_rtty").xlogAcceptance.independentScoringCases.evidence = []; }, "independent scoring evidence missing"],
+      ["premature-naqp-operator-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "naqp_ssb").xlogAcceptance.runSP.status = "operator-accepted"; }, "RunSP must remain pending"],
+      ["premature-naqp-native-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "naqp_cw").xlogAcceptance.platform.status = "native-accepted"; }, "platform status mismatch"],
+      ["premature-naqp-submission-claim", (copy) => { copy.plugins.find((row) => row.pluginID === "naqp_rtty").xlogAcceptance.certification = "submission-ready"; }, "certification status mismatch"],
       ["falsely-completed-unsupported-plugin", (copy) => { copy.plugins.find((row) => row.pluginID === "cq_wpx_rtty").xlogAcceptance.certification = "complete"; }, "unimplemented certification status mismatch"],
     ];
     for (const [name, mutate, expected] of mutations) {

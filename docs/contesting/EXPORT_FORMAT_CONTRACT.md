@@ -45,6 +45,8 @@ Intentional differences are strict and deterministic: the formatter has no files
 
 ## ADIF 3.1.7 mapping
 
+The NAQP `naqp-preview-1` projection was additionally audited against the official ADIF 3.1.8 annotated specification retrieved 18 October 2026 (SHA-256 `3ba54cb29b4dc5333c81f38f53e9d5ca503ff47a917acffa64e4cc469464d5ef`). It intentionally keeps the existing 3.1.7 document header for byte compatibility. Report-free rows omit `RST_SENT` and `RST_RCVD`; structured exchanges retain `STX_STRING`, `SRX_STRING`, `MY_NAME`, and `NAME`. `MY_STATE` and `STATE` appear only when the resolved entity makes the value an ADIF administrative subdivision, never for `DX` or an NAQP country-prefix multiplier.
+
 The mapper reuses xLog's `ADIFRecord` writer and parser. It follows the released ADIF 3.1.7 field semantics: `QSO_DATE` and `TIME_ON` are UTC, `FREQ` is MHz, `MODE` is the descriptor's CW or SSB mode, `CONTEST_ID` names the contest, and `STX`/`SRX` contain numeric WPX serials. WPX CW and SSB advertise the numeric `stxSrx` mapping; Oceania DX and SAC CW/SSB advertise `exchangeStrings`, which emits only `STX_STRING`/`SRX_STRING`; WW advertises none. String exchange fields retain the exact exchange text, including leading zeroes. Lengths are UTF-8 byte lengths as emitted by `ADIFRecord`.
 
 SAC Cabrillo and ADIF output is a deterministic scoring and format preview. The current submission header does not model every SAC category or contest-date eligibility rule, so the UI labels it as a practice export rather than sponsor-submission ready.

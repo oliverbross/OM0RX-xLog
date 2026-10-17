@@ -14,9 +14,14 @@ actor ContestLane {
     private let databaseURL: URL
     private let generationSource: GenerationSource
     private let reference: ContestReferenceData
-    private let rules = ContestRuleRegistry.pilots
+    private let rules = ContestRuleRegistry([
+        CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
+        OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
+        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(),
+    ])
     private var store: SQLiteContestStore?
     private var exportLane: ContestExportLane?
+    private var assistanceService: ContestSCPService?
     private var tail: Task<Void, Never>?
     private var terminalShutdown = false
 
@@ -30,8 +35,8 @@ actor ContestLane {
     }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
-        if Self.isExportMethod(method) {
-            try requireExportRunning()
+        if Self.isConcurrentMethod(method) {
+            try requireConcurrentRunning(method)
             return try await perform(method: method, params: params)
         }
         let previous = tail
@@ -46,12 +51,13 @@ actor ContestLane {
     func shutdown() async {
         terminalShutdown = true
         await exportLane?.shutdown()
+        await assistanceService?.shutdown()
     }
 
     private func perform(method: String, params: [String: Any]) async throws -> [String: Any] {
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let before = try Wire.generation(try await generationSource())
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let result: [String: Any]
         do {
             switch method {
@@ -71,12 +77,18 @@ actor ContestLane {
             case "contest_score": result = try await score(params, generation: before)
             case "contest_export_prepare", "contest_export_read", "contest_export_release":
                 result = try await exportTransport().handle(method: method, params: params)
+            case "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
+                 "contest_scp_import_private":
+                result = try await assistance(method: method, params: params)
             default: throw ContestLaneError.confirmed("unknown_method", "Unknown contest method.")
             }
         } catch let error as ContestLaneError { throw error }
           catch let error as ContestExportLaneError { throw Self.map(error) }
+          catch let error as ContestAssistanceLaneError { throw Self.map(error) }
+          catch is ContestSCPServiceError { throw ContestLaneError.confirmed("scp_import_failed", "The selected SCP file could not be imported.") }
+          catch is ContestSCPError { throw ContestLaneError.confirmed("invalid_scp", "The SCP dataset or query is invalid.") }
           catch { throw Self.map(error) }
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let after: String
         do { after = try Wire.generation(try await generationSource()) }
         catch {
@@ -85,7 +97,7 @@ actor ContestLane {
             }
             throw ContestLaneError.uncertain("workspace_fence_failed", "The workspace could not be verified after the contest request; check its receipt before retrying.")
         }
-        if Self.isExportMethod(method) { try requireExportRunning() }
+        if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         guard before == after else {
             if method.hasPrefix("contest_export_") {
                 throw ContestLaneError.uncertain("stale_workspace", "The isolated workspace changed while the export request was running; retry only with its exact coordinate.")
@@ -101,7 +113,7 @@ actor ContestLane {
         let parent = databaseURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         try ContestDatabaseBoundary.validate(databaseURL: databaseURL)
-        let created = try SQLiteContestStore(databaseURL: databaseURL)
+        let created = try SQLiteContestStore(databaseURL: databaseURL, rules: rules)
         store = created
         return created
     }
@@ -109,7 +121,7 @@ actor ContestLane {
     private func exportTransport() throws -> ContestExportLane {
         try requireExportRunning()
         if let exportLane { return exportLane }
-        let service = ContestExportService(repository: try repository())
+        let service = ContestExportService(repository: try repository(), rules: rules)
         let generationSource = self.generationSource
         let created = ContestExportLane(service: service) {
             let raw = try await generationSource()
@@ -122,13 +134,97 @@ actor ContestLane {
         return created
     }
 
+    private func assistanceTransport() throws -> ContestSCPService {
+        if let assistanceService { return assistanceService }
+        let repository = try repository()
+        let generationSource = self.generationSource
+        let databaseURL = self.databaseURL
+        let cacheURL = databaseURL.deletingLastPathComponent()
+            .appendingPathComponent("SuperCheckPartial", isDirectory: true)
+            .appendingPathComponent("current.json")
+        let created = try ContestSCPService(cacheURL: cacheURL,
+                                            validatePrivateRoot: {
+            try ContestDatabaseBoundary.validateCache(cacheURL: cacheURL, databaseURL: databaseURL)
+        }) { scope in
+            let current = try Wire.generation(try await generationSource())
+            guard current == scope.workspaceGeneration,
+                  let sessionID = UUID(uuidString: scope.sessionID), scope.sessionID == sessionID.uuidString.lowercased() else {
+                throw ContestLaneError.confirmed("stale_workspace", "The callsign query belongs to another contest context.")
+            }
+            let stored = try await repository.openSession(id: sessionID)
+            guard stored.session.workspaceGeneration == (try Wire.generationID(current)) else {
+                throw ContestLaneError.confirmed("stale_workspace", "The callsign query belongs to another contest context.")
+            }
+        }
+        assistanceService = created
+        return created
+    }
+
+    private func assistance(method: String, params: [String: Any]) async throws -> [String: Any] {
+        let service = try assistanceTransport()
+        switch method {
+        case "contest_scp_status":
+            try Wire.exact(params, [])
+            let status = await service.status()
+            return ["dataset": status.dataset.map(Self.datasetWire) ?? NSNull(),
+                    "unavailableReason": status.unavailableReason ?? NSNull()]
+        case "contest_scp_import_private":
+            try Wire.exact(params, ["path", "sourceName"])
+            let dataset = try await service.importFile(path: try Wire.text(params, "path", max: 4_096),
+                sourceName: try Wire.text(params, "sourceName", max: 256),
+                retrievedAt: Date())
+            return ["dataset": Self.datasetWire(dataset)]
+        case "contest_scp_query":
+            try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID", "query"])
+            let context = try Wire.assistanceContext(params)
+            let result = try await service.query(try Wire.text(params, "query", max: 32), context: context)
+            return Self.queryWire(result)
+        case "contest_scp_cancel":
+            try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID"])
+            return ["cancelled": try await service.cancel(context: Wire.assistanceContext(params))]
+        case "contest_scp_select":
+            try Wire.exact(params, ["sessionID", "workspaceGeneration", "requestID", "matchID"])
+            let callsign = try await service.selectedCallsign(matchID: try Wire.text(params, "matchID", max: 160),
+                                                              context: Wire.assistanceContext(params))
+            return ["callsign": callsign]
+        default: throw ContestLaneError.confirmed("unknown_method", "Unknown callsign-assistance method.")
+        }
+    }
+
+    private static func datasetWire(_ dataset: ContestSCPDatasetInfo) -> [String: Any] {
+        ["sourceID": dataset.provenance.sourceID, "version": dataset.provenance.version,
+         "retrievedAtUTC": dataset.provenance.retrievedAtUTC.map(Wire.iso) ?? NSNull(),
+         "sha256": dataset.sha256, "byteCount": dataset.byteCount, "recordCount": dataset.recordCount,
+         "duplicateCount": dataset.duplicateCount, "digestVerification": dataset.digestVerification.rawValue]
+    }
+
+    private static func queryWire(_ result: ContestSCPQueryResult) -> [String: Any] {
+        ["sessionID": result.context.sessionID, "workspaceGeneration": result.context.workspaceGeneration,
+         "requestID": result.context.requestID, "normalizedQuery": result.normalizedQuery,
+         "matches": result.matches.map { ["matchID": $0.matchID, "callsign": $0.callsign,
+             "score": $0.score, "isPrefixMatch": $0.isPrefixMatch] },
+         "dataset": datasetWire(result.dataset), "evaluatedRecordCount": result.evaluatedRecordCount,
+         "isPartial": result.isPartial]
+    }
+
     private static func isExportMethod(_ method: String) -> Bool {
         method == "contest_export_prepare" || method == "contest_export_read" || method == "contest_export_release"
+    }
+
+    private static func isConcurrentMethod(_ method: String) -> Bool {
+        isExportMethod(method) || method.hasPrefix("contest_scp_")
     }
 
     private func requireExportRunning() throws {
         guard !terminalShutdown else {
             throw ContestLaneError.confirmed("artifact_unavailable", "The contest export lane is shut down.")
+        }
+    }
+
+    private func requireConcurrentRunning(_ method: String) throws {
+        if Self.isExportMethod(method) { try requireExportRunning(); return }
+        guard !terminalShutdown else {
+            throw ContestLaneError.confirmed("scp_unavailable", "Callsign assistance is shut down.")
         }
     }
 
@@ -162,7 +258,11 @@ actor ContestLane {
         let referenceVersion = try Wire.text(request.payload, "referenceDataVersion", max: 160)
         guard referenceVersion == reference.version else { throw ContestLaneError.confirmed("reference_unavailable", "The requested offline reference data is unavailable.") }
         let stationInput = try Wire.object(request.payload, "station")
-        try Wire.exact(stationInput, ["callsign", "cqZone", "dxccEntity"])
+        if rule.metadata.entry.version == .v2 {
+            try Wire.exact(stationInput, ["callsign", "cqZone", "dxccEntity", "exchangeFields"])
+        } else {
+            try Wire.exact(stationInput, ["callsign", "cqZone", "dxccEntity"])
+        }
         let operatorInput = try Wire.object(request.payload, "operator")
         try Wire.exact(operatorInput, ["callsign", "category"])
         let stationCall = try Wire.callsign(stationInput, "callsign")
@@ -173,17 +273,27 @@ actor ContestLane {
             throw ContestLaneError.confirmed("station_mismatch", "The station snapshot does not match bundled offline CTY data.")
         }
         let operatorCall = try Wire.callsign(operatorInput, "callsign")
+        let parsedStationFields = rule.metadata.entry.version == .v2
+            ? try Wire.exchangeFields(Wire.object(stationInput, "exchangeFields"), descriptors: rule.metadata.entry.exchange.sentFields)
+            : [:]
+        let stationFields = parsedStationFields.mapValues {
+            ContestExchangeFieldValue(raw: $0.normalized, normalized: $0.normalized)
+        }
+        let stationExchange = rule.metadata.entry.version == .v2
+            ? Wire.aggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
+            : (rule.metadata.entry.exchange.sentDefault == .stationSnapshot ? zoneText : "")
         let metadata = ContestSessionMetadata(name: try Wire.text(request.payload, "name", max: 128), operatorCallsign: operatorCall,
                                               operatorCategory: try Wire.text(operatorInput, "category", max: 80))
         let session = ContestSessionSnapshot(id: request.sessionID, workspaceGeneration: try Wire.generationID(generation), rule: identity,
             referenceDataVersion: referenceVersion, startedAt: request.timestamp,
             station: ContestStationSnapshot(callsign: stationCall, entity: try reference.entity(country),
-                sentExchange: rule.metadata.entry.exchange.sentDefault == .stationSnapshot ? zoneText : "",
-                operatorCallsigns: [operatorCall]))
+                sentExchange: stationExchange, operatorCallsigns: [operatorCall],
+                location: stationFields["location"]?.normalized ?? "", sentExchangeFields: stationFields))
         let draft = ContestDraftSnapshot(id: request.requestID, sessionID: request.sessionID, revision: 1, updatedAt: request.timestamp,
             callsign: "", band: "20m", mode: rule.metadata.entry.mode, frequencyHz: nil,
             rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
-            exchange: .init(rawSent: session.station.sentExchange, normalizedSent: session.station.sentExchange, rawReceived: "", normalizedReceived: ""),
+            exchange: .init(rawSent: session.station.sentExchange, normalizedSent: session.station.sentExchange,
+                            rawReceived: "", normalizedReceived: "", sentFields: session.station.sentExchangeFields),
             entity: nil, operatorCallsign: operatorCall, stationLocation: session.station.location)
         let scope = request.coreScope(generation: session.workspaceGeneration, draftID: draft.id)
         _ = try await preflightReplay(request)
@@ -233,7 +343,8 @@ actor ContestLane {
             callsign: fields.callsign, band: fields.band, mode: fields.mode, frequencyHz: fields.frequencyHz,
             rstSent: fields.sentReport, rstReceived: fields.receivedReport,
             exchange: .init(rawSent: fields.sentExchange, normalizedSent: fields.sentExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
-                            rawReceived: fields.receivedExchange, normalizedReceived: fields.receivedExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()),
+                            rawReceived: fields.receivedExchange, normalizedReceived: fields.receivedExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                            sentFields: fields.sentExchangeFields, receivedFields: fields.receivedExchangeFields),
             entity: entity, operatorCallsign: current.operatorCallsign, stationLocation: current.stationLocation)
         let result = try await repository().updateDraft(next, scope: request.coreScope(generation: stored.session.workspaceGeneration), committedAt: request.timestamp)
         return try await projectCommitted {
@@ -289,7 +400,9 @@ actor ContestLane {
             qso = ContestQSO(id: request.requestID, sessionID: request.sessionID, timestampUTC: request.timestamp,
                 callsign: draft.callsign, band: draft.band, mode: draft.mode, frequencyHz: draft.frequencyHz ?? 0,
                 rstSent: draft.rstSent, rstReceived: draft.rstReceived,
-                exchange: .init(rawSent: sent, normalizedSent: sent, rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived),
+                exchange: .init(rawSent: sent, normalizedSent: sent,
+                                rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived,
+                                sentFields: draft.exchange.sentFields, receivedFields: draft.exchange.receivedFields),
                 entity: draft.entity, operatorCallsign: draft.operatorCallsign, stationLocation: draft.stationLocation,
                 provenance: .init(source: .operatorEntry, sourceIdentity: reference.version))
         }
@@ -448,9 +561,15 @@ actor ContestLane {
             throw ContestLaneError.uncertain("invalid_result", "Contest session projection requires one coherent read snapshot.")
         }
         guard let metadata = rules.rule(for: stored.session.rule)?.metadata, let entity = stored.session.station.entity else { throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.") }
+        var station: [String: Any] = ["callsign": stored.session.station.callsign,
+            "cqZone": String(entity.cqZone), "dxccEntity": entity.name]
+        if metadata.entry.version == .v2 {
+            station["exchangeFields"] = Wire.exchangeFieldsWire(stored.session.station.sentExchangeFields,
+                                                                  descriptors: metadata.entry.exchange.sentFields)
+        }
         return ["sessionID": Wire.uuidString(stored.session.id), "workspaceGeneration": generation, "revision": stored.revision,
             "name": stored.metadata.name, "rule": reference.ruleWire(metadata), "referenceDataVersion": stored.session.referenceDataVersion,
-            "station": ["callsign": stored.session.station.callsign, "cqZone": String(entity.cqZone), "dxccEntity": entity.name],
+            "station": station,
             "operator": ["callsign": stored.metadata.operatorCallsign, "category": stored.metadata.operatorCategory],
             "qsoCount": suppliedCount,
             "updatedAt": Wire.iso(max(stored.createdAt, suppliedDate))]
@@ -474,7 +593,9 @@ actor ContestLane {
             : draft.exchange.rawSent
         let candidate = ContestQSO(id: UUID(), sessionID: draft.sessionID, timestampUTC: draft.updatedAt, callsign: draft.callsign,
             band: draft.band, mode: draft.mode, frequencyHz: draft.frequencyHz ?? 0, rstSent: draft.rstSent, rstReceived: draft.rstReceived,
-            exchange: .init(rawSent: sent, normalizedSent: sent.uppercased(), rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived),
+            exchange: .init(rawSent: sent, normalizedSent: sent.uppercased(),
+                            rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived,
+                            sentFields: draft.exchange.sentFields, receivedFields: draft.exchange.receivedFields),
             entity: draft.entity, operatorCallsign: draft.operatorCallsign, stationLocation: draft.stationLocation,
             provenance: .init(source: .operatorEntry, sourceIdentity: reference.version))
         let evaluated = rule.evaluate(candidate, in: stored.session)
@@ -488,10 +609,17 @@ actor ContestLane {
                 dupeKey.map { key in qsos.contains { rule.evaluate($0, in: stored.session).dupeKey == key } }
             }
         }
-        return ["draftID": Wire.uuidString(draft.id), "sessionID": Wire.uuidString(draft.sessionID), "workspaceGeneration": generation, "revision": stored.revision,
-            "fields": ["callsign": draft.callsign, "sentReport": draft.rstSent, "sentExchange": sent,
+        var fields: [String: Any] = ["callsign": draft.callsign, "sentReport": draft.rstSent, "sentExchange": sent,
                        "receivedReport": draft.rstReceived, "receivedExchange": draft.exchange.rawReceived,
-                       "frequencyHz": draft.frequencyHz as Any? ?? NSNull(), "band": draft.band, "mode": draft.mode],
+                       "frequencyHz": draft.frequencyHz as Any? ?? NSNull(), "band": draft.band, "mode": draft.mode]
+        if rule.metadata.entry.version == .v2 {
+            fields["sentExchangeFields"] = Wire.exchangeFieldsWire(draft.exchange.sentFields,
+                                                                     descriptors: rule.metadata.entry.exchange.sentFields)
+            fields["receivedExchangeFields"] = Wire.exchangeFieldsWire(draft.exchange.receivedFields,
+                                                                         descriptors: rule.metadata.entry.exchange.receivedFields)
+        }
+        return ["draftID": Wire.uuidString(draft.id), "sessionID": Wire.uuidString(draft.sessionID), "workspaceGeneration": generation, "revision": stored.revision,
+            "fields": fields,
             "reservedSerial": serial?.number as Any? ?? NSNull(),
             "validation": ["errors": validation.filter { $0.severity == .error }.map(\.message),
                            "warnings": validation.filter { $0.severity == .warning }.map(\.message)],
@@ -507,15 +635,23 @@ actor ContestLane {
         return ["qsoID": Wire.uuidString(qso.id), "sessionID": Wire.uuidString(qso.sessionID), "workedAt": Wire.iso(qso.timestampUTC),
             "callsign": qso.callsign, "band": qso.band, "mode": qso.mode, "sentExchange": qso.exchange.rawSent,
             "receivedExchange": qso.exchange.rawReceived, "points": scored.points, "multiplier": multiplier as Any? ?? NSNull(),
+            "multiplierDisplayLabels": scored.newMultipliers.map(reference.displayLabel),
             "isDupe": scored.disposition == .duplicate]
     }
 
     private func correctedQSO(_ value: [String: Any], stored: StoredContestSession) throws -> ContestQSO {
-        try Wire.exact(value, ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode",
+        guard let rule = rules.rule(for: stored.session.rule) else {
+            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
+        }
+        var keys: Set<String> = ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode",
                                "frequencyHz", "sentReport", "receivedReport", "sentExchange",
                                "normalizedSentExchange", "allocatedSerial", "receivedExchange",
                                "normalizedReceivedExchange", "operatorCallsign", "stationLocation",
-                               "provenance", "ruleIdentity", "referenceDataVersion"])
+                               "provenance", "ruleIdentity", "referenceDataVersion"]
+        if rule.metadata.entry.version == .v2 {
+            keys.formUnion(["sentExchangeFields", "receivedExchangeFields"])
+        }
+        try Wire.exact(value, keys)
         let qsoID = try Wire.uuid(value, "qsoID")
         let sessionID = try Wire.uuid(value, "sessionID")
         guard sessionID == stored.session.id else {
@@ -525,8 +661,7 @@ actor ContestLane {
         let callsign = try Wire.callsign(value, "callsign")
         let band = try Wire.text(value, "band", max: 8)
         let mode = try Wire.text(value, "mode", max: 8)
-        guard let rule = rules.rule(for: stored.session.rule),
-              rule.metadata.supportedBands.contains(band), rule.metadata.supportedModes.contains(mode) else {
+        guard rule.metadata.supportedBands.contains(band), rule.metadata.supportedModes.contains(mode) else {
             throw ContestLaneError.confirmed("invalid_params", "The corrected band or mode is unsupported.")
         }
         let frequency = try Wire.uint(value, "frequencyHz")
@@ -547,13 +682,23 @@ actor ContestLane {
             throw ContestLaneError.confirmed("reference_mismatch", "The correction does not match the session's pinned rule and reference data.")
         }
         let provenance = try Wire.provenance(Wire.object(value, "provenance"))
+        let structured = rule.metadata.entry.version == .v2
+        let sentFields = structured ? try Wire.exchangeFields(Wire.object(value, "sentExchangeFields"), descriptors: rule.metadata.entry.exchange.sentFields) : [:]
+        let receivedFields = structured ? try Wire.exchangeFields(Wire.object(value, "receivedExchangeFields"), descriptors: rule.metadata.entry.exchange.receivedFields) : [:]
+        let rawReceived = try Wire.text(value, "receivedExchange", max: 64, empty: true)
+        if structured,
+           (rawSent != Wire.aggregate(sentFields, descriptors: rule.metadata.entry.exchange.sentFields) ||
+            rawReceived != Wire.aggregate(receivedFields, descriptors: rule.metadata.entry.exchange.receivedFields)) {
+            throw ContestLaneError.confirmed("invalid_params", "Structured correction aggregates do not match their fields.")
+        }
         return ContestQSO(id: qsoID, sessionID: sessionID, timestampUTC: originalUTC,
             callsign: callsign, band: band, mode: mode, frequencyHz: Int64(frequency),
             rstSent: try Wire.text(value, "sentReport", max: 3, empty: true),
             rstReceived: try Wire.text(value, "receivedReport", max: 3, empty: true),
             exchange: .init(rawSent: rawSent, normalizedSent: normalizedSent,
-                            rawReceived: try Wire.text(value, "receivedExchange", max: 64, empty: true),
-                            normalizedReceived: try Wire.text(value, "normalizedReceivedExchange", max: 64, empty: true)),
+                            rawReceived: rawReceived,
+                            normalizedReceived: try Wire.text(value, "normalizedReceivedExchange", max: 64, empty: true),
+                            sentFields: sentFields, receivedFields: receivedFields),
             entity: resolvedEntity, operatorCallsign: try Wire.callsign(value, "operatorCallsign"),
             stationLocation: try Wire.text(value, "stationLocation", max: 128, empty: true),
             provenance: provenance)
@@ -561,7 +706,7 @@ actor ContestLane {
 
     private func fullQSOWire(_ qso: ContestQSO, stored: StoredContestSession) -> [String: Any] {
         let entity: Any = qso.entity.map(Wire.entityWire) ?? NSNull()
-        return ["qsoID": Wire.uuidString(qso.id), "sessionID": Wire.uuidString(qso.sessionID),
+        var wire: [String: Any] = ["qsoID": Wire.uuidString(qso.id), "sessionID": Wire.uuidString(qso.sessionID),
             "originalUTC": Wire.iso(qso.timestampUTC), "callsign": qso.callsign,
             "band": qso.band, "mode": qso.mode, "frequencyHz": qso.frequencyHz,
             "sentReport": qso.rstSent, "receivedReport": qso.rstReceived,
@@ -573,6 +718,13 @@ actor ContestLane {
             "stationLocation": qso.stationLocation, "provenance": Wire.provenanceWire(qso.provenance),
             "ruleIdentity": Wire.ruleIdentityWire(stored.session.rule),
             "referenceDataVersion": stored.session.referenceDataVersion]
+        if let entry = rules.rule(for: stored.session.rule)?.metadata.entry, entry.version == .v2 {
+            wire["sentExchangeFields"] = Wire.exchangeFieldsWire(qso.exchange.sentFields,
+                                                                  descriptors: entry.exchange.sentFields)
+            wire["receivedExchangeFields"] = Wire.exchangeFieldsWire(qso.exchange.receivedFields,
+                                                                      descriptors: entry.exchange.receivedFields)
+        }
+        return wire
     }
 
     private func changeWire(_ result: ContestQSOChangeResult, generation: String) throws -> [String: Any] {
@@ -608,9 +760,11 @@ actor ContestLane {
 
     private func scoreWire(_ value: ContestScoreSnapshot, generation: String) -> [String: Any] {
         let labels = Set(value.score.qsos.flatMap(\.newMultipliers).map { "\($0.kind):\($0.value):\($0.scope)" }).sorted()
+        let displayLabels = Set(value.score.qsos.flatMap(\.newMultipliers).map(reference.displayLabel)).sorted()
         return ["sessionID": Wire.uuidString(value.sessionID), "workspaceGeneration": generation, "revision": value.revision,
             "qsos": value.score.qsos.count, "points": value.score.totalPoints, "multipliers": value.score.multiplierCount,
-            "claimedScore": value.score.claimedScore, "multiplierLabels": labels, "sourceVerification": "provisional"]
+            "claimedScore": value.score.claimedScore, "multiplierLabels": labels,
+            "multiplierDisplayLabels": displayLabels, "sourceVerification": "provisional"]
     }
 
     private func scoreWire(_ value: ContestScoreSummarySnapshot, generation: String) -> [String: Any] {
@@ -629,6 +783,19 @@ actor ContestLane {
             return .uncertain(error.code, error.message)
         }
         return .confirmed(error.code, error.message)
+    }
+
+    private static func map(_ error: ContestAssistanceLaneError) -> ContestLaneError {
+        switch error {
+        case .dataUnavailable: return .confirmed("scp_unavailable", "Import a local MASTER.SCP file to enable callsign suggestions.")
+        case .invalidContext, .staleResult: return .confirmed("stale_context", "The callsign suggestion belongs to another contest context.")
+        case .requestReused: return .confirmed("request_reused", "The callsign request ID was already used.")
+        case .capacityExceeded: return .confirmed("scp_busy", "Callsign assistance is busy; wait for an earlier query to settle.")
+        case .cancelled: return .confirmed("cancelled", "The callsign query was cancelled.")
+        case .stopped: return .confirmed("scp_unavailable", "Callsign assistance is shut down.")
+        case .resultUnavailable, .unknownMatch: return .confirmed("selection_unavailable", "The callsign suggestion is no longer available.")
+        case .unverifiedDataset, .invalidLimits: return .confirmed("scp_unavailable", "The local SCP dataset is unavailable.")
+        }
     }
 
     private static func map(_ error: Error) -> ContestLaneError {
@@ -664,15 +831,33 @@ struct ContestLaneError: Error {
     static func uncertain(_ code: String, _ message: String) -> Self { .init(code: code, message: message, outcome: "uncertain") }
 }
 
-private enum ContestDatabaseBoundary {
+enum ContestDatabaseBoundary {
     static func validate(databaseURL: URL, fileManager: FileManager = .default) throws {
         let database = databaseURL.standardizedFileURL
         let supportRoot = database.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL
         let applicationSupport = supportRoot.deletingLastPathComponent().standardizedFileURL
-        guard database.path.hasPrefix(supportRoot.path + "/") else { throw unsafe() }
+        try validatePrivateFile(database, privateRoot: supportRoot, ancestorBoundary: applicationSupport,
+                                protectedFiles: protectedDatabases(applicationSupport), fileManager: fileManager)
+    }
 
-        var candidate = database
-        while candidate.path != applicationSupport.path {
+    static func validateCache(cacheURL: URL, databaseURL: URL, fileManager: FileManager = .default) throws {
+        let database = databaseURL.standardizedFileURL
+        let supportRoot = database.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL
+        let applicationSupport = supportRoot.deletingLastPathComponent().standardizedFileURL
+        try validatePrivateFile(cacheURL, privateRoot: supportRoot, ancestorBoundary: applicationSupport,
+                                protectedFiles: protectedDatabases(applicationSupport), fileManager: fileManager)
+    }
+
+    static func validatePrivateFile(_ fileURL: URL, privateRoot: URL, ancestorBoundary: URL,
+                                    protectedFiles: [URL], fileManager: FileManager = .default) throws {
+        let file = fileURL.standardizedFileURL
+        let root = privateRoot.standardizedFileURL
+        let boundary = ancestorBoundary.standardizedFileURL
+        guard isStrictDescendant(file, of: root),
+              isStrictDescendant(root, of: boundary) else { throw unsafe() }
+
+        var candidate = file
+        while candidate.path != boundary.path {
             let values = try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey])
             if fileManager.fileExists(atPath: candidate.path) || values?.isSymbolicLink == true {
                 guard values?.isSymbolicLink != true else { throw unsafe() }
@@ -682,17 +867,27 @@ private enum ContestDatabaseBoundary {
             candidate = parent
         }
 
-        guard fileManager.fileExists(atPath: database.path) else { return }
-        let values = try database.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard fileManager.fileExists(atPath: file.path) else { return }
+        let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard values.isRegularFile == true, values.isSymbolicLink != true else { throw unsafe() }
-        let isolated = try fileManager.attributesOfItem(atPath: database.path)
-        for protected in [
-            applicationSupport.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite"),
-            applicationSupport.appendingPathComponent("OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite"),
-        ] where fileManager.fileExists(atPath: protected.path) {
+        let isolated = try fileManager.attributesOfItem(atPath: file.path)
+        for protected in protectedFiles where fileManager.fileExists(atPath: protected.path) {
             let production = try fileManager.attributesOfItem(atPath: protected.path)
             if sameFile(isolated, production) { throw unsafe() }
         }
+    }
+
+    static func isStrictDescendant(_ childURL: URL, of ancestorURL: URL) -> Bool {
+        let child = childURL.standardizedFileURL.pathComponents
+        let ancestor = ancestorURL.standardizedFileURL.pathComponents
+        return child.count > ancestor.count && child.prefix(ancestor.count).elementsEqual(ancestor)
+    }
+
+    private static func protectedDatabases(_ applicationSupport: URL) -> [URL] {
+        [
+            applicationSupport.appendingPathComponent("OM0RX-xLog/OM0RX-xLog.sqlite"),
+            applicationSupport.appendingPathComponent("OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite"),
+        ]
     }
 
     private static func sameFile(_ lhs: [FileAttributeKey: Any], _ rhs: [FileAttributeKey: Any]) -> Bool {
@@ -710,17 +905,25 @@ private struct ContestReferenceData {
     let resolver: CTYResolver
     let version: String
     let primaryPrefixes: [Int: String]
+    let entityNames: [Int: String]
+    let entityNamesByPrefix: [String: String]
 
     static func bundled() throws -> Self {
         let csv = try CTYResolver.bundledCSV()
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in csv.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
-        var prefixes: [Int: String] = [:]
+        var prefixes: [Int: String] = [:], names: [Int: String] = [:], namesByPrefix: [String: String] = [:]
         for line in csv.split(whereSeparator: \.isNewline) {
             let columns = csvColumns(String(line))
-            if columns.count >= 3, let adif = Int(columns[2]), prefixes[adif] == nil { prefixes[adif] = columns[0].uppercased() }
+            if columns.count >= 3, let adif = Int(columns[2]), prefixes[adif] == nil {
+                let prefix = columns[0].uppercased()
+                prefixes[adif] = prefix
+                names[adif] = columns[1]
+                namesByPrefix[prefix] = columns[1]
+            }
         }
-        return .init(resolver: try CTYResolver.bundled(), version: String(format: "bundled-cty-fnv64-%016llx", hash), primaryPrefixes: prefixes)
+        return .init(resolver: try CTYResolver.bundled(), version: String(format: "bundled-cty-fnv64-%016llx", hash),
+                     primaryPrefixes: prefixes, entityNames: names, entityNamesByPrefix: namesByPrefix)
     }
 
     func resolve(_ callsign: String, at date: Date) -> CountryInfo? { resolver.resolve(callsign, at: date) }
@@ -731,9 +934,27 @@ private struct ContestReferenceData {
         return ContestEntitySnapshot(adif: country.adif, name: country.name, countryPrefix: prefix,
                                      continent: country.continent, cqZone: country.cqZone)
     }
+    func displayLabel(_ key: ContestMultiplierKey) -> String {
+        let scoped = key.scope == "contest" ? "" : " · \(key.scope)"
+        switch key.kind {
+        case "cq-zone": return "CQ zone \(key.value)\(scoped)"
+        case "wpx-prefix": return "\(key.value) prefix\(scoped)"
+        case "country":
+            let name = Int(key.value).flatMap { entityNames[$0] } ?? "DXCC \(key.value)"
+            return "\(name)\(scoped)"
+        case "country-prefix", "naqp-dxcc":
+            return "\(entityNamesByPrefix[key.value] ?? "DXCC \(key.value)")\(scoped)"
+        case "scandinavian-call-area": return "\(key.value) call area\(scoped)"
+        case "naqp-state":
+            let name = ["AK": "Alaska", "HI": "Hawaii"][key.value] ?? "\(key.value) state"
+            return "\(name)\(scoped)"
+        case "naqp-province": return "\(key.value) province\(scoped)"
+        default: return "\(key.kind) \(key.value)\(scoped)"
+        }
+    }
     func ruleWire(_ metadata: XContestCore.ContestRuleMetadata) -> [String: Any] {
         ["identity": Wire.ruleIdentityWire(metadata.identity), "displayName": metadata.displayName,
-         "entryDescriptorVersion": 1,
+         "entryDescriptorVersion": metadata.entry.version.rawValue,
          "mode": metadata.entry.mode, "entry": Wire.entryWire(metadata.entry),
          "referenceDataVersion": version, "sourceVerification": "provisional", "sourceNote": metadata.sourceProvenance]
     }
@@ -820,6 +1041,11 @@ private enum Wire {
         }
         return uuid
     }
+    static func assistanceContext(_ value: [String: Any]) throws -> ContestAssistanceContext {
+        .init(sessionID: uuidString(try uuid(value, "sessionID")),
+              workspaceGeneration: try generation(try text(value, "workspaceGeneration", max: 36)),
+              requestID: uuidString(try uuid(value, "requestID")))
+    }
     static func requireGeneration(_ requested: String, _ actual: String) throws {
         guard try generation(requested) == actual else { throw ContestLaneError.confirmed("stale_workspace", "The isolated workspace generation changed.") }
     }
@@ -832,15 +1058,35 @@ private enum Wire {
         ["id": value.id, "version": value.version, "edition": value.edition, "sourceRevision": value.sourceRevision]
     }
     static func entryWire(_ value: ContestEntryDescriptor) -> [String: Any] {
-        ["mode": value.mode, "adifMode": value.adifMode, "cabrilloQSOType": value.cabrilloQSOType,
+        var exchange: [String: Any] = ["sent": value.exchange.sent.rawValue, "received": value.exchange.received.rawValue,
+                      "sentDefault": value.exchange.sentDefault.rawValue, "adifFields": value.exchange.adifFields.rawValue]
+        var result: [String: Any] = ["mode": value.mode, "adifMode": value.adifMode, "cabrilloQSOType": value.cabrilloQSOType,
          "cabrilloFormatterVersion": value.cabrilloFormatterVersion,
          "cabrilloProjectionFormatterVersion": value.cabrilloProjectionFormatterVersion,
          "report": ["format": value.report.format.rawValue, "defaultSent": value.report.defaultSent,
                     "defaultReceived": value.report.defaultReceived, "maximumUTF8Bytes": value.report.maximumUTF8Bytes],
-         "exchange": ["sent": value.exchange.sent.rawValue, "received": value.exchange.received.rawValue,
-                      "sentDefault": value.exchange.sentDefault.rawValue, "adifFields": value.exchange.adifFields.rawValue],
+         "exchange": exchange,
          "serial": ["requirement": value.serial.requirement.rawValue,
                     "allowedScopes": value.serial.allowedScopes.map(\.rawValue)]]
+        if value.version == .v2 {
+            exchange["sentFields"] = value.exchange.sentFields.map(exchangeFieldWire)
+            exchange["receivedFields"] = value.exchange.receivedFields.map(exchangeFieldWire)
+            result["exchange"] = exchange
+            result["version"] = value.version.rawValue
+            result["modeProfiles"] = value.modeProfiles.map {
+                ["mode": $0.mode, "adifMode": $0.adifMode,
+                 "adifSubmode": $0.adifSubmode as Any? ?? NSNull(), "cabrilloQSOType": $0.cabrilloQSOType,
+                 "report": ["format": $0.report.format.rawValue, "defaultSent": $0.report.defaultSent,
+                            "defaultReceived": $0.report.defaultReceived, "maximumUTF8Bytes": $0.report.maximumUTF8Bytes]]
+            }
+            result["scorePolicy"] = value.scorePolicy.rawValue
+        }
+        return result
+    }
+    private static func exchangeFieldWire(_ value: ContestExchangeFieldDescriptor) -> [String: Any] {
+        ["id": value.id, "label": value.label, "acceptedKinds": value.acceptedKinds.map(\.rawValue),
+         "required": value.required, "maximumUTF8Bytes": value.maximumUTF8Bytes,
+         "adifField": value.adifField?.rawValue as Any? ?? NSNull()]
     }
     static func entity(_ value: [String: Any]) throws -> ContestEntitySnapshot {
         try exact(value, ["adif", "name", "countryPrefix", "continent", "cqZone"])
@@ -887,9 +1133,37 @@ private enum Wire {
             draftID: requiresDraft ? try uuid(params, "draftID") : nil, payloadDigest: try text(params, "payloadDigest", max: 512),
             timestamp: try date(params, "operationTimestamp"), payload: payload)
     }
-    struct DraftFields { let callsign, sentReport, sentExchange, receivedReport, receivedExchange, band, mode: String; let frequencyHz: Int64? }
+    static func exchangeFields(_ value: [String: Any], descriptors: [ContestExchangeFieldDescriptor],
+                               allowIncomplete: Bool = false) throws -> [String: ContestExchangeFieldValue] {
+        try exact(value, Set(descriptors.map(\.id)))
+        var result: [String: ContestExchangeFieldValue] = [:]
+        for descriptor in descriptors {
+            let raw = try text(value, descriptor.id, max: descriptor.maximumUTF8Bytes,
+                               empty: allowIncomplete || !descriptor.required)
+            let normalized = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if !allowIncomplete && descriptor.required && normalized.isEmpty {
+                throw ContestLaneError.confirmed("invalid_params", "A required structured exchange field is empty.")
+            }
+            if !raw.isEmpty { result[descriptor.id] = .init(raw: raw, normalized: normalized) }
+        }
+        return result
+    }
+    static func exchangeFieldsWire(_ value: [String: ContestExchangeFieldValue],
+                                   descriptors: [ContestExchangeFieldDescriptor]) -> [String: Any] {
+        Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, value[$0.id]?.raw ?? "") })
+    }
+    static func aggregate(_ value: [String: ContestExchangeFieldValue], descriptors: [ContestExchangeFieldDescriptor]) -> String {
+        descriptors.compactMap { value[$0.id]?.raw }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    struct DraftFields {
+        let callsign, sentReport, sentExchange, receivedReport, receivedExchange, band, mode: String
+        let frequencyHz: Int64?
+        let sentExchangeFields, receivedExchangeFields: [String: ContestExchangeFieldValue]
+    }
     static func draftFields(_ value: [String: Any], entry: ContestEntryDescriptor) throws -> DraftFields {
-        try exact(value, ["callsign", "sentReport", "sentExchange", "receivedReport", "receivedExchange", "frequencyHz", "band", "mode"])
+        var keys: Set<String> = ["callsign", "sentReport", "sentExchange", "receivedReport", "receivedExchange", "frequencyHz", "band", "mode"]
+        if entry.version == .v2 { keys.formUnion(["sentExchangeFields", "receivedExchangeFields"]) }
+        try exact(value, keys)
         let call = try text(value, "callsign", max: 32, empty: true).uppercased()
         guard call.range(of: #"^[A-Z0-9/]*$"#, options: .regularExpression) != nil else {
             throw ContestLaneError.confirmed("invalid_params", "Contest callsign draft contains unsupported characters.")
@@ -901,8 +1175,17 @@ private enum Wire {
         else { let number = try uint(value, "frequencyHz"); guard number <= 100_000_000_000 else { throw ContestLaneError.confirmed("invalid_params", "Contest frequency is invalid.") }; frequency = Int64(number) }
         let sentReport = try text(value, "sentReport", max: entry.report.maximumUTF8Bytes, empty: true)
         let receivedReport = try text(value, "receivedReport", max: entry.report.maximumUTF8Bytes, empty: true)
-        return .init(callsign: call, sentReport: sentReport,
-            sentExchange: try text(value, "sentExchange", max: 32, empty: true), receivedReport: receivedReport,
-            receivedExchange: try text(value, "receivedExchange", max: 32, empty: true), band: band, mode: mode, frequencyHz: frequency)
+        let sentFields = entry.version == .v2 ? try exchangeFields(object(value, "sentExchangeFields"), descriptors: entry.exchange.sentFields, allowIncomplete: true) : [:]
+        let receivedFields = entry.version == .v2 ? try exchangeFields(object(value, "receivedExchangeFields"), descriptors: entry.exchange.receivedFields, allowIncomplete: true) : [:]
+        let rawSent = try text(value, "sentExchange", max: 64, empty: true)
+        let rawReceived = try text(value, "receivedExchange", max: 64, empty: true)
+        if entry.version == .v2,
+           (rawSent != aggregate(sentFields, descriptors: entry.exchange.sentFields) ||
+            rawReceived != aggregate(receivedFields, descriptors: entry.exchange.receivedFields)) {
+            throw ContestLaneError.confirmed("invalid_params", "Structured exchange aggregates do not match their fields.")
+        }
+        return .init(callsign: call, sentReport: sentReport, sentExchange: rawSent,
+            receivedReport: receivedReport, receivedExchange: rawReceived, band: band, mode: mode,
+            frequencyHz: frequency, sentExchangeFields: sentFields, receivedExchangeFields: receivedFields)
     }
 }

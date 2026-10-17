@@ -1,0 +1,41 @@
+{
+  "formatterVersion": "naqp-preview-1",
+  "cases": [
+    {
+      "ruleID": "naqp-cw",
+      "mode": "CW",
+      "qsoLine": "QSO: 14050 CW 2023-11-14 2213 K1AAA         AL         CA  VE3AAA        BOB        ON ",
+      "documentLines": [
+        "START-OF-LOG: 3.0", "CREATED-BY: OM0RX-xLog", "CONTEST: NAQP-CW", "CALLSIGN: K1AAA",
+        "LOCATION: DX", "CATEGORY-OPERATOR: SINGLE-OP", "CATEGORY-ASSISTED: NON-ASSISTED",
+        "CATEGORY-BAND: ALL", "CATEGORY-MODE: CW", "CATEGORY-TRANSMITTER: ONE", "CATEGORY-POWER: LOW",
+        "CLAIMED-SCORE: 1", "OPERATORS: K1AAA", "NAME: Operator", "EMAIL: ",
+        "QSO: 14050 CW 2023-11-14 2213 K1AAA         AL         CA  VE3AAA        BOB        ON ", "END-OF-LOG:"
+      ]
+    },
+    {
+      "ruleID": "naqp-ssb",
+      "mode": "SSB",
+      "qsoLine": "QSO: 14050 PH 2023-11-14 2213 K1AAA         AL         CA  VE3AAA        BOB        ON ",
+      "documentLines": [
+        "START-OF-LOG: 3.0", "CREATED-BY: OM0RX-xLog", "CONTEST: NAQP-SSB", "CALLSIGN: K1AAA",
+        "LOCATION: DX", "CATEGORY-OPERATOR: SINGLE-OP", "CATEGORY-ASSISTED: NON-ASSISTED",
+        "CATEGORY-BAND: ALL", "CATEGORY-MODE: SSB", "CATEGORY-TRANSMITTER: ONE", "CATEGORY-POWER: LOW",
+        "CLAIMED-SCORE: 1", "OPERATORS: K1AAA", "NAME: Operator", "EMAIL: ",
+        "QSO: 14050 PH 2023-11-14 2213 K1AAA         AL         CA  VE3AAA        BOB        ON ", "END-OF-LOG:"
+      ]
+    },
+    {
+      "ruleID": "naqp-rtty",
+      "mode": "RTTY",
+      "qsoLine": "QSO: 14050 RY 2023-11-14 2213 K1AAA         AL         CA  VE3AAA        BOB        ON ",
+      "documentLines": [
+        "START-OF-LOG: 3.0", "CREATED-BY: OM0RX-xLog", "CONTEST: NAQP-RTTY", "CALLSIGN: K1AAA",
+        "LOCATION: DX", "CATEGORY-OPERATOR: SINGLE-OP", "CATEGORY-ASSISTED: NON-ASSISTED",
+        "CATEGORY-BAND: ALL", "CATEGORY-MODE: RTTY", "CATEGORY-TRANSMITTER: ONE", "CATEGORY-POWER: LOW",
+        "CLAIMED-SCORE: 1", "OPERATORS: K1AAA", "NAME: Operator", "EMAIL: ",
+        "QSO: 14050 RY 2023-11-14 2213 K1AAA         AL         CA  VE3AAA        BOB        ON ", "END-OF-LOG:"
+      ]
+    }
+  ]
+}

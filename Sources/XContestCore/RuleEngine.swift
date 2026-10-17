@@ -90,6 +90,7 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
     case cqZone
     case operatorName
     case subdivision
+    case dxccPrefix
     case jarlPrefectureNumber
     case maidenheadGrid4
 
@@ -107,6 +108,10 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
         case .subdivision:
             return contestASCIIBytes(value, count: 1...8) { byte, _ in
                 contestIsUppercaseLetter(byte) || contestIsDigit(byte)
+            }
+        case .dxccPrefix:
+            return contestASCIIBytes(value, count: 1...8) { byte, _ in
+                contestIsUppercaseLetter(byte) || contestIsDigit(byte) || byte == 47
             }
         case .jarlPrefectureNumber:
             return Int(value).map { (1...99).contains($0) } == true
@@ -218,6 +223,44 @@ public struct ContestSerialDescriptor: Codable, Hashable, Sendable {
     }
 }
 
+public enum ContestStationResolvedSerialPolicy: String, Codable, Hashable, Sendable {
+    case arrlRTTYRoundupWVEOrDX
+}
+
+public struct ContestStationResolvedSerialDescriptor: Codable, Hashable, Sendable {
+    public let policy: ContestStationResolvedSerialPolicy
+    public let locationFieldID: String
+    public let allocatedSerialFieldID: String
+    public let allowedScopes: [ContestSerialScope]
+
+    public init(policy: ContestStationResolvedSerialPolicy, locationFieldID: String,
+                allocatedSerialFieldID: String, allowedScopes: [ContestSerialScope]) {
+        self.policy = policy
+        self.locationFieldID = locationFieldID
+        self.allocatedSerialFieldID = allocatedSerialFieldID
+        self.allowedScopes = allowedScopes
+    }
+}
+
+public struct ContestResolvedSerialRequirement: Equatable, Sendable {
+    public let requirement: ContestSerialRequirement
+    public let allowedScopes: [ContestSerialScope]
+    public let allocatedFieldID: String?
+
+    public init(requirement: ContestSerialRequirement, allowedScopes: [ContestSerialScope],
+                allocatedFieldID: String?) {
+        self.requirement = requirement
+        self.allowedScopes = allowedScopes
+        self.allocatedFieldID = allocatedFieldID
+    }
+}
+
+public enum ContestSerialResolutionError: Error, Equatable {
+    case ruleIdentityMismatch
+    case invalidRuleDescriptor
+    case invalidStationSnapshot
+}
+
 public enum ContestEntryDescriptorVersion: Int, Codable, Hashable, Sendable { case v1 = 1, v2 = 2 }
 public enum ContestScorePolicy: String, Codable, Hashable, Sendable {
     case pointsOnly
@@ -265,6 +308,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
     public let report: ContestReportDescriptor
     public let exchange: ContestExchangeDescriptor
     public let serial: ContestSerialDescriptor
+    public let stationResolvedSerial: ContestStationResolvedSerialDescriptor?
     public let modeProfiles: [ContestModeProfile]
     public let scorePolicy: ContestScorePolicy
 
@@ -281,13 +325,16 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         self.report = report
         self.exchange = exchange
         self.serial = serial
+        self.stationResolvedSerial = nil
         self.modeProfiles = []
         self.scorePolicy = .pointsTimesMultipliers
     }
 
     public init(cabrilloFormatterVersion: String, cabrilloProjectionFormatterVersion: String,
                 modeProfiles: [ContestModeProfile], exchange: ContestExchangeDescriptor,
-                serial: ContestSerialDescriptor, scorePolicy: ContestScorePolicy) {
+                serial: ContestSerialDescriptor,
+                stationResolvedSerial: ContestStationResolvedSerialDescriptor? = nil,
+                scorePolicy: ContestScorePolicy) {
         let primary = modeProfiles.first ?? ContestModeProfile(
             mode: "", adifMode: "", cabrilloQSOType: "",
             report: .init(format: .none, defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0))
@@ -300,13 +347,15 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         self.report = primary.report
         self.exchange = exchange
         self.serial = serial
+        self.stationResolvedSerial = stationResolvedSerial
         self.modeProfiles = modeProfiles
         self.scorePolicy = scorePolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case version, mode, adifMode, cabrilloQSOType, cabrilloFormatterVersion,
-             cabrilloProjectionFormatterVersion, report, exchange, serial, modeProfiles, scorePolicy
+             cabrilloProjectionFormatterVersion, report, exchange, serial, stationResolvedSerial,
+             modeProfiles, scorePolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -321,15 +370,19 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         exchange = try values.decode(ContestExchangeDescriptor.self, forKey: .exchange)
         serial = try values.decode(ContestSerialDescriptor.self, forKey: .serial)
         if version == .v1 {
-            guard !values.contains(.modeProfiles), !values.contains(.scorePolicy) else {
+            guard !values.contains(.modeProfiles), !values.contains(.scorePolicy),
+                  !values.contains(.stationResolvedSerial) else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .version, in: values,
                     debugDescription: "Version 1 entries cannot declare version 2 mode or score semantics.")
             }
             modeProfiles = []
+            stationResolvedSerial = nil
             scorePolicy = .pointsTimesMultipliers
         } else {
             modeProfiles = try values.decode([ContestModeProfile].self, forKey: .modeProfiles)
+            stationResolvedSerial = try values.decodeIfPresent(ContestStationResolvedSerialDescriptor.self,
+                                                                forKey: .stationResolvedSerial)
             scorePolicy = try values.decode(ContestScorePolicy.self, forKey: .scorePolicy)
             guard hasCoherentV2Shape else {
                 throw DecodingError.dataCorruptedError(
@@ -351,6 +404,7 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
         try values.encode(exchange, forKey: .exchange)
         try values.encode(serial, forKey: .serial)
         if version == .v2 {
+            try values.encodeIfPresent(stationResolvedSerial, forKey: .stationResolvedSerial)
             try values.encode(modeProfiles, forKey: .modeProfiles)
             try values.encode(scorePolicy, forKey: .scorePolicy)
         }
@@ -390,10 +444,23 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
             let sentFieldIDs = exchange.sentFields.map(\.id)
             let receivedFieldIDs = exchange.receivedFields.map(\.id)
             let serialFields = exchange.sentFields.filter { $0.acceptedKinds.contains(.serialNumber) }
-            let serialIsCoherent = serial.requirement == .none
-                ? serial.allowedScopes.isEmpty && serialFields.isEmpty
-                : !serial.allowedScopes.isEmpty && Set(serial.allowedScopes).count == serial.allowedScopes.count &&
-                    serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber]
+            let serialIsCoherent: Bool
+            if let resolved = stationResolvedSerial {
+                let matchingSerial = exchange.sentFields.filter { $0.id == resolved.allocatedSerialFieldID }
+                let matchingLocation = exchange.sentFields.filter { $0.id == resolved.locationFieldID }
+                serialIsCoherent = serial.requirement == .none && serial.allowedScopes.isEmpty &&
+                    resolved.policy == .arrlRTTYRoundupWVEOrDX && resolved.allowedScopes == [.session] &&
+                    resolved.locationFieldID != resolved.allocatedSerialFieldID &&
+                    matchingSerial.count == 1 && matchingSerial[0].acceptedKinds == [.serialNumber] &&
+                    !matchingSerial[0].required && matchingLocation.count == 1 &&
+                    matchingLocation[0].acceptedKinds == [.subdivision] && !matchingLocation[0].required &&
+                    serialFields.count == 1
+            } else {
+                serialIsCoherent = serial.requirement == .none
+                    ? serial.allowedScopes.isEmpty && serialFields.isEmpty
+                    : !serial.allowedScopes.isEmpty && Set(serial.allowedScopes).count == serial.allowedScopes.count &&
+                        serialFields.count == 1 && serialFields[0].required && serialFields[0].acceptedKinds == [.serialNumber]
+            }
             let formatterVersionsAreCoherent = [cabrilloFormatterVersion, cabrilloProjectionFormatterVersion]
                 .allSatisfy { !$0.isEmpty && $0.utf8.count <= 64 &&
                     !contestHasUnsafeSeparator($0) }
@@ -418,9 +485,15 @@ public struct ContestEntryDescriptor: Codable, Hashable, Sendable {
     }
 
     public var allocatedSerialField: ContestExchangeFieldDescriptor? {
-        guard version == .v2, serial.requirement == .requiredForCommit else { return nil }
-        let matches = exchange.sentFields.filter {
-            $0.required && $0.acceptedKinds == [.serialNumber]
+        guard version == .v2 else { return nil }
+        let matches: [ContestExchangeFieldDescriptor]
+        if let resolved = stationResolvedSerial {
+            matches = exchange.sentFields.filter {
+                $0.id == resolved.allocatedSerialFieldID && !$0.required && $0.acceptedKinds == [.serialNumber]
+            }
+        } else {
+            guard serial.requirement == .requiredForCommit else { return nil }
+            matches = exchange.sentFields.filter { $0.required && $0.acceptedKinds == [.serialNumber] }
         }
         return matches.count == 1 ? matches[0] : nil
     }
@@ -544,8 +617,53 @@ public struct ContestRuleEvaluation: Sendable {
 
 public protocol ContestRule: Sendable {
     var metadata: ContestRuleMetadata { get }
+    func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue]
+    func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement
     func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation
     func cabrilloReceivedExchange(for qso: ContestQSO) -> String
+}
+
+public extension ContestRule {
+    func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] { [] }
+
+    func resolvedSerialRequirement(in session: ContestSessionSnapshot) throws -> ContestResolvedSerialRequirement {
+        guard session.rule == metadata.identity else { throw ContestSerialResolutionError.ruleIdentityMismatch }
+        let entry = metadata.entry
+        guard entry.isCoherent(supportedModes: metadata.supportedModes) else {
+            throw ContestSerialResolutionError.invalidRuleDescriptor
+        }
+        guard let resolved = entry.stationResolvedSerial else {
+            return ContestResolvedSerialRequirement(requirement: entry.serial.requirement,
+                                                    allowedScopes: entry.serial.allowedScopes,
+                                                    allocatedFieldID: entry.allocatedSerialField?.id)
+        }
+        guard !validateSession(session).contains(where: { $0.severity == .error }) else {
+            throw ContestSerialResolutionError.invalidStationSnapshot
+        }
+        guard let entity = session.station.entity, entity.adif > 0,
+              !entity.name.isEmpty, !entity.countryPrefix.isEmpty,
+              !session.station.callsign.isEmpty else {
+            throw ContestSerialResolutionError.invalidStationSnapshot
+        }
+        let fields = session.station.sentExchangeFields
+        let location = fields[resolved.locationFieldID]
+        let serial = fields[resolved.allocatedSerialFieldID]
+        switch resolved.policy {
+        case .arrlRTTYRoundupWVEOrDX:
+            if entity.adif == 291 || entity.adif == 1 {
+                guard location != nil, serial == nil else {
+                    throw ContestSerialResolutionError.invalidStationSnapshot
+                }
+                return ContestResolvedSerialRequirement(requirement: .none, allowedScopes: [], allocatedFieldID: nil)
+            }
+            guard location == nil, serial == nil else {
+                throw ContestSerialResolutionError.invalidStationSnapshot
+            }
+            return ContestResolvedSerialRequirement(requirement: .requiredForCommit,
+                                                    allowedScopes: resolved.allowedScopes,
+                                                    allocatedFieldID: resolved.allocatedSerialFieldID)
+        }
+    }
 }
 
 public enum ContestQSODisposition: String, Codable, Sendable { case accepted, duplicate, invalid }
@@ -647,7 +765,7 @@ public enum ContestEngine {
         let descriptorIssues = rule.metadata.entry.structuralIssues(
             mode: qso.mode, rstSent: qso.rstSent, rstReceived: qso.rstReceived,
             exchange: qso.exchange, allowIncomplete: allowIncomplete)
-        return ContestRuleEvaluation(validation: descriptorIssues + ruleEvaluation.validation,
+        return ContestRuleEvaluation(validation: rule.validateSession(session) + descriptorIssues + ruleEvaluation.validation,
                                      dupeKey: ruleEvaluation.dupeKey, points: ruleEvaluation.points,
                                      multiplierCandidates: ruleEvaluation.multiplierCandidates)
     }

@@ -195,6 +195,11 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_export_prepare",
         "contest_export_read",
         "contest_export_release",
+        "contest_scp_status",
+        "contest_scp_import_private",
+        "contest_scp_query",
+        "contest_scp_cancel",
+        "contest_scp_select",
         "workspace_status",
         "workspace_create",
         "workspace_preferences_load",
@@ -819,6 +824,10 @@ pub fn request_existing(request: Value) -> Result<Value, String> {
     request_using(request, existing_session)
 }
 
+pub(crate) fn existing_generation() -> Result<u64, String> {
+    Ok(existing_session()?.generation)
+}
+
 /// Read from the already-running worker and return the generation that
 /// actually served the request. This never starts or replaces a worker.
 pub(crate) fn request_existing_with_generation(request: Value) -> Result<(u64, Value), String> {
@@ -971,7 +980,8 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get" |
-        "contest_export_prepare" | "contest_export_read" | "contest_export_release"
+        "contest_export_prepare" | "contest_export_read" | "contest_export_release" |
+        "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select"
     ))
 }
 
@@ -1786,6 +1796,7 @@ mod tests {
             "logbook_matrix", "cluster_history", "cluster_snapshot",
             "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
             "contest_export_read", "contest_export_release",
+            "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
         ] {
             assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})),
@@ -1798,6 +1809,7 @@ mod tests {
             "logbook_contact_apply", "logbook_save", "logbook_delete", "logbook_undo",
             "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
             "cluster_resume", "contest_qso_correct", "contest_qso_delete",
+            "contest_scp_import_private",
         ] {
             assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");

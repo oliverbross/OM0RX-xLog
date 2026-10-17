@@ -301,3 +301,170 @@ These remain native source/test results. They do not exercise the GUI or
 prove operator acceptance, current sponsor submission readiness, real save
 dialogs or radio operation. The later structured-exchange, manual SCP import
 and Run/S&P UI candidates are not present at this SHA.
+
+## Structured exchanges and portable token validation
+
+[Run 39055996486](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39055996486)
+passed all six jobs at `0c881654f2c48c0a3d07d52ff7a2f51bd26fac4d`.
+Inspected native job logs establish:
+
+| Platform | Swift job | Core | Store/snapshot | Worker lifecycle | Assistance |
+| --- | --- | --- | --- | --- | --- |
+| macOS | `117463963220` | 67 | 55 | 14 | 13 |
+| Linux | `117463963466` | 67 | 55 | 14 | 13 |
+| Windows | `117463963450` | 67 | 60 | 14 | 13 |
+
+All listed tests and the 27 existing export-support tests passed on each OS.
+Rust jobs `117463963505` (macOS), `117463963459` (Linux), and
+`117463963392` (Windows) each passed 18 tests. The raw inspected logs are
+retained as `/tmp/xlog-0c88165-*-ci.log`.
+
+The earlier source at `924f2d2` and its integration at `f8c13b4` exposed
+platform-sensitive regular-expression end-anchor behavior: a mode token
+ending in a newline was accepted on Linux and Windows. The existing malformed
+descriptor regression correctly failed. This repaired run uses exact ASCII
+grammars and proves that regression on both affected platforms, while retaining
+the alphanumeric first-character rule. The failures remain recorded in their
+original runs; they were not converted to passing claims by rerunning unchanged
+source.
+
+This SHA includes structured core/store primitives and the existing eight
+catalog rules. It does not include the later Run/S&P UI, manual SCP import,
+NAQP family or browser-to-worker operator harness. No packaged GUI, native
+chooser, real transmission or sponsor submission acceptance is inferred.
+
+The combined foundation at `8c7eb5eebfd935918891c8d6e7ec48ec105ec435`
+also passed all six jobs in
+[run 39056519180](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39056519180).
+That source adds the reviewed Run/S&P UI. These native jobs do not drive that
+UI; its separate local frontend/navigation integration run passed 130 tests.
+Manual SCP import and the new browser-to-worker harness remain later slices.
+
+## NAQP core preview source
+
+[Run 39057341329](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39057341329)
+passed all six jobs at `2ee72e1c364199bcb38c185ed7b3a20c46a2bc84`.
+Inspected Swift logs from macOS job `117467906304`, Linux `117467906412`
+and Windows `117467906364` show the NAQP core and persistence suites
+executing successfully. Overall core counts are 74 on each platform;
+store/snapshot counts are 59 on macOS/Linux and 64 on Windows.
+Raw logs are `/tmp/xlog-2ee72e1-{macos,linux,windows}-ci.log`.
+
+These three rules remain inactive. This commit does not implement their
+exports, worker descriptors, UI integration or operator acceptance. The
+eight active rule identities are unchanged.
+
+## SCP import candidate: Linux defect retained
+
+[Run 39057048386](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39057048386)
+at `b526c2a227ed95ef6c4a157494abc3ec3e06a877` completed with a Linux Swift
+failure; macOS and Windows Swift and all three Rust jobs passed. Linux job
+`117467042363` failed
+`ContestExportWorkerWireTests.testPendingPrepareDoesNotBlockReleaseOrOrdinaryContestRequest`
+with `unsafe_workspace`. The shared private-file boundary rejected a valid
+path beneath filesystem root because string concatenation produced a `//`
+prefix. The failure log is `/tmp/xlog-b526c2a-linux-ci.log`.
+
+The foundation integration replaces that string comparison with strict
+standardized path-component ancestry, retaining self/sibling rejection and
+the existing symlink/protected-file checks. It adds a root-ancestor regression.
+Local validation of the repaired integration passed all 16 lifecycle tests
+and all three export-wire tests, including the original failing scenario.
+The temporary root-derivation helper in the new test initially looped past
+root; its bounded replacement passed before acceptance. Integration also
+passed 142 frontend/navigation tests, the frontend production build, four SCP
+worker tests, 13 assistance tests and ten SCP core tests. Raw evidence is
+retained under `/tmp/xlog-scp-integration-*.log`.
+Hosted validation of that repaired integration is pending. The old candidate
+run is not an accepted three-platform SCP result.
+
+The candidate's native jobs ran the existing 18 export tests only. The
+integration explicitly discovers and executes the five native admission
+tests and one passive-read timeout-policy test on every OS, so local SCP
+cancellation evidence is not mistaken for hosted coverage.
+
+The repaired integration is pushed at
+`89d1b5669f86ac1dba78a55322d4e71341ecf759` in
+[run 39058760438](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39058760438).
+Inspected Linux job `117472135407` and macOS job `117472135211` logs show
+all three export-wire, 16 lifecycle and four SCP-worker tests passing. This
+confirms the original Linux failure is repaired in the integrated source.
+Windows Swift job `117472135347` subsequently passed. Its inspected log
+confirms all three export-wire, 16 lifecycle and four SCP-worker tests,
+including the filesystem-root ancestry regression. The run is now complete
+with all six jobs successful; no skipped or cancelled run is counted.
+
+All three native Rust jobs passed: macOS `117472135489`, Linux
+`117472135329`, Windows `117472135296`. Their inspected logs show 18 export,
+five admission and one passive-read timeout-policy test passing on each OS.
+Raw logs are `/tmp/xlog-89d1b56-*-ci.log`. This establishes actual hosted
+execution of the newly added native SCP coverage; it does not establish
+native chooser interaction or packaged operator acceptance.
+
+## NAQP versioned export preview
+
+At `5ee75eae4186d71d7f38ac49d5ae43a23cc2e45d`,
+[run 39058874450](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39058874450)
+has passed its Linux and macOS Swift jobs. Inspected logs for jobs
+`117472494380` and `117472494496` each show five NAQP core export tests
+and five NAQP ADIF export tests passing, including mobile subdivision
+omission. Windows Swift job `117472494464` subsequently passed both five-test
+NAQP export suites, confirmed in its actual log. Together with all three
+native Rust jobs, this run is complete with all six jobs successful.
+Raw inspected logs are `/tmp/xlog-5ee75ea-{linux,macos,windows}-ci.log`.
+
+Combined source `6db070e0c49950c8d0fce29d6c1d233640a79ee0` preserves both
+the SCP and NAQP workflow coverage. It passed 11 combined NAQP core/store
+tests and 15 combined export tests locally before commit. Foundation
+integration has identical Sources, Tests, prototype and workflow contents
+to this reviewed checkpoint; project records are the only additional
+changes. This remains inactive-rule/export source, not NAQP operator or
+submission acceptance.
+
+The combined baseline `6db070e0c49950c8d0fce29d6c1d233640a79ee0` subsequently
+passed all six jobs in
+[run 39059214454](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39059214454).
+Swift jobs are macOS `117473592773`, Linux `117473592701`, Windows
+`117473592693`; native Rust jobs are macOS `117473592853`, Linux
+`117473592686`, Windows `117473592513`. These are verified successful job
+conclusions; no additional per-suite counts are inferred here. The later
+WPX frontend repair has separate 146-test combined UI evidence and does
+not change this backend or native source.
+
+The foundation integration `ed1ad3844bc55a604a41616c3abf77edb9c9121c`
+also completed all six jobs successfully in
+[run 39059799573](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39059799573).
+Swift jobs: macOS `117475229379`, Linux `117475229513`, Windows
+`117475229203`; Rust jobs: macOS `117475229360`, Linux `117475229457`,
+Windows `117475229399`. The actual Windows log confirms 79 core/export,
+64 store, five NAQP ADIF, 16 lane, 13 assistance and four SCP-worker
+tests passing, alongside the existing suites. Raw inspected log:
+`/tmp/xlog-ed1ad38-windows-ci.log`. These results close the pending
+foundation platform jobs; the later NAQP worker/UI candidate and ARRL
+station-serial policy are outside this checkpoint.
+
+## ARRL station-resolved serial policy
+
+Reviewed source `5f9344145cf185df510443118e730fcd9f1f3df1` is running
+[matrix 39061073845](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39061073845).
+macOS Swift job `117478983619` and Linux Swift job `117478983715` passed;
+their actual logs confirm six ARRL core and three ARRL store tests each.
+All three Rust jobs passed. Windows Swift `117478983725` is still pending,
+so this checkpoint does not claim the completed three-platform matrix.
+Windows Swift subsequently completed successfully. Its actual log confirms
+the six ARRL core and three ARRL store tests passing. All six jobs in this
+run are now successful; the previously pending status above is historical.
+Raw logs: `/tmp/xlog-5f93441-{macos,linux,windows}-ci.log`.
+
+Foundation merge `420774651dd8dd593e28ce1e56b4f1641daa4097` passed 32
+focused portable-manifest integration tests locally (six ARRL core,
+three ARRL store, 16 lane, four SCP worker, three export wire), plus nine
+focused core/store tests through the native manifest. Its own matrix is
+[run 39061421629](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39061421629),
+pending at this checkpoint. Neither source registers ARRL in the catalog.
+
+Foundation run `39061421629` subsequently passed all six jobs at `4207746`.
+Verified job conclusions: Swift macOS `117480012700`, Linux `117480012912`,
+Windows `117480012833`; Rust macOS `117480012965`, Linux `117480012886`,
+Windows `117480012860`. This closes that foundation checkpoint before the
+later NAQP worker/UI merge; no additional per-suite counts are inferred here.

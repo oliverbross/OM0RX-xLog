@@ -99,7 +99,10 @@ export class ContestSessionOwner {
   activate(session: ContestSessionSummary, draft: ContestDraftSnapshot, lease: ContestOwnerLease, admission: number) {
     if (!this.accepts(lease, admission) || !this.workspaceGeneration || session.workspaceGeneration !== this.workspaceGeneration || draft.workspaceGeneration !== this.workspaceGeneration) return false;
     const key = draftKey(session.sessionID, session.workspaceGeneration), saved = this.recovery.drafts[key];
-    const matches = saved && saved.draftID === draft.draftID;
+    let matches = !!saved && saved.draftID === draft.draftID;
+    if (matches) {
+      try { validateDraftFields(saved.fields, session.rule); } catch { delete this.recovery.drafts[key]; this.persist(); matches = false; }
+    }
     this.sessionValue = session; this.draftValue = matches ? { ...draft, fields: saved.fields } : draft;
     this.editVersion = matches ? 1 : 0; this.savedVersion = 0; this.emit(); return true;
   }
