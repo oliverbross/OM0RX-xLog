@@ -57,35 +57,46 @@ let prototypeCoreTargets: [Target] = [
 ]
 #endif
 
+let portableProducts: [Product] = [
+    .library(name: "XContestCore", targets: ["XContestCore"]),
+    .library(name: "XContestStore", targets: ["XContestStore"]),
+    .executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"]),
+]
+var prototypeSupportDependencies: [Target.Dependency] = [
+    .byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault",
+    "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore",
+]
+prototypeSupportDependencies.append(contentsOf: portableCrypto)
+prototypeSupportDependencies.append(contentsOf: liveIntegrationDependencies)
+var portableTargets = nativeTransferTargets
+portableTargets.append(contentsOf: prototypeCoreTargets)
+portableTargets.append(contentsOf: [
+    .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
+    .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
+    .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
+    .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
+    .target(name: "XStationIntegrationCore"),
+    .target(name: "XContestCore"),
+    .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
+    .target(name: "XLogPrototypeSupport", dependencies: prototypeSupportDependencies),
+    .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
+    .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
+    .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
+    .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
+    .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
+    .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
+    .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
+    .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
+])
+
 let package: Package
 if portableOnly {
     package = Package(
     name: "OM0RXXLogPrototype",
     platforms: [.macOS(.v14)],
-    products: [
-        .library(name: "XContestCore", targets: ["XContestCore"]),
-        .library(name: "XContestStore", targets: ["XContestStore"]),
-        .executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"]),
-    ],
+    products: portableProducts,
     dependencies: portableDependencies,
-    targets: nativeTransferTargets + prototypeCoreTargets + [
-        .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
-        .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
-        .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
-        .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
-        .target(name: "XStationIntegrationCore"),
-        .target(name: "XContestCore"),
-        .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
-        .target(name: "XLogPrototypeSupport", dependencies: [.byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault", "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore"] + portableCrypto + liveIntegrationDependencies),
-        .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
-        .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
-        .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
-        .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
-        .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
-        .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
-        .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
-        .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
-    ]
+    targets: portableTargets
     )
 } else {
     package = Package(
