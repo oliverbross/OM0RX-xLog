@@ -277,3 +277,27 @@ six-rule baseline with the deterministic export repair, before SAC adapter
 integration. It closes native execution coverage for these two previously
 omitted suites; it does not exercise a packaged GUI, real save dialog,
 operator input or station hardware.
+
+## Eight-rule integration including SAC
+
+[Run 39053085696](https://github.com/oliverbross/OM0RX-xLog/actions/runs/39053085696)
+passed all six jobs at `38fd897a3ac7ac2a16cc8f1ceff131c83cfba628`.
+The inspected native logs show:
+
+| Platform | Swift job | Core | Store/snapshot | Worker lifecycle | Assistance |
+| --- | --- | --- | --- | --- | --- |
+| macOS | `117455467403` | 62 | 51 | 14 | 13 |
+| Linux | `117455467366` | 62 | 51 | 14 | 13 |
+| Windows | `117455467291` | 62 | 56 | 14 | 13 |
+
+All listed tests passed. Existing export-support steps also passed, including
+the repaired concurrency test. Rust jobs `117455467099` (macOS),
+`117455467404` (Linux) and `117455467310` (Windows) each passed 18 tests.
+This source includes both SAC preview adapters and their direct worker
+lifecycle/independent arithmetic test. The earlier isolated SAC branch's
+obsolete export-race failure is resolved in this integrated source.
+
+These remain native source/test results. They do not exercise the GUI or
+prove operator acceptance, current sponsor submission readiness, real save
+dialogs or radio operation. The later structured-exchange, manual SCP import
+and Run/S&P UI candidates are not present at this SHA.
