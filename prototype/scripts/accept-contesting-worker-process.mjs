@@ -663,7 +663,8 @@ assert.deepEqual(receiptAfterRestart, wpxReceipt);
 assert.deepEqual(expectSuccess(await record(second, "contest_operation_receipt", wpxCorrectionReceiptParams)), wpxCorrectionReceipt);
 assert.deepEqual(expectSuccess(await record(second, "contest_operation_receipt", wpxDeleteReceiptParams)), wpxDeleteReceipt);
 assert.deepEqual(expectSuccess(await record(second, "contest_qso_commit", wwCommitParams)), wwCommit);
-assert.deepEqual(expectSuccess(await record(second, "contest_qso_commit", wpxCommitParams)), wpxCommit);
+expectError(await record(second, "contest_qso_commit", wpxCommitParams), "qso_deleted");
+assert.deepEqual(expectSuccess(await record(second, "contest_qso_commit", wpxCommit2Params)), wpxCommit2);
 assert.deepEqual(expectSuccess(await record(second, "contest_qso_correct", wpxCorrectionParams)), wpxCorrection);
 assert.deepEqual(expectSuccess(await record(second, "contest_qso_delete", wpxDeleteParams)), wpxDelete);
 expectError(await record(second, "contest_qso_get", {
@@ -679,7 +680,7 @@ assert.equal(restartWPXLog.qsos[0].qsoID, wpxCommit2.qso.qsoID);
 assert.equal(restartWPXLog.qsos[0].sentExchange, "002");
 const descriptorEvidenceRestart = await inspectDescriptors(second);
 const secondExit = await second.stop();
-assert.equal(exchanges.length, 56, "The worker-process acceptance operation ledger changed unexpectedly.");
+assert.equal(exchanges.length, 57, "The worker-process acceptance operation ledger changed unexpectedly.");
 
 return {
   missingProfile, descriptorEvidenceFirst, descriptorEvidenceAfterMutations, descriptorEvidenceRestart,
