@@ -363,3 +363,29 @@ attestations unless station/runtime evidence can verify them.
 
 Until all applicable gates pass, catalog rows and source-derived behavior remain
 pending and no acceptance may be inferred from another ARRL rule family.
+
+## Core implementation necessity
+
+The phase 1–2 core uses one additive `ContestRule.validateDraft` capability with
+an empty default for every existing rule. ARRL DX needs this narrow hook because
+its immutable station exchange has no serial reservation: a W/VE station sends
+its frozen location, while a DX station preserves a raw power token such as
+`ATT` alongside the normalized value `100`. The existing serial-reservation
+freeze cannot express either case without falsely introducing a serial.
+
+The hook returns validation issues only. It does not rewrite a draft, station
+snapshot, receipt, or persisted payload. The ARRL DX evaluator repeats the same
+frozen sent-field comparison for direct commits, so bypassing draft editing
+cannot change the station exchange. Existing rules retain their previous
+behavior and wire identities because the default returns no issues and this
+phase changes no persisted schema or receipt shape.
+
+The nonpersisted `draftResetSentProjection` rule capability defaults to
+`.stationAggregate`, preserving every existing rule's prior reset bytes. ARRL
+DX explicitly selects `.soleStationField`; when exactly one station field
+remains after any allocated serial field is removed, reset restores aggregate
+raw and normalized values from that field's corresponding values. ARRL DX needs
+that opt-in for raw power such as `K` with normalized `1000`. Zero-field and
+multi-field cases fall back to the established aggregate projection. Initial
+drafts and every reset returned by commit, replay, or reopen must expose the
+same raw/normalized station-field contract.

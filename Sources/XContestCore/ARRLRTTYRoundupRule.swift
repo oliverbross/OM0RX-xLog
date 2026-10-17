@@ -2,13 +2,13 @@ import Foundation
 
 private let arrlRTTYRulesDigest = "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce"
 private let arrlRTTYBands: Set<String> = ["80m", "40m", "20m", "15m", "10m"]
-private let arrlRTTYUSLocations: Set<String> = [
+internal let arrlRTTYUSLocations: Set<String> = [
     "AL", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "ID", "IL", "IN", "IA", "KS",
     "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
     "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT",
     "VT", "VA", "WA", "WV", "WI", "WY",
 ]
-private let arrlRTTYCanadaLocations: Set<String> = [
+internal let arrlRTTYCanadaLocations: Set<String> = [
     "AB", "BC", "LB", "MB", "NB", "NF", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
 ]
 internal let arrlRTTYCurrentDXCCEntityCodes: Set<Int> = [
@@ -208,32 +208,32 @@ private func arrlRTTYMultiplier(entity: ContestEntitySnapshot,
     return .init(kind: "arrl-dxcc", value: String(entity.adif), scope: "contest")
 }
 
-private func arrlRTTYLocationIsValid(_ location: String?, entity: ContestEntitySnapshot) -> Bool {
+internal func arrlRTTYLocationIsValid(_ location: String?, entity: ContestEntitySnapshot) -> Bool {
     guard let location else { return false }
     if entity.adif == 291 { return arrlRTTYUSLocations.contains(location) }
     if entity.adif == 1 { return arrlRTTYCanadaLocations.contains(location) }
     return false
 }
 
-private func arrlRTTYIsWVE(_ entity: ContestEntitySnapshot) -> Bool {
+internal func arrlRTTYIsWVE(_ entity: ContestEntitySnapshot) -> Bool {
     entity.adif == 291 || entity.adif == 1
 }
 
-private func arrlRTTYValidEntity(_ entity: ContestEntitySnapshot) -> Bool {
+internal func arrlRTTYValidEntity(_ entity: ContestEntitySnapshot) -> Bool {
     arrlRTTYCurrentDXCCEntityCodes.contains(entity.adif) &&
         !entity.name.isEmpty && !entity.countryPrefix.isEmpty &&
         ["AF", "AN", "AS", "EU", "NA", "OC", "SA"].contains(entity.continent) &&
         (1...40).contains(entity.cqZone)
 }
 
-private func arrlRTTYValidCallsign(_ callsign: String) -> Bool {
+internal func arrlRTTYValidCallsign(_ callsign: String) -> Bool {
     let parts = callsign.split(separator: "/", omittingEmptySubsequences: false)
     return !callsign.isEmpty && callsign.utf8.count <= 32 && parts.allSatisfy { part in
         !part.isEmpty && part.utf8.allSatisfy { (65...90).contains($0) || (48...57).contains($0) }
     } && callsign.contains(where: { $0.isLetter }) && callsign.contains(where: { $0.isNumber })
 }
 
-private func arrlRTTYCanonicalCall(_ callsign: String) -> String {
+internal func arrlRTTYCanonicalCall(_ callsign: String) -> String {
     var parts = callsign.split(separator: "/").map(String.init)
     let namedModifiers: Set<String> = ["P", "M", "QRP", "QRPP"]
     while parts.count > 1, let suffix = parts.last,
@@ -247,7 +247,7 @@ private func arrlRTTYDupeKey(_ qso: ContestQSO) -> String {
     "\(arrlRTTYCanonicalCall(qso.callsign))|\(qso.band)"
 }
 
-private func arrlRTTYIsMobile(_ callsign: String) -> Bool {
+internal func arrlRTTYIsMobile(_ callsign: String) -> Bool {
     callsign.split(separator: "/").contains { $0 == "MM" || $0 == "AM" }
 }
 
