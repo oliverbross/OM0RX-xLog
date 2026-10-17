@@ -1,0 +1,51 @@
+{
+  "dxCWLines": [
+    "START-OF-LOG: 2.0",
+    "CALLSIGN: OM0RX",
+    "CONTEST: JIDX-CW",
+    "CATEGORY: 14L",
+    "CLAIMED-SCORE: 1",
+    "OPERATORS: OM0RX",
+    "ENTITY: SLOVAK REPUBLIC",
+    "CREATED-BY: OM0RX-xLog TEST",
+    "NAME: Operator",
+    "ADDRESS: Test Address",
+    "EMAIL: operator@example.test",
+    "SENTNR: 15",
+    "QSO: 14026 CW 2030-03-21 0506 OM0RX         599 15     JA1AAA        599 03    ",
+    "QSO: 28026 CW 2030-03-21 0506 OM0RX         599 15     JA2BBB        599 20    ",
+    "END-OF-LOG:"
+  ],
+  "jaPhoneLines": [
+    "START-OF-LOG: 2.0",
+    "CALLSIGN: JA1ZZZ",
+    "CONTEST: JIDX-PH",
+    "CATEGORY: AB",
+    "CLAIMED-SCORE: 2",
+    "OPERATORS: JA1ZZZ",
+    "ENTITY: JAPAN",
+    "CREATED-BY: OM0RX-xLog TEST",
+    "NAME: Operator",
+    "ADDRESS: Test Address",
+    "EMAIL: operator@example.test",
+    "SENTNR: 03",
+    "QSO: 14251 PH 2030-03-21 0506 JA1ZZZ        59  03     K1AAA         59  05    ",
+    "END-OF-LOG:"
+  ],
+  "mmCWLines": [
+    "START-OF-LOG: 2.0",
+    "CALLSIGN: K1AAA/MM",
+    "CONTEST: JIDX-CW",
+    "CATEGORY: MM",
+    "CLAIMED-SCORE: 1",
+    "OPERATORS: K1AAA/MM",
+    "ENTITY: MARITIME-MOBILE",
+    "CREATED-BY: OM0RX-xLog",
+    "NAME: Operator",
+    "ADDRESS: Test Address",
+    "EMAIL: operator@example.test",
+    "SENTNR: 25",
+    "QSO: 14025 CW 2030-03-21 0507 K1AAA/MM      599 25     JA1AAA        599 10    ",
+    "END-OF-LOG:"
+  ]
+}

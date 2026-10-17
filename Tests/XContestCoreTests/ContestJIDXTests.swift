@@ -48,6 +48,10 @@ final class ContestJIDXTests: XCTestCase {
                        "/tmp/rsgb-operating-for-visitors.html")
         XCTAssertEqual(fixture.callsignAuthorities.first?.sha256,
                        "c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56")
+        let adif = try XCTUnwrap(fixture.primaryAuthorities.first { $0.name == "ADIF 3.1.7 Specification" })
+        XCTAssertEqual(adif.cachedPath, "/tmp/adif-3.1.7.html")
+        XCTAssertEqual(adif.sha256,
+                       "b766703277e952e6b548ccdc73e32ff16e10f84c060be616cf110449eddc5c97")
 
         for (oracleIndex, oracle) in fixture.independentOracles.enumerated() {
             let rule = JIDXCWRule()
@@ -385,9 +389,15 @@ final class ContestJIDXTests: XCTestCase {
     }
 
     private struct AuthorityFixture: Decodable {
+        let primaryAuthorities: [PrimaryAuthority]
         let callsignAuthorities: [CallsignAuthority]
         let japaneseLocationMultipliers: [Location]
         let independentOracles: [Oracle]
+    }
+    private struct PrimaryAuthority: Decodable {
+        let name: String
+        let cachedPath: String
+        let sha256: String
     }
     private struct CallsignAuthority: Decodable {
         let cachedPath: String

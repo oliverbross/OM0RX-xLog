@@ -52,7 +52,7 @@ private let jidxProvenance = "JIDX Contest Rules 2026-10 https://www.jidx.org/ji
     "inactive preview only"
 
 /// Inactive JIDX CW scoring core. Registry, worker, UI, export, and category activation remain separate.
-public struct JIDXCWRule: ContestRule {
+public struct JIDXCWRule: ContestRule, ContestRuleStationEntityPolicy {
     public static let identity = ContestRuleIdentity(
         id: "jidx-cw", version: "1.0.0-2026-rules-preview",
         edition: "2026-10-rules-preview", sourceRevision: jidxRulesDigest)
@@ -71,10 +71,13 @@ public struct JIDXCWRule: ContestRule {
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String {
         qso.exchange.normalizedReceived
     }
+    public func allowsMissingStationEntity(in session: ContestSessionSnapshot) -> Bool {
+        jidxAllowsMissingStationEntity(session, identity: Self.identity)
+    }
 }
 
 /// Inactive JIDX Phone scoring core. SSB is rendered as PH only by a future dedicated exporter.
-public struct JIDXSSBRule: ContestRule {
+public struct JIDXSSBRule: ContestRule, ContestRuleStationEntityPolicy {
     public static let identity = ContestRuleIdentity(
         id: "jidx-ssb", version: "1.0.0-2026-rules-preview",
         edition: "2026-10-rules-preview", sourceRevision: jidxRulesDigest)
@@ -92,6 +95,9 @@ public struct JIDXSSBRule: ContestRule {
     }
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String {
         qso.exchange.normalizedReceived
+    }
+    public func allowsMissingStationEntity(in session: ContestSessionSnapshot) -> Bool {
+        jidxAllowsMissingStationEntity(session, identity: Self.identity)
     }
 }
 
@@ -167,6 +173,15 @@ private func jidxSessionIssues(_ session: ContestSessionSnapshot,
                               rawAggregate: nil, normalizedAggregate: session.station.sentExchange,
                               role: role, entity: session.station.entity,
                               direction: "station.sentExchange")
+}
+
+private func jidxAllowsMissingStationEntity(_ session: ContestSessionSnapshot,
+                                            identity: ContestRuleIdentity) -> Bool {
+    guard session.station.entity == nil,
+          jidxRole(callsign: session.station.callsign, entity: nil) == .maritimeMobile else {
+        return false
+    }
+    return !jidxSessionIssues(session, identity: identity).contains { $0.severity == .error }
 }
 
 private func jidxSentExchangeIssues(_ qso: ContestQSO, station: ContestStationSnapshot,

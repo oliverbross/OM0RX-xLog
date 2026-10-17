@@ -35,6 +35,14 @@
       "cachedPath": "/tmp/jidx-web-upload-instructions.html",
       "lastModified": "2023-11-14T05:29:17Z",
       "sha256": "6bfafeb45659842f554f97ef77f4d7323e9e68aa3b5e56c74c08e0e50bfb4623"
+    },
+    {
+      "name": "ADIF 3.1.7 Specification",
+      "url": "https://www.adif.org/317/ADIF_317.htm",
+      "cachedPath": "/tmp/adif-3.1.7.html",
+      "lastModified": "2026-03-22T16:06:24Z",
+      "sha256": "b766703277e952e6b548ccdc73e32ff16e10f84c060be616cf110449eddc5c97",
+      "evidence": "Contest ID enumeration: JIDX-CW and JIDX-SSB"
     }
   ],
   "callsignAuthorities": [
