@@ -268,13 +268,16 @@ public enum ContestDeclarativeColumnSource: Codable, Hashable, Sendable {
 public struct ContestDeclarativeExportColumn: Codable, Hashable, Sendable {
     public let source: ContestDeclarativeColumnSource
     public let width: Int
+    public let minimumWidth: Int?
     public let alignment: ContestDeclarativeColumnAlignment
     public let required: Bool
 
     public init(source: ContestDeclarativeColumnSource, width: Int,
+                minimumWidth: Int? = nil,
                 alignment: ContestDeclarativeColumnAlignment = .left, required: Bool = true) {
         self.source = source
         self.width = width
+        self.minimumWidth = minimumWidth
         self.alignment = alignment
         self.required = required
     }
@@ -721,6 +724,10 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             }
             for column in projection.columns {
                 if !(1...64).contains(column.width) { result.append("export column widths must be in 1...64") }
+                if let minimumWidth = column.minimumWidth,
+                   (column.source != .frequencyKHz || !(1...column.width).contains(minimumWidth)) {
+                    result.append("only frequency columns may declare a minimum width within their maximum width")
+                }
                 switch column.source {
                 case let .sentField(id) where !sent.contains(id):
                     result.append("unknown sent export field \(id)")

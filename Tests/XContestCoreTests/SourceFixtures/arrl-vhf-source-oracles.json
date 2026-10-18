@@ -1,0 +1,46 @@
+{
+  "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+  "plugins": [
+    {
+      "season": "january",
+      "path": "not1mm/plugins/arrl_vhf_jan.py",
+      "sha256": "692e8456947e307c15ae04c8ffe56a38f5f9475c22973a30d80b3879aeecb990",
+      "bandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 8},
+      "allBandPoints": 22,
+      "allBandMultiplierCount": 7,
+      "allBandScore": 154
+    },
+    {
+      "season": "june",
+      "path": "not1mm/plugins/arrl_vhf_jun.py",
+      "sha256": "dd7d4183aa106125b3223aca6e2479341a8264995ea5b0261357301325573aff",
+      "bandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4},
+      "allBandPoints": 16,
+      "allBandMultiplierCount": 7,
+      "allBandScore": 112
+    },
+    {
+      "season": "september",
+      "path": "not1mm/plugins/arrl_vhf_sep.py",
+      "sha256": "571558e52d5de8fa886f9b4ce7e49a9a86d045b495d732da43ada9c6f36f3656",
+      "bandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4},
+      "allBandPoints": 16,
+      "allBandMultiplierCount": 7,
+      "allBandScore": 112
+    }
+  ],
+  "shared": {
+    "cabrilloName": "ARRL-VHF",
+    "dupePolicy": "perBand",
+    "multiplierPolicy": "gridPerBand",
+    "exchange": "fourCharacterGrid",
+    "pythonFrequencyMinimumWidth": 4,
+    "pythonModes": ["CW", "PH", "DG"]
+  },
+  "previewDifferences": [
+    "Only bands represented by the current xLog band plan through 13cm are admitted.",
+    "Only CW and SSB are admitted; upstream digital mode mapping remains pending.",
+    "Rover changing-grid scoring, schedules, and categories remain pending.",
+    "The archive projection is source-shaped operator evidence, not sponsor submission certification."
+  ]
+}

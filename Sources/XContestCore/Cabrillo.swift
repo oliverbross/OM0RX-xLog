@@ -222,7 +222,7 @@ public enum CabrilloExporter {
         let remainder = qso.frequencyHz % 1_000
         let frequency = remainder < 500 ? wholeKHz : remainder > 500 ? wholeKHz + 1 :
             (wholeKHz.isMultiple(of: 2) ? wholeKHz : wholeKHz + 1)
-        guard frequency > 0 && frequency <= 99_999 else {
+        guard frequency > 0 else {
             throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz")
         }
         let rendered = try projection.columns.map { column -> String in
@@ -244,7 +244,8 @@ public enum CabrilloExporter {
                   bytes.allSatisfy({ (32...126).contains($0) }) else {
                 throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "archiveColumn")
             }
-            return column.alignment == .right ? leftPad(value, column.width) : rightPad(value, column.width)
+            let renderedWidth = column.minimumWidth.map { max($0, bytes.count) } ?? column.width
+            return column.alignment == .right ? leftPad(value, renderedWidth) : rightPad(value, renderedWidth)
         }
         return "QSO: " + rendered.joined(separator: " ")
     }
