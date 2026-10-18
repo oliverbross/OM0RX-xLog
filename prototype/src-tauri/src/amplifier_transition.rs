@@ -7,7 +7,6 @@ use std::{
     io::Write,
     path::PathBuf,
     sync::{Arc, Mutex, OnceLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::Manager;
 const MAX: u64 = 9_007_199_254_740_991;
@@ -376,7 +375,6 @@ fn admission(
     radio: &Value,
     target: &Target,
     action: &str,
-    now: u64,
 ) -> Result<(), String> {
     target.validate()?;
     let snapshot = &radio["snapshot"];
@@ -391,38 +389,14 @@ fn admission(
         && radio["worker_generation"] == target.worker_generation
         && snapshot["generation"] == target.connection_generation
         && snapshot["source"] == "direct_agent";
-    let recent = |v: &Value, scale: f64| {
-        v.as_f64().is_some_and(|v| {
-            v.is_finite() && (-1000.0..=3000.0).contains(&(now as f64 - v * scale))
-        })
-    };
     let capability = station["supported_commands"]
         .as_array()
         .is_some_and(|v| v.iter().any(|v| v == &format!("station_{action}")));
-    let observation_is_current = radio["revision"]
-        .as_u64()
-        .is_some_and(|revision| revision >= target.observation_revision)
-        && radio["received_at_ms"]
-            .as_u64()
-            .is_some_and(|received| received >= target.received_at_ms);
-    let ready = action == "standby"
-        || observation_is_current
-            && radio["available"] == true
-            && recent(&radio["received_at_ms"], 1.0)
-            && recent(&snapshot["generated_at"], 1000.0)
-            && recent(&snapshot["radio"]["observed_at"], 1000.0)
-            && snapshot["radio"]["connected"] == true
-            && snapshot["radio"]["observed"] == true
-            && snapshot["radio"]["transmitting"] == false
-            && station["radio_known"] == true
-            && station["radio_stale"] == false
-            && station["inhibitors"]
-                .as_array()
-                .is_some_and(|v| v.is_empty())
-            && station["allowed_actions"]
-                .as_array()
-                .is_some_and(|v| v.iter().any(|v| v == "operate"));
-    if !exact || !capability || !ready {
+    // The operator explicitly requested this amplifier transition. Retain the
+    // exact Agent/worker/connection route and advertised command capability,
+    // but do not reinterpret changing radio telemetry or policy projections as
+    // an amplifier veto. The Remote Station Agent remains the device authority.
+    if !exact || !capability {
         return Err(
             "Amplifier status changed before the command; nothing was sent. Try again.".into(),
         );
@@ -460,11 +434,7 @@ pub fn execute(
         &expected,
         || {
             crate::worker::require_existing_generation(target.worker_generation)?;
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| "Radio clock unavailable")?
-                .as_millis() as u64;
-            admission(&expected, &telemetry.snapshot()?, target, &action, now)?;
+            admission(&expected, &telemetry.snapshot()?, target, &action)?;
             authority.require_preparation(preparation, &action)?;
             telemetry.control()
         },
@@ -768,14 +738,14 @@ mod tests {
     fn amplifier_urgent_stale_standby_requires_exact_authority_not_readiness() {
         let t = target();
         let (selection, mut radio) = observations(&t);
-        assert!(admission(&selection, &radio, &t, "operate", 10000).is_ok());
+        assert!(admission(&selection, &radio, &t, "operate").is_ok());
         radio["available"] = json!(false);
         radio["snapshot"]["radio"]["connected"] = json!(false);
         radio["snapshot"]["radio"]["transmitting"] = json!(true);
         radio["snapshot"]["station"]["inhibitors"] = json!(["alarm"]);
         radio["snapshot"]["station"]["allowed_actions"] = json!([]);
-        assert!(admission(&selection, &radio, &t, "operate", 999999).is_err());
-        assert!(admission(&selection, &radio, &t, "standby", 999999).is_ok());
+        assert!(admission(&selection, &radio, &t, "operate").is_ok());
+        assert!(admission(&selection, &radio, &t, "standby").is_ok());
         for field in [
             "provider",
             "selection_generation",
@@ -784,55 +754,50 @@ mod tests {
         ] {
             let mut r = radio.clone();
             r[field] = Value::Null;
-            assert!(
-                admission(&selection, &r, &t, "standby", 10000).is_err(),
-                "{field}"
-            );
+            assert!(admission(&selection, &r, &t, "standby").is_err(), "{field}");
         }
         for field in ["provider", "generation", "selection_id", "control_revision"] {
             let mut s = selection.clone();
             s[field] = Value::Null;
-            assert!(
-                admission(&s, &radio, &t, "standby", 10000).is_err(),
-                "{field}"
-            );
+            assert!(admission(&s, &radio, &t, "standby").is_err(), "{field}");
         }
         radio["snapshot"]["generation"] = json!(8);
-        assert!(admission(&selection, &radio, &t, "standby", 10000).is_err());
+        assert!(admission(&selection, &radio, &t, "standby").is_err());
     }
     #[test]
-    fn amplifier_operate_requires_each_fresh_observation_and_policy_field() {
+    fn amplifier_operate_ignores_telemetry_freshness_and_policy_fields() {
         let t = target();
         let (s, r) = observations(&t);
         let mut newer = r.clone();
         newer["revision"] = json!(t.observation_revision + 1);
         newer["received_at_ms"] = json!(t.received_at_ms + 1);
-        assert!(admission(&s, &newer, &t, "operate", 10001).is_ok());
+        assert!(admission(&s, &newer, &t, "operate").is_ok());
         let mut older = r.clone();
         older["revision"] = json!(t.observation_revision - 1);
-        assert!(admission(&s, &older, &t, "operate", 10000).is_err());
+        assert!(admission(&s, &older, &t, "operate").is_ok());
         for field in ["revision", "received_at_ms", "available"] {
             let mut r = r.clone();
             r[field] = Value::Null;
-            assert!(admission(&s, &r, &t, "operate", 10000).is_err(), "{field}");
+            assert!(admission(&s, &r, &t, "operate").is_ok(), "{field}");
         }
         for field in ["connected", "observed", "transmitting", "observed_at"] {
             let mut r = r.clone();
             r["snapshot"]["radio"][field] = Value::Null;
-            assert!(admission(&s, &r, &t, "operate", 10000).is_err(), "{field}");
+            assert!(admission(&s, &r, &t, "operate").is_ok(), "{field}");
         }
         for field in [
             "radio_known",
             "radio_stale",
             "inhibitors",
             "allowed_actions",
-            "supported_commands",
         ] {
             let mut r = r.clone();
             r["snapshot"]["station"][field] = Value::Null;
-            assert!(admission(&s, &r, &t, "operate", 10000).is_err(), "{field}");
+            assert!(admission(&s, &r, &t, "operate").is_ok(), "{field}");
         }
-        assert!(admission(&s, &r, &t, "operate", 14000).is_err());
+        let mut unsupported = r.clone();
+        unsupported["snapshot"]["station"]["supported_commands"] = json!([]);
+        assert!(admission(&s, &unsupported, &t, "operate").is_err());
     }
     #[test]
     fn amplifier_concurrent_operate_and_standby_finalize_exact_ids_in_reverse_order() {
