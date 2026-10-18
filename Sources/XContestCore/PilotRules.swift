@@ -132,6 +132,49 @@ public struct CQWWSSBRule: ContestOperatorCapableRule {
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
 
+/// A noncatalog CQ WW scoring slice whose country identity is supplied by a pinned,
+/// independently versioned sponsor-country reference. Remaining 2026 profile gates are not
+/// implied by this type.
+public struct CQWWSponsorCountryRule: ContestOperatorCapableRule {
+    public enum Mode: String, Sendable { case cw = "CW", ssb = "SSB" }
+
+    public let metadata: ContestRuleMetadata
+    public let countryReference: ContestCountryMultiplierReference
+
+    public init(mode: Mode, countryReference: ContestCountryMultiplierReference) {
+        self.countryReference = countryReference
+        let cw = mode == .cw
+        metadata = ContestRuleMetadata(
+            identity: ContestRuleIdentity(
+                id: cw ? "cq-ww-cw-country-reference" : "cq-ww-ssb-country-reference",
+                version: "2.0.0-country-reference",
+                edition: "2026-country-reference-preview",
+                sourceRevision: "cqww-2026-rules+\(countryReference.revisionToken)"
+            ),
+            displayName: cw ? "CQ WW CW country-reference preview" : "CQ WW SSB country-reference preview",
+            cabrilloName: cw ? "CQ-WW-CW" : "CQ-WW-SSB",
+            supportedBands: pilotBands,
+            supportedModes: [mode.rawValue],
+            entry: cw ? cwZoneEntry : ssbZoneEntry,
+            sourceProvenance: "CQ WW 2026 rules country-multiplier slice; noncatalog preview with pinned sponsor-country reference"
+        )
+    }
+
+    public func validateSession(_ session: ContestSessionSnapshot) -> [ContestValidationIssue] {
+        guard session.referenceDataVersion == countryReference.requiredReferenceDataVersion else {
+            return [.init(code: "countryReferenceVersionMismatch", field: "referenceDataVersion",
+                          message: "Session geography does not match the pinned CQ WW country reference.")]
+        }
+        return []
+    }
+
+    public func evaluate(_ qso: ContestQSO, in session: ContestSessionSnapshot) -> ContestRuleEvaluation {
+        evaluateCQWW(qso, in: session, metadata: metadata, countryReference: countryReference)
+    }
+
+    public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
+}
+
 public struct CQWPXSSBRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11",
                                                       sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f")
@@ -150,7 +193,8 @@ public struct CQWPXSSBRule: ContestOperatorCapableRule {
 }
 
 private func evaluateCQWW(_ qso: ContestQSO, in session: ContestSessionSnapshot,
-                          metadata: ContestRuleMetadata) -> ContestRuleEvaluation {
+                          metadata: ContestRuleMetadata,
+                          countryReference: ContestCountryMultiplierReference? = nil) -> ContestRuleEvaluation {
     var issues = commonValidation(qso, session: session, metadata: metadata)
     let sentZone = Int(qso.exchange.normalizedSent)
     let stationZone = Int(session.station.sentExchange)
@@ -164,18 +208,56 @@ private func evaluateCQWW(_ qso: ContestQSO, in session: ContestSessionSnapshot,
     if zone == nil || !(1...40).contains(zone!) {
         issues.append(.init(code: "invalidCQZone", field: "exchange.received", message: "CQ zone must be an integer from 1 through 40."))
     }
+    let mobility = countryReference.map { _ in contestCallsignMobility(qso.callsign) } ?? .land
+    if countryReference != nil, mobility == .invalidMobileMarker {
+        issues.append(.init(code: "invalidMaritimeMobileCallsign", field: "callsign",
+                            message: "A maritime-mobile marker must be one terminal /MM component."))
+    }
     guard !issues.contains(where: { $0.severity == .error }), let own = session.station.entity,
           let worked = qso.entity, let zone else {
         return ContestRuleEvaluation(validation: issues, dupeKey: normalizedDupe(qso), points: 0, multiplierCandidates: [])
     }
+
+    if mobility == .maritimeMobile, countryReference != nil {
+        issues.append(.init(code: "unsupportedMaritimeMobilePointLocation", field: "entity",
+                            message: "CQ WW points require the maritime station transmitter location; a license-prefix entity is not sufficient."))
+        return ContestRuleEvaluation(validation: issues, dupeKey: normalizedDupe(qso), points: 0,
+                                     multiplierCandidates: [.init(kind: "cq-zone", value: String(zone), scope: qso.band)])
+    }
+
+    var ownCountryKey = String(own.adif)
+    var workedCountryKey = String(worked.adif)
+    var countryCandidate = ContestMultiplierKey(kind: "country", value: workedCountryKey, scope: qso.band)
+    if let countryReference {
+        do {
+            ownCountryKey = try countryReference.multiplier(
+                for: own, referenceDataVersion: session.referenceDataVersion
+            ).key
+            let multiplier = try countryReference.multiplier(
+                for: worked, referenceDataVersion: session.referenceDataVersion
+            )
+            workedCountryKey = multiplier.key
+            countryCandidate = .init(kind: "cqww-country", value: multiplier.key, scope: qso.band)
+        } catch ContestCountryMultiplierReferenceError.referenceDataVersionMismatch {
+            issues.append(.init(code: "countryReferenceVersionMismatch", field: "referenceDataVersion",
+                                message: "Session geography does not match the pinned CQ WW country reference."))
+        } catch {
+            issues.append(.init(code: "unknownCQWWCountry", field: "entity",
+                                message: "Resolved geography is not classified by the pinned CQ WW country reference."))
+        }
+    }
+    guard !issues.contains(where: { $0.severity == .error }) else {
+        return ContestRuleEvaluation(validation: issues, dupeKey: normalizedDupe(qso), points: 0,
+                                     multiplierCandidates: [])
+    }
     let points: Int64
-    if own.adif == worked.adif { points = 0 }
+    if ownCountryKey == workedCountryKey { points = 0 }
     else if own.continent != worked.continent { points = 3 }
     else if own.continent == "NA" { points = 2 }
     else { points = 1 }
     return ContestRuleEvaluation(validation: issues, dupeKey: normalizedDupe(qso), points: points,
                                  multiplierCandidates: [
-                                    .init(kind: "country", value: String(worked.adif), scope: qso.band),
+                                    countryCandidate,
                                     .init(kind: "cq-zone", value: String(zone), scope: qso.band),
                                  ])
 }

@@ -1,0 +1,53 @@
+{
+  "scope": "Independent bounded authority fixture for the CQ WW country-reference primitive; it is not the complete production country table.",
+  "retrievedAt": "2026-10-18",
+  "sources": [
+    {
+      "url": "https://www.cqww.com/rules/",
+      "summary": "The 2026 CQ WW rules define per-band country multipliers from DXCC, the WAE multiplier list, and IG9/IH9; maritime mobile counts only as a zone multiplier. QSO points depend on transmitter location."
+    },
+    {
+      "url": "https://www.darc.de/fileadmin/filemounts/referate/dx/diplome/Award_Rules_DARC_DX_ENG_032023.pdf",
+      "summary": "The official DARC award rules publish the WAE country list and its additional European country areas."
+    }
+  ],
+  "pinnedCTY": {
+    "path": "Sources/XLogCore/Resources/cty.csv",
+    "sha256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d",
+    "runtimeVersion": "bundled-cty-fnv64-cf9c48a44d4b5e66"
+  },
+  "reference": {
+    "identity": {
+      "id": "cqww-country",
+      "version": "2026.1-fixture"
+    },
+    "requiredReferenceDataVersion": "bundled-cty-fnv64-cf9c48a44d4b5e66",
+    "records": [
+      {"endpoint":{"adif":504,"entityName":"SLOVAK REPUBLIC","continent":"EU","cqZone":15},"multiplierKey":"DXCC-504","displayLabel":"Slovak Republic","authority":"dxcc"},
+      {"endpoint":{"adif":230,"entityName":"FED. REP. OF GERMANY","continent":"EU","cqZone":14},"multiplierKey":"DXCC-230","displayLabel":"Germany","authority":"dxcc"},
+      {"endpoint":{"adif":206,"entityName":"AUSTRIA","continent":"EU","cqZone":15},"multiplierKey":"DXCC-206","displayLabel":"Austria","authority":"dxcc"},
+      {"endpoint":{"adif":206,"entityName":"VIENNA INTL CTR","continent":"EU","cqZone":15},"multiplierKey":"WAE-4U1V","displayLabel":"Vienna International Centre","authority":"wae"},
+      {"endpoint":{"adif":279,"entityName":"SCOTLAND","continent":"EU","cqZone":14},"multiplierKey":"DXCC-279","displayLabel":"Scotland","authority":"dxcc"},
+      {"endpoint":{"adif":279,"entityName":"SHETLAND ISLANDS","continent":"EU","cqZone":14},"multiplierKey":"WAE-GM-SHETLAND","displayLabel":"Shetland Islands","authority":"wae"},
+      {"endpoint":{"adif":259,"entityName":"SVALBARD","continent":"EU","cqZone":40},"multiplierKey":"DXCC-259","displayLabel":"Svalbard","authority":"dxcc"},
+      {"endpoint":{"adif":259,"entityName":"BEAR ISLAND","continent":"EU","cqZone":40},"multiplierKey":"WAE-JW-BEAR","displayLabel":"Bear Island","authority":"wae"},
+      {"endpoint":{"adif":390,"entityName":"TURKEY","continent":"AS","cqZone":20},"multiplierKey":"DXCC-390","displayLabel":"Turkey","authority":"dxcc"},
+      {"endpoint":{"adif":390,"entityName":"EUROPEAN TURKEY","continent":"EU","cqZone":20},"multiplierKey":"WAE-TA1","displayLabel":"European Turkey","authority":"wae"},
+      {"endpoint":{"adif":248,"entityName":"ITALY","continent":"EU","cqZone":15},"multiplierKey":"DXCC-248","displayLabel":"Italy","authority":"dxcc"},
+      {"endpoint":{"adif":248,"entityName":"SICILY","continent":"EU","cqZone":15},"multiplierKey":"WAE-IT9","displayLabel":"Sicily","authority":"wae"},
+      {"endpoint":{"adif":248,"entityName":"AFRICAN ITALY","continent":"AF","cqZone":33},"multiplierKey":"CQWW-IG9-IH9","displayLabel":"African Italy (IG9/IH9)","authority":"cqwwSupplement"}
+    ]
+  },
+  "resolverExpectations": [
+    {"callsign":"DL1AAA","endpoint":{"adif":230,"entityName":"FED. REP. OF GERMANY","continent":"EU","cqZone":14}},
+    {"callsign":"4U1VIC","endpoint":{"adif":206,"entityName":"VIENNA INTL CTR","continent":"EU","cqZone":15}},
+    {"callsign":"GM3ZET","endpoint":{"adif":279,"entityName":"SHETLAND ISLANDS","continent":"EU","cqZone":14}},
+    {"callsign":"JW/LB2PG","endpoint":{"adif":259,"entityName":"BEAR ISLAND","continent":"EU","cqZone":40}},
+    {"callsign":"TA1ABC","endpoint":{"adif":390,"entityName":"EUROPEAN TURKEY","continent":"EU","cqZone":20}},
+    {"callsign":"IG9AAA","endpoint":{"adif":248,"entityName":"AFRICAN ITALY","continent":"AF","cqZone":33}},
+    {"callsign":"IH9AAA","endpoint":{"adif":248,"entityName":"AFRICAN ITALY","continent":"AF","cqZone":33}},
+    {"callsign":"IT9AAA","endpoint":{"adif":248,"entityName":"SICILY","continent":"EU","cqZone":15}},
+    {"callsign":"IK1AAA","endpoint":{"adif":248,"entityName":"ITALY","continent":"EU","cqZone":15}}
+  ],
+  "scoreOracle": {"points":11,"multipliers":9,"score":99}
+}
