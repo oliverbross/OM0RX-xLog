@@ -51,6 +51,7 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
+export const isRbnSource = (source: string) => source.trim().toLowerCase() === "rbl";
 export const clusterRowTint = (status: string, configured?: Record<string, string>): string | undefined =>
   status === "Unknown" ? undefined : `${paletteColor(status, configured, clusterStatusColors)}1F`;
 const emptyFilter: Filter = defaultClusterFilter();
@@ -336,10 +337,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <td hidden={!visibleColumns.has("callsign")}><button type="button" className="call-button live-cluster-call" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button></td>
       <td hidden={!visibleColumns.has("mode")}><span className="live-cluster-category" style={{ color: paletteColor(spot.mode, configuration?.palette.mode, clusterModeColors) }}>{spot.mode}</span></td>
       <td hidden={!visibleColumns.has("country")} title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td><td hidden={!visibleColumns.has("cq")}>{spot.cqZone ?? "—"}</td>
-      <td hidden={!visibleColumns.has("spotter")} title={`${spot.source === "rbl" ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
+      <td hidden={!visibleColumns.has("spotter")} title={`${isRbnSource(spot.source) ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
       <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.callStatus)}</td>
       <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.dxccStatus)}</td>
-      <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>) : "—"}</td>
+      <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{isRbnSource(spot.source) || spot.specialTags.length
+        ? [...(isRbnSource(spot.source) ? ["RBN"] : []), ...spot.specialTags].slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>)
+        : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
     </tr>)}</tbody></table>

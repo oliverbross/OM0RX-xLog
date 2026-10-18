@@ -209,6 +209,32 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertTrue(connection.stopped)
     }
 
+    func testDXSpiderFTSkimmerWithoutHashSuffixSurvivesRBNSourceFilter() async throws {
+        let server = ClusterServerConfiguration(name: "ShackCQ", host: "example.invalid", port: 7300, callsign: "OM0RX-13")
+        let connection = TestClusterTransport()
+        let service = ClusterSessionService(
+            configuration: .init(servers: [server], requestRecentSpotsOnConnect: false),
+            transportFactory: { _, _, _, _, onState, onLine in
+                connection.onState = onState
+                connection.onLine = onLine
+                return connection
+            }
+        )
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+        connection.emit("DX de CT7AUT: 14074.3 OM0RX FT8 -17 dB 1096 Hz")
+        try await waitFor { await service.snapshot().loadedSpots == 1 }
+
+        var filter = ClusterSpotFilter()
+        filter.sources = ["rbl"]
+        await service.updateFilter(filter)
+        let snapshot = await service.snapshot()
+        XCTAssertEqual(snapshot.spots.count, 1)
+        XCTAssertEqual(snapshot.spots[0].callsign, "OM0RX")
+        XCTAssertEqual(snapshot.spots[0].source, "rbl")
+        XCTAssertEqual(snapshot.spots[0].mode, "FT8")
+    }
+
     func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
         let connection = TestClusterTransport()

@@ -18,7 +18,7 @@ public enum ContestADIFExport {
         do { _ = try input.validatedScore(rule: rule) }
         catch { throw ContestADIFExportError.invalidInput }
         return try input.deterministicallyOrderedQSOs.map { qso in
-            var fields = standardFields(qso: qso, input: input, rule: rule)
+            var fields = try standardFields(qso: qso, input: input, rule: rule)
             guard validADIFDate(qso.timestampUTC), fields.values.allSatisfy(validADIFText) else {
                 throw ContestADIFExportError.invalidInput
             }
@@ -55,7 +55,7 @@ public enum ContestADIFExport {
     }
 
     private static func standardFields(qso: ContestQSO, input: ContestExportInput,
-                                       rule: any ContestRule) -> [String: String] {
+                                       rule: any ContestRule) throws -> [String: String] {
         var fields = [
             "CALL": qso.callsign,
             "QSO_DATE": utc("yyyyMMdd", qso.timestampUTC),
@@ -79,7 +79,7 @@ public enum ContestADIFExport {
             if let sent = Int(qso.exchange.normalizedSent) { fields["STX"] = String(sent) }
             if let received = Int(qso.exchange.normalizedReceived) { fields["SRX"] = String(received) }
         case .exchangeStrings:
-            addStructuredExchangeFields(to: &fields, qso: qso, input: input, rule: rule)
+            try addStructuredExchangeFields(to: &fields, qso: qso, input: input, rule: rule)
         case .none:
             break
         }
@@ -95,7 +95,7 @@ public enum ContestADIFExport {
     }
 
     private static func addStructuredExchangeFields(to fields: inout [String: String], qso: ContestQSO,
-                                                     input: ContestExportInput, rule: any ContestRule) {
+                                                     input: ContestExportInput, rule: any ContestRule) throws {
         if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.arrlRTTYPreviewFormatterVersion {
             addARRLRTTYExchangeFields(to: &fields, qso: qso, input: input)
             return
@@ -114,19 +114,93 @@ public enum ContestADIFExport {
                                             values: qso.exchange.receivedFields, expectedField: .srx)
             return
         }
-        guard rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion else { return }
-        if let name = qso.exchange.sentFields["name"]?.normalized { fields["MY_NAME"] = name }
-        if let name = qso.exchange.receivedFields["name"]?.normalized { fields["NAME"] = name }
-        if let entity = input.session.station.entity,
-           !isAirOrMaritimeMobile(input.session.station.callsign), adifStateIsApplicable(entity),
-           let state = qso.exchange.sentFields["location"]?.normalized {
-            fields["MY_STATE"] = state
+        if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion {
+            if let name = qso.exchange.sentFields["name"]?.normalized { fields["MY_NAME"] = name }
+            if let name = qso.exchange.receivedFields["name"]?.normalized { fields["NAME"] = name }
+            if let entity = input.session.station.entity,
+               !isAirOrMaritimeMobile(input.session.station.callsign), adifStateIsApplicable(entity),
+               let state = qso.exchange.sentFields["location"]?.normalized {
+                fields["MY_STATE"] = state
+            }
+            if let entity = qso.entity, !isAirOrMaritimeMobile(qso.callsign),
+               adifStateIsApplicable(entity),
+               let state = qso.exchange.receivedFields["location"]?.normalized {
+                fields["STATE"] = state
+            }
+            return
         }
-        if let entity = qso.entity, !isAirOrMaritimeMobile(qso.callsign),
-           adifStateIsApplicable(entity),
-           let state = qso.exchange.receivedFields["location"]?.normalized {
-            fields["STATE"] = state
+        guard let projection = (rule as? any ContestRuleDeclarativeExportPolicy)?.declarativeExportProjection,
+              projection.purpose == .operatorArchive else { return }
+        let mapped = try descriptorMappedFields(
+            sentDescriptors: rule.metadata.entry.exchange.sentFields,
+            receivedDescriptors: rule.metadata.entry.exchange.receivedFields,
+            sentValues: qso.exchange.sentFields, receivedValues: qso.exchange.receivedFields,
+            stationCallsign: input.session.station.callsign, stationEntity: input.session.station.entity,
+            workedCallsign: qso.callsign, workedEntity: qso.entity)
+        for (name, value) in mapped { fields[name] = value }
+    }
+
+    static func descriptorMappedFields(
+        sentDescriptors: [ContestExchangeFieldDescriptor],
+        receivedDescriptors: [ContestExchangeFieldDescriptor],
+        sentValues: [String: ContestExchangeFieldValue],
+        receivedValues: [String: ContestExchangeFieldValue],
+        stationCallsign: String, stationEntity: ContestEntitySnapshot?,
+        workedCallsign: String, workedEntity: ContestEntitySnapshot?
+    ) throws -> [String: String] {
+        let sentTargets: Set<ContestADIFField> = [.stx, .myName, .myState, .myGridSquare]
+        let receivedTargets: Set<ContestADIFField> = [.srx, .name, .state, .gridSquare]
+        var result: [String: String] = [:]
+        try mapDescriptors(sentDescriptors, values: sentValues, allowedTargets: sentTargets,
+                           callsign: stationCallsign, entity: stationEntity, into: &result)
+        try mapDescriptors(receivedDescriptors, values: receivedValues, allowedTargets: receivedTargets,
+                           callsign: workedCallsign, entity: workedEntity, into: &result)
+        return result
+    }
+
+    private static func mapDescriptors(
+        _ descriptors: [ContestExchangeFieldDescriptor], values: [String: ContestExchangeFieldValue],
+        allowedTargets: Set<ContestADIFField>, callsign: String, entity: ContestEntitySnapshot?,
+        into result: inout [String: String]
+    ) throws {
+        var mappedTargets: Set<ContestADIFField> = []
+        for descriptor in descriptors {
+            guard let target = descriptor.adifField else { continue }
+            guard allowedTargets.contains(target), mappedTargets.insert(target).inserted else {
+                throw ContestADIFExportError.invalidInput
+            }
+            guard let value = values[descriptor.id]?.normalized, !value.isEmpty else {
+                if descriptor.required { throw ContestADIFExportError.invalidInput }
+                continue
+            }
+            let mapped: String
+            switch target {
+            case .stx, .srx:
+                guard value.allSatisfy(\.isNumber), let number = Int(value), number >= 0 else {
+                    throw ContestADIFExportError.invalidInput
+                }
+                mapped = String(number)
+            case .gridSquare, .myGridSquare:
+                let bytes = Array(value.utf8)
+                guard bytes.count == 4, (65...82).contains(bytes[0]), (65...82).contains(bytes[1]),
+                      (48...57).contains(bytes[2]), (48...57).contains(bytes[3]) else {
+                    throw ContestADIFExportError.invalidInput
+                }
+                mapped = value
+            case .state, .myState:
+                guard printableASCII(value) else { throw ContestADIFExportError.invalidInput }
+                guard let entity, !isAirOrMaritimeMobile(callsign), adifStateIsApplicable(entity) else { continue }
+                mapped = arrlADIFSubdivision(value, entityADIF: entity.adif)
+            case .name, .myName:
+                guard printableASCII(value) else { throw ContestADIFExportError.invalidInput }
+                mapped = value
+            }
+            result[target.rawValue] = mapped
         }
+    }
+
+    private static func printableASCII(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.allSatisfy { (32...126).contains($0) }
     }
 
     private static func addDescriptorMappedNumberFields(to fields: inout [String: String],

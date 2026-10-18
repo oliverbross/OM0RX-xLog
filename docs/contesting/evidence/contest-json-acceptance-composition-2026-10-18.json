@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "status": "source-composition-reviewed-locally",
+  "date": "2026-10-18",
+  "composition": {
+    "base": "515163a787787b5ccf14392bdff28aa3a0dd18d8",
+    "mergeHeads": [
+      "fa53447b4e7a32461e752e3595cbc298f3ba40be",
+      "4be39ca575929152c74a1ffaa510ac236178cd88"
+    ],
+    "includedAcceptanceHead": "1500adbc3f8ea3c63025ef488816c451433747ab",
+    "includedAcceptanceRelationship": "ancestor of 4be39ca575929152c74a1ffaa510ac236178cd88",
+    "sourceTreeBeforeThisEvidenceRecord": "860fbb8bef6107814c6d97668810a606d60b4980",
+    "mergeResult": "automatic octopus merge with no conflicts or resolution edits"
+  },
+  "validation": [
+    {
+      "scope": "packaged definition loader",
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-json-composition-loader-build --filter ContestPackagedDefinitionLoaderTests",
+      "result": "7 tests passed",
+      "log": "/tmp/xlog-json-composition-loader.log",
+      "logSHA256": "7153c6c03487fcbbadf9fd0983da8d86cde1452f772946578d99ade05b8b2f9e"
+    },
+    {
+      "scope": "ADIF export suites",
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-json-composition-loader-build --filter ADIFExportTests",
+      "result": "26 tests passed",
+      "log": "/tmp/xlog-json-composition-adif.log",
+      "logSHA256": "3ea6e60f833f50d960c747a526d742b2d9e9d22f88be300f44f205efcb238f99"
+    },
+    {
+      "scope": "contest lane",
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-json-composition-loader-build --filter ContestingLaneTests",
+      "result": "23 tests passed",
+      "log": "/tmp/xlog-json-composition-lane.log",
+      "logSHA256": "bdfa7e38b67afd1e972e556791a619428059ee87d78cc1f2571f6ebb6cb201ff"
+    },
+    {
+      "scope": "cluster integration touched by the composed UI source",
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-json-composition-loader-build --filter 'ClusterSessionServiceTests|ImportedSpotLogicTests'",
+      "result": "30 tests passed",
+      "log": "/tmp/xlog-json-composition-cluster.log",
+      "logSHA256": "f91f9681aa798bcff697044aa4755afddd37bd88d3c66066028689566a0573c6"
+    },
+    {
+      "scope": "combined affected frontend",
+      "command": "cd prototype && npm exec -- vitest run src/contesting/ContestOperatorPanel.test.tsx src/contesting/ContestWorkspace.test.tsx src/live/ClusterPanel.test.tsx src/live/HFPropagationLive.test.tsx src/live/OperatorWorkspace.test.tsx src/live/SidebarOwnSpots.test.tsx src/live/hfPropagationCanvasLayout.test.ts tests/live-app.test.tsx --maxWorkers=2",
+      "result": "8 files and 195 tests passed",
+      "log": "/tmp/xlog-json-composition-ui.log",
+      "logSHA256": "51add3755ff974a2116d3d17432018cb0759a4489618cbccce495d239817afd3"
+    },
+    {
+      "scope": "frontend production build",
+      "command": "cd prototype && npm run build",
+      "result": "TypeScript, Vite production build, and window bundle checks passed",
+      "log": "/tmp/xlog-json-composition-frontend-build.log",
+      "logSHA256": "e678fb5cbd96d3bd4f434c81845c18d0fba43af9598f91024f49e6bd9f99135e"
+    },
+    {
+      "scope": "portable contest worker build",
+      "command": "XLOG_PORTABLE_ONLY=1 swift build --jobs 2 --scratch-path /tmp/xlog-json-composition-loader-build --product xlog-prototype-worker",
+      "result": "build passed",
+      "log": "/tmp/xlog-json-composition-worker-build.log",
+      "logSHA256": "b972687d09737354e181011c52c29b01b7c7e25ff4d403dd3e7faf54a14afdaa"
+    }
+  ],
+  "deliveryPriority": "Current delivery work is macOS-only; no Windows or Linux application build was run for this checkpoint.",
+  "deferred": [
+    "full 14-profile legacy headless operator matrix",
+    "full 11-case declarative headless operator matrix",
+    "packaged application installation and native-window acceptance",
+    "RF, audio, PTT, hardware, and sponsor-submission acceptance"
+  ],
+  "boundary": "This is source, unit, integration, frontend, and worker-build evidence on macOS. It is not packaged, installed, native-window, RF, hardware, or sponsor acceptance."
+}

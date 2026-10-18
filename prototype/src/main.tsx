@@ -8,6 +8,8 @@ import "./surfaceStyles";
 import "./live/DetachedQSOSurface.css";
 import "./live/DetachedSpotHistorySurface.css";
 import "./live/DetachedMapSurface.css";
+import "./live/HFPropagationLive.css";
+import "./live/HFPropagationCanvas.css";
 import "./live/live.css";
 import "./style.css";
 import "maplibre-gl/dist/maplibre-gl.css";

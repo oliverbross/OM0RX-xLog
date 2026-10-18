@@ -1,20 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Activity, ExternalLink, PanelsTopLeft, RefreshCw, RotateCcw, Settings2, Sun, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Activity, ExternalLink, MoveDiagonal2, RefreshCw, Settings2, Sun, X } from "lucide-react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { bandFromFrequency, callsignContinent, cleanCall, cleanLocator, contestBands, continents, defaultPropagationSettings,
-  hfOutlook, matrixCounts, mergeSpots, modeCounts, normalizedMode, ownGrid, parseDXHeat, parseForecastText, parseOwnRBN, parseOwnWSPR,
+  hfOutlook, matrixCounts, mergeSpots, modeCounts, normalizedMode, ownGrid, parseDXHeat, parseForecastText, parseOwnWSPR,
   parsePSKReporter, parseWSPR, perMinuteSeries, propagationBands, propagationModes, propagationSources, readPropagationSettings,
   xrayClass, type Continent, type OwnWSPRSpot, type PropagationMode, type PropagationSettings, type PropagationSource,
   type OwnRBNSpot, type PropagationSpot, type SolarConditions } from "./hfPropagationModel";
+import HFPropagationCanvas, { type HFPropagationCanvasPanel } from "./HFPropagationCanvas";
+import { loadOwnRBNPickups } from "./ownRbnFeed";
+import { hfPropagationCanvasLayoutKey, hfPropagationLegacyLayoutKey, readHFPropagationCanvasLayout,
+  type HFPropagationCanvasLayout } from "./hfPropagationCanvasLayout";
 import "./HFPropagationLive.css";
 
 type SourceState = { state: "idle" | "loading" | "ok" | "error" | "disabled"; count: number; detail: string };
 type Transport = (source: string, parameters?: Record<string, unknown>) => Promise<string>;
 type Props = { initialOwnCall?: string; initialLocator?: string; transport?: Transport; detached?: boolean };
-type DashboardDensity = "compact" | "comfortable" | "large";
-type DashboardLayout = { version: 1; leftPercent: number; density: DashboardDensity };
 const settingsKey = "xlog.hf-propagation.settings.v1", spotsKey = "xlog.hf-propagation.spots.v1", ownKey = "xlog.hf-propagation.own-wspr.v1";
-const layoutKey = "xlog.hf-propagation.layout.v1", defaultLayout: DashboardLayout = { version: 1, leftPercent: 59, density: "comfortable" };
 const sourceNames: Record<PropagationSource | "swpc", string> = { wspr: "wspr.live", pskr: "PSK Reporter", rbn: "Reverse Beacon Network", cluster: "DX Cluster", swpc: "NOAA SWPC" };
 const emptySources = (): Record<PropagationSource | "swpc", SourceState> => Object.fromEntries([...propagationSources, "swpc"].map(source => [source, { state: "idle", count: 0, detail: "Waiting" }])) as Record<PropagationSource | "swpc", SourceState>;
 const emptySolar = (): SolarConditions => ({ sfi: null, ssn: null, aIndex: null, kp: null, xray: "—", solarWind: null, kpSeries: [], forecast: { geomagnetic: "Forecast unavailable.", radiation: "Forecast unavailable.", blackout: "Forecast unavailable." } });
@@ -27,14 +28,6 @@ export async function nativeHFPropagationTransport(source: string, parameters: R
 }
 function storedArray<T>(key: string): T[] { try { const value = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } }
 function saveArray(key: string, value: unknown[]) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Live display remains usable if browser storage is full. */ } }
-function boundLeftPercent(value: number) { return Math.max(38, Math.min(68, Math.round(value))); }
-function readDashboardLayout(): DashboardLayout {
-  try {
-    const saved = JSON.parse(localStorage.getItem(layoutKey) || "null");
-    const density = ["compact", "comfortable", "large"].includes(saved?.density) ? saved.density as DashboardDensity : defaultLayout.density;
-    return { version: 1, leftPercent: boundLeftPercent(Number(saved?.leftPercent) || defaultLayout.leftPercent), density };
-  } catch { return defaultLayout; }
-}
 function mergeOwnSpots(left: OwnWSPRSpot[], right: OwnWSPRSpot[]) {
   const cutoff = Date.now() - 3_600_000;
   return [...left, ...right].filter(item => item.time >= cutoff)
@@ -57,16 +50,20 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
   });
   const settingsRef = useRef(settings); settingsRef.current = settings;
   const [draft, setDraft] = useState(settings), [settingsOpen, setSettingsOpen] = useState(false);
-  const [layout, setLayout] = useState<DashboardLayout>(readDashboardLayout), [layoutOpen, setLayoutOpen] = useState(false);
+  const [canvasLayout, setCanvasLayout] = useState<HFPropagationCanvasLayout>(() => readHFPropagationCanvasLayout(
+    localStorage.getItem(hfPropagationCanvasLayoutKey), localStorage.getItem(hfPropagationLegacyLayoutKey)));
+  const [arranging, setArranging] = useState(false), [canvasCompact, setCanvasCompact] = useState(false), [layoutStorageError, setLayoutStorageError] = useState("");
   const [spots, setSpots] = useState<PropagationSpot[]>([]), [ownSpots, setOwnSpots] = useState<OwnWSPRSpot[]>([]);
   const [rbnPickups, setRbnPickups] = useState<OwnRBNSpot[]>([]), [rbnError, setRbnError] = useState("");
   const [solar, setSolar] = useState<SolarConditions>(emptySolar), [sources, setSources] = useState(emptySources);
   const [loading, setLoading] = useState(false), [error, setError] = useState(""), [nextFetch, setNextFetch] = useState(0), [analysisNow, setAnalysisNow] = useState(Date.now());
   const mounted = useRef(true), fetching = useRef(false), initial = useRef(true);
-  const layoutBody = useRef<HTMLDivElement>(null), layoutDrag = useRef<{ id: number; x: number; percent: number; width: number } | null>(null);
   useEffect(() => () => { mounted.current = false; }, []);
   useEffect(() => { try { localStorage.setItem(settingsKey, JSON.stringify(settings)); } catch { /* Keep current session settings. */ } }, [settings]);
-  useEffect(() => { try { localStorage.setItem(layoutKey, JSON.stringify(layout)); } catch { /* Keep the current layout in memory. */ } }, [layout]);
+  useEffect(() => {
+    try { localStorage.setItem(hfPropagationCanvasLayoutKey, JSON.stringify(canvasLayout)); setLayoutStorageError(""); }
+    catch { setLayoutStorageError("Panel positions changed for this session but could not be saved."); }
+  }, [canvasLayout]);
   useEffect(() => {
     let cancelled = false;
     const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
@@ -120,7 +117,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     })());
     if (enabled.has("rbn") && active.ownCall) jobs.push((async () => {
       try {
-        const incoming = parseOwnRBN(JSON.parse(await transport("own_rbn", { sinceSeconds: 600, ownCall: active.ownCall })), active.ownCall);
+        const incoming = await loadOwnRBNPickups(transport, active.ownCall, 0);
         if (mounted.current) { setRbnPickups(incoming); setRbnError(""); }
       } catch (cause) { if (mounted.current) setRbnError(humanError(cause)); }
     })());
@@ -173,65 +170,54 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     try { localStorage.setItem(settingsKey, JSON.stringify(next)); } catch { setError("Propagation settings could not be saved; this session will continue with them."); }
     setSettings(next); settingsRef.current = next; setSettingsOpen(false); initial.current = true; setNextFetch(0); void refresh();
   }
-  const layoutStyle = { "--hf-left-column": `${layout.leftPercent}%` } as CSSProperties;
-  const resizeLayout = (leftPercent: number) => setLayout(current => ({ ...current, leftPercent: boundLeftPercent(leftPercent) }));
-  return <section className={`hf-propagation-live is-${layout.density}${detached ? " is-detached" : ""}`} aria-label="HF Propagation live">
-    <header className="hf-prop-header">
-      <div><h1><Activity aria-hidden="true" />HF Propagation live</h1><p>Live worldwide activity and NOAA space-weather outlook · adapted from ConDX Now by OK1M</p></div>
-      <div className="hf-prop-header-status"><LiveClock nextFetch={nextFetch} /><span>{settings.mode}</span><span>{settings.ownCall || "Set own call"}{settings.locator ? ` · ${settings.locator}` : ""}</span><span>{recentSpotCount.toLocaleString()} spots / 1h</span>
-        <button type="button" onClick={() => void refresh()} disabled={loading} aria-label="Refresh propagation data"><RefreshCw size={15} className={loading ? "is-spinning" : ""} />Refresh</button>
-        <button type="button" aria-expanded={layoutOpen} aria-controls="hf-prop-layout-settings" onClick={() => { setSettingsOpen(false); setLayoutOpen(value => !value); }}><PanelsTopLeft size={15} />Layout</button>
-        <button type="button" aria-expanded={settingsOpen} aria-controls="hf-prop-settings" onClick={() => { setLayoutOpen(false); setDraft(settings); setSettingsOpen(value => !value); }}><Settings2 size={15} />Settings</button>
-      </div>
-    </header>
-    {error && <div className="hf-prop-error" role="alert">{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss"><X size={15} /></button></div>}
-    {layoutOpen && <DashboardLayoutPanel value={layout} onChange={setLayout} onReset={() => setLayout(defaultLayout)} onClose={() => setLayoutOpen(false)} />}
-    {settingsOpen && <PropagationSettingsPanel value={draft} onChange={setDraft} onApply={applySettings} onClose={() => setSettingsOpen(false)} />}
-    <div className="hf-prop-solar-strip" aria-label="Current solar conditions">
+  const handleCanvasCompact = useCallback((compact: boolean) => {
+    setCanvasCompact(compact); if (compact) setArranging(false);
+  }, []);
+  const dashboardPanels: HFPropagationCanvasPanel[] = [
+    { id: "solar-conditions", title: "Current solar conditions", content: <div className="hf-prop-solar-strip" aria-label="Current solar conditions">
       <SolarMetric label="SFI" value={solar.sfi} hint="Solar flux" /><SolarMetric label="SN" value={solar.ssn} hint="Sunspot number" />
       <SolarMetric label="A" value={solar.aIndex} hint="Daily geomagnetic activity" /><SolarMetric label="Kp" value={solar.kp} hint="Current geomagnetic activity" />
       <SolarMetric label="X-ray" value={solar.xray} hint="Solar flare level" /><SolarMetric label="Wind" value={solar.solarWind === null ? null : `${Math.round(solar.solarWind)} km/s`} hint="Solar-wind speed" />
       <div className={`hf-prop-outlook is-${outlook.tone}`}><strong>{outlook.title}</strong><span>{outlook.detail}</span></div>
-    </div>
-    <div className="hf-prop-layout" ref={layoutBody} style={layoutStyle}>
-      <Panel className="hf-prop-area-matrix" title="Band × continent activity" meta="Last completed 10 minutes" controls={<ModeFilter values={settings.matrixModes} onChange={matrixModes => setSettings(current => ({ ...current, matrixModes }))} />}>
-        <ActivityMatrix matrix={matrix} bands={settings.bands} home={callsignContinent(settings.ownCall)} />
-      </Panel>
-      <Panel className="hf-prop-area-outlook" title="NOAA SWPC outlook" meta="Observed + 3-day forecast" icon={<Sun size={16} />}>
-        <KpChart points={solar.kpSeries} now={analysisNow} />
-        <div className="hf-prop-forecast"><p><strong>Geomagnetic</strong>{solar.forecast.geomagnetic}</p><p><strong>Radiation</strong>{solar.forecast.radiation}</p><p><strong>Blackout</strong>{solar.forecast.blackout}</p></div>
-        <details className="hf-prop-guide"><summary>How to read the solar numbers</summary><p><b>SFI/SN</b> indicate ionization support; higher values generally help upper HF bands. <b>Kp/A</b> describe geomagnetic disturbance; lower is quieter. <b>X-ray</b> levels M and X can produce daylight-side absorption. Solar wind above roughly 500 km/s can precede unsettled conditions.</p></details>
-      </Panel>
-      <Panel className="hf-prop-area-own-activity" title={`${settings.ownCall || "Own call"} WSPR activity`} meta="TX + RX · last 60 minutes · 5 minute reporting lag"><BandLineChart data={ownActivity} bands={settings.bands} /></Panel>
-      <Panel className="hf-prop-area-paths" title={`${settings.ownCall || "Own call"} WSPR paths`} meta="Last 10 minutes · count and average SNR">
-        <div className="hf-prop-own-grids"><OwnGrid title="TX · who hears me" grid={txGrid} bands={settings.bands} /><OwnGrid title="RX · stations heard" grid={rxGrid} bands={settings.bands} /></div>
-      </Panel>
-      <Panel className="hf-prop-area-band" title="Band activity" meta="All enabled sources · last 60 minutes · rolling 2 minute count" controls={<ModeFilter values={settings.chartModes} onChange={chartModes => setSettings(current => ({ ...current, chartModes }))} />}>
-        <BandLineChart data={activity} bands={settings.bands} />
-      </Panel>
-      <div className="hf-prop-column-divider" role="separator" aria-label="Propagation dashboard column width" aria-orientation="vertical" tabIndex={0}
-        aria-valuemin={38} aria-valuemax={68} aria-valuenow={layout.leftPercent} onKeyDown={event => {
-          const step = event.shiftKey ? 10 : 2, next = event.key === "Home" ? 38 : event.key === "End" ? 68
-            : event.key === "ArrowLeft" ? layout.leftPercent - step : event.key === "ArrowRight" ? layout.leftPercent + step : null;
-          if (next !== null) { event.preventDefault(); resizeLayout(next); }
-        }} onPointerDown={event => {
-          if (event.button !== 0) return;
-          const width = layoutBody.current?.getBoundingClientRect().width || 1;
-          event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture?.(event.pointerId);
-          layoutDrag.current = { id: event.pointerId, x: event.clientX, percent: layout.leftPercent, width };
-        }} onPointerMove={event => {
-          const drag = layoutDrag.current; if (!drag || drag.id !== event.pointerId) return;
-          resizeLayout(drag.percent + (event.clientX - drag.x) / drag.width * 100);
-        }} onPointerUp={() => { layoutDrag.current = null; }} onPointerCancel={() => { layoutDrag.current = null; }} onLostPointerCapture={() => { layoutDrag.current = null; }} />
-      <Panel className="hf-prop-area-modes" title="Modes per band" meta="Last 60 minutes"><ModeBars values={modes} bands={settings.bands} /></Panel>
-      <Panel className="hf-prop-area-rbn" title={`${settings.ownCall || "Own call"} RBN pickups`} meta="Who heard me · last 10 minutes">
-        <RBNPickups call={settings.ownCall} spots={rbnPickups} error={rbnError} />
-      </Panel>
-    </div>
-    <footer className="hf-prop-sources" aria-label="Propagation data sources">
+    </div> },
+    { id: "band-continent", title: "Band × continent activity", content: <Panel title="Band × continent activity" meta="Last completed 10 minutes" controls={<ModeFilter values={settings.matrixModes} onChange={matrixModes => setSettings(current => ({ ...current, matrixModes }))} />}>
+      <ActivityMatrix matrix={matrix} bands={settings.bands} home={callsignContinent(settings.ownCall)} />
+    </Panel> },
+    { id: "noaa-outlook", title: "NOAA SWPC outlook", content: <Panel title="NOAA SWPC outlook" meta="Observed + 3-day forecast" icon={<Sun size={16} />}>
+      <KpChart points={solar.kpSeries} now={analysisNow} />
+      <div className="hf-prop-forecast"><p><strong>Geomagnetic</strong>{solar.forecast.geomagnetic}</p><p><strong>Radiation</strong>{solar.forecast.radiation}</p><p><strong>Blackout</strong>{solar.forecast.blackout}</p></div>
+      <details className="hf-prop-guide"><summary>How to read the solar numbers</summary><p><b>SFI/SN</b> indicate ionization support; higher values generally help upper HF bands. <b>Kp/A</b> describe geomagnetic disturbance; lower is quieter. <b>X-ray</b> levels M and X can produce daylight-side absorption. Solar wind above roughly 500 km/s can precede unsettled conditions.</p></details>
+    </Panel> },
+    { id: "wspr-activity", title: `${settings.ownCall || "Own call"} WSPR activity`, content: <Panel title={`${settings.ownCall || "Own call"} WSPR activity`} meta="TX + RX · last 60 minutes · 5 minute reporting lag"><BandLineChart data={ownActivity} bands={settings.bands} /></Panel> },
+    { id: "wspr-paths", title: `${settings.ownCall || "Own call"} WSPR paths`, content: <Panel title={`${settings.ownCall || "Own call"} WSPR paths`} meta="Last 10 minutes · count and average SNR">
+      <div className="hf-prop-own-grids"><OwnGrid title="TX · who hears me" grid={txGrid} bands={settings.bands} /><OwnGrid title="RX · stations heard" grid={rxGrid} bands={settings.bands} /></div>
+    </Panel> },
+    { id: "band-activity", title: "Band activity", content: <Panel title="Band activity" meta="All enabled sources · last 60 minutes · rolling 2 minute count" controls={<ModeFilter values={settings.chartModes} onChange={chartModes => setSettings(current => ({ ...current, chartModes }))} />}>
+      <BandLineChart data={activity} bands={settings.bands} />
+    </Panel> },
+    { id: "modes-per-band", title: "Modes per band", content: <Panel title="Modes per band" meta="Last 60 minutes"><ModeBars values={modes} bands={settings.bands} /></Panel> },
+    { id: "rbn-pickups", title: `${settings.ownCall || "Own call"} RBN pickups`, content: <Panel title={`${settings.ownCall || "Own call"} RBN pickups`} meta="Who heard me · last 10 minutes">
+      <RBNPickups call={settings.ownCall} spots={rbnPickups} error={rbnError} />
+    </Panel> },
+    { id: "data-sources", title: "Propagation data sources", content: <footer className="hf-prop-sources" aria-label="Propagation data sources">
       {[...propagationSources, "swpc" as const].map(source => <div key={source} className={`is-${sources[source].state}`} title={sources[source].detail}><i /><span>{sourceNames[source]}</span><strong>{source === "swpc" ? sources[source].detail : `${sourceCounts[source as PropagationSource]?.toLocaleString() || 0} / 1h`}</strong></div>)}
       <a href="https://git.ok1kvk.cz/RybkaLabs/condxnow" target="_blank" rel="noreferrer">ConDX Now project <ExternalLink size={13} /></a>
-    </footer>
+    </footer> },
+  ];
+  return <section className={`hf-propagation-live is-${canvasLayout.density}${detached ? " is-detached" : ""}`} aria-label="HF Propagation live">
+    <header className="hf-prop-header">
+      <div><h1><Activity aria-hidden="true" />HF Propagation live</h1><p>Live worldwide activity and NOAA space-weather outlook · adapted from ConDX Now by OK1M</p></div>
+      <div className="hf-prop-header-status"><LiveClock nextFetch={nextFetch} /><span>{settings.mode}</span><span>{settings.ownCall || "Set own call"}{settings.locator ? ` · ${settings.locator}` : ""}</span><span>{recentSpotCount.toLocaleString()} spots / 1h</span>
+        <button type="button" onClick={() => void refresh()} disabled={loading} aria-label="Refresh propagation data"><RefreshCw size={15} className={loading ? "is-spinning" : ""} />Refresh</button>
+        <button type="button" disabled={canvasCompact} aria-pressed={arranging} onClick={() => { setSettingsOpen(false); setArranging(value => !value); }}><MoveDiagonal2 size={15} />{arranging ? "Finish arranging" : "Arrange panels"}</button>
+        <button type="button" aria-expanded={settingsOpen} aria-controls="hf-prop-settings" onClick={() => { setArranging(false); setDraft(settings); setSettingsOpen(value => !value); }}><Settings2 size={15} />Settings</button>
+      </div>
+    </header>
+    {(error || layoutStorageError) && <div className="hf-prop-error" role="alert">{error || layoutStorageError}<button type="button" onClick={() => { setError(""); setLayoutStorageError(""); }} aria-label="Dismiss"><X size={15} /></button></div>}
+    {settingsOpen && <PropagationSettingsPanel value={draft} onChange={setDraft} onApply={applySettings} onClose={() => setSettingsOpen(false)} />}
+    {canvasCompact && <p className="hf-prop-compact-note">Expand this window to arrange panels. The compact view keeps every card in a readable stack.</p>}
+      <HFPropagationCanvas panels={dashboardPanels} layout={canvasLayout} arranging={arranging}
+      onChange={setCanvasLayout} onCompactChange={handleCanvasCompact} />
   </section>;
 }
 
@@ -290,14 +276,6 @@ function KpChart({ points, now }: { points: SolarConditions["kpSeries"]; now: nu
   </svg> : <Empty text="NOAA Kp history and forecast have not loaded yet." />}</div>;
 }
 function Empty({ text }: { text: string }) { return <div className="hf-prop-empty" role="status">{text}</div>; }
-
-function DashboardLayoutPanel({ value, onChange, onReset, onClose }: { value: DashboardLayout; onChange: (value: DashboardLayout) => void; onReset: () => void; onClose: () => void }) {
-  return <section id="hf-prop-layout-settings" className="hf-prop-settings hf-prop-layout-settings" aria-label="HF propagation dashboard layout"><header><div><h2>Dashboard layout</h2><p>Applies to both the Operator Desk page and the separate window.</p></div><button type="button" onClick={onClose} aria-label="Close layout"><X size={16} /></button></header>
-    <div className="hf-prop-settings-grid"><label>Information size<select value={value.density} onChange={event => onChange({ ...value, density: event.target.value as DashboardDensity })}><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="large">Large</option></select></label>
-      <label>Left column · {value.leftPercent}%<input type="range" min="38" max="68" step="1" value={value.leftPercent} onChange={event => onChange({ ...value, leftPercent: boundLeftPercent(Number(event.target.value)) })} /></label></div>
-    <div className="hf-prop-settings-actions"><button type="button" onClick={onReset}><RotateCcw size={14} />Reset layout</button><button type="button" className="primary" onClick={onClose}>Done</button></div>
-  </section>;
-}
 
 function PropagationSettingsPanel({ value, onChange, onApply, onClose }: { value: PropagationSettings; onChange: (value: PropagationSettings) => void; onApply: () => void; onClose: () => void }) {
   const bands = new Set(value.bands), sources = new Set(value.enabledSources);

@@ -1,0 +1,19 @@
+.sidebar-own-spots { margin:8px 8px 0; padding-top:8px; border-top:1px solid #21364f; min-width:0; }
+.sidebar-own-spots>header { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; color:#e6edf6; }
+.sidebar-own-spots>header>span { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:750; }
+.sidebar-own-spots>header svg { color:#35c8f5; }.sidebar-own-spots>header small { color:#7890aa; font:9px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.sidebar-own-spot-list { display:grid; gap:4px; }
+.sidebar-own-spot-list article { min-width:0; padding:5px 6px; border:1px solid #21364f; border-left:3px solid #35c8f5; border-radius:5px; background:#0d1c2e; }
+.sidebar-own-spot-list article.is-human { border-left-color:#f3b23c; }
+.sidebar-own-spot-list article>div { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:4px; }
+.sidebar-own-spot-list strong { overflow:hidden; color:#12d6a0; font:750 10px ui-monospace,SFMono-Regular,Menlo,monospace; text-overflow:ellipsis; white-space:nowrap; }
+.sidebar-own-spot-list article>div span { padding:1px 4px; border-radius:3px; background:#14304a; color:#69d8f7; font-size:8px; font-weight:750; }
+.sidebar-own-spot-list article.is-human>div span { background:#3c2b13; color:#ffc45d; }
+.sidebar-own-spot-list time { color:#7890aa; font:8px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.sidebar-own-spot-list p { display:flex; align-items:center; gap:5px; min-width:0; margin:4px 0 0; color:#aebed0; font-size:9px; }
+.sidebar-own-spot-list p b { color:#35c8f5; }.sidebar-own-spot-list p span { white-space:nowrap; }
+.sidebar-own-spot-list p em { min-width:0; overflow:hidden; color:#7890aa; font-style:normal; text-overflow:ellipsis; white-space:nowrap; }
+.sidebar-own-spots-empty { margin:0; padding:6px; border:1px dashed #21364f; border-radius:5px; color:#7890aa; font-size:9px; text-align:center; }
+@media (max-height:980px) { .sidebar-own-spot-list article:nth-child(n+3) { display:none; } }
+@media (max-height:780px) { .sidebar-own-spots { margin-top:4px; padding-top:5px; }.sidebar-own-spot-list article:nth-child(n+2) { display:none; } }
+@media (max-width:850px) { .sidebar-own-spots { display:none; } }
