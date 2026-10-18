@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-18",
+  "status": "source-integrated-combined-ui-timing-failure-under-review",
+  "source": {
+    "mainChange": "30dcdab42bb0337aee9c60e816d6b151d6b453ce",
+    "mainAcceptedRuntimeBaseline": "b9accc7f81453f1f2cab1758a48192322213f590",
+    "contestIntegration": "c7018b63a015c58b52c8d4d0e03bae1a0e21e3da",
+    "branch": "codex/contest-cqww-feedback-build"
+  },
+  "scope": "Expose existing Radio spots settings and configurable own-call pickup visibility. Source merged after review; no application packaging, installation or runtime replacement.",
+  "combinedUI": {
+    "result": "failed",
+    "files": 6,
+    "passed": 70,
+    "failed": 1,
+    "failure": "ServiceSettings.test.tsx:27 timed out waiting for the lazily loaded Radio spot output heading.",
+    "log": "/tmp/xlog-c7018b6-integrated-ui.log",
+    "sha256": "b5447ecd1f8a9ed8f439b616673343151460d8dc5bf8d4e94bb0dff5ca2c4c4a"
+  },
+  "isolatedDiagnostic": {
+    "sourceChanged": false,
+    "result": "passed",
+    "suite": "ServiceSettings.test.tsx",
+    "tests": 26,
+    "log": "/tmp/xlog-c7018b6-service-settings-isolated.log",
+    "sha256": "103e78794e7d7412b7b559f144ab953dd34add513297d05a96a51c70e2fcd63d",
+    "interpretation": "The isolated pass suggests a load-sensitive test wait. It does not erase the combined failure or prove its cause. The owning main-app chat was asked to investigate and stabilize the assertion."
+  },
+  "typecheck": {
+    "command": "tsc --noEmit",
+    "exitCode": 0,
+    "log": "/tmp/xlog-c7018b6-integrated-tsc.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "boundary": "This is combined-source validation evidence, not native application, radio output or full contest acceptance. The normal app and installed Contesting Test app were not replaced."
+}
