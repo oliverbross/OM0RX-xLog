@@ -7,6 +7,7 @@ import { ContestWorkspace, projectSCPCallsign, type ContestTransitionController 
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import { isStructuredEntry, type ContestDraftSnapshot, type ContestEntryDescriptorV2, type ContestFullQSO, type ContestQSOChangeResult, type ContestRequest, type ContestRuleMetadata, type ContestSessionSummary } from "./types";
 import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
+import { changedLayout, panelMinimum, workspacePanelIDs, type LayoutSnapshot } from "../live/workspaceLayoutSession";
 
 const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx" | "exchangeStrings" = serial ? "stxSrx" : "none"): ContestRuleMetadata["entry"] => ({
   mode, adifMode: mode, cabrilloQSOType: mode === "CW" ? "CW" : "PH",
@@ -160,6 +161,17 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
 function score(session: ContestSessionSummary) { return { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, qsos: session.qsoCount, points: session.qsoCount * 3, multipliers: session.qsoCount, claimedScore: session.qsoCount * 3, multiplierLabels: session.qsoCount ? ["wpx-prefix:K1:contest"] : [], multiplierDisplayLabels: session.qsoCount ? ["K1 prefix"] : [], sourceVerification: "provisional" as const }; }
 function ids() { let value = 0; return () => `id-${++value}`; }
 const digest = async (payload: unknown) => String(JSON.stringify(payload).length).padStart(64, "0");
+function contestLayout(): LayoutSnapshot {
+  const visible = new Set(["active-qso", "callsign-intelligence", "propagation", "logbook"]);
+  const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id); return {
+    id, z, placement: visible.has(id) ? "canvas" as const : "hidden" as const,
+    rect: { x: id === "active-qso" ? 0 : 960, y: id === "logbook" ? 540 : 0,
+      width: Math.min(width, 960), height: Math.min(height, 540) },
+  }; });
+  return { scope: "contesting", generation: "12345678-1234-1234-1234-123456789abc", revision: 0,
+    document: { version: 2, activePresetID: "traditional", presets: [{ id: "traditional", name: "Traditional",
+      width: 1920, height: 1080, locked: false, snap: true, panels }] } };
+}
 afterEach(cleanup);
 
 async function open(request: ContestRequest, storage = new MemoryContestRecoveryStorage()) {
@@ -432,7 +444,8 @@ it("keeps invalid frequency text editable without sending a transformed value", 
 it("renders the responsive contest regions without transmit or ESM controls", async () => {
   const { request, calls } = fixture(); await open(request);
   expect(screen.getByRole("form", { name: "CW contest entry" })).toBeTruthy(); expect(screen.getByRole("region", { name: "Contest log" })).toBeTruthy(); expect(screen.getByRole("complementary", { name: "Score and multipliers" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /ESM|Transmit|Send CW|PTT/i })).toBeNull(); expect(calls.every(([method]) => method.startsWith("contest_"))).toBe(true);
+  expect(screen.queryByRole("button", { name: /ESM|Transmit|Send CW|PTT/i })).toBeNull();
+  expect(calls.every(([method]) => method.startsWith("contest_") || method === "workspace_layout_load")).toBe(true);
 });
 
 it("routes an armed simulated operator sequence through the existing draft and commit owner only", async () => {
@@ -446,8 +459,38 @@ it("routes an armed simulated operator sequence through the existing draft and c
   fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(exchange, { key: "Enter" });
   await waitFor(() => expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(1));
   expect(output.map(item => item.split(":")[1])).toEqual(["QRZ"]);
-  expect(calls.every(([method]) => method.startsWith("contest_"))).toBe(true);
+  expect(calls.every(([method]) => method.startsWith("contest_") || method === "workspace_layout_load")).toBe(true);
   expect(screen.getByText(/no CW, voice, PTT, audio, or radio output/i)).toBeTruthy();
+});
+
+it("uses the shared contest canvas while one owner preserves the draft across Entry hide and restore", async () => {
+  const source = fixture(), layoutCalls: Array<[string, Record<string, unknown>?]> = [];
+  let layout = contestLayout();
+  const request = (async (method: string, params: Record<string, unknown> = {}) => {
+    if (method === "workspace_layout_load") { layoutCalls.push([method, params]); return { layout: structuredClone(layout) }; }
+    if (method === "workspace_layout_apply") {
+      layoutCalls.push([method, params]); layout = { ...layout, revision: layout.revision + 1, document: changedLayout(layout.document, params as any) };
+      return { status: "applied", layout: structuredClone(layout) };
+    }
+    return source.request(method as never, params as never);
+  }) as ContestRequest;
+  await open(request);
+  expect(screen.getByRole("button", { name: "Move Entry" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Move Check Partial" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Move Statistics" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Move Log" })).toBeTruthy();
+  const call = screen.getByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement;
+  fireEvent.change(call, { target: { value: "K1ABC" } });
+  await waitFor(() => expect(source.calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Hide Entry" }));
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Contest callsign" })).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Panels" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Entry" }));
+  const restored = await screen.findByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement;
+  expect(restored.value).toBe("K1ABC");
+  expect(layoutCalls[0]).toEqual(["workspace_layout_load", { scope: "contesting" }]);
+  expect(layoutCalls.filter(([method]) => method === "workspace_layout_apply").every(([, params]) => params?.scope === "contesting")).toBe(true);
 });
 
 it("revokes an armed operator sequence when SCP patches the current callsign", async () => {
