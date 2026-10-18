@@ -69,10 +69,15 @@
     "policy": "A station in the W/VE entity set may contact any resolved entity; every other station may contact only a resolved W/VE entity.",
     "resolverBoundary": "Eligibility uses the immutable resolved entity snapshot and never guesses from callsign prefixes."
   },
+  "officialModePreview": {
+    "actualModeToCabrillo": {"AM": "PH", "CW": "CW", "FM": "FM", "FT4": "DG", "FT8": "DG", "MSK144": "DG", "RTTY": "DG", "SSB": "PH"},
+    "adifModePolicy": "Each app mode remains the exact ADIF mode; only the Cabrillo QSO mode class is mapped.",
+    "outputBoundary": "The definitions have no operator policy and do not claim an RF, audio, CW, or digital output adapter."
+  },
   "previewDifferences": [
     "The pinned plugins test for Band == 2300+ but their shared get_logged_band returns individual canonical numeric values at 13cm and above; the preview deliberately follows the published point table instead of reproducing that executable zero-point defect.",
     "The portable contest band plan represents the pinned comparator bands through 1mm and its submm bucket, while normal-log band authority remains a later activation gate.",
-    "Only CW and SSB are admitted; upstream digital mode mapping remains pending.",
+    "Legacy identities still admit only CW and SSB. Official-grid identities admit a finite exact-mode preview for CW, SSB, AM, FM, RTTY, FT8, FT4, and MSK144; no operator output adapter is implied.",
     "The original three source-preview identities retain the pinned per-band duplicate behavior and unrestricted eligibility. Separate fixed and rover official-grid preview identities model four-coordinate duplicates, rover activated grids, and official directional W/VE entity eligibility; store correction admission, schedules, categories, and worker activation remain pending.",
     "The archive projection is source-shaped operator evidence, not sponsor submission certification."
   ]

@@ -320,6 +320,41 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         }
     }
 
+    func testOfficialModeProfilesPreserveActualModeAndMapOnlyCabrilloClass() throws {
+        let expected: [(mode: String, adif: String, cabrillo: String)] = [
+            ("AM", "AM", "PH"), ("CW", "CW", "CW"), ("FM", "FM", "FM"),
+            ("FT4", "FT4", "DG"), ("FT8", "FT8", "DG"),
+            ("MSK144", "MSK144", "DG"), ("RTTY", "RTTY", "DG"),
+            ("SSB", "SSB", "PH"),
+        ]
+        XCTAssertEqual(ARRLVHFDeclarativeDefinitions.officialPreviewModeProfiles.map(\.mode),
+                       expected.map(\.mode))
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .january, category: .fixed)
+        XCTAssertEqual(rule.metadata.supportedModes, Set(expected.map(\.mode)))
+        XCTAssertNil(rule.definition.draft.operatorPolicy,
+                     "Mode admission must not invent a transmit or digital-output adapter")
+        let session = makeSession(rule)
+        for (index, row) in expected.enumerated() {
+            let profile = try XCTUnwrap(rule.metadata.entry.modeProfiles.first { $0.mode == row.mode })
+            XCTAssertEqual(profile.adifMode, row.adif)
+            XCTAssertEqual(profile.cabrilloQSOType, row.cabrillo)
+            let contact = qso(index + 20, session, call: "K1AAA", band: "6m", grid: "FN31",
+                              mode: row.mode)
+            XCTAssertEqual(rule.evaluate(contact, in: session).validation, [])
+            XCTAssertTrue(try CabrilloExporter.qsoLine(contact, session: session, rule: rule)
+                .hasPrefix("QSO: 50125 \(row.cabrillo) "))
+        }
+        let unsupported = qso(40, session, call: "K1AAA", band: "6m", grid: "FN31", mode: "MFSK")
+        XCTAssertEqual(rule.evaluate(unsupported, in: session).validation.map(\.code),
+                       ["unsupportedMode"])
+
+        for season in ARRLVHFSeason.allCases {
+            let legacy = try ARRLVHFDeclarativeDefinitions.definition(for: season)
+            XCTAssertEqual(legacy.draft.supportedModes, ["CW", "SSB"])
+            XCTAssertEqual(legacy.draft.entry.modeProfiles.map(\.mode), ["CW", "SSB"])
+        }
+    }
+
     func testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder() throws {
         let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .september)
         let session = makeSession(rule)

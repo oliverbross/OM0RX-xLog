@@ -22,6 +22,19 @@ public enum ARRLVHFDeclarativeDefinitions {
         1, 6, 9, 20, 43, 103, 110, 123, 138, 166,
         174, 182, 197, 202, 211, 252, 285, 291, 297, 515,
     ]
+    public static let officialPreviewModeProfiles: [ContestModeProfile] = [
+        .init(mode: "AM", adifMode: "AM", cabrilloQSOType: "PH", report: noReport),
+        .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", report: noReport),
+        .init(mode: "FM", adifMode: "FM", cabrilloQSOType: "FM", report: noReport),
+        .init(mode: "FT4", adifMode: "FT4", cabrilloQSOType: "DG", report: noReport),
+        .init(mode: "FT8", adifMode: "FT8", cabrilloQSOType: "DG", report: noReport),
+        .init(mode: "MSK144", adifMode: "MSK144", cabrilloQSOType: "DG", report: noReport),
+        .init(mode: "RTTY", adifMode: "RTTY", cabrilloQSOType: "DG", report: noReport),
+        .init(mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", report: noReport),
+    ]
+
+    private static let noReport = ContestReportDescriptor(
+        format: .none, defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0)
 
     public static func definition(for season: ARRLVHFSeason) throws -> ContestDeclarativeDefinition {
         try draft(for: season).materialized()
@@ -58,15 +71,14 @@ public enum ARRLVHFDeclarativeDefinitions {
         let sentGrid = ContestExchangeFieldDescriptor(
             id: grid.id, label: "Sent grid", acceptedKinds: grid.acceptedKinds,
             maximumUTF8Bytes: grid.maximumUTF8Bytes, adifField: .myGridSquare)
-        let report = ContestReportDescriptor(format: .none, defaultSent: "", defaultReceived: "",
-                                             maximumUTF8Bytes: 0)
+        let modeProfiles: [ContestModeProfile] = category == nil ? [
+            .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", report: noReport),
+            .init(mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", report: noReport),
+        ] : officialPreviewModeProfiles
         let entry = ContestEntryDescriptor(
             cabrilloFormatterVersion: "arrl-vhf-source-preview-1",
             cabrilloProjectionFormatterVersion: "arrl-vhf-source-preview-1",
-            modeProfiles: [
-                .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", report: report),
-                .init(mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", report: report),
-            ],
+            modeProfiles: modeProfiles,
             exchange: .init(sent: .structured, received: .structured, sentDefault: .stationFields,
                             adifFields: .exchangeStrings, sentFields: [sentGrid], receivedFields: [grid]),
             serial: .init(requirement: .none, allowedScopes: []),
@@ -91,7 +103,8 @@ public enum ARRLVHFDeclarativeDefinitions {
             edition: "contest-sw-26.10.11",
             displayName: displayName(for: season) + previewSuffix,
             cabrilloName: "ARRL-VHF",
-            supportedBands: Set(points(for: season).keys), supportedModes: ["CW", "SSB"], entry: entry,
+            supportedBands: Set(points(for: season).keys),
+            supportedModes: Set(modeProfiles.map(\.mode)), entry: entry,
             sourceProvenance: provenance(for: season, category: category),
             dupePolicy: category == nil ? .perBand : .perBandStationGridPair,
             multiplierPolicy: .maidenheadGrid, gridMultiplier: .init(receivedFieldID: "grid"),
@@ -162,6 +175,6 @@ public enum ARRLVHFDeclarativeDefinitions {
         case .rover:
             semantics = "official four-coordinate rover duplicate and activated-grid multiplier correction"
         }
-        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus canonical high-band values executable defect; \(semantics); ARRL rule 2.3 W/VE group pinned through bundled CTY SHA-256 \(bundledCTYSHA256); source-preview operator archive; schedule, category admission, correction workflow, and digital coverage pending"
+        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus canonical high-band values executable defect; \(semantics); ARRL rule 2.3 W/VE group pinned through bundled CTY SHA-256 \(bundledCTYSHA256); finite exact-mode preview CW/SSB/AM/FM/RTTY/FT8/FT4/MSK144 with Cabrillo CW/PH/FM/DG mapping; source-preview operator archive; schedule, category admission, correction workflow, and digital output adapter pending"
     }
 }
