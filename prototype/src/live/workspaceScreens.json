@@ -7,6 +7,7 @@
   {"id":"world-map","title":"World Map","group":"View","shortcut":null},
   {"id":"band-maps","title":"Band Maps","group":"View","shortcut":null},
   {"id":"chaser-dx","title":"Chaser & DX","group":"View","shortcut":null},
+  {"id":"hf-propagation-live","title":"HF Prop live","group":"View","shortcut":null},
   {"id":"awards","title":"Awards","group":"Logbook","shortcut":null},
   {"id":"station-control","title":"Station Control","group":"Station","shortcut":null,"hidden":true},
   {"id":"radio1-settings","title":"Radio 1 Settings","group":"Station","shortcut":null,"hidden":true},

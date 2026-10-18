@@ -13,7 +13,7 @@ import { useAutoRotor } from "./live/useAutoRotor";
 import { nativeRotorStop } from "./live/nativeRotorStop";
 import { useFollowRadio } from "./live/useFollowRadio";
 import { useReferenceEvidence } from "./live/useReferenceEvidence";
-import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
+import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw, Sun } from "lucide-react";
 import { workerRequest, openMonitor, openDetachedMap, detachedMapKind,
   type StationProvider } from "./worker";
 import WorldMap from "./Map";
@@ -59,6 +59,7 @@ import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import { DeskPreviousQSOs } from "./live/DeskPreviousQSOs";
+import HFPropagationLive from "./live/HFPropagationLive";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
@@ -158,11 +159,12 @@ export function boundedCallsignLookup(request: Request, call: string, timeoutMs 
 export const syncSettingsDestination = (logbookMode: unknown): "Logbook" | "Sync" => logbookMode === "local" ? "Logbook" : "Sync";
 const screenIcons: Record<string, typeof Radio> = {
   "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History,
-  "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, awards: Award,
+  "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, "hf-propagation-live": Sun, awards: Award,
   "station-control": Radio, sync: RefreshCw, settings: Settings,
 };
 const navigation = workspaceMenuScreens.map(screen => [screen.title, screenIcons[screen.id], screen.group] as const);
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
+const hfPropagationLive = new URLSearchParams(location.search).get("view") === "hf-propagation-live";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
@@ -187,6 +189,7 @@ function legacyDraftValue(): Data | null {
 }
 
 export default function LiveApp() {
+  if (hfPropagationLive) return <HFPropagationLive detached />;
   if (detached === "world-map") return <DetachedWorldMapSurface />;
   if (detached === "band-maps") return <DetachedBandMapsSurface />;
   if (monitor) return <DetachedMonitorSurface />;
@@ -1212,7 +1215,7 @@ function MainLiveApp() {
           retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
       </>}
       {/* Spot History only reads archive diagnostics; editors still require a verified workspace. */}
-      {(workspace?.workspace_exists === true || view === "Spot History") && <>
+      {(workspace?.workspace_exists === true || view === "Spot History" || view === "HF Prop live") && <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
         canChangeLayout={() => !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
         onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
@@ -1249,6 +1252,7 @@ function MainLiveApp() {
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={panelRequest} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
+      {view === "HF Prop live" && <HFPropagationLive initialOwnCall={settings?.stationCall} initialLocator={settings?.gridSquare} />}
       {view === "Spot History" && <SpotHistoryPanel request={request} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}

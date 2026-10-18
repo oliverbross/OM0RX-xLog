@@ -32,7 +32,7 @@ for (const name of ["WorldMap", "BandMaps", "Monitor"]) {
   assert(bytes <= (name === "BandMaps" ? 400_000 : 1_600_000), `${name} startup JavaScript budget exceeded: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip: data.reduce((sum, item) => sum + gzipSync(item).length, 0), files }));
 }
-for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence", "PreviousQSOs", "OperatingGoals", "Settings", "Opportunities", "StationControl", "CW", "Rotor", "StationStatus", "Propagation", "StationIdentity", "Alerts", "Antenna"]) {
+for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "CallsignIntelligence", "PreviousQSOs", "OperatingGoals", "Settings", "Opportunities", "HFPropagationLive", "StationControl", "CW", "Rotor", "StationStatus", "Propagation", "StationIdentity", "Alerts", "Antenna"]) {
   const entry = `src/live/Detached${name}Surface.tsx`;
   const graph = closure(entry, closure("index.html"));
   assert(!graph.has(main), `${name} imports the main station workspace`);
@@ -47,7 +47,8 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // applies the mode-aware 59/599 defaults in every editor. Settings owns the
   // persisted propagation cadence. The heavier canvas editor remains outside
   // both detached surfaces.
-  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 405_500 : 400_000;
+  // One more lazy route adds a few hundred bytes to the shared surface loader.
+  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 406_000 : 400_000;
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
 }

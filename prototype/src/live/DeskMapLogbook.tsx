@@ -18,7 +18,7 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
   });
   const [preferences, setPreferences] = useState(initial.preferences), current = useRef(preferences); current.current = preferences;
   const [mounted, setMounted] = useState(() => ({
-    map: !["logbook", "logbook-previous"].includes(initial.preferences.view),
+    map: initial.preferences.view !== "logbook",
     logbook: initial.preferences.view !== "map",
   }));
   const [storageError, setStorageError] = useState(initial.error), [denied, setDenied] = useState("");
@@ -52,7 +52,9 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
     if (!stacked || !Number.isFinite(value) || !permitted()) return;
     save({ ...current.current, logbookPercent: boundDeskLogbookPercent(Math.max(bounds.min, Math.min(bounds.max, value))) });
   }
-  const bodyStyle: CSSProperties = previousMode ? { gridTemplateRows: showPrevious ? "minmax(0, 1fr) minmax(0, 1fr)" : "minmax(0, 1fr)" }
+  const bodyStyle: CSSProperties = previousMode ? { gridTemplateRows: showPrevious
+    ? "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr)"
+    : "minmax(0, 1fr) minmax(0, 1fr)" }
     : stacked ? { gridTemplateRows: above
     ? `${logbookHeight}px ${deskMapLogbookDividerHeight}px ${mapHeight}px`
     : `${mapHeight}px ${deskMapLogbookDividerHeight}px ${logbookHeight}px` } : { gridTemplateRows: "minmax(0, 1fr)" };
@@ -62,14 +64,15 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
       <select id={`${id}-view`} aria-label="Desk map and logbook view" value={preferences.view} disabled={busy} onChange={event => {
         const view = event.target.value; if (!validDeskMapLogbookView(view) || !permitted()) return;
         drag.current = null;
-        setMounted(previous => ({ map: previous.map || !["logbook", "logbook-previous"].includes(view), logbook: previous.logbook || view !== "map" }));
+        setMounted(previous => ({ map: previous.map || view !== "logbook", logbook: previous.logbook || view !== "map" }));
         save({ ...current.current, view });
       }}>{deskMapLogbookViews.map(([view, label]) => <option key={view} value={view}>{label}</option>)}</select>
       {(denied || storageError) && <span className="desk-map-logbook-feedback" role="status">{denied || storageError}</span>}
     </div>
     <div className={`desk-map-logbook-panes${stacked ? " is-stacked" : ""}`} ref={body} style={bodyStyle}>
-      <div className="desk-map-logbook-map" hidden={preferences.view === "logbook" || previousMode} inert={preferences.view === "logbook" || previousMode}
-        style={{ gridRow: stacked ? above ? 3 : 1 : 1, minHeight: minimumDeskMapHeight }}>
+      <div className="desk-map-logbook-map" hidden={preferences.view === "logbook"} inert={preferences.view === "logbook"}
+        style={{ gridRow: previousMode ? showPrevious ? 3 : 2 : stacked ? above ? 3 : 1 : 1,
+          minHeight: previousMode ? 0 : minimumDeskMapHeight }}>
         {mounted.map ? map : null}
       </div>
       <div className="desk-map-logbook-divider" hidden={!stacked} role="separator" aria-label="Map and Logbook height"

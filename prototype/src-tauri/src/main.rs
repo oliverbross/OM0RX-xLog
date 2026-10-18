@@ -3,6 +3,7 @@
 mod worker;
 mod acceptance;
 mod hamlib;
+mod hf_propagation;
 mod rotor;
 mod rotor_session;
 mod rotor_telemetry;
@@ -1455,6 +1456,11 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
         .await.map_err(|_| "Native workspace window task failed".to_string())?
 }
 
+#[tauri::command]
+async fn hf_propagation_fetch(window: tauri::WebviewWindow, request: hf_propagation::FetchRequest) -> Result<String, String> {
+    hf_propagation::fetch(window.label(), request).await
+}
+
 // Called only by the serialized native owner, never from the UI message loop.
 fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool) -> Result<bool, String> {
     let role = workspace_windows::surface_role(kind);
@@ -1886,7 +1892,8 @@ fn main() {
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
-            acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
+             hf_propagation_fetch,
+             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state, acceptance::acceptance_close_window,
             acceptance::acceptance_spot_history_begin, acceptance::acceptance_spot_history_state,
@@ -1959,6 +1966,7 @@ mod workspace_layout_tests {
         assert!(super::screen_group_menu_includes("station-control"));
         assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Logbook");
         assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Settings");
+        assert_eq!(super::window_menu_title("OM0RX-xLog — HF Propagation live"), "HF Propagation live");
     }
 
     #[test]
