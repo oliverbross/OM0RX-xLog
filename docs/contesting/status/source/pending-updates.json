@@ -1,6 +1,6 @@
 {
   "proposalDate": "2026-10-18",
-  "measuredAt": "2026-10-17T23:43:54Z",
+  "measuredAt": "2026-10-18T00:05:58Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
@@ -53,19 +53,33 @@
   "naqpBoundary": {
     "statusAtProposal": "changes-requested",
     "findingAtProposal": "A missing-name early return masked invalid nonempty DX/mobile-location input.",
-    "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5 and its stated code checks passed; a clean operator rehearsal and new native CI are now pending.",
-    "acceptance": "The earlier diagnostic state is superseded for source-code evidence. The f687462 synthetic operator/runtime evidence is separately recorded and does not establish installed native-app or hardware acceptance for 054cfc5. Fresh rehearsal and native CI for 054cfc5 remain pending."
+    "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
+    "acceptance": "The combined 054cfc5 source now has passing native CI and a clean synthetic operator checkpoint. Neither establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Foundation and history native workflows are resolved, and the 10-10 declarative pilot is now integrated in the foundation source. Its native CI and any fresh operator acceptance remain pending. Wait for those results and the NAQP clean operator rehearsal and new native CI before updating report claims and regenerating to an alternate output directory for review. Replace the published snapshot only after its workbook is no longer open and the report delta is accepted.",
+  "refreshGate": "The combined foundation source has a Windows native compile failure under investigation. The separate history phase has native failures despite regular CI passing; immutable definition persistence is on a separate branch with native and regular workflows still in progress. Continue preserving the published snapshot and update claims only after reviewing resolution and the full acceptance boundary. Generate any review candidate to an alternate output directory; replace published files only after the workbook lock is gone and the report delta is accepted.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
-    "measuredAtUtc": "2026-10-17T23:43:54Z",
-    "reconciledAtUtc": "2026-10-17T23:43:54Z",
+    "measuredAtUtc": "2026-10-18T00:05:58Z",
+    "reconciledAtUtc": "2026-10-18T00:05:58Z",
     "currentFoundationMilestone": {
-      "commit": "90648fdd6c81426ce53dc1f97c41ca276619d880",
-      "status": "pushed",
-      "newNativeCI": "pending",
-      "scope": "Source integration milestone only; the original published report snapshot and its cutoff are unchanged."
+      "commit": "3f55c1c2d68c068e0e2c9bb1e7cd93d76e6d059b",
+      "branch": "codex/contest-combined-integration",
+      "status": "combined source locally reviewed; CI result recorded below",
+      "scope": "Original published report snapshot and its cutoff are unchanged."
+    },
+    "mainApplicationBaseline": {
+      "version": "1.2.20",
+      "sourceCommit": "e9ef0c564323cf5a79be3d48f5b7389d8b0b1e66",
+      "status": "installed-and-live-checked-by-main-task; independent verification not performed here; contesting integration remains held",
+      "validation": "The main task reports 149 targeted tests passed and two pre-existing full-frontend assertion failures. Regular CI 39080536171 failed; its cause was not independently verified.",
+      "nextWork": "1.2.21 HF propagation task has started in the main task; canonical/install hold remains."
+    },
+    "nativeWorkflowEvidence": {
+      "pilot25a2504": {"portability": "39079939868 passed", "regularCI": "39079939866 passed"},
+      "foundation90648fdd": {"portability": "39080085205 passed", "regularCI": "39080085238 passed"},
+      "naqp054cfc5": {"portability": "39079987614 passed", "regularCI": "39079987599 passed"},
+      "combined3f55c1c": {"portability": "39080850734 failed: five of six jobs passed; Windows failed on CoreFoundation import; repair in progress"},
+      "standaloneHistory4e0ba36": {"portability": "39080280385 failed: Windows import failure and macOS/Linux SCP error", "regularCI": "39080280389 passed"}
     },
     "foundationAndHistory": {
       "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
@@ -83,18 +97,37 @@
       "sourceCommit": "25a2504",
       "sourceBranch": "codex/contest-plugin-generator",
       "foundationIntegrationCommit": "90648fdd6c81426ce53dc1f97c41ca276619d880",
-      "status": "integrated-and-pushed; native-ci-pending; no-fresh-operator-acceptance",
+      "status": "integrated-and-pushed; native-portability-and-regular-ci-passed",
       "evidence": "docs/contesting/TEN_TEN_DECLARATIVE_PILOT.md and docs/contesting/evidence/ten-ten-declarative-pilot-2026-10-18.json; product Sources, Tests, Package.swift, prototype, and workflow content match source commit 25a2504 byte-for-byte",
-      "result": "Four inactive 10-10 definitions share one rule; 143 core and 72 store checks passed and are accepted as source/test evidence. Export/custom-definition byte persistence and UI remain inactive; catalog count unchanged. No runtime/operator acceptance is claimed."
+      "nativeWorkflowRuns": {"portability": "39079939868 passed", "regularCI": "39079939866 passed"},
+      "result": "Four inactive 10-10 definitions share one rule; 143 core and 72 store checks passed. Export/custom-definition byte persistence and UI remain inactive; catalog count unchanged."
     },
     "naqp": {
       "sourceCommit": "054cfc5",
       "sourceBranch": "codex/contest-naqp-integration",
-      "status": "combined-foundation-merge-committed; clean-operator-rehearsal-started; fresh-acceptance-pending",
+      "status": "combined-foundation-merge-committed; native-portability-and-regular-ci-passed; clean-operator-checkpoint-passed",
       "validation": "134 core, 72 store and 42 support checks passed; 182 frontend checks and production build passed.",
-      "cleanOperatorRehearsal": "pending",
-      "newNativeCI": "pending",
-      "boundary": "The combined source commit is not yet accepted through a fresh clean operator rehearsal or native CI. Earlier operator evidence is recorded separately under its exact source commit."
+      "nativeWorkflowRuns": {"portability": "39079987614 passed", "regularCI": "39079987599 passed"},
+      "operatorCheckpointCommit": "1cfcfd0",
+      "operatorCheckpoint": "docs/contesting/NAQP_OPERATOR_INTEGRATION_CHECKPOINT_054cfc5.md",
+      "observedScope": "Six sessions; 346 ordinary and 3 lifecycle frames; 26 commits; 14 parsed exports; 82 simulator outputs.",
+      "boundary": "No RF transmission or package proof."
+    },
+    "combinedFoundation": {
+      "commit": "3f55c1c2d68c068e0e2c9bb1e7cd93d76e6d059b",
+      "sourceValidation": "After the SCP shutdown repair, 143 core, 73 store and 52 support checks passed.",
+      "nativeWorkflow": "39080850734 failed: five of six jobs passed; Windows failed to import CoreFoundation; fix in progress.",
+      "catalog": "16 previews, 78 pending, 0 fully ported; 94 metadata-only records."
+    },
+    "definitionPersistence": {
+      "sourceCommit": "363062e08cc6e9358d3bb12ff5b061455a961ff1",
+      "branch": "codex/contest-definition-persistence",
+      "integrationStatus": "not integrated into combined foundation",
+      "result": "Immutable canonical definitions with atomic admission/reopen, pinned versions, and read-only v2 backup compatibility; 77 store and 14 focused snapshot checks passed.",
+      "workflows": {"portability": "39081392046 in progress", "regularCI": "39081392051 in progress"}
+    },
+    "broadSupportSuite": {
+      "result": "466 support tests: 465 passed and one hardlink-related failure, reproduced on baseline 3f55c1c; main chat notified."
     },
     "historicalOperatorEvidence": {
       "sourceCommit": "f687462",
