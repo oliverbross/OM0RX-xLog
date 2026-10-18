@@ -92,7 +92,7 @@ describe("DX Cluster spot age strip", () => {
     expect(screen.getByText("RBN").closest("td")?.classList.contains("live-cluster-special")).toBe(true);
   });
 
-  it("keeps the Request RBN setting and RBN source filter synchronized", async () => {
+  it("keeps RBN reception independent from the RBN source visibility filter", async () => {
     const data = response(); data.configuration.filter.sources = ["cluster"];
     const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => data);
     render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
@@ -100,9 +100,11 @@ describe("DX Cluster spot age strip", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Request RBN / Skimmer" }));
     fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", {
-      configuration: expect.objectContaining({ requestSkimmer: true, filter: expect.objectContaining({ sources: ["cluster", "rbl"] }) }),
+      configuration: expect.objectContaining({ requestSkimmer: true, filter: expect.objectContaining({ sources: ["cluster"] }) }),
       base_configuration: data.configuration,
     }));
+    fireEvent.click(screen.getByRole("button", { name: "Source · 1" }));
+    expect(screen.getByRole("note").textContent).toContain("band and mode filters");
   });
 });
 

@@ -234,6 +234,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.spots[0].source, "rbl")
         XCTAssertEqual(snapshot.spots[0].mode, "FT8")
         XCTAssertEqual(snapshot.spots[0].specialTags, ["RBN"])
+        XCTAssertEqual(snapshot.spots[0].comment, "RBN · FT8 -17 dB 1096 Hz")
     }
 
     func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
