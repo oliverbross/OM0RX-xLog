@@ -203,7 +203,7 @@ public actor QRZClient {
 
     /// QRZ XML profiles are keyed by the licensed home call, while operators
     /// commonly enter forms such as OM0RX/P, VK8NSB/4, or EA8/OM0RX/P.
-    static func providerCallsign(for call: String) -> String {
+    public static func providerCallsign(for call: String) -> String {
         let parts = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             .split(separator: "/", omittingEmptySubsequences: true).map(String.init)
         let candidates = parts.filter { part in
