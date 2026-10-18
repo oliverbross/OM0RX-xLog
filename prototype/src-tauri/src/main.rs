@@ -229,7 +229,7 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
     Ok(())
 }
 fn retires_automatic_rotor(request: &serde_json::Value) -> bool {
-    matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore" | "workspace_rotor_configuration_save" | "station_connect" | "station_disconnect" | "station_reconnect" | "station_configure"))
+    matches!(request["method"].as_str(), Some("workspace_create" | "backup_restore" | "station_connect" | "station_disconnect" | "station_reconnect" | "station_configure"))
         || request["params"]["device"] == "radio" && matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_disconnect" | "hamlib_reconnect"))
 }
 fn is_raw_manual_rotor_goto(request: &serde_json::Value) -> bool {
@@ -2823,9 +2823,10 @@ mod workspace_layout_tests {
             assert_eq!(crate::validate_opportunity_effect(label,false,false).is_ok(), matches!(label,"main" | "chaser-dx"));
             assert!(crate::validate_opportunity_effect(label,true,false).is_err()); assert!(crate::validate_opportunity_effect(label,false,true).is_err());
         }
-        for method in ["workspace_create", "backup_restore", "workspace_rotor_configuration_save", "station_connect", "station_disconnect", "station_reconnect"] {
+        for method in ["workspace_create", "backup_restore", "station_connect", "station_disconnect", "station_reconnect"] {
             assert!(retires_automatic_rotor(&serde_json::json!({"method":method,"params":{}})));
         }
+        assert!(!retires_automatic_rotor(&serde_json::json!({"method":"workspace_rotor_configuration_save","params":{}})));
         assert!(!retires_automatic_rotor(&serde_json::json!({"method":"logbook_operator_draft_apply","params":{"action":"replace"}})));
         assert!(retires_automatic_rotor(&serde_json::json!({"method":"hamlib_disconnect","params":{"device":"radio"}})));
     }
