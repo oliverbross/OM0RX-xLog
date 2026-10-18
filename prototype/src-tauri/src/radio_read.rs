@@ -196,6 +196,10 @@ pub(crate) struct NativeBackend {
     pub(crate) app: tauri::AppHandle,
 }
 impl NativeBackend {
+    fn snapshot_params(provider: &str, radio_id: &str) -> Value {
+        if provider == "hamlib" { json!({"device":"radio","radio_id":radio_id,"purpose":"logging"}) }
+        else { json!({"provider":provider,"radio_id":radio_id}) }
+    }
     pub(crate) fn call(worker: u64, method: &str, params: Value) -> Result<Value, String> {
         let request = json!({"id":format!("native-radio-read-{}",uuid::Uuid::new_v4()),"method":method,"params":params});
         let response = crate::worker::request_existing_generation(request.clone(), worker)?;
@@ -208,6 +212,14 @@ impl NativeBackend {
                 .as_str()
                 .unwrap_or("Native radio read was not confirmed")
                 .to_owned());
+        }
+        Ok(response["result"].clone())
+    }
+    fn call_hamlib(method: &str, params: Value) -> Result<Value, String> {
+        let request = json!({"id":format!("native-radio-read-{}",uuid::Uuid::new_v4()),"method":method,"params":params});
+        let response = crate::hamlib::request(request.clone())?;
+        if response["id"] != request["id"] || response["ok"] != true || !response["result"].is_object() {
+            return Err(response["error"]["message"].as_str().unwrap_or("Native Hamlib radio read was not confirmed").to_owned());
         }
         Ok(response["result"].clone())
     }
@@ -318,20 +330,15 @@ impl Backend for NativeBackend {
             .filter(|provider| crate::station_telemetry::valid_provider(provider))
             .ok_or("Select a radio before reading it.")?
             .to_owned();
+        let radio_id = selection["radio_id"].as_str()
+            .and_then(|value| crate::radio_slots::index(value).ok().map(|_| value))
+            .ok_or("The selected radio slot is unavailable.")?;
         let _selection_fence =
-            crate::station_selection::owner(&self.app)?.fence_radio_read_epoch(&selection)?;
+            crate::station_selection::owner_for(&self.app, radio_id)?.fence_radio_read_epoch(&selection)?;
         let radio = if provider == "hamlib" {
-            Self::call(
-                canonical.worker,
-                "hamlib_snapshot",
-                json!({"device":"radio"}),
-            )?
+            Self::call_hamlib("hamlib_snapshot", Self::snapshot_params(&provider, radio_id))?
         } else {
-            Self::call(
-                canonical.worker,
-                "station_snapshot",
-                json!({"provider":provider}),
-            )?
+            Self::call(canonical.worker, "station_snapshot", Self::snapshot_params(&provider, radio_id))?
         };
         let evidence = Self::evidence(&provider, &radio)?;
         crate::worker::require_existing_generation(canonical.worker)?;
@@ -626,5 +633,12 @@ mod tests {
             json!({"source":"direct_agent","radio":{"connected":true,"observed":true,"receive_frequency_hz":28_012_000,"mode":"CW"}}),
             json!({"source":"direct_agent","radio":{"connected":true,"observed":true,"receive_frequency_hz":28_012_000,"split":true,"mode":"CW"}}),
         ] { assert!(NativeBackend::evidence("direct_agent", &unavailable).is_err()); }
+    }
+    #[test]
+    fn explicit_radio_reads_target_the_selected_slot_and_request_logging_evidence() {
+        assert_eq!(NativeBackend::snapshot_params("direct_agent", "radio2"),
+            json!({"provider":"direct_agent","radio_id":"radio2"}));
+        assert_eq!(NativeBackend::snapshot_params("hamlib", "radio1"),
+            json!({"device":"radio","radio_id":"radio1","purpose":"logging"}));
     }
 }

@@ -1020,6 +1020,15 @@ mod tests {
         assert_eq!(value.receive_frequency, None);
         assert_eq!(value.mode, "PKTUSB");
         assert_eq!(value.connection, Some(42));
+        let mut split = projection.clone();
+        split["snapshot"]["fields"]["split"]["Split"] = json!("1");
+        split["snapshot"]["fields"]["tx_frequency"]["TX Frequency"] = json!("14076000");
+        split["snapshot"]["field_observed_at_ms"]["tx_frequency"] = json!(now);
+        let split_value = observation(&split, &selected, now).unwrap();
+        assert_eq!(split_value.frequency, 14_076_000);
+        assert_eq!(split_value.receive_frequency, Some(14_074_000));
+        split["snapshot"]["field_observed_at_ms"]["tx_frequency"] = json!(now - 5001);
+        assert!(observation(&split, &selected, now).is_err());
         let mut stale = projection.clone();
         stale["snapshot"]["field_observed_at_ms"]["mode"] = json!(now - 5001);
         assert!(observation(&stale, &selected, now).is_err());
