@@ -73,7 +73,7 @@ private func commonValidation(_ qso: ContestQSO, session: ContestSessionSnapshot
     return issues
 }
 
-public struct CQWWCWRule: ContestRule {
+public struct CQWWCWRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11",
                                                      sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f")
     public let metadata = ContestRuleMetadata(
@@ -92,7 +92,7 @@ public struct CQWWCWRule: ContestRule {
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
 
-public struct CQWPXCWRule: ContestRule {
+public struct CQWPXCWRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "cq-wpx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11",
                                                      sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f")
     public let metadata = ContestRuleMetadata(
@@ -116,7 +116,7 @@ public struct CQWPXCWRule: ContestRule {
     }
 }
 
-public struct CQWWSSBRule: ContestRule {
+public struct CQWWSSBRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11",
                                                       sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f")
     public let metadata = ContestRuleMetadata(
@@ -132,7 +132,7 @@ public struct CQWWSSBRule: ContestRule {
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
 
-public struct CQWPXSSBRule: ContestRule {
+public struct CQWPXSSBRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11",
                                                       sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f")
     public let metadata = ContestRuleMetadata(

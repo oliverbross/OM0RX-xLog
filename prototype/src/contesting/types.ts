@@ -48,10 +48,21 @@ export type ContestEntryDescriptorV2 = {
   stationFields?: ContestStationFieldDescriptor[];
 };
 export type ContestEntryDescriptor = ContestEntryDescriptorV1 | ContestEntryDescriptorV2;
+export type ContestOperatorCapability = {
+  version: 1; auditDigest: string; policy: "simulated-run-sp-v1"; output: "simulation-only";
+  styles: ["run", "search-and-pounce"];
+  macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"];
+};
+export type ContestOperatorReadiness = {
+  capabilityDigest: string; callsign: "empty" | "ready" | "blocked"; exchange: "empty" | "ready" | "blocked";
+  canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean;
+  canReserveCall: boolean; canReserveCommit: boolean; canCommit: boolean;
+};
 export type ContestRuleMetadata = {
   identity: ContestRuleIdentity; displayName: string; mode: ContestMode;
   entryDescriptorVersion: 1 | 2; entry: ContestEntryDescriptor;
   referenceDataVersion: string; sourceVerification: SourceVerificationStatus; sourceNote: string;
+  operatorCapability?: ContestOperatorCapability;
 };
 type StructuredEntry = ContestEntryDescriptorV2 & { exchange: ContestEntryDescriptorV2["exchange"] & {
   sent: "structured"; received: "structured"; sentDefault: "stationFields";
@@ -73,7 +84,8 @@ export type ContestDraftFields = {
 export type ContestDraftSnapshot = {
   draftID: string; sessionID: string; workspaceGeneration: string; revision: number; fields: ContestDraftFields;
   reservedSerial: number | null; validation: { errors: string[]; warnings: string[] };
-  dupe: { state: "clear" | "duplicate" | "unchecked"; reason: string }; updatedAt: string; resolvedSerial?: ContestResolvedSerial;
+  dupe: { state: "clear" | "duplicate" | "unchecked"; reason: string }; updatedAt: string;
+  resolvedSerial?: ContestResolvedSerial; operatorReadiness?: ContestOperatorReadiness;
 };
 export type ContestQSO = {
   qsoID: string; sessionID: string; workedAt: string; callsign: string; band: string; mode: ContestMode;

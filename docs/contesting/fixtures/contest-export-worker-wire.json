@@ -29,7 +29,7 @@
       "payloadDigest" : "4444444444444444444444444444444444444444444444444444444444444444",
       "requestID" : "e6111111-2222-4333-8444-555555555555",
       "sessionID" : "e1111111-2222-4333-8444-555555555555",
-      "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+      "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
     },
     "prepare" : {
       "expectedRevision" : 3,
@@ -55,7 +55,7 @@
         ]
       },
       "sessionID" : "e1111111-2222-4333-8444-555555555555",
-      "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+      "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
     },
     "reads" : [
       {
@@ -63,13 +63,13 @@
         "length" : 450,
         "offset" : 0,
         "sessionID" : "e1111111-2222-4333-8444-555555555555",
-        "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+        "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
       }
     ],
     "release" : {
       "exportID" : "e5111111-2222-4333-8444-555555555555",
       "sessionID" : "e1111111-2222-4333-8444-555555555555",
-      "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+      "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
     }
   },
   "responses" : {
@@ -93,6 +93,17 @@
             "sentExchange" : "15",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "blocked",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : false,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+            "exchange" : "empty"
+          },
           "reservedSerial" : null,
           "revision" : 4,
           "sessionID" : "e1111111-2222-4333-8444-555555555555",
@@ -107,7 +118,7 @@
 
             ]
           },
-          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+          "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T03:04:00.000Z",
@@ -126,6 +137,32 @@
           "revision" : 4,
           "rule" : {
             "displayName" : "CQ WW CW",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "pilot-1",
+              "cabrilloProjectionFormatterVersion" : "pilot-2",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "none",
+                "received" : "cqZone",
+                "sent" : "cqZone",
+                "sentDefault" : "stationSnapshot"
+              },
+              "mode" : "CW",
+              "report" : {
+                "defaultReceived" : "599",
+                "defaultSent" : "599",
+                "format" : "cwRST",
+                "maximumUTF8Bytes" : 3
+              },
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              }
+            },
+            "entryDescriptorVersion" : 1,
             "identity" : {
               "edition" : "source-26.10.11",
               "id" : "cq-ww-cw",
@@ -133,6 +170,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -144,7 +200,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T03:04:00.000Z",
-          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+          "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
         }
       }
     },
@@ -168,6 +224,17 @@
             "sentExchange" : "15",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+            "exchange" : "empty"
+          },
           "reservedSerial" : null,
           "revision" : 3,
           "sessionID" : "e1111111-2222-4333-8444-555555555555",
@@ -182,7 +249,7 @@
 
             ]
           },
-          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+          "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
         },
         "session" : {
           "name" : "Export wire fixture",
@@ -195,6 +262,32 @@
           "revision" : 3,
           "rule" : {
             "displayName" : "CQ WW CW",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "pilot-1",
+              "cabrilloProjectionFormatterVersion" : "pilot-2",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "none",
+                "received" : "cqZone",
+                "sent" : "cqZone",
+                "sentDefault" : "stationSnapshot"
+              },
+              "mode" : "CW",
+              "report" : {
+                "defaultReceived" : "599",
+                "defaultSent" : "599",
+                "format" : "cwRST",
+                "maximumUTF8Bytes" : 3
+              },
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              }
+            },
+            "entryDescriptorVersion" : 1,
             "identity" : {
               "edition" : "source-26.10.11",
               "id" : "cq-ww-cw",
@@ -202,6 +295,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -213,7 +325,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T03:02:00.000Z",
-          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+          "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
         }
       }
     },
@@ -236,7 +348,7 @@
         "sessionID" : "e1111111-2222-4333-8444-555555555555",
         "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
         "totalPoints" : 3,
-        "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+        "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
       }
     },
     "reads" : [
@@ -252,7 +364,7 @@
           "revision" : 3,
           "sessionID" : "e1111111-2222-4333-8444-555555555555",
           "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
-          "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+          "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
         }
       }
     ],
@@ -283,7 +395,7 @@
         "sessionID" : "e1111111-2222-4333-8444-555555555555",
         "sha256" : "5df42719e8029ab403d7c2774716b66a07e5501a4bb7854449d54bd5cd0a60f1",
         "totalPoints" : 3,
-        "workspaceGeneration" : "dca08c03-7e03-499d-bdc1-29b985037f1f"
+        "workspaceGeneration" : "639d4ffe-16c6-44c7-88b3-4a62962e6b2f"
       }
     },
     "stopped" : {

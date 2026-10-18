@@ -60,6 +60,10 @@ final class ContestJIDXWorkerWireTests: XCTestCase {
         let (dxCreateRequest, dxCreate) = try await create(cw, sessionID: dxSession, draftID: dxDraft,
             name: "JIDX CW DX", call: "OM0RX", zone: "15", entity: "SLOVAK REPUBLIC", number: "15")
         XCTAssertEqual(dxCreate["ok"] as? Bool, true)
+        let dxCreatedResult = try XCTUnwrap(dxCreate["result"] as? [String: Any])
+        let dxCapability = try XCTUnwrap((((dxCreatedResult["session"] as? [String: Any])?["rule"] as? [String: Any])?["operatorCapability"] as? [String: Any]))
+        XCTAssertEqual(dxCapability["policy"] as? String, "simulated-run-sp-v1")
+        XCTAssertEqual(dxCapability["output"] as? String, "simulation-only")
         let jaSession = UUID(), jaDraft = UUID()
         let (jaCreateRequest, jaCreate) = try await create(ssb, sessionID: jaSession, draftID: jaDraft,
             name: "JIDX Phone JA", call: "JA1AAA", zone: "25", entity: "JAPAN", number: "13")
@@ -187,6 +191,13 @@ final class ContestJIDXWorkerWireTests: XCTestCase {
             draftID: dxDraft, generation: generation)
         let applied = try await frame(worker, "contest_draft_apply", applyRequest)
         XCTAssertEqual(applied["ok"] as? Bool, true)
+        let appliedResult = try XCTUnwrap(applied["result"] as? [String: Any])
+        let appliedReadiness = try XCTUnwrap((appliedResult["draft"] as? [String: Any])?["operatorReadiness"] as? [String: Any])
+        XCTAssertEqual(appliedReadiness["capabilityDigest"] as? String, dxCapability["auditDigest"] as? String)
+        XCTAssertEqual(appliedReadiness["callsign"] as? String, "ready")
+        XCTAssertEqual(appliedReadiness["exchange"] as? String, "ready")
+        XCTAssertEqual(appliedReadiness["canSendCall"] as? Bool, true)
+        XCTAssertEqual(appliedReadiness["canCommit"] as? Bool, true)
         let commitRequest = mutation(sessionID: dxSession, requestID: UUID(), revision: 2,
             timestamp: "2026-10-18T20:02:00.000Z", payload: [:], draftID: dxDraft,
             generation: generation)

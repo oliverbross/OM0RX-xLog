@@ -25,7 +25,7 @@ private let oceaniaSSBEntry = ContestEntryDescriptor(
     serial: .init(requirement: .requiredForCommit, allowedScopes: oceaniaSerialScopes)
 )
 
-public struct OceaniaDXCWRule: ContestRule {
+public struct OceaniaDXCWRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(
         id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11",
         sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f"
@@ -46,7 +46,7 @@ public struct OceaniaDXCWRule: ContestRule {
     public static func wpxPrefix(for rawCallsign: String) -> String { oceaniaWPXPrefix(rawCallsign) }
 }
 
-public struct OceaniaDXSSBRule: ContestRule {
+public struct OceaniaDXSSBRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(
         id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11",
         sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f"

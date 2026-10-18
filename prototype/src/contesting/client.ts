@@ -5,6 +5,7 @@ import type {
   ContestQSOChangeResult, ContestQSOReadResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary, ContestWorkerError,
 } from "./types";
 import { isStructuredEntry } from "./types";
+import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
 
 type IDFactory = () => string;
 type DigestFactory = (payload: unknown) => Promise<string>;
@@ -246,12 +247,36 @@ function validRule(value: unknown) {
   const family = structured ? exchange?.sent === "structured" && serial?.requirement === "none" && exchange?.adifFields === "exchangeStrings" :
     (expectsSerial ? serial?.requirement === "requiredForCommit" && exchange?.sent === "serialNumber" : serial?.requirement === "none" && exchange?.sent === "cqZone") &&
       exchange?.adifFields === expectedADIF;
-  return !!v && exact(v, ["identity", "displayName", "mode", "entryDescriptorVersion", "entry", "referenceDataVersion", "sourceVerification", "sourceNote"]) &&
+  const operatorCapable = expectedMode === "CW" || expectedMode === "SSB", ruleKeys = ["identity", "displayName", "mode", "entryDescriptorVersion", "entry", "referenceDataVersion", "sourceVerification", "sourceNote"];
+  if (operatorCapable) ruleKeys.push("operatorCapability");
+  return !!v && exact(v, ruleKeys) &&
     validIdentity(identity) && v.displayName === names[id] && v.entryDescriptorVersion === (structured ? 2 : 1) && validEntry(entry, id) && entry?.mode === v.mode && v.mode === expectedMode &&
     family && sacIdentity && (id !== "arrl-rtty-roundup" || canonicalJSON(identity) === canonicalJSON(ARRL_IDENTITY)) &&
     (!id.startsWith("jidx-") || identity?.version === JIDX_IDENTITY.version && identity?.edition === JIDX_IDENTITY.edition && identity?.sourceRevision === JIDX_IDENTITY.sourceRevision) &&
     (!id.startsWith("arrl-dx-") || identity?.version === ARRL_DX_IDENTITY.version && identity?.edition === ARRL_DX_IDENTITY.edition && identity?.sourceRevision === ARRL_DX_IDENTITY.sourceRevision) &&
-    text(v.referenceDataVersion, 160) && text(v.sourceNote, 1_024) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification));
+    text(v.referenceDataVersion, 160) && text(v.sourceNote, 1_024) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification)) &&
+    (operatorCapable ? validOperatorCapability(v.operatorCapability, identity ?? undefined) : v.operatorCapability === undefined);
+}
+function validOperatorCapability(value: unknown, identity?: Record<string, unknown>) {
+  const v = object(value);
+  const reviewed = identity && typeof identity.id === "string" && typeof identity.version === "string" &&
+    typeof identity.edition === "string" && typeof identity.sourceRevision === "string"
+    ? reviewedOperatorCapabilityDigest(identity as { id: string; version: string; edition: string; sourceRevision: string }) : undefined;
+  return !!v && exact(v, ["version", "auditDigest", "policy", "output", "styles", "macros"]) && v.version === 1 &&
+    typeof reviewed === "string" && v.auditDigest === reviewed && v.policy === "simulated-run-sp-v1" && v.output === "simulation-only" &&
+    canonicalJSON(v.styles) === '["run","search-and-pounce"]' &&
+    canonicalJSON(v.macros) === '["CQ","EXCH","QRZ","AGN","HISCALL","MYCALL","QSOB4"]';
+}
+function validOperatorReadiness(value: unknown, rule?: ContestRuleMetadata) {
+  const v = object(value), capability = rule?.operatorCapability;
+  if (!v || !capability || !exact(v, ["capabilityDigest", "callsign", "exchange", "canSendCQ", "canSendCall", "canSendDuplicate", "canReserveCall", "canReserveCommit", "canCommit"]) ||
+      v.capabilityDigest !== capability.auditDigest || !["empty", "ready", "blocked"].includes(String(v.callsign)) ||
+      !["empty", "ready", "blocked"].includes(String(v.exchange))) return false;
+  const flags = ["canSendCQ", "canSendCall", "canSendDuplicate", "canReserveCall", "canReserveCommit", "canCommit"] as const;
+  if (!flags.every(key => typeof v[key] === "boolean") || v.canSendCall && v.canSendDuplicate ||
+      v.canSendCQ && v.callsign !== "empty" || v.canCommit && (v.callsign !== "ready" || v.exchange !== "ready")) return false;
+  const serial = rule.entry.serial.requirement === "requiredForCommit";
+  return serial || (!v.canReserveCall && !v.canReserveCommit);
 }
 function validSession(value: unknown, params?: Record<string, unknown>) {
   const v = object(value), station = object(v?.station), operator = object(v?.operator);
@@ -318,13 +343,16 @@ function validDraft(value: unknown, params: Record<string, unknown>, expectedDra
   authoritativeResolvedSerial?: unknown) {
   const v = object(value), validation = object(v?.validation), dupe = object(v?.dupe);
   try { validateDraftFields(v?.fields, rule); } catch { return false; }
-  const arrl = rule?.identity.id === "arrl-rtty-roundup", keys = ["draftID", "sessionID", "workspaceGeneration", "revision", "fields", "reservedSerial", "validation", "dupe", "updatedAt"];
+  const arrl = rule?.identity.id === "arrl-rtty-roundup", operatorCapable = !!rule?.operatorCapability,
+    keys = ["draftID", "sessionID", "workspaceGeneration", "revision", "fields", "reservedSerial", "validation", "dupe", "updatedAt"];
   if (arrl) keys.push("resolvedSerial");
+  if (operatorCapable) keys.push("operatorReadiness");
   return !!v && exact(v, keys) && text(v.draftID, 128) && (!expectedDraftID || v.draftID === expectedDraftID) && sameContext(v, params) && uint(v.revision) &&
     (v.reservedSerial === null || uint(v.reservedSerial)) && !!validation && Array.isArray(validation.errors) && validation.errors.length <= 32 &&
     validation.errors.every(x => text(x, 512, true)) && Array.isArray(validation.warnings) && validation.warnings.length <= 32 && validation.warnings.every(x => text(x, 512, true)) &&
     !!dupe && ["clear", "duplicate", "unchecked"].includes(String(dupe.state)) && text(dupe.reason, 512, true) && iso(v.updatedAt) &&
-    (!arrl || canonicalJSON(v.resolvedSerial) === canonicalJSON(authoritativeResolvedSerial));
+    (!arrl || canonicalJSON(v.resolvedSerial) === canonicalJSON(authoritativeResolvedSerial)) &&
+    (operatorCapable ? validOperatorReadiness(v.operatorReadiness, rule) : v.operatorReadiness === undefined);
 }
 function validReceipt(value: unknown, params: Record<string, unknown>) {
   const v = object(value);

@@ -1,18 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateCreateInput, validateDraftFields } from "./client";
-import type { ContestDraftFields, ContestRequest, ContestRuleMetadata, ContestScoreSummary, ContestSessionSummary } from "./types";
+import type { ContestDraftFields, ContestOperatorCapability, ContestRequest, ContestRuleMetadata, ContestScoreSummary, ContestSessionSummary } from "./types";
 
-const rule: ContestRuleMetadata = { identity: { id: "cq-ww-cw", version: "2026.1", edition: "2026", sourceRevision: "source-1" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1,
+const capability: ContestOperatorCapability = { version: 1, auditDigest: "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e", policy: "simulated-run-sp-v1",
+  output: "simulation-only", styles: ["run", "search-and-pounce"],
+  macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"] };
+const rule: ContestRuleMetadata = { identity: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1,
   entry: { mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", cabrilloFormatterVersion: "pilot-1", cabrilloProjectionFormatterVersion: "pilot-2",
     report: { format: "cwRST", defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3 },
     exchange: { sent: "cqZone", received: "cqZone", sentDefault: "stationSnapshot", adifFields: "none" }, serial: { requirement: "none", allowedScopes: [] } },
-  referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked" };
+  referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked", operatorCapability: capability };
 const session: ContestSessionSummary = { sessionID: "session-1", workspaceGeneration: "generation-1", revision: 7, name: "WW", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T00:00:00Z" };
 const fields: ContestDraftFields = { callsign: "K1ABC", sentReport: "599", sentExchange: "15", receivedReport: "599", receivedExchange: "05", frequencyHz: 14025000, band: "20m", mode: "CW" };
-function draft(revision = 8) { return { draftID: "draft-1", sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision, fields, reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" }, updatedAt: "2026-10-17T00:00:01Z" }; }
+function draft(revision = 8) { return { draftID: "draft-1", sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision, fields, reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear" as const, reason: "Clear" },
+  operatorReadiness: { capabilityDigest: capability.auditDigest, callsign: "ready" as const, exchange: "ready" as const, canSendCQ: false,
+    canSendCall: true, canSendDuplicate: false, canReserveCall: false, canReserveCommit: false, canCommit: true }, updatedAt: "2026-10-17T00:00:01Z" }; }
 function result(params: Record<string, unknown>) { const next = { ...session, revision: 8 }; return { session: next, draft: draft(), receipt: { requestID: params.requestID, payloadDigest: params.payloadDigest, committedRevision: 8, committedAt: "2026-10-17T00:00:01Z" } }; }
 function ssbSession(): ContestSessionSummary {
   return { ...session, rule: { ...rule, identity: { ...rule.identity, id: "cq-ww-ssb" }, displayName: "CQ WW SSB", mode: "SSB",
+    operatorCapability: { ...capability, auditDigest: "88c2ec26c9f9df6d5d54d000c38441ceb2a61be583d0529e658b76f2028f760e" },
     entry: { ...rule.entry, mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", cabrilloFormatterVersion: "ssb-pilot-1",
       cabrilloProjectionFormatterVersion: "ssb-pilot-2", report: { format: "phoneRS", defaultSent: "59", defaultReceived: "59", maximumUTF8Bytes: 2 } } } };
 }
@@ -52,6 +58,7 @@ describe("ContestClient", () => {
       { ...result({ requestID: "request", payloadDigest: "digest" }), draft: { ...draft(), draftID: "wrong" } },
       { ...result({ requestID: "request", payloadDigest: "digest" }), receipt: { requestID: "request", payloadDigest: "digest", committedRevision: 9, committedAt: "2026-10-17T00:00:01Z" } },
       { ...result({ requestID: "request", payloadDigest: "digest" }), session: { ...session, revision: 8, workspaceGeneration: "old" } },
+      { ...result({ requestID: "request", payloadDigest: "digest" }), draft: { ...draft(), operatorReadiness: { ...draft().operatorReadiness!, capabilityDigest: "e".repeat(64) } } },
     ];
     for (const bad of cases) {
       const request = vi.fn(async () => ({ id: "frame", ok: true as const, result: bad })) as ContestRequest;
@@ -77,7 +84,13 @@ describe("ContestClient", () => {
     (wrongSACFamily.entry as Record<string, any>).exchange.adifFields = "stxSrx";
     const missingVersion = structuredClone(rule) as unknown as Record<string, unknown>; delete missingVersion.entryDescriptorVersion;
     const unknownVersion = { ...rule, entryDescriptorVersion: 2 };
-    for (const badRule of [crossedMode, crossedFamily, wrongSACIdentity, wrongSACFamily, missingVersion, unknownVersion]) {
+    const missingCapability = structuredClone(rule) as unknown as Record<string, unknown>; delete missingCapability.operatorCapability;
+    const unknownCapability = structuredClone(rule) as unknown as Record<string, any>; unknownCapability.operatorCapability.version = 2;
+    const changedCapability = structuredClone(rule) as unknown as Record<string, any>; changedCapability.operatorCapability.policy = "unreviewed";
+    const mismatchedDigest = structuredClone(rule) as unknown as Record<string, any>; mismatchedDigest.operatorCapability.auditDigest = "e".repeat(64);
+    const futureProfile = structuredClone(rule) as unknown as Record<string, any>; futureProfile.identity.id = "future-cw";
+    for (const badRule of [crossedMode, crossedFamily, wrongSACIdentity, wrongSACFamily, missingVersion, unknownVersion,
+      missingCapability, unknownCapability, changedCapability, mismatchedDigest, futureProfile]) {
       const request = vi.fn(async () => ({ id: "frame", ok: true as const, result: { workspaceGeneration: "generation-1", rules: [badRule] } }));
       const client = new ContestClient(request as ContestRequest);
       await expect(client.catalog()).rejects.toThrow("Malformed or stale contest_catalog response");
@@ -88,7 +101,8 @@ describe("ContestClient", () => {
   it("rejects an oversized SSB report in reads and treats it as uncertain after a mutation", async () => {
     const selected = ssbSession();
     const badFields: ContestDraftFields = { ...fields, mode: "SSB", sentReport: "599", receivedReport: "59" };
-    const badDraft = { ...draft(7), revision: 7, fields: badFields };
+    const badDraft = { ...draft(7), revision: 7, fields: badFields,
+      operatorReadiness: { ...draft(7).operatorReadiness, capabilityDigest: selected.rule.operatorCapability!.auditDigest } };
     const openRequest = vi.fn(async () => ({ id: "frame", ok: true as const, result: { session: selected, draft: badDraft } }));
     await expect(new ContestClient(openRequest as ContestRequest).open(selected.sessionID, selected.workspaceGeneration))
       .rejects.toThrow("Malformed or stale contest_open response");

@@ -45,7 +45,7 @@ private func arrlDXEntry(_ mode: ARRLDXMode) -> ContestEntryDescriptor {
 
 /// Preview scoring core for the current ARRL International DX CW rules.
 /// Full categories, physical endpoint proof, and sponsor acceptance remain out of scope.
-public struct ARRLDXCWRule: ContestRule, ContestRuleExchangeFieldProjection {
+public struct ARRLDXCWRule: ContestOperatorCapableRule, ContestRuleExchangeFieldProjection {
     public static let identity = ContestRuleIdentity(
         id: "arrl-dx-cw", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview",
         sourceRevision: arrlDXRulesDigest)
@@ -75,7 +75,7 @@ public struct ARRLDXCWRule: ContestRule, ContestRuleExchangeFieldProjection {
 
 /// Preview scoring core for the current ARRL International DX Phone rules.
 /// Full categories, physical endpoint proof, and sponsor acceptance remain out of scope.
-public struct ARRLDXSSBRule: ContestRule, ContestRuleExchangeFieldProjection {
+public struct ARRLDXSSBRule: ContestOperatorCapableRule, ContestRuleExchangeFieldProjection {
     public static let identity = ContestRuleIdentity(
         id: "arrl-dx-ssb", version: "1.0.0-2.0-preview", edition: "rules-2.0-preview",
         sourceRevision: arrlDXRulesDigest)

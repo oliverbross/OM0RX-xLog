@@ -49,7 +49,7 @@ private func naqpEntry(mode: String, adifMode: String, adifSubmode: String? = ni
 
 private let naqpProvenance = "NCJ North American QSO Party Rules 2026 https://ncjweb.com/NAQP-Rules.pdf SHA-256 \(naqpRulesDigest), multiplier form https://ncjweb.com/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm/plugins/naqp_cw.py, naqp_ssb.py, naqp_rtty.py"
 
-public struct NAQPCWRule: ContestRule {
+public struct NAQPCWRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "naqp-cw", version: "1.0.0-2026-rules-preview",
                                                      edition: "2026-rules-preview", sourceRevision: naqpRulesDigest)
     public let metadata = ContestRuleMetadata(identity: identity, displayName: "North American QSO Party CW",
@@ -71,7 +71,7 @@ public struct NAQPCWRule: ContestRule {
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
 }
 
-public struct NAQPSSBRule: ContestRule {
+public struct NAQPSSBRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(id: "naqp-ssb", version: "1.0.0-2026-rules-preview",
                                                      edition: "2026-rules-preview", sourceRevision: naqpRulesDigest)
     public let metadata = ContestRuleMetadata(identity: identity, displayName: "North American QSO Party SSB",

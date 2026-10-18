@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { ContestWorkspace, projectSCPCallsign } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
+import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
 
 const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx" | "exchangeStrings" = serial ? "stxSrx" : "none"): ContestRuleMetadata["entry"] => ({
   mode, adifMode: mode, cabrilloQSOType: mode === "CW" ? "CW" : "PH",
@@ -23,13 +24,13 @@ it("projects an SCP choice onto current fields only and rejects a reset draft",(
   expect(draft.reservedSerial).toBe(42);
   expect(projectSCPCallsign(session,{...draft,draftID:"next-draft"},scope,"K1ABC")).toBeNull();
 });
-const rules: ContestRuleMetadata[] = [
+const rawRules: ContestRuleMetadata[] = [
   { identity: { id: "cq-ww-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WW CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Pilot comparison pending" },
   { identity: { id: "cq-wpx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true), referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Fixture checked" },
   { identity: { id: "cq-ww-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WW SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", false), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "cq-wpx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "CQ WPX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
-  { identity: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
-  { identity: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "contest-sw@oceania" }, displayName: "Oceania DX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "oceania-dx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Oceania DX CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
+  { identity: { id: "oceania-dx-ssb", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Oceania DX SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Fixture checked" },
   { identity: { id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Scandinavian Activity Contest CW", mode: "CW", entryDescriptorVersion: 1, entry: entry("CW", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Practice scoring preview; submission categories and dates are not fully enforced." },
   { identity: { id: "sac-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" }, displayName: "Scandinavian Activity Contest SSB", mode: "SSB", entryDescriptorVersion: 1, entry: entry("SSB", true, "exchangeStrings"), referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Practice scoring preview; submission categories and dates are not fully enforced." },
   { identity: { id: "naqp-rtty", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8" }, displayName: "North American QSO Party RTTY", mode: "RTTY", entryDescriptorVersion: 2,
@@ -37,9 +38,26 @@ const rules: ContestRuleMetadata[] = [
       exchange: { sent: "structured", received: "structured", sentDefault: "stationFields", adifFields: "exchangeStrings", sentFields: [{ id: "name", label: "Name", acceptedKinds: ["operatorName"], required: true, maximumUTF8Bytes: 32, adifField: "MY_NAME" }, { id: "location", label: "Location", acceptedKinds: ["subdivision", "dxccPrefix"], required: false, maximumUTF8Bytes: 8, adifField: "MY_STATE" }], receivedFields: [{ id: "name", label: "Name", acceptedKinds: ["operatorName"], required: true, maximumUTF8Bytes: 32, adifField: "NAME" }, { id: "location", label: "Location", acceptedKinds: ["subdivision", "dxccPrefix"], required: true, maximumUTF8Bytes: 8, adifField: "STATE" }] },
       serial: { requirement: "none", allowedScopes: [] }, modeProfiles: [{ mode: "RTTY", adifMode: "RTTY", adifSubmode: null, cabrilloQSOType: "RY", report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 } }], scorePolicy: "pointsTimesMultipliers" }, referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "NAQP rules preview" },
 ];
+const rules: ContestRuleMetadata[] = rawRules.map(rule => {
+  const auditDigest = reviewedOperatorCapabilityDigest(rule.identity);
+  return auditDigest ? { ...rule, operatorCapability: { version: 1, auditDigest, policy: "simulated-run-sp-v1",
+    output: "simulation-only", styles: ["run", "search-and-pounce"], macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"] } } : rule;
+});
 const sessions: ContestSessionSummary[] = rules.slice(0, 2).map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
 const scpDataset={sourceID:"operator-managed-local",version:"tiny.scp",retrievedAtUTC:"2026-10-18T00:00:00.000Z",sha256:"a".repeat(64),byteCount:16,recordCount:1,duplicateCount:0,digestVerification:"computedOnly"};
-function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent, structured = session.rule.entryDescriptorVersion === 2; return { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: structured ? "AL CA" : session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? structured ? "SAM ON" : "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode, ...(structured ? { sentExchangeFields: { name: "AL", location: "CA" }, receivedExchangeFields: { name: callsign ? "SAM" : "", location: callsign ? "ON" : "" } } : {}) }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; }
+function withReadiness(session: ContestSessionSummary, draft: ContestDraftSnapshot): ContestDraftSnapshot {
+  const capability = session.rule.operatorCapability;
+  if (!capability) return draft;
+  const callReady = !!draft.fields.callsign && draft.dupe.state !== "unchecked", duplicate = draft.dupe.state === "duplicate";
+  const exchangeReady = !!draft.fields.receivedExchange, serial = session.rule.entry.serial.requirement === "requiredForCommit";
+  return { ...draft, operatorReadiness: { capabilityDigest: capability.auditDigest,
+    callsign: draft.fields.callsign ? callReady ? "ready" : "blocked" : "empty", exchange: exchangeReady ? "ready" : "empty",
+    canSendCQ: !draft.fields.callsign, canSendCall: callReady && !duplicate, canSendDuplicate: callReady && duplicate,
+    canReserveCall: serial && callReady && !duplicate && draft.reservedSerial === null,
+    canReserveCommit: serial && callReady && exchangeReady && !duplicate && draft.reservedSerial === null,
+    canCommit: callReady && exchangeReady && !duplicate && (!serial || draft.reservedSerial !== null) } };
+}
+function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent, structured = session.rule.entryDescriptorVersion === 2; const draft: ContestDraftSnapshot = { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: structured ? "AL CA" : session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? structured ? "SAM ON" : "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode, ...(structured ? { sentExchangeFields: { name: "AL", location: "CA" }, receivedExchangeFields: { name: callsign ? "SAM" : "", location: callsign ? "ON" : "" } } : {}) }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; return withReadiness(session, draft); }
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
 function fullQSO(session: ContestSessionSummary): ContestFullQSO { const report = session.rule.entry.report.defaultSent; return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: session.rule.mode, frequencyHz: 14025000, sentReport: report, receivedReport: report, sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
@@ -78,10 +96,10 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       if (applyCount++ === 0) { await options.firstApply; if (options.firstApplyReject) throw new Error("draft reply lost"); }
       if (options.staleApply) return { id: "frame", ok: false as const, error: { code: "stale_revision", message: "Draft changed elsewhere.", outcome: "confirmed" as const } };
       const fields = (params.payload as { fields: ContestDraftSnapshot["fields"] }).fields, revision = current.session.revision + 1;
-      current.session = { ...current.session, revision }; current.draft = { ...current.draft, revision, fields };
+      current.session = { ...current.session, revision }; current.draft = withReadiness(current.session, { ...current.draft, revision, fields });
       return ok({ ...current, receipt: receipt(params, revision) });
     }
-    if (method === "contest_serial_reserve") { const revision = current.session.revision + 1; current.session = { ...current.session, revision }; current.draft = { ...current.draft, revision, reservedSerial: 1 }; return ok({ ...current, receipt: receipt(params, revision) }); }
+    if (method === "contest_serial_reserve") { const revision = current.session.revision + 1; current.session = { ...current.session, revision }; current.draft = withReadiness(current.session, { ...current.draft, revision, reservedSerial: 1 }); return ok({ ...current, receipt: receipt(params, revision) }); }
     if (method === "contest_qso_commit") {
       await options.commit; const old = current.draft, revision = current.session.revision + 1; current.session = { ...current.session, revision, qsoCount: current.session.qsoCount + 1 }; current.draft = draftFor(current.session);
       const { multiplierLabels: _multiplierLabels, multiplierDisplayLabels: _multiplierDisplayLabels, ...scoreSummary } = score(current.session);
@@ -94,9 +112,9 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       const target = method === "contest_qso_correct" ? { ...before, ...(payload.qso as Omit<ContestFullQSO, "entity">), entity: { adif: 230, name: "FEDERAL REPUBLIC OF GERMANY", countryPrefix: "DL", continent: "EU", cqZone: 14 } } : null;
       current.session = { ...current.session, revision, qsoCount: target ? 1 : 0, updatedAt: "2026-10-17T02:10:00.000Z" };
       const duplicate = !!target && current.draft.fields.callsign === target.callsign && current.draft.fields.band === target.band;
-      current.draft = { ...current.draft, revision, dupe: duplicate
+      current.draft = withReadiness(current.session, { ...current.draft, revision, dupe: duplicate
         ? { state: "duplicate", reason: `${target!.callsign} is already worked on ${target!.band}.` }
-        : { state: "clear", reason: "Not worked on this band." } };
+        : { state: "clear", reason: "Not worked on this band." } });
       if (target) contacts.set(current.session.sessionID, target); else contacts.delete(current.session.sessionID);
       const { multiplierLabels: _labels, multiplierDisplayLabels: _displayLabels, ...summary } = score(current.session); const changeSession = { sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision, name: current.session.name, ruleIdentity: current.session.rule.identity, referenceDataVersion: current.session.referenceDataVersion, qsoCount: current.session.qsoCount, updatedAt: current.session.updatedAt };
       const value: ContestQSOChangeResult = { session: changeSession, operation: method === "contest_qso_correct" ? "correction" : "deletion", qsoID: before.qsoID, qsoCount: current.session.qsoCount, score: summary, currentTarget: target, auditReference: { sessionID: current.session.sessionID, qsoID: before.qsoID, requestID: params.requestID as string, revision }, receipt: receipt(params, revision) };

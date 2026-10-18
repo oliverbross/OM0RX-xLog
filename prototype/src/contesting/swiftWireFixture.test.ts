@@ -38,7 +38,7 @@ function createInput(): ContestCreateInput {
 
 describe("Swift contest worker wire fixture", () => {
   it("parses the generated create, reserve, apply, commit, and exact replay lifecycle", async () => {
-    expect(fixture.schemaVersion).toBe(7);
+    expect(fixture.schemaVersion).toBe(8);
     expect(fixture.provenance.liveWorkerResponses).toContain("reserve");
     expect(fixture.provenance.postCommitUncertain).toBe("actual direct ContestLane error serialized by the Swift fixture test; not a LiveWorker response");
     expect(fixture.assertions.allContestUUIDsCanonicalLowercase).toBe(true);
@@ -87,6 +87,17 @@ describe("Swift contest worker wire fixture", () => {
       "jidx-cw": [2, "CW", "CW", "599", "none"], "jidx-ssb": [2, "SSB", "PH", "59", "none"],
       "arrl-dx-cw": [2, "CW", "CW", "599", "none"], "arrl-dx-ssb": [2, "SSB", "PH", "59", "none"],
     });
+    const operatorRules = catalog.rules.filter(rule => rule.operatorCapability);
+    expect(new Set(operatorRules.map(rule => rule.identity.id))).toEqual(new Set([
+      "cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb",
+      "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb",
+    ]));
+    expect(new Set(operatorRules.map(rule => rule.operatorCapability!.auditDigest)).size).toBe(14);
+    for (const candidate of operatorRules) expect(candidate.operatorCapability!.auditDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(catalog.rules.filter(rule => ["naqp-rtty", "arrl-rtty-roundup"].includes(rule.identity.id)))
+      .toHaveLength(2);
+    expect(catalog.rules.filter(rule => ["naqp-rtty", "arrl-rtty-roundup"].includes(rule.identity.id))
+      .every(rule => rule.operatorCapability === undefined)).toBe(true);
     const created = await client.create(catalog.workspaceGeneration, createInput());
     const reserved = await client.reserveSerial(created.session, created.draft.draftID);
     const applied = await client.applyDraft(reserved.session, reserved.draft.draftID, (fixture.requests.apply.payload as { fields: ContestDraftFields }).fields);
