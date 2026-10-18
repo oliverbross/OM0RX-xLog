@@ -13,16 +13,11 @@ import XLogPortableCore
 /// Serialized, local-only boundary for the isolated contest database.
 actor ContestLane {
     typealias GenerationSource = @Sendable () async throws -> String
+    typealias CountryReferenceLoader = @Sendable () throws -> ContestCountryMultiplierReference
 
     private let databaseURL: URL
     private let generationSource: GenerationSource
     private let reference: ContestReferenceData
-    private static let activeRules = ContestRuleRegistry([
-        CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
-        OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
-        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
-        JIDXCWRule(), JIDXSSBRule(), ARRLDXCWRule(), ARRLDXSSBRule(),
-    ])
     private let rules: ContestRuleRegistry
     private let declarativeCatalog: [ContestRuleIdentity: ContestDeclarativeCatalogEntry]
     private var store: SQLiteContestStore?
@@ -35,11 +30,24 @@ actor ContestLane {
     init(databaseURL: URL, generationSource: @escaping GenerationSource,
          exportLane: ContestExportLane? = nil,
          rules: ContestRuleRegistry? = nil,
-         declarativeDefinitions: [ContestDeclarativeDefinition]? = nil) throws {
+         declarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
+         countryReferenceLoader: @escaping CountryReferenceLoader = {
+             try ContestPackagedCountryReferenceLoader.cqww2026()
+         }) throws {
         self.databaseURL = databaseURL
         self.generationSource = generationSource
         self.exportLane = exportLane
-        self.rules = rules ?? Self.activeRules
+        let countryReference: ContestCountryMultiplierReference?
+        if let rules {
+            self.rules = rules
+            countryReference = nil
+        } else if let loaded = try? countryReferenceLoader() {
+            countryReference = loaded
+            self.rules = Self.activeRules(countryReference: loaded)
+        } else {
+            countryReference = nil
+            self.rules = Self.activeRules(countryReference: nil)
+        }
         let definitions = try declarativeDefinitions.map { try $0.map(ContestDeclarativeCatalogEntry.init) }
             ?? (rules == nil ? ContestBuiltInDeclarativeCatalog.operatorArchiveEntries() : [])
         var catalog: [ContestRuleIdentity: ContestDeclarativeCatalogEntry] = [:]
@@ -52,8 +60,26 @@ actor ContestLane {
             catalog[entry.identity] = entry
         }
         self.declarativeCatalog = catalog
-        self.reference = try ContestReferenceData.bundled()
+        self.reference = try ContestReferenceData.bundled(countryReference: countryReference)
         try ContestDatabaseBoundary.validate(databaseURL: databaseURL)
+    }
+
+    private static func activeRules(countryReference: ContestCountryMultiplierReference?) -> ContestRuleRegistry {
+        var active: [any ContestRule] = [
+            CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
+            OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
+            NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
+            JIDXCWRule(), JIDXSSBRule(), ARRLDXCWRule(), ARRLDXSSBRule(),
+        ]
+        if let countryReference {
+            active.append(CQWWSponsorCountryRule(
+                mode: .cw, countryReference: countryReference,
+                packagedResourceSHA256: ContestPackagedCountryReferenceLoader.resourceSHA256))
+            active.append(CQWWSponsorCountryRule(
+                mode: .ssb, countryReference: countryReference,
+                packagedResourceSHA256: ContestPackagedCountryReferenceLoader.resourceSHA256))
+        }
+        return ContestRuleRegistry(active)
     }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
@@ -723,7 +749,10 @@ actor ContestLane {
     private func catalog(_ params: [String: Any], generation: String) throws -> [String: Any] {
         try Wire.exact(params, [])
         let staticRules = try rules.metadata.map {
-            try reference.ruleWire($0, operatorCapability: operatorCapability(for: $0.identity))
+            let rule = rules.rule(for: $0.identity)
+            return try reference.ruleWire(
+                $0, operatorCapability: operatorCapability(for: $0.identity),
+                countryReferenceBinding: (rule as? any ContestCountryReferenceBoundRule)?.countryReferenceBinding)
         }
         let definitions = try declarativeCatalog.values.sorted {
             ($0.identity.id, $0.identity.version, $0.identity.edition, $0.identity.sourceRevision) <
@@ -834,7 +863,7 @@ actor ContestLane {
             guard !(isJIDX && stationCall.hasSuffix("/MM")) else {
                 throw ContestLaneError.confirmed("station_mismatch", "A JIDX maritime-mobile station must not claim a land entity.")
             }
-            guard let country = reference.resolve(stationCall, at: request.timestamp), country.cqZone == zone,
+            guard let country = reference.resolve(stationCall, at: request.timestamp, for: rule), country.cqZone == zone,
                   country.name.caseInsensitiveCompare(entityText) == .orderedSame else {
                 throw ContestLaneError.confirmed("station_mismatch", "The station snapshot does not match bundled offline CTY data.")
             }
@@ -928,7 +957,8 @@ actor ContestLane {
         let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), metadata: rule.metadata,
                                           normalizeJIDXNumbers: isJIDX,
                                           projection: projection.map { policy in { policy.projectExchangeFields($0) } })
-        let entity = try fields.callsign.isEmpty ? nil : reference.resolve(fields.callsign, at: request.timestamp).map(reference.entity)
+        let entity = try fields.callsign.isEmpty ? nil
+            : reference.resolve(fields.callsign, at: request.timestamp, for: rule).map(reference.entity)
         let next = ContestDraftSnapshot(id: current.id, sessionID: current.sessionID,
             revision: prior?.committedRevision ?? (stored.revision + 1), updatedAt: request.timestamp,
             callsign: fields.callsign, band: fields.band, mode: fields.mode, frequencyHz: fields.frequencyHz,
@@ -1186,7 +1216,8 @@ actor ContestLane {
             "name": stored.metadata.name,
             "rule": try reference.ruleWire(
                 metadata, operatorCapability: try ContestOperatorProjection.capability(for: rule),
-                declarativeDefinition: (rule as? DeclarativeContestRule)?.definition),
+                declarativeDefinition: (rule as? DeclarativeContestRule)?.definition,
+                countryReferenceBinding: (rule as? any ContestCountryReferenceBoundRule)?.countryReferenceBinding),
             "referenceDataVersion": stored.session.referenceDataVersion,
             "station": station,
             "operator": ["callsign": stored.metadata.operatorCallsign, "category": stored.metadata.operatorCategory],
@@ -1324,7 +1355,7 @@ actor ContestLane {
         guard try Wire.text(value, "allocatedSerial", max: sentMaximum, empty: true) == normalizedSent else {
             throw ContestLaneError.confirmed("invalid_params", "The allocated sent value is inconsistent.")
         }
-        guard let country = reference.resolve(callsign, at: originalUTC),
+        guard let country = reference.resolve(callsign, at: originalUTC, for: rule),
               let resolvedEntity = try? reference.entity(country) else {
             throw ContestLaneError.confirmed("reference_mismatch", "The corrected callsign does not resolve in pinned CTY data.")
         }
@@ -1620,8 +1651,9 @@ struct ContestReferenceData {
     let primaryPrefixes: [Int: String]
     let entityNames: [Int: String]
     let entityNamesByPrefix: [String: String]
+    let countryReference: ContestCountryMultiplierReference?
 
-    static func bundled() throws -> Self {
+    static func bundled(countryReference: ContestCountryMultiplierReference? = nil) throws -> Self {
         let csv = try CTYResolver.bundledCSV()
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in csv.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
@@ -1636,10 +1668,16 @@ struct ContestReferenceData {
             }
         }
         return .init(resolver: try CTYResolver.bundled(), version: String(format: "bundled-cty-fnv64-%016llx", hash),
-                     primaryPrefixes: prefixes, entityNames: names, entityNamesByPrefix: namesByPrefix)
+                     primaryPrefixes: prefixes, entityNames: names, entityNamesByPrefix: namesByPrefix,
+                     countryReference: countryReference)
     }
 
     func resolve(_ callsign: String, at date: Date) -> CountryInfo? { resolver.resolve(callsign, at: date) }
+    func resolve(_ callsign: String, at date: Date, for rule: any ContestRule) -> CountryInfo? {
+        rule is any ContestCountryReferenceBoundRule
+            ? resolver.resolveCountryEndpoint(callsign, at: date)
+            : resolver.resolve(callsign, at: date)
+    }
     func entity(_ country: CountryInfo) throws -> ContestEntitySnapshot {
         guard let prefix = primaryPrefixes[country.adif], !prefix.isEmpty else {
             throw ContestLaneError.confirmed("reference_unavailable", "Bundled CTY data has no canonical prefix for the resolved entity.")
@@ -1666,6 +1704,10 @@ struct ContestReferenceData {
                 return "\(entityNames[identity.entityADIF] ?? "DXCC \(identity.entityADIF)")\(scoped)"
             }
         case "cq-zone": return "CQ zone \(key.value)\(scoped)"
+        case "cqww-country":
+            let label = countryReference?.records.first { $0.multiplierKey == key.value }?.displayLabel
+                ?? key.value
+            return "\(label)\(scoped)"
         case "wpx-prefix": return "\(key.value) prefix\(scoped)"
         case "country":
             let name = Int(key.value).flatMap { entityNames[$0] } ?? "DXCC \(key.value)"
@@ -1682,13 +1724,24 @@ struct ContestReferenceData {
     }
     func ruleWire(_ metadata: XContestCore.ContestRuleMetadata,
                   operatorCapability: ContestOperatorCapability?,
-                  declarativeDefinition: ContestDeclarativeDefinition? = nil) throws -> [String: Any] {
+                  declarativeDefinition: ContestDeclarativeDefinition? = nil,
+                  countryReferenceBinding: ContestCountryReferenceBinding? = nil) throws -> [String: Any] {
         var result: [String: Any] = ["identity": Wire.ruleIdentityWire(metadata.identity), "displayName": metadata.displayName,
          "entryDescriptorVersion": metadata.entry.version.rawValue,
          "mode": metadata.entry.mode, "entry": Wire.entryWire(metadata.entry),
          "supportedBands": metadata.supportedBands.sorted(), "supportedModes": metadata.supportedModes.sorted(),
          "referenceDataVersion": version, "sourceVerification": "provisional", "sourceNote": metadata.sourceProvenance]
         if let operatorCapability { result["operatorCapability"] = Wire.operatorCapabilityWire(operatorCapability) }
+        if let binding = countryReferenceBinding {
+            result["countryReference"] = [
+                "id": binding.identity.id,
+                "version": binding.identity.version,
+                "sha256": binding.resourceSHA256,
+                "recordCount": binding.recordCount,
+                "immutablePerSession": true,
+                "submissionReady": false,
+            ]
+        }
         if let declarativeDefinition {
             result["declarativeDefinition"] = [
                 "definitionDigest": declarativeDefinition.definitionDigest,

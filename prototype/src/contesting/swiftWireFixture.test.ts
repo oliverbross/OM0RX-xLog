@@ -20,7 +20,14 @@ const fixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtur
 const currentCatalogFixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/current-contesting-catalog-worker-wire.json", import.meta.url), "utf8")) as {
   schemaVersion: number;
   catalog: ContestWorkerResponse<{ workspaceGeneration: string; rules: unknown[] }>;
-  assertions: { legacyOperatorCapabilities: number; declarativeOperatorCapabilities: number; inertRTTYRules: number; totalRules: number };
+  assertions: { legacyOperatorCapabilities: number; countryReferenceOperatorCapabilities: number;
+    declarativeOperatorCapabilities: number; inertRTTYRules: number; totalRules: number };
+};
+const cqwwCountryFixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/cqww-country-activation-worker-wire.json", import.meta.url), "utf8")) as {
+  schemaVersion: number; generatedBy: string;
+  catalog: ContestWorkerResponse<{ workspaceGeneration: string; rules: unknown[] }>;
+  assertions: { cwFinalPoints: number; cwFinalMultipliers: number; cwFinalScore: number;
+    ssbPoints: number; ssbMultipliers: number; ssbScore: number; packagedReferenceSHA256: string };
 };
 type LifecycleRequestKey = "create" | "reserve" | "apply" | "commit";
 const lifecycleRequestKey: Record<string, LifecycleRequestKey> = {
@@ -301,7 +308,8 @@ describe("current Swift contest catalog fixture", () => {
   it("partitions reviewed legacy and stored declarative operator capabilities", async () => {
     expect(currentCatalogFixture.schemaVersion).toBe(1);
     expect(currentCatalogFixture.assertions).toEqual({
-      legacyOperatorCapabilities: 14, declarativeOperatorCapabilities: 8, inertRTTYRules: 2, totalRules: 24,
+      legacyOperatorCapabilities: 14, countryReferenceOperatorCapabilities: 2,
+      declarativeOperatorCapabilities: 8, inertRTTYRules: 2, totalRules: 26,
     });
     const request = vi.fn(async () => currentCatalogFixture.catalog) as ContestRequest;
     const catalog = await new ContestClient(request).catalog();
@@ -314,13 +322,22 @@ describe("current Swift contest catalog fixture", () => {
       "k1usn-sst",
     ]);
     const inertRTTYIDs = new Set(["naqp-rtty", "arrl-rtty-roundup"]);
-    expect(catalog.rules).toHaveLength(24);
+    const countryReferenceOperatorIDs = new Set(["cq-ww-cw-country-reference", "cq-ww-ssb-country-reference"]);
+    expect(catalog.rules).toHaveLength(26);
     const operatorRules = catalog.rules.filter(rule => rule.operatorCapability);
-    expect(new Set(operatorRules.filter(rule => !rule.declarativeDefinition).map(rule => rule.identity.id))).toEqual(legacyOperatorIDs);
+    expect(new Set(operatorRules.filter(rule => !rule.declarativeDefinition && !rule.countryReference)
+      .map(rule => rule.identity.id))).toEqual(legacyOperatorIDs);
+    const countryReferenceRules = operatorRules.filter(rule => rule.countryReference);
+    expect(new Set(countryReferenceRules.map(rule => rule.identity.id))).toEqual(countryReferenceOperatorIDs);
+    for (const rule of countryReferenceRules) expect(rule.countryReference).toEqual({
+      id: "cqww-country", version: "2026.1-complete",
+      sha256: "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+      recordCount: 362, immutablePerSession: true, submissionReady: false,
+    });
     const declarativeRules = operatorRules.filter(rule => rule.declarativeDefinition);
     expect(new Set(declarativeRules.map(rule => rule.identity.id))).toEqual(declarativeOperatorIDs);
     expect(catalog.rules.filter(rule => inertRTTYIDs.has(rule.identity.id)).every(rule => !rule.operatorCapability)).toBe(true);
-    expect(new Set(operatorRules.map(rule => rule.operatorCapability!.auditDigest)).size).toBe(22);
+    expect(new Set(operatorRules.map(rule => rule.operatorCapability!.auditDigest)).size).toBe(24);
     for (const rule of declarativeRules) {
       const capability = rule.operatorCapability;
       if (!capability || !rule.declarativeDefinition) throw new Error("Declarative worker rule omitted its reviewed capability binding.");
@@ -332,6 +349,31 @@ describe("current Swift contest catalog fixture", () => {
       expect(entry.version).toBe(2);
       expect(signalProfiles.map(profile => profile.mode).sort())
         .toEqual(entry.modeProfiles.map(profile => profile.mode).sort());
+    }
+  });
+});
+
+describe("Swift CQWW sponsor-country activation fixture", () => {
+  it("parses both exact SHA-bound preview identities without weakening the legacy fixture", async () => {
+    expect(cqwwCountryFixture.schemaVersion).toBe(1);
+    expect(cqwwCountryFixture.generatedBy).toBe("ContestCQWWCountryActivationTests");
+    expect(cqwwCountryFixture.assertions).toEqual({
+      cwFinalPoints: 9, cwFinalMultipliers: 10, cwFinalScore: 90,
+      ssbPoints: 2, ssbMultipliers: 2, ssbScore: 4,
+      packagedReferenceSHA256: "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+    });
+    const request = vi.fn(async () => cqwwCountryFixture.catalog) as ContestRequest;
+    const catalog = await new ContestClient(request).catalog();
+    expect(catalog.rules.map(candidate => candidate.identity.id).sort()).toEqual([
+      "cq-ww-cw-country-reference", "cq-ww-ssb-country-reference",
+    ]);
+    expect(catalog.rules.map(candidate => candidate.mode).sort()).toEqual(["CW", "SSB"]);
+    for (const candidate of catalog.rules) {
+      expect(candidate.identity.sourceRevision).toBe(
+        "cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b");
+      expect(candidate.countryReference).toEqual({ id: "cqww-country", version: "2026.1-complete",
+        sha256: "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+        recordCount: 362, immutablePerSession: true, submissionReady: false });
     }
   });
 });

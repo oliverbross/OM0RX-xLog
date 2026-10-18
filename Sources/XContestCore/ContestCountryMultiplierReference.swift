@@ -18,6 +18,26 @@ public struct ContestCountryMultiplierReferenceIdentity: Codable, Hashable, Send
     }
 }
 
+public struct ContestCountryReferenceBinding: Codable, Hashable, Sendable {
+    public let identity: ContestCountryMultiplierReferenceIdentity
+    public let resourceSHA256: String
+    public let recordCount: Int
+
+    public init(identity: ContestCountryMultiplierReferenceIdentity,
+                resourceSHA256: String, recordCount: Int) {
+        self.identity = identity
+        self.resourceSHA256 = resourceSHA256
+        self.recordCount = recordCount
+    }
+}
+
+/// Marker for rules whose entity snapshots must come from the sponsor endpoint resolver rather
+/// than the legacy ADIF resolver. A binding is present only for a strict packaged resource.
+public protocol ContestCountryReferenceBoundRule: ContestRule {
+    var countryReference: ContestCountryMultiplierReference { get }
+    var countryReferenceBinding: ContestCountryReferenceBinding? { get }
+}
+
 public enum ContestCountryMultiplierAuthority: String, Codable, Hashable, Sendable {
     case dxcc
     case wae
