@@ -112,7 +112,7 @@ export function draftPowerDescription(draft: Data, power?: DraftPowerState | nul
   return power.activeScope ? "Default fallback · no measured output captured." : "Default fallback · measured output unavailable.";
 }
 
-export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, followControls = radioControls, clearLabel = "Clear QSO", referenceEvidence,
+export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, lookup, previous, follow, setFollow, request, onReadRadio, automaticStationMetadata = [], isEditing = false, radioControls = true, followControls = false, clearLabel = "Clear QSO", referenceEvidence,
   powerState, powerIntent, automaticPowerEnabled, onManualPower, onResumeAutomaticPower, onLocalInputState, resetInputEpoch, canAcceptLocalInput, onUndock, contactActions, inspector = true, canvas: Canvas }: QSOEditorProps) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: QSOEditorProps["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };

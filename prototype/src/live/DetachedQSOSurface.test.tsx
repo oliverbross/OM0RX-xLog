@@ -98,7 +98,7 @@ it.each(["Simple", "Full"])("flushes valid %s edits before a typed Read radio an
   expect(api.invoke).toHaveBeenCalledOnce();
   expect(api.invoke.mock.calls[0][1].operationId).toMatch(/^[a-f0-9-]{36}$/);
   expect(api.read.mock.calls.some(([method]) => method === "station_snapshot")).toBe(false);
-  expect(screen.getByText("Follow radio")).toBeTruthy();
+  expect(screen.queryByText("Follow radio")).toBeNull();
   expect(f.current.qso.name).toBe("Keep operator text");
 });
 
@@ -196,7 +196,7 @@ it("loads the canonical full editor with read-only context, no main controller, 
   expect(screen.queryByText("Callsign intelligence")).toBeNull();
   expect(screen.getByRole("button", { name: "Full" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByRole("button", { name: "Dock back" })).toBeNull();
-  expect(screen.getByText("Follow radio")).toBeTruthy(); expect(screen.getByRole("button", { name: /Read radio/i })).toBeTruthy();
+  expect(screen.queryByText("Follow radio")).toBeNull(); expect(screen.getByRole("button", { name: /Read radio/i })).toBeTruthy();
   expect(api.blocked!()).toBe(false);
   expect(api.changes.mock.invocationCallOrder[0]).toBeLessThan(api.draft.mock.invocationCallOrder[0]);
   expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1")).toBeNull();

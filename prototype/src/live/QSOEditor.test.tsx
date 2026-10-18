@@ -181,7 +181,7 @@ describe("QSOEditor", () => {
     await waitFor(() => expect(screen.getByText("Radio offline")).toBeTruthy());
     expect(onReadRadio).toHaveBeenCalledOnce();
     expect(value().frequencyHz).toBe(7025000);
-    expect((screen.getByLabelText("Follow radio") as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByLabelText("Follow radio")).toBeNull();
   });
   it("does not clear the next draft's manual buffer after an earlier radio read finishes", async () => {
     let finish: null | (() => void) = null;
@@ -206,14 +206,12 @@ describe("QSOEditor", () => {
     view.rerender(<QSOEditor {...props} draft={observed} follow={false} />);
     expect((screen.getByLabelText("Frequency MHz") as HTMLInputElement).value).toBe("21.019500");
   });
-  it("suspends radio following as soon as an operator edits frequency, band or mode", () => {
+  it("keeps the retired draft-follow control out of the QSO workflow", () => {
     render(<Harness />);
-    expect((screen.getByLabelText("Follow radio") as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByLabelText("Follow radio")).toBeNull();
     fireEvent.change(screen.getByLabelText("Frequency MHz"), { target: { value: "7.025000" } });
-    expect((screen.getByLabelText("Follow radio") as HTMLInputElement).checked).toBe(false);
-    fireEvent.click(screen.getByLabelText("Follow radio"));
     fireEvent.change(screen.getByLabelText("Mode"), { target: { value: "SSB" } });
-    expect((screen.getByLabelText("Follow radio") as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByLabelText("Follow radio")).toBeNull();
   });
   it("recognizes LoTW confirmation independently of a negative paper QSL", () => {
     render(<Harness previous={[{ call: "EA7EU", band: "20m", mode: "CW", qslReceived: "N", lotwReceived: "Y" }]} />);

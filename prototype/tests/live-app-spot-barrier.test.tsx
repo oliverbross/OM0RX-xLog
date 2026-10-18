@@ -123,9 +123,9 @@ it.each(["lost", "mismatched", "uncertain"])("retains a %s main Read radio opera
   await screen.findByText(outcome === "lost" ? /Synthetic Read radio reply lost/ : outcome === "mismatched" ? /outcome could not be verified/ : /Read radio was not confirmed/);
   expect(host.close?.blocked()).toBe(true);
   cleanup(); await openEditor(false);
-  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
-  await screen.findByText(/Check the existing Read radio activation before reading again/);
-  expect(host.invoke).toHaveBeenCalledOnce();
+  await waitFor(() => expect(host.invoke.mock.calls.filter(([command]) => command === "operator_draft_read_radio_recover")).toHaveLength(1));
+  expect(screen.queryByText(/Check the existing Read radio activation before reading again/)).toBeNull();
+  expect(host.invoke.mock.calls.filter(([command]) => command === "operator_draft_read_radio")).toHaveLength(1);
   const journal = JSON.parse(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")!);
   expect(host.readiness?.({ operationId: crypto.randomUUID(), phase: "preparing" }).ready).toBe(false);
   expect(host.readiness?.({ operationId: journal.operationId, phase: "preparing" }).ready).toBe(true);
@@ -152,12 +152,11 @@ it.each(["confirmed", "blocked"])("recovers a retained main Read radio after rem
     return { operationId, phase, reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
   });
   await openEditor(false);
-  fireEvent.click(screen.getByRole("button", { name: "Check Read radio" }));
   await waitFor(() => expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull());
   expect(host.invoke).toHaveBeenCalledOnce(); expect(host.close?.blocked()).toBe(false);
 });
 
-it("retires an obsolete Read radio receipt before enabling Follow radio and accepts the next spot", async () => {
+it("retires an obsolete Read radio receipt automatically and accepts the next spot", async () => {
   host.nativeEditor = true; host.followEnabled = false;
   const operationId = crypto.randomUUID();
   localStorage.setItem("xlog.integration.operatorDraft.main.v1.readRadio", JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
@@ -168,10 +167,9 @@ it("retires an obsolete Read radio receipt before enabling Follow radio and acce
       error: "Old receipt retired without replaying a radio read." };
   });
   await openEditor(false);
-  fireEvent.click(screen.getByRole("checkbox", { name: "Follow radio" }));
-  await waitFor(() => expect(host.follow).toHaveBeenCalledWith(true));
+  await waitFor(() => expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull());
+  expect(screen.queryByRole("checkbox", { name: "Follow radio" })).toBeNull();
   expect(host.reconcile).toHaveBeenCalledOnce();
-  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull();
   sidebar("DX Cluster");
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
@@ -311,7 +309,6 @@ it("cancels an unsaved logged-contact edit before loading a cluster report", asy
 it("uses only the latest of rapid successive spot clicks", async () => {
   await openEditor(false);
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
-  await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 80)); });
   fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });

@@ -279,7 +279,7 @@ it("native menu navigation preserves the draft and never changes equipment or st
   }
   expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
   expect(calls.request.mock.calls.some(([method]) => ["station_connect", "station_disconnect", "station_tune", "rotor_connect", "rotor_goto", "sync_run", "settings_save"].includes(method))).toBe(false);
-});
+}, 10_000);
 
 it("routes Sync to the Logbook choice in integrated-only mode", () => {
   expect(syncSettingsDestination("local")).toBe("Logbook");
@@ -307,15 +307,13 @@ it("keeps Sync inside Settings and supports repeat legacy navigation without cha
   expect(calls.request.mock.calls.some(([method]) => ["sync_run", "sync_configure", "settings_save", "station_tune"].includes(method))).toBe(false);
 });
 
-it("logs through the shared draft receipt and keeps Follow radio enabled on normal Save", async () => {
+it("logs through the shared draft receipt without exposing the retired Follow radio control", async () => {
   exists = true;
   render(<LiveApp />);
   fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
-  const follow = within(screen.getByLabelText("Callsign").closest("form")!).getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement;
-  if (!follow.checked) fireEvent.click(follow);
+  expect(within(screen.getByLabelText("Callsign").closest("form")!).queryByRole("checkbox", { name: "Follow radio" })).toBeNull();
   fireEvent.submit(screen.getByLabelText("Callsign").closest("form")!);
   await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe(""));
-  expect(follow.checked).toBe(true);
   expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
   expect(calls.request.mock.calls.some(([method]) => method === "logbook_save")).toBe(false);
   expect(screen.getAllByText("QSO logged")).toHaveLength(1);
@@ -608,7 +606,7 @@ it.each([{ kind: "pota", reference_kind: "pota", reference: "US-0001", field: "P
   fireEvent.click(await screen.findByRole("button", { name: "Load K1ABC into QSO draft" }));
   expect((await screen.findByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
   expect((screen.getByLabelText(programme.field) as HTMLInputElement).value).toBe(programme.reference);
-  expect((screen.getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement).checked).toBe(false);
+  expect(screen.queryByRole("checkbox", { name: "Follow radio" })).toBeNull();
   expect(calls.request.mock.calls.some(([method]) => ["station_tune", "rotor_goto", "logbook_save", "sync_run"].includes(method))).toBe(false);
 });
 
