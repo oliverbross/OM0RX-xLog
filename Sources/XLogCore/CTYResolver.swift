@@ -8,6 +8,7 @@ public final class CTYResolver: @unchecked Sendable {
         var token: String
         var exact: Bool
         var country: CountryInfo
+        var endpointCountry: CountryInfo
         var start: Date?
         var end: Date?
     }
@@ -28,7 +29,11 @@ public final class CTYResolver: @unchecked Sendable {
             for raw in tokens {
                 let exact = raw.hasPrefix("=")
                 let cleaned = Self.cleanToken(raw)
-                if !cleaned.isEmpty { parsed.append(Rule(token: cleaned, exact: exact, country: info, start: nil, end: nil)) }
+                if !cleaned.isEmpty {
+                    parsed.append(Rule(token: cleaned, exact: exact, country: info,
+                                       endpointCountry: Self.applyingOverrides(in: raw, to: info),
+                                       start: nil, end: nil))
+                }
             }
         }
         rules = parsed.sorted { lhs, rhs in
@@ -50,6 +55,20 @@ public final class CTYResolver: @unchecked Sendable {
         return try String(contentsOf: url, encoding: .utf8)
     }
 
+    /// Every distinct country endpoint that the resolver can return at `date`, including token-level
+    /// CQ-zone, ITU-zone, and continent overrides from the pinned CTY data. This deliberately does
+    /// not collapse by ADIF identity.
+    public func reachableCountryEndpoints(at date: Date) -> [CountryInfo] {
+        Array(Set(rules.compactMap { rule in
+            if let start = rule.start, date < start { return nil }
+            if let end = rule.end, date > end { return nil }
+            return rule.endpointCountry
+        })).sorted {
+            ($0.adif, $0.name, $0.continent, $0.cqZone, $0.ituZone) <
+                ($1.adif, $1.name, $1.continent, $1.cqZone, $1.ituZone)
+        }
+    }
+
     public convenience init(xmlURL: URL) throws {
         let parser = ClubLogXMLParser()
         try parser.parse(url: xmlURL)
@@ -63,6 +82,16 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     public func resolve(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
+        matchingRule(rawCallsign, at: date)?.country
+    }
+
+    /// Opt-in resolver endpoint including CTY token-level CQ-zone, ITU-zone, and continent
+    /// overrides. The legacy `resolve` result remains unchanged for persisted callers.
+    public func resolveCountryEndpoint(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
+        matchingRule(rawCallsign, at: date)?.endpointCountry
+    }
+
+    private func matchingRule(_ rawCallsign: String, at date: Date) -> Rule? {
         let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
         var candidates = [call]
         candidates.append(contentsOf: call.split(separator: "/").map(String.init).filter { !ignoredSuffixes.contains($0) }.sorted { $0.count > $1.count })
@@ -73,7 +102,7 @@ public final class CTYResolver: @unchecked Sendable {
                 if rule.exact ? candidate == rule.token : candidate.hasPrefix(rule.token) {
                     if rule.token == "KG4", candidate.range(of: #"^KG4[A-Z]{3}$"#, options: .regularExpression) != nil,
                        rule.country.name.contains("GUANTANAMO") { continue }
-                    return rule.country
+                    return rule
                 }
             }
         }
@@ -98,8 +127,32 @@ public final class CTYResolver: @unchecked Sendable {
 
     private static func cleanToken(_ raw: String) -> String {
         var token = raw.uppercased().trimmingCharacters(in: CharacterSet(charactersIn: "*=;"))
-        token = token.replacingOccurrences(of: #"\([^)]*\)|\[[^]]*\]|<[^>]*>"#, with: "", options: .regularExpression)
+        token = token.replacingOccurrences(of: #"\([^)]*\)|\[[^]]*\]|\{[^}]*\}|<[^>]*>"#,
+                                           with: "", options: .regularExpression)
         return token.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func applyingOverrides(in raw: String, to country: CountryInfo) -> CountryInfo {
+        CountryInfo(
+            name: country.name,
+            adif: country.adif,
+            continent: textOverride(in: raw, opening: "{", closing: "}")?.uppercased() ?? country.continent,
+            cqZone: integerOverride(in: raw, opening: "(", closing: ")") ?? country.cqZone,
+            ituZone: integerOverride(in: raw, opening: "[", closing: "]") ?? country.ituZone,
+            latitude: country.latitude,
+            longitude: country.longitude
+        )
+    }
+
+    private static func integerOverride(in raw: String, opening: Character, closing: Character) -> Int? {
+        textOverride(in: raw, opening: opening, closing: closing).flatMap(Int.init)
+    }
+
+    private static func textOverride(in raw: String, opening: Character, closing: Character) -> String? {
+        guard let start = raw.firstIndex(of: opening),
+              let end = raw[start...].firstIndex(of: closing), start < end else { return nil }
+        let value = raw[raw.index(after: start)..<end]
+        return value.isEmpty ? nil : String(value)
     }
 
     private static func csvColumns(_ line: String) -> [String] {
@@ -179,6 +232,7 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
             token: token,
             exact: name == "exception",
             country: info,
+            endpointCountry: info,
             start: Self.date(values["start"]),
             end: Self.date(values["end"])
         ))
