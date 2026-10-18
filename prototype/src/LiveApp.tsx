@@ -1317,8 +1317,7 @@ function MainLiveApp() {
       <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
-      {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
-      <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
+      {workspace?.workspace_exists && <SharedPropagationConditions compact includeWeather={false} />}
     </header>
     <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}>
       <nav>{navigation.map(([name, Icon, group, id], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={contestView && id === "contesting" || view === name ? "page" : undefined} onClick={() => id === "contesting" ? void chooseOperatingModule("contesting") : void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>

@@ -1,6 +1,6 @@
 .app.live { font-size: 13px; grid-template-columns: 190px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 .live .station-rail { gap: 16px; min-height: 58px; }
-.live .main-station-rail { flex-wrap: wrap; padding-block: 6px; gap: 8px 14px; }
+.live .main-station-rail { flex-wrap: nowrap; overflow: hidden; padding-block: 6px; gap: 8px 14px; }
 .main-station-rail .brand { font-size: 20px; font-weight: 750; letter-spacing: -.35px; white-space: nowrap; }
 .main-station-rail .brand img { flex: none; }
 .main-station-rail .rail-frequency { font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -106,12 +106,11 @@
 .condition-a { color: #ffd078; }
 .condition-k { color: #e4a5ff; }
 .condition-bands > .condition-periods { flex: none; min-width: 32px; display: grid; grid-template-rows: 13px 12px 12px; text-align: left; font: 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.live .main-station-rail .live-conditions-compact { display: grid; grid-template-columns: minmax(16px, 1fr) max-content minmax(240px, 400px) minmax(16px, 1fr) max-content; border: 0; padding: 0; min-height: 42px; gap: 10px; flex: 1 1 600px; background: transparent; }
-.live .main-station-rail .condition-indices { grid-column: 2; grid-row: 1; }
+.live .main-station-rail .live-conditions-compact { display: grid; grid-template-columns: max-content minmax(240px, 400px); border: 0; padding: 0; min-height: 42px; gap: 10px; flex: 0 1 560px; margin-left: auto; background: transparent; }
+.live .main-station-rail .condition-indices { grid-column: 1; grid-row: 1; }
 .live-conditions-compact .condition-indices { white-space: nowrap; font-size: 11px; }
-.live .main-station-rail .condition-bands { grid-column: 3; grid-row: 1; min-width: 240px; max-width: 400px; }
+.live .main-station-rail .condition-bands { grid-column: 2; grid-row: 1; min-width: 240px; max-width: 400px; }
 .live .main-station-rail .condition-bands > div { min-width: 32px; }
-.live .main-station-rail .condition-weather { grid-column: 5; grid-row: 1; margin-left: 0; }
 .integrated-monitor { height: 100vh; display: grid; grid-template-columns: 1.25fr 1fr; background: #030e16; color: #d8e5ef; font: 12px ui-monospace, monospace; overflow: hidden; }
 .monitor-radio, .monitor-rotor { min-width: 0; display: flex; flex-direction: column; }
 .monitor-radio { border-right: 1px solid #234454; }
