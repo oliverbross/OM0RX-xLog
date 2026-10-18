@@ -223,6 +223,19 @@ it("renders repeated authoritative validation messages without duplicate React k
   consoleError.mockRestore();
 });
 
+it("shows actionable duplicate guidance for an authoritative blank next draft", async () => {
+  const { request, state } = fixture();
+  const current = state.get("session-1")!;
+  current.draft = { ...current.draft, fields: { ...current.draft.fields, callsign: "" },
+    dupe: { state: "unchecked", reason: "Reload the contest session to check duplicate state." } };
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest}
+    recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  fireEvent.click(await screen.findByRole("button", { name: /WW November/ }));
+
+  expect(await screen.findByText("Enter a callsign to check duplicate status.")).toBeTruthy();
+  expect(screen.queryByText("Reload the contest session to check duplicate state.")).toBeNull();
+});
+
 it("offers serial reservation only for WPX and keeps partial calls editable after reserving", async () => {
   const { request, calls } = fixture();
   const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);

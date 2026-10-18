@@ -395,6 +395,30 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     }
   });
 
+  it("follows the latest simulated output until the operator scrolls away", async () => {
+    const simulate = vi.fn(async () => {});
+    render(<Harness mode="CW" simulate={simulate}/>);
+    const call = screen.getByLabelText("Call"), trace = screen.getByLabelText("Simulated output trace");
+    let height = 200;
+    Object.defineProperty(trace, "clientHeight", { configurable: true, value: 100 });
+    Object.defineProperty(trace, "scrollHeight", { configurable: true, get: () => height });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+
+    fireEvent.keyDown(call, { key: "F1" });
+    await waitFor(() => expect(simulate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(trace.scrollTop).toBe(200));
+
+    trace.scrollTop = 20; fireEvent.scroll(trace); height = 300;
+    fireEvent.keyDown(call, { key: "F1" });
+    await waitFor(() => expect(simulate).toHaveBeenCalledTimes(2));
+    expect(trace.scrollTop).toBe(20);
+
+    trace.scrollTop = 200; fireEvent.scroll(trace); height = 400;
+    fireEvent.keyDown(call, { key: "F1" });
+    await waitFor(() => expect(simulate).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(trace.scrollTop).toBe(400));
+  });
+
   it.each([["CW", false], ["SSB", false], ["CW", true], ["SSB", true]] as const)(
     "admits blank %s CQ from the complete worker fixture validation set (serial=%s)", async (mode, serial) => {
     const cqOutput = vi.fn(); render(<Harness mode={mode} serial={serial} workerBlank simulate={cqOutput}/>); await act(async () => {});
