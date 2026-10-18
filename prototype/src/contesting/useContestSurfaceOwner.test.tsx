@@ -84,6 +84,30 @@ it("recovers one failed Entry publication on the next rate refresh without repub
     expect(published.filter(item=>item.panelID===panelID)).toHaveLength(1);
 });
 
+it("matches publication settlement to its exact attempt across an A to B to A race",async()=>{
+  let releaseFirst!:()=>void;const first=new Promise<void>(resolve=>{releaseFirst=resolve;}),published:Record<string,any>[]=[],report=vi.fn();
+  let entryAttempt=0;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_publish"){published.push(args);if(args.panelID==="active-qso"){
+      entryAttempt+=1;if(entryAttempt===1)return first;if(entryAttempt===3)throw new Error("latest A reply lost");}return;}
+    if(command==="contest_surface_context_close")return;if(command==="contest_surface_escape_next"||command==="contest_surface_action_next")return null;
+    throw new Error(command);
+  });
+  const a={...unavailable(),"active-qso":entry},view=render(<Harness projections={a} handle={vi.fn()} report={report}/>);
+  await waitFor(()=>expect(published.some(item=>item.panelID==="active-qso"&&item.projectionRevision===1)).toBe(true));
+  view.rerender(<Harness projections={{...a,"active-qso":{...entry,dirty:true}}} handle={vi.fn()} report={report}/>);
+  view.rerender(<Harness projections={{...a,"active-qso":entry}} handle={vi.fn()} report={report}/>);
+  await act(async()=>releaseFirst());await waitFor(()=>expect(report).toHaveBeenCalledWith("latest A reply lost"));
+  expect(published.filter(item=>item.panelID==="active-qso").map(item=>item.projectionRevision)).toEqual([1,2,3]);
+  const rate:any={schemaVersion:1,status:"ready",sessionRevision:5,asOfUTC:"2026-10-18T00:02:00.000Z",fullLogQSOs:0,loggedQSOs:0,
+    acceptedQSOs:0,duplicateQSOs:0,invalidQSOs:0,currentHourQSOs:0,operatorStyles:{total:{run:0,searchAndPounce:0,unknown:0},
+      currentHour:{run:0,searchAndPounce:0,unknown:0}},trailing60Minutes:{qsoCount:0,spanSeconds:null,qsosPerHour:null},latest10:null,latest100:null,busy:false};
+  view.rerender(<Harness projections={{...a,monitor:rate}} handle={vi.fn()} report={report}/>);
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso").map(item=>item.projectionRevision)).toEqual([1,2,3,4]));
+  for(const panelID of contestSurfacePanelIDs.filter(id=>id!=="active-qso"&&id!=="monitor"))
+    expect(published.filter(item=>item.panelID===panelID)).toHaveLength(1);
+});
+
 it("does not execute a dequeued action after its owner context closes",async()=>{
   let release!:(value:ContestSurfaceActionEnvelope)=>void;const pending=new Promise<ContestSurfaceActionEnvelope>(resolve=>{release=resolve;});
   native.invoke.mockImplementation((command:string)=>command==="contest_surface_action_next"?pending:
