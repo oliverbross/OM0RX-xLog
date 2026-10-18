@@ -60,11 +60,20 @@
     },
     "pinnedComparatorDifference": "The pinned plugins use call plus band only and count received grids per band; they do not model contacted rover grid in duplicate identity or add the rover activated-grid multiplier."
   },
+  "officialWVEEligibility": {
+    "ruleVersion": "ARRL VHF Rules 1.2",
+    "sourceURL": "https://www.arrl.org/september-vhf",
+    "sourceClause": "2.3",
+    "bundledCTYSHA256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d",
+    "entityADIFs": [1, 6, 9, 20, 43, 103, 110, 123, 138, 166, 174, 182, 197, 202, 211, 252, 285, 291, 297, 515],
+    "policy": "A station in the W/VE entity set may contact any resolved entity; every other station may contact only a resolved W/VE entity.",
+    "resolverBoundary": "Eligibility uses the immutable resolved entity snapshot and never guesses from callsign prefixes."
+  },
   "previewDifferences": [
     "The pinned plugins test for Band == 2300+ but their shared get_logged_band returns individual canonical numeric values at 13cm and above; the preview deliberately follows the published point table instead of reproducing that executable zero-point defect.",
     "The portable contest band plan represents the pinned comparator bands through 1mm and its submm bucket, while normal-log band authority remains a later activation gate.",
     "Only CW and SSB are admitted; upstream digital mode mapping remains pending.",
-    "The original three source-preview identities retain the pinned per-band duplicate behavior. Separate fixed and rover official-grid preview identities model four-coordinate duplicates, and rover previews add activated grids globally; store correction admission, schedules, categories, and worker activation remain pending.",
+    "The original three source-preview identities retain the pinned per-band duplicate behavior and unrestricted eligibility. Separate fixed and rover official-grid preview identities model four-coordinate duplicates, rover activated grids, and official directional W/VE entity eligibility; store correction admission, schedules, categories, and worker activation remain pending.",
     "The archive projection is source-shaped operator evidence, not sponsor submission certification."
   ]
 }

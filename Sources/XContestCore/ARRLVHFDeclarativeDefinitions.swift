@@ -16,6 +16,12 @@ public enum ARRLVHFStationCategory: String, CaseIterable, Codable, Sendable {
 /// schedules, and digital modes remain activation gates.
 public enum ARRLVHFDeclarativeDefinitions {
     public static let pinnedComparatorRevision = "7c8b499225a73f7f8f792246881bd7aefc05452f"
+    public static let bundledCTYSHA256 = "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
+    /// Rule 2.3's W/VE group, represented by immutable bundled CTY ADIF entities.
+    public static let officialWVEEntityADIFs: Set<Int> = [
+        1, 6, 9, 20, 43, 103, 110, 123, 138, 166,
+        174, 182, 197, 202, 211, 252, 285, 291, 297, 515,
+    ]
 
     public static func definition(for season: ARRLVHFSeason) throws -> ContestDeclarativeDefinition {
         try draft(for: season).materialized()
@@ -93,9 +99,13 @@ public enum ARRLVHFDeclarativeDefinitions {
                 .init(behavior: $0 == .rover ? .rover : .fixed, sentFieldID: "grid")
             },
             scoring: .init(defaultPoints: 0, clauses: [], bandPoints: points(for: season)),
+            eligibilityPolicy: category == nil ? .unrestricted :
+                .outsideEntitySetContactsOnlyEntitySet(.init(
+                    authority: "ARRL-VHF-Rules-1.2-rule-2.3",
+                    privilegedEntityADIFs: officialWVEEntityADIFs)),
             exportPolicy: .operatorArchive,
             exportProjection: .init(formatterVersion: "arrl-vhf-source-preview-1", columns: columns),
-            stationEntityRequired: false)
+            stationEntityRequired: category != nil)
     }
 
     public static func points(for season: ARRLVHFSeason) -> [String: Int64] {
@@ -152,6 +162,6 @@ public enum ARRLVHFDeclarativeDefinitions {
         case .rover:
             semantics = "official four-coordinate rover duplicate and activated-grid multiplier correction"
         }
-        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus canonical high-band values executable defect; \(semantics); source-preview operator archive; schedule, category admission, correction workflow, and digital coverage pending"
+        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus canonical high-band values executable defect; \(semantics); ARRL rule 2.3 W/VE group pinned through bundled CTY SHA-256 \(bundledCTYSHA256); source-preview operator archive; schedule, category admission, correction workflow, and digital coverage pending"
     }
 }

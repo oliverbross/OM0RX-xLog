@@ -206,6 +206,83 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         XCTAssertThrowsError(try replacing(base, entry: replacing(base.entry, serial: serial)).materialized())
     }
 
+    func testOfficialWVEEntitySetAndDirectionalEligibilityUseImmutableSnapshots() throws {
+        let fixture = try sourceFixture().officialWVEEligibility
+        XCTAssertEqual(Set(fixture.entityADIFs), ARRLVHFDeclarativeDefinitions.officialWVEEntityADIFs)
+        XCTAssertEqual(fixture.bundledCTYSHA256, ARRLVHFDeclarativeDefinitions.bundledCTYSHA256)
+        XCTAssertEqual(fixture.sourceClause, "2.3")
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june, category: .fixed)
+        guard case let .outsideEntitySetContactsOnlyEntitySet(policy) =
+                rule.definition.draft.eligibilityPolicy else {
+            return XCTFail("Official-grid identities must carry directional entity eligibility")
+        }
+        XCTAssertEqual(policy.privilegedEntityADIFs,
+                       ARRLVHFDeclarativeDefinitions.officialWVEEntityADIFs)
+        XCTAssertEqual(policy.authority, "ARRL-VHF-Rules-1.2-rule-2.3")
+        XCTAssertTrue(rule.definition.draft.sourceProvenance.contains(
+            ARRLVHFDeclarativeDefinitions.bundledCTYSHA256))
+
+        let unitedStates = entity(291, "UNITED STATES", "K", "NA", 5)
+        let canada = entity(1, "CANADA", "VE", "NA", 4)
+        let alaska = entity(6, "ALASKA", "KL", "NA", 1)
+        let hawaii = entity(110, "HAWAII", "KH6", "OC", 31)
+        let sable = entity(211, "SABLE ISLAND", "CY0", "NA", 5)
+        let swains = entity(515, "SWAINS ISLAND", "KH8S", "OC", 32)
+        let germany = entity(230, "FEDERAL REPUBLIC OF GERMANY", "DL", "EU", 14)
+        let france = entity(227, "FRANCE", "F", "EU", 14)
+
+        for stationEntity in [unitedStates, canada, alaska, hawaii, sable, swains] {
+            let session = makeSession(rule, stationEntity: stationEntity)
+            let score = try ContestEngine.score([
+                qso(1, session, call: "DL1AAA", band: "6m", grid: "FN31", entity: germany),
+            ], session: session, rule: rule)
+            XCTAssertEqual(score.qsos.map(\.disposition), [.accepted], String(stationEntity.adif))
+        }
+
+        let dxSession = makeSession(rule, stationCallsign: "DL1AAA", stationEntity: germany)
+        let admittedBySnapshot = qso(2, dxSession, call: "DL2AAA", band: "6m", grid: "FN31",
+                                     entity: unitedStates)
+        let rejectedBySnapshot = qso(3, dxSession, call: "K1AAA", band: "6m", grid: "FN32",
+                                     entity: france)
+        let result = try ContestEngine.score([admittedBySnapshot, rejectedBySnapshot],
+                                             session: dxSession, rule: rule)
+        XCTAssertEqual(result.qsos.map(\.disposition), [.accepted, .invalid])
+        XCTAssertEqual(rule.evaluate(rejectedBySnapshot, in: dxSession).validation.map(\.code),
+                       ["ineligibleContact"])
+    }
+
+    func testDirectionalEligibilityFailsClosedForMissingOrMalformedEntitiesAndPolicy() throws {
+        let unknownKey = Data(#"{"authority":"ARRL","privilegedEntityADIFs":[1],"future":true}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(
+            ContestDeclarativeDirectionalEntityEligibility.self, from: unknownKey))
+        let duplicate = Data(#"{"authority":"ARRL","privilegedEntityADIFs":[1,1]}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(
+            ContestDeclarativeDirectionalEntityEligibility.self, from: duplicate))
+
+        let base = ARRLVHFDeclarativeDefinitions.draft(for: .june, category: .fixed)
+        for policy in [
+            ContestDeclarativeDirectionalEntityEligibility(authority: "", privilegedEntityADIFs: [1]),
+            .init(authority: "ARRL", privilegedEntityADIFs: []),
+            .init(authority: "ARRL", privilegedEntityADIFs: [0]),
+        ] {
+            XCTAssertThrowsError(try replacing(
+                base, eligibilityPolicy: .outsideEntitySetContactsOnlyEntitySet(policy),
+                stationEntityRequired: true).materialized())
+        }
+        XCTAssertThrowsError(try replacing(
+            base, eligibilityPolicy: base.eligibilityPolicy,
+            stationEntityRequired: false).materialized())
+
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june, category: .fixed)
+        let missingStation = makeSession(rule, stationEntity: nil)
+        XCTAssertEqual(rule.validateSession(missingStation).map(\.code), ["unresolvedStationEntity"])
+
+        let germany = entity(230, "FEDERAL REPUBLIC OF GERMANY", "DL", "EU", 14)
+        let dxSession = makeSession(rule, stationCallsign: "DL1AAA", stationEntity: germany)
+        let unresolved = qso(4, dxSession, call: "K1AAA", band: "6m", grid: "FN31", entity: nil)
+        XCTAssertEqual(rule.evaluate(unresolved, in: dxSession).validation.map(\.code), ["unresolvedEntity"])
+    }
+
     func testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder() throws {
         let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .september)
         let session = makeSession(rule)
@@ -252,7 +329,15 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         }
     }
 
-    private struct Fixture: Decodable { let plugins: [Plugin] }
+    private struct Fixture: Decodable {
+        let plugins: [Plugin]
+        let officialWVEEligibility: OfficialWVEEligibility
+    }
+    private struct OfficialWVEEligibility: Decodable {
+        let sourceClause: String
+        let bundledCTYSHA256: String
+        let entityADIFs: [Int]
+    }
     private struct Plugin: Decodable {
         let season: String
         let path: String
@@ -265,26 +350,37 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
     }
 
     private func fixturePlugins() throws -> [String: Plugin] {
-        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .appendingPathComponent("SourceFixtures/arrl-vhf-source-oracles.json")
-        let rows = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url)).plugins
+        let rows = try sourceFixture().plugins
         return Dictionary(uniqueKeysWithValues: rows.map { ($0.season, $0) })
     }
 
+    private func sourceFixture() throws -> Fixture {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("SourceFixtures/arrl-vhf-source-oracles.json")
+        return try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url))
+    }
+
     private func makeSession(_ rule: DeclarativeContestRule,
-                             stationLocation: String = "JN98") -> ContestSessionSnapshot {
+                             stationLocation: String = "JN98",
+                             stationCallsign: String = "OM0RX",
+                             stationEntity: ContestEntitySnapshot? = .init(
+                                adif: 291, name: "UNITED STATES", countryPrefix: "K",
+                                continent: "NA", cqZone: 5)) -> ContestSessionSnapshot {
         .init(id: UUID(uuidString: "EA100000-0000-0000-0000-000000000001")!,
               workspaceGeneration: UUID(uuidString: "EA100000-0000-0000-0000-000000000002")!,
               rule: rule.metadata.identity, referenceDataVersion: "arrl-vhf-source-preview",
               startedAt: timestamp,
-              station: .init(callsign: "OM0RX", entity: nil, sentExchange: "JN98",
-                             operatorCallsigns: ["OM0RX"], location: stationLocation,
+              station: .init(callsign: stationCallsign, entity: stationEntity, sentExchange: "JN98",
+                             operatorCallsigns: [stationCallsign], location: stationLocation,
                              sentExchangeFields: ["grid": field("JN98")]))
     }
 
     private func qso(_ seed: Int, _ session: ContestSessionSnapshot, call: String, band: String,
                      grid: String, stationGrid: String = "JN98", mode: String = "CW",
-                     frequencyHz: Int64? = nil) -> ContestQSO {
+                     frequencyHz: Int64? = nil,
+                     entity: ContestEntitySnapshot? = .init(
+                        adif: 291, name: "UNITED STATES", countryPrefix: "K",
+                        continent: "NA", cqZone: 5)) -> ContestQSO {
         .init(id: UUID(uuidString: String(format: "EB100000-0000-0000-0000-%012d", seed + 1))!,
               sessionID: session.id, timestampUTC: timestamp,
               callsign: call, band: band, mode: mode, frequencyHz: frequencyHz ?? frequency(band),
@@ -293,7 +389,7 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
                               rawReceived: grid, normalizedReceived: grid,
                               sentFields: ["grid": field(stationGrid)],
                               receivedFields: ["grid": field(grid)]),
-              entity: nil, operatorCallsign: "OM0RX", stationLocation: stationGrid,
+              entity: entity, operatorCallsign: session.station.callsign, stationLocation: stationGrid,
               provenance: .init(source: .operatorEntry))
     }
 
@@ -360,6 +456,23 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
               stationEntityRequired: base.stationEntityRequired, adapterID: base.adapterID)
     }
 
+    private func replacing(
+        _ base: ContestDefinitionDraft,
+        eligibilityPolicy: ContestDeclarativeEligibilityPolicy,
+        stationEntityRequired: Bool
+    ) -> ContestDefinitionDraft {
+        .init(id: base.id, version: base.version, edition: base.edition, displayName: base.displayName,
+              cabrilloName: base.cabrilloName, supportedBands: base.supportedBands,
+              supportedModes: base.supportedModes, entry: base.entry,
+              sourceProvenance: base.sourceProvenance, dupePolicy: base.dupePolicy,
+              multiplierPolicy: base.multiplierPolicy,
+              geographicMultiplier: base.geographicMultiplier, gridMultiplier: base.gridMultiplier,
+              stationGridPolicy: base.stationGridPolicy, scoring: base.scoring,
+              eligibilityPolicy: eligibilityPolicy, exportPolicy: base.exportPolicy,
+              exportProjection: base.exportProjection, operatorPolicy: base.operatorPolicy,
+              stationEntityRequired: stationEntityRequired, adapterID: base.adapterID)
+    }
+
     private func replacing(_ base: ContestEntryDescriptor,
                            exchange: ContestExchangeDescriptor? = nil,
                            serial: ContestSerialDescriptor? = nil) -> ContestEntryDescriptor {
@@ -393,4 +506,9 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
     }
 
     private func field(_ value: String) -> ContestExchangeFieldValue { .init(raw: value, normalized: value) }
+
+    private func entity(_ adif: Int, _ name: String, _ prefix: String,
+                        _ continent: String, _ zone: Int) -> ContestEntitySnapshot {
+        .init(adif: adif, name: name, countryPrefix: prefix, continent: continent, cqZone: zone)
+    }
 }

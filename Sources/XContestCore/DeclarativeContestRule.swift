@@ -261,9 +261,48 @@ public enum ContestGeographicMultiplierKeyDecoder {
     }
 }
 
+public struct ContestDeclarativeDirectionalEntityEligibility: Codable, Hashable, Sendable {
+    public let authority: String
+    public let privilegedEntityADIFs: Set<Int>
+
+    public init(authority: String, privilegedEntityADIFs: Set<Int>) {
+        self.authority = authority
+        self.privilegedEntityADIFs = privilegedEntityADIFs
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable { case authority, privilegedEntityADIFs }
+
+    public init(from decoder: Decoder) throws {
+        let dynamic = try decoder.container(keyedBy: ContestDefinitionCodingKey.self)
+        let unknown = Set(dynamic.allKeys.map(\.stringValue))
+            .subtracting(CodingKeys.allCases.map(\.rawValue))
+        guard unknown.isEmpty else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Unknown directional entity eligibility keys: \(unknown.sorted())"))
+        }
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        authority = try values.decode(String.self, forKey: .authority)
+        let decoded = try values.decode([Int].self, forKey: .privilegedEntityADIFs)
+        guard Set(decoded).count == decoded.count else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .privilegedEntityADIFs, in: values,
+                debugDescription: "Directional eligibility entity codes must be unique.")
+        }
+        privilegedEntityADIFs = Set(decoded)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(authority, forKey: .authority)
+        try values.encode(privilegedEntityADIFs.sorted(), forKey: .privilegedEntityADIFs)
+    }
+}
+
 public enum ContestDeclarativeEligibilityPolicy: Codable, Hashable, Sendable {
     case unrestricted
     case stationFieldIntegerGreaterThan(fieldID: String, threshold: Int)
+    case outsideEntitySetContactsOnlyEntitySet(ContestDeclarativeDirectionalEntityEligibility)
 }
 
 public enum ContestDeclarativeExportPolicy: String, Codable, Hashable, Sendable {
@@ -605,6 +644,17 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
                 (sent[fieldID]?.maximumUTF8Bytes ?? 19) > 18 {
                 result.append("eligibility field must be a sent nonnegativeInteger with a nonnegative threshold")
             }
+        case let .outsideEntitySetContactsOnlyEntitySet(policy):
+            if !draft.stationEntityRequired {
+                result.append("directional entity eligibility requires a resolved station entity")
+            }
+            if !validGeographicAuthority(policy.authority) {
+                result.append("directional entity eligibility authority must be bounded visible ASCII without separators")
+            }
+            if !(1...64).contains(policy.privilegedEntityADIFs.count) ||
+                policy.privilegedEntityADIFs.contains(where: { $0 <= 0 }) {
+                result.append("directional entity eligibility must contain 1...64 positive entity codes")
+            }
         }
         if let stationGrid = draft.stationGridPolicy {
             let sent = draft.entry.exchange.sentFields.first { $0.id == stationGrid.sentFieldID }
@@ -870,6 +920,12 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
                                     message: "Station exchange does not satisfy the definition's entrant eligibility policy."))
                 break
             }
+        case .outsideEntitySetContactsOnlyEntitySet:
+            guard let entity = session.station.entity, validEntitySnapshot(entity) else {
+                result.append(.init(code: "unresolvedStationEntity", field: "station.entity",
+                                    message: "Directional entrant eligibility requires an immutable resolved station entity."))
+                break
+            }
         }
         if let stationGrid = definition.draft.stationGridPolicy {
             guard let value = session.station.sentExchangeFields[stationGrid.sentFieldID]?.normalized,
@@ -922,6 +978,7 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
         issues += aggregateIssues(fields: qso.exchange.receivedFields,
                                   descriptors: metadata.entry.exchange.receivedFields,
                                   aggregate: qso.exchange.normalizedReceived, direction: "received")
+        issues += contactEligibilityIssues(qso, session: session)
         let geographic = geographicEvaluation(qso, session: session)
         issues += geographic.issues
         let invalid = issues.contains { $0.severity == .error }
@@ -951,6 +1008,34 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
             }
         }
         return definition.draft.scoring.defaultPoints
+    }
+
+    private func contactEligibilityIssues(_ qso: ContestQSO,
+                                          session: ContestSessionSnapshot) -> [ContestValidationIssue] {
+        guard case let .outsideEntitySetContactsOnlyEntitySet(policy) =
+                definition.draft.eligibilityPolicy else { return [] }
+        guard let stationEntity = session.station.entity, validEntitySnapshot(stationEntity) else {
+            return [.init(code: "unresolvedStationEntity", field: "station.entity",
+                          message: "Directional entrant eligibility requires an immutable resolved station entity.")]
+        }
+        guard let contactedEntity = qso.entity, validEntitySnapshot(contactedEntity) else {
+            return [.init(code: "unresolvedEntity", field: "entity",
+                          message: "Directional contact eligibility requires an immutable resolved contacted entity.")]
+        }
+        if !policy.privilegedEntityADIFs.contains(stationEntity.adif) &&
+            !policy.privilegedEntityADIFs.contains(contactedEntity.adif) {
+            return [.init(code: "ineligibleContact", field: "entity",
+                          message: "This entrant may contact only an entity admitted by the directional eligibility policy.")]
+        }
+        return []
+    }
+
+    private func validEntitySnapshot(_ entity: ContestEntitySnapshot) -> Bool {
+        entity.adif > 0 &&
+            !entity.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !entity.countryPrefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !entity.continent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            (1...40).contains(entity.cqZone)
     }
 
     private func dupeKey(_ qso: ContestQSO) -> String? {
