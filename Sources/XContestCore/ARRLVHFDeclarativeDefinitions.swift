@@ -94,6 +94,6 @@ public enum ARRLVHFDeclarativeDefinitions {
         case .june: file = "arrl_vhf_jun.py"
         case .september: file = "arrl_vhf_sep.py"
         }
-        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); source-preview operator archive; schedule, category, rover, digital, and >2.4GHz coverage pending"
+        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus 2300.0 executable defect; source-preview operator archive; schedule, category, rover, digital, and >2.4GHz coverage pending"
     }
 }

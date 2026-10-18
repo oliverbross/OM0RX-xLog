@@ -13,7 +13,9 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
             let row = try XCTUnwrap(fixture[season.rawValue])
             let draft = ARRLVHFDeclarativeDefinitions.draft(for: season)
             XCTAssertEqual(row.sha256, ARRLVHFDeclarativeDefinitions.sourceSHA256(for: season))
-            XCTAssertEqual(row.bandPoints, ARRLVHFDeclarativeDefinitions.points(for: season))
+            XCTAssertEqual(row.officialPreviewBandPoints, ARRLVHFDeclarativeDefinitions.points(for: season))
+            XCTAssertEqual(row.pinnedExecutableBandPoints["13cm"], 0)
+            XCTAssertNotEqual(row.pinnedExecutableBandPoints, row.officialPreviewBandPoints)
             XCTAssertEqual(draft.id, "arrl-vhf-\(season.rawValue)")
             XCTAssertEqual(draft.version, "1.0.0-source-preview")
             XCTAssertEqual(draft.edition, "contest-sw-26.10.11")
@@ -37,7 +39,8 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
             }
             let score = try ContestEngine.score(contacts, session: session, rule: rule)
             let row = try XCTUnwrap(fixture[season.rawValue])
-            XCTAssertEqual(score.qsos.map(\.points), bands.map { row.bandPoints[$0]! }, season.rawValue)
+            XCTAssertEqual(score.qsos.map(\.points), bands.map { row.officialPreviewBandPoints[$0]! },
+                           season.rawValue)
             XCTAssertEqual(score.totalPoints, row.allBandPoints, season.rawValue)
             XCTAssertEqual(score.multiplierCount, row.allBandMultiplierCount, season.rawValue)
             XCTAssertEqual(score.claimedScore, row.allBandScore, season.rawValue)
@@ -128,7 +131,8 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         let season: String
         let path: String
         let sha256: String
-        let bandPoints: [String: Int64]
+        let officialPreviewBandPoints: [String: Int64]
+        let pinnedExecutableBandPoints: [String: Int64]
         let allBandPoints: Int64
         let allBandMultiplierCount: Int64
         let allBandScore: Int64
