@@ -179,12 +179,13 @@ public struct ContestQSO: Codable, Hashable, Sendable, Identifiable {
     public let operatorCallsign: String
     public let stationLocation: String
     public let provenance: ContestQSOProvenance
+    public let operatorStyle: ContestOperatorStyle?
 
     public init(id: UUID, sessionID: UUID, timestampUTC: Date, callsign: String, band: String,
                 mode: String, frequencyHz: Int64, rstSent: String, rstReceived: String,
                 exchange: ContestExchangeSnapshot, entity: ContestEntitySnapshot?,
                 operatorCallsign: String = "", stationLocation: String = "",
-                provenance: ContestQSOProvenance) {
+                provenance: ContestQSOProvenance, operatorStyle: ContestOperatorStyle? = nil) {
         self.id = id
         self.sessionID = sessionID
         self.timestampUTC = timestampUTC
@@ -199,6 +200,51 @@ public struct ContestQSO: Codable, Hashable, Sendable, Identifiable {
         self.operatorCallsign = operatorCallsign.uppercased()
         self.stationLocation = stationLocation
         self.provenance = provenance
+        self.operatorStyle = operatorStyle
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, sessionID, timestampUTC, callsign, band, mode, frequencyHz
+        case rstSent, rstReceived, exchange, entity, operatorCallsign, stationLocation
+        case provenance, operatorStyle
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        sessionID = try values.decode(UUID.self, forKey: .sessionID)
+        timestampUTC = try values.decode(Date.self, forKey: .timestampUTC)
+        callsign = try values.decode(String.self, forKey: .callsign)
+        band = try values.decode(String.self, forKey: .band)
+        mode = try values.decode(String.self, forKey: .mode)
+        frequencyHz = try values.decode(Int64.self, forKey: .frequencyHz)
+        rstSent = try values.decode(String.self, forKey: .rstSent)
+        rstReceived = try values.decode(String.self, forKey: .rstReceived)
+        exchange = try values.decode(ContestExchangeSnapshot.self, forKey: .exchange)
+        entity = try values.decodeIfPresent(ContestEntitySnapshot.self, forKey: .entity)
+        operatorCallsign = try values.decode(String.self, forKey: .operatorCallsign)
+        stationLocation = try values.decode(String.self, forKey: .stationLocation)
+        provenance = try values.decode(ContestQSOProvenance.self, forKey: .provenance)
+        operatorStyle = try values.decodeIfPresent(ContestOperatorStyle.self, forKey: .operatorStyle)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(sessionID, forKey: .sessionID)
+        try values.encode(timestampUTC, forKey: .timestampUTC)
+        try values.encode(callsign, forKey: .callsign)
+        try values.encode(band, forKey: .band)
+        try values.encode(mode, forKey: .mode)
+        try values.encode(frequencyHz, forKey: .frequencyHz)
+        try values.encode(rstSent, forKey: .rstSent)
+        try values.encode(rstReceived, forKey: .rstReceived)
+        try values.encode(exchange, forKey: .exchange)
+        try values.encodeIfPresent(entity, forKey: .entity)
+        try values.encode(operatorCallsign, forKey: .operatorCallsign)
+        try values.encode(stationLocation, forKey: .stationLocation)
+        try values.encode(provenance, forKey: .provenance)
+        try values.encodeIfPresent(operatorStyle, forKey: .operatorStyle)
     }
 }
 

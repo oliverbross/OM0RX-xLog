@@ -51,6 +51,7 @@ mod workspace_window_runtime;
 mod canvas_close;
 mod operating_module;
 mod contest_window_context;
+mod contest_surface;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -1631,6 +1632,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
+    let layout_refresh_scope = workspace_layout_refresh_scope(method, &request);
+    let contest_layout_context = if layout_refresh_scope == workspace_windows::WorkspaceWindowScope::Contesting {
+        Some(contest_window_context::resolve_workspace(request["params"]["generation"].as_str()
+            .ok_or("The contest workspace generation is missing.")?)?)
+    } else { None };
     let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; if let Some(selection) = selection { selection.control(request) }
         else if rotor_configuration_save {
             rotor_session::save_configuration(request)
@@ -1687,7 +1693,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
             response["ok"] == true && response["result"]["status"] == "applied");
-        if let Err(error) = workspace_window_runtime::refresh(&app, force) {
+        let refresh = match contest_layout_context {
+            Some(context) => workspace_window_runtime::contest_refresh(&app, context, force),
+            None => workspace_window_runtime::refresh(&app, force),
+        };
+        if let Err(error) = refresh {
             eprintln!("Could not reconcile saved workspace windows: {error}");
         }
     }
@@ -1699,6 +1709,14 @@ fn validate_worker_request_caller(label: &str) -> Result<(), String> {
         return Err("Contest native windows use the contest surface action owner.".into());
     }
     Ok(())
+}
+
+fn workspace_layout_refresh_scope(method: &str, request: &serde_json::Value) -> workspace_windows::WorkspaceWindowScope {
+    if method == "workspace_layout_apply" && request["params"]["scope"] == "contesting" {
+        workspace_windows::WorkspaceWindowScope::Contesting
+    } else {
+        workspace_windows::WorkspaceWindowScope::NormalLogging
+    }
 }
 
 #[tauri::command]
@@ -1968,6 +1986,65 @@ async fn contest_surface_context_close(window: tauri::WebviewWindow, app: tauri:
     if context.operating_context != operating_context { return Err("That contest window belongs to an expired operating context.".into()); }
     tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_closed(&app, context))
         .await.map_err(|_| "Contest window context task failed".to_string())?
+}
+
+fn contest_surface_main_context(window: &tauri::WebviewWindow, operating_context: &str,
+    session_id: &str, workspace_generation: &str) -> Result<contest_window_context::ContestWindowContext, String> {
+    validate_contest_surface_main_caller(window.label())?;
+    let context = contest_window_context::resolve(session_id, workspace_generation)?;
+    if context.operating_context != operating_context { return Err("That contest surface belongs to an expired operating context.".into()); }
+    Ok(context)
+}
+
+fn validate_contest_surface_main_caller(label: &str) -> Result<(), String> {
+    if label == "main" { Ok(()) }
+    else { Err("Only the main contest workspace can own contest surface actions.".into()) }
+}
+
+#[tauri::command]
+fn contest_surface_action(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    envelope: serde_json::Value) -> Result<serde_json::Value, String> {
+    let receipt = contest_surface::submit(window.label(), envelope)?;
+    let _ = app.emit("xlog:contest-surface", ());
+    Ok(receipt)
+}
+
+#[tauri::command]
+fn contest_surface_action_next(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, session_i_d: String, workspace_generation: String)
+    -> Result<Option<serde_json::Value>, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    let action = contest_surface::next(&context)?;
+    if action.is_some() { let _ = app.emit("xlog:contest-surface", ()); }
+    Ok(action)
+}
+
+#[tauri::command]
+fn contest_surface_action_complete(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, session_i_d: String, workspace_generation: String, request_i_d: String,
+    outcome: String, message: Option<String>, projection_revision: u64) -> Result<serde_json::Value, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    let receipt = contest_surface::complete(&context, &request_i_d, &outcome, message, projection_revision)?;
+    let _ = app.emit("xlog:contest-surface", ());
+    Ok(receipt)
+}
+
+#[tauri::command]
+fn contest_surface_publish(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, scope: String, session_i_d: String, workspace_generation: String,
+    panel_i_d: String, projection_revision: u64, projection: serde_json::Value) -> Result<(), String> {
+    if scope != "contesting" { return Err("The contest surface scope is invalid.".into()); }
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    contest_surface::publish(&context, &panel_i_d, projection_revision, projection)?;
+    let _ = app.emit("xlog:contest-surface", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn contest_surface_snapshot(window: tauri::WebviewWindow, session_i_d: String,
+    workspace_generation: String) -> Result<serde_json::Value, String> {
+    let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
+    contest_surface::snapshot(window.label(), &context)
 }
 
 fn validate_workspace_window_scope_caller(label: &str, scope: Option<&str>, mutation: bool) -> Result<(), String> {
@@ -2370,7 +2447,9 @@ fn main() {
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile, contest_surface_context_close, workspace_mode_present, workspace_canvas_close_ack,
+            workspace_windows_status, workspace_windows_reconcile, contest_surface_context_close,
+            contest_surface_action, contest_surface_action_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
+            workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
@@ -2482,6 +2561,24 @@ mod workspace_layout_tests {
         assert!(super::validate_worker_request_caller("logbook").is_ok());
         for label in ["contest--active-qso", "contest--logbook", "contest--unknown"] {
             assert!(super::validate_worker_request_caller(label).is_err());
+            assert!(super::validate_contest_surface_main_caller(label).is_err());
+        }
+        assert!(super::validate_contest_surface_main_caller("main").is_ok());
+    }
+
+    #[test]
+    fn workspace_layout_refresh_dispatch_is_scope_exact() {
+        assert_eq!(super::workspace_layout_refresh_scope("workspace_layout_apply",
+            &json!({"params":{"scope":"contesting","generation":"workspace"}})),
+            crate::workspace_windows::WorkspaceWindowScope::Contesting);
+        for request in [
+            json!({"params":{"generation":"workspace"}}),
+            json!({"params":{"scope":"normal_logging","generation":"workspace"}}),
+            json!({"params":{"scope":"contesting","generation":"workspace"}}),
+        ] {
+            let method = if request["params"]["scope"] == "contesting" { "backup_restore" } else { "workspace_layout_apply" };
+            assert_eq!(super::workspace_layout_refresh_scope(method, &request),
+                crate::workspace_windows::WorkspaceWindowScope::NormalLogging);
         }
     }
 

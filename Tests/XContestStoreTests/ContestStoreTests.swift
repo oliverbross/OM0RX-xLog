@@ -489,6 +489,28 @@ final class ContestStoreTests: XCTestCase {
         _ = try await scoreWriting.value
         XCTAssertEqual(score.revision, 5)
         XCTAssertEqual(score.score.qsos.count, 2)
+
+        let statisticsStart = AsyncGate()
+        await reader.installReadSnapshotHookForTesting {
+            Task { await statisticsStart.open() }
+            Thread.sleep(forTimeInterval: 0.15)
+        }
+        let statisticsWriting = Task {
+            await statisticsStart.wait()
+            let serial = try await writer.reserveSerial(reservationID: self.fixedUUID(546), serialScope: .session,
+                                                        scopeValue: "", scope: self.mutation(8, revision: 7, digest: "r4", draftID: self.draftID),
+                                                        committedAt: self.baseDate.addingTimeInterval(7))
+            return try await writer.commitQSO(self.makeQSO(id: self.fixedUUID(547), callsign: "JA1AAA", sent: serial.reservation.transmittedText),
+                                              reservationID: serial.reservation.id,
+                                              scope: self.mutation(9, revision: 8, digest: "q4", draftID: self.draftID),
+                                              committedAt: self.baseDate.addingTimeInterval(8))
+        }
+        let statistics = try await reader.rateStatisticsSnapshot(
+            sessionID: sessionID, asOfUTC: baseDate.addingTimeInterval(2_000))
+        _ = try await statisticsWriting.value
+        XCTAssertEqual(statistics.revision, 7)
+        XCTAssertEqual(statistics.statistics.fullLogQSOs, 3)
+        XCTAssertEqual(statistics.statistics.loggedQSOs, 3)
         await reader.installReadSnapshotHookForTesting(nil)
     }
 
@@ -825,6 +847,90 @@ final class ContestStoreTests: XCTestCase {
                                                  committedAt: baseDate.addingTimeInterval(33))
         XCTAssertEqual(next.reservation.number, 4)
         XCTAssertEqual(second.qso.timestampUTC, first.qso.timestampUTC)
+    }
+
+    func testRateStatisticsSnapshotTracksCorrectionDeletionPromotionAndRestart() async throws {
+        let url = databaseURL()
+        var store: SQLiteContestStore? = try SQLiteContestStore(databaseURL: url)
+        _ = try await create(try XCTUnwrap(store))
+        let first = try await commitWPX(try XCTUnwrap(store), qsoID: fixedUUID(980), callsign: "K1ABC",
+                                        revision: 1, requestBase: 980, operatorStyle: .run)
+        _ = try await commitWPX(try XCTUnwrap(store), qsoID: fixedUUID(981), callsign: "K1ABC",
+                                revision: 3, requestBase: 982, operatorStyle: .searchAndPounce)
+        let asOf = baseDate.addingTimeInterval(2_000)
+
+        let duplicated = try await store?.rateStatisticsSnapshot(sessionID: sessionID, asOfUTC: asOf)
+        XCTAssertEqual(duplicated?.statistics.loggedQSOs, 2)
+        XCTAssertEqual(duplicated?.statistics.acceptedQSOs, 1)
+        XCTAssertEqual(duplicated?.statistics.duplicateQSOs, 1)
+        XCTAssertEqual(duplicated?.statistics.total.distinctWPXPrefixes, 1)
+        XCTAssertEqual(duplicated?.statistics.totalOperatorStyles,
+                       .init(run: 1, searchAndPounce: 1, unknown: 0))
+
+        let commitReplay = try await store?.commitQSO(
+            first.qso,
+            reservationID: fixedUUID(1_080),
+            scope: mutation(981, revision: 2, digest: "commit-980", draftID: draftID),
+            committedAt: baseDate.addingTimeInterval(9_999))
+        XCTAssertEqual(commitReplay, first)
+
+        let correctedQSO = changing(first.qso, callsign: "DL1AAA")
+        let correctionScope = mutation(986, revision: 5, digest: "rate-correct", draftID: nil)
+        let correction = try await store?.correctQSO(
+            correctedQSO, reason: "Fix copied call", operationTimestamp: baseDate.addingTimeInterval(30),
+            scope: correctionScope, committedAt: baseDate.addingTimeInterval(31))
+        let correctionReplay = try await store?.correctQSO(
+            correctedQSO, reason: "Fix copied call", operationTimestamp: baseDate.addingTimeInterval(30),
+            scope: correctionScope, committedAt: baseDate.addingTimeInterval(9_999))
+        XCTAssertEqual(correctionReplay, correction)
+        let corrected = try await store?.rateStatisticsSnapshot(sessionID: sessionID, asOfUTC: asOf)
+        XCTAssertEqual(corrected?.statistics.acceptedQSOs, 2)
+        XCTAssertEqual(corrected?.statistics.duplicateQSOs, 0)
+        XCTAssertEqual(corrected?.statistics.total.distinctWPXPrefixes, 2)
+        XCTAssertEqual(corrected?.statistics.totalOperatorStyles,
+                       .init(run: 1, searchAndPounce: 1, unknown: 0))
+
+        _ = try await store?.deleteQSO(id: first.qso.id, reason: "Remove bad row",
+                                       operationTimestamp: baseDate.addingTimeInterval(32),
+                                       scope: mutation(987, revision: 6, digest: "rate-delete", draftID: nil),
+                                       committedAt: baseDate.addingTimeInterval(33))
+        let afterDelete = try await store?.rateStatisticsSnapshot(sessionID: sessionID, asOfUTC: asOf)
+        XCTAssertEqual(afterDelete?.statistics.loggedQSOs, 1)
+        XCTAssertEqual(afterDelete?.statistics.acceptedQSOs, 1)
+        XCTAssertEqual(afterDelete?.statistics.duplicateQSOs, 0)
+        XCTAssertEqual(afterDelete?.statistics.total.distinctWPXPrefixes, 1)
+
+        store = nil
+        let reopened = try SQLiteContestStore(databaseURL: url)
+        let replayed = try await reopened.rateStatisticsSnapshot(sessionID: sessionID, asOfUTC: asOf)
+        XCTAssertEqual(replayed, afterDelete)
+        XCTAssertEqual(replayed.statistics.totalOperatorStyles,
+                       .init(run: 0, searchAndPounce: 1, unknown: 0))
+    }
+
+    func testRateStatisticsReadsAreWriteFreeRefreshTimeAndUseBandPlanOrder() async throws {
+        let url = databaseURL()
+        let store = try SQLiteContestStore(databaseURL: url)
+        _ = try await create(store)
+        _ = try await commitWPX(store, qsoID: fixedUUID(990), callsign: "K1ABC",
+                                revision: 1, requestBase: 990, band: "10m", frequencyHz: 28_025_000)
+        _ = try await commitWPX(store, qsoID: fixedUUID(991), callsign: "DL1AAA",
+                                revision: 3, requestBase: 992, band: "20m", frequencyHz: 14_025_000)
+        let beforeDatabase = try Data(contentsOf: url)
+        let walURL = URL(fileURLWithPath: url.path + "-wal")
+        let beforeWAL = try? Data(contentsOf: walURL)
+
+        let first = try await store.rateStatisticsSnapshot(
+            sessionID: sessionID, asOfUTC: baseDate.addingTimeInterval(20))
+        let later = try await store.rateStatisticsSnapshot(
+            sessionID: sessionID, asOfUTC: baseDate.addingTimeInterval(4_000))
+
+        XCTAssertEqual(first.revision, later.revision)
+        XCTAssertEqual(first.statistics.currentHourQSOs, 2)
+        XCTAssertEqual(later.statistics.currentHourQSOs, 0)
+        XCTAssertEqual(first.statistics.bands.map(\.band), ["20m", "10m"])
+        XCTAssertEqual(try Data(contentsOf: url), beforeDatabase)
+        XCTAssertEqual(try? Data(contentsOf: walURL), beforeWAL)
     }
 
     func testCorrectionReplaySurvivesLaterDeleteAndReopenWhileNewRequestsSeeTombstone() async throws {
@@ -1203,13 +1309,14 @@ final class ContestStoreTests: XCTestCase {
     }
 
     private func makeQSO(id: UUID, callsign: String, sent: String, received: String = "101",
-                         band: String = "20m", frequencyHz: Int64 = 14_025_000) -> ContestQSO {
+                         band: String = "20m", frequencyHz: Int64 = 14_025_000,
+                         operatorStyle: ContestOperatorStyle? = nil) -> ContestQSO {
         ContestQSO(id: id, sessionID: sessionID, timestampUTC: baseDate.addingTimeInterval(10), callsign: callsign,
                    band: band, mode: "CW", frequencyHz: frequencyHz, rstSent: "599", rstReceived: "599",
                    exchange: ContestExchangeSnapshot(rawSent: sent, normalizedSent: sent,
                                                      rawReceived: received, normalizedReceived: received),
                    entity: usa, operatorCallsign: "OM0RX", stationLocation: "JN98",
-                   provenance: ContestQSOProvenance(source: .operatorEntry))
+                   provenance: ContestQSOProvenance(source: .operatorEntry), operatorStyle: operatorStyle)
     }
 
     private func changing(_ qso: ContestQSO, callsign: String) -> ContestQSO {
@@ -1217,7 +1324,8 @@ final class ContestStoreTests: XCTestCase {
                    callsign: callsign, band: qso.band, mode: qso.mode, frequencyHz: qso.frequencyHz,
                    rstSent: qso.rstSent, rstReceived: qso.rstReceived, exchange: qso.exchange,
                    entity: qso.entity, operatorCallsign: qso.operatorCallsign,
-                   stationLocation: qso.stationLocation, provenance: qso.provenance)
+                   stationLocation: qso.stationLocation, provenance: qso.provenance,
+                   operatorStyle: qso.operatorStyle)
     }
 
     private func changingReceived(_ qso: ContestQSO, received: String) -> ContestQSO {
@@ -1239,17 +1347,21 @@ final class ContestStoreTests: XCTestCase {
                    rstSent: qso.rstSent, rstReceived: qso.rstReceived, exchange: exchange ?? qso.exchange,
                    entity: entity ?? qso.entity, operatorCallsign: operatorCallsign ?? qso.operatorCallsign,
                    stationLocation: stationLocation ?? qso.stationLocation,
-                   provenance: provenance ?? qso.provenance)
+                   provenance: provenance ?? qso.provenance, operatorStyle: qso.operatorStyle)
     }
 
     private func commitWPX(_ store: SQLiteContestStore, qsoID: UUID, callsign: String,
-                           revision: UInt64, requestBase: Int) async throws -> ContestQSOCommitResult {
+                           revision: UInt64, requestBase: Int, band: String = "20m",
+                           frequencyHz: Int64 = 14_025_000,
+                           operatorStyle: ContestOperatorStyle? = nil) async throws -> ContestQSOCommitResult {
         let reserved = try await store.reserveSerial(reservationID: fixedUUID(requestBase + 100), serialScope: .session,
                                                      scopeValue: "",
                                                      scope: mutation(requestBase, revision: revision,
                                                                      digest: "reserve-\(requestBase)", draftID: draftID),
                                                      committedAt: baseDate.addingTimeInterval(Double(requestBase)))
-        let qso = makeQSO(id: qsoID, callsign: callsign, sent: reserved.reservation.transmittedText)
+        let qso = makeQSO(id: qsoID, callsign: callsign, sent: reserved.reservation.transmittedText,
+                          band: band, frequencyHz: frequencyHz,
+                          operatorStyle: operatorStyle)
         return try await store.commitQSO(qso, reservationID: reserved.reservation.id,
                                          scope: mutation(requestBase + 1, revision: revision + 1,
                                                          digest: "commit-\(requestBase)", draftID: draftID),
