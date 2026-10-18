@@ -16,6 +16,7 @@ public enum ContestDeclarativeDupePolicy: String, Codable, Hashable, Sendable {
 
 public enum ContestDeclarativeMultiplierPolicy: String, Codable, Hashable, Sendable {
     case none
+    case uniqueCallsign
 }
 
 public enum ContestDeclarativeEligibilityPolicy: Codable, Hashable, Sendable {
@@ -218,8 +219,12 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
         if draft.supportedBands.isEmpty || draft.supportedModes.isEmpty { result.append("bands and modes are required") }
         let coherentEntry = draft.entry.isCoherent(supportedModes: draft.supportedModes)
         if !coherentEntry { result.append("entry descriptor is incoherent") }
-        if draft.entry.scorePolicy != .pointsOnly { result.append("pilot requires pointsOnly scoring") }
-        if draft.multiplierPolicy != .none { result.append("pilot supports multiplierPolicy none only") }
+        switch (draft.entry.scorePolicy, draft.multiplierPolicy) {
+        case (.pointsOnly, .none), (.pointsTimesMultipliers, .uniqueCallsign):
+            break
+        default:
+            result.append("score and multiplier policies are incompatible")
+        }
         if draft.exportPolicy != .unsupported { result.append("pilot export must remain unsupported") }
         if draft.scoring.defaultPoints < 0 { result.append("default points must be nonnegative") }
         guard coherentEntry else { return result }
@@ -294,8 +299,7 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
         if qso.callsign == session.station.callsign {
             issues.append(.init(code: "selfContact", field: "callsign", message: "A station cannot contact itself."))
         }
-        if qso.exchange.sentFields != session.station.sentExchangeFields ||
-            qso.exchange.normalizedSent != session.station.sentExchange {
+        if !sentExchangeMatches(qso, session: session) {
             issues.append(.init(code: "sentExchangeMismatch", field: "exchange.sent", message: "Sent exchange must match the session snapshot."))
         }
         issues += aggregateIssues(fields: qso.exchange.sentFields,
@@ -306,7 +310,7 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
                                   aggregate: qso.exchange.normalizedReceived, direction: "received")
         let invalid = issues.contains { $0.severity == .error }
         return .init(validation: issues, dupeKey: dupeKey(qso), points: invalid ? 0 : points(qso),
-                     multiplierCandidates: [])
+                     multiplierCandidates: invalid ? [] : multiplierCandidates(qso))
     }
 
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
@@ -329,6 +333,29 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
         case .perBandMode: return "\(qso.callsign)|\(qso.band)|\(qso.mode)"
         case .none: return nil
         }
+    }
+
+    private func multiplierCandidates(_ qso: ContestQSO) -> Set<ContestMultiplierKey> {
+        switch definition.draft.multiplierPolicy {
+        case .none:
+            return []
+        case .uniqueCallsign:
+            return [.init(kind: "callsign", value: qso.callsign, scope: "session")]
+        }
+    }
+
+    private func sentExchangeMatches(_ qso: ContestQSO, session: ContestSessionSnapshot) -> Bool {
+        guard let serialFieldID = metadata.entry.allocatedSerialField?.id else {
+            return qso.exchange.sentFields == session.station.sentExchangeFields &&
+                qso.exchange.normalizedSent == session.station.sentExchange
+        }
+        var nonserial = qso.exchange.sentFields
+        nonserial.removeValue(forKey: serialFieldID)
+        let stationDescriptors = metadata.entry.exchange.sentFields.filter { $0.id != serialFieldID }
+        return nonserial == session.station.sentExchangeFields &&
+            session.station.sentExchange == stationDescriptors.compactMap {
+                session.station.sentExchangeFields[$0.id]?.normalized
+            }.joined(separator: " ")
     }
 
     private func aggregateIssues(fields: [String: ContestExchangeFieldValue],
