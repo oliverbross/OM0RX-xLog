@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, onContestSurfaceWake,
+import { completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   publishContestSurface, readContestSurfaceSnapshot, submitContestSurfaceAction } from "./contestSurfaceNative";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), tauri: true }));
@@ -45,6 +45,16 @@ describe("contest native surface bridge", () => {
       { ...context, requestID: action.requestID, outcome: "applied", projectionRevision: 5 }]]);
     native.invoke.mockResolvedValue({ ...action, workspaceGeneration: "00000000-0000-4000-8000-000000000009" });
     await expect(nextContestSurfaceAction(context)).rejects.toThrow("could not be verified");
+  });
+
+  it("accepts only an exact same-context Escape from the dedicated priority take", async () => {
+    const escape={...action,action:"entry_operator_key" as const,
+      params:{draftID:"draft-1",expectedDraftRevision:4,key:"Escape" as const,focusedField:"callsign" as const}};
+    native.invoke.mockResolvedValueOnce(escape);
+    await expect(nextContestSurfaceEscape(context)).resolves.toEqual(escape);
+    expect(native.invoke).toHaveBeenCalledWith("contest_surface_escape_next",context);
+    native.invoke.mockResolvedValue(action);
+    await expect(nextContestSurfaceEscape(context)).rejects.toThrow("Escape action could not be verified");
   });
 
   it("validates a panel projection before publishing", async () => {

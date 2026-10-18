@@ -202,6 +202,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
       queueMicrotask(()=>native.wake?.());return {requestID:args.requestID,status:"queued"};}
     if(command==="contest_surface_action_next"){const action=queue.shift()??null;if(action){receipts=[{requestID:action.requestID,status:"uncertain",message:null,projectionRevision:bridgeRevision}];
       queueMicrotask(()=>native.wake?.());}return action;}
+    if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_complete"){receipts=[{requestID:args.requestID,status:args.outcome,message:args.message??null,projectionRevision:args.projectionRevision}];
       queueMicrotask(()=>native.wake?.());return;}
     if(command==="contest_surface_context_close")return;throw new Error(command);

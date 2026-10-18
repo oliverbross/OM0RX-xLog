@@ -526,7 +526,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       throw new Error("The contest surface context is no longer active.");
     const stoppingOperator = action.action === "entry_operator_key" && action.params.key === "Escape";
     if (retiringRef.current || (busy || blockingOperation) && !stoppingOperator) throw new Error("The contest owner is busy.");
-    if (action.action.startsWith("entry_") || action.action.startsWith("assistance_")) {
+    if (!stoppingOperator && (action.action.startsWith("entry_") || action.action.startsWith("assistance_"))) {
       const params = action.params as { draftID: string; expectedDraftRevision: number };
       if (params.draftID !== currentDraft.draftID || params.expectedDraftRevision !== currentDraft.revision)
         throw new Error("The contest draft changed before this action reached the owner.");

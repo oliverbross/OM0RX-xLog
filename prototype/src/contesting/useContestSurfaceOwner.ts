@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { closeContestSurfaceContext, completeContestSurfaceAction, nextContestSurfaceAction, onContestSurfaceWake,
+import { closeContestSurfaceContext, completeContestSurfaceAction, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   publishContestSurface, type ContestSurfaceContext } from "./contestSurfaceNative";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceUUID, type ContestSurfaceActionEnvelope,
@@ -72,5 +72,40 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
     void onContestSurfaceWake(() => void drain()).then(value => { if (active) { stop = value; void drain(); } else value(); })
       .catch(cause => { if (active) report(boundedMessage(cause)); });
     return () => { active = false; stop?.(); void closeContestSurfaceContext(context).catch(() => {}); };
+  }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, report]);
+
+  useEffect(() => {
+    if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
+        !validContestSurfaceUUID(context.workspaceGeneration)) return;
+    let active = true, draining = false, dirty = false, stop: (() => void) | undefined;
+    const drainEscape = async () => {
+      if (!active) return;
+      if (draining) { dirty = true; return; }
+      draining = true;
+      try {
+        for (let count = 0; active && count < 16; count += 1) {
+          const action = await nextContestSurfaceEscape(context);
+          if (!active || action === null) break;
+          try {
+            if (projectionsRef.current["active-qso"].status !== "ready")
+              throw new Error("The requested contest panel is not available.");
+            // Escape is the sole concurrent owner action. Its context identity
+            // remains exact, while an in-flight mutation may legitimately make
+            // its presentation and draft revisions stale before it is taken.
+            await handleRef.current(action);
+          } catch (cause) {
+            await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
+              message: boundedMessage(cause), projectionRevision: revisionRef.current }).catch(error => report(boundedMessage(error)));
+            continue;
+          }
+          await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
+            projectionRevision: revisionRef.current }).catch(cause => report(boundedMessage(cause)));
+        }
+      } catch (cause) { if (active) report(boundedMessage(cause)); }
+      finally { draining = false; if (active && dirty) { dirty = false; void drainEscape(); } }
+    };
+    void onContestSurfaceWake(() => void drainEscape()).then(value => { if (active) { stop = value; void drainEscape(); } else value(); })
+      .catch(cause => { if (active) report(boundedMessage(cause)); });
+    return () => { active = false; stop?.(); };
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, report]);
 }

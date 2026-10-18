@@ -82,6 +82,17 @@ export async function nextContestSurfaceAction(context: ContestSurfaceContext): 
   return value;
 }
 
+export async function nextContestSurfaceEscape(context: ContestSurfaceContext): Promise<ContestSurfaceActionEnvelope | null> {
+  if (!contextValid(context)) throw new Error("The contest surface owner context could not be verified.");
+  const value = await invoke("contest_surface_escape_next", context);
+  if (value === null) return null;
+  if (!validContestSurfaceActionEnvelope(value) || value.operatingContext !== context.operatingContext ||
+      value.sessionID !== context.sessionID || value.workspaceGeneration !== context.workspaceGeneration ||
+      value.panelID !== "active-qso" || value.action !== "entry_operator_key" || value.params.key !== "Escape")
+    throw new Error("The queued contest surface Escape action could not be verified.");
+  return value;
+}
+
 export async function completeContestSurfaceAction(completion: ContestSurfaceCompletion): Promise<void> {
   if (!contextValid(completion) || !validContestSurfaceUUID(completion.requestID) || !uint(completion.projectionRevision) ||
       !["applied", "rejected"].includes(completion.outcome) || completion.message !== undefined &&
