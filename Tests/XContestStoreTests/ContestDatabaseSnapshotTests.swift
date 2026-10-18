@@ -45,7 +45,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
                                                               destinationDirectoryURL: destination)
         let inspected = try await snapshotter.inspectSnapshot(at: destination)
         XCTAssertEqual(metadata, inspected)
-        XCTAssertEqual(metadata.schemaVersion, 2)
+        XCTAssertEqual(metadata.schemaVersion, 3)
         XCTAssertEqual(metadata.sessions, [ContestDatabaseSessionInventory(
             sessionID: sessionID, workspaceGeneration: generation, revision: 7,
             draftCount: 1, operationCount: 7, serialCounterCount: 1,
@@ -54,7 +54,8 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
 
         let copyURL = destination.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)
         let reopened = try SQLiteContestStore(databaseURL: copyURL)
-        for table in ["sessions", "drafts", "operations", "serial_counters", "serial_reservations", "qsos", "qso_audit"] {
+        for table in ["sessions", "drafts", "operations", "serial_counters", "serial_reservations", "qsos",
+                      "qso_audit", "declarative_definitions"] {
             XCTAssertEqual(try rawTableRows(table, at: source), try rawTableRows(table, at: copyURL), table)
         }
         let reopenedSession = try await reopened.openSession(id: sessionID)
@@ -154,6 +155,51 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
                                                        destinationDirectoryURL: self.destinationDirectory())
         }
         #endif
+    }
+
+    func testVersionTwoSnapshotInspectionIsReadOnlyAndRestoredCopyMigratesOnReopen() async throws {
+        let (snapshot, database) = try await versionTwoSnapshot()
+        let originalBytes = try Data(contentsOf: database)
+
+        let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: snapshot)
+        XCTAssertEqual(metadata.schemaVersion, 2)
+        XCTAssertEqual(metadata.tableCounts["sessions"], 1)
+        XCTAssertNil(metadata.tableCounts["declarative_definitions"])
+        XCTAssertEqual(try Data(contentsOf: database), originalBytes)
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: database), "2")
+
+        let restored = databaseURL(create: false)
+        try FileManager.default.copyItem(at: database, to: restored)
+        let reopened = try SQLiteContestStore(databaseURL: restored)
+        let session = try await reopened.openSession(id: sessionID)
+        let score = try await reopened.scoreSnapshot(sessionID: sessionID)
+        XCTAssertEqual(session.session.id, sessionID)
+        XCTAssertEqual(score.score.claimedScore, 0)
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: restored), "3")
+        XCTAssertEqual(try rawScalar("SELECT COUNT(*) FROM declarative_definitions", at: restored), "0")
+
+        XCTAssertEqual(try Data(contentsOf: database), originalBytes)
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: database), "2")
+    }
+
+    func testVersionTwoSnapshotWithVersionThreeTableIsRejected() async throws {
+        let (snapshot, database) = try await versionTwoSnapshot()
+        try rawExecute("""
+            CREATE TABLE declarative_definitions(
+                rule_id TEXT NOT NULL, rule_version TEXT NOT NULL,
+                rule_edition TEXT NOT NULL, source_revision TEXT NOT NULL,
+                canonical_definition BLOB NOT NULL,
+                PRIMARY KEY(rule_id, rule_version, rule_edition, source_revision)
+            )
+            """, at: database)
+
+        do {
+            _ = try await ContestDatabaseSnapshotter().inspectSnapshot(at: snapshot)
+            XCTFail("Malformed version-two snapshot accepted")
+        } catch let error as ContestDatabaseSnapshotError {
+            guard case .invalidSchema = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: database), "2")
     }
 
     func testSchemaVersionNormalLogShapeAndCorruptionAreRejected() async throws {
@@ -326,7 +372,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         let publishedDatabase = postPublicationDestination.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)
         XCTAssertTrue(FileManager.default.fileExists(atPath: publishedDatabase.path))
         let retained = try await ContestDatabaseSnapshotter().inspectSnapshot(at: postPublicationDestination)
-        XCTAssertEqual(retained.schemaVersion, 2)
+        XCTAssertEqual(retained.schemaVersion, 3)
     }
 
     func testInspectorRejectsDatabaseSymlinksAndHardLinks() async throws {
@@ -335,7 +381,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         let store = try SQLiteContestStore(databaseURL: database)
         _ = try await create(store)
         let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: snapshot)
-        XCTAssertEqual(metadata.schemaVersion, 2)
+        XCTAssertEqual(metadata.schemaVersion, 3)
         #if !os(Windows)
         let aliasDirectory = temporaryDirectory()
         let alias = aliasDirectory.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)
@@ -526,7 +572,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: parent.path),
                        [destination.lastPathComponent])
         let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
-        XCTAssertEqual(metadata.schemaVersion, 2)
+        XCTAssertEqual(metadata.schemaVersion, 3)
     }
 
     func testWindowsHeldHandlesDenyEarlyStagingAndParentMoves() async throws {
@@ -557,7 +603,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
         XCTAssertTrue(observations.stagingMoveDenied)
         XCTAssertTrue(observations.parentMoveDenied)
         let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
-        XCTAssertEqual(metadata.schemaVersion, 2)
+        XCTAssertEqual(metadata.schemaVersion, 3)
     }
 
     func testWindowsDatabaseChildClosesBeforePublicationWhileDirectoryPinsRemain() async throws {
@@ -603,7 +649,7 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
             "late-move-restored",
         ])
         let metadata = try await ContestDatabaseSnapshotter().inspectSnapshot(at: destination)
-        XCTAssertEqual(metadata.schemaVersion, 2)
+        XCTAssertEqual(metadata.schemaVersion, 3)
     }
 
     func testWindowsErrorAfterDatabaseChildCloseCleansOwnedStaging() async throws {
@@ -690,6 +736,16 @@ final class ContestDatabaseSnapshotTests: XCTestCase {
     private func create(_ store: SQLiteContestStore) async throws -> ContestSessionCreationResult {
         try await store.createSession(session(), metadata: ContestSessionMetadata(name: "Snapshot fixture", operatorCallsign: "OM0RX", operatorCategory: "single-op"),
                                       initialDraft: draft(revision: 1), scope: mutation(1, revision: 0, digest: "create"), committedAt: baseDate)
+    }
+
+    private func versionTwoSnapshot() async throws -> (directory: URL, database: URL) {
+        let directory = temporaryDirectory()
+        let database = directory.appendingPathComponent(ContestDatabaseSnapshotter.databaseFileName)
+        var store: SQLiteContestStore? = try SQLiteContestStore(databaseURL: database)
+        _ = try await create(store!)
+        store = nil
+        try rawExecute("DROP TABLE declarative_definitions; PRAGMA user_version=2", at: database)
+        return (directory, database)
     }
 
     private static let longVerificationQuery = """

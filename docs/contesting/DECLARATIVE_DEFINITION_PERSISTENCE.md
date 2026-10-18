@@ -1,0 +1,11 @@
+# Declarative contest definition persistence
+
+Schema version 3 adds `declarative_definitions`, keyed by every field of `ContestRuleIdentity`. Each row stores the exact canonical `ContestDeclarativeDefinition` bytes whose SHA-256 digest is the identity's `sourceRevision`.
+
+`ContestDurableRepository.createDeclarativeSession` is the bounded admission API for a future reviewed Create Contest flow. It accepts canonical definition bytes and the normal session, metadata, draft, mutation scope, and commit timestamp. Before starting the create transaction, the SQLite implementation strictly decodes the definition, validates its supported declarative policies, recomputes its digest, requires the decoded identity to equal the session identity, limits the payload to 256 KiB, and requires byte-for-byte canonical encoding. It does not execute Python, arbitrary code, expressions, network calls, or runtime AI.
+
+Inside the existing create transaction, the store inserts the definition or verifies that an existing row for the same identity has identical bytes. The definition, session, draft, and operation receipt therefore commit or roll back together. The canonical definition bytes participate in the operation's canonical payload, so exact retries replay and changed retries conflict. A failed session validation cannot leave an orphan definition row.
+
+On store initialization, every persisted definition is strictly decoded, re-encoded, and checked against its row identity. Any corrupt bytes, unknown policy, digest mismatch, noncanonical representation, or row identity mismatch fails closed. Runtime rule resolution checks persisted definitions before the injected static registry, so a bad persisted row cannot silently fall back to a same-identity built-in rule. Sessions without a persisted definition continue to resolve through the static registry, preserving legacy behavior after the version 2 to version 3 migration.
+
+Editing an authored definition creates a new identity and database row. Existing sessions continue to resolve the bytes bound to their original identity, including after correction, restart, and database snapshot restore. Custom exports remain unsupported, and this migration does not register any declarative definition in the active catalog or expose new UI.

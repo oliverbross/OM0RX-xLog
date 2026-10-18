@@ -286,10 +286,12 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
             throw ContestDatabaseSnapshotError.integrityFailure("SQLite foreign_key_check reported violations")
         }
         let version = try scalarInt("PRAGMA user_version", on: database, operation: operation)
-        guard version == 2 else { throw ContestDatabaseSnapshotError.unsupportedSchema(version) }
-        try validateSchema(on: database, operation: operation)
+        guard let expectedShape = expectedShape(for: version) else {
+            throw ContestDatabaseSnapshotError.unsupportedSchema(version)
+        }
+        try validateSchema(expectedShape, on: database, operation: operation)
 
-        let tables = expectedSchema.keys.sorted()
+        let tables = expectedShape.tables.keys.sorted()
         var counts: [String: Int] = [:]
         for table in tables { counts[table] = try scalarInt("SELECT COUNT(*) FROM \(table)", on: database, operation: operation) }
         var sessions: [ContestDatabaseSessionInventory] = []
@@ -358,6 +360,13 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
         let columns: [IndexColumnShape]
     }
 
+    private struct ExpectedSchemaShape {
+        let tables: [String: [ExpectedColumn]]
+        let foreignKeys: [String: Set<ForeignKeyShape>]
+        let indexes: [String: Set<IndexShape>]
+        let explicitObjects: Set<String>
+    }
+
     private static let expectedSchema: [String: [ExpectedColumn]] = [
         "sessions": [col("id","TEXT",0,1), col("generation","TEXT",1,0), col("revision","INTEGER",1,0), col("snapshot","BLOB",1,0), col("metadata","BLOB",1,0), col("created_at","REAL",1,0)],
         "drafts": [col("id","TEXT",0,1), col("session_id","TEXT",1,0), col("revision","INTEGER",1,0), col("snapshot","BLOB",1,0), col("updated_at","REAL",1,0)],
@@ -366,6 +375,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
         "serial_reservations": [col("id","TEXT",0,1), col("session_id","TEXT",1,0), col("draft_id","TEXT",1,0), col("scope","TEXT",1,0), col("scope_value","TEXT",1,0), col("number","INTEGER",1,0), col("state","TEXT",1,0), col("snapshot","BLOB",1,0)],
         "qsos": [col("id","TEXT",0,1), col("session_id","TEXT",1,0), col("timestamp","REAL",1,0), col("snapshot","BLOB",1,0), col("is_deleted","INTEGER",1,0,"0"), col("deleted_at","REAL",0,0)],
         "qso_audit": [col("session_id","TEXT",1,1), col("qso_id","TEXT",1,0), col("operation","TEXT",1,0), col("before_snapshot","BLOB",1,0), col("after_snapshot","BLOB",1,0), col("reason","TEXT",1,0), col("request_id","TEXT",1,2), col("operation_timestamp","REAL",1,0), col("committed_at","REAL",1,0), col("committed_revision","INTEGER",1,0), col("record","BLOB",1,0)],
+        "declarative_definitions": [col("rule_id","TEXT",1,1), col("rule_version","TEXT",1,2), col("rule_edition","TEXT",1,3), col("source_revision","TEXT",1,4), col("canonical_definition","BLOB",1,0)],
     ]
 
     private static let expectedForeignKeys: [String: Set<ForeignKeyShape>] = [
@@ -382,6 +392,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
             fk(0, "qsos", "qso_id", "id"),
             fk(1, "sessions", "session_id", "id", onDelete: "CASCADE"),
         ],
+        "declarative_definitions": [],
     ]
 
     private static let expectedIndexes: [String: Set<IndexShape>] = [
@@ -395,12 +406,30 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                   index("c", false, ["session_id", "is_deleted", "timestamp", "id"])],
         "qso_audit": [index("pk", true, ["session_id", "request_id"]),
                        index("c", false, ["session_id", "qso_id", "committed_revision", "request_id"])],
+        "declarative_definitions": [index("pk", true, ["rule_id", "rule_version", "rule_edition", "source_revision"])],
     ]
 
     private static let expectedExplicitSchemaObjects: Set<String> = [
         "index|qso_audit_target_order|qso_audit",
         "index|qsos_session_order|qsos",
     ]
+
+    private static let expectedSchemaV2 = expectedSchema.filter { $0.key != "declarative_definitions" }
+    private static let expectedForeignKeysV2 = expectedForeignKeys.filter { $0.key != "declarative_definitions" }
+    private static let expectedIndexesV2 = expectedIndexes.filter { $0.key != "declarative_definitions" }
+
+    private static func expectedShape(for version: Int) -> ExpectedSchemaShape? {
+        switch version {
+        case 2:
+            return ExpectedSchemaShape(tables: expectedSchemaV2, foreignKeys: expectedForeignKeysV2,
+                                       indexes: expectedIndexesV2, explicitObjects: expectedExplicitSchemaObjects)
+        case 3:
+            return ExpectedSchemaShape(tables: expectedSchema, foreignKeys: expectedForeignKeys,
+                                       indexes: expectedIndexes, explicitObjects: expectedExplicitSchemaObjects)
+        default:
+            return nil
+        }
+    }
 
     private static func col(_ name: String, _ type: String, _ notNull: Int32, _ primaryKey: Int32,
                             _ defaultValue: String? = nil) -> ExpectedColumn {
@@ -420,7 +449,8 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                    columns: names.map { IndexColumnShape(name: $0, descending: false, collation: "BINARY") })
     }
 
-    private static func validateSchema(on database: OpaquePointer, operation: OperationState) throws {
+    private static func validateSchema(_ expected: ExpectedSchemaShape,
+                                       on database: OpaquePointer, operation: OperationState) throws {
         var explicitObjects = Set<String>()
         try rows("""
             SELECT type, name, tbl_name FROM sqlite_schema
@@ -433,7 +463,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                 }
                 explicitObjects.insert("\(type)|\(name)|\(table)")
             }
-        guard explicitObjects == expectedExplicitSchemaObjects else {
+        guard explicitObjects == expected.explicitObjects else {
             throw ContestDatabaseSnapshotError.invalidSchema("executable schema object set mismatch")
         }
         var tableNames: [String] = []
@@ -442,7 +472,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
             guard let name = textColumn(statement, 0) else { throw ContestDatabaseSnapshotError.invalidSchema("invalid table name") }
             tableNames.append(name)
         }
-        guard tableNames == expectedSchema.keys.sorted() else {
+        guard tableNames == expected.tables.keys.sorted() else {
             throw ContestDatabaseSnapshotError.invalidSchema("contest table set mismatch")
         }
         for table in tableNames {
@@ -456,7 +486,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                                                primaryKey: sqlite3_column_int(statement, 5),
                                                defaultValue: textColumn(statement, 4)))
             }
-            guard columns == expectedSchema[table] else {
+            guard columns == expected.tables[table] else {
                 throw ContestDatabaseSnapshotError.invalidSchema("table shape mismatch: \(table)")
             }
             var foreignKeys = Set<ForeignKeyShape>()
@@ -472,7 +502,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                                                    onUpdate: onUpdate.uppercased(), onDelete: onDelete.uppercased(),
                                                    match: match.uppercased()))
             }
-            guard foreignKeys == expectedForeignKeys[table] else {
+            guard foreignKeys == expected.foreignKeys[table] else {
                 throw ContestDatabaseSnapshotError.invalidSchema("foreign key shape mismatch: \(table)")
             }
             var indexes = Set<IndexShape>()
@@ -497,7 +527,7 @@ public final class ContestDatabaseSnapshotter: @unchecked Sendable {
                                           partial: sqlite3_column_int(statement, 4) != 0,
                                           columns: indexColumns))
             }
-            guard indexes == expectedIndexes[table] else {
+            guard indexes == expected.indexes[table] else {
                 throw ContestDatabaseSnapshotError.invalidSchema("index shape mismatch: \(table)")
             }
         }

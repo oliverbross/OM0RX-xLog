@@ -1131,7 +1131,7 @@ final class ContestStoreTests: XCTestCase {
                                                                workspaceGeneration: generationID,
                                                                requestID: commitScope.requestID,
                                                                payloadDigest: commitScope.payloadDigest)
-        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: url), 2)
+        XCTAssertEqual(try rawScalar("PRAGMA user_version", at: url), 3)
         XCTAssertEqual(sessionAfter.revision, committed.session.revision)
         XCTAssertEqual(draftAfter, draftBefore)
         XCTAssertEqual(reservationsAfter, reservationsBefore)
