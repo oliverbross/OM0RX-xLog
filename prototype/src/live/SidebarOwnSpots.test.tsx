@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import SidebarOwnSpots, { sidebarOwnSpotItems } from "./SidebarOwnSpots";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 it("keeps only recent exact-call pickups and distinguishes RBN from human spots", () => {
   const now = Date.parse("2026-10-18T03:22:00Z");
@@ -12,8 +12,9 @@ it("keeps only recent exact-call pickups and distinguishes RBN from human spots"
     { id:"2", callsign:"OM0RX", spotter:"VK8NSB", frequencyKHz:3516.2, band:"80m", mode:"CW", source:"cluster", comment:"Strong signal", arrivedAt:"2026-10-18T03:20:00Z" },
     { id:"3", callsign:"OM0RY", spotter:"PA5KT4", frequencyKHz:3515.9, band:"80m", mode:"CW", source:"rbl", comment:"+18 dB", arrivedAt:"2026-10-18T03:21:40Z" },
     { id:"4", callsign:"OM0RX", spotter:"OLD", frequencyKHz:3515.9, band:"80m", mode:"CW", source:"rbl", comment:"+1 dB", arrivedAt:"2026-10-18T03:00:00Z" },
+    { id:"5", callsign:"OM0RX", spotter:"TWELVE", frequencyKHz:3517.1, band:"80m", mode:"CW", source:"rbl", comment:"+4 dB", arrivedAt:"2026-10-18T03:10:00Z" },
   ], [], "om0rx", now);
-  expect(items.map(item => [item.spotter, item.source])).toEqual([["LZ7AA", "rbl"], ["VK8NSB", "cluster"]]);
+  expect(items.map(item => [item.spotter, item.source])).toEqual([["LZ7AA", "rbl"], ["VK8NSB", "cluster"], ["TWELVE", "rbl"]]);
 });
 
 it("polls the unfiltered archive and renders compact RBN and spotted cards", async () => {
@@ -47,5 +48,14 @@ it("shows direct RBN pickups while the cluster archive is disconnected", async (
   expect(screen.getByText("RBN")).toBeTruthy();
   expect(screen.getByTitle("+5 dB · 23 WPM · FN20")).toBeTruthy();
   expect(request).not.toHaveBeenCalled();
-  expect(rbnTransport).toHaveBeenCalledWith("own_rbn", { sinceSeconds:600, ownCall:"OM0RX" });
+  expect(rbnTransport).toHaveBeenCalledWith("own_rbn", { sinceSeconds:900, ownCall:"OM0RX" });
+});
+
+it("applies a saved display window to the empty state and direct RBN query", async () => {
+  localStorage.setItem("xlog.own-spots.window-minutes.v1", "30");
+  const request = vi.fn(async () => ({ result: { page: { rows: [] } } }));
+  const rbnTransport = vi.fn(async () => JSON.stringify({ spots: {}, call_info: {} }));
+  render(<SidebarOwnSpots request={request} ownCall="OM0RX" liveSpots={[]} connected={false} rbnTransport={rbnTransport} />);
+  await waitFor(() => expect(rbnTransport).toHaveBeenCalledWith("own_rbn", { sinceSeconds:1800, ownCall:"OM0RX" }));
+  expect(screen.getByText("No pickups in the last 30 min.")).toBeTruthy();
 });

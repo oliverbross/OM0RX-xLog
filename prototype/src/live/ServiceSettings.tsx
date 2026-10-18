@@ -12,6 +12,7 @@ import "./ServiceSettings.css";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 const QRZLookupTest = lazy(() => import("./QRZLookupTest"));
+const RadioSpotSettings = lazy(() => import("./RadioSpotSettings"));
 const SpotBridgePanel = lazy(() => import("./SpotBridgePanel"));
 const WSJTXPanel = lazy(() => import("./WSJTXPanel"));
 export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
@@ -23,7 +24,7 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   refreshCW?: () => Promise<void>; cwProvider?: string };
 const tabs = ["Station", "Radio", "Logbook", "Wavelog", "Sync", "Integrations", "Radio spots", "Cluster", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
 type Tab = typeof tabs[number];
-const tabLabels: Partial<Record<Tab, string>> = { Station: "General", Integrations: "WSJT-X", "Radio spots": "RUMlog compatibility" };
+const tabLabels: Partial<Record<Tab, string>> = { Station: "General", Integrations: "WSJT-X" };
 const settingsGroups: { label: string; tabs: readonly Tab[] }[] = [
   { label: "Station", tabs: ["Station", "Radio", "Rotator", "CW"] },
   { label: "Logbook", tabs: ["Logbook", "Wavelog", "Sync"] },
@@ -185,7 +186,10 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     <div hidden={tab !== "Radio"}>{radioSettings ?? <p>Radio setup is available in the main Settings window.</p>}</div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     {tab === "Cluster" && (clusterSettings ?? <p>Cluster settings unavailable.</p>)}
-    {tab === "Radio spots" && <Suspense fallback={<p role="status">Loading RUMlog compatibility…</p>}><SpotBridgePanel request={request} configurationOnly /></Suspense>}
+    {tab === "Radio spots" && <Suspense fallback={<p role="status">Loading radio spot settings…</p>}>
+      <RadioSpotSettings request={request} visible />
+      <SpotBridgePanel request={request} configurationOnly />
+    </Suspense>}
     {tab === "Integrations" && <Suspense fallback={<p role="status">Loading WSJT-X settings…</p>}><WSJTXPanel request={request} onImported={onExternalContact} /></Suspense>}
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
     {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">

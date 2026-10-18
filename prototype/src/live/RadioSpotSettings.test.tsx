@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import RadioSpotSettings from "./RadioSpotSettings";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("keeps every callsign, DXCC combination and shared state colour configurable", async () => {
   const request = vi.fn(async () => ({ configuration: { forwardSpotsToFlex: false, palette: { status: {} } }, flex_forwarding_available: true }));
@@ -11,6 +11,16 @@ it("keeps every callsign, DXCC combination and shared state colour configurable"
   for (const status of ["New Call", "New Band", "New Mode", "New Band+Mode", "ATNO", "C/New Band", "C/New Mode",
     "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"])
     expect(await screen.findByLabelText(`${status} radio spot colour`)).toBeTruthy();
+});
+
+it("defaults own-call spot visibility to 15 minutes and saves a changed window", async () => {
+  const request = vi.fn(async () => ({ configuration: { forwardSpotsToFlex: false, palette: { status: {} } }, flex_forwarding_available: true }));
+  render(<RadioSpotSettings request={request} visible />);
+  const select = await screen.findByLabelText("RBN and spotted display time") as HTMLSelectElement;
+  expect(select.value).toBe("15");
+  fireEvent.change(select, { target: { value: "30" } });
+  expect(select.value).toBe("30");
+  expect(localStorage.getItem("xlog.own-spots.window-minutes.v1")).toBe("30");
 });
 
 it("migrates an old FLEX preference and saves a DXCC colour policy without claiming TCI output", async () => {

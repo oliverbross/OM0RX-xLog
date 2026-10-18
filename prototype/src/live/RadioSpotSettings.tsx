@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { clusterStatusColors, paletteColor } from "./clusterPalette";
+import { ownSpotWindowMinutes, useOwnSpotWindowPreference } from "./ownSpotPreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Configuration = {
@@ -23,6 +24,7 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
   const [statusColors, setStatusColors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const ownSpotWindow = useOwnSpotWindowPreference();
   const saveToast = useSettingsSaveToast();
   async function refresh(preserveDraft = false) {
     try {
@@ -70,6 +72,15 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
   return <section className="service-radio-spots" aria-label="Radio spot output">
     <h2>Radio spot output</h2>
     <p>Choose where classified cluster spots are sent. This is independent of receiving and displaying spots in xLog.</p>
+    <fieldset>
+      <legend>RBN / Spotted panel</legend>
+      <label>Keep own-call pickups visible for <select aria-label="RBN and spotted display time" value={ownSpotWindow.minutes}
+        onChange={event => ownSpotWindow.save(Number(event.target.value))}>
+        {ownSpotWindowMinutes.map(minutes => <option key={minutes} value={minutes}>{minutes} minutes{minutes === 15 ? " · Default" : ""}</option>)}
+      </select></label>
+      <p>Saved automatically. This controls both the sidebar history query and the direct RBN pickup window.</p>
+      {ownSpotWindow.error && <p role="alert">{ownSpotWindow.error}</p>}
+    </fieldset>
     <fieldset disabled={busy || !snapshot}>
       <legend>FLEX / Maestro</legend>
       <label><input type="checkbox" checked={enabled} disabled={!snapshot?.flex_forwarding_available && !enabled}
