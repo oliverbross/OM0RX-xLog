@@ -1,0 +1,73 @@
+{
+  "capturedAt": "2026-10-18T12:35:00+09:30",
+  "branch": "codex/contest-activation-module-integration",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "firstParent": "223f395a817409cb7de678870c42c8f31c4cbd9e",
+  "mergedCheckpoint": "badfdbbe4916bffc329e05713e432613b1fe14fd",
+  "mergeMode": "git merge --no-commit --no-ff",
+  "conflicts": [],
+  "contract": {
+    "activation": "The seven immutable declarative operator-archive definitions retain catalog, create, reopen, entry, scoring, correction and export behavior.",
+    "moduleBaseline": "The module baseline retains its operator-capability panel gate and normal-log repairs.",
+    "scope": "Operator archives remain submissionReady=false; no catalog count or sponsor-submission claim is expanded."
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-activation-module-integration-swift --filter ContestDeclarativeActivationTests",
+      "result": "4 tests, 0 failures",
+      "logPath": "/tmp/xlog-activation-module-integration-activation-2026-10-18.log",
+      "logSHA256": "d5e00ba0e77f7913bbddbd8b4cfc4639351ba4169aa24cf5fc04c1a82740bbf6"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-activation-module-integration-swift --filter ContestingLaneTests",
+      "result": "22 tests, 0 failures; reused the activation scratch",
+      "logPath": "/tmp/xlog-activation-module-integration-lane-2026-10-18.log",
+      "logSHA256": "36b28bbbb49a17d1cfd7567a3f72d0ed40876d0c27290db427f058ac29585014"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run src/contesting --maxWorkers=2",
+      "result": "21 files, 206 tests, 0 failures",
+      "logPath": "/tmp/xlog-activation-module-integration-contesting-2026-10-18.log",
+      "logSHA256": "d6d08fdb69bd507d38a313de6a0a1f8b98404b9a0f3bb253a7e55d946bec551a"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run tests/operator-desk-responsive.test.ts src/live/spotActivation.test.ts src/live/QSOEditor.test.tsx tests/live-app.test.tsx src/live/LogbookColumns.test.tsx src/live/SpotHistoryPanel.test.tsx tests/detached-logbook.test.tsx src/deskMapLogbookAcceptance.test.tsx tests/manual-tune-routing.test.tsx --maxWorkers=1",
+      "result": "9 files, 176 tests, 0 failures; all nine files that failed on the older activation baseline pass after composition with 223f395",
+      "logPath": "/tmp/xlog-activation-module-integration-normal-nine-2026-10-18.log",
+      "logSHA256": "38a949377572af9a761c82213b3e5af600d02e4375cb4ca07d81e773c28077c6"
+    },
+    {
+      "command": "cd prototype && npm run build",
+      "result": "TypeScript, Vite production build and window bundle checks passed",
+      "logPath": "/tmp/xlog-activation-module-integration-build-2026-10-18.log",
+      "logSHA256": "3ee3faa8038bea3da046ebf83abad7a57620617bd9b4e95fb5a7ce01825956ca"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "mergedFiles": {
+    ".github/workflows/contest-portability.yml": "210d0adb41b71bd184ff2e55803486dc19cf1a949eb4550b2cc49b602d597a2f",
+    "Sources/XContestCore/ContestDeclarativeCatalog.swift": "b998608cfddbb528ba8557e3e6eccc59440723f14bfb54b0a55f5f4f2b017ed8",
+    "Sources/XContestStore/SQLiteContestStore.swift": "7d49982d61fedc2d1418d849003f49639d59ae11f4e90c8ca2b4af0308842549",
+    "Sources/XContestStore/StoreModels.swift": "f5b0f43dcb3e324b2233acce42158f77bdbeb4e8211a849eff35590a652e2aad",
+    "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift": "59b71f9f7120a418ae9e8f8b6286effee17d254b3c7c1f015661b4b8ce309889",
+    "Tests/XContestCoreTests/ContestDeclarativeCatalogTests.swift": "9f94e755b01ae7584eaf9d8c67abfad258e705246a8a1518228f837da0c86b66",
+    "Tests/XContestStoreTests/ContestStructuredExchangeStoreTests.swift": "deb4599eb701873ab2d24e0c168f45242d292569b0a1937c4854ea7dffaffada",
+    "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift": "fba77d0a64150e02093d5f9201c914208b18e48e84c1190e39ac89761d4ffb23",
+    "Tests/XLogPrototypeTests/ContestDeclarativeActivationTests.swift": "d186ef6f1d3c11b2efc78efa549de6dee8cd5a4bdac6d62a8790e8ecfe855ab8",
+    "Tests/XLogPrototypeTests/ContestJIDXWorkerWireTests.swift": "488da039037dd5c82a258dee742cd3fa043c96947fc22177a57574d87dc01031",
+    "Tests/XLogPrototypeTests/ContestingLaneTests.swift": "e6a22a77edcddc0f9231f8a95688f7aa251255d463385ab33ace7c9fefa332da",
+    "docs/contesting/DECLARATIVE_CONTEST_ACTIVATION.md": "aebed2260c4b609a52a8e4afce816f5969f8df2988656962f29b259d937d9452",
+    "docs/contesting/evidence/declarative-contest-activation-2026-10-18.json": "022b01d83d4b76dc06f688814b758c942c32855d7a21094bc31a85bac7f0dd05",
+    "docs/contesting/fixtures/declarative-activation-worker-wire.json": "6f3f63b9cf9edd2986c6236d872e3ef443072d136cabc27ee023860c9ca5a5f3",
+    "prototype/src/contesting/ContestExportPanel.test.tsx": "d4f1d0681facecc22a5694a2e299a1055d6fee2b895dd7587192c01e835c9ba6",
+    "prototype/src/contesting/ContestExportPanel.tsx": "75c1826fbb8d2452439bc57711b5bd45505fcf96b6e36b360f2432ef2de710be",
+    "prototype/src/contesting/ContestWorkspace.tsx": "68e7b49222b64a91db40821071f73d50185e32bed667bccdcff9434c08a6337d",
+    "prototype/src/contesting/client.test.ts": "dbcdf6d732ccaa84cf31e96e07ab4f54807ec84dc2c04f49f88ba8e137c36c04",
+    "prototype/src/contesting/client.ts": "2425193062622dee1b5cbbe2eb767a48e632df0044158a7dfe68fdebac1bf271",
+    "prototype/src/contesting/declarativeWorkerWireFixture.test.ts": "74c298f16aba49849a2aa73b270aa8682d9269c26f410549b59494eb342e81be",
+    "prototype/src/contesting/types.ts": "d968a0e57e1ce347e7a93f30729f34e8e316c3408882b6d6d020197fdaa294d7"
+  }
+}

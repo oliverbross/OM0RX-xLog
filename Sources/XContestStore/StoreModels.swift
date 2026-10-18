@@ -193,6 +193,16 @@ public struct ContestSessionReadSnapshot: Codable, Hashable, Sendable {
     public var qsoCount: Int { qsos.count }
 }
 
+public struct ContestSessionDefinitionSnapshot: Codable, Hashable, Sendable {
+    public let session: StoredContestSession
+    public let canonicalDefinitionData: Data?
+
+    public init(session: StoredContestSession, canonicalDefinitionData: Data?) {
+        self.session = session
+        self.canonicalDefinitionData = canonicalDefinitionData
+    }
+}
+
 public struct ContestDraftEvaluationSnapshot: Codable, Hashable, Sendable {
     public let validation: [ContestValidationIssue]
     public let dupeKey: String?

@@ -272,11 +272,15 @@ final class ContestingLaneTests: XCTestCase {
         let catalogLane = try ContestLane(databaseURL: catalogRoot.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
         let catalog = try await catalogLane.handle(method: "contest_catalog", params: [:])
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"])
-        XCTAssertEqual(rules.count, 16)
-        for rule in rules {
+        let legacyIDs: Set<String> = [
+            "cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
+            "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb",
+        ]
+        let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
+        XCTAssertTrue(legacyIDs.isSubset(of: catalogIDs))
+        XCTAssertEqual(rules.count, 23)
+        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 7)
+        for rule in rules.filter({ legacyIDs.contains((($0["identity"] as? [String: Any])?["id"] as? String) ?? "") }) {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
             XCTAssertEqual(entry["mode"] as? String, mode)
@@ -923,10 +927,11 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 16)
-        XCTAssertEqual(Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
-                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"])
+        XCTAssertEqual(rules.count, 23)
+        let legacyIDs: Set<String> = ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
+                        "naqp-cw", "naqp-ssb", "naqp-rtty", "arrl-rtty-roundup", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"]
+        XCTAssertTrue(legacyIDs.isSubset(of: Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })))
+        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 7)
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let operatorRules = rules.filter { $0["operatorCapability"] is [String: Any] }
         XCTAssertEqual(Set(operatorRules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),

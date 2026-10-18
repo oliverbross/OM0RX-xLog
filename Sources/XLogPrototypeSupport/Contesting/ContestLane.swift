@@ -24,6 +24,7 @@ actor ContestLane {
         JIDXCWRule(), JIDXSSBRule(), ARRLDXCWRule(), ARRLDXSSBRule(),
     ])
     private let rules: ContestRuleRegistry
+    private let declarativeCatalog: [ContestRuleIdentity: ContestDeclarativeCatalogEntry]
     private var store: SQLiteContestStore?
     private var exportLane: ContestExportLane?
     private var assistanceService: ContestSCPService?
@@ -33,11 +34,24 @@ actor ContestLane {
 
     init(databaseURL: URL, generationSource: @escaping GenerationSource,
          exportLane: ContestExportLane? = nil,
-         rules: ContestRuleRegistry? = nil) throws {
+         rules: ContestRuleRegistry? = nil,
+         declarativeDefinitions: [ContestDeclarativeDefinition]? = nil) throws {
         self.databaseURL = databaseURL
         self.generationSource = generationSource
         self.exportLane = exportLane
         self.rules = rules ?? Self.activeRules
+        let definitions = try declarativeDefinitions.map { try $0.map(ContestDeclarativeCatalogEntry.init) }
+            ?? (rules == nil ? ContestBuiltInDeclarativeCatalog.operatorArchiveEntries() : [])
+        var catalog: [ContestRuleIdentity: ContestDeclarativeCatalogEntry] = [:]
+        for entry in definitions {
+            guard catalog[entry.identity] == nil, self.rules.rule(for: entry.identity) == nil else {
+                throw ContestDefinitionError.invalidDefinition([
+                    "catalog: duplicate or conflicting rule identity \(entry.identity.id)",
+                ])
+            }
+            catalog[entry.identity] = entry
+        }
+        self.declarativeCatalog = catalog
         self.reference = try ContestReferenceData.bundled()
         try ContestDatabaseBoundary.validate(databaseURL: databaseURL)
     }
@@ -134,6 +148,50 @@ actor ContestLane {
         let created = try SQLiteContestStore(databaseURL: databaseURL, rules: rules)
         store = created
         return created
+    }
+
+    private func currentRule(for identity: ContestRuleIdentity) -> (any ContestRule)? {
+        declarativeCatalog[identity]?.rule ?? rules.rule(for: identity)
+    }
+
+    private func rule(from snapshot: ContestSessionReadSnapshot) throws -> any ContestRule {
+        if let data = snapshot.canonicalDefinitionData {
+            do {
+                let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: data)
+                guard definition.identity == snapshot.session.session.rule,
+                      try definition.canonicalStorageData() == data else {
+                    throw ContestDefinitionError.digestMismatch
+                }
+                return DeclarativeContestRule(definition: definition)
+            } catch {
+                throw ContestLaneError.confirmed("invalid_session", "The stored contest definition is invalid.")
+            }
+        }
+        guard let rule = rules.rule(for: snapshot.session.session.rule) else {
+            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
+        }
+        return rule
+    }
+
+    private func resolvedRule(for stored: StoredContestSession) async throws -> any ContestRule {
+        if let rule = currentRule(for: stored.session.rule) { return rule }
+        let snapshot = try await repository().sessionDefinitionSnapshot(id: stored.session.id)
+        guard snapshot.session == stored else {
+            throw ContestLaneError.confirmed("stale_revision", "The contest session changed; reload it before retrying.")
+        }
+        guard let data = snapshot.canonicalDefinitionData else {
+            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
+        }
+        do {
+            let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: data)
+            guard definition.identity == stored.session.rule,
+                  try definition.canonicalStorageData() == data else {
+                throw ContestDefinitionError.digestMismatch
+            }
+            return DeclarativeContestRule(definition: definition)
+        } catch {
+            throw ContestLaneError.confirmed("invalid_session", "The stored contest definition is invalid.")
+        }
     }
 
     private func exportTransport() throws -> ContestExportLane {
@@ -315,8 +373,8 @@ actor ContestLane {
                 throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed while call history was selected.")
             }
             let snapshot = try await repository().sessionReadSnapshot(id: try Wire.generationID(context.sessionID))
+            let rule = try rule(from: snapshot)
             guard let draft = snapshot.drafts.first(where: { Wire.uuidString($0.id) == context.draftID }),
-                  let rule = rules.rule(for: snapshot.session.session.rule),
                   snapshot.session.revision == UInt64(context.sessionRevision),
                   draft.revision == UInt64(context.draftRevision), draft.callsign == context.inputCallsign,
                   snapshot.session.session.rule == context.ruleIdentity,
@@ -353,7 +411,7 @@ actor ContestLane {
         let ruleIdentity = try Wire.ruleIdentity(Wire.object(params, "ruleIdentity"))
         let referenceDataVersion = try Wire.text(params, "referenceDataVersion", max: 160)
         let snapshot = try await repository().sessionReadSnapshot(id: sessionID)
-        try checked(snapshot.session, generation: generation, revision: expectedRevision)
+        try await checked(snapshot.session, generation: generation, revision: expectedRevision)
         guard snapshot.session.session.rule == ruleIdentity,
               snapshot.session.session.referenceDataVersion == referenceDataVersion,
               referenceDataVersion == reference.version,
@@ -396,12 +454,10 @@ actor ContestLane {
         let prior = try await preflightReplay(request)
         let stored = try await checkedSession(request.sessionID, generation: generation,
                                               revision: prior == nil ? request.expectedRevision : nil)
-        guard let rule = rules.rule(for: stored.session.rule) else {
-            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
-        }
+        let rule = try await resolvedRule(for: stored)
         let current = try await repository().draft(sessionID: request.sessionID, id: request.draftID!)
         let projection = rule as? any ContestRuleExchangeFieldProjection
-        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), entry: rule.metadata.entry,
+        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), metadata: rule.metadata,
                                           projection: projection.map { policy in { policy.projectExchangeFields($0) } })
         let provided = ContestDraftSnapshot(
             id: current.id, sessionID: current.sessionID,
@@ -666,9 +722,17 @@ actor ContestLane {
 
     private func catalog(_ params: [String: Any], generation: String) throws -> [String: Any] {
         try Wire.exact(params, [])
-        return ["workspaceGeneration": generation, "rules": try rules.metadata.map {
+        let staticRules = try rules.metadata.map {
             try reference.ruleWire($0, operatorCapability: operatorCapability(for: $0.identity))
-        }]
+        }
+        let definitions = try declarativeCatalog.values.sorted {
+            ($0.identity.id, $0.identity.version, $0.identity.edition, $0.identity.sourceRevision) <
+            ($1.identity.id, $1.identity.version, $1.identity.edition, $1.identity.sourceRevision)
+        }.map {
+            try reference.ruleWire($0.rule.metadata, operatorCapability: nil,
+                                   declarativeDefinition: $0.definition)
+        }
+        return ["workspaceGeneration": generation, "rules": staticRules + definitions]
     }
 
     private func sessions(_ params: [String: Any], generation: String) async throws -> [String: Any] {
@@ -686,13 +750,46 @@ actor ContestLane {
     }
 
     private func create(_ params: [String: Any], generation: String) async throws -> [String: Any] {
-        let request = try Wire.mutation(params, payloadKeys: ["sessionID", "name", "ruleIdentity", "referenceDataVersion", "station", "operator"], requiresDraft: false)
+        let mutationPayload = try Wire.object(params, "payload")
+        let declarativeRequest = mutationPayload["definitionDigest"] != nil
+        var payloadKeys: Set<String> = ["sessionID", "name", "ruleIdentity", "referenceDataVersion", "station", "operator"]
+        if declarativeRequest { payloadKeys.insert("definitionDigest") }
+        let request = try Wire.mutation(params, payloadKeys: payloadKeys, requiresDraft: false)
         guard request.sessionID == (try Wire.uuid(request.payload, "sessionID")), request.expectedRevision == 0 else {
             throw ContestLaneError.confirmed("invalid_params", "Create identity or revision is invalid.")
         }
         try Wire.requireGeneration(request.workspaceGeneration, generation)
         let identity = try Wire.ruleIdentity(Wire.object(request.payload, "ruleIdentity"))
-        guard let rule = rules.rule(for: identity) else { throw ContestLaneError.confirmed("unknown_rule", "The requested contest rule is unavailable.") }
+        let priorReceipt = try await preflightReplay(request)
+        var catalogEntry = declarativeCatalog[identity]
+        if declarativeRequest {
+            let requestedDigest = try Wire.text(request.payload, "definitionDigest", max: 64)
+            if catalogEntry == nil, priorReceipt != nil {
+                let stored = try await repository().sessionDefinitionSnapshot(id: request.sessionID)
+                guard stored.session.session.rule == identity,
+                      let data = stored.canonicalDefinitionData else {
+                    throw ContestLaneError.confirmed("definition_mismatch", "The committed declarative contest definition is unavailable.")
+                }
+                do {
+                    let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: data)
+                    let persisted = try ContestDeclarativeCatalogEntry(definition: definition)
+                    guard persisted.canonicalDefinitionData == data else {
+                        throw ContestDefinitionError.digestMismatch
+                    }
+                    catalogEntry = persisted
+                } catch {
+                    throw ContestLaneError.confirmed("definition_mismatch", "The committed declarative contest definition is invalid.")
+                }
+            }
+            guard let catalogEntry, requestedDigest == catalogEntry.definitionDigest else {
+                throw ContestLaneError.confirmed("definition_mismatch", "The selected declarative contest definition is unavailable or changed.")
+            }
+        } else if catalogEntry != nil {
+            throw ContestLaneError.confirmed("definition_required", "Declarative contest creation requires its catalog digest.")
+        }
+        guard let rule = catalogEntry?.rule ?? rules.rule(for: identity) else {
+            throw ContestLaneError.confirmed("unknown_rule", "The requested contest rule is unavailable.")
+        }
         let referenceVersion = try Wire.text(request.payload, "referenceDataVersion", max: 160)
         guard referenceVersion == reference.version else { throw ContestLaneError.confirmed("reference_unavailable", "The requested offline reference data is unavailable.") }
         let stationInput = try Wire.object(request.payload, "station")
@@ -712,8 +809,13 @@ actor ContestLane {
             throw ContestLaneError.confirmed("station_mismatch", "The station snapshot does not match bundled offline CTY data.")
         }
         let operatorCall = try Wire.callsign(operatorInput, "callsign")
+        let stationExchangeDescriptors = catalogEntry == nil
+            ? rule.metadata.entry.exchange.sentFields
+            : rule.metadata.entry.exchange.sentFields.filter {
+                $0.id != rule.metadata.entry.allocatedSerialField?.id
+            }
         var parsedStationFields = rule.metadata.entry.version == .v2
-            ? try Wire.exchangeFields(Wire.object(stationInput, "exchangeFields"), descriptors: rule.metadata.entry.exchange.sentFields)
+            ? try Wire.exchangeFields(Wire.object(stationInput, "exchangeFields"), descriptors: stationExchangeDescriptors)
             : [:]
         let isJIDX = [JIDXCWRule.identity, JIDXSSBRule.identity].contains(identity)
         if isJIDX { parsedStationFields = Wire.normalizedJIDXNumberFields(parsedStationFields) }
@@ -759,8 +861,10 @@ actor ContestLane {
                 location: rule.metadata.entry.cabrilloLocationField.flatMap { structuredStationFields[$0.id] }
                     ?? stationFields["location"]?.normalized ?? "",
                 sentExchangeFields: stationFields))
+        let initialBand = rule.metadata.supportedBands.contains("20m")
+            ? "20m" : (rule.metadata.supportedBands.sorted().first ?? "")
         let draft = ContestDraftSnapshot(id: request.requestID, sessionID: request.sessionID, revision: 1, updatedAt: request.timestamp,
-            callsign: "", band: "20m", mode: rule.metadata.entry.mode, frequencyHz: nil,
+            callsign: "", band: initialBand, mode: rule.metadata.entry.mode, frequencyHz: nil,
             rstSent: rule.metadata.entry.report.defaultSent, rstReceived: rule.metadata.entry.report.defaultReceived,
             exchange: .init(rawSent: rule.metadata.entry.version == .v2
                                 ? Wire.aggregate(stationFields, descriptors: rule.metadata.entry.exchange.sentFields)
@@ -771,8 +875,17 @@ actor ContestLane {
                             rawReceived: "", normalizedReceived: "", sentFields: session.station.sentExchangeFields),
             entity: nil, operatorCallsign: operatorCall, stationLocation: session.station.location)
         let scope = request.coreScope(generation: session.workspaceGeneration, draftID: draft.id)
-        _ = try await preflightReplay(request)
-        let result = try await repository().createSession(session, metadata: metadata, initialDraft: draft, scope: scope, committedAt: request.timestamp)
+        let result: ContestSessionCreationResult
+        if let catalogEntry {
+            result = try await repository().createDeclarativeSession(
+                session, metadata: metadata, initialDraft: draft,
+                canonicalDefinitionData: catalogEntry.canonicalDefinitionData,
+                scope: scope, committedAt: request.timestamp)
+        } else {
+            result = try await repository().createSession(
+                session, metadata: metadata, initialDraft: draft,
+                scope: scope, committedAt: request.timestamp)
+        }
         return try await projectCommitted {
             try await mutationWire(result.session, draft: result.draft, qsoCount: result.qsoCount,
                                    generation: generation, receipt: result.receipt, projection: result.projection)
@@ -784,7 +897,7 @@ actor ContestLane {
         try Wire.requireGeneration(try Wire.text(params, "workspaceGeneration", max: 128), generation)
         let id = try Wire.uuid(params, "sessionID")
         let snapshot = try await repository().sessionReadSnapshot(id: id)
-        try checked(snapshot.session, generation: generation)
+        try await checked(snapshot.session, generation: generation)
         guard snapshot.drafts.count == 1, let draft = snapshot.drafts.first,
               snapshot.activeReservations.count <= 1 else {
             throw ContestLaneError.confirmed("invalid_session", "The session draft or serial state is ambiguous.")
@@ -808,12 +921,10 @@ actor ContestLane {
         let stored = try await checkedSession(request.sessionID, generation: generation,
                                               revision: prior == nil ? request.expectedRevision : nil)
         let current = try await repository().draft(sessionID: request.sessionID, id: request.draftID!)
-        guard let rule = rules.rule(for: stored.session.rule) else {
-            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
-        }
+        let rule = try await resolvedRule(for: stored)
         let isJIDX = [JIDXCWRule.identity, JIDXSSBRule.identity].contains(stored.session.rule)
         let projection = rule as? any ContestRuleExchangeFieldProjection
-        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), entry: rule.metadata.entry,
+        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), metadata: rule.metadata,
                                           normalizeJIDXNumbers: isJIDX,
                                           projection: projection.map { policy in { policy.projectExchangeFields($0) } })
         let entity = try fields.callsign.isEmpty ? nil : reference.resolve(fields.callsign, at: request.timestamp).map(reference.entity)
@@ -840,9 +951,7 @@ actor ContestLane {
         let prior = try await preflightReplay(request)
         let session = try await checkedSession(request.sessionID, generation: generation,
                                                revision: prior == nil ? request.expectedRevision : nil)
-        guard let rule = rules.rule(for: session.session.rule) else {
-            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
-        }
+        let rule = try await resolvedRule(for: session)
         let requirement: ContestResolvedSerialRequirement
         do { requirement = try rule.resolvedSerialRequirement(in: session.session) }
         catch { throw ContestLaneError.confirmed("invalid_session", "The station serial policy is invalid.") }
@@ -877,9 +986,7 @@ actor ContestLane {
             qso = try await repository().qso(sessionID: request.sessionID, id: request.requestID)
             guard qso.timestampUTC == request.timestamp else { throw ContestLaneError.confirmed("request_conflict", "This request ID was already used with another operation timestamp.") }
         } else {
-            guard let rule = rules.rule(for: stored.session.rule) else {
-                throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
-            }
+            let rule = try await resolvedRule(for: stored)
             let normalizedSent = rule.metadata.entry.exchange.sentDefault == .reservedSerial
                 ? (reservation?.transmittedText ?? draft.exchange.normalizedSent)
                 : draft.exchange.normalizedSent
@@ -913,10 +1020,10 @@ actor ContestLane {
             sessionID: sessionID, id: Wire.uuid(params, "qsoID"),
             expectedWorkspaceGeneration: try Wire.generationID(generation),
             expectedRevision: try Wire.uint(params, "expectedRevision"))
-        try checked(snapshot.session, generation: generation, revision: snapshot.session.revision)
+        try await checked(snapshot.session, generation: generation, revision: snapshot.session.revision)
         return ["sessionID": Wire.uuidString(sessionID), "workspaceGeneration": generation,
                 "revision": snapshot.session.revision,
-                "qso": fullQSOWire(snapshot.qso, stored: snapshot.session)]
+                "qso": try await fullQSOWire(snapshot.qso, stored: snapshot.session)]
     }
 
     private func qsoCorrect(_ params: [String: Any], generation: String) async throws -> [String: Any] {
@@ -925,7 +1032,7 @@ actor ContestLane {
         let prior = try await preflightReplay(request, compareCommittedTimestamp: false)
         let stored = try await checkedSession(request.sessionID, generation: generation,
                                               revision: prior == nil ? request.expectedRevision : nil)
-        let qso = try correctedQSO(Wire.object(request.payload, "qso"), stored: stored)
+        let qso = try await correctedQSO(Wire.object(request.payload, "qso"), stored: stored)
         let reason = try Wire.text(request.payload, "reason", max: 1_024)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !reason.isEmpty else { throw ContestLaneError.confirmed("invalid_params", "A correction reason is required.") }
@@ -933,7 +1040,7 @@ actor ContestLane {
             operationTimestamp: request.timestamp,
             scope: request.coreScope(generation: stored.session.workspaceGeneration, draftID: nil),
             committedAt: prior?.committedAt ?? request.timestamp)
-        return try await projectCommitted { try changeWire(result, generation: generation) }
+        return try await projectCommitted { try await changeWire(result, generation: generation) }
     }
 
     private func qsoDelete(_ params: [String: Any], generation: String) async throws -> [String: Any] {
@@ -949,7 +1056,7 @@ actor ContestLane {
             operationTimestamp: request.timestamp,
             scope: request.coreScope(generation: stored.session.workspaceGeneration, draftID: nil),
             committedAt: prior?.committedAt ?? request.timestamp)
-        return try await projectCommitted { try changeWire(result, generation: generation) }
+        return try await projectCommitted { try await changeWire(result, generation: generation) }
     }
 
     private func receipt(_ params: [String: Any], generation: String) async throws -> [String: Any] {
@@ -968,7 +1075,7 @@ actor ContestLane {
         let id = try Wire.uuid(params, "sessionID"), revision = try Wire.uint(params, "expectedRevision")
         let offset = try Wire.int(params, "offset", range: 0...Int.max), limit = try Wire.int(params, "limit", range: 1...200)
         let snapshot = try await repository().sessionPageSnapshot(id: id, offset: offset, limit: limit)
-        try checked(snapshot.session, generation: generation, revision: revision)
+        try await checked(snapshot.session, generation: generation, revision: revision)
         let page = snapshot.log
         let scored = Dictionary(uniqueKeysWithValues: snapshot.score.score.qsos.map { ($0.qsoID, $0) })
         return ["sessionID": Wire.uuidString(id), "workspaceGeneration": generation, "revision": page.revision,
@@ -980,22 +1087,23 @@ actor ContestLane {
         try Wire.requireGeneration(try Wire.text(params, "workspaceGeneration", max: 128), generation)
         let id = try Wire.uuid(params, "sessionID"), revision = try Wire.uint(params, "expectedRevision")
         let snapshot = try await repository().sessionPageSnapshot(id: id, offset: 0, limit: 1)
-        try checked(snapshot.session, generation: generation, revision: revision)
+        try await checked(snapshot.session, generation: generation, revision: revision)
         return scoreWire(snapshot.score, generation: generation)
     }
 
     private func checkedSession(_ id: UUID, generation: String, revision: UInt64? = nil) async throws -> StoredContestSession {
         let stored = try await repository().openSession(id: id)
-        try checked(stored, generation: generation, revision: revision)
+        try await checked(stored, generation: generation, revision: revision)
         return stored
     }
 
-    private func checked(_ stored: StoredContestSession, generation: String, revision: UInt64? = nil) throws {
+    private func checked(_ stored: StoredContestSession, generation: String, revision: UInt64? = nil) async throws {
         guard stored.session.workspaceGeneration == (try Wire.generationID(generation)) else { throw ContestLaneError.confirmed("stale_workspace", "The contest belongs to another workspace generation.") }
         if let revision, stored.revision != revision { throw ContestLaneError.confirmed("stale_revision", "The contest session changed; reload it before retrying.") }
-        guard stored.session.referenceDataVersion == reference.version, rules.rule(for: stored.session.rule) != nil else {
+        guard stored.session.referenceDataVersion == reference.version else {
             throw ContestLaneError.confirmed("reference_unavailable", "The session's pinned rule or reference data is unavailable.")
         }
+        _ = try await resolvedRule(for: stored)
     }
 
     private func preflightReplay(_ request: ContestMutationRequest,
@@ -1048,7 +1156,7 @@ actor ContestLane {
         guard let suppliedCount, let suppliedDate else {
             throw ContestLaneError.uncertain("invalid_result", "Contest session projection requires one coherent read snapshot.")
         }
-        guard let rule = rules.rule(for: stored.session.rule) else { throw ContestLaneError.confirmed("invalid_session", "Contest session metadata is incomplete.") }
+        let rule = try await resolvedRule(for: stored)
         let metadata = rule.metadata
         let entity = stored.session.station.entity
         guard entity != nil || (rule as? ContestRuleStationEntityPolicy)?.allowsMissingStationEntity(in: stored.session) == true else {
@@ -1070,7 +1178,9 @@ actor ContestLane {
         }
         var result: [String: Any] = ["sessionID": Wire.uuidString(stored.session.id), "workspaceGeneration": generation, "revision": stored.revision,
             "name": stored.metadata.name,
-            "rule": try reference.ruleWire(metadata, operatorCapability: operatorCapability(for: metadata.identity)),
+            "rule": try reference.ruleWire(
+                metadata, operatorCapability: operatorCapability(for: metadata.identity),
+                declarativeDefinition: (rule as? DeclarativeContestRule)?.definition),
             "referenceDataVersion": stored.session.referenceDataVersion,
             "station": station,
             "operator": ["callsign": stored.metadata.operatorCallsign, "category": stored.metadata.operatorCategory],
@@ -1095,7 +1205,7 @@ actor ContestLane {
         }
         guard reservations.count <= 1 else { throw ContestLaneError.confirmed("ambiguous_serial", "The draft has multiple active serial reservations.") }
         let serial = reservations.first
-        guard let rule = rules.rule(for: stored.session.rule) else { throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.") }
+        let rule = try await resolvedRule(for: stored)
         let sent = rule.metadata.entry.exchange.sentDefault == .reservedSerial
             ? (serial?.transmittedText ?? draft.exchange.rawSent)
             : draft.exchange.rawSent
@@ -1149,7 +1259,7 @@ actor ContestLane {
     }
 
     private func operatorCapability(for identity: ContestRuleIdentity) throws -> ContestOperatorCapability? {
-        guard let operatorRule = rules.rule(for: identity) as? any ContestOperatorCapableRule else { return nil }
+        guard let operatorRule = currentRule(for: identity) as? any ContestOperatorCapableRule else { return nil }
         return try operatorRule.operatorCapability()
     }
 
@@ -1163,10 +1273,8 @@ actor ContestLane {
             "isDupe": scored.disposition == .duplicate]
     }
 
-    private func correctedQSO(_ value: [String: Any], stored: StoredContestSession) throws -> ContestQSO {
-        guard let rule = rules.rule(for: stored.session.rule) else {
-            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
-        }
+    private func correctedQSO(_ value: [String: Any], stored: StoredContestSession) async throws -> ContestQSO {
+        let rule = try await resolvedRule(for: stored)
         var keys: Set<String> = ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode",
                                "frequencyHz", "sentReport", "receivedReport", "sentExchange",
                                "normalizedSentExchange", "allocatedSerial", "receivedExchange",
@@ -1188,14 +1296,22 @@ actor ContestLane {
         guard rule.metadata.supportedBands.contains(band), rule.metadata.supportedModes.contains(mode) else {
             throw ContestLaneError.confirmed("invalid_params", "The corrected band or mode is unsupported.")
         }
+        guard let modeProfile = rule.metadata.entry.modeProfile(for: mode) else {
+            throw ContestLaneError.confirmed("invalid_params", "The corrected mode has no entry profile.")
+        }
         let frequency = try Wire.uint(value, "frequencyHz")
         guard frequency > 0, frequency <= 100_000_000_000 else {
             throw ContestLaneError.confirmed("invalid_params", "The corrected frequency is invalid.")
         }
-        let rawSent = try Wire.text(value, "sentExchange", max: 64, empty: true)
-        let normalizedSent = try Wire.text(value, "normalizedSentExchange", max: 64, empty: true)
-        let normalizedReceived = try Wire.text(value, "normalizedReceivedExchange", max: 64, empty: true)
-        guard try Wire.text(value, "allocatedSerial", max: 64, empty: true) == normalizedSent else {
+        let aggregateMaximum: ([ContestExchangeFieldDescriptor]) -> Int = { fields in
+            fields.reduce(max(0, fields.count - 1)) { $0 + $1.maximumUTF8Bytes }
+        }
+        let sentMaximum = rule.metadata.entry.version == .v2 ? aggregateMaximum(rule.metadata.entry.exchange.sentFields) : 64
+        let receivedMaximum = rule.metadata.entry.version == .v2 ? aggregateMaximum(rule.metadata.entry.exchange.receivedFields) : 64
+        let rawSent = try Wire.text(value, "sentExchange", max: sentMaximum, empty: true)
+        let normalizedSent = try Wire.text(value, "normalizedSentExchange", max: sentMaximum, empty: true)
+        let normalizedReceived = try Wire.text(value, "normalizedReceivedExchange", max: receivedMaximum, empty: true)
+        guard try Wire.text(value, "allocatedSerial", max: sentMaximum, empty: true) == normalizedSent else {
             throw ContestLaneError.confirmed("invalid_params", "The allocated sent value is inconsistent.")
         }
         guard let country = reference.resolve(callsign, at: originalUTC),
@@ -1219,7 +1335,7 @@ actor ContestLane {
             sentFields = projection.projectExchangeFields(sentFields)
             receivedFields = projection.projectExchangeFields(receivedFields)
         }
-        let rawReceived = try Wire.text(value, "receivedExchange", max: 64, empty: true)
+        let rawReceived = try Wire.text(value, "receivedExchange", max: receivedMaximum, empty: true)
         if structured,
            (rawSent != Wire.aggregate(sentFields, descriptors: rule.metadata.entry.exchange.sentFields) ||
             rawReceived != Wire.aggregate(receivedFields, descriptors: rule.metadata.entry.exchange.receivedFields)) {
@@ -1232,8 +1348,8 @@ actor ContestLane {
         }
         return ContestQSO(id: qsoID, sessionID: sessionID, timestampUTC: originalUTC,
             callsign: callsign, band: band, mode: mode, frequencyHz: Int64(frequency),
-            rstSent: try Wire.text(value, "sentReport", max: 3, empty: true),
-            rstReceived: try Wire.text(value, "receivedReport", max: 3, empty: true),
+            rstSent: try Wire.text(value, "sentReport", max: modeProfile.report.maximumUTF8Bytes, empty: true),
+            rstReceived: try Wire.text(value, "receivedReport", max: modeProfile.report.maximumUTF8Bytes, empty: true),
             exchange: .init(rawSent: rawSent, normalizedSent: normalizedSent,
                             rawReceived: rawReceived,
                             normalizedReceived: normalizedReceived,
@@ -1243,7 +1359,7 @@ actor ContestLane {
             provenance: provenance)
     }
 
-    private func fullQSOWire(_ qso: ContestQSO, stored: StoredContestSession) -> [String: Any] {
+    private func fullQSOWire(_ qso: ContestQSO, stored: StoredContestSession) async throws -> [String: Any] {
         let entity: Any = qso.entity.map(Wire.entityWire) ?? NSNull()
         var wire: [String: Any] = ["qsoID": Wire.uuidString(qso.id), "sessionID": Wire.uuidString(qso.sessionID),
             "originalUTC": Wire.iso(qso.timestampUTC), "callsign": qso.callsign,
@@ -1257,7 +1373,8 @@ actor ContestLane {
             "stationLocation": qso.stationLocation, "provenance": Wire.provenanceWire(qso.provenance),
             "ruleIdentity": Wire.ruleIdentityWire(stored.session.rule),
             "referenceDataVersion": stored.session.referenceDataVersion]
-        if let entry = rules.rule(for: stored.session.rule)?.metadata.entry, entry.version == .v2 {
+        let entry = try await resolvedRule(for: stored).metadata.entry
+        if entry.version == .v2 {
             wire["sentExchangeFields"] = Wire.exchangeFieldsWire(qso.exchange.sentFields,
                                                                   descriptors: entry.exchange.sentFields)
             wire["receivedExchangeFields"] = Wire.exchangeFieldsWire(qso.exchange.receivedFields,
@@ -1266,7 +1383,7 @@ actor ContestLane {
         return wire
     }
 
-    private func changeWire(_ result: ContestQSOChangeResult, generation: String) throws -> [String: Any] {
+    private func changeWire(_ result: ContestQSOChangeResult, generation: String) async throws -> [String: Any] {
         guard result.session.revision == result.receipt.committedRevision,
               result.score.revision == result.session.revision,
               result.score.qsoCount == result.qsoCount,
@@ -1286,10 +1403,16 @@ actor ContestLane {
             "name": stored.metadata.name, "ruleIdentity": Wire.ruleIdentityWire(stored.session.rule),
             "referenceDataVersion": stored.session.referenceDataVersion,
             "qsoCount": result.qsoCount, "updatedAt": Wire.iso(result.receipt.committedAt)]
+        let currentTarget: Any
+        if let after = result.after {
+            currentTarget = try await fullQSOWire(after, stored: stored)
+        } else {
+            currentTarget = NSNull()
+        }
         return ["session": session, "operation": result.operation.rawValue,
             "qsoID": Wire.uuidString(result.qsoID), "qsoCount": result.qsoCount,
             "score": scoreWire(result.score, generation: generation),
-            "currentTarget": result.after.map { fullQSOWire($0, stored: stored) } as Any? ?? NSNull(),
+            "currentTarget": currentTarget,
             "auditReference": ["sessionID": Wire.uuidString(stored.session.id),
                                "qsoID": Wire.uuidString(result.qsoID),
                                "requestID": Wire.uuidString(result.receipt.requestID),
@@ -1530,12 +1653,22 @@ private struct ContestReferenceData {
         }
     }
     func ruleWire(_ metadata: XContestCore.ContestRuleMetadata,
-                  operatorCapability: ContestOperatorCapability?) throws -> [String: Any] {
+                  operatorCapability: ContestOperatorCapability?,
+                  declarativeDefinition: ContestDeclarativeDefinition? = nil) throws -> [String: Any] {
         var result: [String: Any] = ["identity": Wire.ruleIdentityWire(metadata.identity), "displayName": metadata.displayName,
          "entryDescriptorVersion": metadata.entry.version.rawValue,
          "mode": metadata.entry.mode, "entry": Wire.entryWire(metadata.entry),
+         "supportedBands": metadata.supportedBands.sorted(), "supportedModes": metadata.supportedModes.sorted(),
          "referenceDataVersion": version, "sourceVerification": "provisional", "sourceNote": metadata.sourceProvenance]
         if let operatorCapability { result["operatorCapability"] = Wire.operatorCapabilityWire(operatorCapability) }
+        if let declarativeDefinition {
+            result["declarativeDefinition"] = [
+                "definitionDigest": declarativeDefinition.definitionDigest,
+                "immutablePerSession": true,
+                "exportPurpose": declarativeDefinition.draft.exportPolicy.rawValue,
+                "submissionReady": false,
+            ]
+        }
         return result
     }
     private static func csvColumns(_ line: String) -> [String] {
@@ -1819,10 +1952,11 @@ private enum Wire {
         let frequencyHz: Int64?
         let sentExchangeFields, receivedExchangeFields: [String: ContestExchangeFieldValue]
     }
-    static func draftFields(_ value: [String: Any], entry: ContestEntryDescriptor,
+    static func draftFields(_ value: [String: Any], metadata: ContestRuleMetadata,
                             normalizeJIDXNumbers: Bool = false,
                             projection: (([String: ContestExchangeFieldValue]) ->
                                 [String: ContestExchangeFieldValue])? = nil) throws -> DraftFields {
+        let entry = metadata.entry
         var keys: Set<String> = ["callsign", "sentReport", "sentExchange", "receivedReport", "receivedExchange", "frequencyHz", "band", "mode"]
         if entry.version == .v2 { keys.formUnion(["sentExchangeFields", "receivedExchangeFields"]) }
         try exact(value, keys)
@@ -1830,13 +1964,17 @@ private enum Wire {
         guard call.range(of: #"^[A-Z0-9/]*$"#, options: .regularExpression) != nil else {
             throw ContestLaneError.confirmed("invalid_params", "Contest callsign draft contains unsupported characters.")
         }
-        let mode = try text(value, "mode", max: 8); guard mode == entry.mode else { throw ContestLaneError.confirmed("invalid_params", "Contest mode does not match the selected rule.") }
-        let band = try text(value, "band", max: 8); guard ["160m", "80m", "40m", "20m", "15m", "10m"].contains(band) else { throw ContestLaneError.confirmed("invalid_params", "Contest band is invalid.") }
+        let mode = try text(value, "mode", max: 8)
+        guard metadata.supportedModes.contains(mode), let profile = entry.modeProfile(for: mode) else {
+            throw ContestLaneError.confirmed("invalid_params", "Contest mode does not match the selected rule.")
+        }
+        let band = try text(value, "band", max: 8)
+        guard metadata.supportedBands.contains(band) else { throw ContestLaneError.confirmed("invalid_params", "Contest band is invalid.") }
         let frequency: Int64?
         if value["frequencyHz"] is NSNull { frequency = nil }
         else { let number = try uint(value, "frequencyHz"); guard number <= 100_000_000_000 else { throw ContestLaneError.confirmed("invalid_params", "Contest frequency is invalid.") }; frequency = Int64(number) }
-        let sentReport = try text(value, "sentReport", max: entry.report.maximumUTF8Bytes, empty: true)
-        let receivedReport = try text(value, "receivedReport", max: entry.report.maximumUTF8Bytes, empty: true)
+        let sentReport = try text(value, "sentReport", max: profile.report.maximumUTF8Bytes, empty: true)
+        let receivedReport = try text(value, "receivedReport", max: profile.report.maximumUTF8Bytes, empty: true)
         var sentFields = entry.version == .v2 ? try exchangeFields(object(value, "sentExchangeFields"), descriptors: entry.exchange.sentFields, allowIncomplete: true) : [:]
         var receivedFields = entry.version == .v2 ? try exchangeFields(object(value, "receivedExchangeFields"), descriptors: entry.exchange.receivedFields, allowIncomplete: true) : [:]
         if normalizeJIDXNumbers {
@@ -1847,8 +1985,15 @@ private enum Wire {
             sentFields = projection(sentFields)
             receivedFields = projection(receivedFields)
         }
-        let rawSent = try text(value, "sentExchange", max: 64, empty: true)
-        let rawReceived = try text(value, "receivedExchange", max: 64, empty: true)
+        let aggregateMaximum: ([ContestExchangeFieldDescriptor]) -> Int = { fields in
+            fields.reduce(max(0, fields.count - 1)) { $0 + $1.maximumUTF8Bytes }
+        }
+        let rawSent = try text(value, "sentExchange",
+                               max: entry.version == .v2 ? aggregateMaximum(entry.exchange.sentFields) : 64,
+                               empty: true)
+        let rawReceived = try text(value, "receivedExchange",
+                                   max: entry.version == .v2 ? aggregateMaximum(entry.exchange.receivedFields) : 64,
+                                   empty: true)
         if entry.version == .v2,
            (rawSent != aggregate(sentFields, descriptors: entry.exchange.sentFields) ||
             rawReceived != aggregate(receivedFields, descriptors: entry.exchange.receivedFields)) {
