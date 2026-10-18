@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 import XContestCore
 import XContestStore
 #if canImport(XLogCore)
@@ -526,6 +528,20 @@ actor ContestLane {
 
     private static func isConcurrentMethod(_ method: String) -> Bool {
         isExportMethod(method) || method.hasPrefix("contest_scp_") || method.hasPrefix("contest_history_")
+    }
+
+    static func isJSONBoolean(_ number: NSNumber) -> Bool {
+        #if canImport(CoreFoundation)
+        CFGetTypeID(number) == CFBooleanGetTypeID()
+        #else
+        isFoundationBoolean(number)
+        #endif
+    }
+
+    /// swift-corelibs-foundation represents JSON booleans with its canonical
+    /// true/false NSNumber singletons. Identity avoids conflating Int8 with Bool.
+    static func isFoundationBoolean(_ number: NSNumber) -> Bool {
+        number === NSNumber(value: true) || number === NSNumber(value: false)
     }
 
     private func requireExportRunning() throws {
@@ -1468,7 +1484,7 @@ private enum Wire {
     }
     static func bool(_ value: [String: Any], _ key: String) throws -> Bool {
         guard let number = value[key] as? NSNumber,
-              CFGetTypeID(number) == CFBooleanGetTypeID() else {
+              ContestLane.isJSONBoolean(number) else {
             throw ContestLaneError.confirmed("invalid_params", "Contest boolean is invalid.")
         }
         return number.boolValue

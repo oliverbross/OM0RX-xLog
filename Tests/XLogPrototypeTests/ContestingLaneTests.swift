@@ -6,6 +6,19 @@ import XContestCore
 final class ContestingLaneTests: XCTestCase {
     private let generation = "f1111111-2222-4333-8444-555555555555"
 
+    func testFoundationBooleanFallbackRejectsNumericAndInt8Values() throws {
+        func number(_ source: String) throws -> NSNumber {
+            let value = try JSONSerialization.jsonObject(with: Data(source.utf8), options: [.fragmentsAllowed])
+            return try XCTUnwrap(value as? NSNumber)
+        }
+        XCTAssertTrue(ContestLane.isFoundationBoolean(try number("true")))
+        XCTAssertTrue(ContestLane.isFoundationBoolean(try number("false")))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(try number("0")))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(try number("1")))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(NSNumber(value: Int8(0))))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(NSNumber(value: Int8(1))))
+    }
+
     private func fixture() throws -> (URL, ContestLane) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-lane-\(UUID().uuidString)")
         let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
