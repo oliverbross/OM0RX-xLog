@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useMemo, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedContestSurface } from "./DetachedContestSurface";
 import { loadWindowSurface } from "../windowSurface";
+import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type ContestSurfaceActionEnvelope,
+  type ContestSurfaceProjection } from "./contestSurfaceProtocol";
+import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 
-const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void) }));
+const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void),wakes:[] as (()=>void)[] }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 
@@ -17,7 +21,8 @@ const projection={schemaVersion:1,status:"ready",session:{name:"ARRL DX",ruleNam
   validation:{errors:[],warnings:[]},reservedSerial:null},busy:false,dirty:true,uncertain:false};
 const snapshot={operatingContext,scope:"contesting",sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:6,projection,receipts:[]};
 
-beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.listen.mockImplementation(async(_name,callback)=>{native.wake=callback;return()=>{};});window.history.replaceState({},"",search);});
+beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
+  native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
 
 it("routes a scoped native contest child without mounting the normal surface",async()=>{
@@ -59,7 +64,7 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
 });
 
-it("orders delayed callsign and exchange intents before detached Enter without replaying the key",async()=>{
+it("flushes true multi-keystroke callsign and exchange intent before detached Enter and waits for terminal receipts",async()=>{
   const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",
     functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
@@ -71,18 +76,26 @@ it("orders delayed callsign and exchange intents before detached Enter without r
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const call=await screen.findByLabelText("Callsign"),exchange=screen.getByLabelText("Power");
-  fireEvent.change(call,{target:{value:"K1ABC"}});await waitFor(()=>expect(actions).toHaveLength(1));
-  exchange.focus();fireEvent.change(exchange,{target:{value:"200"}});fireEvent.keyDown(exchange,{key:"Enter"});
+  fireEvent.change(call,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
+  fireEvent.change(call,{target:{value:"K1"}});fireEvent.change(call,{target:{value:"K1ABC"}});
+  exchange.focus();fireEvent.change(exchange,{target:{value:"14"}});fireEvent.change(exchange,{target:{value:"15"}});fireEvent.keyDown(exchange,{key:"Enter"});
   expect(actions).toHaveLength(1);
-  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,callsign:"K1ABC"}},
+  expect(actions[0]).toMatchObject({action:"entry_set_text",params:{value:"K"}});
+  for(const status of ["queued","uncertain"]){current={...current,receipts:[{requestID:actions[0].requestID,status,message:null,projectionRevision:6}]};
+    await act(async()=>{native.wake!();});expect(actions).toHaveLength(1);}
+  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:"K"}},
     receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};await act(async()=>{native.wake!();});
-  await waitFor(()=>expect(actions).toHaveLength(2));expect(actions[1]).toMatchObject({projectionRevision:7,action:"entry_set_exchange",
-    params:{draftID:"draft-1",expectedDraftRevision:5,fieldID:"power",value:"200"}});
-  current={...current,projectionRevision:8,projection:{...current.projection,draft:{...current.projection.draft,
-    receivedFields:[{...current.projection.draft.receivedFields[0],value:"200"}]}},
+  await waitFor(()=>expect(actions).toHaveLength(2));expect(actions[1]).toMatchObject({projectionRevision:7,action:"entry_set_text",
+    params:{draftID:"draft-1",expectedDraftRevision:6,value:"K1ABC"}});
+  current={...current,projectionRevision:8,projection:{...current.projection,draft:{...current.projection.draft,revision:7,callsign:"K1ABC"}},
     receipts:[{requestID:actions[1].requestID,status:"applied",message:null,projectionRevision:8}]};await act(async()=>{native.wake!();});
-  await waitFor(()=>expect(actions).toHaveLength(3));expect(actions[2]).toMatchObject({projectionRevision:8,action:"entry_operator_key",
-    params:{draftID:"draft-1",expectedDraftRevision:5,key:"Enter",focusedField:"exchange"}});
+  await waitFor(()=>expect(actions).toHaveLength(3));expect(actions[2]).toMatchObject({projectionRevision:8,action:"entry_set_exchange",
+    params:{draftID:"draft-1",expectedDraftRevision:7,fieldID:"power",value:"15"}});
+  current={...current,projectionRevision:9,projection:{...current.projection,draft:{...current.projection.draft,revision:8,
+    receivedFields:[{...current.projection.draft.receivedFields[0],value:"15"}]}},
+    receipts:[{requestID:actions[2].requestID,status:"applied",message:null,projectionRevision:9}]};await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(actions).toHaveLength(4));expect(actions[3]).toMatchObject({projectionRevision:9,action:"entry_operator_key",
+    params:{draftID:"draft-1",expectedDraftRevision:8,key:"Enter",focusedField:"exchange"}});
   expect(actions.filter(item=>item.action==="entry_operator_key")).toHaveLength(1);
 });
 
@@ -114,7 +127,7 @@ it("keeps a failed presentation edit explicit until the operator retries or disc
   await waitFor(()=>expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("OM0RX"));
 });
 
-it("coalesces rapid Entry typing and forwards the latest text after the authoritative receipt",async()=>{
+it("coalesces synchronous rapid Entry typing into one full-value action",async()=>{
   let current:any=structuredClone(snapshot);const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return structuredClone(current);
@@ -124,11 +137,81 @@ it("coalesces rapid Entry typing and forwards the latest text after the authorit
   render(<DetachedContestSurface/>);const input=await screen.findByLabelText("Callsign");
   fireEvent.change(input,{target:{value:"K"}});fireEvent.change(input,{target:{value:"K1"}});fireEvent.change(input,{target:{value:"K1A"}});
   expect((input as HTMLInputElement).value).toBe("K1A");await waitFor(()=>expect(actions).toHaveLength(1));
-  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,callsign:"K"}},
-    receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};
-  await act(async()=>{native.wake!();});
-  await waitFor(()=>expect(actions).toHaveLength(2));
-  expect(actions[1]).toMatchObject({projectionRevision:7,action:"entry_set_text",params:{value:"K1A"}});
+  expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_set_text",params:{value:"K1A"}});
+});
+
+it("submits Escape outside a blocked edit queue without replaying either action",async()=>{
+  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",
+    functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
+  fireEvent.keyDown(callsign,{key:"Escape"});await waitFor(()=>expect(actions).toHaveLength(2));
+  expect(actions.map(item=>item.action)).toEqual(["entry_set_text","entry_operator_key"]);
+  expect(actions[1]).toMatchObject({projectionRevision:6,params:{key:"Escape",focusedField:"callsign"}});
+});
+
+it("does not silently rebase a control action after another surface revision wins",async()=>{
+  const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
+  fireEvent.change(screen.getByLabelText("Operating style"),{target:{value:"search-and-pounce"}});
+  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:"K"}},
+    receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};await act(async()=>{native.wake!();});
+  expect(await screen.findByText("The shared contest panel changed before this action could be applied.")).toBeTruthy();
+  expect(actions).toHaveLength(1);
+});
+
+it("carries delayed multi-field typing through the real owner drain before one Enter intent",async()=>{
+  const initial:any={...projection,schemaVersion:2,draft:{...projection.draft,callsign:"",receivedFields:[{...projection.draft.receivedFields[0],value:""}],frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",
+      functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}};
+  let bridgeProjection:any=initial,bridgeRevision=1,receipts:any[]=[],releaseFirst!:()=>void,firstStarted!:()=>void;
+  const firstStart=new Promise<void>(resolve=>{firstStarted=resolve;}),firstGate=new Promise<void>(resolve=>{releaseFirst=resolve;}),
+    queue:ContestSurfaceActionEnvelope[]=[],keys:string[]=[];
+  const unavailable=()=>Object.fromEntries(contestSurfacePanelIDs.map(id=>[id,{schemaVersion:1,status:"unavailable"}])) as
+    Record<(typeof contestSurfacePanelIDs)[number],ContestSurfaceProjection>;
+  function Owner(){const [entry,setEntry]=useState<ContestEntrySurfaceProjection>(initial);const projections=useMemo(()=>
+      ({...unavailable(),"active-qso":entry}),[entry]);
+    useContestSurfaceOwner({context:{operatingContext,sessionID,workspaceGeneration},projections,report:vi.fn(),handle:async action=>{
+      if(action.action==="entry_set_text"&&action.params.field==="callsign"&&action.params.value==="K"){firstStarted();await firstGate;}
+      if(action.action==="entry_operator_key"){keys.push(action.params.key);return;}
+      setEntry(previous=>{if(previous.status!=="ready")return previous;const draft={...previous.draft};
+        if(action.action==="entry_set_text"&&action.params.field==="callsign")draft.callsign=action.params.value;
+        if(action.action==="entry_set_exchange")draft.receivedFields=draft.receivedFields.map(field=>field.id===action.params.fieldID?{...field,value:action.params.value}:field);
+        draft.revision+=1;return {...previous,draft};});await new Promise(resolve=>window.setTimeout(resolve,0));
+    }});return null;}
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_publish"){if(args.panelID==="active-qso"){bridgeProjection=structuredClone(args.projection);bridgeRevision=args.projectionRevision;}return;}
+    if(command==="contest_surface_snapshot")return {operatingContext,scope:"contesting",sessionID,workspaceGeneration,panelID:"active-qso",
+      projectionRevision:bridgeRevision,projection:structuredClone(bridgeProjection),receipts:structuredClone(receipts)};
+    if(command==="contest_surface_action"){queue.push(args as ContestSurfaceActionEnvelope);receipts=[{requestID:args.requestID,status:"queued",message:null,projectionRevision:bridgeRevision}];
+      queueMicrotask(()=>native.wake?.());return {requestID:args.requestID,status:"queued"};}
+    if(command==="contest_surface_action_next"){const action=queue.shift()??null;if(action){receipts=[{requestID:action.requestID,status:"uncertain",message:null,projectionRevision:bridgeRevision}];
+      queueMicrotask(()=>native.wake?.());}return action;}
+    if(command==="contest_surface_action_complete"){receipts=[{requestID:args.requestID,status:args.outcome,message:args.message??null,projectionRevision:args.projectionRevision}];
+      queueMicrotask(()=>native.wake?.());return;}
+    if(command==="contest_surface_context_close")return;throw new Error(command);
+  });
+  render(<><Owner/><DetachedContestSurface/></>);const callsign=await screen.findByLabelText("Callsign"),exchange=screen.getByLabelText("Power");
+  fireEvent.change(callsign,{target:{value:"K"}});await firstStart;
+  fireEvent.change(callsign,{target:{value:"K1"}});fireEvent.change(callsign,{target:{value:"K1ABC"}});exchange.focus();
+  fireEvent.change(exchange,{target:{value:"14"}});fireEvent.change(exchange,{target:{value:"15"}});fireEvent.keyDown(exchange,{key:"Enter"});
+  expect(keys).toEqual([]);releaseFirst();await waitFor(()=>expect(keys).toEqual(["Enter"]),{timeout:5000});
+  await waitFor(()=>{expect(bridgeProjection.draft.callsign).toBe("K1ABC");expect(bridgeProjection.draft.receivedFields[0].value).toBe("15");});
 });
 
 it("coalesces rapid log edits and resets the presentation buffer when the owner switches contacts",async()=>{
