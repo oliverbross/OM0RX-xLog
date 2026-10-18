@@ -317,7 +317,9 @@ private func operatorIssueIsMissingInput(_ issue: ContestValidationIssue, qso: C
                                          requireDeclaredStructuredFields: Bool) -> Bool {
     if allowBlankCall && qso.callsign.isEmpty {
         let callIssues: Set<String> = ["invalidCallsign", "invalidWPXPrefix", "invalidScandinavianCallArea"]
-        let geographyIssues: Set<String> = ["invalidEntity", "unknownEntity", "invalidEndpointRole"]
+        let geographyIssues: Set<String> = [
+            "invalidEntity", "unknownEntity", "invalidEndpointRole", "unresolvedGeography",
+        ]
         if issue.field == "callsign", callIssues.contains(issue.code) { return true }
         if issue.field == "entity", geographyIssues.contains(issue.code) { return true }
     }
@@ -336,7 +338,7 @@ private func operatorIssueIsMissingInput(_ issue: ContestValidationIssue, qso: C
         "invalidCQZone", "invalidReceivedSerial", "invalidExchangeShape",
         "missingStructuredExchangeField", "invalidStructuredExchangeField",
         "missingNAQPName", "invalidNAQPLocation", "invalidDXLocation", "invalidMultiplierLocation",
-        "invalidReceivedPower", "invalidReceivedLocation",
+        "invalidReceivedPower", "invalidReceivedLocation", "locationClassificationMismatch",
     ]
     guard allowedCodes.contains(issue.code) else { return false }
     if issue.field == "exchange.received" {

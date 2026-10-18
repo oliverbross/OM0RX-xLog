@@ -17,7 +17,7 @@ import render_swift_metadata  # noqa: E402
 import validate_definition  # noqa: E402
 
 REPOSITORY = Path(__file__).resolve().parents[3]
-UPSTREAM = Path(os.environ.get("CONTEST_SW_ROOT", "/Users/oliver/Documents/Projects/contest-sw"))
+UPSTREAM_ENV = os.environ.get("CONTEST_SW_ROOT")
 LEDGER = REPOSITORY / "docs/contesting/contest-acceptance-ledger.json"
 
 
@@ -212,11 +212,15 @@ class SwiftRendererTests(unittest.TestCase):
         self.assertNotIn(".resolved(True)", rendered)
 
 
-@unittest.skipUnless(UPSTREAM.exists(), "pinned contest-sw checkout is unavailable")
 class PinnedCorpusTests(unittest.TestCase):
+    def setUp(self) -> None:
+        if not UPSTREAM_ENV:
+            self.fail("CONTEST_SW_ROOT is required for decisive pinned-corpus tests")
+        self.upstream = Path(UPSTREAM_ENV)
+
     def test_all_94_reconcile_and_repeat_deterministically(self) -> None:
-        first = extract_plugins.build_inventory(UPSTREAM, LEDGER, extract_plugins.REQUIRED_PIN)
-        second = extract_plugins.build_inventory(UPSTREAM, LEDGER, extract_plugins.REQUIRED_PIN)
+        first = extract_plugins.build_inventory(self.upstream, LEDGER, extract_plugins.REQUIRED_PIN)
+        second = extract_plugins.build_inventory(self.upstream, LEDGER, extract_plugins.REQUIRED_PIN)
         self.assertEqual(first, second)
         self.assertEqual(len(first["plugins"]), 94)
         self.assertTrue(first["ledgerReconciliation"]["pluginIDsExact"])
@@ -227,10 +231,10 @@ class PinnedCorpusTests(unittest.TestCase):
 
     def test_wrong_pin_is_rejected_before_extraction(self) -> None:
         with self.assertRaisesRegex(SystemExit, "pin mismatch"):
-            extract_plugins.build_inventory(UPSTREAM, LEDGER, "0" * 40)
+            extract_plugins.build_inventory(self.upstream, LEDGER, "0" * 40)
 
     def test_checked_in_inventory_and_swift_are_reproducible(self) -> None:
-        inventory = extract_plugins.build_inventory(UPSTREAM, LEDGER, extract_plugins.REQUIRED_PIN)
+        inventory = extract_plugins.build_inventory(self.upstream, LEDGER, extract_plugins.REQUIRED_PIN)
         checked = json.loads((REPOSITORY / "docs/contesting/generated/python-plugin-inventory.json").read_text())
         self.assertEqual(
             json.dumps(inventory, ensure_ascii=False, sort_keys=True),

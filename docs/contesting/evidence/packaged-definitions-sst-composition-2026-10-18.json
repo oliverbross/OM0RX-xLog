@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-10-18",
+  "branch": "codex/contest-packaged-definitions",
+  "operation": "git merge --no-commit --no-ff",
+  "baseCommit": "ac4116227cf0eefefb5bd88ad90ad937020e80c2",
+  "mergeSourceCommit": "aaf8033b8365e89618daa520c554d76ec42ada7b",
+  "pendingCommitParents": [
+    "ac4116227cf0eefefb5bd88ad90ad937020e80c2",
+    "aaf8033b8365e89618daa520c554d76ec42ada7b"
+  ],
+  "mergeHeadPresent": true,
+  "conflictResolutions": [
+    {
+      "file": "Sources/XContestCore/DeclarativeContestRule.swift",
+      "resolution": "Selected the reviewed SST source, which preserves the shared operator policy and adds bounded subdivision aliases plus optional stationLocationFieldID validation."
+    },
+    {
+      "file": "Tests/XContestCoreTests/ContestGeographicMultiplierTests.swift",
+      "resolution": "Selected the reviewed superset covering alias rejection, deterministic encoding, UTF-8 display-key decoding, and nil omission."
+    },
+    {
+      "file": "docs/contesting/SST_GEOGRAPHIC_MULTIPLIER_CONTRACT.md",
+      "resolution": "Selected the reviewed source-backed SST contract with pinned Canadian tokens, NL-to-NF scoring alias, and explicit inactive status."
+    }
+  ],
+  "scope": {
+    "preEvidenceStagedDeltaSHA256": "eb62e793de1286604e646b2a396cb1961c82fca02375a796710ccdbc0abc37a0",
+    "sstActivatedInCatalog": false,
+    "builtInSevenCatalogEntriesChanged": false,
+    "runtimeJSONLoaderImplemented": false,
+    "liveWorkerInjectionChanged": false,
+    "packageOrInstallPerformed": false
+  },
+  "generatorCIPathRepair": {
+    "failedRun": "39098159918",
+    "failedJob": "117588791849",
+    "cause": "One CW comparator test ignored CONTEST_SW_ROOT and one inventory test module defaulted to a developer-specific checkout and skipped when absent.",
+    "resolution": "All decisive corpus tests now require CONTEST_SW_ROOT explicitly, fail clearly when absent, and contain no developer-path fallback or skip.",
+    "isolatedCheckout": "/tmp/xlog-contest-sw-ci-proof-ac41162",
+    "isolatedCheckoutRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+  },
+  "tests": [
+    {
+      "command": "swift test --jobs 2 --filter XContestCoreTests.(ContestSSTDeclarativeDefinitionTests|ContestGeographicMultiplierTests|ContestDefinitionAuthoringBridgeTests|ContestDeclarativeOperatorPolicyTests)",
+      "result": "26 passed, 0 failed",
+      "log": "/tmp/xlog-packaged-definitions-sst-core-2026-10-18.log",
+      "logSHA256": "894c0898564074871527f415c768ffd62e025c98ebe47dd2226a70b94b5ea605"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --filter XLogPrototypeTests.ContestingLaneTests",
+      "result": "23 passed, 0 failed",
+      "log": "/tmp/xlog-packaged-definitions-lane-2026-10-18.log",
+      "logSHA256": "1ba071ef9040a8d8409efac8a37e0079ad343fd14843bb6d11a29921d523959f"
+    },
+    {
+      "command": "CONTEST_SW_ROOT=/tmp/xlog-contest-sw-ci-proof-ac41162 python3.14 tools/contest_plugin_generator/verify_pinned_corpus.py ...",
+      "result": "94 plugins and 16 active previews verified at the exact pin from the isolated checkout",
+      "log": "/tmp/xlog-packaged-definitions-isolated-corpus-2026-10-18.log",
+      "logSHA256": "36d4c30516c06905f55daf838c312c4365a302dbc95ac57f5ae0bc535b438156"
+    },
+    {
+      "command": "CONTEST_SW_ROOT=/tmp/xlog-contest-sw-ci-proof-ac41162 python3.14 -m unittest discover -s tools/contest_plugin_generator/tests -v",
+      "result": "37 passed, 0 failed",
+      "log": "/tmp/xlog-packaged-definitions-isolated-generator-2026-10-18.log",
+      "logSHA256": "167a399cf91e0dd6e00a1ec4c2f4041587c55a4dbc5dff66bd5bc217720d9bab"
+    }
+  ],
+  "nextCheckpoint": "After this merge is reviewed and committed, extend the strict authored-v2 contract for operatorPolicy, aliases, and stationLocationFieldID, then replace the seven hardwired archive factories with packaged validated runtime JSON while preserving their exact identities, digests, and catalog behavior."
+}

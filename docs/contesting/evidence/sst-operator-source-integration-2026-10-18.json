@@ -1,0 +1,89 @@
+{
+  "capturedAt": "2026-10-18T14:03:34+09:30",
+  "branch": "codex/contest-sst-operator-source-integration",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog",
+  "merge": {
+    "firstParent": "7be83a7a3696ee65f665734f5909cf10b4de5ece",
+    "mergeHead": "0bb2938a86259763237446833ce7b04770543ef2",
+    "mergeBase": "227c89351b4d262a1f5b38282f08e6f78b74ba8f",
+    "autoMergeTree": "03dfd23c0de72e2a1476cdb87236076ae0e21da4",
+    "mode": "git merge --no-commit",
+    "unmergedEntries": 0
+  },
+  "integrationDelta": {
+    "description": "SST station geography, CW operator policy, operator archive, pinned human multiplier labels, tests, authority fixture, and contract documentation",
+    "patchPath": "/tmp/xlog-sst-operator-integration-delta-final.patch",
+    "patchSHA256": "8afa41504224decb4b94dc050bedf84ffaa0e0aa1292cf10aa90bca97824864f",
+    "patchComposition": "Eight files are diffed against the staged 0bb merge result; ContestingLaneTests.swift is diffed against reviewed carry source 2a66f6a so this bundle contains only its preserved SST geographic-label test.",
+    "files": [
+      "Sources/XContestCore/ContestOperatorCapability.swift",
+      "Sources/XContestCore/DeclarativeContestRule.swift",
+      "Sources/XContestCore/SSTDeclarativeDefinition.swift",
+      "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+      "Tests/XContestCoreTests/ContestGeographicMultiplierTests.swift",
+      "Tests/XContestCoreTests/ContestSSTDeclarativeDefinitionTests.swift",
+      "Tests/XContestCoreTests/SourceFixtures/sst-definition-authority.json",
+      "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+      "docs/contesting/SST_GEOGRAPHIC_MULTIPLIER_CONTRACT.md"
+    ]
+  },
+  "reviewedCatalogWireCarry": {
+    "sourceCommit": "2a66f6a",
+    "sourceRange": "0bb2938a86259763237446833ce7b04770543ef2..2a66f6a",
+    "application": "The exact three-file diff was applied to the active merge without a nested merge or reset; the SST geographic-label lane test was preserved.",
+    "patchPath": "/tmp/xlog-2a66-catalog-wire.patch",
+    "patchSHA256": "fdafd1bc0acea94b46696953f34fe4413147518f6316b7ba2ef75af85afdf2eb",
+    "files": [
+      "Tests/XLogPrototypeTests/ContestingLaneTests.swift",
+      "docs/contesting/fixtures/current-contesting-catalog-worker-wire.json",
+      "prototype/src/contesting/swiftWireFixture.test.ts"
+    ],
+    "repair": "The catalog contract now distinguishes 14 legacy operator capabilities, 7 declarative operator capabilities, and 2 intentionally inert RTTY rules, for 21 capability digests across 23 catalog rules."
+  },
+  "catalogGate": {
+    "sstCatalogActive": false,
+    "reason": "SST remains definition-only pending full worker and UI activation review."
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --filter ContestingLaneTests",
+      "result": "23 tests, 0 failures, including geographic label projection and the repaired 23-rule catalog contract",
+      "logPath": "/tmp/xlog-sst-integration-contesting-lane-full.log",
+      "logSHA256": "11301ec1a4ab2fbcd0796266d7da6158824fd911fc2fb17875db48ec25a31a24"
+    },
+    {
+      "command": "cd prototype && vitest run --maxWorkers=2 src/contesting/{swiftWireFixture,declarativeWorkerWireFixture,arrlDXWireFixture,arrlRTTYWireFixture,exportWireFixture,jidxWireFixture}.test.ts",
+      "result": "6 files, 29 tests, 0 failures",
+      "logPath": "/tmp/xlog-sst-integration-ts-wire.log",
+      "logSHA256": "c5c613d56b9bb84bcdbc694cda6d1ba0c946707d3ae0e8b53c493c0bb0fbc7f9"
+    },
+    {
+      "command": "cd prototype && tsc --noEmit",
+      "result": "pass",
+      "logPath": "/tmp/xlog-sst-integration-tsc.log",
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --filter 'Contest(SSTDeclarativeDefinition|GeographicMultiplier)Tests'",
+      "result": "17 tests, 0 failures",
+      "logPath": "/tmp/xlog-sst-operator-core-focused.log",
+      "logSHA256": "377a7c3ef89be8cce8ce99e23525c9933bbd28cfb8b88d115e472100fa0ea344"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --test-product XContestCoreTests",
+      "result": "187 tests, 0 failures",
+      "logPath": "/tmp/xlog-sst-operator-core-full.log",
+      "logSHA256": "4aa13384f4cd00d439436b61c2be7a218c6843f3658499e511ed79dd8f395cf2"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --test-product XContestStoreTests",
+      "result": "81 tests, 0 failures",
+      "logPath": "/tmp/xlog-sst-operator-store-full.log",
+      "logSHA256": "60c0bff84b099ecdbe2fee631700725cd25ab62763bb6fa1c269e40663f60cbd"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ]
+}

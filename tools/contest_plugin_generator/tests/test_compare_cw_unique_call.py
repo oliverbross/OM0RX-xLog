@@ -1,5 +1,6 @@
 import ast
 import importlib.util
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,7 +13,12 @@ SPEC.loader.exec_module(MODULE)
 
 class CompareCWUniqueCallTests(unittest.TestCase):
     def test_exact_pinned_sources_match_shared_policy_goldens(self):
-        source = Path("/Users/oliver/Documents/Projects/contest-sw")
+        configured = os.environ.get("CONTEST_SW_ROOT")
+        self.assertIsNotNone(
+            configured,
+            "CONTEST_SW_ROOT must point to the pinned read-only contest-sw checkout",
+        )
+        source = Path(configured)
         result = MODULE.compare(source)
         self.assertEqual(result["upstreamRevision"], MODULE.PIN)
         self.assertEqual(len(result["results"]), 3)

@@ -1,10 +1,12 @@
 # SST geographic multiplier contract
 
-Status: source-backed contract and independent fixtures for review. This change does not implement a Swift rule, activate SST, change the catalog, or establish worker, UI, export, RF, packaged-app, or sponsor-submission acceptance.
+Status: source-backed inactive declarative definition and independent fixtures for review. This change does not activate SST, change the catalog, or establish worker, UI, export, RF, packaged-app, or sponsor-submission acceptance.
 
 ## Official rule
 
 The primary authority is the [K1USN SST rules page](https://www.k1usn.com/sst_rules.html) and its embedded [published rules document](https://docs.google.com/document/d/e/2PACX-1vTFtjDXVkS_wGX2XmBV4P8VyT40iSx_NJcx-m2C9Gb9ANJiCMwNeZdpqk_P8DMNJ2OvIGHydv5e36lQ/pub), retrieved 18 October 2026. Byte counts and SHA-256 digests for the wrapper, published document, and embedded sample image are frozen in `Tests/XContestCoreTests/SourceFixtures/sst-geography-authority.json`.
+
+The sponsor's [SST page](https://www.k1usn.com/sst) links its [FAQ](https://www.k1usn.com/sst_faq.html) and the sponsor-developed [K1USNSST UDC page](https://n1mmwp.hamdocs.com/mmfiles/k1usnsst-udc/). The UDC changelog says v1.1.4 added DC as a multiplier. The FAQ's embedded Canadian logger table contains 14 multiplier tokens: `AB BC LB MB NB NF NS NT NU ON PE QC SK YT`. This is a sponsor logger-token list, not a count of Canada's political provinces and territories or a general Canadian identity model. It labels `LB` as Labrador (VO2) and `NF` as Newfoundland and Labrador (VO1/VO2), so `LB` remains distinct only under this versioned table policy. The adjacent FAQ text says Newfoundland operators and call history use `NL`, but N1MM requires changing it to `NF` because `NL` is absent from that table. xLog retains the heard `NL` exchange and canonicalizes only its scoring key to `NF`; exports and history remain unchanged. Exact URLs, cached paths, byte counts, hashes, and the adjacent source text are frozen in `Tests/XContestCoreTests/SourceFixtures/sst-definition-authority.json`.
 
 Each accepted nonduplicate contact is one point. A callsign may be worked once per band. The exchange is name plus a state abbreviation for a lower-48 U.S. station, a province abbreviation for a Canadian station, or the literal `DX` for every other station. Multipliers are also per band. Lower-48 U.S. and Canadian contacts contribute only their state or province; every other entity contributes its DXCC entity. The rules explicitly classify Alaska/KL7 and Hawaii/KH6 as DX.
 
@@ -30,7 +32,7 @@ The focused source-backed unit suite has five tests. Its exact-source case requi
 
 ## Reusable typed vocabulary
 
-The shared proposal is a `geographicMultiplier` with two variants:
+The shared implementation is a `geographicMultiplier` with two variants:
 
 - `administrativeSubdivision(authority, canonicalValue)` for a sponsor-defined subdivision scheme.
 - `dxccEntity(authority, adifEntityCode)` for a versioned DXCC entity reference.
@@ -38,6 +40,8 @@ The shared proposal is a `geographicMultiplier` with two variants:
 Its scope is band. The logical canonical identity includes `kind`, `authority`, the pinned `referenceDataVersion`, the resolved `entityADIF`, the canonical subdivision value when applicable, and `band`. In the runtime `ContestMultiplierKey`, `kind` and `band` remain typed fields while `value` serializes the remaining components with consecutive UTF-8 byte-length prefixes. This prevents collisions between entities that share an authority and token and remains unambiguous when a pinned reference version contains punctuation or non-ASCII metadata. The `expectedNewMultipliers` strings in the fixture are readable semantic labels for review, not serialized runtime key values. SST would use `sst-us-lower48-state`, `sst-canadian-province`, and `dxcc-entity` authorities. Exactly one variant may apply to an accepted contact.
 
 Classification consumes the immutable resolved entity snapshot, the canonical typed location field, and a versioned sponsor policy. A callsign prefix or the literal `DX` is not entity authority. Name is required exchange evidence but never part of a multiplier key. Correction and deletion replay derives keys again from the retained accepted contacts so no stale multiplier survives.
+
+Subdivision policies may define a bounded one-step alias map. Alias keys cannot replace canonical values, targets must be canonical values in the same policy, and chains and cycles are rejected. Empty alias maps are omitted from canonical encoding so existing definition digests remain unchanged.
 
 Blocking unresolved or contradictory geography is an xLog validation design choice, not an official SST scoring rule. The sponsor says each QSO earns one point. Under the proposed xLog policy, an invalid draft cannot commit, never becomes a QSO, and therefore earns no point or multiplier and occupies no duplicate key. Once accepted, a contact retains its immutable entity snapshot and reference-data version; later reference drift cannot silently remove or reclassify it. Replay scores that pinned snapshot. Corrupt retained data must surface a session validation failure and require correction rather than being silently converted into a zero-point QSO.
 
@@ -53,4 +57,6 @@ This vocabulary is intentionally broader than SST while keeping contest membersh
 - deterministic correction and deletion replay;
 - typed name/aggregate disagreement, lower-48 `DX`, and Alaska `AK` drafts being blocked before commit.
 
-Before any later activation, review must pin the exact lower-48 state and Canadian province code sets, including an explicit District of Columbia decision, and pin the DXCC entity reference version. Those choices remain open in this contract. Mobile and portable endpoint resolution, export, category, schedule, and reporting behavior remain separate gates.
+`Tests/XContestCoreTests/SourceFixtures/sst-definition-authority.json` additionally freezes the complete 49-token lower-48-plus-DC policy, the sponsor table's 14 Canadian tokens, and the `NL` to `NF` scoring alias. `SSTDeclarativeDefinition` uses those policies without a contest-specific rule class and remains absent from the built-in catalog.
+
+The inactive definition now requires a station entity and validates its sent location with the same versioned geographic policy used for contacts. Its CW operator policy and deterministic operator archive are also defined; the archive retains a heard `NL` token even though scoring uses `NF`, and it is explicitly not a sponsor submission format. Before activation, review must still pin the concrete DXCC entity reference version and prove that the worker and UI persist a compatible station entity and sent fields. Mobile and portable endpoint resolution, category, schedule, complete product archive flow, and 3830 reporting behavior remain separate gates. SST therefore remains absent from the built-in catalog.

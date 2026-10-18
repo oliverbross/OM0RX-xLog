@@ -23,7 +23,7 @@ The required corpus check fails rather than skips when the external checkout is 
   --inventory docs/contesting/generated/python-plugin-inventory.json
 ```
 
-The decisive converter tests require `CONTEST_SW_ROOT`; they fail rather than skip when it is absent. Other corpus-dependent tests retain their visible skip behavior, which does not replace the required corpus check above. The `contest-definition-generator` CI job supplies an isolated checkout and runs both the corpus verifier and the complete generator suite.
+The decisive converter, comparator, and inventory tests require `CONTEST_SW_ROOT`; they fail rather than skip when it is absent. The `contest-definition-generator` CI job supplies an isolated checkout and runs both the corpus verifier and the complete generator suite.
 
 To reproduce that setup locally, install Python 3.14 and use that interpreter explicitly:
 

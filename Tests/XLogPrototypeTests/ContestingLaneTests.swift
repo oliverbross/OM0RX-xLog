@@ -19,6 +19,37 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertFalse(ContestLane.isFoundationBoolean(NSNumber(value: Int8(1))))
     }
 
+    func testGeographicDisplayLabelsRequireThePinnedReferenceAndNeverExposeMalformedKeys() throws {
+        let reference = try ContestReferenceData.bundled()
+        func value(_ components: [String]) -> String {
+            components.map { "\($0.utf8.count):\($0)" }.joined()
+        }
+        let subdivision = ContestMultiplierKey(
+            kind: "administrativeSubdivision",
+            value: value(["sst-canadian-province", reference.version, "1", "NF"]), scope: "40m")
+        XCTAssertEqual(reference.displayLabel(subdivision, referenceDataVersion: reference.version),
+                       "NF subdivision · 40m")
+
+        let entity = ContestMultiplierKey(
+            kind: "dxccEntity",
+            value: value(["dxcc-entity", reference.version, "110"]), scope: "20m")
+        XCTAssertEqual(reference.displayLabel(entity, referenceDataVersion: reference.version),
+                       "Hawaii · 20m")
+        XCTAssertEqual(reference.displayLabel(entity, referenceDataVersion: "different-reference"),
+                       "Unknown geographic multiplier · 20m")
+
+        let malformedValue = "999:serialized-key-must-not-escape"
+        let malformed = ContestMultiplierKey(kind: "administrativeSubdivision",
+                                             value: malformedValue, scope: "80m")
+        let malformedLabel = reference.displayLabel(malformed, referenceDataVersion: reference.version)
+        XCTAssertEqual(malformedLabel, "Unknown geographic multiplier · 80m")
+        XCTAssertFalse(malformedLabel.contains(malformedValue))
+
+        XCTAssertEqual(reference.displayLabel(
+            .init(kind: "naqp-state", value: "HI", scope: "20m"),
+            referenceDataVersion: reference.version), "Hawaii · 20m")
+    }
+
     private func fixture() throws -> (URL, ContestLane) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-lane-\(UUID().uuidString)")
         let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
