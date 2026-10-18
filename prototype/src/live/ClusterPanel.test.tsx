@@ -72,7 +72,7 @@ describe("DX Cluster spot age strip", () => {
     (data.snapshot.spots as any[]).push({ id: "rbn-spot", receivedAt: 812_000_000,
       clusterName: "ShackCQ", spotter: "KM3T5", frequencyKHz: 10116.1, frequencyText: "10.1161", callsign: "OM0RX", comment: "23 dB 28 WPM",
       band: "30m", mode: "CW", country: "Slovak Republic", continent: "EU", cqZone: 15, callStatus: "Worked", dxccStatus: "Confirmed",
-      specialTags: [], score: 18, scoreReasons: ["RBN source"], aggregateCount: 1, aggregateSpotters: ["KM3T5"], source: "rbl", statusHex: "", bandHex: "", modeHex: "" });
+      specialTags: [], score: 18, scoreReasons: ["RBN source"], aggregateCount: 1, aggregateSpotters: ["KM3T5"], source: "RBL", statusHex: "", bandHex: "", modeHex: "" });
     render(<ClusterPanel passive snapshot={data} onRequest={vi.fn()} onSelect={vi.fn()} />);
     expect(screen.getByText("RBN")).toBeTruthy();
     expect(screen.getByText("RBN").closest("td")?.classList.contains("live-cluster-special")).toBe(true);
