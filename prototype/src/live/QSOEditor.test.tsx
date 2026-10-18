@@ -217,6 +217,14 @@ describe("QSOEditor", () => {
     render(<Harness previous={[{ call: "EA7EU", band: "20m", mode: "CW", qslReceived: "N", lotwReceived: "Y" }]} />);
     expect(screen.getByText("Confirmed")).toBeTruthy();
   });
+  it("shows portable variants in the base callsign's previous-QSO panel", () => {
+    const { container } = render(<Harness previous={[
+      { call: "EA7EU/P", start: "2026-10-18T01:26:00Z", band: "17m", mode: "SSB" },
+      { call: "9A/EA7EU/P", start: "2026-10-17T01:26:00Z", band: "20m", mode: "CW" },
+    ]} />);
+    expect(container.querySelectorAll(".qso-previous > div")).toHaveLength(1);
+    expect(screen.queryByText("No local history")).toBeNull();
+  });
   it("keeps the screenshot's compact five-band / three-mode matrices identically shaped without extra status chips", async () => {
     const request = vi.fn(async (method: string) => method === "logbook_matrix" ? { cells: [
       { band: "17m", mode: "FT4", worked: true, confirmed: false }, { band: "20m", mode: "CW", worked: true, confirmed: false },

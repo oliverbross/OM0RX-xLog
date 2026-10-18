@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { ContactRound } from "lucide-react";
 import { countryDisplay } from "./countryDisplay";
+import { sameNormalLogCall } from "./draftEnrichment";
 import "./OperatorDesk.css";
 
 type Data = Record<string, any>;
@@ -38,7 +39,7 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
   const name = info?.name, country = countryDisplay(info?.country);
   const grid = info?.gridSquare, continent = info?.continent;
   const cq = info?.cqZone, itu = info?.ituZone;
-  const lastCall = current?.history ? current.history.previous?.[0] : previous.find(item => normalizedCall(item.call) === call);
+  const lastCall = current?.history ? current.history.previous?.[0] : previous.find(item => sameNormalLogCall(item.call, call));
   const visibleBands = intelligenceBands?.length ? Array.from(new Set(intelligenceBands.filter(band => bands.includes(band)))) : displayedBands;
   const matrixColumns = Math.max(1, Math.ceil(visibleBands.length / 2));
   const matrixStyle = { "--desk-matrix-columns": Math.min(5, matrixColumns), "--desk-matrix-wide-columns": matrixColumns } as CSSProperties;
