@@ -5,6 +5,7 @@ import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
 import { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
+import SpecialFilterOptions from "./SpecialFilterOptions";
 import "./ClusterPanel.css";
 
 export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
@@ -283,9 +284,11 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         onChange={(event) => changeFilter({ ...filter, query: event.target.value })} />
       {(Object.keys(filterLabels) as (keyof Filter)[]).map((key) => {
         const values = filter[key] as string[];
+        const excludedCount = key === "specials" ? (filter.excludedSpecials ?? []).length : 0;
         return <button type="button" key={key} data-filter={key} aria-expanded={activePicker === key}
           onClick={() => setActivePicker(activePicker === key ? null : key)}>
-          {filterLabels[key]}{values.length && !(key === "sources" && values.length === 2) ? ` · ${values.length}` : ""}
+          {filterLabels[key]}{key === "specials" && (values.length || excludedCount) ? ` · +${values.length} / −${excludedCount}`
+            : values.length && !(key === "sources" && values.length === 2) ? ` · ${values.length}` : ""}
         </button>;
       })}
       <select data-filter="sort" aria-label="Sort spots" value={filter.sort} onChange={(event) => changeFilter({ ...filter, sort: event.target.value })}>
@@ -297,7 +300,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     {activePicker && filterOptions[activePicker] && <div className="live-cluster-picker" role="group" aria-label={filterLabels[activePicker]}>
       <div><strong>{filterLabels[activePicker]}</strong><button type="button" onClick={() => setActivePicker(null)}>Done</button></div>
       <div className="live-cluster-picker-options">
-        {filterOptions[activePicker]?.map((option) => {
+        {activePicker === "specials" ? <SpecialFilterOptions filter={filter} options={filterOptions.specials ?? []} onChange={changeFilter} />
+          : filterOptions[activePicker]?.map((option) => {
           const selected = filter[activePicker] as string[];
           return <label key={option}><input type="checkbox" checked={selected.includes(option)} onChange={(event) => {
             const next = event.target.checked ? [...selected, option] : selected.filter((value) => value !== option);
@@ -305,7 +309,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           }} />{option === "rbl" ? "RBN / Skimmer" : option === "cluster" ? "DX Cluster" : option}</label>;
         })}
       </div>
-      <button type="button" onClick={() => changeFilter({ ...filter, [activePicker]: activePicker === "sources" ? ["cluster", "rbl"] : [] })}>All</button>
+      <button type="button" onClick={() => changeFilter(activePicker === "specials"
+        ? { ...filter, specials: [], excludedSpecials: [] }
+        : { ...filter, [activePicker]: activePicker === "sources" ? ["cluster", "rbl"] : [] })}>All</button>
     </div>}</div>
 
     {columnsOpen && <section id={`${panelId}-columns`} className="live-cluster-columns" aria-label="Full cluster columns">

@@ -587,10 +587,11 @@ public actor LiveClusterMethods {
 
     private func validateFilter(_ value: ClusterSpotFilter) throws {
         let selections = [value.bands, value.modes, value.continents, value.callStatuses,
-                          value.dxccStatuses, value.specials, value.sources, value.worked]
+                          value.dxccStatuses, value.specials, value.excludedSpecials, value.sources, value.worked]
         guard value.query.utf8.count <= 128,
               !value.query.unicodeScalars.contains(where: { $0.value < 0x20 }),
               selections.allSatisfy({ $0.count <= 64 && $0.allSatisfy { !$0.isEmpty && $0.utf8.count <= 80 } }),
+              value.specials.isDisjoint(with: value.excludedSpecials),
               value.bands.isSubset(of: Set(SpotLogic.bands)),
               value.modes.isSubset(of: Set(SpotLogic.modes)),
               value.continents.isSubset(of: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"]),

@@ -409,6 +409,8 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(Set(byDXCC.map(\.callsign)), ["K1DIG", "K1RBN"])
         let bySpecial = await matching { $0.specials = ["POTA"] }
         XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
+        let withoutSpecial = await matching { $0.excludedSpecials = ["POTA"] }
+        XCTAssertEqual(Set(withoutSpecial.map(\.callsign)), ["K1OLD", "K1RBN", "K1DIG"])
         let bySource = await matching { $0.sources = ["rbl"] }
         XCTAssertEqual(bySource.map(\.callsign), ["K1RBN"])
         let byWorked = await matching { $0.worked = ["Worked before"] }
@@ -428,6 +430,9 @@ final class ClusterSessionServiceTests: XCTestCase {
         object.removeValue(forKey: "hideWSPRSpots")
         object.removeValue(forKey: "connectOnStartup")
         object.removeValue(forKey: "requestRecentSpotsOnConnect")
+        var legacyFilter = try XCTUnwrap(object["filter"] as? [String: Any])
+        legacyFilter.removeValue(forKey: "excludedSpecials")
+        object["filter"] = legacyFilter
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
         XCTAssertFalse(decoded.forwardSpotsToFlex)
@@ -435,6 +440,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertFalse(decoded.hideWSPRSpots)
         XCTAssertTrue(decoded.connectOnStartup)
         XCTAssertTrue(decoded.requestRecentSpotsOnConnect)
+        XCTAssertTrue(decoded.filter.excludedSpecials.isEmpty)
         XCTAssertEqual(decoded.commandPresets.map(\.command),
                        ["sh/dx/50", "sh/mydx 50", "sh/wwv/5", "sh/wcy/5", "sh/ann/10", "sh/u"])
     }

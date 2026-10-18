@@ -58,11 +58,31 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
     public var callStatuses: Set<String> = []
     public var dxccStatuses: Set<String> = []
     public var specials: Set<String> = []
+    public var excludedSpecials: Set<String> = []
     public var sources: Set<String> = ["cluster", "rbl"]
     public var worked: Set<String> = []
     public var sort: ClusterSpotSort = .newest
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case query, bands, modes, continents, callStatuses, dxccStatuses, specials, excludedSpecials, sources, worked, sort
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        query = try values.decodeIfPresent(String.self, forKey: .query) ?? ""
+        bands = try values.decodeIfPresent(Set<String>.self, forKey: .bands) ?? []
+        modes = try values.decodeIfPresent(Set<String>.self, forKey: .modes) ?? []
+        continents = try values.decodeIfPresent(Set<String>.self, forKey: .continents) ?? []
+        callStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .callStatuses) ?? []
+        dxccStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .dxccStatuses) ?? []
+        specials = try values.decodeIfPresent(Set<String>.self, forKey: .specials) ?? []
+        excludedSpecials = try values.decodeIfPresent(Set<String>.self, forKey: .excludedSpecials) ?? []
+        sources = try values.decodeIfPresent(Set<String>.self, forKey: .sources) ?? ["cluster", "rbl"]
+        worked = try values.decodeIfPresent(Set<String>.self, forKey: .worked) ?? []
+        sort = try values.decodeIfPresent(ClusterSpotSort.self, forKey: .sort) ?? .newest
+    }
 }
 
 public struct ClusterPalette: Codable, Equatable, Sendable {
@@ -549,6 +569,7 @@ public actor ClusterSessionService {
                 && (filter.callStatuses.isEmpty || filter.callStatuses.contains(spot.callStatus))
                 && (filter.dxccStatuses.isEmpty || filter.dxccStatuses.contains(spot.dxccStatus))
                 && (filter.specials.isEmpty || !filter.specials.isDisjoint(with: spot.specialTags))
+                && filter.excludedSpecials.isDisjoint(with: spot.specialTags)
                 && filter.sources.contains(spot.source)
                 && SpotLogic.shouldShow(callStatus: spot.callStatus, showWorkedBandModeSpots: configuration.showWorkedBandModeSpots)
                 && (filter.worked.isEmpty || filter.worked.contains(spot.workedBefore == nil ? "Not worked" : "Worked before"))

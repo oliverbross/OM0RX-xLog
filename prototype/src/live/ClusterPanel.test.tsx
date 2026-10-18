@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 const palette = ["bands", "modes", "continents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
-  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
+  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [{ id: "contest", name: "CONTEST", keywords: ["CQ TEST"], referenceFormat: "none", advancedPattern: "", enabled: true }], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
 const luminance = (hex: string) => {
   const values = hex.match(/\w\w/g)!.map(value => parseInt(value, 16) / 255)
     .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -43,6 +43,18 @@ describe("DX Cluster filter colours", () => {
       const background = luminance(match![2]);
       expect((foreground + 0.05) / (background + 0.05), category).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it("supports independent include and exclude choices for Special stations", () => {
+    const data = response();
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => ({ ...data, configuration: { ...data.configuration, filter: params?.filter } }));
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(within(screen.getByLabelText("Spot filters")).getByRole("button", { name: "Special" }));
+    const picker = screen.getByRole("group", { name: "Special" });
+    fireEvent.click(within(picker).getByRole("checkbox", { name: "Hide CONTEST" }));
+    expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["CONTEST"] }) });
+    fireEvent.click(within(picker).getByRole("checkbox", { name: "Show only CONTEST" }));
+    expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: ["CONTEST"], excludedSpecials: [] }) });
   });
 });
 

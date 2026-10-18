@@ -7,6 +7,7 @@ import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultW
   type CompactColumn, type WorkspacePreferences } from "./operatorWorkspacePreferences";
 import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
+import SpecialFilterOptions from "./SpecialFilterOptions";
 import "./OperatorWorkspace.css";
 
 export type OperatorWorkspaceProps = { map: ReactNode; bandMaps: ReactNode; cluster: unknown;
@@ -151,7 +152,8 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
           <div className="operator-filter-sections">{filterSections.map(([key, label]) => {
             const values = choices[key] as readonly string[], selected = filter[key];
             return <fieldset key={key} data-filter={key}><legend>{label}</legend>
-              {values.length ? <div>{values.map(option => <label key={option}><input type="checkbox" checked={selected.includes(option)} onChange={event => {
+              {key === "specials" && values.length ? <SpecialFilterOptions filter={filter} options={values} onChange={changeFilter} />
+                : values.length ? <div>{values.map(option => <label key={option}><input type="checkbox" checked={selected.includes(option)} onChange={event => {
                 const next = event.target.checked ? [...selected, option] : selected.filter(value => value !== option);
                 changeFilter({ ...filter, [key]: next });
               }} />{option === "rbl" ? "RBN / Skimmer" : option === "cluster" ? "DX Cluster" : option}</label>)}</div>

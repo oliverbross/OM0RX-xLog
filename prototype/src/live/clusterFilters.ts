@@ -1,5 +1,5 @@
 export type ClusterFilter = { query: string; bands: string[]; modes: string[]; continents: string[];
-  callStatuses: string[]; dxccStatuses: string[]; specials: string[];
+  callStatuses: string[]; dxccStatuses: string[]; specials: string[]; excludedSpecials?: string[];
   sources: string[]; worked: string[]; sort: string };
 
 export const clusterFilterChoices = {
@@ -13,4 +13,14 @@ export const clusterFilterChoices = {
 };
 
 export const defaultClusterFilter = (): ClusterFilter => ({ query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [],
-  specials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" });
+  specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" });
+
+export type SpecialFilterState = "neutral" | "include" | "exclude";
+
+export function setSpecialFilterState(filter: ClusterFilter, option: string, state: SpecialFilterState): ClusterFilter {
+  const specials = filter.specials.filter(value => value !== option);
+  const excludedSpecials = (filter.excludedSpecials ?? []).filter(value => value !== option);
+  if (state === "include") specials.push(option);
+  if (state === "exclude") excludedSpecials.push(option);
+  return { ...filter, specials, excludedSpecials };
+}
