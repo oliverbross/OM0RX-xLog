@@ -1,6 +1,6 @@
 //! One native owner for explicit opens and persisted-layout reconciliation.
 //! Renderer panel lists are deliberately absent from this interface.
-use crate::workspace_windows::{supports, Plan, WorkspaceWindowPlanner, SUPPORTED_WINDOWS};
+use crate::workspace_windows::{supports, Plan, WorkspaceWindowPlanner, WorkspaceWindowScope, SUPPORTED_WINDOWS};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{
@@ -35,22 +35,45 @@ fn idle() -> Value {
         "generation":null,"revision":null,"presetID":null,"state":"idle","shown":[],"hidden":[],
         "error":"","attempt":0,"stopped":STOPPED.load(Ordering::Acquire)})
 }
+fn contest_idle(context: &crate::contest_window_context::ContestWindowContext) -> Value {
+    let mut value = idle();
+    value["supported"] = json!(crate::workspace_windows::CONTEST_WINDOWS.iter().map(|window| window.id).collect::<Vec<_>>());
+    value["scope"] = json!("contesting");
+    value["operatingContext"] = json!(context.operating_context);
+    value["sessionID"] = json!(context.session_id);
+    value["workspaceGeneration"] = json!(context.workspace_generation);
+    value
+}
 
 struct PendingOpen {
     label: String,
+    scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>,
     reply: mpsc::Sender<Result<(), String>>,
 }
 struct PendingCanvas { generation: String, revision: u64, layout: Value, reply: mpsc::Sender<Result<(), String>> }
-#[derive(Clone, Copy)]
+struct PendingContestReset {
+    context: crate::contest_window_context::ContestWindowContext,
+    reply: mpsc::Sender<Result<(), String>>,
+}
+struct PendingContestClose {
+    context: crate::contest_window_context::ContestWindowContext,
+    reply: mpsc::Sender<Result<(), String>>,
+}
+#[derive(Clone)]
 struct PendingRefresh {
+    scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>,
     force: bool,
     attempt: u64,
 }
 #[derive(Default)]
 struct Queue {
     canvas: VecDeque<PendingCanvas>,
+    contest_resets: VecDeque<PendingContestReset>,
+    contest_closes: VecDeque<PendingContestClose>,
     opens: VecDeque<PendingOpen>,
-    refresh: Option<PendingRefresh>,
+    refresh: BTreeMap<WorkspaceWindowScope, PendingRefresh>,
     issued_attempt: u64,
     destroyed: BTreeMap<String, u64>,
     // Alternate work categories so continuous menu clicks cannot starve a wake.
@@ -59,23 +82,27 @@ struct Queue {
 struct Owner {
     queue: Mutex<Queue>,
     wake: Condvar,
-    outcome: Mutex<Value>,
+    outcome: Mutex<BTreeMap<WorkspaceWindowScope, (Option<crate::contest_window_context::ContestWindowContext>, Value)>>,
     app: AppHandle,
 }
 enum Work {
     Canvas(PendingCanvas),
+    ContestReset(PendingContestReset),
+    ContestClose(PendingContestClose),
     Open(PendingOpen),
     Refresh(PendingRefresh),
     Destroyed(String, u64),
 }
 impl Queue {
     fn next(&mut self) -> Option<Work> {
+        if let Some(reset) = self.contest_resets.pop_front() { return Some(Work::ContestReset(reset)); }
+        if let Some(close) = self.contest_closes.pop_front() { return Some(Work::ContestClose(close)); }
         if let Some(canvas) = self.canvas.pop_front() { return Some(Work::Canvas(canvas)); }
         if let Some((label, token)) = self.destroyed.pop_first() {
             return Some(Work::Destroyed(label, token));
         }
         if self.prefer_refresh || self.opens.is_empty() {
-            if let Some(refresh) = self.refresh.take() {
+            if let Some((_, refresh)) = self.refresh.pop_first() {
                 self.prefer_refresh = false;
                 return Some(Work::Refresh(refresh));
             }
@@ -84,9 +111,10 @@ impl Queue {
             self.prefer_refresh = true;
             return Some(Work::Open(open));
         }
-        self.refresh.take().map(Work::Refresh)
+        self.refresh.pop_first().map(|(_, refresh)| Work::Refresh(refresh))
     }
-    fn refresh(&mut self, force: bool) -> Result<u64, String> {
+    fn refresh(&mut self, scope: WorkspaceWindowScope,
+        contest_context: Option<crate::contest_window_context::ContestWindowContext>, force: bool) -> Result<u64, String> {
         // Allocation and queue insertion share the owner's queue lock. A
         // passive completion cannot satisfy an explicit caller's later ticket.
         let attempt = self
@@ -94,30 +122,28 @@ impl Queue {
             .checked_add(1)
             .filter(|attempt| *attempt <= MAX_ATTEMPT)
             .ok_or("Native workspace window attempts exhausted; restart the application.")?;
-        let force = self.refresh.is_some_and(|refresh| refresh.force) || force;
-        self.refresh = Some(PendingRefresh { force, attempt });
+        let force = self.refresh.get(&scope).is_some_and(|refresh| refresh.force) || force;
+        self.refresh.insert(scope, PendingRefresh { scope, contest_context, force, attempt });
         self.issued_attempt = attempt;
         Ok(attempt)
     }
 }
 impl Owner {
-    fn publish(&self, value: Value) {
+    fn publish(&self, scope: WorkspaceWindowScope,
+        context: Option<crate::contest_window_context::ContestWindowContext>, value: Value) {
         if let Ok(mut outcome) = self.outcome.lock() {
-            *outcome = value;
+            outcome.insert(scope, (context, value));
         }
         // Never leave the operator with no usable surface if an asynchronous
         // Separate Windows reconciliation fails after the main window hid.
-        if self.outcome.lock().is_ok_and(|outcome| outcome["state"] == "error") {
+        if self.outcome.lock().is_ok_and(|outcomes| outcomes.get(&scope).is_some_and(|(_, outcome)| outcome["state"] == "error")) {
             if let Some(main) = self.app.get_webview_window("main") { let _ = main.show(); }
         }
         // The payload is a wake only. Consumers read the native snapshot.
         let _ = self.app.emit("xlog:workspace-windows", ());
     }
     fn run(self: Arc<Self>) {
-        let mut engine = Engine::default();
-        let mut host = NativeHost {
-            app: self.app.clone(),
-        };
+        let mut engines = BTreeMap::from([(WorkspaceWindowScope::NormalLogging, Engine::default())]);
         loop {
             let work = {
                 let Ok(mut queue) = self.queue.lock() else {
@@ -125,7 +151,9 @@ impl Owner {
                 };
                 while queue.opens.is_empty()
                     && queue.canvas.is_empty()
-                    && queue.refresh.is_none()
+                    && queue.contest_resets.is_empty()
+                    && queue.contest_closes.is_empty()
+                    && queue.refresh.is_empty()
                     && queue.destroyed.is_empty()
                     && !STOPPED.load(Ordering::Acquire)
                 {
@@ -136,19 +164,40 @@ impl Owner {
                 }
                 if STOPPED.load(Ordering::Acquire) {
                     for canvas in queue.canvas.drain(..) { let _ = canvas.reply.send(Err("The native workspace window owner has stopped.".into())); }
+                    for reset in queue.contest_resets.drain(..) { let _ = reset.reply.send(Err("The native workspace window owner has stopped.".into())); }
+                    for close in queue.contest_closes.drain(..) { let _ = close.reply.send(Err("The native workspace window owner has stopped.".into())); }
                     for open in queue.opens.drain(..) {
                         let _ = open
                             .reply
                             .send(Err("The native workspace window owner has stopped.".into()));
                     }
-                    queue.refresh = None;
+                    queue.refresh.clear();
                     queue.destroyed.clear();
                     break;
                 }
                 queue.next()
             };
             match work {
+                Some(Work::ContestReset(reset)) => {
+                    let result = crate::contest_window_context::admit(&reset.context).and_then(|_| {
+                        close_contest_windows(&self.app)?;
+                        engines.insert(WorkspaceWindowScope::Contesting, Engine::for_contest(&reset.context));
+                        self.publish(WorkspaceWindowScope::Contesting, Some(reset.context.clone()), contest_idle(&reset.context));
+                        Ok(())
+                    });
+                    let _ = reset.reply.send(result);
+                }
+                Some(Work::ContestClose(close)) => {
+                    let result = crate::contest_window_context::admit(&close.context).and_then(|_| close_contest_windows(&self.app));
+                    if result.is_ok() {
+                        engines.remove(&WorkspaceWindowScope::Contesting);
+                        if let Ok(mut outcomes) = self.outcome.lock() { outcomes.remove(&WorkspaceWindowScope::Contesting); }
+                        crate::contest_window_context::invalidate();
+                    }
+                    let _ = close.reply.send(result);
+                }
                 Some(Work::Canvas(canvas)) => {
+                    let engine = engines.get_mut(&WorkspaceWindowScope::NormalLogging).expect("normal engine");
                     let result = engine.planner.plan(&canvas.layout, false).and_then(|plan| {
                         crate::present_canvas_windows(&self.app, &canvas.generation, canvas.revision)?;
                         engine.canvas_completed(&plan);
@@ -157,31 +206,40 @@ impl Owner {
                     let _ = canvas.reply.send(result);
                 }
                 Some(Work::Open(open)) => {
+                    let engine = engine_for(&mut engines, open.scope, open.contest_context.as_ref());
+                    let mut host = NativeHost { app: self.app.clone(), scope: open.scope, contest_context: open.contest_context };
                     let result = engine.open(&mut host, &open.label);
                     let _ = open.reply.send(result);
                 }
                 Some(Work::Refresh(refresh)) => {
+                    let engine = engine_for(&mut engines, refresh.scope, refresh.contest_context.as_ref());
+                    let mut host = NativeHost { app: self.app.clone(), scope: refresh.scope, contest_context: refresh.contest_context.clone() };
                     engine.begin(refresh.attempt);
-                    self.publish(engine.outcome.clone());
+                    self.publish(refresh.scope, refresh.contest_context.clone(), engine.outcome.clone());
                     let _ = engine.reconcile(&mut host, refresh.force);
-                    self.publish(engine.outcome.clone());
+                    self.publish(refresh.scope, refresh.contest_context, engine.outcome.clone());
                 }
                 Some(Work::Destroyed(label, token)) => {
                     // A replacement can be created before an old callback is handled.
                     if let Ok(current) = lifetimes().lock() {
                         if destruction_is_current(&current, &label, token) {
-                            engine.planner.forget_destroyed(&label);
+                            if let Ok(identity) = crate::workspace_windows::WorkspaceWindowIdentity::parse_native_label(&label) {
+                                if let Some(engine) = engines.get_mut(&identity.scope) { engine.planner.forget_destroyed(&label); }
+                            }
                         }
                     }
                 }
                 None => {}
             }
         }
-        engine.outcome["stopped"] = json!(true);
-        if engine.outcome["state"] == "applying" {
-            let _ = engine.fail("The native workspace window owner has stopped.".into());
+        for (scope, engine) in &mut engines {
+            engine.outcome["stopped"] = json!(true);
+            if engine.outcome["state"] == "applying" {
+                let _ = engine.fail("The native workspace window owner has stopped.".into());
+            }
+            let context = self.outcome.lock().ok().and_then(|outcomes| outcomes.get(scope).and_then(|(context, _)| context.clone()));
+            self.publish(*scope, context, engine.outcome.clone());
         }
-        self.publish(engine.outcome);
     }
     fn failed(&self) {
         STOPPED.store(true, Ordering::Release);
@@ -194,18 +252,18 @@ impl Owner {
                 .send(Err("The native workspace window owner failed.".into()));
         }
         for canvas in queue.canvas.drain(..) { let _ = canvas.reply.send(Err("The native workspace window owner failed.".into())); }
-        queue.refresh = None;
+        for reset in queue.contest_resets.drain(..) { let _ = reset.reply.send(Err("The native workspace window owner failed.".into())); }
+        for close in queue.contest_closes.drain(..) { let _ = close.reply.send(Err("The native workspace window owner failed.".into())); }
+        queue.refresh.clear();
         queue.destroyed.clear();
         drop(queue);
-        let mut outcome = self
-            .outcome
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .clone();
-        outcome["state"] = json!("error");
-        outcome["error"] = json!("The native workspace window owner failed.");
-        outcome["stopped"] = json!(true);
-        self.publish(outcome);
+        let outcomes = self.outcome.lock().unwrap_or_else(|error| error.into_inner()).clone();
+        for (scope, (context, mut outcome)) in outcomes {
+            outcome["state"] = json!("error");
+            outcome["error"] = json!("The native workspace window owner failed.");
+            outcome["stopped"] = json!(true);
+            self.publish(scope, context, outcome);
+        }
     }
 }
 fn owner(app: &AppHandle) -> Result<Arc<Owner>, String> {
@@ -220,7 +278,7 @@ fn owner(app: &AppHandle) -> Result<Arc<Owner>, String> {
     let owner = Arc::new(Owner {
         queue: Mutex::new(Queue::default()),
         wake: Condvar::new(),
-        outcome: Mutex::new(idle()),
+        outcome: Mutex::new(BTreeMap::from([(WorkspaceWindowScope::NormalLogging, (None, idle()))])),
         app: app.clone(),
     });
     let running = owner.clone();
@@ -243,6 +301,10 @@ pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
     if !supports(label) {
         return Err("Unknown native workspace window".into());
     }
+    scoped_open(app, WorkspaceWindowScope::NormalLogging, None, label.into())
+}
+fn scoped_open(app: &AppHandle, scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>, label: String) -> Result<(), String> {
     let owner = owner(app)?;
     let (reply, received) = mpsc::channel();
     {
@@ -255,7 +317,9 @@ pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
             return Err("Native workspace windows are busy; try again.".into());
         }
         queue.opens.push_back(PendingOpen {
-            label: label.into(),
+            label,
+            scope,
+            contest_context,
             reply,
         });
     }
@@ -278,9 +342,59 @@ pub fn canvas(app: &AppHandle, generation: &str, revision: u64, layout: Value) -
     owner.wake.notify_one();
     received.recv().map_err(|_| "Canvas transition owner unavailable".to_owned())?
 }
+pub fn contest_context_changed(app: &AppHandle,
+    context: crate::contest_window_context::ContestWindowContext) -> Result<(), String> {
+    crate::contest_window_context::admit(&context)?;
+    let owner = owner(app)?;
+    let (reply, received) = mpsc::channel();
+    {
+        let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
+        active()?;
+        if !queue.contest_resets.is_empty() { return Err("A contest window context change is already queued.".into()); }
+        queue.contest_resets.push_back(PendingContestReset { context, reply });
+    }
+    owner.wake.notify_one();
+    received.recv().map_err(|_| "Native workspace window owner unavailable".to_owned())?
+}
+pub fn contest_context_closed(app: &AppHandle,
+    context: crate::contest_window_context::ContestWindowContext) -> Result<(), String> {
+    crate::contest_window_context::admit(&context)?;
+    let owner = owner(app)?;
+    let (reply, received) = mpsc::channel();
+    {
+        let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
+        active()?;
+        if !queue.contest_closes.is_empty() { return Err("A contest window context close is already queued.".into()); }
+        queue.contest_closes.push_back(PendingContestClose { context, reply });
+    }
+    owner.wake.notify_one();
+    received.recv().map_err(|_| "Native workspace window owner unavailable".to_owned())?
+}
+
+fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
+    // Context retirement must never leave a hidden Separate Windows desk with
+    // every usable surface gone, including when one child refuses to close.
+    if let Some(main) = app.get_webview_window("main") { main.show().map_err(|error| error.to_string())?; }
+    for label in contest_window_labels() {
+        if let Some(window) = app.get_webview_window(&label) { window.close().map_err(|error| error.to_string())?; }
+    }
+    Ok(())
+}
+fn contest_window_labels() -> Vec<String> {
+    crate::workspace_windows::CONTEST_WINDOWS.iter()
+        .map(|spec| format!("{}{}", crate::workspace_windows::CONTEST_LABEL_PREFIX, spec.id)).collect()
+}
 /// Coalesce wakes, retaining force and the latest accepted ticket. The returned
 /// ticket is queued; only a terminal status at or above it confirms completion.
 pub fn refresh(app: &AppHandle, force: bool) -> Result<u64, String> {
+    scoped_refresh(app, WorkspaceWindowScope::NormalLogging, None, force)
+}
+pub fn contest_refresh(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext, force: bool) -> Result<u64, String> {
+    crate::contest_window_context::admit(&context)?;
+    scoped_refresh(app, WorkspaceWindowScope::Contesting, Some(context), force)
+}
+fn scoped_refresh(app: &AppHandle, scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>, force: bool) -> Result<u64, String> {
     let owner = owner(app)?;
     let attempt = {
         let mut queue = owner
@@ -288,25 +402,41 @@ pub fn refresh(app: &AppHandle, force: bool) -> Result<u64, String> {
             .lock()
             .map_err(|_| "Native workspace window queue unavailable")?;
         active()?;
-        queue.refresh(force)?
+        queue.refresh(scope, contest_context, force)?
     };
     owner.wake.notify_one();
     Ok(attempt)
 }
 /// Reading status is inert, including in isolated acceptance before its first layout operation.
 pub fn status(_app: &AppHandle) -> Result<Value, String> {
+    scoped_status(WorkspaceWindowScope::NormalLogging, None)
+}
+pub fn contest_status(_app: &AppHandle, context: crate::contest_window_context::ContestWindowContext) -> Result<Value, String> {
+    if let Err(error) = crate::contest_window_context::admit(&context) {
+        let mut stale = contest_idle(&context);
+        stale["state"] = json!("error"); stale["error"] = json!(error); stale["stopped"] = json!(STOPPED.load(Ordering::Acquire));
+        return Ok(stale);
+    }
+    scoped_status(WorkspaceWindowScope::Contesting, Some(context))
+}
+pub fn contest_stale_status(session_id: &str, workspace_generation: &str, error: String) -> Value {
+    json!({"supported":crate::workspace_windows::CONTEST_WINDOWS.iter().map(|window| window.id).collect::<Vec<_>>(),
+        "scope":"contesting","sessionID":session_id,"workspaceGeneration":workspace_generation,
+        "generation":null,"revision":null,"presetID":null,"state":"error","shown":[],"hidden":[],
+        "error":error,"attempt":0,"stopped":STOPPED.load(Ordering::Acquire)})
+}
+fn scoped_status(scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>) -> Result<Value, String> {
     let owner = registry()
         .lock()
         .map_err(|_| "Native workspace window registry unavailable")?
         .clone();
     let mut value = if let Some(owner) = owner {
-        owner
-            .outcome
-            .lock()
-            .map_err(|_| "Native workspace window status unavailable")?
-            .clone()
+        let outcomes = owner.outcome.lock().map_err(|_| "Native workspace window status unavailable")?;
+        outcomes.get(&scope).filter(|(stored, _)| stored == &contest_context).map(|(_, value)| value.clone())
+            .unwrap_or_else(|| contest_context.as_ref().map_or_else(idle, contest_idle))
     } else {
-        idle()
+        contest_context.as_ref().map_or_else(idle, contest_idle)
     };
     value["stopped"] = json!(STOPPED.load(Ordering::Acquire));
     Ok(value)
@@ -316,7 +446,7 @@ fn destruction_is_current(current: &BTreeMap<String, u64>, label: &str, token: u
 }
 /// Register only newly built windows. Each real native lifetime gets its own token.
 pub fn created(window: &WebviewWindow) {
-    if !supports(window.label()) {
+    if crate::workspace_windows::WorkspaceWindowIdentity::parse_native_label(window.label()).is_err() {
         return;
     }
     let label = window.label().to_owned();
@@ -349,6 +479,7 @@ pub fn created(window: &WebviewWindow) {
     });
 }
 pub fn shutdown() {
+    crate::contest_window_context::invalidate();
     STOPPED.store(true, Ordering::Release);
     if let Some(registered) = OWNER.get() {
         if let Ok(registered) = registered.lock() {
@@ -368,21 +499,26 @@ trait Host {
 }
 struct NativeHost {
     app: AppHandle,
+    scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>,
 }
 impl Host for NativeHost {
     fn load(&mut self) -> Result<Value, String> {
-        active()?;
+        self.active()?;
         let id = format!(
             "native-workspace-windows-{}",
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         );
-        let response =
-            crate::worker::request(json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
-        checked_response(response, &id)
+        let params = match self.scope {
+            WorkspaceWindowScope::NormalLogging => json!({}),
+            WorkspaceWindowScope::Contesting => json!({"scope":"contesting"}),
+        };
+        let response = crate::worker::request(json!({"id":id,"method":"workspace_layout_load","params":params}))?;
+        checked_response(response, &id, self.scope, self.contest_context.as_ref().map(|context| context.workspace_generation.as_str()))
     }
     fn show(&mut self, label: &str, focus: bool) -> Result<bool, String> {
-        active()?;
-        crate::ensure_workspace_window(&self.app, label, focus)
+        self.active()?;
+        crate::ensure_workspace_window(&self.app, label, focus, self.contest_context.as_ref())
     }
     fn hide(&mut self, label: &str) -> Result<(), String> {
         active()?;
@@ -398,10 +534,15 @@ impl Host for NativeHost {
         Ok(())
     }
     fn active(&self) -> Result<(), String> {
-        active()
+        active()?;
+        match (&self.scope, &self.contest_context) {
+            (WorkspaceWindowScope::NormalLogging, None) => Ok(()),
+            (WorkspaceWindowScope::Contesting, Some(context)) => crate::contest_window_context::admit(context),
+            _ => Err("Native workspace scope context is invalid.".into()),
+        }
     }
 }
-fn checked_response(response: Value, id: &str) -> Result<Value, String> {
+fn checked_response(response: Value, id: &str, scope: WorkspaceWindowScope, expected_generation: Option<&str>) -> Result<Value, String> {
     if response["id"].as_str() != Some(id) {
         return Err("Native workspace layout response did not match its request.".into());
     }
@@ -411,29 +552,48 @@ fn checked_response(response: Value, id: &str) -> Result<Value, String> {
             .unwrap_or("The saved workspace layout could not be loaded.")
             .into());
     }
-    if !response["result"]["layout"].is_object() {
+    let layout = &response["result"]["layout"];
+    if !layout.is_object() {
         return Err("Native workspace layout response is incomplete.".into());
     }
-    Ok(response["result"]["layout"].clone())
+    match scope {
+        WorkspaceWindowScope::NormalLogging if layout.as_object().is_some_and(|layout| layout.contains_key("scope")) =>
+            return Err("Native workspace layout response has the wrong scope.".into()),
+        WorkspaceWindowScope::Contesting if layout["scope"] != "contesting" || layout["generation"].as_str() != expected_generation =>
+            return Err("Native contest workspace layout response has the wrong context.".into()),
+        _ => {}
+    }
+    Ok(layout.clone())
 }
 struct Engine {
+    scope: WorkspaceWindowScope,
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>,
     planner: WorkspaceWindowPlanner,
     outcome: Value,
 }
 impl Default for Engine {
     fn default() -> Self {
-        Self {
-            planner: WorkspaceWindowPlanner::default(),
-            outcome: idle(),
-        }
+        Self::for_scope(WorkspaceWindowScope::NormalLogging)
     }
 }
 impl Engine {
+    fn for_scope(scope: WorkspaceWindowScope) -> Self {
+        Self {
+            scope,
+            contest_context: None,
+            planner: WorkspaceWindowPlanner::for_scope(scope),
+            outcome: idle(),
+        }
+    }
+    fn for_contest(context: &crate::contest_window_context::ContestWindowContext) -> Self {
+        Self { scope: WorkspaceWindowScope::Contesting, contest_context: Some(context.clone()),
+            planner: WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting), outcome: contest_idle(context) }
+    }
     fn canvas_completed(&mut self, plan: &Plan) {
         // Every detached lifetime is gone, including manual instances. Remember
         // the confirmed intent so passive wakes cannot reopen a custom Canvas's
         // saved window placements immediately after the explicit mode switch.
-        self.planner = WorkspaceWindowPlanner::default();
+        self.planner = WorkspaceWindowPlanner::for_scope(self.scope);
         self.planner.complete(plan);
     }
     fn begin(&mut self, attempt: u64) {
@@ -528,9 +688,37 @@ impl Engine {
     }
 }
 
+fn engine_for<'a>(engines: &'a mut BTreeMap<WorkspaceWindowScope, Engine>, scope: WorkspaceWindowScope,
+    context: Option<&crate::contest_window_context::ContestWindowContext>) -> &'a mut Engine {
+    let replace = match (scope, engines.get(&scope), context) {
+        (WorkspaceWindowScope::NormalLogging, None, _) => true,
+        (WorkspaceWindowScope::NormalLogging, Some(_), _) => false,
+        (WorkspaceWindowScope::Contesting, Some(engine), Some(context)) => engine.contest_context.as_ref() != Some(context),
+        (WorkspaceWindowScope::Contesting, _, Some(_)) => true,
+        (WorkspaceWindowScope::Contesting, _, None) => true,
+    };
+    if replace {
+        let engine = match (scope, context) {
+            (WorkspaceWindowScope::Contesting, Some(context)) => Engine::for_contest(context),
+            _ => Engine::for_scope(scope),
+        };
+        engines.insert(scope, engine);
+    }
+    engines.get_mut(&scope).expect("scoped engine")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn queue_refresh(queue: &mut Queue, force: bool) -> Result<u64, String> {
+        queue.refresh(WorkspaceWindowScope::NormalLogging, None, force)
+    }
+    fn contest_context(session: &str) -> crate::contest_window_context::ContestWindowContext {
+        crate::contest_window_context::ContestWindowContext {
+            operating_context: "10000000-0000-4000-8000-000000000001".into(),
+            session_id: session.into(), workspace_generation: "12345678-1234-1234-1234-123456789abc".into(),
+        }
+    }
     struct FakeHost {
         layouts: VecDeque<Value>,
         last: Value,
@@ -606,6 +794,11 @@ mod tests {
         ];
         let panels: Vec<_> = roles.iter().enumerate().map(|(z, id)| json!({"id":id,"placement":if windows.contains(id) {"window"} else {"hidden"},"rect":{"x":0,"y":0,"width":640,"height":480},"z":z})).collect();
         json!({"generation":"12345678-1234-1234-1234-123456789abc","revision":revision,"document":{"version":2,"activePresetID":"desk","presets":[{"id":"desk","name":"Desk","width":1920,"height":1080,"locked":true,"snap":true,"panels":panels}]}})
+    }
+    fn contest_layout(revision: u64, windows: &[&str]) -> Value {
+        let mut layout = layout(revision, windows);
+        layout["scope"] = json!("contesting");
+        layout
     }
     fn reconcile(engine: &mut Engine, host: &mut FakeHost, force: bool) -> Result<(), String> {
         engine.begin(engine.outcome["attempt"].as_u64().unwrap() + 1);
@@ -768,13 +961,15 @@ mod tests {
     fn queued_refresh_is_bounded_coalesced_and_retains_force() {
         let mut queue = Queue::default();
         for index in 0..10000 {
-            assert_eq!(queue.refresh(false).unwrap(), index + 1);
+            assert_eq!(queue_refresh(&mut queue, false).unwrap(), index + 1);
         }
-        assert_eq!(queue.refresh(true).unwrap(), 10001);
-        assert_eq!(queue.refresh(false).unwrap(), 10002);
+        assert_eq!(queue_refresh(&mut queue, true).unwrap(), 10001);
+        assert_eq!(queue_refresh(&mut queue, false).unwrap(), 10002);
         assert!(matches!(
             queue.next(),
             Some(Work::Refresh(PendingRefresh {
+                scope: WorkspaceWindowScope::NormalLogging,
+                contest_context: None,
                 force: true,
                 attempt: 10002
             }))
@@ -782,19 +977,49 @@ mod tests {
         assert!(queue.next().is_none());
     }
     #[test]
+    fn one_queue_keeps_normal_and_contest_refreshes_separate() {
+        let mut queue = Queue::default();
+        let context = contest_context("20000000-0000-4000-8000-000000000001");
+        assert_eq!(queue.refresh(WorkspaceWindowScope::Contesting, Some(context.clone()), false).unwrap(), 1);
+        assert_eq!(queue_refresh(&mut queue, true).unwrap(), 2);
+        let Some(Work::Refresh(normal)) = queue.next() else { panic!("missing normal refresh") };
+        assert_eq!(normal.scope, WorkspaceWindowScope::NormalLogging);
+        assert!(normal.force);
+        let Some(Work::Refresh(contest)) = queue.next() else { panic!("missing contest refresh") };
+        assert_eq!(contest.scope, WorkspaceWindowScope::Contesting);
+        assert_eq!(contest.contest_context, Some(context));
+        assert!(!contest.force);
+    }
+    #[test]
+    fn session_replacement_resets_only_the_contest_engine() {
+        let mut engines = BTreeMap::from([(WorkspaceWindowScope::NormalLogging, Engine::default())]);
+        let first = contest_context("20000000-0000-4000-8000-000000000001");
+        let second = contest_context("20000000-0000-4000-8000-000000000002");
+        let engine = engine_for(&mut engines, WorkspaceWindowScope::Contesting, Some(&first));
+        let plan = engine.planner.plan(&contest_layout(1, &["logbook"]), false).unwrap();
+        engine.planner.acknowledge_show("contest--logbook").unwrap(); engine.planner.complete(&plan);
+        assert!(engine.planner.plan(&contest_layout(1, &["logbook"]), false).unwrap().show.is_empty());
+        let replaced = engine_for(&mut engines, WorkspaceWindowScope::Contesting, Some(&second));
+        assert_eq!(replaced.contest_context, Some(second));
+        assert_eq!(replaced.planner.plan(&contest_layout(1, &["logbook"]), false).unwrap().show, ["contest--logbook"]);
+        assert!(engines.contains_key(&WorkspaceWindowScope::NormalLogging));
+    }
+    #[test]
     fn in_flight_and_later_coalesced_refreshes_have_distinct_tickets() {
         let mut queue = Queue::default();
-        assert_eq!(queue.refresh(false).unwrap(), 1);
+        assert_eq!(queue_refresh(&mut queue, false).unwrap(), 1);
         let Some(Work::Refresh(first)) = queue.next() else {
             panic!("missing first refresh")
         };
-        assert_eq!(queue.refresh(true).unwrap(), 2);
-        assert_eq!(queue.refresh(false).unwrap(), 3);
+        assert_eq!(queue_refresh(&mut queue, true).unwrap(), 2);
+        assert_eq!(queue_refresh(&mut queue, false).unwrap(), 3);
         assert_eq!(first.attempt, 1);
         assert!(!first.force);
         assert!(matches!(
             queue.next(),
             Some(Work::Refresh(PendingRefresh {
+                scope: WorkspaceWindowScope::NormalLogging,
+                contest_context: None,
                 force: true,
                 attempt: 3
             }))
@@ -807,12 +1032,14 @@ mod tests {
             issued_attempt: MAX_ATTEMPT - 1,
             ..Queue::default()
         };
-        assert_eq!(queue.refresh(false).unwrap(), MAX_ATTEMPT);
-        assert!(queue.refresh(true).is_err());
+        assert_eq!(queue_refresh(&mut queue, false).unwrap(), MAX_ATTEMPT);
+        assert!(queue_refresh(&mut queue, true).is_err());
         assert_eq!(queue.issued_attempt, MAX_ATTEMPT);
         assert!(matches!(
             queue.next(),
             Some(Work::Refresh(PendingRefresh {
+                scope: WorkspaceWindowScope::NormalLogging,
+                contest_context: None,
                 force: false,
                 attempt: MAX_ATTEMPT
             }))
@@ -839,7 +1066,7 @@ mod tests {
             issued_attempt: 42,
             ..Queue::default()
         };
-        assert_eq!(queue.refresh(true).unwrap(), 43);
+        assert_eq!(queue_refresh(&mut queue, true).unwrap(), 43);
         assert_eq!(engine.outcome, completed);
         engine.begin(43);
         host.fail_show = Some("logbook".into());
@@ -909,13 +1136,45 @@ mod tests {
     #[test]
     fn native_load_requires_correlated_successful_layout_response() {
         let valid = json!({"id":"load","ok":true,"result":{"layout":layout(1, &[])}});
-        assert!(checked_response(valid.clone(), "load").is_ok());
-        assert!(checked_response(valid, "other").is_err());
+        assert!(checked_response(valid.clone(), "load", WorkspaceWindowScope::NormalLogging, None).is_ok());
+        assert!(checked_response(valid, "other", WorkspaceWindowScope::NormalLogging, None).is_err());
         assert!(checked_response(
             json!({"id":"load","ok":false,"error":{"message":"failed"}}),
-            "load"
+            "load", WorkspaceWindowScope::NormalLogging, None
         )
         .is_err());
-        assert!(checked_response(json!({"id":"load","ok":true,"result":{}}), "load").is_err());
+        assert!(checked_response(json!({"id":"load","ok":true,"result":{}}), "load", WorkspaceWindowScope::NormalLogging, None).is_err());
+
+        let tagged = json!({"id":"load","ok":true,"result":{"layout":contest_layout(1, &[])}});
+        assert!(checked_response(tagged.clone(), "load", WorkspaceWindowScope::NormalLogging, None).is_err());
+        assert!(checked_response(tagged.clone(), "load", WorkspaceWindowScope::Contesting,
+            Some("12345678-1234-1234-1234-123456789abc")).is_ok());
+        assert!(checked_response(tagged, "load", WorkspaceWindowScope::Contesting,
+            Some("12345678-1234-1234-1234-123456789abd")).is_err());
+        let untagged = json!({"id":"load","ok":true,"result":{"layout":layout(1, &[])}});
+        assert!(checked_response(untagged, "load", WorkspaceWindowScope::Contesting,
+            Some("12345678-1234-1234-1234-123456789abc")).is_err());
+    }
+    #[test]
+    fn contest_engine_uses_scoped_labels_for_reconcile_and_reopen() {
+        let mut engine = Engine::for_scope(WorkspaceWindowScope::Contesting);
+        let mut host = FakeHost::new(vec![contest_layout(1, &["active-qso", "logbook"])]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert_eq!(host.operations, ["show:contest--active-qso:false", "show:contest--logbook:false"]);
+        host.operations.clear();
+        host.last = contest_layout(2, &["logbook"]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert_eq!(host.operations, ["show:contest--logbook:false", "hide:contest--active-qso"]);
+        host.operations.clear();
+        host.last = contest_layout(3, &["active-qso", "logbook"]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert_eq!(host.operations, ["show:contest--active-qso:false", "show:contest--logbook:false"]);
+    }
+    #[test]
+    fn contest_context_retirement_targets_only_scoped_children_never_main() {
+        let labels = contest_window_labels();
+        assert_eq!(labels.len(), crate::workspace_windows::CONTEST_WINDOWS.len());
+        assert!(labels.iter().all(|label| label.starts_with("contest--")));
+        assert!(!labels.iter().any(|label| label == "main" || crate::workspace_windows::supports(label)));
     }
 }
