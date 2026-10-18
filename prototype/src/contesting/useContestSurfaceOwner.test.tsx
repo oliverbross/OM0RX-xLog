@@ -46,6 +46,25 @@ it("does not execute a dequeued action after its owner context closes",async()=>
   expect(native.invoke.mock.calls.some(([name])=>name==="contest_surface_context_close")).toBe(true);
 });
 
+it("rebases safe presentation edits across a sibling projection update but rejects a stale commit",async()=>{
+  const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
+    if(command==="contest_surface_action_next")return queue.shift()??null;
+    if(command==="contest_surface_action_complete"){completed.push(args);return;}
+    throw new Error(command);
+  });
+  const handle=vi.fn(async()=>{}),projections={...unavailable(),"active-qso":entry},view=render(<Harness projections={projections} handle={handle}/>);
+  await waitFor(()=>expect(native.wake).toBeTypeOf("function"));
+  view.rerender(<Harness projections={{...projections,"active-qso":{...entry,dirty:true}}} handle={handle}/>);
+  const safe={...action(1),requestID:crypto.randomUUID(),action:"entry_set_text" as const,
+    params:{draftID:"draft-1",expectedDraftRevision:5,field:"callsign" as const,value:"K1ABC"}};
+  queue.push(safe,action(1));await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(completed).toHaveLength(2));expect(handle).toHaveBeenCalledOnce();expect(handle).toHaveBeenCalledWith(safe);
+  expect(completed[0]).toMatchObject({requestID:safe.requestID,outcome:"applied"});
+  expect(completed[1]).toMatchObject({outcome:"rejected",message:"The contest panel changed before this action reached the owner."});
+});
+
 it("keeps a successful action uncertain when the applied completion reply is lost",async()=>{
   const queued=action(1),completed:Record<string,unknown>[]=[],report=vi.fn();let delivered=false;
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{

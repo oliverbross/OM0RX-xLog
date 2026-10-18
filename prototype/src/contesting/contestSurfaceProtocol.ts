@@ -13,7 +13,7 @@ export type ContestSurfaceAction =
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
-      "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape" } }
+      "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: "callsign" | "exchange" | null } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history"; candidateID: string } }
   | { action: "log_page"; params: { offset: number } }
@@ -23,6 +23,7 @@ export type ContestSurfaceAction =
   | { action: "log_edit_set_exchange"; params: { qsoID: string; fieldID: string; value: string } }
   | { action: "log_edit_set_frequency_text"; params: { qsoID: string; value: string } }
   | { action: "log_edit_set_band"; params: { qsoID: string; value: string } }
+  | { action: "log_edit_confirm_delete"; params: { qsoID: string; confirmed: boolean } }
   | { action: "log_edit_save" | "log_edit_delete"; params: { qsoID: string; expectedSessionRevision: Revision } };
 
 export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
@@ -49,6 +50,7 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
   operator: null | { output: "simulation-only"; armed: boolean; style: "run" | "search-and-pounce";
     status: "disarmed" | "armed" | "waiting" | "uncertain"; pending: "reserve-serial" | "send" | "commit" | null;
+    focusedField: "callsign" | "exchange" | null;
     functionKeys: { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
       macro: "CQ" | "EXCH" | "QRZ" | "AGN" | "HISCALL" | "MYCALL" | "QSOB4" }[];
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
@@ -135,10 +137,11 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     (serial.requirement === "none" ? serial.allocatedFieldID === null : text(serial.allocatedFieldID, 64) && sentFieldIDs.has(serial.allocatedFieldID as string)) &&
     (serial.reservedSerial === null || uint(serial.reservedSerial)) && serial.reservedSerial === draftValue?.reservedSerial;
   const operatorValid = value.operator === null || !!operator &&
-    exact(operator, ["output", "armed", "style", "status", "pending", "functionKeys", "readiness", "trace"]) &&
+    exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "functionKeys", "readiness", "trace"]) &&
     operator.output === "simulation-only" && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
     oneOf(operator.status, ["disarmed", "armed", "waiting", "uncertain"]) &&
     (operator.pending === null || oneOf(operator.pending, ["reserve-serial", "send", "commit"])) &&
+    (operator.focusedField === null || oneOf(operator.focusedField, ["callsign", "exchange"])) &&
     Array.isArray(operator.functionKeys) && operator.functionKeys.length <= 12 && new Set(operator.functionKeys.map(item => {
       const key = record(item) ? item : undefined; return key?.key;
     })).size === operator.functionKeys.length &&
@@ -218,8 +221,9 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_reserve_serial" || action === "entry_commit") return draft(params, []);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
-  if (action === "entry_operator_key") return draft(params, ["key"]) &&
-    typeof params.key === "string" && /^(?:F(?:[1-9]|1[0-2])|Enter|Escape)$/.test(params.key);
+  if (action === "entry_operator_key") return draft(params, ["key", "focusedField"]) &&
+    typeof params.key === "string" && /^(?:F(?:[1-9]|1[0-2])|Enter|Escape)$/.test(params.key) &&
+    (params.focusedField === null || oneOf(params.focusedField, ["callsign", "exchange"]));
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history"]) && text(params.candidateID, 160);
@@ -230,6 +234,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "log_edit_set_exchange") return qso(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "log_edit_set_frequency_text") return qso(params, ["value"]) && text(params.value, 11, true);
   if (action === "log_edit_set_band") return qso(params, ["value"]) && text(params.value, 16);
+  if (action === "log_edit_confirm_delete") return qso(params, ["confirmed"]) && typeof params.confirmed === "boolean";
   if (action === "log_edit_save" || action === "log_edit_delete") return qso(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
   return false;
 }

@@ -21,11 +21,14 @@ type Trace = ContestSimulationEntry & { status: "pending" | "confirmed" | "faile
 export type ContestOperatorSurfaceState = {
   armed: boolean; style: OperatorStyle; status: "disarmed" | "armed" | "waiting" | "uncertain";
   pending: "reserve-serial" | "send" | "commit" | null;
+  focusedField: OperatorField | null;
   functionKeys: OperatorFlowState["functionKeys"];
   readiness: NonNullable<ContestDraftSnapshot["operatorReadiness"]> | null;
   trace: readonly Trace[];
 };
-export type ContestOperatorSurfaceController = { setArmed: (armed: boolean) => void; setStyle: (style: OperatorStyle) => void };
+type OperatorSurfaceKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape";
+export type ContestOperatorSurfaceController = { setArmed: (armed: boolean) => void; setStyle: (style: OperatorStyle) => void;
+  pressKey: (key: OperatorSurfaceKey, focusedField: OperatorField | null) => void };
 type ReservationIntent = Extract<OperatorFlowIntent, { kind: "reserve-serial" }>;
 
 type Props = {
@@ -96,6 +99,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   const admitIntentRef = useRef(admitIntent);
   const reserveSerialRef = useRef(reserveSerial), commitQSORef = useRef(commitQSO);
   const focusRef = useRef<OperatorField>("callsign"), editRef = useRef(editGeneration);
+  const [surfaceFocusedField, setSurfaceFocusedField] = useState<OperatorField | null>("callsign");
   const recoveryRef = useRef(0), admissionRef = useRef(0), lastSentCall = useRef("");
   const uncertainOperationRef = useRef<{ token: OperatorOperationToken; operation: ContestMutation } | null>(null);
   const [reservationContinuation, setReservationContinuation] = useState<{ intent: ReservationIntent; result: ContestDraftResult } | null>(null);
@@ -118,10 +122,10 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   useEffect(() => {
     if (!audited) { onSurfaceChange?.(null); return; }
     const pending = state.pending;
-    onSurfaceChange?.({ armed: state.armed, style: state.style,
+    onSurfaceChange?.({ armed: state.armed, style: state.style, focusedField: surfaceFocusedField,
       status: pending?.uncertain ? "uncertain" : pending ? "waiting" : state.armed ? "armed" : "disarmed",
       pending: pending?.kind ?? null, functionKeys: state.functionKeys, readiness: draft.operatorReadiness ?? null, trace });
-  }, [audited, draft.operatorReadiness, onSurfaceChange, state, trace]);
+  }, [audited, draft.operatorReadiness, onSurfaceChange, state, surfaceFocusedField, trace]);
   useEffect(() => () => onSurfaceChange?.(null), [onSurfaceChange]);
   const traceScrolled = () => {
     const element = traceRef.current;
@@ -151,6 +155,9 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
         if (disabledRef.current || current.pending) throw new Error("The operator simulation is busy.");
         if (!step({ type: "style-changed", context: current.context, style }).accepted)
           throw new Error("The operator simulation state changed.");
+      },
+      pressKey: (key, focusedField) => {
+        if (!applyKey(key, focusedField, {})) throw new Error("The operator key is unavailable in the current flow state.");
       },
     });
     return () => registerSurfaceController?.(null);
@@ -189,7 +196,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
       setTrace(items => items.map(item => item.status === "pending" ? { ...item, status: "stopped" as const } : item).slice(-MAX_TRACE));
       return;
     }
-    if (intent.kind === "focus") { focusField(intent.field); return; }
+    if (intent.kind === "focus") { focusRef.current = intent.field; setSurfaceFocusedField(intent.field); focusField(intent.field); return; }
     if (intent.kind === "reconcile-receipt") return;
     if (intent.kind === "send") {
       if (!admits(intent) || !sendReady(intent.macro)) { settle(intent.token, "failed"); return; }
@@ -231,32 +238,38 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     }
   }
   function token(): OperatorOperationToken { const admission = ++admissionRef.current; return { operationID: `simulation-${admission}`, admission }; }
-  function handleKey(event: KeyboardEvent) {
-    if (!audited || !entryRoot.current?.contains(event.target as Node)) return;
-    const element = event.target instanceof HTMLElement ? event.target : null;
-    const field = element?.dataset.contestOperatorField as OperatorField | undefined;
-    const wasDefaultPrevented = event.defaultPrevented;
-    if ((event.key === "Enter" || /^F(?:[1-9]|1[0-2])$/.test(event.key)) && !field) return;
-    if (event.key === "Enter" && (stateRef.current.armed || stateRef.current.pending)) event.preventDefault();
-    if (event.key !== "Enter" && event.key !== "Escape" && !/^F(?:[1-9]|1[0-2])$/.test(event.key)) return;
-    if (disabledRef.current && event.key !== "Escape") return;
-    if (field) {
+  function applyKey(key: string, focusedField: OperatorField | null, options: Partial<Pick<KeyboardEvent, "repeat" | "isComposing" |
+    "defaultPrevented" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey">>) {
+    if (!audited || key !== "Enter" && key !== "Escape" && !/^F(?:[1-9]|1[0-2])$/.test(key)) return false;
+    if (disabledRef.current && key !== "Escape") return false;
+    if (key === "Enter" && !focusedField) return false;
+    if (focusedField) {
+      const field = focusedField;
       focusRef.current = field;
+      setSurfaceFocusedField(field);
       const cues = cuesFor(sessionRef.current, draftRef.current, field,
         !!lastSentCall.current && draftRef.current.fields.callsign !== lastSentCall.current);
-      if (field === "exchange" && /^\d+$/.test(draftRef.current.fields.receivedExchange.trim()) && cues.exchange === "invalid") return;
+      if (field === "exchange" && /^\d+$/.test(draftRef.current.fields.receivedExchange.trim()) && cues.exchange === "invalid") return false;
       const cued = operatorFlowStep(stateRef.current, { type: "cues", context: stateRef.current.context,
         cues });
       if (cued.accepted) setFlow(cued.state);
     }
-    const current = stateRef.current, shape = operatorFlowAdmissionShape(current, event.key);
+    const current = stateRef.current, shape = operatorFlowAdmissionShape(current, key);
     const reserveToken = shape?.reserveSerial ? token() : undefined;
     const admission = shape ? { send: shape.macros.map(() => token()), ...(reserveToken ? { reserveSerial: reserveToken } : {}),
       ...(shape.commit ? { commit: token() } : {}) } : undefined;
-    const transition = step({ type: "key", context: current.context, key: event.key, repeat: event.repeat,
-      isComposing: event.isComposing, defaultPrevented: wasDefaultPrevented, altKey: event.altKey, ctrlKey: event.ctrlKey,
-      metaKey: event.metaKey, shiftKey: event.shiftKey, admission });
-    if (transition.accepted) event.preventDefault();
+    const transition = step({ type: "key", context: current.context, key, repeat: options.repeat ?? false,
+      isComposing: options.isComposing ?? false, defaultPrevented: options.defaultPrevented ?? false,
+      altKey: options.altKey ?? false, ctrlKey: options.ctrlKey ?? false, metaKey: options.metaKey ?? false,
+      shiftKey: options.shiftKey ?? false, admission });
+    return transition.accepted;
+  }
+  function handleKey(event: KeyboardEvent) {
+    if (!audited || !entryRoot.current?.contains(event.target as Node)) return;
+    const element = event.target instanceof HTMLElement ? event.target : null;
+    const field = element?.dataset.contestOperatorField as OperatorField | undefined;
+    if ((event.key === "Enter" || /^F(?:[1-9]|1[0-2])$/.test(event.key)) && !field) return;
+    if (applyKey(event.key, field ?? null, event)) event.preventDefault();
   }
 
   useEffect(() => {

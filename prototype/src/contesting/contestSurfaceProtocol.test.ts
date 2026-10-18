@@ -16,7 +16,7 @@ const valid = [
   { panelID: "active-qso", action: "entry_commit", params: draft },
   { panelID: "active-qso", action: "entry_operator_arm", params: { ...draft, armed: true } },
   { panelID: "active-qso", action: "entry_operator_style", params: { ...draft, value: "search-and-pounce" } },
-  { panelID: "active-qso", action: "entry_operator_key", params: { ...draft, key: "F12" } },
+  { panelID: "active-qso", action: "entry_operator_key", params: { ...draft, key: "F12", focusedField: null } },
   { panelID: "callsign-intelligence", action: "assistance_query", params: { ...draft, inputCallsign: "OM0" } },
   { panelID: "callsign-intelligence", action: "assistance_select", params: { ...draft, kind: "history", candidateID: "history-1" } },
   { panelID: "logbook", action: "log_page", params: { offset: 20 } },
@@ -26,6 +26,7 @@ const valid = [
   { panelID: "logbook", action: "log_edit_set_exchange", params: { ...qso, fieldID: "zone", value: "15" } },
   { panelID: "logbook", action: "log_edit_set_frequency_text", params: { ...qso, value: "14.025A" } },
   { panelID: "logbook", action: "log_edit_set_band", params: { ...qso, value: "20m" } },
+  { panelID: "logbook", action: "log_edit_confirm_delete", params: { ...qso, confirmed: true } },
   { panelID: "logbook", action: "log_edit_save", params: { ...qso, expectedSessionRevision: 6 } },
   { panelID: "logbook", action: "log_edit_delete", params: { ...qso, expectedSessionRevision: 6 } },
 ] as const;
@@ -70,6 +71,7 @@ const entryProjectionV2 = { ...entryProjection, schemaVersion: 2,
     sentFields: [{ id: "serial", label: "Serial", value: "001", required: true, maximumUTF8Bytes: 8 }],
     serial: { requirement: "requiredForCommit", allocatedFieldID: "serial", reservedSerial: null } },
   operator: { output: "simulation-only", armed: true, style: "run", status: "armed", pending: null,
+    focusedField: "callsign",
     functionKeys: [{ key: "F1", macro: "CQ" }, { key: "F2", macro: "EXCH" }],
     readiness: { canSendCQ: true, canSendCall: true, canSendDuplicate: false, canReserveCall: true,
       canReserveCommit: true, canCommit: false },
@@ -128,6 +130,7 @@ describe("contest native surface projection v1", () => {
       functionKeys: [{ key: "F1", macro: "CQ" }, { key: "F1", macro: "EXCH" }] } },
     { ...entryProjectionV2, operator: { ...entryProjectionV2.operator,
       trace: Array.from({ length: 25 }, (_, index) => ({ ...entryProjectionV2.operator.trace[0], operationID: `simulation-${index}` })) } },
+    { ...entryProjectionV2, operator: { ...entryProjectionV2.operator, focusedField: undefined } },
     { ...entryProjectionV2, schemaVersion: 1 },
   ])("rejects inconsistent or over-bound Entry v2 projections %#", value => {
     expect(validContestSurfaceProjection("active-qso", value)).toBe(false);

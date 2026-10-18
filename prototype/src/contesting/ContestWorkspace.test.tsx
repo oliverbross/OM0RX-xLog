@@ -86,13 +86,13 @@ function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftS
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
 function fullQSO(session: ContestSessionSummary): ContestFullQSO { const report = session.rule.entry.report.defaultSent; return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: session.rule.mode, frequencyHz: 14025000, sentReport: report, receivedReport: report, sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
-function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; rejectCommit?: boolean; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean; scp?: boolean; emptyMultiplierDisplay?: boolean; extraSession?: ContestSessionSummary } = {}) {
+function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; rejectCommit?: boolean; failProjectionAfterCommit?: boolean; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean; scp?: boolean; emptyMultiplierDisplay?: boolean; extraSession?: ContestSessionSummary } = {}) {
   const configuredSessions = options.extraSession ? [...sessions, options.extraSession] : sessions;
   const fixtureSessions = options.scp ? configuredSessions.map((item,index) => ({...item,sessionID:`00000000-0000-0000-0000-00000000000${index+1}`,workspaceGeneration:"10000000-0000-0000-0000-000000000001"})) : configuredSessions;
   const fixtureRules = options.extraSession ? [...rules, options.extraSession.rule] : rules;
   const state = new Map(fixtureSessions.map(item => { const session = { ...item, qsoCount: options.qsoSession === item.sessionID ? 1 : item.qsoCount }; const draft = draftFor(session); if (options.qsoSession === "session-2") draft.reservedSerial = 7; return [item.sessionID, { session, draft }]; }));
   const contacts = new Map<string, ContestFullQSO>(); if (options.qsoSession) contacts.set(options.qsoSession, fullQSO(state.get(options.qsoSession)!.session));
-  const calls: [string, Record<string, unknown>][] = []; let sequence = 0, applyCount = 0, createLost = false, changeLost = false;
+  const calls: [string, Record<string, unknown>][] = []; let sequence = 0, applyCount = 0, createLost = false, changeLost = false, committed = false;
   const changeResults = new Map<string, ContestQSOChangeResult>();
   const receipt = (params: Record<string, unknown>, revision: number) => ({ requestID: params.requestID as string, payloadDigest: params.payloadDigest as string, committedRevision: revision, committedAt: "2026-10-17T02:00:00Z" });
   const request: ContestRequest = vi.fn(async (method, params = {}) => {
@@ -130,6 +130,7 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
     if (method === "contest_qso_commit") {
       if (options.rejectCommit) return { id: "frame", ok: false as const, error: { code: "stale_revision", message: "Contest changed elsewhere.", outcome: "confirmed" as const } };
       await options.commit; const old = current.draft, revision = current.session.revision + 1; current.session = { ...current.session, revision, qsoCount: current.session.qsoCount + 1 }; current.draft = draftFor(current.session);
+      committed = true;
       const { multiplierLabels: _multiplierLabels, multiplierDisplayLabels: _multiplierDisplayLabels, ...scoreSummary } = score(current.session);
       return ok({ ...current, qso: { qsoID: `qso-${revision}`, sessionID: current.session.sessionID, workedAt: "2026-10-17T02:00:00Z", callsign: old.fields.callsign, band: old.fields.band, mode: old.fields.mode, sentExchange: old.fields.sentExchange, receivedExchange: old.fields.receivedExchange, points: 3, multiplier: "K", isDupe: false }, score: scoreSummary, receipt: receipt(params, revision) });
     }
@@ -152,8 +153,8 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       return ok(value);
     }
     if (method === "contest_operation_receipt") { const result = changeResults.get(params.requestID as string); return ok(options.receiptCommitted && result ? { status: "committed", receipt: result.receipt } : { status: "not_found" }); }
-    if (method === "contest_log_page") { const contact = contacts.get(current.session.sessionID); const qsos = contact ? [{ qsoID: contact.qsoID, sessionID: contact.sessionID, workedAt: contact.originalUTC, callsign: contact.callsign, band: contact.band, mode: contact.mode, sentExchange: contact.sentExchange, receivedExchange: contact.receivedExchange, points: 3, multiplier: "wpx-prefix:DL1:contest", multiplierDisplayLabels: options.emptyMultiplierDisplay ? [] : ["DL1 prefix"], isDupe: false }] : []; return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos, total: qsos.length, offset: params.offset, limit: params.limit }); }
-    if (method === "contest_score") return ok({ ...score(current.session), revision: params.expectedRevision });
+    if (method === "contest_log_page") { if (options.failProjectionAfterCommit && committed) throw new Error("post-commit log refresh failed"); const contact = contacts.get(current.session.sessionID); const qsos = contact ? [{ qsoID: contact.qsoID, sessionID: contact.sessionID, workedAt: contact.originalUTC, callsign: contact.callsign, band: contact.band, mode: contact.mode, sentExchange: contact.sentExchange, receivedExchange: contact.receivedExchange, points: 3, multiplier: "wpx-prefix:DL1:contest", multiplierDisplayLabels: options.emptyMultiplierDisplay ? [] : ["DL1 prefix"], isDupe: false }] : []; return ok({ sessionID: current.session.sessionID, workspaceGeneration: current.session.workspaceGeneration, revision: params.expectedRevision, qsos, total: qsos.length, offset: params.offset, limit: params.limit }); }
+    if (method === "contest_score") { if (options.failProjectionAfterCommit && committed) throw new Error("post-commit score refresh failed"); return ok({ ...score(current.session), revision: params.expectedRevision }); }
     throw new Error(`Unexpected ${method}`);
   }) as ContestRequest;
   return { request, calls, state, contacts };
@@ -337,6 +338,18 @@ it("blocks session context changes until a delayed commit settles", async () => 
   const manager = screen.getByRole("button", { name: "Contest Manager" }) as HTMLButtonElement; expect(manager.disabled).toBe(true); fireEvent.click(manager);
   expect(calls.some(([m,p]) => m === "contest_open" && p.sessionID === "session-2")).toBe(false);
   await act(async () => gate.resolve()); await screen.findByText(/Logged K1ABC/); expect(screen.getByRole("heading", { name: /CQ WW CW/ })).toBeTruthy();
+});
+
+it("keeps a confirmed commit applied when the following score and log refresh fails", async () => {
+  const { request, calls, state } = fixture({ failProjectionAfterCommit: true }); await open(request);
+  const call = screen.getByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement;
+  fireEvent.change(call, { target: { value: "K1ABC" } });
+  await waitFor(() => expect(calls.some(([method]) => method === "contest_draft_apply")).toBe(true));
+  fireEvent.submit(screen.getByRole("form", { name: "CW contest entry" }));
+  await waitFor(() => expect(calls.filter(([method]) => method === "contest_qso_commit")).toHaveLength(1));
+  await screen.findByText(/post-commit (score|log) refresh failed/);
+  expect(state.get("session-1")!.session.qsoCount).toBe(1);
+  await waitFor(() => expect(call.value).toBe(""));
 });
 
 it("loads full multiplier labels from the score projection after a scalar commit summary", async () => {

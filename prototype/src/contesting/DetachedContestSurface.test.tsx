@@ -44,7 +44,7 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   const v2={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m","40m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,
+    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",
       functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},
       trace:[{operationID:"simulation-1",mode:"CW",macro:"CQ",text:"CQ OM0RX",status:"confirmed"}]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{

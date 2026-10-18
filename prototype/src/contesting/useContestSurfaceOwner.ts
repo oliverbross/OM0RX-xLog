@@ -9,6 +9,10 @@ type Projections = Record<ContestSurfacePanelID, ContestSurfaceProjection>;
 type Owner = { context: ContestSurfaceContext | null; projections: Projections;
   handle: (action: ContestSurfaceActionEnvelope) => Promise<void>; report: (message: string) => void };
 const boundedMessage = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)).slice(0, 512);
+const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["action"]>([
+  "entry_set_text", "entry_set_exchange", "entry_set_frequency_text", "entry_set_band", "entry_set_mode", "assistance_query",
+  "log_edit_set_text", "log_edit_set_exchange", "log_edit_set_frequency_text", "log_edit_set_band", "log_edit_confirm_delete",
+]);
 
 /** Keeps the single mounted ContestWorkspace authoritative. Wake events carry no
  * state; every action and projection is reread through the typed native bridge. */
@@ -44,7 +48,8 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
           if (!active || action === null) break;
           let admitted = false;
           try {
-            if (action.projectionRevision !== revisionRef.current) throw new Error("The contest panel changed before this action reached the owner.");
+            if (action.projectionRevision !== revisionRef.current && !rebasablePresentationActions.has(action.action))
+              throw new Error("The contest panel changed before this action reached the owner.");
             if (projectionsRef.current[action.panelID].status !== "ready")
               throw new Error("The requested contest panel is not available.");
             admitted = true;

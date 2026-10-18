@@ -15,7 +15,7 @@ import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type Contest
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
-import type { ContestCabrilloHeader, ContestCreateInput, ContestDraftFields, ContestEntryDescriptor, ContestExportFormat, ContestFullQSO, ContestLogPage, ContestPreparedExport, ContestQSOChangeResult, ContestRequest, ContestResolvedSerial, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
+import type { ContestCabrilloHeader, ContestCommitResult, ContestCreateInput, ContestDraftFields, ContestEntryDescriptor, ContestExportFormat, ContestFullQSO, ContestLogPage, ContestPreparedExport, ContestQSOChangeResult, ContestRequest, ContestResolvedSerial, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
 import "./ContestWorkspace.css";
 
 const PAGE_SIZE = 20;
@@ -278,32 +278,38 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
   async function commitQSO() {
     if (!active || !draft || blockingOperation || operatingFrequencyError || draft.validation.errors.length || draft.dupe.state === "duplicate" || !beginAction()) throw new Error("Contest entry is not ready to log.");
     const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, scope = admissionScope();
+    let confirmed: ContestCommitResult | null = null;
     try {
       await owner.flush(); if (!accepts(scope) || owner.pendingOperation) throw new Error("Contest commit admission expired."); const current = owner.session!, result = await client.commitQSO(current, owner.draft!.draftID);
       if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation)
         throw new Error("Contest commit response no longer matches the active session.");
       if (!owner.apply(result, scope.lease!, scope.admission!)) throw new Error("Contest commit response was not admitted.");
+      confirmed = result;
       setSessions(items => items.map(item => item.sessionID === result.session.sessionID ? result.session : item));
       setScore(null); setNotice(`Logged ${result.qso.callsign}.`); await projections(result.session, 0, ticket, scope);
       return result;
-    } catch (cause) { handleFailure(cause, ticket, scope); throw cause; } finally { endAction(ticket, scope); }
+    } catch (cause) { handleFailure(cause, ticket, scope); if (confirmed) return confirmed; throw cause; } finally { endAction(ticket, scope); }
   }
   async function logQSO(event: FormEvent) {
     event.preventDefault();
     if (operatorSubmitGuard.current) return;
     try { await commitQSO(); } catch { /* surfaced by the contest owner */ }
   }
-  async function editQSO(qsoID: string) {
-    if (!active || uncertain || !beginAction()) return;
+  async function editQSO(qsoID: string, propagateFailure = false) {
+    if (!active || uncertain || !beginAction()) { if (propagateFailure) throw new Error("The contact editor is unavailable."); return; }
     const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, scope = admissionScope();
     try {
       await owner.flush();
-      if (!accepts(scope) || owner.pendingOperation || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      if (!accepts(scope) || owner.pendingOperation || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) {
+        if (propagateFailure) throw new Error("The contact editor request expired."); return;
+      }
       const result = await client.qso(owner.session, qsoID);
-      if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) {
+        if (propagateFailure) throw new Error("The contact editor response is stale."); return;
+      }
       setEditing({ original: result.qso, qso: result.qso }); setEditFrequencyText(String(result.qso.frequencyHz));
       setCorrectionReason("Operator correction"); setDeletionReason("Operator deletion"); setConfirmDelete(false); setEditorFrequencyError("");
-    } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
+    } catch (cause) { handleFailure(cause, ticket, scope); if (propagateFailure) throw cause; } finally { endAction(ticket, scope); }
   }
   function changeQSO<K extends keyof ContestFullQSO>(key: K, value: ContestFullQSO[K]) {
     if (busy || blockingOperation) return;
@@ -347,23 +353,33 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
     await projections(adopted, 0, ticket, scope);
     return true;
   }
-  async function applyQSOChange(kind: "correction" | "deletion") {
-    if (!active || !editing || uncertain || kind === "correction" && editorFrequencyError || !beginAction()) return;
+  async function applyQSOChange(kind: "correction" | "deletion", propagateFailure = false) {
+    if (!active || !editing || uncertain || kind === "correction" && editorFrequencyError || !beginAction()) {
+      if (propagateFailure) throw new Error("The contact edit is not ready to save."); return;
+    }
     const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, target = editing.qso, scope = admissionScope();
+    let confirmed = false;
     try {
       await owner.flush();
-      if (!accepts(scope) || owner.pendingOperation || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
+      if (!accepts(scope) || owner.pendingOperation || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) {
+        if (propagateFailure) throw new Error("The contact edit request expired."); return;
+      }
       const result = kind === "correction"
         ? await client.correctQSO(owner.session, target, correctionReason)
         : await client.deleteQSO(owner.session, target.qsoID, deletionReason);
-      if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) return;
-      if (!owner.applyChange(result, scope.lease!, scope.admission!)) return;
+      if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation) {
+        if (propagateFailure) throw new Error("The contact edit response is stale."); return;
+      }
+      if (!owner.applyChange(result, scope.lease!, scope.admission!)) {
+        if (propagateFailure) throw new Error("The contact edit response was not admitted."); return;
+      }
+      confirmed = true;
       const adopted = owner.session!;
       setEditing(null); setConfirmDelete(false); setScore(null);
       const country = result.currentTarget?.entity?.name;
       setNotice(kind === "correction" ? `Saved ${result.currentTarget!.callsign}${country ? ` · ${country}` : ""}.` : `Deleted ${target.callsign}. Score recalculated.`);
       await refreshAfterChange(adopted, ticket, scope);
-    } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
+    } catch (cause) { handleFailure(cause, ticket, scope); if (propagateFailure && !confirmed) throw cause; } finally { endAction(ticket, scope); }
   }
   async function checkReceipt(retry = false) {
     if (!uncertain || !beginAction()) return; const ticket = contextTicket.current, operation = uncertain, scope = admissionScope();
@@ -412,9 +428,11 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       if (ticket === contextTicket.current && accepts(scope) && owner.rebase(result.session, result.draft, scope.lease!, scope.admission!)) { setNeedsRefresh(false); setNotice("Draft refreshed; your local edit remains ready to save."); }
     } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
   }
-  async function movePage(next: number) {
-    if (!active || !beginAction()) return; const ticket = contextTicket.current, scope = admissionScope();
-    try { await projections(active, next, ticket, scope); } catch (cause) { handleFailure(cause, ticket, scope); } finally { endAction(ticket, scope); }
+  async function movePage(next: number, propagateFailure = false) {
+    if (!active || !beginAction()) { if (propagateFailure) throw new Error("The contest log is busy."); return; }
+    const ticket = contextTicket.current, scope = admissionScope();
+    try { await projections(active, next, ticket, scope); }
+    catch (cause) { handleFailure(cause, ticket, scope); if (propagateFailure) throw cause; } finally { endAction(ticket, scope); }
   }
   function closeExport() { exportTicket.current += 1; setExportOpen(false); }
   async function prepareExport(format: ContestExportFormat, header: ContestCabrilloHeader): Promise<ContestPreparedExport | null> {
@@ -471,7 +489,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       descriptor: { bands: active.rule.supportedBands ?? [draft.fields.band], modes, sentFields: sentSurfaceFields,
         serial: { requirement: serialRequirement, allocatedFieldID, reservedSerial: draft.reservedSerial } },
       operator: operatorSurface ? { output: "simulation-only", armed: operatorSurface.armed, style: operatorSurface.style,
-        status: operatorSurface.status, pending: operatorSurface.pending,
+        status: operatorSurface.status, pending: operatorSurface.pending, focusedField: operatorSurface.focusedField,
         functionKeys: Object.entries(operatorSurface.functionKeys).map(([key, macro]) => ({ key: key as "F1", macro: macro! })),
         readiness: { canSendCQ: operatorSurface.readiness?.canSendCQ ?? false,
           canSendCall: operatorSurface.readiness?.canSendCall ?? false,
@@ -506,7 +524,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
     if (!currentSession || !currentDraft || !surfaceContext || action.operatingContext !== surfaceContext.operatingContext ||
         action.sessionID !== currentSession.sessionID || action.workspaceGeneration !== currentSession.workspaceGeneration)
       throw new Error("The contest surface context is no longer active.");
-    if (retiringRef.current || busy || blockingOperation) throw new Error("The contest owner is busy.");
+    const stoppingOperator = action.action === "entry_operator_key" && action.params.key === "Escape";
+    if (retiringRef.current || (busy || blockingOperation) && !stoppingOperator) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_")) {
       const params = action.params as { draftID: string; expectedDraftRevision: number };
       if (params.draftID !== currentDraft.draftID || params.expectedDraftRevision !== currentDraft.revision)
@@ -530,8 +549,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         if (operatorSurfaceController.current?.context !== operatorPanelContext) throw new Error("The operator simulation is unavailable.");
         operatorSurfaceController.current.value.setStyle(action.params.value); return;
       case "entry_operator_key": {
-        const root = entryRoot.current; if (!root) throw new Error("The operator entry surface is unavailable.");
-        root.dispatchEvent(new KeyboardEvent("keydown", { key: action.params.key, bubbles: true, cancelable: true })); return;
+        if (operatorSurfaceController.current?.context !== operatorPanelContext) throw new Error("The operator simulation is unavailable.");
+        operatorSurfaceController.current.value.pressKey(action.params.key, action.params.focusedField); return;
       }
       case "assistance_query": changeField("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select": {
@@ -539,8 +558,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         if (!surface) throw new Error("The callsign candidate set is unavailable.");
         await surface.selectCandidate(action.params.candidateID); return;
       }
-      case "log_page": await movePage(action.params.offset); return;
-      case "log_edit_begin": await editQSO(action.params.qsoID); return;
+      case "log_page": await movePage(action.params.offset, true); return;
+      case "log_edit_begin": await editQSO(action.params.qsoID, true); return;
       case "log_edit_cancel":
         if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
         setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); return;
@@ -560,10 +579,13 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       case "log_edit_set_band":
         if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
         changeQSO("band", action.params.value); return;
+      case "log_edit_confirm_delete":
+        if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
+        setConfirmDelete(action.params.confirmed); return;
       case "log_edit_save": case "log_edit_delete":
         if (editing?.qso.qsoID !== action.params.qsoID || action.params.expectedSessionRevision !== currentSession.revision)
           throw new Error("The contest log changed before this edit reached the owner.");
-        await applyQSOChange(action.action === "log_edit_save" ? "correction" : "deletion"); return;
+        await applyQSOChange(action.action === "log_edit_save" ? "correction" : "deletion", true); return;
     }
   }
   useContestSurfaceOwner({ context: surfaceContext, projections: liveSurfaceProjections, handle: handleSurfaceAction, report: surfaceReport });

@@ -687,6 +687,27 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     expect((screen.getByLabelText("Operating style") as HTMLSelectElement).value).toBe("search-and-pounce");
   });
 
+  it("routes detached Enter and function keys through the real operator controller and admits Escape while blocked", async () => {
+    let controller: ContestOperatorSurfaceController | null = null, surface: ContestOperatorSurfaceState | null = null;
+    const sent: string[] = [], simulate: ContestSimulationAdapter = async entry => { sent.push(entry.macro); };
+    render(<Harness mode="CW" simulate={simulate} onSurfaceChange={value => { surface = value; }}
+      registerSurfaceController={value => { controller = value; }}/>);
+    await waitFor(() => expect(controller).not.toBeNull());
+    fireEvent.change(screen.getByLabelText("Call"), { target: { value: "K1ABC" } });
+    act(() => { controller!.setStyle("search-and-pounce"); controller!.setArmed(true); controller!.pressKey("Enter", "callsign"); });
+    await waitFor(() => expect(sent).toEqual(["MYCALL"]));
+    await waitFor(() => expect(surface?.pending).toBeNull());
+    screen.getByLabelText("Exchange").focus();
+    fireEvent.change(screen.getByLabelText("Exchange"), { target: { value: "5" } });
+    await waitFor(() => expect(surface?.readiness?.canCommit).toBe(true));
+    act(() => { controller!.setArmed(true); controller!.pressKey("Enter", "exchange"); });
+    await waitFor(() => expect(sent).toEqual(["MYCALL", "EXCH"]));
+    await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("0/1"));
+    fireEvent.click(screen.getByRole("button", { name: "Block entry" }));
+    act(() => controller!.pressKey("Escape", "exchange"));
+    await waitFor(() => expect(surface?.armed).toBe(false));
+  });
+
   it("admits exactly the fourteen generated reviewed CW and SSB capabilities", () => {
     const reviewed = generatedRules.filter(candidate => candidate.operatorCapability);
     expect(reviewed).toHaveLength(14);
