@@ -33,7 +33,7 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
 type DeskQSOProps = Pick<Props, "draft" | "setDraft" | "save" | "clear" | "busy" | "draftLocked" | "follow" | "setFollow" | "isEditing" | "cwControls" | "referenceEvidence" | "request" | "refresh" | "canAcceptLocalInput" | "onLocalInputState" | "resetInputEpoch"> & {
   onEditor?: () => void; onReadRadio?: () => Promise<void>; radioControls?: boolean; followControls?: boolean;
 } & Partial<Omit<Props, "onEditor" | "onReadRadio">>;
-export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState, resetInputEpoch, radioControls = true, followControls = radioControls }: DeskQSOProps) {
+export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState, resetInputEpoch, radioControls = true, followControls = false }: DeskQSOProps) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const duplicateDate = useDuplicateContact(draft, isEditing, request, refresh);

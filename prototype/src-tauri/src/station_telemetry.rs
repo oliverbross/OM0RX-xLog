@@ -196,6 +196,17 @@ impl StationTelemetry {
             ("hamlib", "tune_simplex") => ("station", &["set_receive_frequency_a", "set_receive_mode_a"]),
             _ => return Err("This provider does not expose the requested exact receive control.".into()),
         };
+        let supported = snapshot[capability_owner]["supported_commands"].as_array();
+        let has = |command: &str| supported.is_some_and(|commands| commands.iter().any(|value| value == command));
+        // New Agents expose the atomic tune_simplex transaction directly.
+        // Older compatible Agents expose the bounded frequency+mode pair used
+        // by RemoteAgentClient's legacy fallback. Either is exact receive
+        // authority; neither depends on the radio's current band or frequency.
+        let control_supported = if provider == "direct_agent" && control == "tune_simplex" {
+            has("tune_simplex") || has("set_frequency_hz") && has("set_mode")
+        } else {
+            advertised.iter().all(|command| has(command))
+        };
         let age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
         let exact_state = if provider == "hamlib" {
             let observed_age = snapshot["observed_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
@@ -216,8 +227,7 @@ impl StationTelemetry {
             let radio = &snapshot["radio"];
             snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
                 && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false
-                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands|
-                    advertised.iter().all(|advertised| commands.iter().any(|command| command == *advertised)))
+                && control_supported
         } else {
             let radio = &snapshot["radio"];
             let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
@@ -227,8 +237,7 @@ impl StationTelemetry {
                 && snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
                 && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false && radio["receive_vfo"] == "A"
                 && radio["vfos"].as_array().is_some_and(|vfos| vfos.iter().any(|vfo| vfo["letter"] == "A" && vfo["receive"] == true))
-                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands|
-                    advertised.iter().all(|advertised| commands.iter().any(|command| command == *advertised)))
+                && control_supported
         };
         if self.stopped.load(Ordering::Acquire) || state.controls != 0
             || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
@@ -660,6 +669,23 @@ mod tests {
                 _ => state.projection["snapshot"]["observed_at_ms"] = json!(4000),
             }}
             assert!(owner.receive_control_at(2, &identity, 13, "set_receive_frequency_a", 10000).is_err(), "{change}");
+        }
+    }
+    #[test]
+    fn direct_agent_spot_tune_ignores_current_band_and_accepts_atomic_or_legacy_capability() {
+        for commands in [json!(["tune_simplex"]), json!(["set_frequency_hz", "set_mode"])] {
+            let (owner, identity) = receive_fixture("direct_agent");
+            {
+                let mut state = owner.state.lock().unwrap();
+                // The observed frequency is deliberately outside a configured
+                // 40 m regional edge. Admission concerns the explicit target
+                // tune capability, never the radio's current frequency/band.
+                state.projection["snapshot"]["radio"]["frequency_hz"] = json!(7_236_000);
+                state.projection["snapshot"]["station"]["band"] = json!("Other");
+                state.projection["snapshot"]["station"]["supported_commands"] = commands;
+            }
+            let fence = owner.receive_control_at(2, &identity, 13, "tune_simplex", 10000).unwrap();
+            drop(fence);
         }
     }
     #[test]

@@ -30,11 +30,16 @@
 .radio-settings-readiness dl { display: grid; grid-template-columns: minmax(130px, 180px) minmax(0, 1fr); gap: 8px 18px; margin: 0 0 14px; }
 .radio-settings-readiness dt { color: var(--secondary); }
 .radio-settings-readiness dd { margin: 0; overflow-wrap: anywhere; }
+.radio-settings-local-refresh { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--border); padding-block: 18px; max-width: 760px; }
+.radio-settings-local-refresh h2 { margin: 0 0 5px; font-size: 14px; }
+.radio-settings-local-refresh p { margin: 0; color: var(--secondary); }
+.radio-settings-local-refresh button { flex: none; display: inline-flex; align-items: center; gap: 7px; }
 @media (max-width: 680px) {
   .radio-settings-tabs { display: flex; }
   .radio-settings-tabs button { flex: 1; min-width: 0; }
   .radio-settings-summary { align-items: flex-start; flex-direction: column; }
   .radio-settings-routing { align-items: flex-start; flex-direction: column; }
+  .radio-settings-local-refresh { align-items: flex-start; flex-direction: column; gap: 12px; }
   .radio-settings-readiness dl { grid-template-columns: 1fr; gap: 3px; }
   .radio-settings-readiness dd { margin-bottom: 8px; }
 }
