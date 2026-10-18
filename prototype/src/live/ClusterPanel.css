@@ -204,7 +204,7 @@
   .live-cluster-transcript p span { grid-column: 1 / -1; }
 }
 .special-filter-options { display:grid; gap:5px; width:100%; }
-.special-filter-header,.special-filter-option { display:grid; grid-template-columns:minmax(7rem,1fr) 5.5rem 4.5rem; align-items:center; gap:8px; }
+.special-filter-header,.special-filter-option { display:grid; grid-template-columns:minmax(0,1fr) minmax(4.75rem,auto) minmax(3.75rem,auto); align-items:center; gap:6px; }
 .special-filter-header { padding:0 4px 4px; border-bottom:1px solid #263b55; color:#8fa6bf; font-size:11px; font-weight:700; }
 .special-filter-header span:not(:first-child) { text-align:center; }
 .special-filter-option { min-height:28px; padding:2px 4px; border-radius:5px; }

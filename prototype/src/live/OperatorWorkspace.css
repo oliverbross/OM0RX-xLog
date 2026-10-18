@@ -43,7 +43,7 @@
 .operator-filter-sections fieldset[data-filter="sources"] { --filter-ink:#39e3c2; }
 .operator-filter-sections fieldset[data-filter="worked"] { --filter-ink:#85bcff; }
 .operator-filter-sections legend { padding:0 4px; color:var(--filter-ink); font-size:12px; font-weight:700; }
-.operator-filter-sections fieldset>div { display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:5px 10px; }
+.operator-filter-sections fieldset>div:not(.special-filter-options) { display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:5px 10px; }
 .operator-filter-sections label { display:flex; align-items:center; gap:6px; min-width:0; color:#e6edf6; font-size:11px; }
 .operator-filter-sections input[type="checkbox"] { min-height:auto; flex:none; }
 .operator-filter-sections p { margin:2px 0; color:#92a7bf; font-size:11px; }
@@ -86,7 +86,7 @@
   .operator-filter-primary,.operator-filter-sections { grid-template-columns:minmax(0,1fr); }
 }
 .special-filter-options { display:grid; gap:5px; width:100%; }
-.special-filter-header,.special-filter-option { display:grid; grid-template-columns:minmax(7rem,1fr) 5.5rem 4.5rem; align-items:center; gap:8px; }
+.special-filter-header,.special-filter-option { display:grid; grid-template-columns:minmax(0,1fr) minmax(4.75rem,auto) minmax(3.75rem,auto); align-items:center; gap:6px; }
 .special-filter-header { padding:0 4px 4px; border-bottom:1px solid #263b55; color:#8fa6bf; font-size:11px; font-weight:700; }
 .special-filter-header span:not(:first-child) { text-align:center; }
 .special-filter-option { min-height:28px; padding:2px 4px; border-radius:5px; }
