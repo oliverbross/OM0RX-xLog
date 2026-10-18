@@ -1,0 +1,71 @@
+{
+  "capturedAt": "2026-10-18T14:53:56+09:30",
+  "branch": "codex/contest-json-resource-catalog",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "baseCommit": "eecaf500970ca57a3432c500299987b2c485ff15",
+  "implementationPatchSHA256": "4e1fd6b1d79561e03edabcd2f148fbb6d85975c1a8e7685376d77d09c051b8be",
+  "contract": {
+    "catalog": "Seven reviewed archive-v2 definitions are loaded from a fixed packaged manifest and remain byte-for-byte equal to the immutable Swift factory definitions. SST is not activated.",
+    "validation": "The loader bounds file reads, rejects duplicate and unknown JSON keys, symlinks, traversal, extra files, invalid hashes, malformed definitions, and exact or logical identity conflicts. The manifest admits up to 128 definitions and a 94-definition fixture is accepted within the 64 KiB manifest bound.",
+    "authoring": "Authored v2 supports the existing finite operator policy, geographic subdivision aliases, and station location field. The converter still uses only seven explicit reviewed mappings and does not infer authority from templates or the remaining 87 inventory records.",
+    "staging": "Both SwiftPM manifest branches package XContestCore resources. Worker build manifest schema 2 requires exactly logbook and contest resource records; development staging and macOS, Linux, and Windows package scripts replace both resource trees rather than merging stale files.",
+    "boundary": "No application package was produced or installed, no canonical checkout or user data changed, and this checkpoint does not claim sponsor, schedule, submission, or full 94-contest readiness."
+  },
+  "artifacts": {
+    "packagedManifest": "Sources/XContestCore/Resources/ContestDefinitions/manifest.json",
+    "packagedManifestSHA256": "8ddcedf31e30fbc3b59249361db4740f16ac6725efcd8a8be291e78a2f1a9502",
+    "packagedDefinitionCount": 7,
+    "relocationEvidence": "/tmp/xlog-contest-resource-relocation-proof/relocation-proof.json",
+    "relocationEvidenceSHA256": "952abfa42129c3f3d71ce0f6e0c0a94b2328a36bc4a9fc1d5ac5cc6fbbf28a90"
+  },
+  "tests": [
+    {
+      "command": "swift test --jobs 2 --filter ContestPackagedDefinitionLoaderTests",
+      "result": "7 tests, 0 failures",
+      "logPath": "/tmp/xlog-contest-json-loader-tests.log",
+      "logSHA256": "97a2cbf3b7da8836b9b698f8bedc93d2c634be793c8e0586c6aac75a456e6bb9"
+    },
+    {
+      "command": "swift test --jobs 2 --filter Contest(DeclarativeCatalog|DeclarativeRule|GeographicMultiplier|CWUniqueCallDeclarativeRule|OperatorCapability|DeclarativeOperatorPolicy|SSTDeclarativeDefinition)Tests",
+      "result": "42 tests, 0 failures",
+      "logPath": "/tmp/xlog-contest-json-core-tests.log",
+      "logSHA256": "bcd1131bffe4e49d39211965102531eb1bf13c17fe1bba2ca453b0e8e8bccd76"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --filter ContestingLaneTests",
+      "result": "23 tests, 0 failures",
+      "logPath": "/tmp/xlog-contest-json-lane-tests.log",
+      "logSHA256": "17aa8e5be99e9b90a99bec79abeecfd3feb707e256c8fd5e2683c1960e47e41a"
+    },
+    {
+      "command": "CONTEST_SW_ROOT=/tmp/xlog-contest-sw-ci-proof-ac41162 python3.14 -m unittest discover -s tools/contest_plugin_generator/tests -p test_*.py -v",
+      "result": "39 tests, 0 failures",
+      "logPath": "/tmp/xlog-contest-json-generator-tests.log",
+      "logSHA256": "ebc4beb2aadc0bd28c119e07d7ecb598532b5b58640e744a35583cd08b4d67c4"
+    },
+    {
+      "command": "python3.14 tools/contest_plugin_generator/verify_pinned_corpus.py against isolated contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f",
+      "result": "94 plugins verified; 16 active previews reported",
+      "logPath": "/tmp/xlog-contest-json-corpus.log",
+      "logSHA256": "36d4c30516c06905f55daf838c312c4365a302dbc95ac57f5ae0bc535b438156"
+    },
+    {
+      "command": "fresh portable worker build followed by verify-relocated-contest-resources.mjs with the original XContestCore bundle renamed away",
+      "result": "worker catalog loaded 7 packaged archive definitions from relocated resources; original bundle restored",
+      "buildLogPath": "/tmp/xlog-contest-resource-relocation-build-final.log",
+      "buildLogSHA256": "9199c5fc74c2fdcf3259e965a14667d9adbd455f9315ba225d690d611d466e2d",
+      "proofLogPath": "/tmp/xlog-contest-resource-relocation-proof.log",
+      "proofLogSHA256": "9cfaf6658d67769efaf4752f55bc7cc0b8e9b8de641acc3edd0176c699d05387"
+    },
+    {
+      "command": "node --test prototype/scripts/verify-relocated-contest-resources.check.mjs",
+      "result": "3 tests, 0 failures; malformed frame, valid response plus unsolicited frame, and SIGTERM cancellation all reaped the child, restored the original bundle, and retained failure evidence",
+      "logPath": "/tmp/xlog-contest-resource-relocation-failure-tests.log",
+      "logSHA256": "288ee3fb8e24549b335a8f77657a2c2082bfc356e816d0f579ffab79dc326e94"
+    },
+    {
+      "command": "node syntax checks, mac-worker-packaging node tests, Python compile, shell syntax checks, and git diff --check",
+      "result": "pass; mac worker packaging 3 tests, 0 failures"
+    }
+  ]
+}

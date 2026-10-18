@@ -1,5 +1,5 @@
 // Stage only the prototype's own release worker, never an installed application.
-import { cpSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -12,11 +12,12 @@ const binDir = execFileSync('swift', ['build', ...swiftWorkerBuildSystemArgs(pro
 }).trim();
 const source = join(binDir, executable);
 if (!existsSync(source)) throw new Error('Build the prototype worker before staging.');
-const resourceName = process.platform === 'darwin'
-  ? 'OM0RXXLogPrototype_XLogCore.bundle'
-  : 'OM0RXXLogPrototype_XLogPortableCore.resources';
-const coreResources = join(binDir, resourceName);
-if (!existsSync(coreResources)) throw new Error(`Required local logbook resources are missing: ${resourceName}`);
+const resourceNames = process.platform === 'darwin'
+  ? ['OM0RXXLogPrototype_XLogCore.bundle', 'OM0RXXLogPrototype_XContestCore.bundle']
+  : ['OM0RXXLogPrototype_XLogPortableCore.resources', 'OM0RXXLogPrototype_XContestCore.resources'];
+for (const resourceName of resourceNames) {
+  if (!existsSync(join(binDir, resourceName))) throw new Error(`Required worker resources are missing: ${resourceName}`);
+}
 const target = execFileSync('rustc', ['-vV'], { encoding: 'utf8' }).match(/^host: (.+)$/m)?.[1];
 if (!target) throw new Error('Cannot resolve Rust host triple.');
 const binaries = join(root, 'prototype/src-tauri/binaries');
@@ -28,7 +29,10 @@ for (const mode of ['debug', 'release']) {
   const destination = join(root, 'prototype/src-tauri/target', mode);
   mkdirSync(destination, { recursive: true });
   copyFileSync(source, join(destination, executable));
-  cpSync(coreResources, join(destination, resourceName), { recursive: true });
+  for (const resourceName of resourceNames) {
+    rmSync(join(destination, resourceName), { recursive: true, force: true });
+    cpSync(join(binDir, resourceName), join(destination, resourceName), { recursive: true });
+  }
   if (process.platform === 'win32' && existsSync(join(binDir, 'sqlite3.dll'))) {
     cpSync(join(binDir, 'sqlite3.dll'), join(destination, 'sqlite3.dll'));
   }

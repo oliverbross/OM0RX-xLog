@@ -24,8 +24,12 @@ test('worker build and bin-path discovery both use the Mac-only build-system wra
 test('Mac packaging resolves Xcode products and retains the strict-signing resource layout', () => {
   const script = source('package-macos.sh');
   assert.match(script, /binary_dir="\$\(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode[^\n]+--show-bin-path\)"/);
-  const destinations = [...script.matchAll(/ditto [^\n]*"\$bundle([^"\n]*OM0RXXLogPrototype_XLogCore\.bundle)"/g)].map(match => match[1]);
-  assert.deepEqual(destinations, ['/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle']);
+  const destinations = [...script.matchAll(/ditto [^\n]*"\$bundle([^"\n]*OM0RXXLogPrototype_X(?:Log|Contest)Core\.bundle)"/g)]
+    .map(match => match[1]);
+  assert.deepEqual(destinations, [
+    '/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle',
+    '/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle',
+  ]);
   assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.check\.mjs/);
   assert.match(script, /security find-identity -v -p codesigning/);
   assert.match(script, /Developer ID Application:/);

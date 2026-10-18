@@ -158,6 +158,57 @@ class DefinitionAuthoringBridgeTests(unittest.TestCase):
         self.assertTrue(any("location contradicts geographic entity" in item
                             for item in validate_definition.diagnostics(contradictory)))
 
+    def test_operator_policy_station_location_and_aliases_match_swift_contract(self) -> None:
+        archive = validate_definition.load_json(
+            FIXTURES / "PackagedContestDefinitions" / "cwt.authoring-v2.json")
+        self.assertEqual(validate_definition.diagnostics(archive), [])
+        self.assertIn("operatorPolicy", validate_definition.runtime_draft(archive))
+        wrong_signal = self.mutated(
+            archive, lambda value: value["runtime"]["operatorPolicy"]["signalProfiles"][0].update(
+                {"signal": "phone"}))
+        self.assertIn("runtime.operatorPolicy contains an unsupported mode or signal mapping",
+                      validate_definition.diagnostics(wrong_signal))
+
+        geographic = self.load("sst-geographic-sample.authoring-v2.json")
+        valid = self.mutated(geographic, lambda value: (
+            value["runtime"]["geographicMultiplier"].update({"stationLocationFieldID": "location"}),
+            value["runtime"].update({"stationEntityRequired": True}),
+            value["runtime"]["geographicMultiplier"]["subdivisions"][0].update({"aliases": {"ZZ": "MA"}}),
+        ))
+        self.assertEqual(validate_definition.diagnostics(valid), [])
+        unknown_target = self.mutated(valid, lambda value: value["runtime"]["geographicMultiplier"]
+                                      ["subdivisions"][0]["aliases"].update({"XY": "XX"}))
+        self.assertTrue(any("aliases targets an unknown value" in item
+                            for item in validate_definition.diagnostics(unknown_target)))
+        missing_station_entity = self.mutated(valid, lambda value: value["runtime"].update(
+            {"stationEntityRequired": False}))
+        self.assertIn("runtime.geographicMultiplier.stationLocationFieldID requires stationEntityRequired",
+                      validate_definition.diagnostics(missing_station_entity))
+
+    def test_adif_targets_are_unique_and_directional(self) -> None:
+        source = self.load("custom-two-band-sprint.authoring-v2.json")
+        sent_fields = source["runtime"]["entry"]["exchange"]["sentFields"]
+        received_fields = source["runtime"]["entry"]["exchange"]["receivedFields"]
+        wrong_sent = self.mutated(source, lambda value: value["runtime"]["entry"]["exchange"]
+                                  ["sentFields"][0].update({"adifField": "NAME"}))
+        self.assertIn("runtime.entry.exchange.sentFields contains a received-side ADIF target",
+                      validate_definition.diagnostics(wrong_sent))
+        wrong_received = self.mutated(source, lambda value: value["runtime"]["entry"]["exchange"]
+                                      ["receivedFields"][0].update({"adifField": "MY_NAME"}))
+        self.assertIn("runtime.entry.exchange.receivedFields contains a sent-side ADIF target",
+                      validate_definition.diagnostics(wrong_received))
+        if len(sent_fields) > 1:
+            duplicate_sent = self.mutated(source, lambda value: value["runtime"]["entry"]["exchange"]
+                                          ["sentFields"][1].update({"adifField": sent_fields[0]["adifField"]}))
+            self.assertIn("runtime.entry.exchange.sentFields ADIF targets must be unique",
+                          validate_definition.diagnostics(duplicate_sent))
+        if len(received_fields) > 1:
+            duplicate_received = self.mutated(source, lambda value: value["runtime"]["entry"]["exchange"]
+                                              ["receivedFields"][1].update(
+                                                  {"adifField": received_fields[0]["adifField"]}))
+            self.assertIn("runtime.entry.exchange.receivedFields ADIF targets must be unique",
+                          validate_definition.diagnostics(duplicate_received))
+
 
 if __name__ == "__main__":
     unittest.main()

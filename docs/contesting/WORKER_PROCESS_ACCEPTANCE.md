@@ -2,7 +2,7 @@
 
 This gate exercises the real `xlog-prototype-worker` process through its newline-delimited JSON interface. It is narrower than application acceptance: it does not build or launch the Rust host, render the UI, install an app, contact hardware or services, or prove the final signed package.
 
-The harness stages a minimal bootstrap `.app` directory containing the freshly built worker, its Swift resource bundle, and an `Info.plist` with the compile-bound Contesting Test identifier. The fixture exists only because `AppRuntimeProfile` rejects the Contesting Test argument unless the worker is inside the expected bundle identity. It is not the final OM0RX-xLog Contesting Test application package.
+The harness stages a minimal bootstrap `.app` directory containing the freshly built worker, its logbook and contest Swift resource bundles, and an `Info.plist` with the compile-bound Contesting Test identifier. The fixture exists only because `AppRuntimeProfile` rejects the Contesting Test argument unless the worker is inside the expected bundle identity. It is not the final OM0RX-xLog Contesting Test application package.
 
 Run from the isolated contesting worktree:
 
@@ -20,6 +20,8 @@ node prototype/scripts/accept-contesting-worker-process.mjs \
   --output "/tmp/xlog-contesting-worker-process-$(date +%Y%m%d-%H%M%S)" \
   2>&1 | tee "/tmp/xlog-contesting-worker-process-${source_sha}.log"
 ```
+
+The build step emits manifest schema 2, which records exactly the logbook and contest resource trees beside the worker binary. The acceptance step rejects schema 1 and any missing or additional resource record.
 
 The scratch path, build manifest, build log, acceptance output, and acceptance log must not already exist. `pipefail` preserves a helper or harness failure through `tee`, while `2>&1` records both output streams. The build helper requires clean compiled inputs, streams the long Swift build instead of buffering it, makes a fresh release worker with two build jobs, and records the full command, source commit, Swift toolchain, executable hash, and content-hashed resource manifest. Acceptance verifies those hashes before staging, hashes the staged artifacts actually launched, and verifies them again after both worker lifecycles.
 

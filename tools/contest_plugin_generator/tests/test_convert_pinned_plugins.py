@@ -111,6 +111,17 @@ class PinnedPluginConversionTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes(), (checked / path.name).read_bytes(), path.name)
             self.assertEqual(generated_coverage.read_bytes(),
                              (ROOT / "docs/contesting/pinned-plugin-conversion-coverage.json").read_bytes())
+            archive = convert_pinned_plugins.archive_outputs(outputs)
+            generated_authoring, generated_catalog = root / "archive-authoring", root / "catalog"
+            convert_pinned_plugins.write_archive_outputs(archive, generated_authoring, generated_catalog)
+            checked_authoring = ROOT / "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions"
+            checked_catalog = ROOT / "Sources/XContestCore/Resources/ContestDefinitions"
+            for generated_root, checked_root in ((generated_authoring, checked_authoring),
+                                                  (generated_catalog, checked_catalog)):
+                self.assertEqual(sorted(path.name for path in generated_root.iterdir()),
+                                 sorted(path.name for path in checked_root.iterdir()))
+                for path in generated_root.iterdir():
+                    self.assertEqual(path.read_bytes(), (checked_root / path.name).read_bytes(), path.name)
 
 
 if __name__ == "__main__":

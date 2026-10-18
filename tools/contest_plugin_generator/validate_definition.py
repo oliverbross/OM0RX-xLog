@@ -164,19 +164,65 @@ def _source_key(source: Any) -> str:
     return source if isinstance(source, str) else f"{source['kind']}:{source['fieldID']}"
 
 
-def _geographic_diagnostics(policy: dict[str, Any], received: dict[str, dict[str, Any]]) -> list[str]:
+def _adif_field_diagnostics(sent: dict[str, dict[str, Any]],
+                            received: dict[str, dict[str, Any]]) -> list[str]:
+    sent_targets = [field["adifField"] for field in sent.values() if "adifField" in field]
+    received_targets = [field["adifField"] for field in received.values() if "adifField" in field]
+    result: list[str] = []
+    if any(target not in {"STX", "MY_NAME", "MY_STATE", "MY_GRIDSQUARE"} for target in sent_targets):
+        result.append("runtime.entry.exchange.sentFields contains a received-side ADIF target")
+    if any(target not in {"SRX", "NAME", "STATE", "GRIDSQUARE"} for target in received_targets):
+        result.append("runtime.entry.exchange.receivedFields contains a sent-side ADIF target")
+    if len(sent_targets) != len(set(sent_targets)):
+        result.append("runtime.entry.exchange.sentFields ADIF targets must be unique")
+    if len(received_targets) != len(set(received_targets)):
+        result.append("runtime.entry.exchange.receivedFields ADIF targets must be unique")
+    return result
+
+
+def _geographic_diagnostics(policy: dict[str, Any], sent: dict[str, dict[str, Any]],
+                            received: dict[str, dict[str, Any]], station_entity_required: bool) -> list[str]:
     result: list[str] = []
     location = received.get(policy["locationFieldID"])
     if location is None or not location["required"] or location["acceptedKinds"] != ["subdivision"]:
         result.append("runtime.geographicMultiplier.locationFieldID must name a required received subdivision")
+    station_location = sent.get(policy.get("stationLocationFieldID", ""))
+    if "stationLocationFieldID" in policy and (
+        station_location is None or not station_location["required"]
+        or station_location["acceptedKinds"] != ["subdivision"]
+    ):
+        result.append("runtime.geographicMultiplier.stationLocationFieldID must name a required sent subdivision")
+    if "stationLocationFieldID" in policy and not station_entity_required:
+        result.append("runtime.geographicMultiplier.stationLocationFieldID requires stationEntityRequired")
     entity_codes = [item["entityADIF"] for item in policy["subdivisions"]]
     if len(entity_codes) != len(set(entity_codes)):
         result.append("runtime.geographicMultiplier subdivision entityADIF values must be unique")
     if location is not None:
-        tokens = [token for item in policy["subdivisions"] for token in item["values"]]
+        tokens = [token for item in policy["subdivisions"]
+                  for token in item["values"] + list(item.get("aliases", {}))]
         tokens.append(policy["entityFallback"]["locationToken"])
         if any(len(token.encode()) > location["maximumUTF8Bytes"] for token in tokens):
             result.append("runtime.geographicMultiplier location values must fit the received field byte bound")
+        if station_location is not None and any(
+            len(token.encode()) > station_location["maximumUTF8Bytes"] for token in tokens
+        ):
+            result.append("runtime.geographicMultiplier location values must fit the sent field byte bound")
+    token_pattern = re.compile(r"[A-Z0-9]{1,8}", flags=re.ASCII)
+    for index, subdivision in enumerate(policy["subdivisions"]):
+        aliases = subdivision.get("aliases", {})
+        values = set(subdivision["values"])
+        keys = set(aliases)
+        targets = set(aliases.values())
+        if len(aliases) > 128:
+            result.append(f"runtime.geographicMultiplier.subdivisions[{index}].aliases has too many items")
+        if any(token_pattern.fullmatch(item) is None for item in keys | targets):
+            result.append(f"runtime.geographicMultiplier.subdivisions[{index}].aliases contains an invalid token")
+        if not keys.isdisjoint(values):
+            result.append(f"runtime.geographicMultiplier.subdivisions[{index}].aliases replaces a canonical value")
+        if not targets.issubset(values):
+            result.append(f"runtime.geographicMultiplier.subdivisions[{index}].aliases targets an unknown value")
+        if not keys.isdisjoint(targets):
+            result.append(f"runtime.geographicMultiplier.subdivisions[{index}].aliases forms a chain or cycle")
     return result
 
 
@@ -291,6 +337,7 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
         ids = [field["id"] for field in exchange[direction]]
         if len(ids) != len(set(ids)):
             result.append(f"runtime.entry.exchange.{direction} field IDs must be unique")
+    result += _adif_field_diagnostics(sent, received)
 
     serial = entry["serial"]
     serial_fields = [field for field in exchange["sentFields"] if "serialNumber" in field["acceptedKinds"]]
@@ -316,7 +363,7 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
     if combination in {("pointsOnly", "none", False), ("pointsTimesMultipliers", "uniqueCallsign", False)}:
         pass
     elif combination == ("pointsTimesMultipliers", "geographic", True):
-        result += _geographic_diagnostics(geographic, received)
+        result += _geographic_diagnostics(geographic, sent, received, runtime["stationEntityRequired"])
     else:
         result.append("runtime entry scorePolicy, multiplierPolicy, and geographicMultiplier are incompatible")
     for index, clause in enumerate(runtime["scoring"]["clauses"]):
@@ -355,6 +402,17 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
             if key.startswith("receivedField:") and key.split(":", 1)[1] not in received:
                 result.append(f"runtime export column references unknown {key}")
 
+    operator = runtime.get("operatorPolicy")
+    if operator is not None:
+        expected_modes = sorted(runtime["supportedModes"])
+        actual_modes = [profile["mode"] for profile in operator["signalProfiles"]]
+        if actual_modes != expected_modes or len(actual_modes) != len(set(actual_modes)):
+            result.append("runtime.operatorPolicy must map every supported mode exactly once in sorted order")
+        supported_signals = {"CW": "cw", "SSB": "phone", "AM": "phone", "FM": "phone"}
+        if any(supported_signals.get(profile["mode"]) != profile["signal"]
+               for profile in operator["signalProfiles"]):
+            result.append("runtime.operatorPolicy contains an unsupported mode or signal mapping")
+
     required_sent = {field["id"] for field in exchange["sentFields"] if field["required"]}
     required_received = {field["id"] for field in exchange["receivedFields"] if field["required"]}
     for scenario_index, scenario in enumerate(definition["goldenScenarios"]):
@@ -389,7 +447,8 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
                 subdivision = next((item for item in geographic["subdivisions"]
                                     if item["entityADIF"] == entity["adif"]), None)
                 location = qso["receivedFields"].get(geographic["locationFieldID"])
-                valid_location = location in subdivision["values"] if subdivision is not None else \
+                valid_location = (location in subdivision["values"] or
+                                  location in subdivision.get("aliases", {})) if subdivision is not None else \
                     location == geographic["entityFallback"]["locationToken"]
                 if not valid_location:
                     result.append(f"goldenScenarios[{scenario_index}].qsos[{qso_index}] location contradicts geographic entity")

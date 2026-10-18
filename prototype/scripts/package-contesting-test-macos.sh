@@ -24,7 +24,9 @@ if plutil -extract CFBundleURLTypes xml1 -o - "$bundle/Contents/Info.plist" | gr
 fi
 
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode -j "$build_jobs" --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
+rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
+ditto "$binary_dir/OM0RXXLogPrototype_XContestCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$root/prototype/src-tauri/binaries/hamlib-4.7.2-notices" "$bundle/Contents/Resources/Hamlib-Licenses"
 ditto "$root/prototype/distribution-metadata" "$bundle/Contents/Resources/DistributionMetadata"
 

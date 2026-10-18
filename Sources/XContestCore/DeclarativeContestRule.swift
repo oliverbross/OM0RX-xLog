@@ -486,6 +486,7 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
         if draft.supportedBands.isEmpty || draft.supportedModes.isEmpty { result.append("bands and modes are required") }
         let coherentEntry = draft.entry.isCoherent(supportedModes: draft.supportedModes)
         if !coherentEntry { result.append("entry descriptor is incoherent") }
+        result += adifFieldDiagnostics(for: draft.entry.exchange)
         switch (draft.entry.scorePolicy, draft.multiplierPolicy, draft.geographicMultiplier) {
         case (.pointsOnly, .none, nil), (.pointsTimesMultipliers, .uniqueCallsign, nil):
             break
@@ -517,6 +518,23 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
                 result.append("eligibility field must be a sent nonnegativeInteger with a nonnegative threshold")
             }
         }
+        return result
+    }
+
+    private static func adifFieldDiagnostics(for exchange: ContestExchangeDescriptor) -> [String] {
+        let allowedSent: Set<ContestADIFField> = [.stx, .myName, .myState, .myGridSquare]
+        let allowedReceived: Set<ContestADIFField> = [.srx, .name, .state, .gridSquare]
+        let sent = exchange.sentFields.compactMap(\.adifField)
+        let received = exchange.receivedFields.compactMap(\.adifField)
+        var result: [String] = []
+        if !sent.allSatisfy(allowedSent.contains) {
+            result.append("sent exchange fields contain a received-side ADIF target")
+        }
+        if !received.allSatisfy(allowedReceived.contains) {
+            result.append("received exchange fields contain a sent-side ADIF target")
+        }
+        if Set(sent).count != sent.count { result.append("sent exchange ADIF targets must be unique") }
+        if Set(received).count != received.count { result.append("received exchange ADIF targets must be unique") }
         return result
     }
 

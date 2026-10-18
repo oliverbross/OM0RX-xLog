@@ -1,0 +1,262 @@
+{
+  "constraints": {
+    "acceptanceUnresolved": [
+      "Operator archive and simulation policy only; sponsor/category/schedule review and catalog activation remain unresolved."
+    ],
+    "runtimeUnresolved": []
+  },
+  "definitionSchemaVersion": "2.0.0",
+  "goldenScenarios": [
+    {
+      "expected": {
+        "claimedScore": 1,
+        "dispositions": [
+          "accepted"
+        ],
+        "multiplierCount": 1,
+        "points": [
+          1
+        ],
+        "totalPoints": 1
+      },
+      "id": "reviewed-single-qso",
+      "qsos": [
+        {
+          "band": "160m",
+          "callsign": "K1ABC",
+          "frequencyHz": 1820000,
+          "mode": "CW",
+          "receivedFields": {
+            "name": "AL",
+            "serial": "007"
+          },
+          "sentFields": {
+            "name": "OLIVER",
+            "serial": "001"
+          }
+        }
+      ],
+      "referenceDataVersion": "pinned-plugin-mapping-2026-10-18"
+    }
+  ],
+  "identity": {
+    "contentDigest": "sha256:288d9df452ad0a3174a57af867443d4eeff992d13bb4a46b7b5e8b0945e766c6",
+    "edition": "official-rules-2026-10-18",
+    "id": "icwc-mst",
+    "version": "2.0.0-declarative-archive"
+  },
+  "provenance": [
+    {
+      "kind": "official-rules",
+      "locator": "https://internationalcwcouncil.org/mst-contest/",
+      "revision": "retrieved-2026-10-18",
+      "sha256": "c594f23f513853a42c0644fb8243e5d24700b7a381a2611bc2dd44b862fef289"
+    },
+    {
+      "kind": "python-comparator",
+      "locator": "not1mm/plugins/icwc_mst.py",
+      "revision": "contest-sw-7c8b499",
+      "sha256": "4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca"
+    }
+  ],
+  "runtime": {
+    "cabrilloName": "ICWC-MST",
+    "displayName": "ICWC Medium Speed Test Archive Preview",
+    "dupePolicy": "perBand",
+    "eligibilityPolicy": "unrestricted",
+    "entry": {
+      "adifMode": "CW",
+      "cabrilloFormatterVersion": "cw-unique-call-archive-1",
+      "cabrilloProjectionFormatterVersion": "cw-unique-call-archive-1",
+      "cabrilloQSOType": "CW",
+      "exchange": {
+        "adifFields": "exchangeStrings",
+        "received": "structured",
+        "receivedFields": [
+          {
+            "acceptedKinds": [
+              "operatorName"
+            ],
+            "adifField": "NAME",
+            "id": "name",
+            "label": "Name",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "serialNumber"
+            ],
+            "adifField": "SRX",
+            "id": "serial",
+            "label": "Serial",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          }
+        ],
+        "sent": "structured",
+        "sentDefault": "stationFields",
+        "sentFields": [
+          {
+            "acceptedKinds": [
+              "operatorName"
+            ],
+            "adifField": "MY_NAME",
+            "id": "name",
+            "label": "Name",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "serialNumber"
+            ],
+            "adifField": "STX",
+            "id": "serial",
+            "label": "Serial",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          }
+        ]
+      },
+      "mode": "CW",
+      "modeProfiles": [
+        {
+          "adifMode": "CW",
+          "cabrilloQSOType": "CW",
+          "mode": "CW",
+          "report": {
+            "defaultReceived": "",
+            "defaultSent": "",
+            "format": "none",
+            "maximumUTF8Bytes": 0
+          }
+        }
+      ],
+      "report": {
+        "defaultReceived": "",
+        "defaultSent": "",
+        "format": "none",
+        "maximumUTF8Bytes": 0
+      },
+      "scorePolicy": "pointsTimesMultipliers",
+      "serial": {
+        "allowedScopes": [
+          "session"
+        ],
+        "requirement": "requiredForCommit"
+      },
+      "version": 2
+    },
+    "exportPolicy": "operatorArchive",
+    "exportProjection": {
+      "columns": [
+        {
+          "alignment": "right",
+          "required": true,
+          "source": "frequencyKHz",
+          "width": 5
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": "mode",
+          "width": 2
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": "date",
+          "width": 10
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": "time",
+          "width": 4
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": "stationCallsign",
+          "width": 13
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": {
+            "fieldID": "name",
+            "kind": "sentField"
+          },
+          "width": 10
+        },
+        {
+          "alignment": "right",
+          "required": true,
+          "source": {
+            "fieldID": "serial",
+            "kind": "sentField"
+          },
+          "width": 4
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": "contactedCallsign",
+          "width": 13
+        },
+        {
+          "alignment": "left",
+          "required": true,
+          "source": {
+            "fieldID": "name",
+            "kind": "receivedField"
+          },
+          "width": 10
+        },
+        {
+          "alignment": "right",
+          "required": true,
+          "source": {
+            "fieldID": "serial",
+            "kind": "receivedField"
+          },
+          "width": 4
+        }
+      ],
+      "duplicateRecords": "retainAll",
+      "formatterVersion": "cw-unique-call-archive-1",
+      "purpose": "operatorArchive"
+    },
+    "multiplierPolicy": "uniqueCallsign",
+    "operatorPolicy": {
+      "output": "simulation-only",
+      "policy": "simulated-run-sp-v1",
+      "signalProfiles": [
+        {
+          "mode": "CW",
+          "signal": "cw"
+        }
+      ],
+      "version": 1
+    },
+    "scoring": {
+      "clauses": [],
+      "defaultPoints": 1
+    },
+    "sourceProvenance": "Official https://internationalcwcouncil.org/mst-contest/ SHA-256 c594f23f513853a42c0644fb8243e5d24700b7a381a2611bc2dd44b862fef289; pinned contest-sw 7c8b499 icwc_mst.py SHA-256 4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca; inactive: event windows, categories, regional frequency limits, 7030 kHz QRP running constraint, export; operator archive only, not sponsor submission",
+    "stationEntityRequired": false,
+    "supportedBands": [
+      "160m",
+      "80m",
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "supportedModes": [
+      "CW"
+    ]
+  },
+  "status": "source-derived-draft"
+}

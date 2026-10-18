@@ -99,8 +99,13 @@ def package(root, out, swift_root, sha):
     for name in ['xlog-prototype', 'xlog-prototype-worker', 'rigctld', 'rotctld']:
         shutil.copy2(root / 'prototype/src-tauri/target/release' / name, stage / 'bin' / name)
     shutil.copytree(root / 'prototype/src-tauri/binaries/hamlib-4.7.2-notices', stage / 'notices/hamlib-4.7.2')
-    resource_name = 'OM0RXXLogPrototype_XLogPortableCore.resources'
-    shutil.copytree(root / 'prototype/src-tauri/target/release' / resource_name, stage / 'bin' / resource_name)
+    resource_names = [
+        'OM0RXXLogPrototype_XLogPortableCore.resources',
+        'OM0RXXLogPrototype_XContestCore.resources',
+    ]
+    for resource_name in resource_names:
+        shutil.copytree(root / 'prototype/src-tauri/target/release' / resource_name,
+                        stage / 'bin' / resource_name)
     # The exact native closure decides what is bundled. No host /usr/lib copied.
     env = dict(os.environ)
     runtime = swift_root / 'usr/lib/swift/linux'
