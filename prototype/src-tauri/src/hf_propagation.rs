@@ -64,7 +64,7 @@ pub async fn fetch(window_label: &str, request: FetchRequest) -> Result<String, 
         return Err("Only the HF propagation surfaces can fetch propagation data".into());
     }
     let (url, query) = endpoint(&request)?;
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(22)).user_agent("OM0RX-xLog/1.2.22 HF-Propagation").build().map_err(|_| "Propagation HTTP client unavailable".to_string())?;
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(22)).user_agent("OM0RX-xLog/1.2.23 HF-Propagation").build().map_err(|_| "Propagation HTTP client unavailable".to_string())?;
     let mut outbound = client.get(url).header("Accept", if request.source == "pskr" { "application/xml,text/xml;q=0.9,*/*;q=0.5" } else { "application/json,text/plain;q=0.8,*/*;q=0.5" });
     if let Some(sql) = query { outbound = outbound.query(&[("query", sql)]); }
     let response = outbound.send().await.map_err(|error| format!("{} fetch failed: {error}", request.source))?.error_for_status().map_err(|error| format!("{} returned {error}", request.source))?;

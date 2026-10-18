@@ -8,6 +8,8 @@
 .desk-map-logbook-map, .desk-map-logbook-logbook, .desk-map-logbook-previous { grid-column: 1; min-width: 0; min-height:0; overflow: hidden; }
 .desk-map-logbook-previous { border-bottom:1px solid var(--border,#243a55); }
 .desk-map-logbook-map > *, .desk-map-logbook-map .live-map, .desk-map-logbook-map .map-wrap, .desk-map-logbook-logbook > *, .desk-map-logbook-previous > * { height: 100%; min-height: 0; max-height: none; }
+.desk-map-logbook-previous > * { height: auto; }
+.desk-map-logbook-previous .desk-previous-table-wrap { flex: 0 1 auto; }
 /* The shared table keeps its columns and scroll region in every Desk split.
    Only standalone Logbook panels opt into the responsive card container. */
 .desk-map-logbook-logbook .live-logbook { container-name: desk-logbook; }

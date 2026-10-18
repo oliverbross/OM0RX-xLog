@@ -53,8 +53,8 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
     save({ ...current.current, logbookPercent: boundDeskLogbookPercent(Math.max(bounds.min, Math.min(bounds.max, value))) });
   }
   const bodyStyle: CSSProperties = previousMode ? { gridTemplateRows: showPrevious
-    ? "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr)"
-    : "minmax(0, 1fr) minmax(0, 1fr)" }
+    ? "fit-content(50%) minmax(0, 1fr) 50%"
+    : "minmax(0, 1fr) 50%" }
     : stacked ? { gridTemplateRows: above
     ? `${logbookHeight}px ${deskMapLogbookDividerHeight}px ${mapHeight}px`
     : `${mapHeight}px ${deskMapLogbookDividerHeight}px ${logbookHeight}px` } : { gridTemplateRows: "minmax(0, 1fr)" };

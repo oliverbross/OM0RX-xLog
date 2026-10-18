@@ -11,6 +11,9 @@
 .desk-previous-table-wrap { flex:1 1 0; min-width:0; min-height:0; overflow:auto; scrollbar-color:var(--border,#243a55) var(--panel,#0b1728); }
 .desk-previous-table { width:100%; min-width:650px; border-collapse:collapse; table-layout:fixed; text-align:left; color:var(--text,#e6edf6); font-size:12px; font-variant-numeric:tabular-nums; }
 .desk-previous-table th { position:sticky; top:0; z-index:1; padding:7px; background:#191e23; border-bottom:1px solid var(--border,#243a55); font-size:11px; font-weight:600; }
+.desk-previous-table th>span:first-child { display:block; overflow:hidden; text-overflow:ellipsis; }
+.desk-previous-column-resizer { position:absolute; right:0; top:0; bottom:0; width:7px; cursor:col-resize; touch-action:none; border-right:1px solid var(--border,#243a55); }
+.desk-previous-column-resizer:hover,.desk-previous-column-resizer:focus-visible { background:var(--cyan,#35c8f5); outline:1px solid var(--cyan,#35c8f5); outline-offset:-1px; }
 .desk-previous-table th button { width:100%; min-height:20px; justify-content:flex-start; padding:0; border:0; background:transparent; color:inherit; font:inherit; }
 .desk-previous-table td { padding:4px 7px; line-height:20px; overflow:hidden; border-bottom:1px solid color-mix(in srgb,var(--border,#243a55) 55%,transparent); text-overflow:ellipsis; white-space:nowrap; }
 .desk-previous-table tbody tr:nth-child(odd) { background:#202020; }

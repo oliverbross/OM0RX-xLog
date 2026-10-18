@@ -47,13 +47,24 @@ it("persists independent previous-QSO column choices while Band stays available"
   expect((screen.getByLabelText("Band") as HTMLInputElement).disabled).toBe(true);
   fireEvent.click(screen.getByLabelText("Country"));
   fireEvent.click(screen.getByLabelText("Sent"));
-  expect(screen.queryByRole("columnheader", { name: "Country" })).toBeNull();
-  expect(screen.getByRole("columnheader", { name: "Sent" })).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name: /^Country/ })).toBeNull();
+  expect(screen.getByRole("columnheader", { name: /^Sent/ })).toBeTruthy();
   first.unmount();
   render(<DeskPreviousQSOs call="VK8NSB" qsos={qsos} />);
-  expect(screen.queryByRole("columnheader", { name: "Country" })).toBeNull();
-  expect(screen.getByRole("columnheader", { name: "Sent" })).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name: /^Country/ })).toBeNull();
+  expect(screen.getByRole("columnheader", { name: /^Sent/ })).toBeTruthy();
   expect(screen.getByRole("button", { name: /Band/ })).toBeTruthy();
+});
+
+it("resizes previous-QSO columns by keyboard and restores their widths", () => {
+  const first = render(<DeskPreviousQSOs call="VK8NSB" qsos={qsos} />);
+  const date = screen.getByRole("separator", { name: "Resize Date column" });
+  expect(date.getAttribute("aria-valuenow")).toBe("145");
+  fireEvent.keyDown(date, { key: "ArrowRight" });
+  expect(date.getAttribute("aria-valuenow")).toBe("155");
+  first.unmount();
+  render(<DeskPreviousQSOs call="VK8NSB" qsos={qsos} />);
+  expect(screen.getByRole("separator", { name: "Resize Date column" }).getAttribute("aria-valuenow")).toBe("155");
 });
 
 it("renders nothing for a blank, changed or never-worked callsign", () => {

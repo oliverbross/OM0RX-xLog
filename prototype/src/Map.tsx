@@ -133,6 +133,16 @@ export function routeFrequencyLabel(frequencyHz?: number): string | null {
   return `${mhz.slice(0, -3)}.${mhz.slice(-3)} MHz`;
 }
 
+export function routeFitPadding(compact: boolean, toolbarHeight = 0, legendHeight = 0) {
+  if (compact) return { top: 28, right: 34, bottom: 34, left: 34 };
+  return {
+    top: Math.max(74, Math.ceil(toolbarHeight) + 24),
+    right: 54,
+    bottom: Math.max(100, Math.ceil(legendHeight) + 24),
+    left: 54,
+  };
+}
+
 function representativePoint(feature: DXCCFeature): Coordinate | null {
   const polygons = feature.geometry.type === "Polygon" ? [feature.geometry.coordinates as number[][][]]
     : feature.geometry.coordinates as number[][][][];
@@ -189,6 +199,8 @@ export default function WorldMap({
   const mappedSpots = useMemo(() => normalizeMapSpots(data), [data]);
   const detailID = useId();
   const container = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const legendRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [viewportRevision, setViewportRevision] = useState(0);
   const [error, setError] = useState("");
@@ -215,6 +227,8 @@ export default function WorldMap({
   const [statusFilter, setStatusFilter] = useState<DXCCStatus[]>(restoredStatuses ?? ["needed", "worked", "confirmed"]);
   const [solarDate, setSolarDate] = useState(() => new Date());
   const routeKey = routeStateKey(home, target, longPath);
+  const routeKeyRef = useRef(routeKey);
+  routeKeyRef.current = routeKey;
   const homeKey = homeStateKey(home);
   const restoredCamera = validCamera(restoredState?.camera);
   const initialCamera = restoredCamera?.routeKey === routeKey && restoredCamera?.fitToDataKey === fitToDataKey
@@ -238,6 +252,7 @@ export default function WorldMap({
   const selection = useRef(selected);
   const preserveCamera = useRef(Boolean(selected) || Boolean(initialCamera));
   const fittedRouteKey = useRef<string | null>(initialCamera ? routeKey : null);
+  const automaticRouteFit = useRef<{ key: string; width: number; height: number } | null>(null);
   const centeredSelectionKey = useRef<string | null>(restoredSelection ? `${selected}:${restoredSelection.call}` : null);
   const spotsRef = useRef(mappedSpots);
   const selectedCallRef = useRef<string | null>(null);
@@ -656,7 +671,10 @@ export default function WorldMap({
       document.addEventListener("visibilitychange", visible);
       if (!initialCamera) fitFixture();
       map.on("movestart", (event) => {
-        if (event.originalEvent) preserveCamera.current = true;
+        if (event.originalEvent) {
+          preserveCamera.current = true;
+          automaticRouteFit.current = null;
+        }
       });
       map.addControl(
         new maplibregl.NavigationControl({ showCompass: true }),
@@ -722,6 +740,16 @@ export default function WorldMap({
           const nextWidth = element.clientWidth, nextHeight = element.clientHeight;
           if (!nextWidth || !nextHeight) return;
           map.resize();
+          let refreshAutomaticFit = false;
+          const routeFit = automaticRouteFit.current;
+          if (routeFit && routeFit.key === routeKeyRef.current
+            && (routeFit.width !== nextWidth || routeFit.height !== nextHeight)) {
+            // The Desk may still be opening its logbook/history rows when the
+            // route first fits. Repeat that automatic fit at the settled size
+            // so neither endpoint remains underneath an overlay.
+            fittedRouteKey.current = null;
+            refreshAutomaticFit = true;
+          }
           if (!initialViewportFinalized) {
             initialViewportFinalized = true;
             const fallbackConstruction = !constructionWidth || !constructionHeight
@@ -734,9 +762,10 @@ export default function WorldMap({
               fittedRouteKey.current = null;
               fittedDataKey.current = null;
               if (!preserveCamera.current) fitFixture();
-              setViewportRevision(value => value + 1);
+              refreshAutomaticFit = true;
             }
           }
+          if (refreshAutomaticFit) setViewportRevision(value => value + 1);
           // A layout change only updates the viewport. Refitting a shallow
           // split can zoom out to several wrapped worlds and discard the camera.
           map.triggerRepaint();
@@ -795,6 +824,7 @@ export default function WorldMap({
     const map = mapRef.current;
     if (!routeKey || !home || !target || !map) {
       fittedRouteKey.current = null;
+      automaticRouteFit.current = null;
       return;
     }
     if (fittedRouteKey.current === routeKey) return;
@@ -802,12 +832,17 @@ export default function WorldMap({
     if (!bounds) return;
     fittedRouteKey.current = routeKey;
     preserveCamera.current = true;
+    const toolbarHeight = toolbarRef.current?.getBoundingClientRect().height ?? 0;
+    const legendHeight = legendRef.current?.getBoundingClientRect().height ?? 0;
     map.fitBounds(bounds, {
-      padding: compact ? { top: 28, right: 34, bottom: 34, left: 34 }
-        : { top: 74, right: 54, bottom: 100, left: 54 },
+      padding: routeFitPadding(compact, toolbarHeight, legendHeight),
       maxZoom: 6,
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 350,
     });
+    const element = container.current;
+    automaticRouteFit.current = element
+      ? { key: routeKey, width: element.clientWidth, height: element.clientHeight }
+      : null;
   }, [routeKey, home?.lon, home?.lat, target?.lon, target?.lat, longPath, compact, viewportRevision]);
   useEffect(() => {
     const map = mapRef.current;
@@ -1015,7 +1050,7 @@ export default function WorldMap({
         role="region"
         aria-label="Interactive world map, arrow keys pan, plus and minus zoom"
       />
-      {!compact && <div className="map-toolbar" aria-label="World map controls">
+      {!compact && <div ref={toolbarRef} className="map-toolbar" aria-label="World map controls">
         <strong>World map</strong>
         <label>Preset <select aria-label="Map preset" value={preset} onChange={event => changePreset(event.target.value as MapPreset)}>
           <option>Simple</option><option>Detailed</option><option>DX</option>
@@ -1038,7 +1073,7 @@ export default function WorldMap({
           {error}
         </p>
       )}
-      {!compact && <div className="map-legend">
+      {!compact && <div ref={legendRef} className="map-legend">
         {routeSummary ? <strong>{target?.call} · {Math.round(routeSummary.distanceKm).toLocaleString()} km · SP {Math.round(routeSummary.shortBearing).toString().padStart(3, "0")}° · LP {Math.round(routeSummary.longBearing).toString().padStart(3, "0")}°</strong>
           : !home && !fixture ? <span>Set your station grid to draw accurate DX paths.</span> : null}
         <span>{fixture ? "Offline geography · fixture spots" : locationLabel}</span>
