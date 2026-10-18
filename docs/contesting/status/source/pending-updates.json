@@ -1,13 +1,13 @@
 {
   "proposalDate": "2026-10-18",
-  "measuredAt": "2026-10-18T01:58:02Z",
+  "measuredAt": "2026-10-18T03:14:06Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
   "nextReportSource": {
-    "integrationCommit": "223f395a817409cb7de678870c42c8f31c4cbd9e",
+    "integrationCommit": "227c89351b4d262a1f5b38282f08e6f78b74ba8f",
     "reviewedCombinedCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8",
-    "reviewedCombinedScope": "F18 history UI combined revision; retained as history-specific provenance, while integrationCommit identifies the current accepted exclusive-module composition.",
+    "reviewedCombinedScope": "F18 history UI combined revision; retained as history-specific provenance, while integrationCommit identifies the current accepted activation/module/background-ownership composition.",
     "boundary": "F18 phase 2b is integrated as a bounded explicit draft projection: status/private preview/diagnostics, exact-call query and explicit record selection, paged retained values, blank-only projections and user-triggered draft apply. Automatic prefill, QSO commit/correction/deletion, history generation/export, native OS picker and radio remain outside scope; do not claim full call-history parity."
   },
   "validationEvidence": [
@@ -57,7 +57,7 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Exclusive operating-module integration 223f395a817409cb7de678870c42c8f31c4cbd9e is accepted, committed and pushed from verified tree 096160d7493c7ef9c0d41d63e2e50d38c98f0e1d; its parents are harness checkpoint 1ab9debbfdfa3d64c31928c06af94692ad580452 and module/main-1.2.22 integration cb41607e0919fd0946788fc9f42e9cb29c9db104. Root verified the merged frontend/build checks and that cb41607 passed all six native jobs in 39089798983 plus regular CI 39089798991. Full module acceptance still requires production background-ingress fencing and packaged restart; generic definition activation remains unaccepted. Main 1.2.22 at 6c4dd993fd42f78d030a0e674f830ff339380842 remains the latest accepted installed baseline. Main 1.2.23 is still under installed HF/RBN UI refinement, including scrolling and sizing, and has no final runtime acceptance. Preserve the published snapshot and locked workbook until remaining acceptance and release gates are resolved.",
+  "refreshGate": "Current accepted activation/module/background-ownership composition is 227c89351b4d262a1f5b38282f08e6f78b74ba8f, committed and pushed after resolving the workflow conflict as a strict union; root verified 56 Swift and 16 Rust tests. The activation/module parent 9a8828b passed focused 206 contesting, 176 normal-workspace, four activation and 22 lane tests plus build; composition into 1.2.23 is underway separately. Parent 223f395 passed regular CI 39090685463 and all six native jobs in 39090685461. Background ownership 843c116 passed six native jobs in 39091795941 and regular CI 39091795937. Windows shutdown fixture source 10674b6f0096bc2a4cdd17c183390035c6dca6ee passed six local macOS checks; exact-source Windows CI remains pending. Core policy source 7d94cff4c3312089de20587c284e17bc5ef95045 has 24 focused tests but regular CI 39092434727 failed three legacy CW digest assertions; preserve v1 factory bytes/inertness and opt into archive v2 explicitly, then rerun the full core suite. Main 1.2.23 source ea382fd14cada07160d99bb26411f54c43fe2e25 with receipt 27f8d19 is the latest accepted installed baseline; root verified version, host/worker hashes, strict signature and live processes. The published acceptance ledger remains 16 previews, 78 pending and zero complete. Generic worker/UI and full operator acceptance remain open; preserve the published snapshot and locked workbook.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
     "measuredAtUtc": "2026-10-18T01:58:02Z",
@@ -91,23 +91,76 @@
       "nextWork": "1.2.21 HF propagation task has started in the main task; canonical/install hold remains."
     },
     "nativeWorkflowEvidence": {
-      "pilot25a2504": {"portability": "39079939868 passed", "regularCI": "39079939866 passed"},
-      "foundation90648fdd": {"portability": "39080085205 passed", "regularCI": "39080085238 passed"},
-      "naqp054cfc5": {"portability": "39079987614 passed", "regularCI": "39079987599 passed"},
-      "combined3f55c1c": {"portability": "39080850734 failed: five of six jobs passed; Windows failed on CoreFoundation import; subsequent Boolean repair 7839324 passed all six native jobs in 39081718165"},
-      "standaloneHistory4e0ba36": {"portability": "39080280385 failed: Windows import failure and macOS/Linux SCP error", "regularCI": "39080280389 passed"},
-      "windowsBooleanRepair7839324": {"portability": "39081718165 passed all six native Swift/Rust jobs"},
-      "definitionPersistence363062e": {"portability": "39081392046 passed all six native Swift/Rust jobs", "regularCI": "39081392051 passed"},
-      "combined52ef5d3": {"regularCI": "39082360778 passed", "portability": "39082360758 passed all six native jobs"},
-      "operatorCapabilityFc973c5": {"portability": "39083032181 passed all six native jobs", "regularCI": "39083032167 passed"},
-      "operatorCapabilityMerge65d617f": {"portability": "39083418437 passed all six native jobs", "regularCI": "39083418616 passed"},
-      "sharedUniqueCall4d77f94": {"portability": "39083352235 passed all six native jobs", "regularCI": "39083352296 passed"},
-      "sharedPolicyMerge74ef3ba": {"portability": "39083682337 passed all six native jobs", "regularCI": "39083682338 passed"},
-      "compositionCbf8cc1": {"portability": "all six native jobs passed", "regularCI": "passed"},
-      "main122Compatibility3c7a618": {"regularCI": "39087782025 passed", "portability": "39087782113 pending"},
-      "operatorPanelIntegration6a583a3": {"focusedValidation": "49 tests passed"},
-      "declarativeExportB25287b": {"portability": "39085212135 passed all six native jobs", "regularCI": "39085212116 passed"},
-      "historyUiIntegration": {"branch": "codex/contest-history-integration", "base": "74ef3ba", "integrationCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8", "status": "reviewed, committed and pushed; hosted native CI passed all six jobs", "nativeCI": "39084858294 passed", "regularCI": "39084858207 passed", "validation": "155 core, 80 store and 63 support tests passed (298 distinct selected tests); a 30-test focused repeat is not counted again; 198 frontend tests, two Node assertions and production build passed"}
+      "pilot25a2504": {
+        "portability": "39079939868 passed",
+        "regularCI": "39079939866 passed"
+      },
+      "foundation90648fdd": {
+        "portability": "39080085205 passed",
+        "regularCI": "39080085238 passed"
+      },
+      "naqp054cfc5": {
+        "portability": "39079987614 passed",
+        "regularCI": "39079987599 passed"
+      },
+      "combined3f55c1c": {
+        "portability": "39080850734 failed: five of six jobs passed; Windows failed on CoreFoundation import; subsequent Boolean repair 7839324 passed all six native jobs in 39081718165"
+      },
+      "standaloneHistory4e0ba36": {
+        "portability": "39080280385 failed: Windows import failure and macOS/Linux SCP error",
+        "regularCI": "39080280389 passed"
+      },
+      "windowsBooleanRepair7839324": {
+        "portability": "39081718165 passed all six native Swift/Rust jobs"
+      },
+      "definitionPersistence363062e": {
+        "portability": "39081392046 passed all six native Swift/Rust jobs",
+        "regularCI": "39081392051 passed"
+      },
+      "combined52ef5d3": {
+        "regularCI": "39082360778 passed",
+        "portability": "39082360758 passed all six native jobs"
+      },
+      "operatorCapabilityFc973c5": {
+        "portability": "39083032181 passed all six native jobs",
+        "regularCI": "39083032167 passed"
+      },
+      "operatorCapabilityMerge65d617f": {
+        "portability": "39083418437 passed all six native jobs",
+        "regularCI": "39083418616 passed"
+      },
+      "sharedUniqueCall4d77f94": {
+        "portability": "39083352235 passed all six native jobs",
+        "regularCI": "39083352296 passed"
+      },
+      "sharedPolicyMerge74ef3ba": {
+        "portability": "39083682337 passed all six native jobs",
+        "regularCI": "39083682338 passed"
+      },
+      "compositionCbf8cc1": {
+        "portability": "all six native jobs passed",
+        "regularCI": "passed"
+      },
+      "main122Compatibility3c7a618": {
+        "regularCI": "39087782025 passed",
+        "portability": "39087782113 pending"
+      },
+      "operatorPanelIntegration6a583a3": {
+        "focusedValidation": "49 tests passed"
+      },
+      "declarativeExportB25287b": {
+        "portability": "39085212135 passed all six native jobs",
+        "regularCI": "39085212116 passed"
+      },
+      "historyUiIntegration": {
+        "branch": "codex/contest-history-integration",
+        "base": "74ef3ba",
+        "integrationCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8",
+        "status": "reviewed, committed and pushed; hosted native CI passed all six jobs",
+        "nativeCI": "39084858294 passed",
+        "regularCI": "39084858207 passed",
+        "validation": "155 core, 80 store and 63 support tests passed (298 distinct selected tests); a 30-test focused repeat is not counted again; 198 frontend tests, two Node assertions and production build passed"
+      }
     },
     "runtimeAndMain122": {
       "main121Compatibility": "6f0d94a accepted",
@@ -119,12 +172,15 @@
       "main122RegularCI": "39087782025 passed",
       "main122NativeCI": "39087782113 pending",
       "installedMain122": "1.2.22 accepted at 6c4dd993fd42f78d030a0e674f830ff339380842; release evidence 3b5ef7a629d1ec453305388b929939d707d0d719; root verified installed hashes, signature and processes.",
-      "main123": "Map task is in progress."
+    "main123": "Main 1.2.23 source ea382fd14cada07160d99bb26411f54c43fe2e25 is accepted with receipt 27f8d19 and runtime acceptance by the main task; installed version, host/worker hashes, strict signature and running processes were independently verified by root."
     },
     "foundationAndHistory": {
       "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
       "historyCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
-      "nativeWorkflowRuns": ["39077722192", "39077685821"],
+      "nativeWorkflowRuns": [
+        "39077722192",
+        "39077685821"
+      ],
       "status": "passed",
       "result": "Both commits passed all six native Swift/Rust jobs across macOS, Linux and Windows."
     },
@@ -139,7 +195,10 @@
       "foundationIntegrationCommit": "90648fdd6c81426ce53dc1f97c41ca276619d880",
       "status": "integrated-and-pushed; native-portability-and-regular-ci-passed",
       "evidence": "docs/contesting/TEN_TEN_DECLARATIVE_PILOT.md and docs/contesting/evidence/ten-ten-declarative-pilot-2026-10-18.json; product Sources, Tests, Package.swift, prototype, and workflow content match source commit 25a2504 byte-for-byte",
-      "nativeWorkflowRuns": {"portability": "39079939868 passed", "regularCI": "39079939866 passed"},
+      "nativeWorkflowRuns": {
+        "portability": "39079939868 passed",
+        "regularCI": "39079939866 passed"
+      },
       "result": "Four inactive 10-10 definitions share one rule; 143 core and 72 store checks passed. Export/custom-definition byte persistence and UI remain inactive; catalog count unchanged."
     },
     "naqp": {
@@ -147,7 +206,10 @@
       "sourceBranch": "codex/contest-naqp-integration",
       "status": "combined-foundation-merge-committed; native-portability-and-regular-ci-passed; clean-operator-checkpoint-passed",
       "validation": "134 core, 72 store and 42 support checks passed; 182 frontend checks and production build passed.",
-      "nativeWorkflowRuns": {"portability": "39079987614 passed", "regularCI": "39079987599 passed"},
+      "nativeWorkflowRuns": {
+        "portability": "39079987614 passed",
+        "regularCI": "39079987599 passed"
+      },
       "operatorCheckpointCommit": "1cfcfd0",
       "operatorCheckpoint": "docs/contesting/NAQP_OPERATOR_INTEGRATION_CHECKPOINT_054cfc5.md",
       "observedScope": "Six sessions; 346 ordinary and 3 lifecycle frames; 26 commits; 14 parsed exports; 82 simulator outputs.",
@@ -257,7 +319,7 @@
       },
       "boundary": "Synthetic operator acceptance only. No package, RF, native chooser, or sponsor acceptance."
     },
-    "notShipped": "The seven-definition v2 archive/export and runtime sources are accepted and pushed, but archive-purpose preservation is not sponsor submission acceptance. Generic definition activation and the 14-profile operator harness remain incomplete. Module ownership has only bounded source acceptance and still lacks latest-main integration, packaged restart and production-ingress acceptance. No full-port, package, RF, native-chooser, or sponsor acceptance is implied.",
+    "notShipped": "Generic definition activation and full 94-entry parity remain incomplete. Background ownership source checkpoint 843c116 is accepted; packaged restart/runtime acceptance remains open. No full-port, package, RF, native-chooser or sponsor acceptance is implied.",
     "declarativeExportRuntime": {
       "exportSourceCommit": "b25287b223feae0f50eb22d2bbed5379facebe56",
       "runtimeIntegrationCommit": "48d68ec014e006234aad1325d54feb0a9f634243",
@@ -273,7 +335,10 @@
       "sourceCommit": "f687462",
       "operatorCheckpointCommit": "0556d02",
       "checkpoint": "docs/contesting/NAQP_OPERATOR_ACCEPTANCE_CHECKPOINT_f687462.md",
-      "workflowRuns": {"contestPortability": "39078526141", "regularCI": "39078526145"},
+      "workflowRuns": {
+        "contestPortability": "39078526141",
+        "regularCI": "39078526145"
+      },
       "status": "passed-for-that-source-commit",
       "observedScope": "346 ordinary and 3 lifecycle frames; 26 commits; 14 exports; 82 simulator outputs; no physical hardware.",
       "runtimeBoundary": "The checkpoint includes passing isolated synthetic worker/UI simulator runtime evidence. It does not establish an installed native-app run or hardware acceptance, and it does not transfer acceptance to combined source commit 054cfc5."
@@ -281,6 +346,7 @@
     "reportingBoundary": "Keep completed source evidence, pending source integration, and runtime/device acceptance separate. Preserve the published 2026-10-18 snapshot and generated files; the user Excel lock remains present.",
     "checkpointReconciliation": {
       "measuredAtLocalDate": "2026-10-18",
+      "currentRefreshAtUtc": "2026-10-18T03:11:26Z",
       "moduleMain122Integration": {
         "commit": "cb41607e0919fd0946788fc9f42e9cb29c9db104",
         "verifiedSourceTree": "d145e4afeacb07b3c65dc167a74ce0bf68d14895",
@@ -289,18 +355,28 @@
           "main122Compatibility3c7a618": "39087782113 passed all six jobs",
           "moduleSourceCheckpointF734158": "39088234545 passed all six jobs"
         },
-        "remaining": "Production background-ingress fencing and packaged restart acceptance remain open."
+        "remaining": "Background-ingress ownership is covered by accepted source checkpoint 843c116; packaged restart/runtime acceptance remains open."
       },
       "operatorModuleAcceptance": {
         "commit": "223f395a817409cb7de678870c42c8f31c4cbd9e",
-        "parents": ["1ab9debbfdfa3d64c31928c06af94692ad580452", "cb41607e0919fd0946788fc9f42e9cb29c9db104"],
+        "parents": [
+          "1ab9debbfdfa3d64c31928c06af94692ad580452",
+          "cb41607e0919fd0946788fc9f42e9cb29c9db104"
+        ],
         "verifiedTree": "096160d7493c7ef9c0d41d63e2e50d38c98f0e1d",
         "merge": "Conflict-free automatic merge; root reviewed, committed and pushed.",
         "validation": {
           "frontend": "200 tests passed across 20 Vitest files",
           "typecheck": "passed with empty log",
-          "build": {"status": "passed", "log": "/tmp/contest-operator-module-build.log", "sha256": "7430122e9c480230cf306308323d724b7a7e405e90b3797526153480d1222a8d"},
-          "frontendLog": {"path": "/tmp/contest-operator-module-frontend.log", "sha256": "0dbccc072b73f4a4567731b4704b05fd13099845690ce38e792158a8d0f98805"},
+          "build": {
+            "status": "passed",
+            "log": "/tmp/contest-operator-module-build.log",
+            "sha256": "7430122e9c480230cf306308323d724b7a7e405e90b3797526153480d1222a8d"
+          },
+          "frontendLog": {
+            "path": "/tmp/contest-operator-module-frontend.log",
+            "sha256": "0dbccc072b73f4a4567731b4704b05fd13099845690ce38e792158a8d0f98805"
+          },
           "swiftDiscovery": {
             "result": "Test list compiled in 450.85 seconds and discovered 880 tests; this was discovery only, not 880 executed tests.",
             "archive": "/Users/oliver/.local/share/lean-ctx/archives/c1/c15f4498b37277f5.txt",
@@ -308,17 +384,78 @@
           },
           "harnessSyntax": "passed"
         },
-        "nativeAndRegularCIForParent": {"commit": "cb41607e0919fd0946788fc9f42e9cb29c9db104", "nativeWorkflow": "39089798983 passed all six jobs", "regularCI": "39089798991 passed"},
-        "scopeBoundary": "No new full runtime, package, install or RF acceptance. Production background ingress ownership and packaged restart remain open."
+        "nativeAndRegularCIForParent": {
+          "commit": "cb41607e0919fd0946788fc9f42e9cb29c9db104",
+          "nativeWorkflow": "39089798983 passed all six jobs",
+          "regularCI": "39089798991 passed"
+        },
+        "scopeBoundary": "No full module runtime, package, install or RF acceptance is established; packaged restart/runtime remains open.",
+        "ci": {
+          "regular": "39090685463 passed",
+          "native": "39090685461 passed all six jobs"
+        }
+      },
+      "backgroundOwnershipAcceptance": {
+        "commit": "843c116842f7b76589ed6f3eaa62cb51d0b92abd",
+        "branch": "codex/contest-background-ownership",
+        "parent": "cb41607e0919fd0946788fc9f42e9cb29c9db104",
+        "review": "Root reviewed 12 source hashes and five artifact hashes, implementation changes and terminal logs.",
+        "behavior": "Production worker generation is bound to the persisted module. Contesting blocks normal auto-sync, delivery, WSJT-X and power-draft capture. Shared workspace/settings transitions cannot resume owners. Inactive shutdown preserves existing normal receipts. Accepted delivery drains to durable explicit uncertainty if cancellation crosses dispatch; failed recovery, abnormal exit, protocol error, watchdog or missing reply refuses module switching. Native sync_run/retry/resolve, including wrapped routes, require Normal Logging.",
+        "validation": {
+          "swiftXCTest": "28 passed",
+          "swiftTesting": "16 passed; 44 discovered",
+          "rustShutdown": "6 passed",
+          "rustModule": "10 passed",
+          "logs": [
+            {
+              "path": "/tmp/xlog-background-ownership-swift-final.log",
+              "sha256": "e942dea4f15ce1fa526b078090b9ea9d77987a25ef3404af963678ebc74ede04"
+            },
+            {
+              "path": "/tmp/xlog-background-ownership-swift-discovery.log",
+              "sha256": "8dbc49f528df2155c8514735d62bf7d981bc2a0aa3517d017406d162f7f2b859"
+            },
+            {
+              "path": "/tmp/xlog-background-ownership-rust-shutdown-final.log",
+              "sha256": "31b282b96eb0ec5dd2afbfe57e089396511ef0c70bfde03c77a9d72af4809f99"
+            },
+            {
+              "path": "/tmp/xlog-background-ownership-rust-module-final.log",
+              "sha256": "e55250164bb020b340449aec73403f452f53b9ed5bdc101bc165d20fb26ca55b"
+            }
+          ]
+        },
+        "ci": "Native CI 39091795941 passed all six jobs and regular CI 39091795937 passed.",
+        "scopeBoundary": "Source ownership checkpoint only; no packaged restart/runtime acceptance."
       },
       "operatorEvidence": {
         "diag7": "Root verified successful scoped diagnostic: 85 frames, six commits, four exports; protected database metadata unchanged; forced-stall probes left no process IDs. This is not full acceptance.",
         "dev30": "Root verified failed run: 1,018 frames, 84 commits, 42 reservations, 56 exports and 14 corrections. Integrated Preview SQLite shared-memory file metadata changed during the run; writer is unattributed and no user-data mutation is claimed. Do not count as acceptance.",
         "harness": "Four-file harness source is frozen; root committed and pushed harness milestone 1ab9debbfdfa3d64c31928c06af94692ad580452. Full 94-entry and F01-F33 acceptance remains incomplete."
       },
-      "main123": "Main 1.2.23 remains under installed HF/RBN UI refinement, including scrolling and sizing. This source does not establish final runtime acceptance or resolve startup behavior. Latest accepted installed baseline remains 1.2.22 at 6c4dd993fd42f78d030a0e674f830ff339380842.",
-      "activationOpenFindings": "Generic definition activation remains unaccepted: supported nondefault modes, legacy camel-case identity handling and 74-byte aggregate exchanges are still being repaired and verified.",
-      "aggregateParity": "16 previews, 78 pending, zero complete; seven declarative definitions remain inactive and unaccepted."
+      "main123": "Main 1.2.23 source ea382fd14cada07160d99bb26411f54c43fe2e25 is accepted with receipt 27f8d19 and runtime acceptance by the main task. Root verified installed version 1.2.23, host SHA-256 5749019c2a6eade40f1f5b2b6f5f3fee38512eb81b1f399f95d664e82de151dd, worker SHA-256 d2bbc1ae852f682b6ce0870e10470ea215fa73bb873cd099a8817ccec88a1c31, strict signature and live PIDs 24473/24481.",
+      "activationOpenFindings": "Bounded seven-definition archive source and activation/module composition 9a8828b are accepted, but generic worker/UI and full operator acceptance remain open. Core policy source 7d94cff is not broadly accepted: regular CI 39092434727 failed three legacy CW digest assertions in ContestDeclarativeExportTests. Keep legacy v1 factories byte-compatible and inert, opt into archive v2 only, and rerun the full core suite. Focused policy tests passed 24. The broader frontend run still has 17 failures and 3,294 passes (3,311 total); focused serial checks had three failures and exact classification is pending. A 74-byte read/correction is proven separately; archive export values use projection-safe corrected widths, not 74-byte export. Next are policy repair/worker UI, composition with 1.2.23, isolated full operator acceptance, geographic multipliers/SST, and remaining 94-entry/F01-F33 work.",
+      "aggregateParity": "Published acceptance ledger remains 16 previews, 78 pending and zero complete; seven isolated archive-definition workflows do not change acceptance counts.",
+      "moduleActivationIntegration": {"commit":"9a8828b5ee8c0520fbe53c4082fd8750b1f1a2d7","status":"Accepted and pushed without conflicts.","validation":"206 contesting tests, 176 normal-workspace tests, four activation tests, 22 lane tests and build passed.","scope":"Generic worker/UI and full operator acceptance, runtime/package/sponsor gates remain open."},
+      "backgroundOwnershipIntegration": {"commit":"227c89351b4d262a1f5b38282f08e6f78b74ba8f","status":"Accepted and pushed; conflict resolved with reviewed union.","parents":["9a8828b5ee8c0520fbe53c4082fd8750b1f1a2d7","843c116842f7b76589ed6f3eaa62cb51d0b92abd"],"validation":"Root verified 56 Swift and 16 Rust tests; source/log hashes reviewed.","evidence":"docs/contesting/evidence/background-owner-activation-integration-2026-10-18.json","evidenceSHA256":"9f845e5d882bda4b9f84b4ab6696fb37efae194ca0b82a52a00f2097b7b370e4","scope":"Composition into accepted main 1.2.23 is in progress; no package/runtime/sponsor acceptance is established."},
+      "coreOperatorPolicy": {"sourceCommit":"7d94cff4c3312089de20587c284e17bc5ef95045","focusedTests":"24 passed: CWUnique 6, new policy 5, DeclarativeRule 9, legacy capability 4.","regularCI":"39092434727 failed three legacy CW definition digest assertions.","status":"Not accepted pending repair: keep policy opt-in for archive v2; preserve v1 factory bytes and inertness; run full core suite."},
+      "main123Acceptance": {"source":"ea382fd14cada07160d99bb26411f54c43fe2e25","receipt":"27f8d19","installedVersion":"1.2.23","hostSHA256":"5749019c2a6eade40f1f5b2b6f5f3fee38512eb81b1f399f95d664e82de151dd","workerSHA256":"d2bbc1ae852f682b6ce0870e10470ea215fa73bb873cd099a8817ccec88a1c31","signature":"strict signature verified","processes":[24473,24481]},
+      "windowsShutdownCheckpoint": {"commit":"10674b6f0096bc2a4cdd17c183390035c6dca6ee","status":"Source-only cross-platform direct-child shutdown fixtures for six contracts; six required Windows workflow tests are added. macOS local six passed; Windows execution pending exact-source CI.","log":{"path":"/tmp/xlog-windows-shutdown-local-2026-10-18.log","sha256":"01b87cf7a04fa3fecd12d1ad908c8207405464de787e9549f4a57cce621b2011"}},
+      "nextPriorities": ["Repair core policy legacy-v1 compatibility, rerun full core suite, and finish generic worker/UI.","Compose accepted background ownership with main 1.2.23.","Run isolated full operator acceptance.","Continue geographic multipliers/SST, then remaining 94-entry/F01-F33 coverage."] ,
+      "declarativeActivationSource": {
+        "commit": "badfdbbe4916bffc329e05713e432613b1fe14fd",
+        "branch": "codex/contest-declarative-activation",
+        "base": "48d68ec",
+        "manifestSHA256": "022b01d83d4b76dc06f688814b758c942c32855d7a21094bc31a85bac7f0dd05",
+        "docs": [
+          "https://github.com/oliverbross/OM0RX-xLog/blob/badfdbbe4916bffc329e05713e432613b1fe14fd/docs/contesting/DECLARATIVE_CONTEST_ACTIVATION.md",
+          "https://github.com/oliverbross/OM0RX-xLog/blob/badfdbbe4916bffc329e05713e432613b1fe14fd/docs/contesting/evidence/declarative-contest-activation-2026-10-18.json"
+        ],
+        "scope": "Seven archive definitions have bounded accepted source-level catalog/create/open/log/edit/restart/export support. This does not establish generic Run/Search-and-Pounce acceptance or integration/runtime/package/sponsor acceptance.",
+        "validation": "204 frontend, four lifecycle, 81 store and 22 lane tests plus build passed on this focused checkpoint. The recorded broader frontend run still has 17 failures and 3,294 passes; do not claim a clean full frontend run.",
+        "exchangeBoundary": "74-byte read and correction are proven. The export fixture was corrected to projection-safe widths; do not claim 74-byte export.",
+        "integration": "Integration with 223f395 is being composed on codex/contest-activation-module-integration and is not yet accepted."
+      }
     }
   }
 }
