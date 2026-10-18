@@ -766,6 +766,32 @@ public actor SQLiteContestStore: ContestDurableRepository {
         }
     }
 
+    public func rateStatisticsSnapshot(sessionID: UUID, asOfUTC: Date) async throws
+        -> ContestRateStatisticsReadSnapshot {
+        try database.readTransaction {
+            let stored = try openSession(id: sessionID)
+            readSnapshotHookForTesting?()
+            guard let rule = try resolvedRule(for: stored.session.rule) else {
+                throw ContestStoreError.unknownRule(stored.session.rule)
+            }
+            let values = try qsos(sessionID: sessionID, offset: 0, limit: Int.max)
+            let score = try ContestEngine.score(values, session: stored.session, rule: rule)
+            let facts = values.map {
+                ContestRateQSOFacts(qsoID: $0.id, operatorStyle: $0.operatorStyle,
+                                    wpxPrefix: CQWPXCWRule.wpxPrefix(for: $0.callsign))
+            }
+            let statistics = try ContestRateStatisticsCalculator.snapshot(
+                qsos: values, score: score, facts: facts, asOfUTC: asOfUTC,
+                preferredBandOrder: rule.metadata.supportedBands.sorted())
+            return ContestRateStatisticsReadSnapshot(
+                sessionID: sessionID,
+                workspaceGeneration: stored.session.workspaceGeneration,
+                revision: stored.revision,
+                statistics: statistics
+            )
+        }
+    }
+
     private func validateQSOChange(reason: String, operationTimestamp: Date,
                                    scope: ContestMutationScope, committedAt: Date) throws {
         guard scope.draftID == nil else { throw ContestRepositoryError.invalidDraft }
@@ -788,6 +814,9 @@ public actor SQLiteContestStore: ContestDurableRepository {
         }
         guard before.stationLocation == after.stationLocation else {
             throw ContestStoreError.immutableQSOField("stationLocation")
+        }
+        guard before.operatorStyle == after.operatorStyle else {
+            throw ContestStoreError.immutableQSOField("operatorStyle")
         }
         guard before.exchange.rawSent == after.exchange.rawSent,
               before.exchange.normalizedSent == after.exchange.normalizedSent,

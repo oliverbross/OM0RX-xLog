@@ -76,6 +76,7 @@ public struct ContestRateQSOFacts: Codable, Hashable, Sendable {
 
 public struct ContestRateStatisticsSnapshot: Codable, Hashable, Sendable {
     public let asOfUTC: Date
+    public let fullLogQSOs: Int
     public let loggedQSOs: Int
     public let acceptedQSOs: Int
     public let duplicateQSOs: Int
@@ -89,7 +90,7 @@ public struct ContestRateStatisticsSnapshot: Codable, Hashable, Sendable {
     public let bands: [ContestBandStatistics]
     public let total: ContestBandStatistics
 
-    public init(asOfUTC: Date, loggedQSOs: Int, acceptedQSOs: Int, duplicateQSOs: Int,
+    public init(asOfUTC: Date, fullLogQSOs: Int, loggedQSOs: Int, acceptedQSOs: Int, duplicateQSOs: Int,
                 invalidQSOs: Int, currentHourQSOs: Int,
                 totalOperatorStyles: ContestOperatorStyleStatistics,
                 currentHourOperatorStyles: ContestOperatorStyleStatistics,
@@ -97,6 +98,7 @@ public struct ContestRateStatisticsSnapshot: Codable, Hashable, Sendable {
                 latest100: ContestRateMetric?, bands: [ContestBandStatistics],
                 total: ContestBandStatistics) {
         self.asOfUTC = asOfUTC
+        self.fullLogQSOs = fullLogQSOs
         self.loggedQSOs = loggedQSOs
         self.acceptedQSOs = acceptedQSOs
         self.duplicateQSOs = duplicateQSOs
@@ -154,6 +156,7 @@ public enum ContestRateStatisticsCalculator {
         let dispositions = visible.compactMap { scored[$0.id]?.disposition }
         return ContestRateStatisticsSnapshot(
             asOfUTC: asOfUTC,
+            fullLogQSOs: qsos.count,
             loggedQSOs: visible.count,
             acceptedQSOs: dispositions.filter { $0 == .accepted }.count,
             duplicateQSOs: dispositions.filter { $0 == .duplicate }.count,

@@ -31,6 +31,10 @@ zero-duration sample has no rate instead of retaining a stale display value.
 A single trailing-window QSO reports 1 Q/h, as the source does. Future-dated
 contacts are excluded from an as-of projection.
 
+The projection exposes the full current nondeleted log count separately from
+the as-of logged count so future-dated rows are visible without contaminating
+rate windows or current-hour statistics.
+
 The worker captures one server `asOfUTC` for each atomic read together with
 the session revision. A later read refreshes elapsed-time windows even when
 the persisted revision is unchanged; statistics reads create no mutation
@@ -40,8 +44,8 @@ receipt or persistent write.
 
 Mode buckets preserve the source mappings for CW, phone, and digital modes and
 add an explicit `other` count so a logged QSO is never hidden. Band rows use
-the rule's supported-band order followed by lexical order for remaining
-stored bands.
+lexical order over the rule's supported bands followed by lexical order for
+any remaining stored bands.
 
 WPX counts use the existing pinned source-compatible xLog prefix calculator,
 stored as per-QSO projection facts. Per-band counts are distinct nonempty

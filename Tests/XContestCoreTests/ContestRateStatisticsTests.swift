@@ -105,6 +105,7 @@ struct ContestRateStatisticsTests {
             asOfUTC: now
         )
         #expect(snapshot.loggedQSOs == 3)
+        #expect(snapshot.fullLogQSOs == 4)
         #expect(snapshot.currentHourQSOs == 1)
         #expect(snapshot.trailing60Minutes.qsoCount == 2)
     }
