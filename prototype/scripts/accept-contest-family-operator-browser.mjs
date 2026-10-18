@@ -67,7 +67,8 @@ function hostRequest(method, params = {}) { const request = { id: `browser-${Str
 const successful = async (method, params = {}) => { const frame = await hostRequest(method, params); assert.equal(frame.ok, true, JSON.stringify(frame)); return frame.result; };
 const health = await successful("health"); assert.deepEqual({ mode: health.mode, isolated: health.isolated_workspace, network: health.network_contact, credentials: health.credentials_accessed, station: health.station_io }, { mode: "contesting_test", isolated: true, network: false, credentials: false, station: false });
 const isolation = await successful("__acceptance_isolation");
-assert.deepEqual(isolation, { runtimeProfile: "contestingTest", supportRoot: realpathSync(isolatedSupportRoot),
+const expectedInitialSupportRoot = join(realpathSync(dirname(isolatedSupportRoot)), basename(isolatedSupportRoot));
+assert.deepEqual(isolation, { runtimeProfile: "contestingTest", supportRoot: expectedInitialSupportRoot,
   inheritNativePreferences: false, stationIO: false });
 if (process.env.XLOG_OPERATOR_ACCEPTANCE_STALL === "shutdown") await successful("__acceptance_shutdown");
 assert.equal((await successful("workspace_status")).workspace_exists, false);

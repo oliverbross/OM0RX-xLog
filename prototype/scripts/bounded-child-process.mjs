@@ -39,6 +39,7 @@ export function runBoundedChild(command, args, { cwd, env, timeoutMs = 20_000, s
     };
     const armDeadline = duration => { clearTimeout(deadline); deadline = setTimeout(expire, duration); };
     const observeReadiness = () => {
+      if (timedOut || settled) return;
       if (!readinessObserved && (stdout.includes(readinessSignal) || stderr.includes(readinessSignal))) {
         readinessObserved = true;
         armDeadline(timeoutMs);
