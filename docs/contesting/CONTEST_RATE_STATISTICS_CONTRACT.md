@@ -44,8 +44,9 @@ receipt or persistent write.
 
 Mode buckets preserve the source mappings for CW, phone, and digital modes and
 add an explicit `other` count so a logged QSO is never hidden. Band rows use
-lexical order over the rule's supported bands followed by lexical order for
-any remaining stored bands.
+`ContestBandPlan` order for supported standard bands, followed by lexical order
+for supported nonstandard bands and then lexical order for any remaining stored
+bands.
 
 WPX counts use the existing pinned source-compatible xLog prefix calculator,
 stored as per-QSO projection facts. Per-band counts are distinct nonempty
@@ -68,3 +69,19 @@ worker/native projection is read-only and carries the exact contest session,
 workspace generation, session revision, and as-of time. The main contest owner
 loads and publishes it. Detached Rate and Statistics surfaces do not read the
 database directly, mutate contacts, or create another session owner.
+
+The native `monitor` ready projection is schema version 1. It carries the
+session revision, canonical millisecond UTC `asOfUTC`, full-log and as-of
+disposition counts, current-hour count, total/current-hour operator-style
+counts, trailing-60-minute rate, nullable latest-10/latest-100 rates, and a
+busy flag. Each rate contains `qsoCount`, nullable finite nonnegative
+`spanSeconds`, and nullable finite nonnegative `qsosPerHour`.
+
+The native `propagation` ready projection retains version 1 score-only decoder
+compatibility. Version 2 adds the same revision/time and full-log/as-of counts,
+plus complete unique band rows and a total row. Every row carries logged and
+accepted counts, distinct callsigns, exhaustive CW/phone/digital/other mode
+counts, distinct WPX prefixes, and credited points. The score remains the
+authoritative full-log score, while the added rows are the as-of statistics.
+Band arrays accept up to 64 complete unique rows; publication rejects overflow
+or inconsistent counts instead of truncating them.
