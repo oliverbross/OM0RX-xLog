@@ -28,9 +28,9 @@ public struct ContestDeclarativeCatalogEntry: Sendable {
 public enum ContestBuiltInDeclarativeCatalog {
     public static func operatorArchiveEntries() throws -> [ContestDeclarativeCatalogEntry] {
         let entries = try ContestPackagedDefinitionLoader.bundledEntries()
-        guard entries.count == 7, Set(entries.map(\.identity)).count == entries.count else {
+        guard entries.count == 8, Set(entries.map(\.identity)).count == entries.count else {
             throw ContestDefinitionError.invalidDefinition([
-                "catalog: expected seven unique packaged declarative definitions",
+                "catalog: expected eight unique packaged declarative definitions",
             ])
         }
         return entries

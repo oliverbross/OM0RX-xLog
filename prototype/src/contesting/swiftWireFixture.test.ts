@@ -301,7 +301,7 @@ describe("current Swift contest catalog fixture", () => {
   it("partitions reviewed legacy and stored declarative operator capabilities", async () => {
     expect(currentCatalogFixture.schemaVersion).toBe(1);
     expect(currentCatalogFixture.assertions).toEqual({
-      legacyOperatorCapabilities: 14, declarativeOperatorCapabilities: 7, inertRTTYRules: 2, totalRules: 23,
+      legacyOperatorCapabilities: 14, declarativeOperatorCapabilities: 8, inertRTTYRules: 2, totalRules: 24,
     });
     const request = vi.fn(async () => currentCatalogFixture.catalog) as ContestRequest;
     const catalog = await new ContestClient(request).catalog();
@@ -311,15 +311,16 @@ describe("current Swift contest catalog fixture", () => {
     ]);
     const declarativeOperatorIDs = new Set([
       "cwops-cwt", "cwops-open", "icwc-mst", "ten-ten-fallCW", "ten-ten-springCW", "ten-ten-summerPhone", "ten-ten-winterPhone",
+      "k1usn-sst",
     ]);
     const inertRTTYIDs = new Set(["naqp-rtty", "arrl-rtty-roundup"]);
-    expect(catalog.rules).toHaveLength(23);
+    expect(catalog.rules).toHaveLength(24);
     const operatorRules = catalog.rules.filter(rule => rule.operatorCapability);
     expect(new Set(operatorRules.filter(rule => !rule.declarativeDefinition).map(rule => rule.identity.id))).toEqual(legacyOperatorIDs);
     const declarativeRules = operatorRules.filter(rule => rule.declarativeDefinition);
     expect(new Set(declarativeRules.map(rule => rule.identity.id))).toEqual(declarativeOperatorIDs);
     expect(catalog.rules.filter(rule => inertRTTYIDs.has(rule.identity.id)).every(rule => !rule.operatorCapability)).toBe(true);
-    expect(new Set(operatorRules.map(rule => rule.operatorCapability!.auditDigest)).size).toBe(21);
+    expect(new Set(operatorRules.map(rule => rule.operatorCapability!.auditDigest)).size).toBe(22);
     for (const rule of declarativeRules) {
       const capability = rule.operatorCapability;
       if (!capability || !rule.declarativeDefinition) throw new Error("Declarative worker rule omitted its reviewed capability binding.");

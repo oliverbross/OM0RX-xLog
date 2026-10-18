@@ -2,6 +2,55 @@
 use serde_json::Value;
 use std::collections::BTreeSet;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WorkspaceWindowScope {
+    #[default]
+    NormalLogging,
+    Contesting,
+}
+impl WorkspaceWindowScope {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NormalLogging => "normal_logging",
+            Self::Contesting => "contesting",
+        }
+    }
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "normal_logging" => Ok(Self::NormalLogging),
+            "contesting" => Ok(Self::Contesting),
+            _ => Err("Unknown native workspace scope".into()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WorkspaceWindowIdentity<'a> {
+    pub scope: WorkspaceWindowScope,
+    pub panel_id: &'a str,
+}
+impl<'a> WorkspaceWindowIdentity<'a> {
+    pub fn new(scope: WorkspaceWindowScope, panel_id: &'a str) -> Result<Self, String> {
+        if supports_panel(scope, panel_id) {
+            Ok(Self { scope, panel_id })
+        } else {
+            Err("Unknown native workspace window".into())
+        }
+    }
+    pub fn parse_native_label(label: &'a str) -> Result<Self, String> {
+        if let Some(panel_id) = label.strip_prefix(CONTEST_LABEL_PREFIX) {
+            return Self::new(WorkspaceWindowScope::Contesting, panel_id);
+        }
+        Self::new(WorkspaceWindowScope::NormalLogging, label)
+    }
+    pub fn native_label(self) -> String {
+        match self.scope {
+            WorkspaceWindowScope::NormalLogging => self.panel_id.into(),
+            WorkspaceWindowScope::Contesting => format!("{CONTEST_LABEL_PREFIX}{}", self.panel_id),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct WindowSpec {
     pub id: &'static str,
@@ -34,6 +83,33 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "alerts", title: "OM0RX-xLog — Alerts", width: 780.0, height: 600.0 },
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
+pub const CONTEST_LABEL_PREFIX: &str = "contest--";
+pub const CONTEST_WINDOWS: [WindowSpec; 12] = [
+    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Entry", width: 800.0, height: 620.0 },
+    WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 920.0, height: 760.0 },
+    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check", width: 700.0, height: 620.0 },
+    WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rate", width: 780.0, height: 600.0 },
+    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Statistics", width: 800.0, height: 480.0 },
+    WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Group Chat", width: 780.0, height: 600.0 },
+    WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 1280.0, height: 800.0 },
+    WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 1180.0, height: 800.0 },
+    WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 700.0, height: 600.0 },
+    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — VFO", width: 900.0, height: 700.0 },
+    WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log", width: 1280.0, height: 800.0 },
+    WindowSpec { id: "dx-cluster", title: "OM0RX-xLog Contest — Cluster", width: 1180.0, height: 800.0 },
+];
+pub fn supports_panel(scope: WorkspaceWindowScope, panel_id: &str) -> bool {
+    match scope {
+        WorkspaceWindowScope::NormalLogging => supports(panel_id),
+        WorkspaceWindowScope::Contesting => CONTEST_WINDOWS.iter().any(|window| window.id == panel_id),
+    }
+}
+pub fn scoped_spec(identity: WorkspaceWindowIdentity<'_>) -> Option<&'static WindowSpec> {
+    match identity.scope {
+        WorkspaceWindowScope::NormalLogging => SUPPORTED_WINDOWS.iter().find(|window| window.id == surface_role(identity.panel_id)),
+        WorkspaceWindowScope::Contesting => CONTEST_WINDOWS.iter().find(|window| window.id == identity.panel_id),
+    }
+}
 pub const BAND_MAP_BANDS: [&str; 13] = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 pub fn band_map_band(label: &str) -> Option<&str> {
     label.strip_prefix("band-map-").filter(|band| BAND_MAP_BANDS.contains(band))
@@ -69,16 +145,23 @@ pub struct Plan {
 impl Plan {
     pub fn same_intent(&self, other: &Self) -> bool { self.intent == other.intent }
 }
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct WorkspaceWindowPlanner {
+    scope: WorkspaceWindowScope,
     managed: BTreeSet<String>,
     completed: Option<(Intent, u64)>,
 }
+impl Default for WorkspaceWindowPlanner {
+    fn default() -> Self { Self::for_scope(WorkspaceWindowScope::NormalLogging) }
+}
 impl WorkspaceWindowPlanner {
+    pub fn for_scope(scope: WorkspaceWindowScope) -> Self {
+        Self { scope, managed: BTreeSet::new(), completed: None }
+    }
     /// The adapter must read the authoritative worker snapshot, serialize plans,
     /// and acknowledge only successful operations. No renderer window list is trusted.
     pub fn plan(&self, snapshot: &Value, force: bool) -> Result<Plan, String> {
-        let (intent, revision, desired) = checked(snapshot)?;
+        let (intent, revision, desired) = checked(snapshot, self.scope)?;
         if self.completed.as_ref().is_some_and(|(previous, known)| previous.generation == intent.generation && revision < *known) {
             return Err("The native workspace snapshot is stale. Reload the saved layout.".into());
         }
@@ -94,11 +177,13 @@ impl WorkspaceWindowPlanner {
         })
     }
     pub fn acknowledge_show(&mut self, label: &str) -> Result<(), String> {
-        if !supports(label) { return Err("Unknown native workspace window".into()); }
+        let identity = WorkspaceWindowIdentity::parse_native_label(label)?;
+        if identity.scope != self.scope { return Err("Native workspace scope mismatch".into()); }
         self.managed.insert(label.into()); Ok(())
     }
     pub fn acknowledge_hide(&mut self, label: &str) -> Result<(), String> {
-        if !supports(label) { return Err("Unknown native workspace window".into()); }
+        let identity = WorkspaceWindowIdentity::parse_native_label(label)?;
+        if identity.scope != self.scope { return Err("Native workspace scope mismatch".into()); }
         self.managed.remove(label); Ok(())
     }
     /// Call only after every planned native operation succeeds. A partial batch
@@ -142,7 +227,13 @@ fn format_character(character: char) -> bool {
         0xFFF9..=0xFFFB | 0x110BD | 0x110CD | 0x13430..=0x1343F | 0x1BCA0..=0x1BCA3 |
         0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F)
 }
-fn checked(snapshot: &Value) -> Result<(Intent, u64, BTreeSet<String>), String> {
+fn checked(snapshot: &Value, scope: WorkspaceWindowScope) -> Result<(Intent, u64, BTreeSet<String>), String> {
+    let object = snapshot.as_object().ok_or_else(invalid)?;
+    match scope {
+        WorkspaceWindowScope::NormalLogging if object.contains_key("scope") => return Err(invalid()),
+        WorkspaceWindowScope::Contesting if snapshot["scope"].as_str() != Some("contesting") => return Err(invalid()),
+        _ => {}
+    }
     let generation = text(&snapshot["generation"])?;
     if generation.len() != 36 || !generation.bytes().enumerate().all(|(index, byte)|
         if [8, 13, 18, 23].contains(&index) { byte == b'-' } else { byte.is_ascii_hexdigit() }) { return Err(invalid()); }
@@ -185,7 +276,7 @@ fn checked(snapshot: &Value) -> Result<(Intent, u64, BTreeSet<String>), String> 
     // The original built-in preset predates the independent QSO surface.
     // Resolve its compact Canvas role to the existing QSO singleton, without
     // rewriting any saved panel geometry or creating another draft owner.
-    if active == "windowed" {
+    if scope == WorkspaceWindowScope::NormalLogging && active == "windowed" {
         if placements.iter().any(|(role, placement)| role == "active-qso" && placement == "window") {
             for (role, placement) in &mut placements {
                 if role == "active-qso" { *placement = "hidden".into(); }
@@ -193,8 +284,11 @@ fn checked(snapshot: &Value) -> Result<(Intent, u64, BTreeSet<String>), String> 
             }
         }
     }
-    let unsupported: Vec<_> = placements.iter().filter(|(role, placement)| placement == "window" && !supports(role)).map(|(role, _)| role.as_str()).collect();
+    let unsupported: Vec<_> = placements.iter().filter(|(role, placement)| placement == "window" && !supports_panel(scope, role)).map(|(role, _)| role.as_str()).collect();
     if !unsupported.is_empty() { return Err(format!("This saved layout requests native windows that are not available yet: {}.", unsupported.join(", "))); }
+    for (role, _) in &mut placements {
+        if scope == WorkspaceWindowScope::Contesting { *role = format!("{CONTEST_LABEL_PREFIX}{role}"); }
+    }
     let desired = placements.iter().filter(|(_, placement)| placement == "window").map(|(role, _)| role.clone()).collect();
     Ok((Intent { generation: generation.to_ascii_lowercase(), preset_id: active.into(), placements }, revision, desired))
 }
@@ -203,6 +297,37 @@ fn checked(snapshot: &Value) -> Result<(Intent, u64, BTreeSet<String>), String> 
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn scoped_registry_keeps_legacy_labels_and_uses_exact_contest_labels() {
+        assert_eq!(WorkspaceWindowScope::parse("normal_logging").unwrap(), WorkspaceWindowScope::NormalLogging);
+        assert_eq!(WorkspaceWindowScope::parse("contesting").unwrap(), WorkspaceWindowScope::Contesting);
+        assert_eq!(WorkspaceWindowScope::NormalLogging.as_str(), "normal_logging");
+        assert_eq!(WorkspaceWindowScope::Contesting.as_str(), "contesting");
+        for invalid in ["", "normal-logging", "Contesting", "contest"] {
+            assert!(WorkspaceWindowScope::parse(invalid).is_err());
+        }
+
+        let normal = WorkspaceWindowIdentity::new(WorkspaceWindowScope::NormalLogging, "logbook").unwrap();
+        assert_eq!(normal.native_label(), "logbook");
+        assert_eq!(WorkspaceWindowIdentity::parse_native_label("logbook").unwrap(), normal);
+        let band = WorkspaceWindowIdentity::parse_native_label("band-map-20m").unwrap();
+        assert_eq!(band.scope, WorkspaceWindowScope::NormalLogging);
+        assert_eq!(band.panel_id, "band-map-20m");
+        assert_eq!(scoped_spec(band).unwrap().id, "band-maps");
+
+        let contest = WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, "active-qso").unwrap();
+        assert_eq!(contest.native_label(), "contest--active-qso");
+        assert_eq!(WorkspaceWindowIdentity::parse_native_label("contest--active-qso").unwrap(), contest);
+        assert_eq!(scoped_spec(contest).unwrap().title, "OM0RX-xLog Contest — Entry");
+        for invalid in ["contest--", "contest--log-qso", "contest--band-map-20m", "contest--contest--active-qso", "contest--ACTIVE-QSO"] {
+            assert!(WorkspaceWindowIdentity::parse_native_label(invalid).is_err(), "{invalid}");
+        }
+
+        let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
+        assert_eq!(ids.len(), CONTEST_WINDOWS.len());
+        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "callsign-intelligence",
+            "chaser-dx", "dx-cluster", "logbook", "monitor", "propagation", "rotor", "station-control"]));
+    }
     #[test]
     fn band_instances_are_exactly_validated_and_keep_only_map_capabilities() {
         for band in BAND_MAP_BANDS {
@@ -230,6 +355,52 @@ mod tests {
         json!({"generation":"12345678-1234-1234-1234-123456789abc","revision":4,
             "document":{"version":2,"activePresetID":"desk","presets":[{"id":"desk","name":"Desk","width":1920,"height":1080,
                 "locked":true,"snap":true,"panels":panels}]}})
+    }
+    #[test]
+    fn scoped_planner_maps_only_contest_native_placements_and_rejects_cross_scope_acknowledgement() {
+        let mut snapshot = fixture(&["active-qso", "logbook", "band-maps"]);
+        snapshot["scope"] = json!("contesting");
+        let mut contest = WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting);
+        let plan = contest.plan(&snapshot, false).unwrap();
+        assert_eq!(plan.show, ["contest--active-qso", "contest--band-maps", "contest--logbook"]);
+        assert!(plan.hide.is_empty());
+        assert!(contest.acknowledge_show("logbook").is_err());
+        for label in &plan.show { contest.acknowledge_show(label).unwrap(); }
+        contest.complete(&plan);
+        assert!(contest.plan(&snapshot, false).unwrap().show.is_empty());
+
+        let mut closed = fixture(&["logbook"]);
+        closed["scope"] = json!("contesting");
+        closed["revision"] = json!(5);
+        let plan = contest.plan(&closed, false).unwrap();
+        assert_eq!(plan.hide, ["contest--active-qso", "contest--band-maps"]);
+        for label in &plan.hide { contest.acknowledge_hide(label).unwrap(); }
+        contest.complete(&plan);
+        let mut reopened = snapshot.clone();
+        reopened["revision"] = json!(6);
+        let plan = contest.plan(&reopened, false).unwrap();
+        assert_eq!(plan.show, ["contest--active-qso", "contest--band-maps", "contest--logbook"]);
+        assert!(plan.hide.is_empty());
+
+        let mut unsupported = fixture(&["world-map"]);
+        unsupported["scope"] = json!("contesting");
+        unsupported["document"]["activePresetID"] = json!("contest-windows");
+        unsupported["document"]["presets"][0]["id"] = json!("contest-windows");
+        let error = WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting).plan(&unsupported, false).unwrap_err();
+        assert!(error.contains("world-map"));
+
+        let mut normal = WorkspaceWindowPlanner::default();
+        assert!(normal.acknowledge_show("contest--logbook").is_err());
+        assert_eq!(normal.plan(&fixture(&["logbook"]), false).unwrap().show, ["logbook"]);
+
+        for scope in [None, Some(json!("normal_logging")), Some(json!("wrong"))] {
+            let mut candidate = fixture(&["logbook"]);
+            if let Some(scope) = scope { candidate["scope"] = scope; }
+            assert!(WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting).plan(&candidate, false).is_err());
+        }
+        let mut tagged_normal = fixture(&["logbook"]);
+        tagged_normal["scope"] = json!("contesting");
+        assert!(WorkspaceWindowPlanner::default().plan(&tagged_normal, false).is_err());
     }
     fn apply(planner: &mut WorkspaceWindowPlanner, plan: &Plan) {
         for role in &plan.show { planner.acknowledge_show(role).unwrap(); }

@@ -293,7 +293,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((score["qsos"] as? NSNumber)?.intValue, 1)
     }
 
-    func testSixteenRuleCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
+    func testCurrentCatalogAndLegacyMutationRestartExportFlowUseEntryDescriptors() async throws {
         let catalogRoot = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-eight-pilot-catalog-\(UUID().uuidString)")
         defer {
             if FileManager.default.fileExists(atPath: catalogRoot.path) {
@@ -309,8 +309,8 @@ final class ContestingLaneTests: XCTestCase {
         ]
         let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
         XCTAssertTrue(legacyIDs.isSubset(of: catalogIDs))
-        XCTAssertEqual(rules.count, 23)
-        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 7)
+        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 8)
         for rule in rules.filter({ legacyIDs.contains((($0["identity"] as? [String: Any])?["id"] as? String) ?? "") }) {
             let mode = try XCTUnwrap(rule["mode"] as? String)
             let entry = try XCTUnwrap(rule["entry"] as? [String: Any])
@@ -958,11 +958,11 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 23)
+        XCTAssertEqual(rules.count, 24)
         let legacyOperatorIDs: Set<String> = ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
                                 "naqp-cw", "naqp-ssb", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"]
         let inertRTTYIDs: Set<String> = ["naqp-rtty", "arrl-rtty-roundup"]
-        let declarativeOperatorIDs: Set<String> = ["cwops-cwt", "cwops-open", "icwc-mst", "ten-ten-fallCW", "ten-ten-springCW", "ten-ten-summerPhone", "ten-ten-winterPhone"]
+        let declarativeOperatorIDs: Set<String> = ["cwops-cwt", "cwops-open", "icwc-mst", "ten-ten-fallCW", "ten-ten-springCW", "ten-ten-summerPhone", "ten-ten-winterPhone", "k1usn-sst"]
         let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
         XCTAssertEqual(catalogIDs, legacyOperatorIDs.union(inertRTTYIDs).union(declarativeOperatorIDs))
         let declarativeRules = rules.filter { $0["declarativeDefinition"] != nil }
@@ -992,7 +992,7 @@ final class ContestingLaneTests: XCTestCase {
         let capabilityDigests = try operatorRules.map {
             try XCTUnwrap(($0["operatorCapability"] as? [String: Any])?["auditDigest"] as? String)
         }
-        XCTAssertEqual(Set(capabilityDigests).count, 21)
+        XCTAssertEqual(Set(capabilityDigests).count, 22)
         XCTAssertTrue(capabilityDigests.allSatisfy { $0.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil })
         XCTAssertFalse(rules.filter { inertRTTYIDs.contains(($0["identity"] as? [String: Any])?["id"] as? String ?? "") }
             .contains { $0["operatorCapability"] != nil })
@@ -1181,8 +1181,8 @@ final class ContestingLaneTests: XCTestCase {
         }
         if let output = ProcessInfo.processInfo.environment["XLOG_CURRENT_CONTEST_CATALOG_FIXTURE_OUTPUT"] {
             let fixture: [String: Any] = ["schemaVersion": 1, "catalog": catalogFrame,
-                "assertions": ["legacyOperatorCapabilities": 14, "declarativeOperatorCapabilities": 7,
-                               "inertRTTYRules": 2, "totalRules": 23]]
+                "assertions": ["legacyOperatorCapabilities": 14, "declarativeOperatorCapabilities": 8,
+                               "inertRTTYRules": 2, "totalRules": 24]]
             let url = URL(fileURLWithPath: output)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)

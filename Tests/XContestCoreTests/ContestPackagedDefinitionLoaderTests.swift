@@ -8,7 +8,7 @@ final class ContestPackagedDefinitionLoaderTests: XCTestCase {
             try ContestDeclarativeCatalogEntry(definition: TenTenDeclarativeDefinitions.archiveDefinition(for: $0))
         } + CWUniqueCallContestVariant.allCases.map {
             try ContestDeclarativeCatalogEntry(definition: CWUniqueCallDeclarativeDefinitions.archiveDefinition(for: $0))
-        }
+        } + [try ContestDeclarativeCatalogEntry(definition: SSTDeclarativeDefinition.definition())]
         let expectedSorted = expected.sorted { $0.identity.id < $1.identity.id }
         let actual = try ContestPackagedDefinitionLoader.bundledEntries()
         XCTAssertEqual(actual.map(\.identity), expectedSorted.map(\.identity))

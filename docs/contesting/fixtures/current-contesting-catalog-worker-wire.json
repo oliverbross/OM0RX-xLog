@@ -1,12 +1,12 @@
 {
   "assertions" : {
-    "declarativeOperatorCapabilities" : 7,
+    "declarativeOperatorCapabilities" : 8,
     "inertRTTYRules" : 2,
     "legacyOperatorCapabilities" : 14,
-    "totalRules" : 23
+    "totalRules" : 24
   },
   "catalog" : {
-    "id" : "d77d22bd-8d29-445f-81f8-a746f3ac7a65",
+    "id" : "2c9e6b29-b5a4-4e4c-94fe-74327916fab2",
     "ok" : true,
     "result" : {
       "rules" : [
@@ -1987,6 +1987,147 @@
         },
         {
           "declarativeDefinition" : {
+            "definitionDigest" : "ba937a88a00fa25c4244c8f774e1cf712fa12e9a568f794021018027faae30b5",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "K1USN SST Operator Archive Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "sst-archive-1",
+            "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State, province, or DX",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State, province, or DX",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ba937a88a00fa25c4244c8f774e1cf712fa12e9a568f794021018027faae30b5",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "ba937a88a00fa25c4244c8f774e1cf712fa12e9a568f794021018027faae30b5",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; packaged operator archive practice preview only, not sponsor submission; remaining limits: schedule enforcement, results reporting, and current sponsor acceptance",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
             "definitionDigest" : "abb96cf234420adcd5adeaf6bfa6e133e41fc6776850c0d15f7cda2b943f781d",
             "exportPurpose" : "operatorArchive",
             "immutablePerSession" : true,
@@ -2678,7 +2819,7 @@
           ]
         }
       ],
-      "workspaceGeneration" : "6b15422e-e507-430f-a336-ee0d18a48f42"
+      "workspaceGeneration" : "f9e54053-11c2-4a0e-af39-e74f994003be"
     }
   },
   "schemaVersion" : 1
