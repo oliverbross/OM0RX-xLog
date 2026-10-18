@@ -5,10 +5,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { ClusterPanel, fullClusterColumnsKey } from "./ClusterPanel";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
-const palette = ["bands", "modes", "continents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
+const palette = ["bands", "modes", "continents", "spotterContinents", "callStatuses", "dxccStatuses", "specials", "sources", "worked", "sort"];
 const response = () => ({ snapshot: { connectedClusters: 1, loadedSpots: 0, contactCount: 42, contactRevision: 1, logbookDataLoaded: true, countryDataLoaded: true,
   connections: [{ serverID: "server", serverName: "ShackCQ", phase: "connected", error: null }], spots: [], console: [] },
-  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [{ id: "contest", name: "CONTEST", keywords: ["CQ TEST"], referenceFormat: "none", advancedPattern: "", enabled: true }], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], callStatuses: [], dxccStatuses: [], specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
+  configuration: { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }], connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false, showWorkedBandModeSpots: false, hideWSPRSpots: false, maximumSpots: 100, specialRules: [{ id: "contest", name: "CONTEST", keywords: ["CQ TEST"], referenceFormat: "none", advancedPattern: "", enabled: true }], palette: { status: {}, band: {}, mode: {} }, filter: { query: "", bands: [], modes: [], continents: [], spotterContinents: [], callStatuses: [], dxccStatuses: [], specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" }, commandPresets: [], forwardSpotsToFlex: false } });
 const luminance = (hex: string) => {
   const values = hex.match(/\w\w/g)!.map(value => parseInt(value, 16) / 255)
     .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -32,6 +32,15 @@ describe("DX Cluster filter colours", () => {
     fireEvent.click(within(rail).getByRole("button", { name: "Clear filters" }));
     expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ bands: [], sort: "newest" }) });
     expect(request.mock.calls.some(([method]) => /connect|select|tune/.test(method))).toBe(false);
+  });
+
+  it("filters independently by the reporting station continent", () => {
+    const data = response();
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => ({ ...data, configuration: { ...data.configuration, filter: params?.filter } }));
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(within(screen.getByLabelText("Spot filters")).getByRole("button", { name: "Spotter continent" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Spotter continent" })).getByRole("checkbox", { name: "EU" }));
+    expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ continents: [], spotterContinents: ["EU"] }) });
   });
 
   it("keeps every category label above AA contrast on its own tinted surface", () => {

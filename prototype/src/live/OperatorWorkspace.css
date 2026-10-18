@@ -37,6 +37,7 @@
 .operator-filter-sections fieldset[data-filter="bands"] { --filter-ink:#58d9ff; }
 .operator-filter-sections fieldset[data-filter="modes"] { --filter-ink:#bca0ff; }
 .operator-filter-sections fieldset[data-filter="continents"] { --filter-ink:#6adea6; }
+.operator-filter-sections fieldset[data-filter="spotterContinents"] { --filter-ink:#7ad8c8; }
 .operator-filter-sections fieldset[data-filter="callStatuses"] { --filter-ink:#ffad78; }
 .operator-filter-sections fieldset[data-filter="dxccStatuses"] { --filter-ink:#ffd36b; }
 .operator-filter-sections fieldset[data-filter="specials"] { --filter-ink:#ff94d2; }

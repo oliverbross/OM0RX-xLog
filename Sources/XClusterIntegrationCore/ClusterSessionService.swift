@@ -55,6 +55,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
     public var bands: Set<String> = []
     public var modes: Set<String> = []
     public var continents: Set<String> = []
+    public var spotterContinents: Set<String> = []
     public var callStatuses: Set<String> = []
     public var dxccStatuses: Set<String> = []
     public var specials: Set<String> = []
@@ -66,7 +67,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case query, bands, modes, continents, callStatuses, dxccStatuses, specials, excludedSpecials, sources, worked, sort
+        case query, bands, modes, continents, spotterContinents, callStatuses, dxccStatuses, specials, excludedSpecials, sources, worked, sort
     }
 
     public init(from decoder: Decoder) throws {
@@ -75,6 +76,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
         bands = try values.decodeIfPresent(Set<String>.self, forKey: .bands) ?? []
         modes = try values.decodeIfPresent(Set<String>.self, forKey: .modes) ?? []
         continents = try values.decodeIfPresent(Set<String>.self, forKey: .continents) ?? []
+        spotterContinents = try values.decodeIfPresent(Set<String>.self, forKey: .spotterContinents) ?? []
         callStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .callStatuses) ?? []
         dxccStatuses = try values.decodeIfPresent(Set<String>.self, forKey: .dxccStatuses) ?? []
         specials = try values.decodeIfPresent(Set<String>.self, forKey: .specials) ?? []
@@ -254,6 +256,7 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var receivedAt: Date
     public var clusterName: String
     public var spotter: String
+    public var spotterContinent: String? = nil
     public var frequencyKHz: Double
     public var frequencyText: String
     public var callsign: String
@@ -570,6 +573,7 @@ public actor ClusterSessionService {
                 && (filter.bands.isEmpty || filter.bands.contains(spot.band))
                 && (filter.modes.isEmpty || filter.modes.contains(spot.mode))
                 && (filter.continents.isEmpty || filter.continents.contains(spot.continent))
+                && (filter.spotterContinents.isEmpty || filter.spotterContinents.contains(spot.spotterContinent ?? ""))
                 && (filter.callStatuses.isEmpty || filter.callStatuses.contains(spot.callStatus))
                 && (filter.dxccStatuses.isEmpty || filter.dxccStatuses.contains(spot.dxccStatus))
                 && (filter.specials.isEmpty || !filter.specials.isDisjoint(with: spot.specialTags))
@@ -636,6 +640,7 @@ public actor ClusterSessionService {
         guard !configuration.hideWSPRSpots
                 || !SpotLogic.isWSPR(clusterName: raw.clusterName, spotter: raw.spotter, comment: raw.comment) else { return }
         let country = countries.resolve(raw.callsign)
+        let spotterCountry = countries.resolve(raw.spotter)
         let band = SpotLogic.band(for: raw.frequencyKHz)
         let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
@@ -648,6 +653,7 @@ public actor ClusterSessionService {
                                                specials: specials, source: source)
         var spot = ClassifiedClusterSpot(
             id: UUID(), receivedAt: raw.receivedAt, clusterName: raw.clusterName, spotter: raw.spotter,
+            spotterContinent: spotterCountry?.continent,
             frequencyKHz: raw.frequencyKHz, frequencyText: raw.frequencyText, callsign: raw.callsign,
             comment: displayComment,
             band: band, mode: mode, country: country?.name ?? "Unknown", adif: country?.adif,

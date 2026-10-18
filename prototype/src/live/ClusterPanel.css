@@ -70,6 +70,7 @@
 .live-cluster-filterrail [data-filter="bands"] { --filter-ink: #58d9ff; --filter-surface: #173b4a; }
 .live-cluster-filterrail [data-filter="modes"] { --filter-ink: #bca0ff; --filter-surface: #302748; }
 .live-cluster-filterrail [data-filter="continents"] { --filter-ink: #6adea6; --filter-surface: #183b32; }
+.live-cluster-filterrail [data-filter="spotterContinents"] { --filter-ink: #7ad8c8; --filter-surface: #173b3a; }
 .live-cluster-filterrail [data-filter="callStatuses"] { --filter-ink: #ffad78; --filter-surface: #442d25; }
 .live-cluster-filterrail [data-filter="dxccStatuses"] { --filter-ink: #ffd36b; --filter-surface: #403823; }
 .live-cluster-filterrail [data-filter="specials"] { --filter-ink: #ff94d2; --filter-surface: #422b40; }

@@ -13,6 +13,7 @@ export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 export type LiveClusterSpot = {
   id: string; receivedAt: number; clusterName: string; spotter: string;
+  spotterContinent?: string | null;
   frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
   band: string; mode: string; country: string; adif?: number | null;
   continent: string; cqZone?: number | null; ituZone?: number | null;
@@ -243,11 +244,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   const specialNames = ["RBN", ...(configuration?.specialRules.filter((r) => r.enabled && r.name.toUpperCase() !== "RBN").map((r) => r.name) ?? [])];
   const filterOptions: Partial<Record<keyof Filter, string[]>> = {
     bands, modes, continents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
+    spotterContinents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
     callStatuses, dxccStatuses, specials: specialNames,
     sources: ["cluster", "rbl"], worked: ["Worked before", "Not worked"],
   };
   const filterLabels: Partial<Record<keyof Filter, string>> = {
-    bands: "Bands", modes: "Modes", continents: "Continent", callStatuses: "Call status",
+    bands: "Bands", modes: "Modes", continents: "DX continent", spotterContinents: "Spotter continent", callStatuses: "Call status",
     dxccStatuses: "DXCC status", specials: "Special", sources: "Source", worked: "Worked",
   };
 

@@ -625,7 +625,7 @@ public actor LiveClusterMethods {
     }
 
     private func validateFilter(_ value: ClusterSpotFilter) throws {
-        let selections = [value.bands, value.modes, value.continents, value.callStatuses,
+        let selections = [value.bands, value.modes, value.continents, value.spotterContinents, value.callStatuses,
                           value.dxccStatuses, value.specials, value.excludedSpecials, value.sources, value.worked]
         guard value.query.utf8.count <= 128,
               !value.query.unicodeScalars.contains(where: { $0.value < 0x20 }),
@@ -634,6 +634,7 @@ public actor LiveClusterMethods {
               value.bands.isSubset(of: Set(SpotLogic.bands)),
               value.modes.isSubset(of: Set(SpotLogic.modes)),
               value.continents.isSubset(of: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"]),
+              value.spotterContinents.isSubset(of: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"]),
               value.callStatuses.isSubset(of: ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"]),
               value.dxccStatuses.isSubset(of: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode",
                                            "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"]),

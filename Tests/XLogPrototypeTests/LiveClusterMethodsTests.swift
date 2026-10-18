@@ -107,6 +107,52 @@ struct LiveClusterMethodsTests {
         await cluster.terminate()
     }
 
+    @Test("Spotter continent is independent from the DX station continent")
+    func spotterContinentFiltering() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        let configuration = ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false)
+        try JSONEncoder().encode(configuration).write(to: configurationURL)
+        let fixture = WorkerClusterFixture()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+                                         vault: UnavailableClusterTestVault(),
+                                         transportFactory: { _, _, _, _, state, line in
+            fixture.callbacks(state: state, line: line); return fixture
+        })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 14025.0 K1ABC CW")
+        fixture.emit("DX de DL1ABC: 14026.0 K2ABC CW")
+
+        var snapshot: [String: Any] = [:]
+        for _ in 0..<100 {
+            snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
+            if ((snapshot["snapshot"] as? [String: Any])?["spots"] as? [[String: Any]])?.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        var filter = try #require((snapshot["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        filter["spotterContinents"] = ["EU"]
+        let filtered = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        let spots = try #require((filtered["snapshot"] as? [String: Any])?["spots"] as? [[String: Any]])
+        #expect(spots.map { $0["callsign"] as? String } == ["K2ABC"])
+        #expect(spots.first?["spotter"] as? String == "DL1ABC")
+        #expect(spots.first?["spotterContinent"] as? String == "EU")
+
+        filter = try #require((filtered["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        filter["continents"] = ["EU"]
+        let independentlyFiltered = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        #expect(((independentlyFiltered["snapshot"] as? [String: Any])?["spots"] as? [[String: Any]])?.isEmpty == true)
+
+        let legacy = try JSONDecoder().decode(ClusterSpotFilter.self, from: Data(#"{"continents":["EU"]}"#.utf8))
+        #expect(legacy.continents == ["EU"])
+        #expect(legacy.spotterContinents.isEmpty)
+        await cluster.terminate()
+    }
+
     @Test("Connect resolves cluster credentials before persisting connected intent")
     func credentialFailurePrecedesResumeIntent() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -198,6 +198,7 @@ describe("operator workspace", () => {
     const dialog = screen.getByRole("dialog", { name: "Cluster filters" });
     expect(within(dialog).getByRole("checkbox", { name: "Show only POTA" })).toBeTruthy();
     expect(within(dialog).getByRole("checkbox", { name: "Show only RBN" })).toBeTruthy();
+    expect(within(dialog).getByRole("group", { name: "Spotter continent" })).toBeTruthy();
     expect(readFileSync("src/live/OperatorWorkspace.css", "utf8")).toContain("fieldset>div:not(.special-filter-options)");
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Hide RBN" }));
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["RBN"] }) });
@@ -207,6 +208,8 @@ describe("operator workspace", () => {
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: ["CONTEST"], excludedSpecials: ["RBN"] }) });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "20m" }));
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ bands: ["20m"] }) });
+    fireEvent.click(within(within(dialog).getByRole("group", { name: "Spotter continent" })).getByRole("checkbox", { name: "EU" }));
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ continents: [], spotterContinents: ["EU"] }) });
     fireEvent.click(within(dialog).getByRole("button", { name: "Clear filters" }));
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: defaultClusterFilter() });
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" })); expect(screen.queryByRole("dialog", { name: "Cluster filters" })).toBeNull();

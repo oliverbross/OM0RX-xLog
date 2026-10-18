@@ -15,8 +15,8 @@ export type OperatorWorkspaceProps = { map: ReactNode; bandMaps: ReactNode; clus
   selectedSpotId?: string | null; palette?: ClusterPalette };
 type ClusterProjection = { snapshot?: { spots?: LiveClusterSpot[]; connectedClusters?: number; connections?: { serverName: string; phase: string; error?: string | null }[] };
   configuration?: { palette?: ClusterPalette; filter?: ClusterFilter; specialRules?: { name: string; enabled: boolean }[] } };
-const filterSections: Array<[keyof Pick<ClusterFilter, "bands" | "modes" | "continents" | "callStatuses" | "dxccStatuses" | "specials" | "sources" | "worked">, string]> = [
-  ["bands", "Bands"], ["modes", "Modes"], ["continents", "Continent"], ["callStatuses", "Call status"],
+const filterSections: Array<[keyof Pick<ClusterFilter, "bands" | "modes" | "continents" | "spotterContinents" | "callStatuses" | "dxccStatuses" | "specials" | "sources" | "worked">, string]> = [
+  ["bands", "Bands"], ["modes", "Modes"], ["continents", "DX continent"], ["spotterContinents", "Spotter continent"], ["callStatuses", "Call status"],
   ["dxccStatuses", "DXCC status"], ["specials", "Special"], ["sources", "Source"], ["worked", "Worked"],
 ];
 const spotTags = (spot: LiveClusterSpot): string[] => clusterSpotTags(spot);
