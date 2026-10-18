@@ -12,7 +12,7 @@ export function useWorkspaceLayout(enabled: boolean, surface: WorkspaceLayoutSur
   const [session] = useState(() => {
     const journalKey = workspaceLayoutJournalKey(surface);
     let journal = null;
-    try { journal = readLayoutJournal(localStorage.getItem(journalKey)); } catch { /* Reads may be restricted; writes still fail explicitly. */ }
+    try { journal = readLayoutJournal(localStorage.getItem(journalKey), scope); } catch { /* Reads may be restricted; writes still fail explicitly. */ }
     return new WorkspaceLayoutSession(request, value => value
       ? localStorage.setItem(journalKey, JSON.stringify(value)) : localStorage.removeItem(journalKey), journal, scope);
   });

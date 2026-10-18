@@ -1342,14 +1342,21 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Restore coordinator only: retain current preferences when an operator
     /// restores contacts without opting into workspace-preference restoration.
     /// The caller rotates the workspace generation before replacing the DB.
-    public func preserveWorkspaceLayoutAfterRestore(_ snapshot: WorkspaceLayoutSnapshot) throws {
+    public func preserveWorkspaceLayoutAfterRestore(_ snapshot: WorkspaceLayoutSnapshot,
+                                                    scope: WorkspaceLayoutScope = .normalLogging) throws {
         try withDatabaseLock {
             guard (0...9_007_199_254_740_991).contains(snapshot.revision) else { throw WorkspaceLayoutError.invalid }
             try snapshot.document.validate()
             let payload = try encoder.encode(snapshot)
             guard payload.count <= 262_144 else { throw WorkspaceLayoutError.invalid }
-            try withStatement("INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
-                _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+            let sql = scope == .normalLogging
+                ? "INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;"
+                : "INSERT INTO xlog_scoped_workspace_layout(scope,payload) VALUES(?,?) ON CONFLICT(scope) DO UPDATE SET payload=excluded.payload;"
+            try withStatement(sql) { statement in
+                let payloadIndex: Int32
+                if scope == .normalLogging { payloadIndex = 1 }
+                else { sqlite3_bind_text(statement, 1, scope.rawValue, -1, Self.transient); payloadIndex = 2 }
+                _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, payloadIndex, $0.baseAddress, Int32($0.count), Self.transient) }
                 try stepDone(statement)
             }
         }

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Testing
 #if canImport(XLogCore)
 import XLogCore
@@ -182,6 +183,7 @@ struct WorkspaceLayoutTests {
         let legacy = WorkspaceLayoutSnapshot(revision: 47, document: legacyDocument())
         let originalDB = try service.openedDatabase()
         let bytes = try store(legacy, at: originalDB.url)
+        _ = try originalDB.applyWorkspaceLayout(activate(0), scope: .contesting)
         let before = try load(service)
         let name = try #require(service.handle(method: "backup_create", params: ["name": "legacy-layout"])["name"] as? String)
         #expect(try storedPayload(at: originalDB.url) == bytes)
@@ -193,12 +195,17 @@ struct WorkspaceLayoutTests {
         #expect((restored["document"] as? [String: Any])?["version"] as? Int == 2)
         #expect((restored["document"] as? [String: Any])?["activePresetID"] as? String == "operator-custom")
         #expect(try service.openedDatabase().workspaceLayout().document == legacy.document.migratedToCurrentVersion())
+        #expect(try service.openedDatabase().workspaceLayout(scope: .contesting).document.activePresetID == "windowed")
         #expect(try apply(service, before, "windowed")["status"] as? String == "workspace_changed")
         _ = try apply(service, restored, "windowed")
         let retained = try service.openedDatabase().workspaceLayout()
+        let restoredContest = try service.openedDatabase().workspaceLayout(scope: .contesting)
+        let retainedContest = try service.openedDatabase().applyWorkspaceLayout(
+            activate(restoredContest.revision, "traditional"), scope: .contesting)
         _ = try service.handle(method: "backup_restore", params: ["name": name, "confirm_restore": true,
                     "restore_settings": false, "restore_preferences": false, "restore_reference_data": false])
         #expect(try service.openedDatabase().workspaceLayout() == retained)
+        #expect(try service.openedDatabase().workspaceLayout(scope: .contesting) == retainedContest)
     }
 
     @Test("Acknowledged scoped edits survive reopening without replacing unrelated presets or contacts")
@@ -223,6 +230,10 @@ struct WorkspaceLayoutTests {
     @Test("Contesting layouts have a separate persisted scope while Normal defaults remain byte compatible")
     func moduleScopedPersistence() throws {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let digest = SHA256.hash(data: try encoder.encode(WorkspaceLayoutDocument.defaults))
+            .map { String(format: "%02x", $0) }.joined()
+        // Fixed from the canonical Normal-layout JSON before module scoping (e64e5e1).
+        #expect(digest == "f5f00ad3f7c6a502de068420965519584ae7a6ff55c8bd1fc2c5418d6389a878")
         #expect(try encoder.encode(WorkspaceLayoutDocument.defaults) ==
                 encoder.encode(WorkspaceLayoutDocument.defaults(for: .normalLogging)))
         let contestDefaults = WorkspaceLayoutDocument.defaults(for: .contesting)
@@ -411,6 +422,14 @@ struct WorkspaceLayoutTests {
         defer { try? service.openedDatabase().close() }
         let preferences = try service.handle(method: "workspace_preferences_load", params: [:])
         let before = try load(service)
+        let contest = try #require(service.handle(method: "workspace_layout_load", params: ["scope": "contesting"])["layout"] as? [String: Any])
+        #expect(before["scope"] == nil)
+        #expect(contest["scope"] as? String == "contesting")
+        let staleContest = try service.handle(method: "workspace_layout_apply", params: ["scope": "contesting",
+            "generation": UUID().uuidString, "expectedRevision": contest["revision"]!,
+            "action": "activatePreset", "presetID": "windowed"])
+        #expect(staleContest["status"] as? String == "workspace_changed")
+        #expect(staleContest["scope"] as? String == "contesting")
         #expect(try apply(service, before, "windowed")["status"] as? String == "applied")
         #expect(try apply(service, before, "traditional")["status"] as? String == "conflict")
         #expect(NSDictionary(dictionary: try service.handle(method: "workspace_preferences_load", params: [:])).isEqual(to: preferences))
@@ -442,6 +461,8 @@ struct WorkspaceLayoutTests {
             let contest = try await request("workspace_layout_load", ["scope": "contesting"])
             let contestSnapshot = try #require((contest["result"] as? [String: Any])?["layout"] as? [String: Any])
             #expect(contestSnapshot["revision"] as? Int == 0)
+            #expect(snapshot["scope"] == nil)
+            #expect(contestSnapshot["scope"] as? String == "contesting")
             #expect(try await request("workspace_layout_load", ["scope": "unknown"])["ok"] as? Bool == false)
         } catch { try? await session.close(); throw error }
         try await session.close()

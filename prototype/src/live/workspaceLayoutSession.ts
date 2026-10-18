@@ -8,11 +8,11 @@ export type LayoutRect = { x: number; y: number; width: number; height: number }
 export type PanelLayout = { id: WorkspacePanelID; placement: "canvas" | "window" | "hidden"; rect: LayoutRect; z: number };
 export type LayoutPreset = { id: string; name: string; width: number; height: number; locked: boolean; snap: boolean; panels: PanelLayout[] };
 export type LayoutDocument = { version: 2; activePresetID: string; presets: LayoutPreset[]; lastCanvasPresetID?: string };
-export type LayoutSnapshot = { revision: number; generation: string; document: LayoutDocument };
+export type LayoutSnapshot = { revision: number; generation: string; document: LayoutDocument; scope?: WorkspaceLayoutScope };
 export type LayoutChange = { action: "placePanel"; presetID: string; panel: PanelLayout } |
   { action: "savePreset"; presetID: string; preset: LayoutPreset } |
   { action: "activatePreset" | "deletePreset"; presetID: string };
-export type LayoutJournal = { base: LayoutSnapshot; change: LayoutChange; legacyModeReturn?: true };
+export type LayoutJournal = { base: LayoutSnapshot; change: LayoutChange; legacyModeReturn?: true; scope?: WorkspaceLayoutScope };
 export type LayoutState = { snapshot: LayoutSnapshot | null; pending: LayoutJournal | null; conflict: LayoutSnapshot | null;
   saving: boolean; error: string; workspaceChanged: boolean };
 type Request = (method: "workspace_layout_load" | "workspace_layout_apply", params?: Record<string, unknown>) => Promise<any>;
@@ -70,9 +70,11 @@ export function migratedLayoutDocument(value: any): LayoutDocument {
   }
   return document;
 }
-export function checkedLayout(value: any): LayoutSnapshot {
+export function checkedLayout(value: any, expectedScope: WorkspaceLayoutScope = "normal_logging"): LayoutSnapshot {
   if (!object(value) || !generation(value.generation) || !integer(value.revision, 0, Number.MAX_SAFE_INTEGER))
     throw new Error("The shared workspace layout could not be verified.");
+  if (expectedScope === "normal_logging" ? value.scope !== undefined : value.scope !== expectedScope)
+    throw new Error("The shared workspace layout scope could not be verified.");
   return { ...clone(value), document: migratedLayoutDocument(value.document) };
 }
 export function changedLayout(base: LayoutDocument, change: LayoutChange): LayoutDocument {
@@ -98,10 +100,12 @@ export function changedLayout(base: LayoutDocument, change: LayoutChange): Layou
   if (!validLayoutDocument(document)) return invalid();
   return document;
 }
-export function readLayoutJournal(raw: string | null): LayoutJournal | null {
+export function readLayoutJournal(raw: string | null, expectedScope: WorkspaceLayoutScope = "normal_logging"): LayoutJournal | null {
   if (!raw || raw.length > 300_000) return null;
   try {
-    const value = JSON.parse(raw), base = checkedLayout(value.base);
+    const value = JSON.parse(raw);
+    if (expectedScope === "normal_logging" ? value.scope !== undefined : value.scope !== expectedScope) return null;
+    const base = checkedLayout(value.base, expectedScope);
     let change = clone(value.change);
     if (value.base.document.version === 1) {
       if (change?.action === "savePreset") {
@@ -110,7 +114,8 @@ export function readLayoutJournal(raw: string | null): LayoutJournal | null {
       } else if (change?.action === "placePanel" && !version1PanelIDs.includes(change.panel?.id)) return null;
     }
     changedLayout(base.document, change);
-    return { base, change, ...(value.base.document.version === 1 || value.legacyModeReturn === true ? { legacyModeReturn: true as const } : {}) };
+    return { base, change, ...(expectedScope === "normal_logging" ? {} : { scope: expectedScope }),
+      ...(value.base.document.version === 1 || value.legacyModeReturn === true ? { legacyModeReturn: true as const } : {}) };
   } catch { return null; }
 }
 export class LayoutRequestRejected extends Error {}
@@ -157,7 +162,7 @@ export class WorkspaceLayoutSession {
         try {
           const response = this.scope === "normal_logging" ? await this.request("workspace_layout_load")
             : await this.request("workspace_layout_load", { scope: this.scope });
-          const value = checkedLayout(response.layout);
+          const value = checkedLayout(response.layout, this.scope);
           if (epoch === this.epoch) this.accept(value);
         } catch (cause) { if (epoch === this.epoch) this.update({ error: cause instanceof Error ? cause.message : "Shared layout unavailable." }); }
       } while (this.again && !this.state.saving && !this.recovering);
@@ -179,7 +184,8 @@ export class WorkspaceLayoutSession {
         this.state.snapshot.revision !== base.revision || !sameDocument(this.state.snapshot.document, base.document)))
       throw new Error("The workspace changed after editing began. Reload and review it before saving.");
     changedLayout(this.state.snapshot.document, change);
-    const pending = { base: clone(this.state.snapshot), change: clone(change) };
+    const pending: LayoutJournal = { base: clone(this.state.snapshot), change: clone(change),
+      ...(this.scope === "normal_logging" ? {} : { scope: this.scope }) };
     // Recovery must be durable before sending a potentially successful write.
     this.journal(pending); this.update({ pending });
     await this.send(pending);
@@ -190,10 +196,13 @@ export class WorkspaceLayoutSession {
       const response = await this.request("workspace_layout_apply", { ...pending.change,
         ...(this.scope === "normal_logging" ? {} : { scope: this.scope }),
         expectedRevision: pending.base.revision, generation: pending.base.generation });
+      if (response.status === "workspace_changed" &&
+          (this.scope === "normal_logging" ? response.scope !== undefined : response.scope !== this.scope))
+        throw new Error("The shared workspace layout scope could not be verified.");
       if (response.status === "workspace_changed" && generation(response.generation) && !sameGeneration(response.generation, pending.base.generation)) {
         this.update({ workspaceChanged: true, error: "The workspace was restored or replaced. Review the layout before continuing." });
       } else if (response.status === "applied" || response.status === "conflict") {
-        const value = checkedLayout(response.layout);
+        const value = checkedLayout(response.layout, this.scope);
         if (response.status === "applied" && (!sameGeneration(value.generation, pending.base.generation) ||
             value.revision !== pending.base.revision + 1 || !sameDocument(value.document, changedLayout(pending.base.document, pending.change))))
           throw new Error("The layout acknowledgement did not match the intended change. Reload to reconcile it.");
@@ -214,7 +223,7 @@ export class WorkspaceLayoutSession {
       // A failed read must reject this action, never reuse a cached base.
       const response = this.scope === "normal_logging" ? await this.request("workspace_layout_load")
         : await this.request("workspace_layout_load", { scope: this.scope });
-      this.accept(checkedLayout(response.layout));
+      this.accept(checkedLayout(response.layout, this.scope));
       const { pending, snapshot, conflict, workspaceChanged } = this.state;
       if (!pending) return;
       if (!snapshot || conflict || workspaceChanged || !sameGeneration(snapshot.generation, pending.base.generation) ||
@@ -230,7 +239,7 @@ export class WorkspaceLayoutSession {
       // An explicit discard adopts a verified fresh snapshot; it performs no write.
       const response = this.scope === "normal_logging" ? await this.request("workspace_layout_load")
         : await this.request("workspace_layout_load", { scope: this.scope });
-      const value = checkedLayout(response.layout);
+      const value = checkedLayout(response.layout, this.scope);
       this.journal(null);
       this.update({ snapshot: value, pending: null, conflict: null, workspaceChanged: false, error: "" });
     } finally { this.recovering = false; if (this.again) void this.refresh(); }

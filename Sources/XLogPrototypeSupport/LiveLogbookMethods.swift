@@ -1265,13 +1265,17 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 try requireKeys(params, allowed: ["scope"])
                 let scope = try workspaceLayoutScope(params)
                 let generation = try editGeneration()
-                return ["layout": try scopedSnapshot(readyDatabase().workspaceLayout(scope: scope), generation: generation)]
+                return ["layout": try scopedLayoutSnapshot(readyDatabase().workspaceLayout(scope: scope), generation: generation, scope: scope)]
             case "workspace_layout_apply":
                 try requireKeys(params, allowed: ["expectedRevision", "action", "presetID", "panel", "preset", "generation", "scope"],
                                 required: ["expectedRevision", "action", "presetID", "generation"])
                 let scope = try workspaceLayoutScope(params)
                 let generation = try editGeneration()
-                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+                if try !matchesEditGeneration(params, generation) {
+                    var response: [String: Any] = ["status": "workspace_changed", "generation": generation]
+                    if scope != .normalLogging { response["scope"] = scope.rawValue }
+                    return response
+                }
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 guard JSONSerialization.isValidJSONObject(params),
                       try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
@@ -1279,9 +1283,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 do { mutation = try decode(params) } catch { throw invalid() }
                 do {
                     let layout = try readyDatabase().applyWorkspaceLayout(mutation, scope: scope)
-                    return ["status": "applied", "layout": try scopedSnapshot(layout, generation: generation)]
+                    return ["status": "applied", "layout": try scopedLayoutSnapshot(layout, generation: generation, scope: scope)]
                 } catch WorkspaceLayoutError.conflict(let layout) {
-                    return ["status": "conflict", "layout": try scopedSnapshot(layout, generation: generation)]
+                    return ["status": "conflict", "layout": try scopedLayoutSnapshot(layout, generation: generation, scope: scope)]
                 } catch WorkspaceLayoutError.invalid { throw invalid() }
             case "workspace_preferences_load":
                 try requireKeys(params, allowed: [])
@@ -1416,7 +1420,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     try validateBackupPreferences(preferences)
                 }
                 let db = try readyDatabase()
-                let retainedLayout = restorePreferences ? nil : try db.workspaceLayout()
+                let retainedLayouts = restorePreferences ? nil : try WorkspaceLayoutScope.allCases.map {
+                    ($0, try db.workspaceLayout(scope: $0))
+                }
                 let retainedSettings = try storedSettingsSnapshot()
                 if !restoreSettings {
                     guard let backupSettings = preview.settings.map(IntegrationWorkspace.safeSettings(from:)) else {
@@ -1457,7 +1463,11 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         applyBackupPreferences(preferences, to: defaults)
                     }
                     database = try LogbookDatabase(url: workspaceURL.appendingPathComponent("OM0RX-xLog.sqlite"))
-                    if let retainedLayout { try database?.preserveWorkspaceLayoutAfterRestore(retainedLayout) }
+                    if let retainedLayouts {
+                        for (scope, layout) in retainedLayouts {
+                            try database?.preserveWorkspaceLayoutAfterRestore(layout, scope: scope)
+                        }
+                    }
                     guard let database else { throw WorkerFailure("workspace_unavailable", "The restored database is unavailable.") }
                     let restoredSeed = restoreSettings ? preview.settings.map(IntegrationWorkspace.safeSettings(from:)) : nil
                     let installed = try database.integrationSettings(seed: restoredSeed ?? retainedSettings.settings)
@@ -1636,6 +1646,13 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private func scopedSnapshot<T: Encodable>(_ value: T, generation: String) throws -> [String: Any] {
         guard var object = try json(value) as? [String: Any] else { throw invalid() }
         object["generation"] = generation
+        return object
+    }
+
+    private func scopedLayoutSnapshot(_ value: WorkspaceLayoutSnapshot, generation: String,
+                                      scope: WorkspaceLayoutScope) throws -> [String: Any] {
+        var object = try scopedSnapshot(value, generation: generation)
+        if scope != .normalLogging { object["scope"] = scope.rawValue }
         return object
     }
 
