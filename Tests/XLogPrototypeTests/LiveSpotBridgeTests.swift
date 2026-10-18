@@ -54,6 +54,18 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertEqual(count, 2)
     }
 
+    func testBrokerRoutesSameSpotIndependentlyToFlexAndTCI() async throws {
+        let recorder = ProviderRecorder()
+        let broker = SpotForwardBroker { _, provider in await recorder.record(provider) }
+        let value = try spot()
+        let flex = try await broker.forward(value, provider: "direct_agent")
+        let tci = try await broker.forward(value, provider: "direct_tci")
+        let providers = await recorder.value()
+        XCTAssertTrue(flex)
+        XCTAssertTrue(tci)
+        XCTAssertEqual(providers, ["direct_agent", "direct_tci"])
+    }
+
     func testRejectedDeliveryCanRetryWithoutFalseSuccess() async throws {
         let counter = DeliveryCounter(rejectFirst: true)
         let broker = SpotForwardBroker { _ in try await counter.record() }
@@ -352,6 +364,12 @@ private actor DeliveryCounter {
         if rejectFirst && count == 1 { throw NSError(domain: "test", code: 1) }
     }
     func value() -> Int { count }
+}
+
+private actor ProviderRecorder {
+    private var providers: [String] = []
+    func record(_ provider: String) { providers.append(provider) }
+    func value() -> [String] { providers }
 }
 
 private actor GatedDelivery {

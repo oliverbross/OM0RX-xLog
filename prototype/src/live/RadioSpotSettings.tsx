@@ -5,11 +5,12 @@ import { useSettingsSaveToast } from "./SettingsSaveToast";
 
 type Configuration = {
   forwardSpotsToFlex: boolean;
+  forwardSpotsToTCI?: boolean;
   radioSpotColorPolicy?: "callsign" | "dxcc";
   palette: { status: Record<string, string> };
 };
-type Snapshot = { configuration: Configuration; flex_forwarding_available: boolean;
-  forwarding?: { accepted_count: number; status: string } };
+type Snapshot = { configuration: Configuration; flex_forwarding_available: boolean; tci_forwarding_available?: boolean;
+  forwarding?: { accepted_count: number; status: string; flex_status?: string; tci_status?: string } };
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 const callsignStatuses = ["New Call", "New Band", "New Mode", "New Band+Mode"];
 const dxccStatuses = ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode"];
@@ -20,6 +21,7 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [baseConfiguration, setBaseConfiguration] = useState<Configuration | null>(null);
   const [enabled, setEnabled] = useState(false);
+  const [tciEnabled, setTCIEnabled] = useState(false);
   const [policy, setPolicy] = useState<"callsign" | "dxcc">("callsign");
   const [statusColors, setStatusColors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -33,6 +35,7 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
       if (!preserveDraft) {
         setBaseConfiguration(next.configuration);
         setEnabled(next.configuration.forwardSpotsToFlex);
+        setTCIEnabled(next.configuration.forwardSpotsToTCI ?? false);
         setPolicy(next.configuration.radioSpotColorPolicy ?? "callsign");
         setStatusColors(next.configuration.palette.status);
       }
@@ -41,17 +44,20 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
   }
   useEffect(() => { if (visible) void refresh(); }, [visible]);
   const savedEnabled = snapshot?.configuration.forwardSpotsToFlex ?? false;
+  const savedTCIEnabled = snapshot?.configuration.forwardSpotsToTCI ?? false;
   const savedPolicy = snapshot?.configuration.radioSpotColorPolicy ?? "callsign";
   const baseEnabled = baseConfiguration?.forwardSpotsToFlex ?? false;
+  const baseTCIEnabled = baseConfiguration?.forwardSpotsToTCI ?? false;
   const basePolicy = baseConfiguration?.radioSpotColorPolicy ?? "callsign";
   const color = (name: string) => paletteColor(name, statusColors, clusterStatusColors);
   const changedColors = Object.fromEntries(statusNames.filter(name => color(name) !==
     paletteColor(name, baseConfiguration?.palette.status, clusterStatusColors)).map(name => [name, color(name)]));
-  const dirty = !!baseConfiguration && (enabled !== baseEnabled || policy !== basePolicy || Object.keys(changedColors).length > 0);
+  const dirty = !!baseConfiguration && (enabled !== baseEnabled || tciEnabled !== baseTCIEnabled || policy !== basePolicy || Object.keys(changedColors).length > 0);
   const save = async () => {
     if (!baseConfiguration) return;
     const changes: Record<string, unknown> = {};
     if (enabled !== baseEnabled) { changes.flex_enabled = enabled; changes.flex_expected = baseEnabled; }
+    if (tciEnabled !== baseTCIEnabled) { changes.tci_enabled = tciEnabled; changes.tci_expected = baseTCIEnabled; }
     if (policy !== basePolicy) { changes.color_policy = policy; changes.color_policy_expected = basePolicy; }
     if (Object.keys(changedColors).length) {
       changes.status_colors = changedColors;
@@ -88,7 +94,7 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
       <p>{snapshot?.flex_forwarding_available
         ? "Requires an agent that advertises add_spot. A command accepted by the agent does not prove that the radio or Maestro displayed it. Direct FLEX LAN and xCat loopback do not provide this output."
         : "FLEX forwarding is unavailable on this platform. A saved enabled preference can be turned off."}</p>
-      <p role="status">Saved: {savedEnabled ? "on" : "off"}. Runtime: {snapshot?.forwarding?.status ?? "Status unavailable"}{snapshot?.forwarding?.accepted_count ? ` · ${snapshot.forwarding.accepted_count} accepted by agent` : ""}</p>
+      <p role="status">Saved: {savedEnabled ? "on" : "off"}. Runtime: {snapshot?.forwarding?.flex_status ?? snapshot?.forwarding?.status ?? "Status unavailable"}</p>
     </fieldset>
     <fieldset disabled={busy || !snapshot}>
       <legend>Spot colour</legend>
@@ -100,13 +106,19 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
       <h3>DXCC status</h3>{colorInputs(dxccStatuses)}
       <h3>Shared status</h3>{colorInputs(sharedStatuses)}
     </fieldset>
-    <fieldset disabled><legend>SunSDR2 / TCI</legend>
-      <label><input type="checkbox" disabled /> Send spots through TCI</label>
-      <p>Unavailable: this app has TCI receive and tuning support, but no TCI spot output transport. Configure the TCI connection under Station control; enabling it there does not make spots appear on the radio.</p>
+    <fieldset disabled={busy || !snapshot}><legend>SunSDR2 / TCI</legend>
+      <label><input type="checkbox" checked={tciEnabled} disabled={!snapshot?.tci_forwarding_available && !tciEnabled}
+        onChange={event => setTCIEnabled(event.target.checked)} /> Send spots through the connected TCI session</label>
+      <p>{snapshot?.tci_forwarding_available
+        ? "Requires an active TCI connection under Station control. A successful WebSocket send does not prove that SunSDR displayed the marker."
+        : "TCI spot forwarding is unavailable on this platform. A saved enabled preference can be turned off."}</p>
+      <p role="status">Saved: {savedTCIEnabled ? "on" : "off"}. Runtime: {snapshot?.forwarding?.tci_status ?? "Status unavailable"}</p>
     </fieldset>
-    <button type="button" disabled={busy || !dirty || (!snapshot?.flex_forwarding_available && enabled && enabled !== baseEnabled)} onClick={() => void save()}>Save radio spot output</button>
+    <button type="button" disabled={busy || !dirty
+      || (!snapshot?.flex_forwarding_available && enabled && enabled !== baseEnabled)
+      || (!snapshot?.tci_forwarding_available && tciEnabled && tciEnabled !== baseTCIEnabled)} onClick={() => void save()}>Save radio spot output</button>
     <button type="button" disabled={busy} onClick={() => void refresh(true)}>Refresh status</button>
-    {dirty && <p role="status">Changes are unsaved. Runtime remains {savedEnabled ? "on" : "off"} with {savedPolicy === "dxcc" ? "DXCC" : "callsign"} colours and the saved palette.</p>}
+    {dirty && <p role="status">Changes are unsaved. Runtime remains FLEX {savedEnabled ? "on" : "off"}, TCI {savedTCIEnabled ? "on" : "off"}, with {savedPolicy === "dxcc" ? "DXCC" : "callsign"} colours and the saved palette.</p>}
     {saveToast.toast}{error && <p role="alert">{error}</p>}
   </section>;
 }

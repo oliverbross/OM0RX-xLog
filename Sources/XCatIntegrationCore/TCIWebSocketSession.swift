@@ -411,6 +411,58 @@ public actor TCIReadOnlyWebSocketSession {
                                         expectedGeneration: expectedGeneration, timeoutNanoseconds: timeoutNanoseconds)
     }
 
+    /// Sends one bounded TCI SPOT frame. Transport completion is an acceptance
+    /// receipt only; TCI provides no authoritative display readback.
+    public func addSpot(_ spot: FlexSpot, expectedGeneration: UInt64) async throws {
+        guard !commandInFlight else { throw TCITuneSessionError.commandInFlight }
+        guard expectedGeneration == generation,
+              observationValue.generation == generation,
+              observationValue.availability == .available,
+              let snapshot = observationValue.snapshot,
+              let activeConnection = connection,
+              let activeConnectionID = connectionID else { throw TCITuneSessionError.notReady }
+        let issuedAt = clock()
+        guard issuedAt.timeIntervalSince(observationValue.evidenceReceivedAt ?? .distantPast) >= -1,
+              issuedAt.timeIntervalSince(observationValue.evidenceReceivedAt ?? .distantPast) <= 5 else {
+            throw TCITuneSessionError.staleObservation
+        }
+        let lower = Int64(snapshot.vfoLimits.lower.rounded(.up))
+        let upper = Int64(snapshot.vfoLimits.upper.rounded(.down))
+        guard lower <= upper else { throw TCITuneSessionError.notReady }
+        let encoder: TCICommandEncoder
+        do {
+            encoder = try TCICommandEncoder(trxCount: snapshot.trxCount, channelCount: snapshot.channelCount,
+                                            frequencyRange: lower...upper,
+                                            supportedModulations: Set(snapshot.supportedModulations), limits: limits)
+        } catch { throw TCITuneSessionError.notReady }
+        guard let rgb = UInt32(spot.colorHex.dropFirst(), radix: 16) else { throw TCITuneSessionError.invalidTarget }
+        let rawText = [spot.source, spot.spotter, spot.comment].filter { !$0.isEmpty }.joined(separator: " ")
+        let safeText = String(rawText.unicodeScalars.map { scalar -> Character in
+            let value = scalar.value
+            return value >= 32 && value <= 126 && ![58, 44, 59].contains(value) ? Character(String(scalar)) : " "
+        }.prefix(96))
+        let frame: String
+        do {
+            frame = try encoder.encode(.spot(callsign: spot.callsign, mode: spot.mode,
+                                             frequencyHz: spot.frequencyHz,
+                                             colorARGB: 0xFF00_0000 | rgb, text: safeText))
+        } catch { throw TCITuneSessionError.invalidTarget }
+        let activeGeneration = generation
+        let activeRevision = lifecycleRevision
+        commandInFlight = true
+        defer { commandInFlight = false }
+        do { try await activeConnection.send(text: frame) }
+        catch {
+            await fail(.transportClosed, connection: activeConnection, connectionID: activeConnectionID,
+                       generation: activeGeneration, revision: activeRevision)
+            throw TCITuneSessionError.transportClosed
+        }
+        guard generation == activeGeneration, lifecycleRevision == activeRevision,
+              connectionID == activeConnectionID, connection != nil else {
+            throw TCITuneSessionError.connectionChanged
+        }
+    }
+
     private func receiveCommand(frequencyHz: Int64, mode: String, filter: TCIFilterBand?, expectedGeneration: UInt64,
                                 timeoutNanoseconds: UInt64) async throws -> TCIReadOnlySessionObservation {
         guard timeoutNanoseconds > 0, timeoutNanoseconds <= 120_000_000_000 else {

@@ -161,8 +161,9 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     public var palette: ClusterPalette
     public var filter: ClusterSpotFilter
     public var commandPresets: [ClusterCommandPreset]
-    /// Explicit opt-in. Only the direct-agent xCat provider supports add_spot.
+    /// Explicit opt-ins for radio-display spot output transports.
     public var forwardSpotsToFlex: Bool
+    public var forwardSpotsToTCI: Bool
     public var radioSpotColorPolicy: RadioSpotColorPolicy
 
     public init(servers: [ClusterServerConfiguration], connectOnStartup: Bool = true,
@@ -177,7 +178,8 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
                     .init(name: "WCY", command: "sh/wcy/5"),
                     .init(name: "Announcements", command: "sh/ann/10"),
                     .init(name: "Users", command: "sh/u")
-                ], forwardSpotsToFlex: Bool = false, radioSpotColorPolicy: RadioSpotColorPolicy = .callsign) {
+                ], forwardSpotsToFlex: Bool = false, forwardSpotsToTCI: Bool = false,
+                radioSpotColorPolicy: RadioSpotColorPolicy = .callsign) {
         self.servers = servers
         self.connectOnStartup = connectOnStartup
         self.requestRecentSpotsOnConnect = requestRecentSpotsOnConnect
@@ -191,13 +193,14 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         self.filter = filter
         self.commandPresets = commandPresets
         self.forwardSpotsToFlex = forwardSpotsToFlex
+        self.forwardSpotsToTCI = forwardSpotsToTCI
         self.radioSpotColorPolicy = radioSpotColorPolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case servers, connectOnStartup, requestRecentSpotsOnConnect, reconnect, requestSkimmer
         case showWorkedBandModeSpots, hideWSPRSpots, maximumSpots
-        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex, radioSpotColorPolicy
+        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex, forwardSpotsToTCI, radioSpotColorPolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -223,6 +226,7 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         commandPresets = try values.decodeIfPresent([ClusterCommandPreset].self, forKey: .commandPresets)
             ?? Self(servers: []).commandPresets
         forwardSpotsToFlex = try values.decodeIfPresent(Bool.self, forKey: .forwardSpotsToFlex) ?? false
+        forwardSpotsToTCI = try values.decodeIfPresent(Bool.self, forKey: .forwardSpotsToTCI) ?? false
         radioSpotColorPolicy = try values.decodeIfPresent(RadioSpotColorPolicy.self, forKey: .radioSpotColorPolicy) ?? .callsign
     }
 }

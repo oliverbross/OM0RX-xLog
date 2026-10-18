@@ -43,7 +43,7 @@ final class LiveTCISessionTests: XCTestCase {
         let initial = try await session.handle("station_snapshot", params: minimal)
         XCTAssertEqual(initial["available"] as? Bool, false)
         XCTAssertTrue(initial["generated_at"] is NSNull)
-        for method in ["station_configuration_save", "station_reconnect", "station_action", "station_radio_control", "station_cat_servers", "station_add_spot"] {
+        for method in ["station_configuration_save", "station_reconnect", "station_action", "station_radio_control", "station_cat_servers"] {
             do { _ = try await session.handle(method, params: minimal); XCTFail("Read-only adapter admitted \(method)") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
@@ -63,7 +63,7 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertEqual(snapshot["source"] as? String, "direct_tci")
         XCTAssertEqual(snapshot["allow_transmit"] as? Bool, false)
         XCTAssertEqual(snapshot["radio_id"] as? String, "radio1")
-        for method in ["station_reconnect", "station_action", "station_radio_control", "station_configuration_save", "station_add_spot", "station_cat_servers"] {
+        for method in ["station_reconnect", "station_action", "station_radio_control", "station_configuration_save", "station_cat_servers"] {
             do { _ = try await LiveStationMethods.handle(method, params: routed); XCTFail("Router admitted TCI mutation") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
@@ -77,7 +77,7 @@ final class LiveTCISessionTests: XCTestCase {
         _ = try await session.handle("station_connect", params: connect)
         await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
         let ready = try await wait(session) { $0["available"] as? Bool == true }
-        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune"])
+        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune", "station_add_spot"])
         XCTAssertEqual((ready["tci"] as? [String: Any])?["read_only"] as? Bool, false)
         XCTAssertEqual((ready["tci"] as? [String: Any])?["receive_control_only"] as? Bool, true)
         let tune: [String: Any] = ["provider": "direct_tci", "frequency_hz": 7_100_000,
@@ -118,6 +118,24 @@ final class LiveTCISessionTests: XCTestCase {
         await session.terminate()
     }
 
+    func testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback() async throws {
+        let socket = TCIFixtureSocket(), session = fixture(TCIFixtureConnector([socket]))
+        _ = try await session.handle("station_connect", params: connect)
+        await socket.enqueue(.text(Self.discovery + "trx:0,false;ready;"))
+        let ready = try await wait(session) { $0["available"] as? Bool == true }
+        XCTAssertTrue(((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String] ?? []).contains("station_add_spot"))
+        let spot: [String: Any] = ["frequency_hz": 14_025_000, "callsign": "OM0RX", "mode": "CW",
+                                   "source": "xLog xCluster", "spotter": "DL1ABC", "comment": "CQ, DX",
+                                   "timestamp": Int(Date().timeIntervalSince1970), "lifetime_seconds": 900,
+                                   "priority": 3, "color_hex": "#00FF00"]
+        let result = try await session.handle("station_add_spot", params: ["provider": "direct_tci", "spot": spot])
+        XCTAssertEqual(result["accepted"] as? Bool, true)
+        XCTAssertEqual(result["confirmed"] as? Bool, false)
+        let sent = await socket.sentTexts()
+        XCTAssertEqual(sent, ["SPOT:OM0RX,CW,14025000,4278255360,xLog xCluster DL1ABC CQ  DX;"])
+        await session.terminate()
+    }
+
     func testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime() async throws {
         let socket = TCIFixtureSocket(), connector = TCIFixtureConnector([socket]), time = TCIClock()
         let session = fixture(connector, clock: { time.now() })
@@ -135,7 +153,7 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertTrue(radio["split"] is NSNull)
         XCTAssertTrue(radio["transmit_frequency_hz"] is NSNull)
         XCTAssertEqual(ready["allow_transmit"] as? Bool, false)
-        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune"])
+        XCTAssertEqual((ready["capabilities"] as? [String: Any])?["supported_commands"] as? [String], ["station_tune", "station_add_spot"])
         XCTAssertEqual((ready["station"] as? [String: Any])?["allowed_actions"] as? [String], [])
         let stamp = ready["generated_at"] as? Double
         time.advance(10)

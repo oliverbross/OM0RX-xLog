@@ -23,15 +23,17 @@ it("defaults own-call spot visibility to 15 minutes and saves a changed window",
   expect(localStorage.getItem("xlog.own-spots.window-minutes.v1")).toBe("30");
 });
 
-it("migrates an old FLEX preference and saves a DXCC colour policy without claiming TCI output", async () => {
-  const configuration: { forwardSpotsToFlex: boolean; radioSpotColorPolicy?: string; palette: { status: Record<string, string> } } =
+it("migrates an old FLEX preference and independently enables TCI output", async () => {
+  const configuration: { forwardSpotsToFlex: boolean; forwardSpotsToTCI?: boolean; radioSpotColorPolicy?: string; palette: { status: Record<string, string> } } =
     { forwardSpotsToFlex: true, palette: { status: { ATNO: "#123456" } } };
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
-    if (method === "cluster_snapshot") return { configuration, flex_forwarding_available: true,
-      forwarding: { accepted_count: 2, status: "Accepted by Remote Station Agent; FLEX display is not verified." } };
+    if (method === "cluster_snapshot") return { configuration, flex_forwarding_available: true, tci_forwarding_available: true,
+      forwarding: { accepted_count: 2, flex_status: "Accepted by Remote Station Agent; FLEX display is not verified.", tci_status: "Off" } };
     if (method === "cluster_radio_spots_configure") {
-      expect(params).toEqual({ color_policy: "dxcc", color_policy_expected: "callsign",
+      expect(params).toEqual({ tci_enabled: true, tci_expected: false,
+        color_policy: "dxcc", color_policy_expected: "callsign",
         status_colors: { ATNO: "#654321" }, status_color_expected: { ATNO: "#123456" } });
+      configuration.forwardSpotsToTCI = true;
       configuration.radioSpotColorPolicy = "dxcc";
       Object.assign(configuration.palette.status, params?.status_colors);
       return {};
@@ -39,20 +41,20 @@ it("migrates an old FLEX preference and saves a DXCC colour policy without claim
     throw new Error(method);
   });
   render(<RadioSpotSettings request={request} visible />);
-  expect(await screen.findByText(/2 accepted by agent/)).toBeTruthy();
+  expect(await screen.findByText(/Accepted by Remote Station Agent/)).toBeTruthy();
   expect((screen.getByLabelText("Radio spot colour status") as HTMLSelectElement).value).toBe("callsign");
   fireEvent.change(screen.getByLabelText("Radio spot colour status"), { target: { value: "dxcc" } });
   const atno = screen.getByLabelText("ATNO radio spot colour") as HTMLInputElement;
   expect(atno.value).toBe("#123456");
   fireEvent.change(atno, { target: { value: "#654321" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: /Send spots through the connected TCI session/ }));
   expect((screen.getByLabelText("New Call radio spot colour") as HTMLInputElement).value).toBe("#ff6b35");
   fireEvent.click(screen.getByRole("button", { name: "Save radio spot output" }));
   await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_radio_spots_configure", {
-    color_policy: "dxcc", color_policy_expected: "callsign",
+    tci_enabled: true, tci_expected: false, color_policy: "dxcc", color_policy_expected: "callsign",
     status_colors: { ATNO: "#654321" }, status_color_expected: { ATNO: "#123456" },
   }));
-  expect(screen.getByText(/no TCI spot output transport/)).toBeTruthy();
-  expect((screen.getByRole("checkbox", { name: /Send spots through TCI/ }) as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("checkbox", { name: /Send spots through the connected TCI session/ }) as HTMLInputElement).checked).toBe(true);
 });
 
 it("keeps colour edits when refreshing runtime status and sends only changed palette entries", async () => {
