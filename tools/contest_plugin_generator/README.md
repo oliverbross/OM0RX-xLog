@@ -25,4 +25,14 @@ The required corpus check fails rather than skips when the external checkout is 
 
 Unit tests use `CONTEST_SW_ROOT` when set. Corpus tests visibly skip when it is unavailable; they do not replace the required check above.
 
-`definition_schema.json` is a draft authoring interchange for a later Create Contest flow. `validate_definition.py` validates draft shape and immutable digest only. It cannot mark a definition reviewed, accepted, or active. Runtime definitions must map to the existing `ContestRuleMetadata`, `ContestEntryDescriptor`, parser, store and export services after a separate authority and differential acceptance gate.
+`definition_schema.json` keeps the historical `1.0.0` draft interchange and adds a strict `2.0.0` authoring envelope. Version 2 uses only the finite policies already implemented by `ContestDefinitionDraft`; it is not an expression language and cannot request an adapter. Runtime-blocking omissions belong in `constraints.runtimeUnresolved` and prevent translation. Sponsor, category, schedule and activation gaps belong in `constraints.acceptanceUnresolved` and remain visible without changing runtime semantics.
+
+Validate a v2 envelope and emit sorted JSON that Swift decodes directly as `ContestDefinitionDraft`:
+
+```sh
+/opt/homebrew/bin/python3.14 tools/contest_plugin_generator/validate_definition.py \
+  Tests/XContestCoreTests/SourceFixtures/custom-two-band-sprint.authoring-v2.json \
+  --emit-runtime-draft /tmp/custom-two-band-sprint.runtime-draft.json
+```
+
+Use `--write-digest` only while authoring to replace `identity.contentDigest` with the digest of the complete envelope after that field is zeroed. `runtime.sourceProvenance` is explicit runtime metadata rather than derived authority; the validator requires it to surface every SHA-256 recorded by the envelope, but a reviewer must still verify those source records independently. The translator validates exact nested keys, bounds, finite integer types, the current core band plan, supported mode/ADIF/Cabrillo/report combinations, structured exchange and serial invariants, scoring-field references, and export projection coverage. It never imports or evaluates author content, emits Swift source, adds a definition to the runtime catalog, marks it reviewed, or claims sponsor submission readiness. The 94-plugin inventory remains source metadata until each semantic mapping receives its own review and acceptance evidence.

@@ -1,0 +1,156 @@
+{
+  "constraints": {
+    "acceptanceUnresolved": [
+      "Synthetic fixture only; no sponsor or schedule is asserted."
+    ],
+    "runtimeUnresolved": []
+  },
+  "definitionSchemaVersion": "2.0.0",
+  "goldenScenarios": [
+    {
+      "expected": {
+        "claimedScore": 4,
+        "dispositions": [
+          "accepted",
+          "accepted"
+        ],
+        "multiplierCount": 1,
+        "points": [
+          2,
+          2
+        ],
+        "totalPoints": 4
+      },
+      "id": "per-band-dupe-and-unique-call",
+      "qsos": [
+        {
+          "band": "10m",
+          "callsign": "K1ABC",
+          "frequencyHz": 28050000,
+          "mode": "CW",
+          "receivedFields": {
+            "member": "7"
+          },
+          "sentFields": {
+            "member": "42"
+          }
+        },
+        {
+          "band": "20m",
+          "callsign": "K1ABC",
+          "frequencyHz": 14050000,
+          "mode": "CW",
+          "receivedFields": {
+            "member": "9"
+          },
+          "sentFields": {
+            "member": "42"
+          }
+        }
+      ]
+    }
+  ],
+  "identity": {
+    "contentDigest": "sha256:0fe4487964a05041ec0b0a2eb69af9243c21480f466877bf868bec06ec5257b5",
+    "edition": "synthetic-golden-1",
+    "id": "custom-two-band-sprint",
+    "version": "1.0.0-draft"
+  },
+  "provenance": [
+    {
+      "kind": "test-fixture",
+      "locator": "independent custom two-band sprint golden",
+      "revision": "fixture-1",
+      "sha256": "eaf2cd8463f760bfe71fa21662cf71cd61c667e52d059fe95548a39457242a51"
+    }
+  ],
+  "runtime": {
+    "cabrilloName": "CUSTOM-SPRINT",
+    "displayName": "Custom Two-Band Sprint",
+    "dupePolicy": "perBand",
+    "eligibilityPolicy": "unrestricted",
+    "entry": {
+      "adifMode": "CW",
+      "cabrilloFormatterVersion": "custom-sprint-draft-1",
+      "cabrilloProjectionFormatterVersion": "custom-sprint-draft-1",
+      "cabrilloQSOType": "CW",
+      "exchange": {
+        "adifFields": "exchangeStrings",
+        "received": "structured",
+        "receivedFields": [
+          {
+            "acceptedKinds": [
+              "nonnegativeInteger"
+            ],
+            "id": "member",
+            "label": "Member number",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          }
+        ],
+        "sent": "structured",
+        "sentDefault": "stationFields",
+        "sentFields": [
+          {
+            "acceptedKinds": [
+              "nonnegativeInteger"
+            ],
+            "id": "member",
+            "label": "Member number",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          }
+        ]
+      },
+      "mode": "CW",
+      "modeProfiles": [
+        {
+          "adifMode": "CW",
+          "cabrilloQSOType": "CW",
+          "mode": "CW",
+          "report": {
+            "defaultReceived": "599",
+            "defaultSent": "599",
+            "format": "cwRST",
+            "maximumUTF8Bytes": 3
+          }
+        }
+      ],
+      "report": {
+        "defaultReceived": "599",
+        "defaultSent": "599",
+        "format": "cwRST",
+        "maximumUTF8Bytes": 3
+      },
+      "scorePolicy": "pointsTimesMultipliers",
+      "serial": {
+        "allowedScopes": [],
+        "requirement": "none"
+      },
+      "version": 2
+    },
+    "exportPolicy": "unsupported",
+    "multiplierPolicy": "uniqueCallsign",
+    "scoring": {
+      "clauses": [
+        {
+          "comparison": "greaterThan",
+          "fieldID": "member",
+          "points": 2,
+          "threshold": 0
+        }
+      ],
+      "defaultPoints": 1
+    },
+    "sourceProvenance": "Independent operator-authored synthetic fixture custom-two-band-sprint SHA-256 eaf2cd8463f760bfe71fa21662cf71cd61c667e52d059fe95548a39457242a51; no sponsor, schedule, or activation claim",
+    "stationEntityRequired": false,
+    "supportedBands": [
+      "10m",
+      "20m"
+    ],
+    "supportedModes": [
+      "CW"
+    ]
+  },
+  "status": "draft"
+}

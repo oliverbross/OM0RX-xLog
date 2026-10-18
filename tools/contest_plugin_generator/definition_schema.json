@@ -1,65 +1,251 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://om0rx.example/schemas/contest-definition-1.0.0.json",
+  "$id": "https://om0rx.example/schemas/contest-definition.json",
   "title": "Authored declarative contest definition",
-  "description": "Runtime-neutral authoring contract designed to map onto XContestCore ContestRuleMetadata and ContestEntryDescriptor. It is not a general expression language.",
-  "type": "object",
-  "required": ["definitionSchemaVersion", "identity", "status", "provenance", "metadata", "entry", "policies", "constraints", "goldenScenarios"],
-  "properties": {
-    "definitionSchemaVersion": {"const": "1.0.0"},
+  "description": "Version 1 preserves the historical draft interchange. Version 2 is a strict authoring envelope that translates only to the finite XContestCore ContestDefinitionDraft vocabulary; it is never an activation or sponsor-acceptance record.",
+  "oneOf": [{"$ref": "#/$defs/legacyV1"}, {"$ref": "#/$defs/runtimeV2"}],
+  "$defs": {
     "identity": {
-      "type": "object",
+      "type": "object", "additionalProperties": false,
       "required": ["id", "version", "edition", "contentDigest"],
       "properties": {
-        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
-        "version": {"type": "string", "minLength": 1},
-        "edition": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,63}$"},
+        "version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "edition": {"type": "string", "minLength": 1, "maxLength": 128},
         "contentDigest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
       }
     },
-    "status": {
-      "description": "This slice validates drafts only; review and activation require a separate acceptance gate.",
-      "enum": ["draft", "source-derived-draft"]
-    },
     "provenance": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": ["kind", "locator", "revision", "sha256"],
-        "properties": {
-          "kind": {"enum": ["official-rules", "python-comparator", "operator-authored", "test-fixture"]},
-          "locator": {"type": "string"},
-          "revision": {"type": "string"},
-          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-        }
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "locator", "revision", "sha256"],
+      "properties": {
+        "kind": {"enum": ["official-rules", "python-comparator", "operator-authored", "test-fixture"]},
+        "locator": {"type": "string", "minLength": 1, "maxLength": 512},
+        "revision": {"type": "string", "minLength": 1, "maxLength": 160},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
-    "metadata": {
-      "type": "object",
-      "required": ["displayName", "cabrilloName", "supportedModes", "supportedBands"]
+    "report": {
+      "type": "object", "additionalProperties": false,
+      "required": ["format", "defaultSent", "defaultReceived", "maximumUTF8Bytes"],
+      "properties": {
+        "format": {"enum": ["cwRST", "phoneRS", "digitalRST", "none"]},
+        "defaultSent": {"type": "string", "maxLength": 3},
+        "defaultReceived": {"type": "string", "maxLength": 3},
+        "maximumUTF8Bytes": {"type": "integer", "minimum": 0, "maximum": 3}
+      }
+    },
+    "modeProfile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "adifMode", "cabrilloQSOType", "report"],
+      "properties": {
+        "mode": {"enum": ["CW", "SSB", "AM", "FM", "RTTY"]},
+        "adifMode": {"enum": ["CW", "SSB", "AM", "FM", "RTTY"]},
+        "cabrilloQSOType": {"enum": ["CW", "PH", "RY"]},
+        "report": {"$ref": "#/$defs/report"}
+      }
+    },
+    "exchangeField": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "label", "acceptedKinds", "required", "maximumUTF8Bytes"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 64},
+        "acceptedKinds": {
+          "type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true,
+          "items": {"enum": ["serialNumber", "cqZone", "operatorName", "subdivision", "power", "dxccPrefix", "jarlPrefectureNumber", "maidenheadGrid4", "nonnegativeInteger", "alphaToken", "locationText"]}
+        },
+        "required": {"type": "boolean"},
+        "maximumUTF8Bytes": {"type": "integer", "minimum": 1, "maximum": 64},
+        "adifField": {"enum": ["STX", "SRX", "NAME", "MY_NAME", "STATE", "MY_STATE", "GRIDSQUARE", "MY_GRIDSQUARE"]}
+      }
+    },
+    "exchange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sent", "received", "sentDefault", "adifFields", "sentFields", "receivedFields"],
+      "properties": {
+        "sent": {"const": "structured"}, "received": {"const": "structured"},
+        "sentDefault": {"const": "stationFields"}, "adifFields": {"const": "exchangeStrings"},
+        "sentFields": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/exchangeField"}},
+        "receivedFields": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/exchangeField"}}
+      }
+    },
+    "serial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requirement", "allowedScopes"],
+      "properties": {
+        "requirement": {"enum": ["none", "requiredForCommit"]},
+        "allowedScopes": {"type": "array", "maxItems": 3, "uniqueItems": true, "items": {"enum": ["session", "band", "transmitter"]}}
+      }
+    },
+    "stationResolvedSerial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy", "locationFieldID", "allocatedSerialFieldID", "allowedScopes"],
+      "properties": {
+        "policy": {"const": "arrlRTTYRoundupWVEOrDX"},
+        "locationFieldID": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+        "allocatedSerialFieldID": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+        "allowedScopes": {"const": ["session"]}
+      }
+    },
+    "stationField": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "label", "role", "required", "maximumUTF8Bytes"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 80},
+        "role": {"const": "cabrilloLocation"}, "required": {"type": "boolean"},
+        "maximumUTF8Bytes": {"type": "integer", "minimum": 1, "maximum": 16}
+      }
     },
     "entry": {
-      "description": "Maps to the existing ContestEntryDescriptor rather than defining a second UI model.",
-      "type": "object",
-      "required": ["report", "exchange", "serial", "scorePolicy"]
-    },
-    "policies": {
-      "type": "object",
-      "required": ["eligibility", "dupe", "points", "multipliers", "serial", "export"],
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "mode", "adifMode", "cabrilloQSOType", "cabrilloFormatterVersion", "cabrilloProjectionFormatterVersion", "report", "exchange", "serial", "modeProfiles", "scorePolicy"],
       "properties": {
-        "dupe": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["once-per-contest", "per-band", "per-band-mode", "none"]}}},
-        "points": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["fixed", "bounded-clauses", "unsupported-adapter"]}}},
-        "multipliers": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["none", "unique-field", "entity-prefix", "country", "zone", "unsupported-adapter"]}}},
-        "serial": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["none", "sequential", "station-resolved", "unsupported-adapter"]}}},
-        "export": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["existing-cabrillo-adif", "existing-adif-only", "unsupported-adapter"]}}}
+        "version": {"const": 2},
+        "mode": {"enum": ["CW", "SSB", "AM", "FM", "RTTY"]},
+        "adifMode": {"enum": ["CW", "SSB", "AM", "FM", "RTTY"]},
+        "cabrilloQSOType": {"enum": ["CW", "PH", "RY"]},
+        "cabrilloFormatterVersion": {"type": "string", "minLength": 1, "maxLength": 64},
+        "cabrilloProjectionFormatterVersion": {"type": "string", "minLength": 1, "maxLength": 64},
+        "report": {"$ref": "#/$defs/report"}, "exchange": {"$ref": "#/$defs/exchange"},
+        "serial": {"$ref": "#/$defs/serial"}, "stationResolvedSerial": {"$ref": "#/$defs/stationResolvedSerial"},
+        "stationFields": {"type": "array", "maxItems": 1, "items": {"$ref": "#/$defs/stationField"}},
+        "modeProfiles": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/modeProfile"}},
+        "scorePolicy": {"enum": ["pointsOnly", "pointsTimesMultipliers"]}
       }
     },
-    "constraints": {
-      "type": "object",
-      "required": ["category", "time", "eligibility", "unresolved"],
-      "properties": {"unresolved": {"type": "array", "items": {"type": "string"}}}
+    "pointClause": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fieldID", "comparison", "threshold", "points"],
+      "properties": {
+        "fieldID": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"}, "comparison": {"const": "greaterThan"},
+        "threshold": {"type": "integer", "minimum": 0, "maximum": 999999999999999999},
+        "points": {"type": "integer", "minimum": 0, "maximum": 999999999}
+      }
     },
-    "goldenScenarios": {"type": "array"}
+    "eligibility": {
+      "oneOf": [
+        {"const": "unrestricted"},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "fieldID", "threshold"], "properties": {
+          "kind": {"const": "stationFieldIntegerGreaterThan"},
+          "fieldID": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+          "threshold": {"type": "integer", "minimum": 0, "maximum": 999999999999999999}
+        }}
+      ]
+    },
+    "columnSource": {
+      "oneOf": [
+        {"enum": ["frequencyKHz", "mode", "date", "time", "stationCallsign", "contactedCallsign", "sentReport", "receivedReport"]},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "fieldID"], "properties": {
+          "kind": {"enum": ["sentField", "receivedField"]},
+          "fieldID": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"}
+        }}
+      ]
+    },
+    "exportColumn": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "width", "alignment", "required"],
+      "properties": {
+        "source": {"$ref": "#/$defs/columnSource"}, "width": {"type": "integer", "minimum": 1, "maximum": 64},
+        "alignment": {"enum": ["left", "right"]}, "required": {"type": "boolean"}
+      }
+    },
+    "exportProjection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["formatterVersion", "purpose", "duplicateRecords", "columns"],
+      "properties": {
+        "formatterVersion": {"type": "string", "minLength": 1, "maxLength": 64},
+        "purpose": {"const": "operatorArchive"}, "duplicateRecords": {"const": "retainAll"},
+        "columns": {"type": "array", "minItems": 1, "maxItems": 24, "items": {"$ref": "#/$defs/exportColumn"}}
+      }
+    },
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["displayName", "cabrilloName", "supportedBands", "supportedModes", "entry", "sourceProvenance", "dupePolicy", "multiplierPolicy", "scoring", "eligibilityPolicy", "exportPolicy", "stationEntityRequired"],
+      "properties": {
+        "displayName": {"type": "string", "minLength": 1, "maxLength": 128},
+        "cabrilloName": {"type": "string", "pattern": "^[A-Z0-9-]{1,64}$"},
+        "supportedBands": {"type": "array", "minItems": 1, "maxItems": 13, "uniqueItems": true, "items": {"enum": ["160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm"]}},
+        "supportedModes": {"type": "array", "minItems": 1, "maxItems": 5, "uniqueItems": true, "items": {"enum": ["CW", "SSB", "AM", "FM", "RTTY"]}},
+        "entry": {"$ref": "#/$defs/entry"}, "sourceProvenance": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "dupePolicy": {"enum": ["oncePerContest", "perBand", "perBandMode", "none"]},
+        "multiplierPolicy": {"enum": ["none", "uniqueCallsign"]},
+        "scoring": {"type": "object", "additionalProperties": false, "required": ["defaultPoints", "clauses"], "properties": {
+          "defaultPoints": {"type": "integer", "minimum": 0, "maximum": 999999999},
+          "clauses": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/pointClause"}}
+        }},
+        "eligibilityPolicy": {"$ref": "#/$defs/eligibility"},
+        "exportPolicy": {"enum": ["unsupported", "operatorArchive"]},
+        "exportProjection": {"$ref": "#/$defs/exportProjection"}, "stationEntityRequired": {"type": "boolean"}
+      }
+    },
+    "goldenQSO": {
+      "type": "object", "additionalProperties": false,
+      "required": ["callsign", "band", "mode", "frequencyHz", "sentFields", "receivedFields"],
+      "properties": {
+        "callsign": {"type": "string", "pattern": "^[A-Z0-9/]{3,32}$"},
+        "band": {"enum": ["160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm"]},
+        "mode": {"enum": ["CW", "SSB", "AM", "FM", "RTTY"]},
+        "frequencyHz": {"type": "integer", "minimum": 1, "maximum": 100000000000},
+        "sentFields": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 64}},
+        "receivedFields": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 64}}
+      }
+    },
+    "goldenExpected": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dispositions", "points", "totalPoints", "multiplierCount", "claimedScore"],
+      "properties": {
+        "dispositions": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"enum": ["accepted", "duplicate", "invalid"]}},
+        "points": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "integer", "minimum": 0, "maximum": 999999999}},
+        "totalPoints": {"type": "integer", "minimum": 0, "maximum": 999999999999999999},
+        "multiplierCount": {"type": "integer", "minimum": 0, "maximum": 999999999},
+        "claimedScore": {"type": "integer", "minimum": 0, "maximum": 999999999999999999}
+      }
+    },
+    "goldenScenario": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "qsos", "expected"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+        "qsos": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/goldenQSO"}},
+        "expected": {"$ref": "#/$defs/goldenExpected"}
+      }
+    },
+    "runtimeV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["definitionSchemaVersion", "identity", "status", "provenance", "runtime", "constraints", "goldenScenarios"],
+      "properties": {
+        "definitionSchemaVersion": {"const": "2.0.0"}, "identity": {"$ref": "#/$defs/identity"},
+        "status": {"enum": ["draft", "source-derived-draft"]},
+        "provenance": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/provenance"}},
+        "runtime": {"$ref": "#/$defs/runtime"},
+        "constraints": {"type": "object", "additionalProperties": false, "required": ["runtimeUnresolved", "acceptanceUnresolved"], "properties": {
+          "runtimeUnresolved": {"type": "array", "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 512}},
+          "acceptanceUnresolved": {"type": "array", "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 512}}
+        }},
+        "goldenScenarios": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/goldenScenario"}}
+      }
+    },
+    "legacyV1": {
+      "type": "object",
+      "required": ["definitionSchemaVersion", "identity", "status", "provenance", "metadata", "entry", "policies", "constraints", "goldenScenarios"],
+      "properties": {
+        "definitionSchemaVersion": {"const": "1.0.0"}, "identity": {"$ref": "#/$defs/identity"},
+        "status": {"enum": ["draft", "source-derived-draft"]},
+        "provenance": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/provenance"}},
+        "metadata": {"type": "object", "required": ["displayName", "cabrilloName", "supportedModes", "supportedBands"]},
+        "entry": {"type": "object", "required": ["report", "exchange", "serial", "scorePolicy"]},
+        "policies": {"type": "object", "required": ["eligibility", "dupe", "points", "multipliers", "serial", "export"], "properties": {
+          "dupe": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["once-per-contest", "per-band", "per-band-mode", "none"]}}},
+          "points": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["fixed", "bounded-clauses", "unsupported-adapter"]}}},
+          "multipliers": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["none", "unique-field", "entity-prefix", "country", "zone", "unsupported-adapter"]}}},
+          "serial": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["none", "sequential", "station-resolved", "unsupported-adapter"]}}},
+          "export": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["existing-cabrillo-adif", "existing-adif-only", "unsupported-adapter"]}}}
+        }},
+        "constraints": {"type": "object", "required": ["category", "time", "eligibility", "unresolved"]},
+        "goldenScenarios": {"type": "array"}
+      }
+    }
   }
 }
