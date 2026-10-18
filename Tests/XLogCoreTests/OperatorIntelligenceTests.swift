@@ -65,7 +65,7 @@ struct OperatorIntelligenceTests {
     func clusterOpportunityCodes() {
         #expect(spot(call: "New Call", dxcc: "Worked").opportunityCode == "NC")
         #expect(spot(call: "Worked", dxcc: "ATNO").opportunityCode == "ATNO")
-        #expect(spot(call: "New Band+Mode", dxcc: "C/New Band+Mode").opportunityCode == "C/NB+M")
+        #expect(spot(call: "New Band+Mode", dxcc: "C/New Band+Mode").opportunityCode == "NB+NM/C")
         #expect(spot(call: "Confirmed", dxcc: "Confirmed").opportunityCode == "C")
         #expect(spot(call: "Worked", dxcc: "Worked").opportunityCode == "W")
         #expect(spot(call: "Unknown", dxcc: "Unknown").opportunityCode == "--")

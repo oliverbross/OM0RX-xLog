@@ -268,14 +268,14 @@ describe("native band-map parity", () => {
   it("uses native opportunity precedence and band boundaries", () => {
     expect(opportunityCode(spot("A", 14070, "20m", "New Call", "ATNO"))).toBe("ATNO");
     expect(opportunityCode(spot("B", 14070, "20m", "New Call"))).toBe("NC");
-    expect(opportunityCode(spot("F", 14070, "20m", "New Call", "C/New Band"))).toBe("C/NB");
+    expect(opportunityCode(spot("F", 14070, "20m", "New Call", "C/New Band"))).toBe("NB/C");
     expect(opportunityCode(spot("C", 14070, "20m", "Worked"))).toBe("W");
     expect(opportunityCode(spot("D", 14070, "20m", "Confirmed"))).toBe("C");
     expect(opportunityCode(spot("E", 14070, "20m", "Confirmed", "Worked"))).toBe("C");
     expect(opportunityCode(spot("G", 14070, "20m", "New Mode"))).toBe("NM");
     expect(opportunityCode(spot("H", 14070, "20m", "New Band"))).toBe("NB");
     expect(opportunityCode(spot("I", 14070, "20m", "New Band+Mode"))).toBe("NB+M");
-    expect(opportunityCode(spot("J", 14070, "20m", "Worked", "W/New Band+Mode"))).toBe("W/NB+M");
+    expect(opportunityCode(spot("J", 14070, "20m", "Worked", "W/New Band+Mode"))).toBe("NB+NM/W");
     expect(bandMapSpotColor({ ...spot("K", 14070), statusHex: "#123456" })).toBe("#123456");
     expect(bandMapSpotColor({ ...spot("L", 14070), statusHex: undefined })).toBe("#FF6B35");
     expect(bandForRadio(14_070_000)).toBe("20m");
