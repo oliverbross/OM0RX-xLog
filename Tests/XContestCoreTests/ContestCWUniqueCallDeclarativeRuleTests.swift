@@ -97,13 +97,15 @@ final class ContestCWUniqueCallDeclarativeRuleTests: XCTestCase {
 
     func testTenTenCanonicalDigestsRemainStableWhenMultiplierVocabularyExpands() throws {
         let digests = try Dictionary(uniqueKeysWithValues: TenTenSeasonalVariant.allCases.map {
-            ($0.rawValue, try TenTenDeclarativeDefinitions.definition(for: $0).definitionDigest)
+            let definition = try TenTenDeclarativeDefinitions.definition(for: $0)
+            XCTAssertNil(definition.draft.operatorPolicy)
+            return ($0.rawValue, definition.definitionDigest)
         })
         XCTAssertEqual(digests, [
-            "winterPhone": "d37fac441778b13d9d1a22e28126ad209770fb1f9ffdd31fcff571376ddc112a",
-            "springCW": "05420da49c3e54909b64d58999b3d2cb9ba1de42aea3056ada3e444d23aa50d3",
-            "summerPhone": "23ff44cec89826b05546179fe0516a69a9fa51859657fae3429469f31c865647",
-            "fallCW": "951b382d814fb741663abd1f666714fa1e33f586b32e4f8802d9055a6923e55e",
+            "winterPhone": "0d05cff62ae87dca57224fbdc49222e346e5008235a37b493c80a04e6959ebd7",
+            "springCW": "817a1e0374d6d5f80721b7b10ab3d7f28d69cb2e5e4dd5d9c12de0c0f0add873",
+            "summerPhone": "c83471f749359bad3d8ffffd1f54d5ec68f10358ee5d40c2a06b167da46b6778",
+            "fallCW": "9bcdf0c2d6709a69689cca1cbb40aa76fb577da91c7437c00d52f04ebc75b838",
         ])
     }
 

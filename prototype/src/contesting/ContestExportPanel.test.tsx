@@ -81,6 +81,21 @@ it("keeps SAC Cabrillo output visibly practice-only before and after preparation
   expect(screen.queryByText("Cabrillo submission preview")).toBeNull();
 });
 
+it("labels declarative output as an operator archive before and after preparation", async () => {
+  const archive = { ...session, rule: { ...session.rule,
+    identity: { ...session.rule.identity, id: "ten-ten-fall-cw", sourceRevision: "a".repeat(64) },
+    displayName: "10-10 Fall CW", declarativeDefinition: { definitionDigest: "a".repeat(64), immutablePerSession: true as const,
+      exportPurpose: "operatorArchive" as const, submissionReady: false as const } } };
+  const archivePrepared = { ...prepared, declarativePurpose: "operatorArchive" as const };
+  const fixture = setup(undefined, "Single Operator", archive);
+  fixture.prepare.mockResolvedValueOnce(archivePrepared);
+  expect(screen.getByRole("heading", { name: "Prepare an operator archive" })).toBeTruthy();
+  expect(screen.getByText(/not marked sponsor-submission ready/i)).toBeTruthy();
+  fillAndPrepare();
+  expect(await screen.findByText("Cabrillo operator archive")).toBeTruthy();
+  expect(screen.queryByText("Cabrillo submission preview")).toBeNull();
+});
+
 it("does not relabel unsupported stored categories", () => {
   setup(undefined, "Multi Operator");
   expect(screen.getByRole("alert").textContent).toMatch(/unavailable.*Multi Operator.*Single Operator/i);

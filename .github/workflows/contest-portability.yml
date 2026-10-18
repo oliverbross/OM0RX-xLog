@@ -131,6 +131,7 @@ jobs:
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestARRLDXWorkerWireTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportServiceTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestDeclarativeExportServiceTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestDeclarativeActivationTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportLaneTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportWorkerWireTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestingLaneTests/')" -ge 1
@@ -158,6 +159,7 @@ jobs:
           $arrlDxWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestARRLDXWorkerWireTests/' }).Count
           $service = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportServiceTests/' }).Count
           $declarativeExportService = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestDeclarativeExportServiceTests/' }).Count
+          $declarativeActivation = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestDeclarativeActivationTests/' }).Count
           $lane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportLaneTests/' }).Count
           $wire = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportWorkerWireTests/' }).Count
           $contestingLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestingLaneTests/' }).Count
@@ -165,7 +167,7 @@ jobs:
           $scpWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestSCPWorkerIntegrationTests/' }).Count
           $callHistoryService = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestCallHistoryServiceTests/' }).Count
           $callHistoryWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestCallHistoryWorkerTests/' }).Count
-          if ($core -lt 1 -or $callHistoryCore -lt 1 -or $callHistoryProjection -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $declarativeExportService -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1) { throw "Expected contest test targets were not discovered." }
+          if ($core -lt 1 -or $callHistoryCore -lt 1 -or $callHistoryProjection -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $declarativeExportService -lt 1 -or $declarativeActivation -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1) { throw "Expected contest test targets were not discovered." }
       - name: Test contest core, store, and export support (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
@@ -180,6 +182,7 @@ jobs:
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestARRLDXWorkerWireTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportServiceTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestDeclarativeExportServiceTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestDeclarativeActivationTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportLaneTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportWorkerWireTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestingLaneTests
@@ -195,7 +198,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestNAQPADIFExportTests', 'XLogPrototypeTests.ContestARRLRTTYADIFExportTests', 'XLogPrototypeTests.ContestJIDXADIFExportTests', 'XLogPrototypeTests.ContestARRLDXADIFExportTests', 'XLogPrototypeTests.ContestJIDXWorkerWireTests', 'XLogPrototypeTests.ContestARRLDXWorkerWireTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestDeclarativeExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests', 'XLogPrototypeTests.ContestSCPWorkerIntegrationTests', 'XLogPrototypeTests.ContestCallHistoryServiceTests', 'XLogPrototypeTests.ContestCallHistoryWorkerTests')) {
+          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestNAQPADIFExportTests', 'XLogPrototypeTests.ContestARRLRTTYADIFExportTests', 'XLogPrototypeTests.ContestJIDXADIFExportTests', 'XLogPrototypeTests.ContestARRLDXADIFExportTests', 'XLogPrototypeTests.ContestJIDXWorkerWireTests', 'XLogPrototypeTests.ContestARRLDXWorkerWireTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestDeclarativeExportServiceTests', 'XLogPrototypeTests.ContestDeclarativeActivationTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests', 'XLogPrototypeTests.ContestSCPWorkerIntegrationTests', 'XLogPrototypeTests.ContestCallHistoryServiceTests', 'XLogPrototypeTests.ContestCallHistoryWorkerTests')) {
             swift test --jobs 2 --scratch-path .build/contest-platform --filter $filter -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

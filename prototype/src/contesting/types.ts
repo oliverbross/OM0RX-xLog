@@ -13,12 +13,12 @@ export type ContestWorkerResponse<T> = { id: string; ok: true; result: T } | { i
 export type ContestRequest = <T = unknown>(method: ContestMethod, params?: Record<string, unknown>) => Promise<ContestWorkerResponse<T>>;
 export type SourceVerificationStatus = "verified" | "provisional" | "unverified";
 
-export type ContestMode = "CW" | "SSB" | "RTTY";
-export type ContestRuleID = "cq-ww-cw" | "cq-wpx-cw" | "cq-ww-ssb" | "cq-wpx-ssb" | "oceania-dx-cw" | "oceania-dx-ssb" | "sac-cw" | "sac-ssb" | "naqp-cw" | "naqp-ssb" | "naqp-rtty" | "arrl-rtty-roundup" | "jidx-cw" | "jidx-ssb" | "arrl-dx-cw" | "arrl-dx-ssb";
+export type ContestMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
+export type ContestRuleID = string;
 export type ContestRuleIdentity = { id: ContestRuleID; version: string; edition: string; sourceRevision: string };
 export type ContestReportDescriptor = { format: "cwRST" | "phoneRS" | "digitalRST" | "none"; defaultSent: string; defaultReceived: string; maximumUTF8Bytes: number };
 export type ContestExchangeFieldDescriptor = {
-  id: string; label: string; acceptedKinds: ("operatorName" | "subdivision" | "dxccPrefix" | "serialNumber" | "gridSquare" | "cqZone" | "jarlPrefectureNumber" | "power")[];
+  id: string; label: string; acceptedKinds: ("operatorName" | "subdivision" | "dxccPrefix" | "serialNumber" | "gridSquare" | "cqZone" | "jarlPrefectureNumber" | "power" | "nonnegativeInteger" | "locationText")[];
   required: boolean; maximumUTF8Bytes: number; adifField: "STX" | "SRX" | "NAME" | "MY_NAME" | "STATE" | "MY_STATE" | "GRIDSQUARE" | "MY_GRIDSQUARE" | null;
 };
 export type ContestStationFieldDescriptor = {
@@ -41,11 +41,11 @@ export type ContestEntryDescriptorV1 = {
   serial: { requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[] };
 };
 export type ContestEntryDescriptorV2 = {
-  version: 2; mode: ContestMode; adifMode: "CW" | "SSB" | "RTTY"; cabrilloQSOType: "CW" | "PH" | "RY";
+  version: 2; mode: ContestMode; adifMode: ContestMode; cabrilloQSOType: "CW" | "PH" | "RY";
   cabrilloFormatterVersion: string; cabrilloProjectionFormatterVersion: string; report: ContestReportDescriptor;
   exchange: { sent: "structured" | "cqZone" | "serialNumber"; received: "structured" | "cqZone" | "serialNumber"; sentDefault: "stationFields" | "stationSnapshot" | "reservedSerial"; adifFields: "exchangeStrings" | "none" | "stxSrx"; sentFields?: ContestExchangeFieldDescriptor[]; receivedFields?: ContestExchangeFieldDescriptor[] };
   serial: { requirement: "none" | "requiredForCommit"; allowedScopes: ("session" | "band" | "transmitter")[] };
-  modeProfiles: { mode: ContestMode; adifMode: "CW" | "SSB" | "RTTY"; adifSubmode: string | null; cabrilloQSOType: "CW" | "PH" | "RY"; report: ContestReportDescriptor }[];
+  modeProfiles: { mode: ContestMode; adifMode: ContestMode; adifSubmode: string | null; cabrilloQSOType: "CW" | "PH" | "RY"; report: ContestReportDescriptor }[];
   scorePolicy: "pointsOnly" | "pointsTimesMultipliers";
   stationResolvedSerial?: ContestStationResolvedSerialDescriptor;
   stationFields?: ContestStationFieldDescriptor[];
@@ -64,8 +64,10 @@ export type ContestOperatorReadiness = {
 export type ContestRuleMetadata = {
   identity: ContestRuleIdentity; displayName: string; mode: ContestMode;
   entryDescriptorVersion: 1 | 2; entry: ContestEntryDescriptor;
+  supportedBands?: string[]; supportedModes?: ContestMode[];
   referenceDataVersion: string; sourceVerification: SourceVerificationStatus; sourceNote: string;
   operatorCapability?: ContestOperatorCapability;
+  declarativeDefinition?: { definitionDigest: string; immutablePerSession: true; exportPurpose: "operatorArchive"; submissionReady: false };
 };
 type StructuredEntry = ContestEntryDescriptorV2 & { exchange: ContestEntryDescriptorV2["exchange"] & {
   sent: "structured"; received: "structured"; sentDefault: "stationFields";
@@ -145,6 +147,7 @@ export type ContestLogPage = {
 };
 export type ContestCreateInput = {
   name: string; ruleIdentity: ContestRuleIdentity; referenceDataVersion: string;
+  definitionDigest?: string;
   station: ContestStationSnapshot; operator: ContestOperatorSnapshot;
 };
 
@@ -163,6 +166,7 @@ export type ContestPreparedExport = {
   format: ContestExportFormat; inputSchemaVersion: string; formatterVersion: string; generatedAtUTC: string;
   qsoCount: number; totalPoints: number; multiplierCount: number; claimedScore: number;
   byteLength: number; sha256: string; chunkLimit: number; expiresAfterSeconds: number;
+  declarativePurpose?: "operatorArchive";
 };
 export type ContestExportReadRequest = {
   exportID: string; sessionID: string; workspaceGeneration: string; offset: number; length: number;

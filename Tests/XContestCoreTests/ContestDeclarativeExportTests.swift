@@ -37,9 +37,11 @@ final class ContestDeclarativeExportTests: XCTestCase {
             XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("exportProjection"))
             XCTAssertEqual(try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: data), definition)
             XCTAssertEqual(definition.definitionDigest, expected[variant])
+            XCTAssertNil(definition.draft.operatorPolicy)
             let archive = try CWUniqueCallDeclarativeDefinitions.archiveDefinition(for: variant)
             XCTAssertNotEqual(archive.identity, definition.identity)
             XCTAssertEqual(archive.draft.exportPolicy, .operatorArchive)
+            XCTAssertNotNil(archive.draft.operatorPolicy)
         }
     }
 
@@ -54,7 +56,8 @@ final class ContestDeclarativeExportTests: XCTestCase {
         XCTAssertTrue(archives.allSatisfy {
             $0.draft.exportPolicy == .operatorArchive &&
                 $0.draft.exportProjection?.purpose == .operatorArchive &&
-                $0.draft.exportProjection?.duplicateRecords == .retainAll
+                $0.draft.exportProjection?.duplicateRecords == .retainAll &&
+                $0.draft.operatorPolicy != nil
         })
         XCTAssertEqual(Set(archives.map(\.identity)).count, 7)
     }
