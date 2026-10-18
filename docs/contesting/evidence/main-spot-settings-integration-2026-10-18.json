@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "date": "2026-10-18",
-  "status": "source-integrated-combined-ui-timing-failure-under-review",
+  "status": "source-integrated-combined-ui-passed-after-bounded-wait-fix",
   "source": {
     "mainChange": "30dcdab42bb0337aee9c60e816d6b151d6b453ce",
     "mainAcceptedRuntimeBaseline": "b9accc7f81453f1f2cab1758a48192322213f590",
@@ -32,6 +32,26 @@
     "exitCode": 0,
     "log": "/tmp/xlog-c7018b6-integrated-tsc.log",
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "followUpValidation": {
+    "source": "e22cf95ef3bb67131be8872e5ea46491750e46a8",
+    "mainFix": "1d5eefb32a5e7066321fcd7a0e81e193df366c60",
+    "canvas": "e0026bcffedc8c402fa53227c8fbe1574cb10c2f",
+    "editableExchangeFix": "7b0ed2de13f317264bc278e9fd23081f56d9dd68",
+    "change": "The lazy heading assertion retains its original expectation with a bounded 3000 ms wait. Historical failed and isolated runs above are preserved.",
+    "command": "vitest run --maxWorkers=2 src/live/RadioSpotSettings.test.tsx src/live/ServiceSettings.test.tsx src/live/SidebarOwnSpots.test.tsx src/live/ClusterPanel.test.tsx src/live/OperatorWorkspace.test.tsx src/live/workspaceLayoutSession.test.ts src/live/useWorkspaceLayout.test.tsx src/contesting/ContestWorkspace.test.tsx src/contesting/ContestWorkspace.sst.test.tsx src/contesting/ContestWorkspace.arrlDX.test.tsx src/contesting/client.test.ts src/contesting/sessionOwner.test.ts",
+    "result": "passed",
+    "files": 12,
+    "passed": 181,
+    "failed": 0,
+    "log": "/tmp/xlog-e22cf95-integrated-ui.log",
+    "sha256": "a0276197bfc859aa3f424b3d68e3843f730962c4baec2b64d67015b30e815378",
+    "typecheck": {
+      "command": "tsc --noEmit",
+      "exitCode": 0,
+      "log": "/tmp/xlog-e22cf95-integrated-tsc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
   },
   "boundary": "This is combined-source validation evidence, not native application, radio output or full contest acceptance. The normal app and installed Contesting Test app were not replaced."
 }
