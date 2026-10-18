@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "status": "review-freeze",
+  "source": {
+    "branch": "codex/contest-cqww-feedback-integration",
+    "head": "eecaf500970ca57a3432c500299987b2c485ff15",
+    "mergeHead": "5459ab196dbc7aa580c12677d19ba1b2b2f0420d",
+    "mergeCommand": "git merge --no-commit --no-ff 5459ab196dbc7aa580c12677d19ba1b2b2f0420d",
+    "acceptedMainPackagedSource": "a2b959da84796babf6b3158a34071e121203ba28",
+    "conflicts": [
+      "prototype/src/LiveApp.tsx"
+    ],
+    "retainedExactMainBlobsOutsideResolvedPaths": 20,
+    "retainedExactMainBlobMismatches": 0,
+    "resolvedPaths": [
+      "prototype/src/LiveApp.tsx",
+      "prototype/tests/live-app.test.tsx"
+    ]
+  },
+  "ownership": {
+    "normalLoggingOnly": [
+      "SidebarStation",
+      "AmplifierTransitionStatus",
+      "Monitor",
+      "SidebarOwnSpots"
+    ],
+    "singleWindowOnly": [
+      "SidebarOwnSpots"
+    ],
+    "contestingTransportAssertions": [
+      "no spot_history_query",
+      "no hf_propagation_fetch"
+    ]
+  },
+  "validation": [
+    {
+      "name": "LiveApp",
+      "result": "60 passed",
+      "log": "/tmp/xlog-cqww-integration-liveapp-final.log",
+      "sha256": "d5bb0f85ce2e80a6e60b1fe12cd108d3f99695d2380a0213101d6a184fa34597"
+    },
+    {
+      "name": "RBN cluster and propagation frontend",
+      "result": "30 passed",
+      "log": "/tmp/xlog-cqww-integration-rbn-final.log",
+      "sha256": "0cce664b457186c31a7b16b275551e767c12f93ee0066dbfe9619e031ee2406b"
+    },
+    {
+      "name": "Production frontend build",
+      "result": "passed",
+      "log": "/tmp/xlog-cqww-integration-frontend-build.log",
+      "sha256": "4e0add05132a769bb3c600109842924054384ff76b301411727fc8753f96d981"
+    },
+    {
+      "name": "Swift cluster classification and session",
+      "result": "39 passed",
+      "log": "/tmp/xlog-cqww-integration-cluster-swift.log",
+      "sha256": "4163dc6777d5d7b320972cf7196b6655f68e353b0c824eacdbb0baf81a9473c0"
+    },
+    {
+      "name": "Contesting lane",
+      "result": "23 passed",
+      "log": "/tmp/xlog-cqww-integration-lane-swift.log",
+      "sha256": "391494f1f7f2b541f57542b603a08929642007c851679f3bb6a224b020119eba"
+    }
+  ],
+  "diagnostic": {
+    "log": "/tmp/xlog-cqww-integration-ui.log",
+    "result": "Concurrent run exceeded default five-second bounds while two fresh universal Swift builds were active; clean serial reruns passed without source or timeout changes."
+  },
+  "activation": {
+    "catalogOrProductionActivationChanged": false,
+    "packagedOrInstalled": false,
+    "rfOrExternalIOUsed": false,
+    "cqwwLimitations": [
+      "ADIF-only country key",
+      "WAE entities unresolved",
+      "IG9/IH9 handling unresolved",
+      "maritime-mobile zone-only semantics unresolved",
+      "not sponsor-current or submission-ready"
+    ]
+  }
+}

@@ -136,7 +136,7 @@ it("recovers a saved Operator Desk callsign after one transient launch lookup fa
   render(<LiveApp />);
   await waitFor(() => expect(attempts).toBe(2), { timeout: 2_500 });
   expect(await screen.findByText("Recovered lookup")).toBeTruthy();
-  expect(screen.getAllByText("United States").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("USA").length).toBeGreaterThan(0);
   expect(screen.queryByText("Worker warming up")).toBeNull();
 });
 
@@ -310,6 +310,27 @@ it("exposes the Contest Manager only for authoritative isolated contest-test hea
   await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledExactlyOnceWith("contesting"));
   expect(screen.getByRole("button", { name: "Contesting" }).closest("header")).toBeTruthy();
   expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+});
+
+it("keeps normal-logging sidebar spot transports out of the Contesting module", async () => {
+  exists = true;
+  moduleAuthority.selected = "contesting";
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } })
+    : method === "settings_load"
+      ? Promise.resolve({ ok: true, result: { settings: { stationCall: "OM0RX", gridSquare: "KN08" }, revision: 0, generation: testWorkspaceGeneration } })
+      : method === "contest_catalog"
+        ? Promise.resolve({ id: "catalog", ok: true, result: { workspaceGeneration: testWorkspaceGeneration, rules: [] } })
+        : method === "contest_sessions"
+          ? Promise.resolve({ id: "sessions", ok: true, result: { sessions: [] } })
+          : backend(method, params));
+  render(<LiveApp />);
+  expect(await screen.findByRole("main", { name: "Operator Desk" })).toBeTruthy();
+  expect(screen.queryByLabelText("RBN and operator spots for this station")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Monitor" })).toBeNull();
+  expect(calls.request.mock.calls.some(([method]) => method === "spot_history_query")).toBe(false);
+  expect(native.invoke.mock.calls.some(([command]) => command === "hf_propagation_fetch")).toBe(false);
 });
 
 it("freezes Normal Logging input synchronously while the native module switch is pending", async () => {

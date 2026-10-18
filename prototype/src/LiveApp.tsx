@@ -54,13 +54,14 @@ import { useWorkspaceRecovery } from "./live/useWorkspaceRecovery";
 import { presentWorkspaceMode, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./live/workspaceMode";
 import { WorkspaceModeSurface } from "./live/WorkspaceModeSurface";
 import { DeskAntenna } from "./live/StationEquipment";
+import SidebarOwnSpots from "./live/SidebarOwnSpots";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
 import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import { DeskPreviousQSOs } from "./live/DeskPreviousQSOs";
-import HFPropagationLive from "./live/HFPropagationLive";
+import HFPropagationLive, { nativeHFPropagationTransport } from "./live/HFPropagationLive";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
@@ -1326,6 +1327,13 @@ function MainLiveApp() {
         else void run(async()=>{await request("station_action",{action});});
       }} />}
       {operatingModule?.selected === "normal_logging" && nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
+      {operatingModule?.selected === "normal_logging" && !separateWindows && <SidebarOwnSpots
+        request={request}
+        ownCall={settings?.stationCall || ""}
+        liveSpots={liveSpots}
+        connected={(cluster?.snapshot?.connectedClusters || 0) > 0}
+        rbnTransport={nativeHFPropagationTransport}
+      />}
       <div className="sidebar-foot">{operatingModule?.selected === "normal_logging" && <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button>}<strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main className="qso-feedback-area live-feedback-host" aria-label={displayedSeparateWindows ? "Separate Windows" : view} style={displayedSeparateWindows ? { gridColumn: "1 / -1" } : undefined}>

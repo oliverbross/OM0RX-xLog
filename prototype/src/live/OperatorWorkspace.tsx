@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { clusterRowTint, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
+import { clusterRowTint, isRbnSource, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
 import { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
 import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
@@ -18,6 +18,7 @@ const filterSections: Array<[keyof Pick<ClusterFilter, "bands" | "modes" | "cont
   ["bands", "Bands"], ["modes", "Modes"], ["continents", "Continent"], ["callStatuses", "Call status"],
   ["dxccStatuses", "DXCC status"], ["specials", "Special"], ["sources", "Source"], ["worked", "Worked"],
 ];
+const spotTags = (spot: LiveClusterSpot): string[] => [...(isRbnSource(spot.source) ? ["RBN"] : []), ...spot.specialTags];
 function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): string {
   switch (column) {
     case "time": return formatSpotAge(spot.receivedAt, now);
@@ -25,7 +26,7 @@ function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): st
     case "cq": return String(spot.cqZone ?? "—");
     case "country": return countryDisplay(spot.country);
     case "spotter": return `${spot.spotter}${spot.aggregateCount > 1 ? ` +${spot.aggregateCount - 1}` : ""}`;
-    case "special": return spot.specialTags.length ? spot.specialTags.join(" · ") : "—";
+    case "special": return spotTags(spot).length ? spotTags(spot).join(" · ") : "—";
     case "workedBefore": return spot.workedBefore == null ? "—" : `✓ ${new Date((spot.workedBefore + 978307200) * 1000).toLocaleString()}`;
     default: return String(spot[column] || "—");
   }
@@ -35,7 +36,7 @@ function cell(column: CompactColumn, spot: LiveClusterSpot, now: number, palette
   if (column === "band" || column === "mode") return <span className="live-cluster-category" style={{ color: paletteColor(spot[column], palette?.[column], column === "band" ? clusterBandColors : clusterModeColors) }}>{spot[column]}</span>;
   if (column === "callStatus" || column === "dxccStatus") return <span className="live-cluster-status" style={{ color: paletteColor(spot[column], palette?.status, clusterStatusColors) }}>{clusterStatusCode(spot[column])}</span>;
   if (column === "score") return <span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span>;
-  if (column === "special") return spot.specialTags.length ? spot.specialTags.slice(0, 2).map(tag => <span key={tag} className="live-cluster-special-tag" style={specialTagColors(tag)}>{tag}</span>) : "—";
+  if (column === "special") return spotTags(spot).length ? spotTags(spot).slice(0, 2).map(tag => <span key={tag} className="live-cluster-special-tag" style={specialTagColors(tag)}>{tag}</span>) : "—";
   return spotText(column, spot, now);
 }
 
