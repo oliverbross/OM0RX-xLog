@@ -56,11 +56,11 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Accepted main baseline is 1.2.23 source b9accc7f81453f1f2cab1758a48192322213f590. Contesting Test package/install/launch evidence is recorded at 3a05c2e6778a1ec86326eb5466eef51d37fca7f3 over reviewed contest source bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3. Root native CQ WW review remains in progress; recorded score and Cabrillo checks do not close the remaining native scenarios. Preserve the published 2026-10-18 snapshot and generated files; update claims only after the 14+11 headless matrix, SST worker review, and remaining native acceptance gates are reconciled. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "refreshGate": "Accepted main baseline is 1.2.23 source b9accc7f81453f1f2cab1758a48192322213f590. The separate Contesting Test app package/install/launch receipt is source 3a05c2e6778a1ec86326eb5466eef51d37fca7f3 over reviewed contest source bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3. Bounded native CQ WW smoke and subsequent source-level SST activation are recorded below; neither establishes full contest acceptance. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
-    "measuredAtUtc": "2026-10-18T06:09:57Z",
-    "reconciledAtUtc": "2026-10-18T06:09:57Z",
+    "measuredAtUtc": "2026-10-18T06:41:12Z",
+    "reconciledAtUtc": "2026-10-18T06:41:12Z",
     "currentFoundationMilestone": {
       "commit": "74ef3ba0549c84b5b436e1c5d7a421f0daa328cf",
       "branch": "codex/contest-shared-policy-integration",
@@ -235,16 +235,30 @@
       "packageReceipt": "contesting/evidence/cqww-feedback-package-2026-10-18.json",
       "noncontestBaselineReceipt": "contesting/evidence/noncontest-main-baseline-2026-10-18.json",
       "packageStatus": "Canonical macOS Contesting Test app installed and launched; separate identity/support root; strict deep signature and packaged resources verified; package receipt metadata fingerprint matched before and after launch only",
-      "nativeStatus": "bounded native CQ WW smoke observed; CW Run DL1AAA zone 14 and K1AAA zone 5; CW S&P JA1AAA zone 25; three CW QSOs, seven points, six multipliers, score 42; duplicate blocked; SSB Run DL1AAA zone 14 and K1AAA zone 5; SSB S&P VK2AAA zone 30 with MYCALL and exchange 59/15 confirmed; four SSB QSOs, ten points, eight multipliers, score 80; Plain Log JA1AAA zone 25; native Cabrillo saved with three CW QSOs and score 42; full all-contest acceptance not claimed",
+      "nativeStatus": "bounded native CQ WW smoke observed; CW Run DL1AAA zone 14 and K1AAA zone 5; CW S&P JA1AAA zone 25; three CW QSOs, seven points, six multipliers, score 42; duplicate blocked; SSB Run DL1AAA zone 14 and K1AAA zone 5, SSB S&P VK2AAA zone 30 with MYCALL and exchange 59/15 confirmed, Plain Log JA1AAA zone 25; four SSB QSOs total, ten points, eight multipliers, score 80; native Cabrillo saved with three CW QSOs and score 42; full all-contest acceptance not claimed",
       "nativeArtifacts": {
         "cwAdifPath": "/tmp/xlog-cqww-final-package-evidence/native-cqww-cw.adi",
         "cwAdifSha256": "61dbe894638cce4f9838522fa70d8839ee14e7c488eda42c03731f3438afcefd",
         "cabrilloSha256": "cd9720c642d17f1e90c7322f835ede6ac4a325ac0a393ab56a9fa700f185381d"
       },
-      "scpAndRestartObservation": "Seven-record SCP fixture imported; K1A to K1ABC selection retained reports, frequency and exchange. After restart both session cards recovered CW 3 and SSB 4; reopening SSB restored 4 QSOs, 10 points, 8 multipliers, score 80, 14.250 MHz, report 59, sent zone 15 and all 7 SCP records; test ended disarmed with trace cleared. Restart restored counts; the in-session manager-count refresh defect remains open and a narrow fix is underway.",
-      "headlessStatus": "The installed package retains its recorded bounded CQ WW scope. A later source candidate packages SST as an operator-archive practice preview with real worker, strict-client, shared-workspace, scoring, restart, correction/deletion and in-memory export evidence; that source candidate remains separate from installed-package acceptance, schedule enforcement, results reporting, sponsor acceptance and RF",
+      "scpAndRestartObservation": "Seven-record SCP fixture imported; K1A to K1ABC selection retained reports, frequency and exchange. After restart both session cards recovered CW 3 and SSB 4; reopening SSB restored 4 QSOs, 10 points, 8 multipliers, score 80, 14.250 MHz, report 59, sent zone 15 and all 7 SCP records; test ended disarmed with trace cleared. Manager-card refresh repair c4620a3 is merged at 7d8768d but not present in this installed source.",
+      "headlessStatus": "The integrated source at 0d76b9a passed all 14 legacy profiles (84 contacts). All 11 declarative workflows (66 contacts) functionally completed, but their overall protection gate is unresolved/failed because concurrent normal-database metadata changed without process attribution. This evidence does not establish that the headless process touched the normal database. Receipt: contesting/evidence/full-contest-family-operator-matrix-2026-10-18.json.",
       "ledger": "16 previews, 78 pending, 0 complete",
       "platformScope": "macOS application builds only; Windows/Linux app builds deferred at user direction"
+    },
+    "reviewedSSTSourceIntegration": {
+      "sourceCommit": "cb18f8f8ff1d76e87e437fb4fe441ddc928214ee",
+      "integrationCommit": "8e2ac9bbed1636473835d23f480dac0f179ea7b2",
+      "status": "root-reviewed, merged and pushed; source-level integration only",
+      "definition": "Eighth bundled declarative definition; total catalog source now has 24 rules, 22 operator capabilities (14 legacy and 8 declarative), and 2 intentionally inert RTTY rules.",
+      "reviewedEvidence": "Root reviewed production definition/catalog, test diffs, actual log hashes/counts, and historical fixture git-blob equality. 41 Swift tests and 13 TypeScript tests passed; TypeScript compilation passed.",
+      "evidence": [
+        "docs/contesting/SST_PACKAGED_ACTIVATION.md",
+        "docs/contesting/fixtures/current-contesting-catalog-worker-wire.json",
+        "docs/contesting/fixtures/sst-worker-acceptance-wire.json"
+      ],
+      "installedBoundary": "The installed Contesting Test app remains source 3a05c2e and contains seven declarative definitions; SST has not been packaged or installed there. Native packaged presentation, schedule enforcement, results reporting, current sponsor acceptance and RF remain open.",
+      "ledger": "Published ledger unchanged: 16 previews, 78 pending, 0 complete."
     }
   }
 }
