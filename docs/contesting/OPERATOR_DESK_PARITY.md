@@ -50,6 +50,14 @@ The contest `traditional` preset is an editable canvas preset; hiding and restor
 
 The remaining tracked working surfaces are Band Map, Rate, Group Chat, DXCC, Zone, Rotator, VFO and Cluster. They need contest-aware projections through their existing services before they can be exposed as meaningful canvas panels. The scoped native registry and planner recognize all 21 shared roles and the 12 contest-native roles, but native child presentation, action forwarding and state subscription remain separate implementation work.
 
+## Detached surface action contract
+
+`contestSurfaceProtocol.ts` freezes the bounded frontend v1 action envelope before a native adapter is connected. Each request carries the exact UUID operating context, session and workspace generation, a UUID request ID, the current projection revision, `scope: "contesting"`, one admitted panel ID, an action and an exact-key parameter object. `workspaceGeneration` is the contest UUID string used by the worker and layout contracts. Nulls, unknown keys, boolean-as-number values, non-finite numbers, cross-panel actions and oversized UTF-8 strings are rejected.
+
+Entry owns typed field, exchange, frequency, band, mode, serial, commit and F1–F12/Enter/Escape actions. Check Partial owns assistance query and stable-candidate selection. Log owns paging and bounded correction/deletion editing. Selection sends a stable candidate ID; the main controller resolves it against the exact projection revision instead of accepting projected fields from a child window. Panels whose adapters are not implemented accept no actions. A missing reply or owner shutdown is an uncertain terminal outcome: child windows refresh state and do not replay an action automatically.
+
+This contract does not transfer draft or mutation ownership. The main `ContestWorkspace` remains the only controller; a child surface receives one validated panel projection and forwards typed intent. Native command and event names will be bound only after the matching Rust validation checkpoint lands.
+
 ## Implementation sequence
 
 1. Inventory current upstream working windows and fields against xLog components; identify missing panels and record exact source references.
