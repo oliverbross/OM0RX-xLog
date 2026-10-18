@@ -198,6 +198,7 @@ describe("operator workspace", () => {
     const dialog = screen.getByRole("dialog", { name: "Cluster filters" });
     expect(within(dialog).getByRole("checkbox", { name: "Show only POTA" })).toBeTruthy();
     expect(within(dialog).getByRole("checkbox", { name: "Show only RBN" })).toBeTruthy();
+    expect(readFileSync("src/live/OperatorWorkspace.css", "utf8")).toContain("fieldset>div:not(.special-filter-options)");
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Hide RBN" }));
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["RBN"] }) });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Hide CONTEST" }));
