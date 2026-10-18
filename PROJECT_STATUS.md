@@ -1,10 +1,108 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-10-16
+Last updated: 2026-10-18
 
-Tracked implementation checkpoint: `b1691a5712ef9e8bbcd29038f12ade0954334735`.
-New source/test/browser evidence does not replace installed alpha.31 or close
-exact-package, native interaction, live-provider or hardware acceptance.
+Tracked implementation checkpoint: `5459ab196dbc7aa580c12677d19ba1b2b2f0420d`
+on `codex/dual-radio-settings`. The installed macOS application is version
+**1.2.23**. Its exact packaged application source is
+`a2b959da84796babf6b3158a34071e121203ba28`; the later tracked checkpoint adds
+the final installed RBN acceptance documentation only.
+
+## Consolidated current checkpoint — 18 October 2026
+
+This section is the current management view. The detailed implementation ledger
+below is retained for traceability, but its alpha.31-era release statements are
+historical unless repeated here or in a later release-acceptance report.
+
+### Repository and release state
+
+- `/Applications/OM0RX-xLog.app` is version **1.2.23** and passes strict deep
+  Developer ID signature validation. The installed acceptance restored the
+  integrated logbook with **68,200 contacts**, the Remote Station Agent, rotor,
+  KPA500 and ShackCQ live feed. No RF, QSO-log, amplifier-transition or manual
+  rotor action was used for that acceptance.
+- The current checkout and its upstream branch are synchronized at `5459ab1`.
+  This branch contains **70 commits not yet on `origin/main`**. `origin/main`
+  remains at the accepted 1.1.10 documentation commit `c5059ea`.
+- Therefore 1.2.23 is the current installed/candidate product, but the repository
+  workflow is not yet consolidated: the accepted 1.2.x history must be reviewed
+  and fast-forwarded or merged into canonical `main` before the next development
+  release. The stale `main` worktree registration must be resolved only after its
+  old checkout is confirmed to contain no unique work.
+- Current release evidence: [`docs/releases/v1.2.23-macos.md`](docs/releases/v1.2.23-macos.md).
+  The bundle is signed; notarization was not performed or claimed for 1.2.23.
+
+### What has been delivered since the TCI checkpoint
+
+| Area | Consolidated state |
+| --- | --- |
+| QRZ, QSO recovery and rotor startup | 1.1.10 fixed bounded QRZ resolution, stale QSO selection fences and the saved-radio/Auto-Rotor startup race. Installed acceptance showed QRZ, radio, cluster, rotor and QSO controls available together. |
+| Dual-radio/settings architecture | 1.2.0 introduced independent Radio 1/Radio 2 saved configurations and sessions, one explicit active-radio route, a process-wide transmit lease, grouped Settings, dedicated WSJT-X receive settings and a receive-only RUMlog spot bridge. |
+| Radio and spot reliability | 1.2.1–1.2.18 repaired slot migration, serialized/coalesced rapid spot activation, stale receipt and draft-cleanup fences, Remote Agent tuning admission, writer-busy handling and guarded simplex completion. |
+| Operator Desk and logbook | Reference evidence was stabilized and fitted, signal reports became mode-aware, successful-save validation clears correctly, and Previous QSOs gained compact split presentation. |
+| Cluster and propagation | 1.2.19 added a compact cluster filter. 1.2.21–1.2.23 added the live HF dashboard, responsive/arrangeable propagation panels, RBN pickup transport and sidebar, compact RBN badges, source classification and colored solar indices. |
+| Maps and reference data | Route framing now accounts for overlays and labels; PJ4 resolves to Bonaire while ordinary S2/S3 prefixes remain Bangladesh. |
+| Current installed proof | 1.2.23 restored Radio 1, rotor, amplifier telemetry, ShackCQ and the 68,200-contact log. The dashboard, panel arranging/resizing and RBN empty state were observed in the installed app. |
+
+### TCI status
+
+The TCI programme is **partially complete, not abandoned**. Source provides a
+bounded receive-only WebSocket provider, TRX/channel discovery, saved `ws`/`wss`
+configuration, explicit connect/disconnect, stale-aware telemetry, guarded
+receive frequency/mode control, receive-filter control and passive split,
+frequency, sensor, mute, volume, monitor, AGC, spot-click and callsign evidence.
+
+Still open for TCI:
+
+- repair and prove the recurring session-lifecycle close timing failure;
+- package and validate against a real SunSDR/ExpertSDR TCI server;
+- define and test an explicit automatic-reconnect policy without command replay;
+- add authoritative split/TX-VFO control only where the protocol can prove identity;
+- design transmit consent, PTT/carrier Tune and abort/release ownership;
+- add audio/IQ transport only after bounded device, buffering and failure semantics exist;
+- keep received spot inventory and outbound spot management separate until the
+  protocol supplies authoritative server evidence.
+
+TCI transmit, radio CW, audio/IQ and RF acceptance are **not implemented or
+accepted**. Independent WinKeyer and rotor ownership remains intentional.
+
+### Outstanding programme
+
+| Priority | Workstream | Current boundary / required outcome |
+| --- | --- | --- |
+| P0 | Canonical repository consolidation | Review the 70-commit 1.2.x chain, integrate it into `main`, record exact source ancestry, preserve unique worktrees, and make the current project board agree with the canonical branch. No new release should be built from a side branch. |
+| P0 | 1.2.23 operational baseline | Repeat the compact smoke matrix from canonical source: startup/restart, Radio 1, optional Radio 2, cluster, QRZ, rotor, logbook, rapid spot selection and receipt recovery. Keep RF and mutation actions separately authorized. |
+| P1 | TCI receive production acceptance | Fix the lifecycle flake, package the current receive-only provider, validate discovery/tuning/filter/staleness/reconnect against a real server, and document unsupported protocol claims. |
+| P1 | Dual-radio live acceptance | Configure a real second radio, prove active-radio switching and restart recovery, and verify the process-wide transmit lease and inactive-radio rejection without simultaneous RF ownership. |
+| P1 | Data and log safety | Finish the ADIF 3.1.8 enumeration/deprecation audit before changing `ADIF_VER`; package-test arbitrary-field editing and PJ impact preview on a disposable copied log; add correction apply/undo only after reviewed preview evidence. |
+| P1 | Scale and recovery | Run the one-million-contact, contention, cancellation, memory-pressure, kill/restart, outage and isolated-restore programme against an exact package and dataset. |
+| P1 | Online-log completion | Complete exact-package/provider acceptance for QRZ, Club Log and Wavelog receipt views; finish LoTW transport plus revision-fenced confirmation-only apply. TQSL signing/upload and eQSL remain separate owners. |
+| P2 | Operator workflows | Decide and sequence activation sessions, heard/calling scratch records, private call/QSO journal, attachments, satellite/VHF editing and opt-in opportunity reminders. None should create a second log owner. |
+| P2 | Awards/reference cache | Implement official-source, versioned, last-known-good POTA/SOTA/IOTA/WWFF/castle directory caches and finish executable sponsor-rule/export work such as QRP DXCC. |
+| P2 | Contesting | The contest programme has substantial isolated branches and its own project plan, but it is not part of the current 1.2.23 canonical release line. Perform a separate inventory/review and explicit integration decision rather than silently absorbing all contest branches. |
+| P2 | Windows/Linux | Build and validate exact packages only after canonical Mac source, device/window and recovery acceptance. Preserve the Mac-first boundary rather than creating platform forks. |
+
+### Recommended next steps
+
+1. **Consolidate source control first.** Audit the 70 commits against `main`,
+   resolve the stale `main` worktree record safely, integrate the accepted 1.2.x
+   line, tag the exact 1.2.23 application source, and update release provenance.
+2. **Re-baseline the current product from canonical `main`.** Run the packaged
+   non-RF smoke matrix and verify that the canonical build matches the installed
+   1.2.23 behavior before adding more features.
+3. **Finish TCI receive-only production quality.** Fix the lifecycle test,
+   validate a real ExpertSDR/SunSDR session and settle reconnect semantics.
+   This is the shortest path from the last partially completed programme to a
+   defensible production capability.
+4. **Choose one expansion lane.** Recommended order is dual-radio live proof,
+   then TCI transmit/audio design, then either contest integration or the
+   cross-platform package programme. Do not run all three as one release.
+5. **Close data-safety debt in parallel with acceptance, not feature growth.**
+   Complete ADIF 3.1.8, copied-log editing/correction trials, online-log provider
+   receipts and the scale/recovery campaign before declaring a production-stable
+   major release.
+
+## Historical detailed implementation ledger
 
 External reference order: **RUMlogNG #1, QLog #2, OpsLog #3**. OpsLog v0.51.10
 is a documented supplementary product/behavior reference only: the public tag
