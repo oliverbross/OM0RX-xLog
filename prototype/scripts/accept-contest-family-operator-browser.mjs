@@ -239,6 +239,7 @@ function validateExport(bytes, prepared, item, format) {
       const lines = raw.split("\r\n").filter(Boolean), headers = Object.fromEntries(lines.filter(line => !line.startsWith("QSO:"))
         .map(line => { const boundary = line.indexOf(":"); return [line.slice(0, boundary), line.slice(boundary + 1).trim()]; }));
       const layout = item.family === "ten-ten" ? [5, 2, 10, 4, 13, 3, 10, 8, 20, 13, 3, 10, 8, 20] :
+        item.family === "sst" ? [5, 2, 10, 4, 13, 10, 8, 13, 10, 8] :
         item.id === "cwops-cwt" ? [5, 2, 10, 4, 13, 10, 20, 13, 10, 20] :
         item.id === "cwops-open" ? [5, 2, 10, 4, 13, 4, 10, 13, 4, 10] : [5, 2, 10, 4, 13, 10, 4, 13, 10, 4];
       const qsos = lines.filter(line => line.startsWith("QSO:")).map(line => parseFixedQSO(line, layout));
@@ -252,6 +253,7 @@ function validateExport(bytes, prepared, item, format) {
         const expected = item.family === "ten-ten" ? [...common, item.report, item.sentFields.name, item.sentFields["member-number"], item.sentFields.qth,
           contact.call, item.report, received.name, received["member-number"], received.qth] : item.id === "cwops-cwt"
           ? [...common, item.sentFields.name, item.sentFields["member-or-location"], contact.call, received.name, received["member-or-location"]]
+          : item.family === "sst" ? [...common, item.sentFields.name, item.sentFields.location, contact.call, received.name, received.location]
           : item.id === "cwops-open" ? [...common, sentSerial, item.sentFields.name, contact.call, received.serial, received.name]
           : [...common, item.sentFields.name, sentSerial, contact.call, received.name, received.serial];
         assert.deepEqual(fields, expected); assert.equal(committed.sentExchange, expectedInitialSent(item, index));
@@ -267,6 +269,7 @@ function validateExport(bytes, prepared, item, format) {
         if (item.report) { assert.equal(record.RST_SENT, item.report); assert.equal(record.RST_RCVD, item.report); }
         else { assert.equal(record.RST_SENT, undefined); assert.equal(record.RST_RCVD, undefined); }
         assert.equal(record.MY_NAME, item.sentFields.name); assert.equal(record.NAME, contact.receivedFieldValues.name);
+        if (item.family === "sst") { assert.equal(record.MY_STATE, item.sentFields.location); assert.equal(record.STATE, contact.receivedFieldValues.location); }
         if (item.serial) {
           assert.equal(record.STX, String(index + 1)); assert.equal(record.SRX, String(Number(contact.receivedFieldValues.serial)));
         } else {
@@ -307,6 +310,8 @@ function validateExport(bytes, prepared, item, format) {
 const legacyProfiles = [
   { family: "cq-ww", id: "cq-ww-cw", cabrilloName: "CQ-WW-CW", label: "CQ WW CW", mode: "CW", report: "599", sentExchange: "15", expected: { points: 14, multipliers: 12, score: 168 } },
   { family: "cq-ww", id: "cq-ww-ssb", cabrilloName: "CQ-WW-SSB", label: "CQ WW SSB", mode: "SSB", report: "59", sentExchange: "15", expected: { points: 14, multipliers: 12, score: 168 } },
+  { family: "cq-ww", id: "cq-ww-cw-country-reference", cabrilloName: "CQ-WW-CW", label: "CQ WW CW Country Reference Preview", mode: "CW", report: "599", sentExchange: "15", expected: { points: 14, multipliers: 12, score: 168 } },
+  { family: "cq-ww", id: "cq-ww-ssb-country-reference", cabrilloName: "CQ-WW-SSB", label: "CQ WW SSB Country Reference Preview", mode: "SSB", report: "59", sentExchange: "15", expected: { points: 14, multipliers: 12, score: 168 } },
   { family: "cq-wpx", id: "cq-wpx-cw", cabrilloName: "CQ-WPX-CW", label: "CQ WPX CW", mode: "CW", report: "599", serial: true, numericADIF: true, expected: { points: 21, multipliers: 3, score: 63 } },
   { family: "cq-wpx", id: "cq-wpx-ssb", cabrilloName: "CQ-WPX-SSB", label: "CQ WPX SSB", mode: "SSB", report: "59", serial: true, numericADIF: true, expected: { points: 21, multipliers: 3, score: 63 } },
   { family: "oceania", id: "oceania-dx-cw", cabrilloName: "OCEANIA-DX-CW", label: "Oceania DX CW", mode: "CW", report: "599", serial: true, expected: { points: 18, multipliers: 6, score: 108 } },
@@ -321,6 +326,8 @@ const legacyProfiles = [
   { family: "arrl-dx", id: "arrl-dx-ssb", cabrilloName: "ARRL-DX-SSB", label: "ARRL DX SSB", mode: "SSB", report: "59", sentExchange: "K", expected: { points: 18, multipliers: 6, score: 108 } },
 ];
 const declarativeProfiles = [
+  { family: "sst", id: "k1usn-sst", label: "K1USN SST Operator Archive Preview", mode: "CW", cabrilloName: "K1USNSST", serial: false,
+    sentFields: { name: "DAVE", location: "MA" }, sentOrder: ["name", "location"], receivedOrder: ["name", "location"], expected: { points: 6, multipliers: 6, score: 36 } },
   { family: "cw-unique", id: "cwops-cwt", label: "CWops Test (CWT) Archive Preview", mode: "CW", cabrilloName: "CW-OPS", serial: false,
     sentFields: { name: "OLIVER", "member-or-location": "1234" }, sentOrder: ["name", "member-or-location"], receivedOrder: ["name", "member-or-location"], expected: { points: 6, multipliers: 3, score: 18 } },
   { family: "cw-unique", id: "cwops-open", label: "CW Open Archive Preview", mode: "CW", cabrilloName: "CW-OPEN", serial: true,
@@ -335,6 +342,16 @@ const declarativeProfiles = [
   ].map(([id, label, mode]) => ({ family: "ten-ten", id, label, mode, cabrilloName: "10-10", serial: false,
     report: mode === "CW" ? "599" : "59", sentFields: { name: "OLIVER", "member-number": "12345", qth: "SLOVAKIA" },
     sentOrder: ["name", "member-number", "qth"], receivedOrder: ["name", "member-number", "qth"], expected: { points: 9, multipliers: 0, score: 9 } })),
+];
+const profileModeKey = (id, mode) => `${id}\u0000${mode}`;
+const admittedHarnessProfileModes = [...legacyProfiles, ...declarativeProfiles]
+  .map(profile => ({ id: profile.id, mode: profile.mode }))
+  .sort((left, right) => profileModeKey(left.id, left.mode).localeCompare(profileModeKey(right.id, right.mode)));
+assert.equal(new Set(admittedHarnessProfileModes.map(item => profileModeKey(item.id, item.mode))).size,
+  admittedHarnessProfileModes.length, "Harness profile table contains a duplicate identity/mode pair.");
+const excludedInactivePlainLogRTTY = [
+  { id: "arrl-rtty-roundup", mode: "RTTY", reason: "inactive Plain Log RTTY; no admitted simulated operator capability" },
+  { id: "naqp-rtty", mode: "RTTY", reason: "inactive Plain Log RTTY; no admitted simulated operator capability" },
 ];
 const harnessScope = process.env.XLOG_FAMILY_ACCEPTANCE_SCOPE ?? "legacy";
 assert.ok(["legacy", "declarative"].includes(harnessScope), "Unknown family acceptance scope.");
@@ -351,6 +368,7 @@ const expectedProgress = {
   "cq-wpx": [[3, 1, 3], [4, 2, 8], [7, 3, 21], [13, 3, 39], [15, 3, 45], [21, 3, 63]],
   oceania: [[1, 1, 1], [2, 2, 4], [3, 3, 9], [8, 4, 32], [13, 5, 65], [18, 6, 108]],
   sac: [[3, 1, 3], [5, 2, 10], [8, 3, 24], [11, 4, 44], [13, 5, 65], [16, 6, 96]],
+  sst: [[1, 1, 1], [2, 2, 4], [3, 3, 9], [4, 4, 16], [5, 5, 25], [6, 6, 36]],
   naqp: [[1, 1, 1], [2, 2, 4], [3, 3, 9], [4, 4, 16], [5, 5, 25], [6, 6, 36]],
   jidx: [[1, 1, 1], [2, 2, 4], [3, 3, 9], [4, 4, 16], [5, 5, 25], [6, 6, 36]],
   "arrl-dx": [[3, 1, 3], [6, 2, 12], [9, 3, 27], [12, 4, 48], [15, 5, 75], [18, 6, 108]],
@@ -361,10 +379,18 @@ const station = (family, profile) => family === "sac" ? { call: "SM0AAA", cq: "1
   family === "naqp" ? { call: "K1AAA", cq: "5", entity: "United States", sentParts: ["AL", "CA"], createFields: { "Station name": "AL", "Station location": "CA" } } :
   family === "jidx" ? { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: ["599", "15"], createFields: { "Station prefecture or CQ Zone": "15" } } :
   family === "arrl-dx" ? { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: ["599", "K"], createFields: { "Station power (DX)": "K", "Cabrillo section": "DX" } } :
+  family === "sst" ? { call: "K1USN", cq: "5", entity: "United States", sentParts: [],
+    createFields: { "Station name": "DAVE", "Station location": "MA" } } :
   family === "cw-unique" || family === "ten-ten" ? { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: [],
     createFields: Object.fromEntries(Object.entries(profile.sentFields).map(([id, value]) => [id === "member-or-location" ? "Station member number, CWA, state, province, or DX prefix" : id === "member-number" ? "Station 10-10 Number (0 for non-member)" : id === "qth" ? "Station qTH" : "Station name", value])) } :
   { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: [] };
 const contactsFor = profile => {
+  if (profile.family === "sst") return [
+    ["K1VUT", "DAVE", "MA"], ["N3QE", "TIM", "MD"], ["VE3KI", "RICH", "ON"],
+    ["DK9PY", "ARMIN", "DX"], ["K4BAI", "JOHN", "GA"], ["K1RV", "PI", "MA"],
+  ].map(([call, name, location]) => ({ call, receivedAggregate: `${name} ${location}`,
+    fields: { "Received Name": name, "Received State, province, or DX": location },
+    receivedFieldValues: { name, location }, adif: { NAME: name, STATE: location, MY_NAME: "DAVE", MY_STATE: "MA" } }));
   if (profile.family === "cw-unique") return [
     ["K1ABC", "AL", "101"], ["DL1ABC", "BOB", "102"], ["JA1AAA", "CHEN", "103"],
     ["K1ABC", "DAN", "104"], ["DL1ABC", "EVA", "105"], ["JA1AAA", "FINN", "106"],
@@ -425,14 +451,14 @@ const allCases = profiles.map(profile => {
   }));
   const declarativeSent = profile.sentOrder?.map(id => id === "serial" ? "001" : profile.sentFields[id]).join(" ");
   itemStation.sentParts = profile.report ? [profile.report, profile.serial ? "001" : profile.sentExchange ?? declarativeSent] : itemStation.sentParts;
-  return { ...profile, caseKey: `${profile.id}-${profile.mode.toLowerCase()}`, declarative: ["cw-unique", "ten-ten"].includes(profile.family), station: itemStation,
+  return { ...profile, caseKey: `${profile.id}-${profile.mode.toLowerCase()}`, declarative: ["cw-unique", "ten-ten", "sst"].includes(profile.family), station: itemStation,
     name: `${profile.label} ${profile.mode} family operator acceptance`, commits: [], contacts };
 });
 const diagnosticProfile = process.env.XLOG_FAMILY_DIAGNOSTIC_PROFILE ?? "";
 assert.ok(!diagnosticProfile || allCases.some(item => item.id === diagnosticProfile || item.caseKey === diagnosticProfile), "Diagnostic profile must name a reviewed family profile.");
 const cases = diagnosticProfile ? allCases.filter(item => item.id === diagnosticProfile || item.caseKey === diagnosticProfile) : allCases;
 if (!diagnosticProfile) {
-  const expectedCaseCount = requestedProfileIDs.length > 0 ? profiles.length : harnessScope === "declarative" ? 11 : 14;
+  const expectedCaseCount = requestedProfileIDs.length > 0 ? profiles.length : harnessScope === "declarative" ? 12 : 16;
   assert.equal(cases.length, expectedCaseCount);
 }
 
@@ -447,7 +473,7 @@ async function exportCase(item, format) {
   await exportDOMState(item, `${format}-dialog-open`);
   const locationSelector = '.contest-export-fields input[maxlength="64"][required]';
   const nameSelector = '.contest-export-fields input[maxlength="75"][required]';
-  const expectedLocation = item.family === "naqp" ? "CA" : "DX";
+  const expectedLocation = item.family === "naqp" ? "CA" : item.family === "sst" ? "MA" : "DX";
   if (await browser(["get", "value", `dialog[open] ${locationSelector}`]) !== expectedLocation) {
     await browser(["fill", `dialog[open] ${locationSelector}`, expectedLocation]);
   }
@@ -619,8 +645,35 @@ async function openSession(item) {
 }
 
 let primaryFailure = null;
+let catalogCoverage = null;
 try {
   await browser(["open", url]); await waitText("Contest Workspace");
+  const catalogFrame = await waitForFrame(0, frame => frame.request.method === "contest_catalog" && frame.response.ok,
+    "operator acceptance catalog");
+  const catalogRules = catalogFrame.response.result.rules;
+  assert.equal(catalogRules.length, 26, "Unexpected active contest catalog size.");
+  const catalogOperatorProfileModes = catalogRules.flatMap(rule => {
+    if (rule.operatorCapability?.policy !== "simulated-run-sp-v1") return [];
+    const signalModes = rule.operatorCapability.signalProfiles?.map(profile => profile.mode) ?? [];
+    const modes = signalModes.length > 0 ? signalModes : rule.supportedModes;
+    return modes.map(mode => ({ id: rule.identity.id, mode }));
+  }).sort((left, right) => profileModeKey(left.id, left.mode).localeCompare(profileModeKey(right.id, right.mode)));
+  assert.deepEqual(catalogOperatorProfileModes, admittedHarnessProfileModes,
+    "Harness profiles do not exactly cover the active catalog operator identity/mode pairs.");
+  for (const excluded of excludedInactivePlainLogRTTY) {
+    const rule = catalogRules.find(candidate => candidate.identity.id === excluded.id);
+    assert.ok(rule, `Missing excluded catalog rule ${excluded.id}.`);
+    assert.deepEqual(rule.supportedModes, [excluded.mode]);
+    assert.equal(rule.operatorCapability ?? null, null);
+  }
+  catalogCoverage = {
+    catalogRuleCount: catalogRules.length,
+    admittedHarnessProfileModes,
+    selectedProfileModes: cases.map(item => ({ id: item.id, mode: item.mode })),
+    completeScopeMatrix: requestedProfileIDs.length === 0 && diagnosticProfile === "",
+    excludedInactivePlainLogRTTY,
+    boundary: "Covers active catalog operator identity/mode pairs only; it does not claim coverage of the 94-plugin source metadata inventory.",
+  };
   for (const item of cases) {
     await createCase(item);
     if (item === cases[0]) auditTestHostDatabaseFiles("after-first-contest-session", { requireWorkspace: true, requireContest: true });
@@ -687,7 +740,7 @@ finally { try { await browser(["close"], false); } catch {} try { await successf
 const inventory = rootPath => { const rows = []; const visit = (path, relative) => { const value = lstatSync(path); assert.equal(value.isSymbolicLink(), false); if (value.isDirectory()) for (const name of readdirSync(path).sort()) visit(join(path, name), relative ? `${relative}/${name}` : name); else rows.push({ path: relative, size: value.size, sha256: hashFile(path) }); }; visit(rootPath, ""); return rows; };
 const protectedAfter = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
 const protectedDatabaseMetadataUnchanged = JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore);
-const evidence = { schemaVersion: 3, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; open-file audits are bounded checkpoints, not a lifetime filesystem trace; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, pid: testHostPID, sha256: testHostSha256, isolation }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), openFileAudits, protectedDatabaseMetadataUnchanged, protectedDatabaseMetadataObservation: protectedDatabaseMetadataUnchanged ? "unchanged" : "changed; process attribution unknown; bounded test-host checks observed no protected paths", failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
+const evidence = { schemaVersion: 3, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, catalogCoverage, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; open-file audits are bounded checkpoints, not a lifetime filesystem trace; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, pid: testHostPID, sha256: testHostSha256, isolation }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), openFileAudits, protectedDatabaseMetadataUnchanged, protectedDatabaseMetadataObservation: protectedDatabaseMetadataUnchanged ? "unchanged" : "changed; process attribution unknown; bounded test-host checks observed no protected paths", failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
 writeFileSync(join(evidenceRoot, "acceptance.json"), `${JSON.stringify(evidence, null, 2)}\n`);
 process.stdin.destroy();
 if (primaryFailure) throw primaryFailure;
