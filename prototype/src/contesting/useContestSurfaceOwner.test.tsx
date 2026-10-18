@@ -12,8 +12,8 @@ const context={operatingContext:"00000000-0000-4000-8000-000000000001",sessionID
 const unavailable=()=>Object.fromEntries(contestSurfacePanelIDs.map(id=>[id,{schemaVersion:1,status:"unavailable"}])) as Record<(typeof contestSurfacePanelIDs)[number],ContestSurfaceProjection>;
 const entry:ContestEntrySurfaceProjection={schemaVersion:1,status:"ready",session:{name:"Test",ruleName:"Rule",mode:"CW"},draft:{draftID:"draft-1",revision:5,callsign:"",sentReport:"599",receivedReport:"599",receivedFields:[],frequencyHz:null,frequencyText:"",frequencyError:"",band:"20m",mode:"CW",dupe:{state:"unchecked",reason:""},validation:{errors:[],warnings:[]},reservedSerial:null},busy:false,dirty:false,uncertain:false};
 const action=(revision:number):ContestSurfaceActionEnvelope=>({...context,scope:"contesting",panelID:"active-qso",projectionRevision:revision,requestID:crypto.randomUUID(),action:"entry_commit",params:{draftID:"draft-1",expectedDraftRevision:5}});
-function Harness({projections,handle,report=vi.fn()}:{projections:ReturnType<typeof unavailable>;handle:(value:ContestSurfaceActionEnvelope)=>Promise<void>;report?:(message:string)=>void}){
-  useContestSurfaceOwner({context,projections,handle,report});return null;
+function Harness({projections,handle,report=vi.fn(),ownerContext=context}:{projections:ReturnType<typeof unavailable>;handle:(value:ContestSurfaceActionEnvelope)=>Promise<void>;report?:(message:string)=>void;ownerContext?:typeof context|null}){
+  useContestSurfaceOwner({context:ownerContext,projections,handle,report});return null;
 }
 beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
   native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});});
@@ -106,6 +106,35 @@ it("matches publication settlement to its exact attempt across an A to B to A ra
   await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso").map(item=>item.projectionRevision)).toEqual([1,2,3,4]));
   for(const panelID of contestSurfacePanelIDs.filter(id=>id!=="active-qso"&&id!=="monitor"))
     expect(published.filter(item=>item.panelID===panelID)).toHaveLength(1);
+});
+
+it("publishes the desired A after an already-published A changes to pending B and back",async()=>{
+  let releaseB!:()=>void;const bGate=new Promise<void>(resolve=>{releaseB=resolve;}),published:Record<string,any>[]=[];let entryAttempt=0;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{if(command==="contest_surface_publish"){
+    published.push(args);if(args.panelID==="active-qso"&&++entryAttempt===2)return bGate;return;}if(command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next"||command==="contest_surface_action_next")return null;throw new Error(command);});
+  const a={...unavailable(),"active-qso":entry},view=render(<Harness projections={a} handle={vi.fn()}/>);
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso")).toHaveLength(1));
+  view.rerender(<Harness projections={{...a,"active-qso":{...entry,dirty:true}}} handle={vi.fn()}/>);
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso")).toHaveLength(2));
+  view.rerender(<Harness projections={a} handle={vi.fn()}/>);await act(async()=>releaseB());
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso").map(item=>item.projectionRevision)).toEqual([1,2,3]));
+});
+
+it("starts a new publication epoch after close and ignores the old pending completion",async()=>{
+  let releaseOld!:()=>void;const oldGate=new Promise<void>(resolve=>{releaseOld=resolve;}),published:Record<string,any>[]=[];let entryAttempt=0;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{if(command==="contest_surface_publish"){
+    published.push(args);if(args.panelID==="active-qso"&&++entryAttempt===2)return oldGate;return;}if(command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next"||command==="contest_surface_action_next")return null;throw new Error(command);});
+  const a={...unavailable(),"active-qso":entry},view=render(<Harness projections={a} handle={vi.fn()}/>);
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso")).toHaveLength(1));
+  view.rerender(<Harness projections={{...a,"active-qso":{...entry,dirty:true}}} handle={vi.fn()}/>);
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso")).toHaveLength(2));
+  view.rerender(<Harness projections={a} handle={vi.fn()} ownerContext={null}/>);
+  view.rerender(<Harness projections={a} handle={vi.fn()} ownerContext={context}/>);await act(async()=>releaseOld());
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso").map(item=>item.projectionRevision)).toEqual([1,2,3]));
+  for(const panelID of contestSurfacePanelIDs.filter(id=>id!=="active-qso"))
+    expect(published.filter(item=>item.panelID===panelID)).toHaveLength(2);
 });
 
 it("does not execute a dequeued action after its owner context closes",async()=>{

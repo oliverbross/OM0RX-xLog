@@ -27,35 +27,41 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
   contextRef.current = context; projectionsRef.current = projections; handleRef.current = handle;
   const publishQueue = useRef(Promise.resolve());
   const publicationSequence = useRef(0);
-  type PublicationAttempt = { key: string; revision: number; token: number };
-  const publicationRef = useRef({ context: "", published: {} as Partial<Record<ContestSurfacePanelID, string>>,
+  const publicationEpoch = useRef(0);
+  type PublicationAttempt = { key: string; revision: number; token: number; epoch: number };
+  const publicationRef = useRef({ context: "", epoch: 0, published: {} as Partial<Record<ContestSurfacePanelID, string>>,
     pending: {} as Partial<Record<ContestSurfacePanelID, PublicationAttempt>> });
 
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
-        !validContestSurfaceUUID(context.workspaceGeneration)) return;
+        !validContestSurfaceUUID(context.workspaceGeneration)) {
+      if (publicationRef.current.context !== "") publicationRef.current = { context: "", epoch: ++publicationEpoch.current, published: {}, pending: {} };
+      return;
+    }
     const contextKey = `${context.operatingContext}/${context.sessionID}/${context.workspaceGeneration}`;
-    if (publicationRef.current.context !== contextKey) publicationRef.current = { context: contextKey, published: {}, pending: {} };
-    const changed = contestSurfacePanelIDs.filter(panelID => publicationRef.current.published[panelID] !== keys[panelID] &&
-      publicationRef.current.pending[panelID]?.key !== keys[panelID]);
+    if (publicationRef.current.context !== contextKey) publicationRef.current = { context: contextKey, epoch: ++publicationEpoch.current, published: {}, pending: {} };
+    const epoch = publicationRef.current.epoch;
+    const changed = contestSurfacePanelIDs.filter(panelID => publicationRef.current.pending[panelID]
+      ? publicationRef.current.pending[panelID]?.key !== keys[panelID]
+      : publicationRef.current.published[panelID] !== keys[panelID]);
     if (changed.length === 0) return;
     const revisions = { ...revisionRef.current }, snapshot = projections, snapshotKeys = { ...keys };
     const attempts = Object.fromEntries(changed.map(panelID => [panelID, { key: snapshotKeys[panelID], revision: revisions[panelID],
-      token: ++publicationSequence.current }])) as Partial<Record<ContestSurfacePanelID, PublicationAttempt>>;
+      token: ++publicationSequence.current, epoch }])) as Partial<Record<ContestSurfacePanelID, PublicationAttempt>>;
     for (const panelID of changed) publicationRef.current.pending[panelID] = attempts[panelID];
     publishQueue.current = publishQueue.current.then(async () => {
       if (contextRef.current?.operatingContext !== context.operatingContext || contextRef.current.sessionID !== context.sessionID ||
-          contextRef.current.workspaceGeneration !== context.workspaceGeneration) return;
+          contextRef.current.workspaceGeneration !== context.workspaceGeneration || publicationRef.current.epoch !== epoch) return;
       await Promise.all(changed.map(async panelID => {
         const attempt = attempts[panelID]!;
         try {
           await publishContestSurface({ ...context, scope: "contesting", panelID,
             projectionRevision: attempt.revision, projection: snapshot[panelID] });
-          if (publicationRef.current.context === contextKey && publicationRef.current.pending[panelID]?.token === attempt.token) {
+          if (publicationRef.current.context === contextKey && publicationRef.current.epoch === attempt.epoch && publicationRef.current.pending[panelID]?.token === attempt.token) {
             publicationRef.current.published[panelID] = attempt.key; delete publicationRef.current.pending[panelID];
           }
         } catch (cause) {
-          if (publicationRef.current.context === contextKey && publicationRef.current.pending[panelID]?.token === attempt.token) {
+          if (publicationRef.current.context === contextKey && publicationRef.current.epoch === attempt.epoch && publicationRef.current.pending[panelID]?.token === attempt.token) {
             delete publicationRef.current.pending[panelID];
             // A lost reply may still mean native accepted this revision. Retry
             // only on a later projection refresh, and always with a higher one.
