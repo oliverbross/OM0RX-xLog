@@ -21,7 +21,11 @@ It used `XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /Users/oliver/.
 Frontend source is unchanged from `30cbbae`, whose 250 frontend tests and
 production build passed. This checkpoint does not inherit fresh operator or
 native-platform runtime acceptance from its parents. Exact-source CI and a new
-bounded browser-to-worker rehearsal remain required. The active catalog remains
+bounded browser-to-worker rehearsal were required at integration. The later
+exact-source rehearsal passed and is recorded in
+`NAQP_DEFINITION_INTEGRATION_OPERATOR_CHECKPOINT_52ef5d3.md`; regular CI
+`39082360778` passed, while native CI `39082360758` still awaited its Windows
+Swift result at this update. The active catalog remains
 16 previews, 78 pending and zero fully ported. Custom definition authoring UI,
 shared exports, activation and exclusive module ownership remain open.
 

@@ -1,6 +1,6 @@
 {
   "proposalDate": "2026-10-18",
-  "measuredAt": "2026-10-18T00:05:58Z",
+  "measuredAt": "2026-10-18T00:28:49Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
@@ -54,18 +54,25 @@
     "statusAtProposal": "changes-requested",
     "findingAtProposal": "A missing-name early return masked invalid nonempty DX/mobile-location input.",
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
-    "acceptance": "The combined 054cfc5 source now has passing native CI and a clean synthetic operator checkpoint. Neither establishes RF transmission or packaged application acceptance."
+    "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "The combined foundation source has a Windows native compile failure under investigation. The separate history phase has native failures despite regular CI passing; immutable definition persistence is on a separate branch with native and regular workflows still in progress. Continue preserving the published snapshot and update claims only after reviewing resolution and the full acceptance boundary. Generate any review candidate to an alternate output directory; replace published files only after the workbook lock is gone and the report delta is accepted.",
+  "refreshGate": "Combined commit 52ef5d3 has passing regular CI and a root-reviewed bounded synthetic operator rehearsal; native portability run 39082360758 has five successful jobs with the Windows Swift job still running at measurement. Preserve the published snapshot; update claims only after the native result and full acceptance boundary are reviewed. Generate any review candidate to an alternate output directory; replace published files only after the workbook lock is gone and the report delta is accepted.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
-    "measuredAtUtc": "2026-10-18T00:05:58Z",
-    "reconciledAtUtc": "2026-10-18T00:05:58Z",
+    "measuredAtUtc": "2026-10-18T00:28:49Z",
+    "reconciledAtUtc": "2026-10-18T00:28:49Z",
     "currentFoundationMilestone": {
-      "commit": "3f55c1c2d68c068e0e2c9bb1e7cd93d76e6d059b",
-      "branch": "codex/contest-combined-integration",
-      "status": "combined source locally reviewed; CI result recorded below",
+      "commit": "52ef5d3dfd264318e04926b49bca44ac7977d47c",
+      "branch": "codex/contest-definition-integration",
+      "status": "combined source tests, regular CI and bounded synthetic operator rehearsal passed; five of six native jobs passed and Windows Swift job remains running",
       "scope": "Original published report snapshot and its cutoff are unchanged."
+    },
+    "mainApplicationIntegration": {
+      "mergeCommit": "30cbbae",
+      "baseline": "xLog 1.2.20 source e9ef0c5, isolated into the contesting workstream",
+      "validation": "318 Swift tests, 250 frontend tests and frontend production build passed; native workflow 39082129020 passed all six jobs.",
+      "releaseCoordination": "The user explicitly coordinated the 1.2.21, 1.2.22 and 1.2.23 release sequence this turn. Final integration must use the latest accepted release source SHA.",
+      "runtimeBoundary": "The main task's 1.2.20 installed/live check is reported evidence; no independent runtime verification is claimed here."
     },
     "mainApplicationBaseline": {
       "version": "1.2.20",
@@ -78,8 +85,11 @@
       "pilot25a2504": {"portability": "39079939868 passed", "regularCI": "39079939866 passed"},
       "foundation90648fdd": {"portability": "39080085205 passed", "regularCI": "39080085238 passed"},
       "naqp054cfc5": {"portability": "39079987614 passed", "regularCI": "39079987599 passed"},
-      "combined3f55c1c": {"portability": "39080850734 failed: five of six jobs passed; Windows failed on CoreFoundation import; repair in progress"},
-      "standaloneHistory4e0ba36": {"portability": "39080280385 failed: Windows import failure and macOS/Linux SCP error", "regularCI": "39080280389 passed"}
+      "combined3f55c1c": {"portability": "39080850734 failed: five of six jobs passed; Windows failed on CoreFoundation import; subsequent Boolean repair 7839324 passed all six native jobs in 39081718165"},
+      "standaloneHistory4e0ba36": {"portability": "39080280385 failed: Windows import failure and macOS/Linux SCP error", "regularCI": "39080280389 passed"},
+      "windowsBooleanRepair7839324": {"portability": "39081718165 passed all six native Swift/Rust jobs"},
+      "definitionPersistence363062e": {"portability": "39081392046 passed all six native Swift/Rust jobs", "regularCI": "39081392051 passed"},
+      "combined52ef5d3": {"regularCI": "39082360778 passed", "portability": "39082360758 five of six jobs passed; Windows Swift job still running at measurement"}
     },
     "foundationAndHistory": {
       "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
@@ -116,16 +126,48 @@
     "combinedFoundation": {
       "commit": "3f55c1c2d68c068e0e2c9bb1e7cd93d76e6d059b",
       "sourceValidation": "After the SCP shutdown repair, 143 core, 73 store and 52 support checks passed.",
-      "nativeWorkflow": "39080850734 failed: five of six jobs passed; Windows failed to import CoreFoundation; fix in progress.",
+      "nativeWorkflow": "39080850734 failed: five of six jobs passed; Windows failed to import CoreFoundation. Follow-up Boolean repair 7839324 passed all six native jobs in 39081718165.",
       "catalog": "16 previews, 78 pending, 0 fully ported; 94 metadata-only records."
     },
     "definitionPersistence": {
       "sourceCommit": "363062e08cc6e9358d3bb12ff5b061455a961ff1",
       "branch": "codex/contest-definition-persistence",
-      "integrationStatus": "not integrated into combined foundation",
+      "integrationStatus": "integrated into combined commit 52ef5d3",
       "result": "Immutable canonical definitions with atomic admission/reopen, pinned versions, and read-only v2 backup compatibility; 77 store and 14 focused snapshot checks passed.",
-      "workflows": {"portability": "39081392046 in progress", "regularCI": "39081392051 in progress"}
+      "portability": "39081392046 passed all six native Swift/Rust jobs",
+      "regularCI": "39081392051 passed"
     },
+    "combinedFoundation52ef5d3": {
+      "sourceValidation": "143 core, 78 store and 53 support checks passed.",
+      "regularCI": "39082360778 passed.",
+      "nativeWorkflow": "39082360758: five of six jobs passed; Windows Swift job still running at measurement.",
+      "catalog": "16 previews, 78 pending, 0 fully ported; 94 metadata-only records."
+    },
+    "windowsBooleanRepair": {
+      "sourceCommit": "7839324",
+      "nativeWorkflow": "39081718165 passed all six native Swift/Rust jobs."
+    },
+    "latestNaqpOperatorAttempt": {
+      "sourceCommit": "52ef5d3dfd264318e04926b49bca44ac7977d47c",
+      "status": "root-reviewed-bounded-synthetic-rehearsal-passed",
+      "trackedSourceStatus": "sourceBefore matched sourceAfter; repository tracked files were clean at the measured HEAD. The known Excel lock file remains, so the worktree is not globally clean.",
+      "sessions": 6,
+      "ordinaryFrames": 345,
+      "lifecycleFrames": 3,
+      "commits": 26,
+      "independentlyParsedCabrilloAndADIFExports": 14,
+      "simulatedOutputs": 82,
+      "scenarios": "Four CW/SSB Run and Search & Pounce six-QSO sessions scored 30; RTTY PlainLog and DX entrant scored 1; correction/deletion scored 20.",
+      "execution": "Headless production Vite UI drove a real isolated LiveWorker in an XCTest host.",
+      "integrity": "Tracked source before and after matched; protected database metadata was unchanged; two outer cleanup probes left no processes. The known Excel lock file remains, so the worktree is not globally clean.",
+      "evidence": {
+        "directory": "/Users/oliver/.codex/acceptance/naqp-definition-integration-52ef5d3/evidence",
+        "outerSHA256": "5855ed4518ac3b089679e9f682e1b0eda9c6852c958cf5aa73bcf2d14116669d",
+        "innerSHA256": "671440e0caa4356b0c802f013023f2b908975e4ec91ad949333e5eda0d9e41cd"
+      },
+      "boundary": "Synthetic operator acceptance only. No package, RF, native chooser, or sponsor acceptance."
+    },
+    "notShipped": "Candidate operator capability, shared uniqueCallsign and history UI remain frozen or under review, uncommitted and not shipped. No full-port, package, RF, native-chooser, or sponsor acceptance is implied.",
     "broadSupportSuite": {
       "result": "466 support tests: 465 passed and one hardlink-related failure, reproduced on baseline 3f55c1c; main chat notified."
     },
