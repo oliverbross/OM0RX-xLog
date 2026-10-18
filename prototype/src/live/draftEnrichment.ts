@@ -1,6 +1,17 @@
 type Data = Record<string, any>;
 const contactFields = ["name", "gridSquare", "country", "dxcc", "continent", "cqZone", "ituZone", "state", "county", "qth", "email", "iota", "sotaReference", "potaReference", "wwffReference", "sig", "sigInfo"];
 export const normalizedCall = (value: unknown) => String(value || "").trim().toUpperCase();
+const normalLogOperatingSuffixes = new Set(["P", "M", "MM", "AM", "QRP", "QRPP", "A", "B", "QTH"]);
+export function normalLogBaseCall(value: unknown): string {
+  let call = normalizedCall(value);
+  while (call.includes("/")) {
+    const slash = call.lastIndexOf("/"), suffix = call.slice(slash + 1);
+    if (!normalLogOperatingSuffixes.has(suffix)) break;
+    call = call.slice(0, slash);
+  }
+  return call;
+}
+export const sameNormalLogCall = (lhs: unknown, rhs: unknown) => normalLogBaseCall(lhs) !== "" && normalLogBaseCall(lhs) === normalLogBaseCall(rhs);
 
 /** Explicit lookup fill never overwrites an operator's entered values. */
 export function fillEmptyLookupFields(current: Data | null, lookup: Data | null): Data | null {

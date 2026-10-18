@@ -1995,20 +1995,23 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// before JSON decoding; nil-DXCC rows remain candidates because their
     /// historical entity may be resolved from CTY at the QSO date.
     public func historyCandidates(call: String, adif: Int?) throws -> [QSO] {
-        try historyCandidates(call: call, adif: adif, as: QSO.self)
+        try historyCandidates(call: call, adif: adif, as: QSO.self, callOf: { $0.call })
     }
 
     public func historyRows(call: String, adif: Int?) throws -> [ContactHistoryRow] {
-        try historyCandidates(call: call, adif: adif, as: ContactHistoryRow.self)
+        try historyCandidates(call: call, adif: adif, as: ContactHistoryRow.self, callOf: { $0.call })
     }
 
-    private func historyCandidates<T: Decodable>(call: String, adif: Int?, as type: T.Type) throws -> [T] {
-        try withDatabaseLock {
+    private func historyCandidates<T: Decodable>(call: String, adif: Int?, as type: T.Type,
+                                                  callOf: (T) -> String) throws -> [T] {
+        let base = NormalLogCallsignIdentity.base(call)
+        let prefix = normalLogCallPrefix(base)
+        return try withDatabaseLock {
             if let adif {
                 return try withStatement("""
                     WITH candidates AS (
                         SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase
-                        WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
+                        WHERE deleted_at IS NULL AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
                         UNION
                         SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
                         WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?
@@ -2019,19 +2022,28 @@ public final class LogbookDatabase: @unchecked Sendable {
                     SELECT qsos.record_json FROM candidates JOIN qsos USING(local_id)
                     ORDER BY qsos.qso_start DESC;
                     """) { statement in
-                        bind(call.uppercased(), to: 1, in: statement)
-                        sqlite3_bind_int(statement, 2, Int32(adif))
+                        bind(base, to: 1, in: statement)
+                        bind(prefix, to: 2, in: statement)
+                        sqlite3_bind_int(statement, 3, Int32(adif))
                         return try decodeRows(statement, as: type)
                     }
             }
             return try withStatement("""
-                SELECT record_json FROM qsos WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
+                SELECT record_json FROM qsos WHERE deleted_at IS NULL
+                    AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
                 ORDER BY qso_start DESC;
                 """) { statement in
-                    bind(call.uppercased(), to: 1, in: statement)
-                    return try decodeRows(statement, as: type)
+                    bind(base, to: 1, in: statement)
+                    bind(prefix, to: 2, in: statement)
+                    return try decodeRows(statement, as: type).filter { NormalLogCallsignIdentity.matches(callOf($0), call) }
                 }
         }
+    }
+
+    private func normalLogCallPrefix(_ base: String) -> String {
+        base.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_") + "/%"
     }
 
     public func count(search: String = "") throws -> Int {
@@ -2120,31 +2132,40 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func previous(call: String, limit: Int = 20) throws -> [QSO] {
-        try withDatabaseLock {
-            try withStatement("SELECT record_json FROM qsos WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE ORDER BY qso_start DESC LIMIT ?;") { statement in
-                bind(call, to: 1, in: statement)
-                sqlite3_bind_int(statement, 2, Int32(limit))
-                return try decodeRows(statement)
+        let base = NormalLogCallsignIdentity.base(call), prefix = normalLogCallPrefix(NormalLogCallsignIdentity.base(call))
+        return try withDatabaseLock {
+            try withStatement("""
+                SELECT record_json FROM qsos WHERE deleted_at IS NULL
+                    AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
+                ORDER BY qso_start DESC;
+                """) { statement in
+                bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
+                let matches: [QSO] = try decodeRows(statement).filter { NormalLogCallsignIdentity.matches($0.call, call) }
+                return Array(matches.prefix(max(0, limit)))
             }
         }
     }
 
-    /// Latest exact callsign/band/contact-mode match across the complete log.
+    /// Latest normal-log base-callsign/band/contact-mode match across the complete log.
     /// SUBMODE takes precedence; CAT sideband/reverse aliases share logging modes.
     public func latestWorkedContact(call: String, band: String, mode: String, excludingID: UUID? = nil) throws -> QSO? {
-        try withDatabaseLock {
+        let base = NormalLogCallsignIdentity.base(call), prefix = normalLogCallPrefix(NormalLogCallsignIdentity.base(call))
+        return try withDatabaseLock {
             try withStatement("""
                 SELECT record_json FROM qsos INDEXED BY idx_qsos_call_live_nocase
-                WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE AND band = ? COLLATE NOCASE
+                WHERE deleted_at IS NULL AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
+                  AND band = ? COLLATE NOCASE
                   AND CASE UPPER(TRIM(COALESCE(NULLIF(TRIM(json_extract(record_json,'$.submode')),''), mode)))
                     WHEN 'USB' THEN 'SSB' WHEN 'LSB' THEN 'SSB' WHEN 'CWR' THEN 'CW' WHEN 'RTTYR' THEN 'RTTY'
                     ELSE UPPER(TRIM(COALESCE(NULLIF(TRIM(json_extract(record_json,'$.submode')),''), mode))) END = ?
                   AND (? IS NULL OR local_id <> ? COLLATE NOCASE)
-                ORDER BY qso_start DESC, local_id ASC LIMIT 1;
+                ORDER BY qso_start DESC, local_id ASC;
                 """) { statement in
-                bind(call, to: 1, in: statement); bind(band, to: 2, in: statement); bind(mode, to: 3, in: statement)
-                bind(excludingID?.uuidString, to: 4, in: statement); bind(excludingID?.uuidString, to: 5, in: statement)
-                return try decodeRows(statement).first
+                bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
+                bind(band, to: 3, in: statement); bind(mode, to: 4, in: statement)
+                bind(excludingID?.uuidString, to: 5, in: statement); bind(excludingID?.uuidString, to: 6, in: statement)
+                let candidates: [QSO] = try decodeRows(statement)
+                return candidates.first { NormalLogCallsignIdentity.matches($0.call, call) }
             }
         }
     }
@@ -2500,25 +2521,24 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
-        try withDatabaseLock {
+        let base = NormalLogCallsignIdentity.base(call), prefix = normalLogCallPrefix(NormalLogCallsignIdentity.base(call))
+        return try withDatabaseLock {
             // A history page is not an award matrix: an older confirmation
             // must remain visible even after thousands of recent contacts.
             try withStatement("""
-                SELECT band, COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode),
-                    MAX(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V')
-                        OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END)
-                FROM qsos WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
-                GROUP BY band, COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode);
+                SELECT record_json FROM qsos WHERE deleted_at IS NULL
+                    AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\');
                 """) { statement in
-                bind(call, to: 1, in: statement)
-                var cells: Set<BandModeCell> = []
-                while sqlite3_step(statement) == SQLITE_ROW {
-                    let band = sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""
-                    let mode = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? ""
-                    cells.insert(BandModeCell(band: band, mode: mode, worked: true,
-                                             confirmed: sqlite3_column_int(statement, 2) == 1))
+                bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
+                let qsos: [QSO] = try decodeRows(statement)
+                var values: [String: (band: String, mode: String, confirmed: Bool)] = [:]
+                for qso in qsos where NormalLogCallsignIdentity.matches(qso.call, call) {
+                    let mode = qso.submode.isEmpty ? qso.mode : qso.submode
+                    let key = "\(qso.band)|\(mode)"
+                    let confirmed = [qso.qslReceived, qso.lotwReceived].contains { ["Y", "V"].contains($0.uppercased()) }
+                    values[key] = (qso.band, mode, confirmed || (values[key]?.confirmed ?? false))
                 }
-                return cells
+                return Set(values.values.map { BandModeCell(band: $0.band, mode: $0.mode, worked: true, confirmed: $0.confirmed) })
             }
         }
     }

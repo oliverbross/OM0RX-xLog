@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { workerRequest } from "../worker";
 import { CanonicalDraftFollower, intelligenceIdentity } from "./callsignIntelligenceContext";
-import { normalizedCall } from "./draftEnrichment";
+import { normalizedCall, sameNormalLogCall } from "./draftEnrichment";
 import { requestOperatorDraft } from "./operatorDraftTransport";
 import { connectOperatorDraftChanges, ownDraftUpdateWarnings } from "./operatorDraftWindows";
 import { connectLogbookChanges } from "./logbookWindows";
@@ -90,7 +90,7 @@ export function PreviousQSOsSurface({ request = requestDetachedPreviousQSOs }: {
         || !Number.isSafeInteger(item?.previous_confirmed_count) || item.previous_confirmed_count < 0
         || item.previous_confirmed_count > item.previous_count || !Array.isArray(item?.previous) || item.previous.length > 20
         || item.previous.length > item.previous_count
-        || item.previous.some((row: Contact) => !row || normalizedCall(row.call) !== call || typeof row.id !== "string"
+        || item.previous.some((row: Contact) => !row || !sameNormalLogCall(row.call, call) || typeof row.id !== "string"
           || typeof row.date !== "string" || !Number.isFinite(Date.parse(row.date))
           || [row.band, row.mode, row.rstSent, row.rstReceived, row.grid].some(value => typeof value !== "string") || typeof row.confirmed !== "boolean"))
         throw new Error("The local contact history does not match the shared callsign.");

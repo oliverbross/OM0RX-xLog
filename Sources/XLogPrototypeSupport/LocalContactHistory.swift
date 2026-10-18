@@ -37,7 +37,7 @@ enum LocalContactHistory {
                 let qsoAdif: Int? = adif == nil ? nil : (qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif)
                 let confirmed = ClusterContact(callsign: qso.call, band: qso.band, mode: mode,
                                                paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived).isConfirmed
-                if qso.call.uppercased() == normalizedCall {
+                if NormalLogCallsignIdentity.matches(qso.call, normalizedCall) {
                     previousCount += 1
                     if confirmed { previousConfirmedCount += 1 }
                     if lastGrid.isEmpty { lastGrid = qso.gridSquare }

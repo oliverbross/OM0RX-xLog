@@ -79,6 +79,25 @@ struct LiveClusterHistoryTests {
         #expect(history["last_dxcc_qso"] is NSNull)
     }
 
+    @Test("Portable operating suffixes share previous-QSO history without rewriting stored calls")
+    func portableCallHistory() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
+        try database.save(QSO(call: "UN7CFI", band: "15m", mode: "SSB", dxcc: 130))
+        try database.save(QSO(call: "UN7CFI/M", band: "20m", mode: "CW", dxcc: 130))
+        try database.save(QSO(call: "UN7CFI/4", band: "40m", mode: "CW", dxcc: 130))
+        try database.save(QSO(call: "DL/UN7CFI/P", band: "10m", mode: "CW", dxcc: 230))
+
+        let history = LocalContactHistory.project(rows: try database.historyRows(call: "UN7CFI/P", adif: 130),
+                                                  call: "UN7CFI/P", adif: 130)
+        #expect(history["previous_count"] as? Int == 2)
+        #expect((history["previous"] as? [[String: Any]])?.compactMap { $0["call"] as? String }.sorted() == ["UN7CFI", "UN7CFI/M"])
+        #expect(try database.previous(call: "UN7CFI/P").map(\.call).sorted() == ["UN7CFI", "UN7CFI/M"])
+        #expect(try database.previous(call: "UN7CFI").map(\.call).sorted() == ["UN7CFI", "UN7CFI/M"])
+        #expect(try database.bandModeMatrix(call: "UN7CFI/P").map(\.band).sorted() == ["15m", "20m"])
+    }
+
     @Test("Indexed candidates preserve full history and reflect saves and deletes immediately")
     func indexedCandidatesAndMutation() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

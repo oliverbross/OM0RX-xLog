@@ -7,9 +7,9 @@ import XLogPortableCore
 #endif
 @testable import XLogPrototypeSupport
 
-@Suite("Exact local duplicate warning")
+@Suite("Normal-log base callsign duplicate warning")
 struct DuplicateContactTests {
-    @Test("Latest matching contact is found beyond the previous page and preserves the full portable callsign")
+    @Test("Portable suffixes share history while stored calls and location variants remain exact")
     func completeHistoryMatch() throws {
         let fixture = try duplicateFixture()
         defer { fixture.clean() }
@@ -25,13 +25,18 @@ struct DuplicateContactTests {
         #expect(result["call"] as? String == "W1AW/P")
         #expect(result["band"] as? String == "20m")
         #expect(result["mode"] as? String == "FT8")
-        #expect(result["last_worked_at"] as? String == ISO8601DateFormatter().string(from: oldest.start))
+        #expect(result["last_worked_at"] as? String == ISO8601DateFormatter().string(from: oldest.start.addingTimeInterval(100)))
         #expect(try fixture.database.previous(call: "W1AW/P", limit: 25).allSatisfy { $0.id != oldest.id })
+        let complete = try fixture.database.previous(call: "W1AW/P", limit: 40)
+        #expect(complete.contains { $0.call == "W1AW" })
+        #expect(complete.contains { $0.call == "W1AW/P" })
         let latest = QSO(call: "W1AW/P", start: oldest.start.addingTimeInterval(200), band: "20m", mode: "FT8")
         try fixture.database.save(latest)
+        try fixture.database.save(QSO(call: "DL/W1AW/P", start: oldest.start.addingTimeInterval(300), band: "20m", mode: "FT8"))
+        try fixture.database.save(QSO(call: "W1AW/4", start: oldest.start.addingTimeInterval(400), band: "20m", mode: "FT8"))
         #expect(try fixture.database.latestWorkedContact(call: "W1AW/P", band: "20m", mode: "FT8")?.id == latest.id)
         try fixture.database.softDelete(latest)
-        #expect(try fixture.database.latestWorkedContact(call: "W1AW/P", band: "20m", mode: "FT8")?.id == oldest.id)
+        #expect(try fixture.database.latestWorkedContact(call: "W1AW/P", band: "20m", mode: "FT8")?.call == "W1AW")
     }
 
     @Test("The current logged edit is excluded and CAT aliases retain exact logging-mode intent")

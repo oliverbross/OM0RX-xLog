@@ -57,6 +57,16 @@ it("uses the shared logbook palette for contact facts and confirmation state", a
   expect((await screen.findByText("Worked")).classList.contains("previous-worked")).toBe(true);
 });
 
+it("accepts exact stored base calls for a portable callsign history", async () => {
+  current = { ...current, qso: { ...current.qso, call: "UN7CFI/P" } };
+  const request = reader();
+  request.mockImplementation(async (method) => method === "logbook_operator_draft" ? { draft: structuredClone(current) }
+    : { history: { ...history("UN7CFI/P").history, previous: [{ ...history("UN7CFI").history.previous[0], call: "UN7CFI" }] } });
+  render(<PreviousQSOsSurface request={request} />);
+  expect(await screen.findByText("JN88AA")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
 it("keeps all columns available in a horizontally scrolling narrow window", () => {
   const css = readFileSync(`${process.cwd()}/src/live/DetachedPreviousQSOsSurface.css`, "utf8");
   expect(css).toMatch(/\.app\.live\.detached-previous-qsos-app\s*\{[^}]*height:100dvh;[^}]*min-height:0;[^}]*overflow:hidden;/);

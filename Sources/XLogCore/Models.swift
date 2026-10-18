@@ -1,5 +1,26 @@
 import Foundation
 
+/// Identity used only by the normal log's history and duplicate views. Stored
+/// calls remain exact; location prefixes and numeric area suffixes stay distinct.
+public enum NormalLogCallsignIdentity {
+    public static let operatingSuffixes: Set<String> = ["P", "M", "MM", "AM", "QRP", "QRPP", "A", "B", "QTH"]
+
+    public static func base(_ value: String) -> String {
+        var normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        while let slash = normalized.lastIndex(of: "/") {
+            let suffix = String(normalized[normalized.index(after: slash)...])
+            guard operatingSuffixes.contains(suffix) else { break }
+            normalized = String(normalized[..<slash])
+        }
+        return normalized
+    }
+
+    public static func matches(_ lhs: String, _ rhs: String) -> Bool {
+        let left = base(lhs), right = base(rhs)
+        return !left.isEmpty && left == right
+    }
+}
+
 public struct QSO: Codable, Identifiable, Hashable, Sendable {
     public var id: UUID
     public var wavelogID: Int?
