@@ -143,7 +143,15 @@ async function exerciseSCP(item, baselineFields) {
   const importStart = lifecycle.length; await click("Import local file");
   const imported = await waitForLifecycle(importStart, frame => frame.request.method === "__acceptance_scp_import", "SCP import");
   assert.equal(imported.response.ok, true); assert.equal(imported.response.result.dataset.recordCount, 7);
-  const received = item.contacts[0].fields ?? {}; for (const [label, value] of Object.entries(received)) await fill(label, value);
+  const received = item.contacts[0].fields ?? {}, fillStart = frames.length;
+  for (const [label, value] of Object.entries(received)) await fill(label, value);
+  const expectedReceivedFields = item.contacts[0].receivedFieldValues ?? {};
+  if (Object.keys(expectedReceivedFields).length > 0) {
+    const filled = await waitForFrame(fillStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok &&
+      Object.entries(expectedReceivedFields).every(([id, value]) => frame.response.result.draft.fields.receivedExchangeFields?.[id] === value),
+    "authoritative pre-SCP exchange fields");
+    baselineFields = filled.response.result.draft.fields;
+  }
   const queryStart = frames.length; await fill("Contest callsign", "K1A");
   const query = await waitForFrame(queryStart, frame => frame.request.method === "contest_scp_query" && frame.response.ok, "SCP query");
   assert.equal(query.response.result.matches[0].callsign, "K1ABC");
