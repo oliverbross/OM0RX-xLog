@@ -220,6 +220,30 @@ struct WorkspaceLayoutTests {
         #expect(try reopened.workspaceLayout() == after)
     }
 
+    @Test("Contesting layouts have a separate persisted scope while Normal defaults remain byte compatible")
+    func moduleScopedPersistence() throws {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        #expect(try encoder.encode(WorkspaceLayoutDocument.defaults) ==
+                encoder.encode(WorkspaceLayoutDocument.defaults(for: .normalLogging)))
+        let contestDefaults = WorkspaceLayoutDocument.defaults(for: .contesting)
+        #expect(contestDefaults.presets[0].panels.first { $0.id == .logbook }?.placement == .canvas)
+        #expect(contestDefaults.presets[0].panels.first { $0.id == .bandMaps }?.placement == .canvas)
+
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), db = try LogbookDatabase(url: url)
+        let normal = try db.workspaceLayout(), contest = try db.workspaceLayout(scope: .contesting)
+        #expect(normal.document == .defaults)
+        #expect(contest.document == contestDefaults)
+        let changed = try db.applyWorkspaceLayout(activate(0), scope: .contesting)
+        #expect(changed.revision == 1)
+        #expect(try db.workspaceLayout() == normal)
+        db.close()
+
+        let reopened = try LogbookDatabase(url: url); defer { reopened.close() }
+        #expect(try reopened.workspaceLayout() == normal)
+        #expect(try reopened.workspaceLayout(scope: .contesting) == changed)
+    }
+
     @Test("Application mode and the exact Canvas layout survive reopening without rewriting panels")
     func modePersistence() throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }
@@ -415,6 +439,10 @@ struct WorkspaceLayoutTests {
                 "expectedRevision": snapshot["revision"]!, "action": "activatePreset", "presetID": "windowed"])
             #expect(result["ok"] as? Bool == true)
             #expect((result["result"] as? [String: Any])?["status"] as? String == "applied")
+            let contest = try await request("workspace_layout_load", ["scope": "contesting"])
+            let contestSnapshot = try #require((contest["result"] as? [String: Any])?["layout"] as? [String: Any])
+            #expect(contestSnapshot["revision"] as? Int == 0)
+            #expect(try await request("workspace_layout_load", ["scope": "unknown"])["ok"] as? Bool == false)
         } catch { try? await session.close(); throw error }
         try await session.close()
     }

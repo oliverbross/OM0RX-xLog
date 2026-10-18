@@ -1262,12 +1262,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("rotor_configuration_not_initialized", "Load rotor configuration before saving changes.")
                 } catch RotorConfigurationError.invalid { throw invalid() }
             case "workspace_layout_load":
-                try requireKeys(params, allowed: [])
+                try requireKeys(params, allowed: ["scope"])
+                let scope = try workspaceLayoutScope(params)
                 let generation = try editGeneration()
-                return ["layout": try scopedSnapshot(readyDatabase().workspaceLayout(), generation: generation)]
+                return ["layout": try scopedSnapshot(readyDatabase().workspaceLayout(scope: scope), generation: generation)]
             case "workspace_layout_apply":
-                try requireKeys(params, allowed: ["expectedRevision", "action", "presetID", "panel", "preset", "generation"],
+                try requireKeys(params, allowed: ["expectedRevision", "action", "presetID", "panel", "preset", "generation", "scope"],
                                 required: ["expectedRevision", "action", "presetID", "generation"])
+                let scope = try workspaceLayoutScope(params)
                 let generation = try editGeneration()
                 if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
                 _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
@@ -1276,7 +1278,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let mutation: WorkspaceLayoutMutation
                 do { mutation = try decode(params) } catch { throw invalid() }
                 do {
-                    let layout = try readyDatabase().applyWorkspaceLayout(mutation)
+                    let layout = try readyDatabase().applyWorkspaceLayout(mutation, scope: scope)
                     return ["status": "applied", "layout": try scopedSnapshot(layout, generation: generation)]
                 } catch WorkspaceLayoutError.conflict(let layout) {
                     return ["status": "conflict", "layout": try scopedSnapshot(layout, generation: generation)]
@@ -2039,6 +2041,12 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         guard let value = params[key] else { return nil }
         guard let text = value as? String, text.utf8.count <= max else { throw invalid() }
         return text
+    }
+
+    private func workspaceLayoutScope(_ params: [String: Any]) throws -> WorkspaceLayoutScope {
+        guard let raw = try string(params, "scope", max: 32) else { return .normalLogging }
+        guard let scope = WorkspaceLayoutScope(rawValue: raw) else { throw invalid() }
+        return scope
     }
 
     private func integer(_ params: [String: Any], _ key: String, default fallback: Int, range: ClosedRange<Int>) throws -> Int {

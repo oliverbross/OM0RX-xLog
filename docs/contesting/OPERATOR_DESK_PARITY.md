@@ -8,6 +8,8 @@ Use the familiar contest-sw window composition and information hierarchy with xL
 
 The pinned upstream [desk screenshot](https://github.com/oliverbross/contest-sw/blob/7c8b499225a73f7f8f792246881bd7aefc05452f/pic/main.png) was visually inspected. It places a vertical band map on the left, cluster and Check Partial above the log, compact entry and macro controls below the log, and statistics, rate and rotor windows on the right. This is the starting preset, not a restriction on rearrangement. The pinned [entry/View-menu reference](https://github.com/oliverbross/contest-sw/blob/7c8b499225a73f7f8f792246881bd7aefc05452f/pic/view_menu.png) shows callsign/exchange fields, Run/S&P, band/mode choices, function-key macros and operator actions. It is an older upstream screenshot; current source determines available controls and behavior.
 
+The pinned `not1mm/__main__.py` source at that revision creates the central Entry surface plus 11 dock windows: Band Map, Check Partial, Rate, Statistics, Group Chat, DXCC, Zone, Rotator, VFO, Log and Cluster. This is the complete initial working-window inventory; dialogs and later xLog extensions are tracked separately. Canvas and native-window completion must account for all 12 surfaces even when an early functional slice exposes fewer panels.
+
 ## Reuse and panel mapping
 
 | Upstream working window | xLog reuse | Contest-specific addition |

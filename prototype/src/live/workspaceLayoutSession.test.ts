@@ -275,3 +275,15 @@ it("retains intent after a mismatched applied response or failed transport", asy
     expect(session.getSnapshot().pending).not.toBeNull(); expect(session.getSnapshot().error).not.toBe("");
   }
 });
+it("qualifies contest layout reads and writes without changing legacy Normal request bytes", async () => {
+  const normalRequest = vi.fn().mockResolvedValueOnce({ layout: fixture() });
+  const normal = new WorkspaceLayoutSession(normalRequest); await normal.refresh();
+  expect(normalRequest).toHaveBeenCalledWith("workspace_layout_load");
+
+  const contestRequest = vi.fn().mockResolvedValueOnce({ layout: fixture() })
+    .mockResolvedValueOnce({ status: "applied", layout: applied(fixture()) });
+  const contest = new WorkspaceLayoutSession(contestRequest, () => {}, null, "contesting");
+  await contest.refresh(); await contest.apply(change);
+  expect(contestRequest.mock.calls[0]).toEqual(["workspace_layout_load", { scope: "contesting" }]);
+  expect(contestRequest.mock.calls[1][1]).toMatchObject({ scope: "contesting", action: "activatePreset", presetID: "windowed" });
+});

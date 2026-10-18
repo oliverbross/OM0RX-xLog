@@ -3,6 +3,7 @@ const version1PanelIDs = ["active-qso", "log-qso", "logbook", "callsign-intellig
   "propagation", "settings", "sync", "awards", "chaser-dx"] as const;
 export const workspacePanelIDs = [...version1PanelIDs, "spot-history", "monitor"] as const;
 export type WorkspacePanelID = typeof workspacePanelIDs[number];
+export type WorkspaceLayoutScope = "normal_logging" | "contesting";
 export type LayoutRect = { x: number; y: number; width: number; height: number };
 export type PanelLayout = { id: WorkspacePanelID; placement: "canvas" | "window" | "hidden"; rect: LayoutRect; z: number };
 export type LayoutPreset = { id: string; name: string; width: number; height: number; locked: boolean; snap: boolean; panels: PanelLayout[] };
@@ -123,7 +124,8 @@ export class WorkspaceLayoutSession {
   private again = false;
   private epoch = 0;
   private recovering = false;
-  constructor(private request: Request, private journal: (value: LayoutJournal | null) => void = () => {}, pending: LayoutJournal | null = null) {
+  constructor(private request: Request, private journal: (value: LayoutJournal | null) => void = () => {}, pending: LayoutJournal | null = null,
+    private scope: WorkspaceLayoutScope = "normal_logging") {
     this.state = { snapshot: null, pending: clone(pending), conflict: null, saving: false, error: "", workspaceChanged: false };
   }
   getSnapshot = () => this.state;
@@ -153,7 +155,9 @@ export class WorkspaceLayoutSession {
         this.again = false;
         const epoch = this.epoch;
         try {
-          const value = checkedLayout((await this.request("workspace_layout_load")).layout);
+          const response = this.scope === "normal_logging" ? await this.request("workspace_layout_load")
+            : await this.request("workspace_layout_load", { scope: this.scope });
+          const value = checkedLayout(response.layout);
           if (epoch === this.epoch) this.accept(value);
         } catch (cause) { if (epoch === this.epoch) this.update({ error: cause instanceof Error ? cause.message : "Shared layout unavailable." }); }
       } while (this.again && !this.state.saving && !this.recovering);
@@ -184,6 +188,7 @@ export class WorkspaceLayoutSession {
     this.epoch++; this.update({ saving: true, error: "", conflict: null });
     try {
       const response = await this.request("workspace_layout_apply", { ...pending.change,
+        ...(this.scope === "normal_logging" ? {} : { scope: this.scope }),
         expectedRevision: pending.base.revision, generation: pending.base.generation });
       if (response.status === "workspace_changed" && generation(response.generation) && !sameGeneration(response.generation, pending.base.generation)) {
         this.update({ workspaceChanged: true, error: "The workspace was restored or replaced. Review the layout before continuing." });
@@ -207,7 +212,9 @@ export class WorkspaceLayoutSession {
     this.recovering = true; this.epoch++;
     try {
       // A failed read must reject this action, never reuse a cached base.
-      this.accept(checkedLayout((await this.request("workspace_layout_load")).layout));
+      const response = this.scope === "normal_logging" ? await this.request("workspace_layout_load")
+        : await this.request("workspace_layout_load", { scope: this.scope });
+      this.accept(checkedLayout(response.layout));
       const { pending, snapshot, conflict, workspaceChanged } = this.state;
       if (!pending) return;
       if (!snapshot || conflict || workspaceChanged || !sameGeneration(snapshot.generation, pending.base.generation) ||
@@ -221,7 +228,9 @@ export class WorkspaceLayoutSession {
     this.recovering = true; this.epoch++;
     try {
       // An explicit discard adopts a verified fresh snapshot; it performs no write.
-      const value = checkedLayout((await this.request("workspace_layout_load")).layout);
+      const response = this.scope === "normal_logging" ? await this.request("workspace_layout_load")
+        : await this.request("workspace_layout_load", { scope: this.scope });
+      const value = checkedLayout(response.layout);
       this.journal(null);
       this.update({ snapshot: value, pending: null, conflict: null, workspaceChanged: false, error: "" });
     } finally { this.recovering = false; if (this.again) void this.refresh(); }
