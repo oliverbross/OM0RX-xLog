@@ -139,22 +139,27 @@ const expectedMacroText = (macro, item, contact, index) => {
     MYCALL: item.station.call, EXCH: item.report ? `${item.report} ${sent}` : sent,
     QRZ: `TU ${item.station.call} QRZ`, QSOB4: "QSO B4" }[macro];
 };
-async function exerciseDeclarativeSCP(item) {
+async function exerciseSCP(item, baselineFields) {
   const importStart = lifecycle.length; await click("Import local file");
   const imported = await waitForLifecycle(importStart, frame => frame.request.method === "__acceptance_scp_import", "SCP import");
   assert.equal(imported.response.ok, true); assert.equal(imported.response.result.dataset.recordCount, 7);
-  const received = item.contacts[0].fields; for (const [label, value] of Object.entries(received)) await fill(label, value);
+  const received = item.contacts[0].fields ?? {}; for (const [label, value] of Object.entries(received)) await fill(label, value);
   const queryStart = frames.length; await fill("Contest callsign", "K1A");
-  const query = await waitForFrame(queryStart, frame => frame.request.method === "contest_scp_query" && frame.response.ok, "declarative SCP query");
+  const query = await waitForFrame(queryStart, frame => frame.request.method === "contest_scp_query" && frame.response.ok, "SCP query");
   assert.equal(query.response.result.matches[0].callsign, "K1ABC");
   const selectStart = frames.length;
   await browser(["eval", `(() => { const root=document.querySelector('.contest-scp-matches'); const button=[...root.querySelectorAll('button')].find(x=>x.textContent.includes('K1ABC')); if(!button) throw new Error('Missing SCP K1ABC candidate'); button.click(); })()`]);
-  const selected = await waitForFrame(selectStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "K1ABC", "declarative SCP selection");
-  assert.deepEqual(selected.response.result.draft.fields.receivedExchangeFields, item.contacts[0].receivedFieldValues);
+  const selected = await waitForFrame(selectStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "K1ABC", "SCP selection");
+  const preservedKeys = ["sentReport", "receivedReport", "sentExchange", "receivedExchange", "frequencyHz", "band"];
+  const assertPreserved = fields => { for (const key of preservedKeys) assert.deepEqual(fields[key], baselineFields[key], `SCP changed ${key}.`); };
+  assertPreserved(selected.response.result.draft.fields);
+  assert.deepEqual(selected.response.result.draft.fields.sentExchangeFields, baselineFields.sentExchangeFields);
+  if (item.declarative) assert.deepEqual(selected.response.result.draft.fields.receivedExchangeFields, item.contacts[0].receivedFieldValues);
   observations.push({ case: item.caseKey, phase: "real-scp-selection", query: query.response.result.normalizedQuery,
     selected: selected.response.result.draft.fields.callsign, receivedExchangeFields: selected.response.result.draft.fields.receivedExchangeFields });
   const clearStart = frames.length; await browser(["fill", ".contest-entry-fields input[aria-label='Contest callsign']", "X"]); await browser(["press", "Backspace"]);
-  await waitForFrame(clearStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "", "clear SCP-selected draft");
+  const cleared = await waitForFrame(clearStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "", "clear SCP-selected draft");
+  assertPreserved(cleared.response.result.draft.fields);
   for (const label of Object.keys(received)) await fill(label, "");
 }
 
@@ -458,7 +463,7 @@ async function createCase(item) {
     await waitForFrame(modeStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.mode === item.mode,
       `authoritative ${item.mode} mode`);
   }
-  if (harnessScope === "declarative" && item === cases[0]) await exerciseDeclarativeSCP(item);
+  if (item === cases[0]) await exerciseSCP(item, created.response.result.draft.fields);
   for (const [index, contact] of item.contacts.entries()) {
     const style = contact.style;
     await select("Operating style", style); await fill("Frequency Hz", String(contact.frequency)); await select("Band", contact.band);
@@ -473,7 +478,7 @@ async function createCase(item) {
     await ensureArmed(item.name);
     const callOutputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
     const callMacro = style === "run" ? "HISCALL" : "MYCALL";
-    const callMacros = item.declarative && style === "run" ? ["HISCALL", "EXCH"] : [callMacro];
+    const callMacros = style === "run" ? ["HISCALL", "EXCH"] : [callMacro];
     const callUntil = Date.now() + 10_000; while (simulatedOutput.slice(callOutputStart).length < callMacros.length && Date.now() <= callUntil) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
     assert.deepEqual(simulatedOutput.slice(callOutputStart).map(entry => entry.macro), callMacros, `Call-first output did not settle for ${item.name}/${style}.`);
     if (item.declarative) for (const [offset, macro] of callMacros.entries())
@@ -514,17 +519,11 @@ async function createCase(item) {
     const commitStart = frames.length;
     if (exercisesInvalidExchange) {
       const outputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
-      const macros = item.declarative && style === "run" ? ["HISCALL", "EXCH"] : [callMacro];
+      const macros = style === "run" ? ["HISCALL", "EXCH"] : [callMacro];
       const until = Date.now() + 10_000; while (simulatedOutput.slice(outputStart).length < macros.length && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
       assert.deepEqual(simulatedOutput.slice(outputStart).map(entry => entry.macro), macros, `Rearmed call-first output did not settle for ${item.name}/${style}.`);
       if (item.declarative) for (const [offset, macro] of macros.entries())
         assert.equal(simulatedOutput[outputStart + offset].text, expectedMacroText(macro, item, contact, index));
-      await waitEnabledButton("Disarm");
-    }
-    if (style === "run" && !item.declarative) {
-      const outputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
-      const until = Date.now() + 10_000; while (!simulatedOutput.slice(outputStart).some(entry => entry.macro === "EXCH") && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
-      assert.equal(simulatedOutput.slice(outputStart).some(entry => entry.macro === "EXCH"), true, `Run exchange did not settle for ${item.name} ${index}.`);
       await waitEnabledButton("Disarm");
     }
     const settleOutputStart = simulatedOutput.length;
