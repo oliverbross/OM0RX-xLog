@@ -195,6 +195,69 @@ final class ContestStructuredExchangeStoreTests: XCTestCase {
         XCTAssertEqual(next.draft.exchange.sentFields["serial"]?.normalized, "002")
     }
 
+    func testStructuredSerialReservedAndUncertainEditsPreserveStationFieldsAndAggregate() async throws {
+        let store = try SQLiteContestStore(
+            databaseURL: databaseURL(), rules: ContestRuleRegistry([StructuredSerialStoreFixtureRule()]))
+        let session = session(rule: StructuredSerialStoreFixtureRule.identity)
+        _ = try await store.createSession(
+            session, metadata: .init(name: "Structured serial edits", operatorCallsign: "OM0RX", operatorCategory: "single-op"),
+            initialDraft: serialDraft(revision: 1, sentSerial: nil),
+            scope: mutation(60, revision: 0, digest: "serial-edit-create", draft: draftID), committedAt: date)
+        let reserved = try await store.reserveSerial(
+            reservationID: fixedUUID(60), serialScope: .session, scopeValue: "",
+            scope: mutation(61, revision: 1, digest: "serial-edit-reserve", draft: draftID),
+            committedAt: date.addingTimeInterval(1))
+        XCTAssertEqual(reserved.draft.exchange.rawSent, "Alice nt 001")
+        XCTAssertEqual(reserved.draft.exchange.normalizedSent, "ALICE NT 001")
+        XCTAssertEqual(reserved.draft.exchange.sentFields["name"]?.normalized, "ALICE")
+        XCTAssertEqual(reserved.draft.exchange.sentFields["serial"]?.normalized, "001")
+
+        let edited = serialEdit(reserved.draft, callsign: "DL1AAA")
+        let applied = try await store.updateDraft(
+            edited, scope: mutation(62, revision: 2, digest: "serial-edit-valid", draft: draftID),
+            committedAt: date.addingTimeInterval(2))
+        XCTAssertEqual(applied.draft.exchange.rawSent, "Alice nt 001")
+        XCTAssertEqual(applied.draft.exchange.sentFields["name"]?.normalized, "ALICE")
+
+        for invalid in [
+            serialEdit(applied.draft, rawSent: "001", normalizedSent: "001"),
+            serialEdit(applied.draft, sentName: "MALLORY", rawSent: "MALLORY nt 001", normalizedSent: "MALLORY NT 001"),
+        ] {
+            do {
+                _ = try await store.updateDraft(
+                    invalid, scope: mutation(63, revision: 3, digest: "serial-edit-forged-\(invalid.exchange.rawSent)", draft: draftID),
+                    committedAt: date.addingTimeInterval(3))
+                XCTFail("Expected reservation-preserving edit rejection")
+            } catch let error as ContestRepositoryError {
+                XCTAssertEqual(error, .invalidSerialTransition)
+            }
+        }
+
+        _ = try await store.transitionSerial(
+            reservationID: reserved.reservation.id, to: .transmitted,
+            scope: mutation(64, revision: 3, digest: "serial-edit-transmitted", draft: draftID),
+            committedAt: date.addingTimeInterval(4))
+        let transmittedDraft = try await store.draft(sessionID: sessionID, id: draftID)
+        let transmittedEdit = serialEdit(transmittedDraft, callsign: "VE3AAA")
+        let transmittedApplied = try await store.updateDraft(
+            transmittedEdit, scope: mutation(65, revision: 4, digest: "serial-edit-transmitted-valid", draft: draftID),
+            committedAt: date.addingTimeInterval(5))
+        XCTAssertEqual(transmittedApplied.draft.exchange.rawSent, "Alice nt 001")
+        XCTAssertEqual(transmittedApplied.draft.exchange.sentFields["serial"]?.normalized, "001")
+
+        _ = try await store.transitionSerial(
+            reservationID: reserved.reservation.id, to: .uncertain,
+            scope: mutation(66, revision: 5, digest: "serial-edit-uncertain", draft: draftID),
+            committedAt: date.addingTimeInterval(6))
+        let uncertainDraft = try await store.draft(sessionID: sessionID, id: draftID)
+        let uncertainEdit = serialEdit(uncertainDraft, callsign: "VE3AAA")
+        let uncertainApplied = try await store.updateDraft(
+            uncertainEdit, scope: mutation(67, revision: 6, digest: "serial-edit-uncertain-valid", draft: draftID),
+            committedAt: date.addingTimeInterval(7))
+        XCTAssertEqual(uncertainApplied.draft.exchange.rawSent, "Alice nt 001")
+        XCTAssertEqual(uncertainApplied.draft.exchange.sentFields["serial"]?.normalized, "001")
+    }
+
     func testExactModeValidationRejectsLowercaseV1AndV2Drafts() async throws {
         let wwURL = databaseURL()
         let wwStore = try SQLiteContestStore(databaseURL: wwURL)
@@ -307,6 +370,25 @@ final class ContestStructuredExchangeStoreTests: XCTestCase {
                             receivedFields: ["serial": .init(raw: "7", normalized: "7")]),
             entity: usa, operatorCallsign: "OM0RX", stationLocation: "JN98",
             provenance: .init(source: .operatorEntry))
+    }
+
+    private func serialEdit(_ draft: ContestDraftSnapshot, callsign: String? = nil,
+                            sentName: String? = nil, rawSent: String? = nil,
+                            normalizedSent: String? = nil) -> ContestDraftSnapshot {
+        var sentFields = draft.exchange.sentFields
+        if let sentName { sentFields["name"] = .init(raw: sentName, normalized: sentName) }
+        return ContestDraftSnapshot(
+            id: draft.id, sessionID: draft.sessionID, revision: draft.revision + 1,
+            updatedAt: draft.updatedAt.addingTimeInterval(1), callsign: callsign ?? draft.callsign,
+            band: draft.band, mode: draft.mode, frequencyHz: draft.frequencyHz,
+            rstSent: draft.rstSent, rstReceived: draft.rstReceived,
+            exchange: .init(rawSent: rawSent ?? draft.exchange.rawSent,
+                            normalizedSent: normalizedSent ?? draft.exchange.normalizedSent,
+                            rawReceived: draft.exchange.rawReceived,
+                            normalizedReceived: draft.exchange.normalizedReceived,
+                            sentFields: sentFields, receivedFields: draft.exchange.receivedFields),
+            entity: draft.entity, operatorCallsign: draft.operatorCallsign,
+            stationLocation: draft.stationLocation)
     }
 
     private func copy(_ qso: ContestQSO, receivedName: String, receivedState: String) -> ContestQSO {

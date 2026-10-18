@@ -151,6 +151,15 @@ public actor SQLiteContestStore: ContestDurableRepository {
         try database.readTransaction { try sessionReadSnapshotInsideTransaction(id: id) }
     }
 
+    public func sessionDefinitionSnapshot(id: UUID) throws -> ContestSessionDefinitionSnapshot {
+        try database.readTransaction {
+            let session = try openSession(id: id)
+            return ContestSessionDefinitionSnapshot(
+                session: session,
+                canonicalDefinitionData: try canonicalDefinitionData(for: session.session.rule))
+        }
+    }
+
     public func sessionPageSnapshot(id: UUID, offset: Int, limit: Int) throws -> ContestSessionPageSnapshot {
         guard offset >= 0, limit > 0, limit <= 1_000 else { throw ContestStoreError.invalidPage }
         return try database.readTransaction {
@@ -309,7 +318,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
             let active = try activeReservations(sessionID: scope.sessionID, draftID: draft.id)
             try validateDraft(draft, for: before.session, allowsAllocatedSerial: !active.isEmpty)
             try validateReservationPreservingEdit(from: oldDraft, to: draft, reservations: active,
-                                                   resolvedSerial: resolvedSerial)
+                                                   resolvedSerial: resolvedSerial,
+                                                   entry: rule.metadata.entry)
             try database.execute("UPDATE drafts SET revision = ?, snapshot = ?, updated_at = ? WHERE session_id = ? AND id = ?",
                                  [.uint(next), .blob(try encode(draft)), .double(draft.updatedAt.timeIntervalSince1970),
                                   .text(scope.sessionID.uuidString), .text(draft.id.uuidString)])
@@ -402,6 +412,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             )
             try bindSerialToDraft(sessionID: scope.sessionID, draftID: draftID, reservation: reservation,
                                   allocatedFieldID: serialFieldID,
+                                  entry: rule.metadata.entry,
                                   revision: next, updatedAt: committedAt)
             try advanceSession(scope.sessionID, to: next)
             let receipt = ContestMutationReceipt(requestID: scope.requestID, payloadDigest: scope.payloadDigest,
@@ -791,8 +802,11 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let descriptorIssues = entry.structuralIssues(mode: qso.mode, rstSent: qso.rstSent,
                                                       rstReceived: qso.rstReceived,
                                                       exchange: qso.exchange, allowIncomplete: true)
-        let exchanges = [qso.exchange.rawSent, qso.exchange.normalizedSent,
-                         qso.exchange.rawReceived, qso.exchange.normalizedReceived]
+        let aggregateMaximum: ([ContestExchangeFieldDescriptor]) -> Int = { fields in
+            fields.reduce(max(0, fields.count - 1)) { $0 + $1.maximumUTF8Bytes }
+        }
+        let sentExchangeBound = entry.version == .v2 ? aggregateMaximum(entry.exchange.sentFields) : 64
+        let receivedExchangeBound = entry.version == .v2 ? aggregateMaximum(entry.exchange.receivedFields) : 64
         let reportBound = entry.modeProfile(for: qso.mode)?.report.maximumUTF8Bytes
         let valid = validCallsign(qso.callsign) &&
             rule.metadata.supportedBands.contains(qso.band) && qso.band == qso.band.lowercased() &&
@@ -800,7 +814,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
             qso.frequencyHz > 0 && qso.frequencyHz <= 100_000_000_000 &&
             qso.rstSent.utf8.count <= (reportBound ?? 0) &&
             qso.rstReceived.utf8.count <= (reportBound ?? 0) && descriptorIssues.isEmpty &&
-            exchanges.allSatisfy { $0.utf8.count <= 64 } &&
+            qso.exchange.rawSent.utf8.count <= sentExchangeBound && qso.exchange.normalizedSent.utf8.count <= sentExchangeBound &&
+            qso.exchange.rawReceived.utf8.count <= receivedExchangeBound && qso.exchange.normalizedReceived.utf8.count <= receivedExchangeBound &&
             validCallsign(qso.operatorCallsign) && session.station.operatorCallsigns.contains(qso.operatorCallsign) &&
             qso.stationLocation.utf8.count <= 128 && qso.entity.map(validEntity) != false &&
             qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite &&
@@ -934,6 +949,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
     private func bindSerialToDraft(sessionID: UUID, draftID: UUID,
                                    reservation: ContestSerialReservation,
                                    allocatedFieldID: String?,
+                                   entry: ContestEntryDescriptor,
                                    revision: UInt64, updatedAt: Date) throws {
         let old = try draft(sessionID: sessionID, id: draftID)
         let session = try openSession(id: sessionID).session
@@ -945,8 +961,14 @@ public actor SQLiteContestStore: ContestDurableRepository {
             sentFields[allocatedFieldID] = .init(raw: reservation.transmittedText,
                                                  normalized: reservation.transmittedText)
         }
-        let exchange = ContestExchangeSnapshot(rawSent: reservation.transmittedText,
-                                               normalizedSent: reservation.transmittedText,
+        let rawSent = allocatedFieldID == nil ? reservation.transmittedText : entry.exchange.sentFields.compactMap {
+            sentFields[$0.id]?.raw
+        }.filter { !$0.isEmpty }.joined(separator: " ")
+        let normalizedSent = allocatedFieldID == nil ? reservation.transmittedText : entry.exchange.sentFields.compactMap {
+            sentFields[$0.id]?.normalized
+        }.filter { !$0.isEmpty }.joined(separator: " ")
+        let exchange = ContestExchangeSnapshot(rawSent: rawSent,
+                                               normalizedSent: normalizedSent,
                                                rawReceived: old.exchange.rawReceived,
                                                normalizedReceived: old.exchange.normalizedReceived,
                                                sentFields: sentFields,
@@ -966,7 +988,8 @@ public actor SQLiteContestStore: ContestDurableRepository {
     private func validateReservationPreservingEdit(from old: ContestDraftSnapshot,
                                                    to updated: ContestDraftSnapshot,
                                                     reservations: [ContestSerialReservation],
-                                                    resolvedSerial: ContestResolvedSerialRequirement) throws {
+                                                    resolvedSerial: ContestResolvedSerialRequirement,
+                                                    entry: ContestEntryDescriptor) throws {
         for reservation in reservations {
             guard resolvedSerial.requirement == .requiredForCommit,
                   resolvedSerial.allowedScopes.contains(reservation.scope) else {
@@ -981,11 +1004,23 @@ public actor SQLiteContestStore: ContestDurableRepository {
                       updatedValue.normalized == reservation.transmittedText else {
                     throw ContestRepositoryError.invalidSerialTransition
                 }
-            }
-            guard updated.exchange.rawSent == reservation.transmittedText,
-                  updated.exchange.normalizedSent == reservation.transmittedText,
-                  updated.exchange.sentFields == old.exchange.sentFields else {
-                throw ContestRepositoryError.invalidSerialTransition
+                let rawAggregate = entry.exchange.sentFields.compactMap {
+                    updated.exchange.sentFields[$0.id]?.raw
+                }.filter { !$0.isEmpty }.joined(separator: " ")
+                let normalizedAggregate = entry.exchange.sentFields.compactMap {
+                    updated.exchange.sentFields[$0.id]?.normalized
+                }.filter { !$0.isEmpty }.joined(separator: " ")
+                guard updated.exchange.sentFields == old.exchange.sentFields,
+                      updated.exchange.rawSent == rawAggregate,
+                      updated.exchange.normalizedSent == normalizedAggregate else {
+                    throw ContestRepositoryError.invalidSerialTransition
+                }
+            } else {
+                guard updated.exchange.rawSent == reservation.transmittedText,
+                      updated.exchange.normalizedSent == reservation.transmittedText,
+                      updated.exchange.sentFields == old.exchange.sentFields else {
+                    throw ContestRepositoryError.invalidSerialTransition
+                }
             }
             switch reservation.scope {
             case .session:
@@ -1132,8 +1167,11 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                                       exchange: draft.exchange, allowIncomplete: true)
         let ruleDraftIssues = rule.validateDraft(draft, in: session)
         let reportBound = entry.modeProfile(for: draft.mode)?.report.maximumUTF8Bytes
-        let exchangeValues = [draft.exchange.rawSent, draft.exchange.normalizedSent,
-                              draft.exchange.rawReceived, draft.exchange.normalizedReceived]
+        let aggregateMaximum: ([ContestExchangeFieldDescriptor]) -> Int = { fields in
+            fields.reduce(max(0, fields.count - 1)) { $0 + $1.maximumUTF8Bytes }
+        }
+        let sentExchangeBound = entry.version == .v2 ? aggregateMaximum(entry.exchange.sentFields) : 64
+        let receivedExchangeBound = entry.version == .v2 ? aggregateMaximum(entry.exchange.receivedFields) : 64
         guard draft.callsign.utf8.count <= 32,
               draft.callsign.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "/" }),
               rule.metadata.supportedBands.contains(draft.band), draft.band == draft.band.lowercased(),
@@ -1141,7 +1179,10 @@ public actor SQLiteContestStore: ContestDurableRepository {
               draft.rstSent.utf8.count <= (reportBound ?? 0),
               draft.rstReceived.utf8.count <= (reportBound ?? 0), descriptorIssues.isEmpty,
               !ruleDraftIssues.contains(where: { $0.severity == .error }),
-              exchangeValues.allSatisfy({ $0.utf8.count <= 64 }),
+              draft.exchange.rawSent.utf8.count <= sentExchangeBound,
+              draft.exchange.normalizedSent.utf8.count <= sentExchangeBound,
+              draft.exchange.rawReceived.utf8.count <= receivedExchangeBound,
+              draft.exchange.normalizedReceived.utf8.count <= receivedExchangeBound,
               validCallsign(draft.operatorCallsign), session.station.operatorCallsigns.contains(draft.operatorCallsign),
               draft.stationLocation.utf8.count <= 128,
               draft.updatedAt.timeIntervalSinceReferenceDate.isFinite,

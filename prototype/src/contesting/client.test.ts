@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateCreateInput, validateDraftFields } from "./client";
 import type { HistorySelection } from "./contestCallHistory";
-import type { ContestDraftFields, ContestOperatorCapability, ContestRequest, ContestRuleMetadata, ContestScoreSummary, ContestSessionSummary } from "./types";
+import type { ContestDraftFields, ContestFullQSO, ContestOperatorCapability, ContestRequest, ContestRuleMetadata, ContestScoreSummary, ContestSessionSummary } from "./types";
 
 const capability: ContestOperatorCapability = { version: 1, auditDigest: "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e", policy: "simulated-run-sp-v1",
   output: "simulation-only", styles: ["run", "search-and-pounce"],
@@ -11,6 +11,20 @@ const rule: ContestRuleMetadata = { identity: { id: "cq-ww-cw", version: "1.0.0-
     report: { format: "cwRST", defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3 },
     exchange: { sent: "cqZone", received: "cqZone", sentDefault: "stationSnapshot", adifFields: "none" }, serial: { requirement: "none", allowedScopes: [] } },
   referenceDataVersion: "cty-2026.10", sourceVerification: "verified", sourceNote: "Checked", operatorCapability: capability };
+const declarativeDigest = "a".repeat(64);
+const declarativeRule: ContestRuleMetadata = { identity: { id: "ten-ten-fall-phone", version: "1.0.0", edition: "source-compatible", sourceRevision: declarativeDigest },
+  displayName: "10-10 Fall Phone", mode: "SSB", entryDescriptorVersion: 2, supportedBands: ["10m"], supportedModes: ["SSB", "AM", "FM"],
+  entry: { version: 2, mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", cabrilloFormatterVersion: "declarative-archive-1",
+    cabrilloProjectionFormatterVersion: "declarative-archive-1", report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 },
+    exchange: { sent: "structured", received: "structured", sentDefault: "stationFields", adifFields: "exchangeStrings",
+      sentFields: [{ id: "member", label: "10-10 number", acceptedKinds: ["nonnegativeInteger"], required: true, maximumUTF8Bytes: 8, adifField: "STX" },
+        { id: "qth", label: "QTH", acceptedKinds: ["locationText"], required: true, maximumUTF8Bytes: 32, adifField: "MY_STATE" }],
+      receivedFields: [{ id: "member", label: "10-10 number", acceptedKinds: ["nonnegativeInteger"], required: true, maximumUTF8Bytes: 8, adifField: "SRX" },
+        { id: "qth", label: "QTH", acceptedKinds: ["locationText"], required: true, maximumUTF8Bytes: 32, adifField: "STATE" }] },
+    serial: { requirement: "none", allowedScopes: [] }, modeProfiles: ["SSB", "AM", "FM"].map(mode => ({ mode: mode as "SSB" | "AM" | "FM", adifMode: mode as "SSB" | "AM" | "FM", adifSubmode: null, cabrilloQSOType: "PH" as const,
+      report: { format: "none" as const, defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 } })), scorePolicy: "pointsOnly" },
+  referenceDataVersion: "cty-2026.10", sourceVerification: "provisional", sourceNote: "Immutable operator archive",
+  declarativeDefinition: { definitionDigest: declarativeDigest, immutablePerSession: true, exportPurpose: "operatorArchive", submissionReady: false } };
 const session: ContestSessionSummary = { sessionID: "session-1", workspaceGeneration: "generation-1", revision: 7, name: "WW", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T00:00:00Z" };
 const fields: ContestDraftFields = { callsign: "K1ABC", sentReport: "599", sentExchange: "15", receivedReport: "599", receivedExchange: "05", frequencyHz: 14025000, band: "20m", mode: "CW" };
 function draft(revision = 8) { return { draftID: "draft-1", sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision, fields, reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear" as const, reason: "Clear" },
@@ -25,6 +39,114 @@ function ssbSession(): ContestSessionSummary {
 }
 
 describe("ContestClient", () => {
+  it("validates declarative QSO reads, corrections, and deletions against each session descriptor", async () => {
+    const field = (id: string, kinds: string[], maximumUTF8Bytes = 32) => ({ id, label: id, acceptedKinds: kinds,
+      required: true, maximumUTF8Bytes, adifField: null });
+    const variant = (id: string, sentFields: ReturnType<typeof field>[], receivedFields: ReturnType<typeof field>[], serial: boolean): ContestRuleMetadata => {
+      const value = structuredClone(declarativeRule) as any;
+      value.identity = { id, version: "1.0.0", edition: "archive", sourceRevision: declarativeDigest };
+      value.displayName = id; value.mode = "CW"; value.supportedBands = ["40m"]; value.supportedModes = ["CW"];
+      value.entry = { ...value.entry, mode: "CW", adifMode: "CW", cabrilloQSOType: "CW",
+        report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 },
+        exchange: { ...value.entry.exchange, sentFields, receivedFields },
+        serial: serial ? { requirement: "requiredForCommit", allowedScopes: ["session"] } : { requirement: "none", allowedScopes: [] },
+        modeProfiles: [{ mode: "CW", adifMode: "CW", adifSubmode: null, cabrilloQSOType: "CW",
+          report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 } }] };
+      return value;
+    };
+    const cases = [
+      { rule: declarativeRule, band: "10m", mode: "AM", sent: { member: "0", qth: "NEW ZEALAND" },
+        received: { member: "123", qth: "NEW YORK" }, sentAggregate: "0 NEW ZEALAND", receivedAggregate: "123 NEW YORK" },
+      { rule: variant("cwt", [field("name", ["operatorName"]), field("member-or-location", ["nonnegativeInteger", "locationText"])],
+          [field("name", ["operatorName"]), field("member-or-location", ["nonnegativeInteger", "locationText"])], false),
+        band: "40m", mode: "CW", sent: { name: "OLIVER", "member-or-location": "NT" },
+        received: { name: "AL", "member-or-location": "123" }, sentAggregate: "OLIVER NT", receivedAggregate: "AL 123" },
+      { rule: variant("cw-open", [field("serial", ["serialNumber"], 8), field("name", ["operatorName"])],
+          [field("serial", ["serialNumber"], 8), field("name", ["operatorName"])], true),
+        band: "40m", mode: "CW", sent: { serial: "001", name: "OLIVER" }, received: { serial: "042", name: "AL" },
+        sentAggregate: "001 OLIVER", receivedAggregate: "042 AL" },
+      { rule: variant("icwc-mst", [field("name", ["operatorName"]), field("serial", ["serialNumber"], 8)],
+          [field("name", ["operatorName"]), field("serial", ["serialNumber"], 8)], true),
+        band: "40m", mode: "CW", sent: { name: "OLIVER", serial: "001" }, received: { name: "AL", serial: "042" },
+        sentAggregate: "OLIVER 001", receivedAggregate: "AL 042" },
+    ] as const;
+    for (const [index, item] of cases.entries()) {
+      const activeSession: ContestSessionSummary = { ...session, sessionID: `declarative-${index}`, revision: 7, rule: item.rule,
+        referenceDataVersion: item.rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovakia",
+          exchangeFields: item.sent }, qsoCount: 1 };
+      const qso: ContestFullQSO = { qsoID: `qso-${index}`, sessionID: activeSession.sessionID, originalUTC: "2026-10-18T01:02:03.000Z",
+        callsign: "K1ABC", band: item.band, mode: item.mode, frequencyHz: item.band === "10m" ? 28_400_000 : 7_030_000,
+        sentReport: "", receivedReport: "", sentExchange: item.sentAggregate, normalizedSentExchange: item.sentAggregate,
+        allocatedSerial: item.sentAggregate, receivedExchange: item.receivedAggregate, normalizedReceivedExchange: item.receivedAggregate,
+        entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX",
+        stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-2026.10", importedClaimedScore: null },
+        ruleIdentity: item.rule.identity, referenceDataVersion: item.rule.referenceDataVersion,
+        sentExchangeFields: item.sent, receivedExchangeFields: item.received };
+      let revision = 7;
+      const request = vi.fn(async (method: string, params: Record<string, any>) => {
+        if (method === "contest_qso_get") return { id: "frame", ok: true as const,
+          result: { sessionID: activeSession.sessionID, workspaceGeneration: activeSession.workspaceGeneration, revision, qso } };
+        revision += 1;
+        const changeSession = { sessionID: activeSession.sessionID, workspaceGeneration: activeSession.workspaceGeneration, revision,
+          name: activeSession.name, ruleIdentity: item.rule.identity, referenceDataVersion: item.rule.referenceDataVersion,
+          qsoCount: method === "contest_qso_delete" ? 0 : 1, updatedAt: "2026-10-18T01:03:00.000Z" };
+        const result = { session: changeSession, operation: method === "contest_qso_correct" ? "correction" : "deletion",
+          qsoID: qso.qsoID, qsoCount: changeSession.qsoCount,
+          score: { sessionID: activeSession.sessionID, workspaceGeneration: activeSession.workspaceGeneration, revision,
+            qsos: changeSession.qsoCount, points: changeSession.qsoCount, multipliers: 0, claimedScore: changeSession.qsoCount,
+            sourceVerification: "provisional" }, currentTarget: method === "contest_qso_correct" ? qso : null,
+          auditReference: { sessionID: activeSession.sessionID, qsoID: qso.qsoID, requestID: params.requestID, revision },
+          receipt: { requestID: params.requestID, payloadDigest: params.payloadDigest, committedRevision: revision,
+            committedAt: "2026-10-18T01:03:00.000Z" } };
+        return { id: "frame", ok: true as const, result };
+      }) as ContestRequest;
+      const ids = [`correct-${index}`, `delete-${index}`];
+      const client = new ContestClient(request, () => ids.shift()!, async () => `digest-${index}`,
+        undefined, () => "2026-10-18T01:03:00.000Z");
+      await expect(client.qso(activeSession, qso.qsoID)).resolves.toMatchObject({ qso: { sentExchangeFields: item.sent } });
+      const corrected = await client.correctQSO(activeSession, qso, "Correct reviewed contact");
+      expect(corrected.currentTarget?.receivedExchangeFields).toEqual(item.received);
+      await expect(client.deleteQSO({ ...activeSession, revision: 8 }, qso.qsoID, "Delete reviewed contact"))
+        .resolves.toMatchObject({ operation: "deletion", currentTarget: null, qsoCount: 0 });
+    }
+  });
+
+  it("rejects a scalar QSO whose allocated serial differs from its normalized sent exchange", async () => {
+    const qso: ContestFullQSO = { qsoID: "scalar-qso", sessionID: session.sessionID, originalUTC: "2026-10-18T01:02:03.000Z",
+      callsign: "K1ABC", band: "20m", mode: "CW", frequencyHz: 14_025_000, sentReport: "599", receivedReport: "599",
+      sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "999", receivedExchange: "05",
+      normalizedReceivedExchange: "05", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 },
+      operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-2026.10",
+        importedClaimedScore: null }, ruleIdentity: rule.identity, referenceDataVersion: rule.referenceDataVersion };
+    const request = vi.fn(async () => ({ id: "frame", ok: true as const,
+      result: { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, qso } })) as ContestRequest;
+    await expect(new ContestClient(request).qso(session, qso.qsoID)).rejects.toThrow("Malformed or stale contest_qso_get response");
+  });
+
+  it("admits a generic declarative catalog rule and pins its digest into creation", async () => {
+    const catalogRequest = vi.fn(async () => ({ id: "frame", ok: true as const,
+      result: { workspaceGeneration: "generation-1", rules: [declarativeRule] } })) as ContestRequest;
+    await expect(new ContestClient(catalogRequest).catalog()).resolves.toEqual({ workspaceGeneration: "generation-1", rules: [declarativeRule] });
+    const input = { name: "10-10", ruleIdentity: declarativeRule.identity, referenceDataVersion: declarativeRule.referenceDataVersion,
+      definitionDigest: declarativeDigest, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovakia",
+        exchangeFields: { member: "0", qth: "NEW ZEALAND" } }, operator: { callsign: "OM0RX", category: "Single Operator" } };
+    expect(() => validateCreateInput(input, declarativeRule)).not.toThrow();
+    expect(() => validateCreateInput({ ...input, definitionDigest: undefined }, declarativeRule)).toThrow("identity changed");
+    const declarativeFields: ContestDraftFields = { callsign: "ZL1AAA", sentReport: "", sentExchange: "0 NEW ZEALAND",
+      receivedReport: "", receivedExchange: "123 NEW ZEALAND", frequencyHz: 28_400_000, band: "10m", mode: "AM",
+      sentExchangeFields: { member: "0", qth: "NEW ZEALAND" }, receivedExchangeFields: { member: "123", qth: "NEW ZEALAND" } };
+    expect(() => validateDraftFields(declarativeFields, declarativeRule)).not.toThrow();
+    expect(() => validateDraftFields({ ...declarativeFields, band: "20m" }, declarativeRule)).toThrow("selected rule");
+    const request = vi.fn(async () => ({ id: "frame", ok: false as const,
+      error: { code: "fixture_stop", message: "captured", outcome: "confirmed" as const } })) as ContestRequest;
+    const ids = ["session-declarative", "request-declarative"];
+    await expect(new ContestClient(request, () => ids.shift()!, async () => "digest").create("generation-1", input, declarativeRule))
+      .rejects.toMatchObject({ code: "fixture_stop" });
+    expect(request).toHaveBeenCalledWith("contest_create", expect.objectContaining({ payload: expect.objectContaining({
+      definitionDigest: declarativeDigest, ruleIdentity: declarativeRule.identity,
+    }) }));
+  });
+
   it("keeps durable commit score summaries scalar", () => {
     const summary = { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: 8, qsos: 1, points: 3,
       multipliers: 1, claimedScore: 3, sourceVerification: "provisional" } satisfies ContestScoreSummary;

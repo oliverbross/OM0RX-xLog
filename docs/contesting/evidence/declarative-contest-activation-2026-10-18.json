@@ -1,0 +1,132 @@
+{
+  "capturedAt": "2026-10-18T12:26:00+09:30",
+  "branch": "codex/contest-declarative-activation",
+  "baselineCommit": "48d68ec014e006234aad1325d54feb0a9f634243",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "scratchPath": "/tmp/xlog-declarative-activation-am-boundary, /tmp/xlog-declarative-activation-store-final2 and /tmp/xlog-declarative-activation-lane-final2",
+  "scope": {
+    "staticRuleCount": 16,
+    "declarativeArchiveDefinitionCount": 7,
+    "catalogRuleCount": 23,
+    "archivePurpose": "operatorArchive",
+    "submissionReady": false,
+    "contestSpecificSwiftRuleClassesAdded": 0
+  },
+  "runtimeContract": {
+    "createAdmission": "Current catalog identity plus canonical definition digest are required before a new transaction.",
+    "replay": "A committed create replay resolves the durable receipt and persisted canonical definition after catalog removal.",
+    "reopen": "Stored canonical bytes are decoded and identity/digest checked; declarative sessions never fall back to the current registry.",
+    "client": "Catalog, create, entry, QSO read, correction, deletion and export use the immutable session descriptor and selected finite mode profile without contest-ID branches.",
+    "allocatedSerialWireCompatibility": "The legacy allocatedSerial wire field remains the complete normalized sent aggregate. A true declarative serial is validated in the descriptor-bound sentExchangeFields map.",
+    "export": "Cabrillo and ADIF artifacts retain the operatorArchive purpose through worker and client validation and are labeled as archives in the UI."
+  },
+  "crossLanguageFixture": {
+    "path": "docs/contesting/fixtures/declarative-activation-worker-wire.json",
+    "sha256": "6f3f63b9cf9edd2986c6236d872e3ef443072d136cabc27ee023860c9ca5a5f3",
+    "generatedBy": "ContestDeclarativeActivationTests.testSevenDefinitionsShareCatalogCreateDupeCorrectionRestartAndExports",
+    "coverage": [
+      "cwops-cwt nonserial create, real worker QSO read and correction",
+      "cwops-open serial-plus-name create, real worker QSO read and correction",
+      "Ten-Ten Winter Phone actual worker AM create/open/commit under an SSB-primary definition",
+      "Ten-Ten worker QSO read retains a 74-byte received aggregate, correction replaces it with projection-safe values, and both Cabrillo and ADIF archive prepare/read/release responses are consumed by ContestClient",
+      "TypeScript ContestClient consumes the retained worker results and reproduces the exact correction and export request parameters"
+    ]
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-activation-final-list --filter XContestCoreTests > /tmp/xlog-declarative-activation-core-2026-10-18.log 2>&1",
+      "result": "165 tests, 0 failures",
+      "logPath": "/tmp/xlog-declarative-activation-core-2026-10-18.log",
+      "logSHA256": "b69b407aa49520660b7358668d3048f6d8d059572d0994522e28a04095d29291"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-activation-store-final2 --filter XContestStoreTests > /tmp/xlog-declarative-activation-store-pass-2026-10-18.log 2>&1",
+      "result": "81 tests, 0 failures; includes descriptor-derived structured aggregate bounds plus reserved, transmitted and uncertain structured serial edits and existing ARRL RTTY, JIDX and ARRL DX coverage",
+      "logPath": "/tmp/xlog-declarative-activation-store-pass-2026-10-18.log",
+      "logSHA256": "f49f6d1609fdcd4fc1d1c2d53f96a1c925616f3b9143d90adea6d52939bdfeb3"
+    },
+    {
+      "command": "XLOG_DECLARATIVE_ACTIVATION_FIXTURE_OUTPUT=/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog/docs/contesting/fixtures/declarative-activation-worker-wire.json XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-activation-am-boundary --filter ContestDeclarativeActivationTests > /tmp/xlog-declarative-activation-am-boundary-pass-2026-10-18.log 2>&1",
+      "result": "4 tests, 0 failures; all 7 definitions plus actual AM, 74-byte QSO read/correction and projection-safe dual archive exports",
+      "logPath": "/tmp/xlog-declarative-activation-am-boundary-pass-2026-10-18.log",
+      "logSHA256": "fe254d8a06f836fc38fe6d289bc379d4c671a0a54cf05f940a574594a7dea99d"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-activation-lane-final2 --filter ContestingLaneTests > /tmp/xlog-declarative-activation-lane-exact-pass-2026-10-18.log 2>&1",
+      "result": "22 tests, 0 failures; includes all 16 static-rule lifecycle regression and ARRL RTTY structured creation",
+      "logPath": "/tmp/xlog-declarative-activation-lane-exact-pass-2026-10-18.log",
+      "logSHA256": "374a7c7f36326e7ce6c2ee69cc0a42d1cccfc1de03f325e2a9abdc9e07220988"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-activation-final-list --filter ContestDeclarativeExportServiceTests > /tmp/xlog-declarative-activation-export-service-final-2026-10-18.log 2>&1",
+      "result": "1 test, 0 failures",
+      "logPath": "/tmp/xlog-declarative-activation-export-service-final-2026-10-18.log",
+      "logSHA256": "814b07c24d98ba7ba2e3ca919c5f01f4fb4bdb2c2b38fdbf600f4291da3f73dc"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-activation-final-list --filter ContestOperatorBrowserAcceptanceTests > /tmp/xlog-declarative-activation-operator-final-2026-10-18.log 2>&1",
+      "result": "1 test discovered and skipped because the external browser harness was not enabled; no failure",
+      "logPath": "/tmp/xlog-declarative-activation-operator-final-2026-10-18.log",
+      "logSHA256": "6defeb8c5109cb66ec78c25e26b0b8fb90ef5ca040cce288dc1dbd9758af6cd3"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run src/contesting --maxWorkers=2 > /tmp/xlog-declarative-activation-contesting-pass-2026-10-18.log 2>&1",
+      "result": "21 files, 204 tests, 0 failures; includes worker-derived CWT, CW Open and Ten-Ten AM read/correction/export fixture",
+      "logPath": "/tmp/xlog-declarative-activation-contesting-pass-2026-10-18.log",
+      "logSHA256": "10d4d8a2cd5e2a76c8dba051e818e62ee50381b444367421f6be3374267235c5"
+    },
+    {
+      "command": "cd prototype && npm run build > /tmp/xlog-declarative-activation-build-pass-2026-10-18.log 2>&1",
+      "result": "TypeScript, Vite production build and window bundle checks passed",
+      "logPath": "/tmp/xlog-declarative-activation-build-pass-2026-10-18.log",
+      "logSHA256": "bc01d57c5fd2974bc7707bee1e2d3c2cbc59cb1a2d725a68327186406cdbe526"
+    },
+    {
+      "command": "cd prototype && npm test > /tmp/xlog-declarative-activation-frontend-pass2-2026-10-18.log 2>&1",
+      "result": "3294 passed and 17 failed of 3311; this is retained failure evidence, not a pass. The failures are outside prototype/src/contesting and include timing-sensitive normal-log/UI suites plus spot-retirement assertions.",
+      "logPath": "/tmp/xlog-declarative-activation-frontend-pass2-2026-10-18.log",
+      "logSHA256": "a071cc9600039e219370e75c0375b91a63883a2638b36c4597216c5c8189b5bc"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run <the nine failed full-suite files> --maxWorkers=1 > /tmp/xlog-declarative-activation-frontend-focused-serial-2026-10-18.log 2>&1",
+      "result": "167 passed and 3 failed of 170: spotActivation retirement, operator responsive source assertion and detached manual-tune routing. A baseline 48d focused parallel run also failed spotActivation and operator responsive plus three timing tests (165 passed, 5 failed); the activation slice changes none of those failing files. The later 223f395 composition target carries main 1.2.22 repairs and passed its independent CI, but that composition is not evidence for this branch.",
+      "logPath": "/tmp/xlog-declarative-activation-frontend-focused-serial-2026-10-18.log",
+      "logSHA256": "e1d5e244abd4a0c21cf8e5beaad32b6fd18ee7cb3840c74a43b6f2d2bd01e15d",
+      "baselineLogPath": "/tmp/xlog-declarative-activation-frontend-baseline48d-focused-2026-10-18.log",
+      "baselineLogSHA256": "3df83bef11dad23b5149724636c886c8bb4fc9a0ca31346f02d403b0ba569619"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "frozenFiles": {
+    ".github/workflows/contest-portability.yml": "509b95c7c0522469d6b06490766c325f661ab03adcb7538733cdc226905e0f89",
+    "Sources/XContestCore/ContestDeclarativeCatalog.swift": "b998608cfddbb528ba8557e3e6eccc59440723f14bfb54b0a55f5f4f2b017ed8",
+    "Sources/XContestStore/SQLiteContestStore.swift": "7d49982d61fedc2d1418d849003f49639d59ae11f4e90c8ca2b4af0308842549",
+    "Sources/XContestStore/StoreModels.swift": "f5b0f43dcb3e324b2233acce42158f77bdbeb4e8211a849eff35590a652e2aad",
+    "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift": "59b71f9f7120a418ae9e8f8b6286effee17d254b3c7c1f015661b4b8ce309889",
+    "Tests/XContestCoreTests/ContestDeclarativeCatalogTests.swift": "9f94e755b01ae7584eaf9d8c67abfad258e705246a8a1518228f837da0c86b66",
+    "Tests/XContestStoreTests/ContestStructuredExchangeStoreTests.swift": "deb4599eb701873ab2d24e0c168f45242d292569b0a1937c4854ea7dffaffada",
+    "Tests/XLogPrototypeTests/ContestARRLDXWorkerWireTests.swift": "fba77d0a64150e02093d5f9201c914208b18e48e84c1190e39ac89761d4ffb23",
+    "Tests/XLogPrototypeTests/ContestDeclarativeActivationTests.swift": "d186ef6f1d3c11b2efc78efa549de6dee8cd5a4bdac6d62a8790e8ecfe855ab8",
+    "Tests/XLogPrototypeTests/ContestJIDXWorkerWireTests.swift": "488da039037dd5c82a258dee742cd3fa043c96947fc22177a57574d87dc01031",
+    "Tests/XLogPrototypeTests/ContestingLaneTests.swift": "e6a22a77edcddc0f9231f8a95688f7aa251255d463385ab33ace7c9fefa332da",
+    "docs/contesting/DECLARATIVE_CONTEST_ACTIVATION.md": "aebed2260c4b609a52a8e4afce816f5969f8df2988656962f29b259d937d9452",
+    "docs/contesting/fixtures/declarative-activation-worker-wire.json": "6f3f63b9cf9edd2986c6236d872e3ef443072d136cabc27ee023860c9ca5a5f3",
+    "prototype/src/contesting/ContestExportPanel.test.tsx": "d4f1d0681facecc22a5694a2e299a1055d6fee2b895dd7587192c01e835c9ba6",
+    "prototype/src/contesting/ContestExportPanel.tsx": "75c1826fbb8d2452439bc57711b5bd45505fcf96b6e36b360f2432ef2de710be",
+    "prototype/src/contesting/ContestWorkspace.tsx": "fdddaeb47ce2414c39c0cb4ae498d78b95ffb03ec2543bbc345426ed8a27c826",
+    "prototype/src/contesting/client.test.ts": "dbcdf6d732ccaa84cf31e96e07ab4f54807ec84dc2c04f49f88ba8e137c36c04",
+    "prototype/src/contesting/client.ts": "2425193062622dee1b5cbbe2eb767a48e632df0044158a7dfe68fdebac1bf271",
+    "prototype/src/contesting/declarativeWorkerWireFixture.test.ts": "74c298f16aba49849a2aa73b270aa8682d9269c26f410549b59494eb342e81be",
+    "prototype/src/contesting/types.ts": "d968a0e57e1ce347e7a93f30729f34e8e316c3408882b6d6d020197fdaa294d7"
+  },
+  "limits": [
+    "The seven definitions are usable operator archives and are not sponsor-ready submissions.",
+    "The optional native browser acceptance harness was not enabled in this portable run; the focused contest frontend suite passed 204 tests. The broad frontend suite retained 17 failures and is explicitly not claimed as passing; later integration with the independently green 223f395 baseline remains required.",
+    "The retained 74-byte exchange is proven through worker QSO read and correction. The correction reduces it to the explicit archive column widths before export; no truncation or 74-byte export is claimed.",
+    "The known hard-link workspace isolation test fails on this filesystem and was independently reproduced on the pre-persistence baseline; it is outside this slice.",
+    "No category/event-time/mobile adjudication, CW Open combined-session score, sponsor submission transport, runtime Python, AI or arbitrary code evaluation is claimed."
+  ]
+}
