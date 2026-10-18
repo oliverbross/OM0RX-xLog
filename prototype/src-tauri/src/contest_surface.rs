@@ -114,7 +114,9 @@ fn submit_checked(
         .panels
         .get(panel_id)
         .and_then(|panel| panel.projection.as_ref())
-        .filter(|(revision, _)| *revision == checked.projection_revision)
+        .filter(|(revision, projection)| {
+            *revision == checked.projection_revision && projection["status"] == "ready"
+        })
         .ok_or("Refresh this contest surface before sending an action.")?
         .0;
     if state.actions.len() >= MAX_ACTIONS {
@@ -1150,6 +1152,32 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_projection_cannot_enqueue_actions() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        publish_after_admission(
+            &mut state,
+            "active-qso",
+            7,
+            json!({"schemaVersion":1,"status":"unavailable"}),
+        )
+        .unwrap();
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        let checked = validate_action_envelope(&envelope).unwrap();
+
+        assert!(submit_checked(&mut state, "active-qso", &checked, envelope).is_err());
+        assert!(state.actions.is_empty());
+        assert!(state.seen_request_ids.is_empty());
+        assert!(state.panels["active-qso"].receipts.is_empty());
+    }
+
+    #[test]
     fn action_queue_marks_taken_work_uncertain_and_never_replays_duplicate_ids() {
         let mut state = State {
             context: Some(context()),
@@ -1160,8 +1188,11 @@ mod tests {
             "active-qso",
             json!({"draftID":"draft","expectedDraftRevision":2}),
         );
-        publish_after_admission(&mut state, "active-qso", 7, json!({})).unwrap();
-        assert!(publish_after_admission(&mut state, "active-qso", 7, json!({})).is_err());
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        assert!(
+            publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"}))
+                .is_err()
+        );
         let mut stale = envelope.clone();
         stale["projectionRevision"] = json!(6);
         let stale_checked = validate_action_envelope(&stale).unwrap();
