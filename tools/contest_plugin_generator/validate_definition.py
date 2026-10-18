@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/python3.14
+#!/usr/bin/env python3
 """Validate authoring envelopes and emit strict XContestCore draft JSON.
 
 Version 1 remains a historical shape-and-digest check. Version 2 is validated
@@ -164,6 +164,22 @@ def _source_key(source: Any) -> str:
     return source if isinstance(source, str) else f"{source['kind']}:{source['fieldID']}"
 
 
+def _geographic_diagnostics(policy: dict[str, Any], received: dict[str, dict[str, Any]]) -> list[str]:
+    result: list[str] = []
+    location = received.get(policy["locationFieldID"])
+    if location is None or not location["required"] or location["acceptedKinds"] != ["subdivision"]:
+        result.append("runtime.geographicMultiplier.locationFieldID must name a required received subdivision")
+    entity_codes = [item["entityADIF"] for item in policy["subdivisions"]]
+    if len(entity_codes) != len(set(entity_codes)):
+        result.append("runtime.geographicMultiplier subdivision entityADIF values must be unique")
+    if location is not None:
+        tokens = [token for item in policy["subdivisions"] for token in item["values"]]
+        tokens.append(policy["entityFallback"]["locationToken"])
+        if any(len(token.encode()) > location["maximumUTF8Bytes"] for token in tokens):
+            result.append("runtime.geographicMultiplier location values must fit the received field byte bound")
+    return result
+
+
 def legacy_diagnostics(definition: dict[str, Any]) -> list[str]:
     result: list[str] = []
     required = {"definitionSchemaVersion", "identity", "status", "provenance", "metadata", "entry", "policies", "constraints", "goldenScenarios"}
@@ -295,11 +311,14 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
     elif not serial["allowedScopes"] or len(serial_fields) != 1 or serial_fields[0]["acceptedKinds"] != ["serialNumber"] or not serial_fields[0]["required"] or station_fields:
         result.append("runtime.entry required serial must have scopes and one required sent serial field")
 
-    compatible = (entry["scorePolicy"], runtime["multiplierPolicy"]) in {
-        ("pointsOnly", "none"), ("pointsTimesMultipliers", "uniqueCallsign")
-    }
-    if not compatible:
-        result.append("runtime entry scorePolicy and multiplierPolicy are incompatible")
+    geographic = runtime.get("geographicMultiplier")
+    combination = (entry["scorePolicy"], runtime["multiplierPolicy"], geographic is not None)
+    if combination in {("pointsOnly", "none", False), ("pointsTimesMultipliers", "uniqueCallsign", False)}:
+        pass
+    elif combination == ("pointsTimesMultipliers", "geographic", True):
+        result += _geographic_diagnostics(geographic, received)
+    else:
+        result.append("runtime entry scorePolicy, multiplierPolicy, and geographicMultiplier are incompatible")
     for index, clause in enumerate(runtime["scoring"]["clauses"]):
         field = received.get(clause["fieldID"])
         if field is None or field["acceptedKinds"] != ["nonnegativeInteger"] or field["maximumUTF8Bytes"] > 18:
@@ -339,6 +358,14 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
     required_sent = {field["id"] for field in exchange["sentFields"] if field["required"]}
     required_received = {field["id"] for field in exchange["receivedFields"] if field["required"]}
     for scenario_index, scenario in enumerate(definition["goldenScenarios"]):
+        reference_version = scenario.get("referenceDataVersion")
+        if geographic is not None and (
+            reference_version is None or reference_version != reference_version.strip()
+            or not (1 <= len(reference_version.encode()) <= 160)
+        ):
+            result.append(
+                f"goldenScenarios[{scenario_index}].referenceDataVersion must be trimmed and fit 1...160 UTF-8 bytes"
+            )
         if len(scenario["qsos"]) != len(scenario["expected"]["dispositions"]) or len(scenario["qsos"]) != len(scenario["expected"]["points"]):
             result.append(f"goldenScenarios[{scenario_index}] expected arrays must match QSO count")
         for qso_index, qso in enumerate(scenario["qsos"]):
@@ -352,6 +379,20 @@ def v2_semantic_diagnostics(definition: dict[str, Any]) -> list[str]:
             unknown_received = set(qso["receivedFields"]) - set(received)
             if unknown_sent or unknown_received:
                 result.append(f"goldenScenarios[{scenario_index}].qsos[{qso_index}] has unknown exchange fields")
+            if geographic is not None:
+                entity = qso.get("entity")
+                if entity is None:
+                    result.append(f"goldenScenarios[{scenario_index}].qsos[{qso_index}] omits required geographic entity")
+                    continue
+                if any(not entity[key].strip() for key in ("name", "countryPrefix", "continent")):
+                    result.append(f"goldenScenarios[{scenario_index}].qsos[{qso_index}] has incomplete geographic entity")
+                subdivision = next((item for item in geographic["subdivisions"]
+                                    if item["entityADIF"] == entity["adif"]), None)
+                location = qso["receivedFields"].get(geographic["locationFieldID"])
+                valid_location = location in subdivision["values"] if subdivision is not None else \
+                    location == geographic["entityFallback"]["locationToken"]
+                if not valid_location:
+                    result.append(f"goldenScenarios[{scenario_index}].qsos[{qso_index}] location contradicts geographic entity")
     return result
 
 

@@ -6,12 +6,20 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
     private struct AuthoredGoldens: Decodable {
         struct Scenario: Decodable {
             struct QSO: Decodable {
+                struct Entity: Decodable {
+                    let adif: Int
+                    let name: String
+                    let countryPrefix: String
+                    let continent: String
+                    let cqZone: Int
+                }
                 let callsign: String
                 let band: String
                 let mode: String
                 let frequencyHz: Int64
                 let sentFields: [String: String]
                 let receivedFields: [String: String]
+                let entity: Entity?
             }
             struct Expected: Decodable {
                 let dispositions: [String]
@@ -21,6 +29,7 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
                 let claimedScore: Int64
             }
             let id: String
+            let referenceDataVersion: String?
             let qsos: [QSO]
             let expected: Expected
         }
@@ -47,6 +56,13 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
         try assertGoldens(authoring: "custom-two-band-sprint.authoring-v2.json", draft: draft)
     }
 
+    func testAuthoredGeographicDraftMaterializesAndScoresOfficialSampleTwelveByTen() throws {
+        let draft = try runtimeDraft("sst-geographic-sample.runtime-draft.json")
+        XCTAssertEqual(draft.multiplierPolicy, .geographic)
+        XCTAssertEqual(draft.geographicMultiplier?.locationFieldID, "location")
+        try assertGoldens(authoring: "sst-geographic-sample.authoring-v2.json", draft: draft)
+    }
+
     private func assertGoldens(authoring: String, draft: ContestDefinitionDraft) throws {
         let definition = try draft.materialized()
         let rule = DeclarativeContestRule(definition: definition)
@@ -58,7 +74,7 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
             let stationExchange = aggregate(first.sentFields, descriptors: draft.entry.exchange.sentFields)
             let session = ContestSessionSnapshot(
                 id: sessionID, workspaceGeneration: generation, rule: definition.identity,
-                referenceDataVersion: "authoring-bridge-fixture", startedAt: date,
+                referenceDataVersion: scenario.referenceDataVersion ?? "authoring-bridge-fixture", startedAt: date,
                 station: .init(callsign: "OM0RX", entity: nil, sentExchange: stationExchange,
                                operatorCallsigns: ["OM0RX"], location: "",
                                sentExchangeFields: stationFields))
@@ -76,7 +92,10 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
                                     rawReceived: aggregate(golden.receivedFields, descriptors: draft.entry.exchange.receivedFields),
                                     normalizedReceived: aggregate(golden.receivedFields, descriptors: draft.entry.exchange.receivedFields),
                                     sentFields: sent, receivedFields: received),
-                    entity: nil, operatorCallsign: "OM0RX", stationLocation: "",
+                    entity: golden.entity.map {
+                        .init(adif: $0.adif, name: $0.name, countryPrefix: $0.countryPrefix,
+                              continent: $0.continent, cqZone: $0.cqZone)
+                    }, operatorCallsign: "OM0RX", stationLocation: "",
                     provenance: .init(source: .operatorEntry))
             }
             let score = try ContestEngine.score(qsos, session: session, rule: rule)

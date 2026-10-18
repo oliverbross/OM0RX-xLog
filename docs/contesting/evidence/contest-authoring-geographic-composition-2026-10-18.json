@@ -1,0 +1,66 @@
+{
+  "capturedAt": "2026-10-18T13:44:43+09:30",
+  "branch": "codex/contest-authoring-geographic-composition",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "baseCommit": "8c46355bba4c358854f782596da51d3c1aceb679",
+  "sourceCommits": {
+    "sstGeographyContract": "df028a46e743132053fd514aacb76a330d370c8b",
+    "geographicMultiplierCore": "7631fa9297a683eebc7f735895a80d84c199fb9f"
+  },
+  "composition": {
+    "mode": "cherry-pick --no-commit of 7631fa9 child delta, followed by exact path restore of the two missing df028a4 comparator files",
+    "notAMerge": true,
+    "conflicts": [
+      "Tests/XContestCoreTests/SourceFixtures/sst-geography-authority.json",
+      "docs/contesting/SST_GEOGRAPHIC_MULTIPLIER_CONTRACT.md"
+    ],
+    "resolution": "Retained the final 7631fa9 blobs for both modify/delete conflicts. The other two 7631fa9 core files and all four geographic-core files remain byte-identical to that source commit.",
+    "parentRelationship": "7631fa9 has sole parent df028a4. The comparator and comparator test were restored byte-for-byte from df028a4 because a child-only no-commit cherry-pick does not include parent additions."
+  },
+  "contract": {
+    "scope": "Strict v2 authoring translation for the existing finite geographicMultiplier runtime vocabulary, plus one source-derived SST official-sample draft.",
+    "goldens": "Version 2 authoring goldens are fully resolved positive accepted/duplicate cases. Expected invalid contacts remain unsupported until their expected validation failure is represented explicitly.",
+    "acceptance": "The SST draft is not catalog activated and makes no membership, category, export, schedule, sponsor-submission, packaged-app, RF, or production claim.",
+    "deferred": "Geographic subdivision aliases and operatorPolicy are intentionally absent pending separate reviewed compositions."
+  },
+  "tests": [
+    {
+      "command": "python3 -m unittest tools.contest_plugin_generator.tests.test_validate_definition",
+      "result": "6 tests, 0 failures",
+      "logPath": "/tmp/xlog-authoring-geographic-python-focused-2026-10-18.log",
+      "logSHA256": "e38e28587d85ab5e7516728eefe6b95880a1a02618e747f0ad6c36992885091a"
+    },
+    {
+      "command": "CONTEST_SW_ROOT=/Users/oliver/Documents/Projects/contest-sw /opt/homebrew/bin/python3 -m unittest discover -s tools/contest_plugin_generator/tests",
+      "result": "31 tests, 0 failures, including five pinned SST comparator tests",
+      "logPath": "/tmp/xlog-authoring-geographic-python-full-2026-10-18.log",
+      "logSHA256": "4dbbbae5c479aa7b99b609227d8370875eca101f093268524667fbf0113475d4"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-authoring-geographic-swift --filter 'Contest(DefinitionAuthoringBridge|GeographicMultiplier)Tests'",
+      "result": "11 tests, 0 failures",
+      "logPath": "/tmp/xlog-authoring-geographic-swift-focused-2026-10-18.log",
+      "logSHA256": "757ecf93a99567aa3b3a1ce5c80ff70eade2fec6b4604e6712288c1c613789f5"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-authoring-geographic-swift --filter 'Contest(Declarative|GeographicMultiplier|DefinitionAuthoringBridge|CWUniqueCallDeclarative)'",
+      "result": "47 tests, 0 failures: 5 prototype, 6 store, 36 core",
+      "logPath": "/tmp/xlog-authoring-geographic-swift-broad-2026-10-18.log",
+      "logSHA256": "cf4af62edb6e23843ead3ad90e5eb62a306271389c3ffe023fb5175e5ad0d979"
+    },
+    {
+      "command": "git diff HEAD --check",
+      "result": "pass"
+    }
+  ],
+  "contentSHA256": {
+    "Sources/XContestCore/DeclarativeContestRule.swift": "7303096e92ce788057fbb5868b5a8de54fc740be684abf6f8918596f82dd87e0",
+    "Tests/XContestCoreTests/ContestGeographicMultiplierTests.swift": "37c8f482fbd4b4c062ffec2ac0bff6bd2df3a8be69df76f10ce695de7b76ad73",
+    "Tests/XContestCoreTests/SourceFixtures/sst-geography-authority.json": "6307cdc03c4627758c46fe76c3002488beeb5f2e8ad3e67fb05c45afcacb2bd3",
+    "docs/contesting/SST_GEOGRAPHIC_MULTIPLIER_CONTRACT.md": "2f034af6e76e19bd721e3886120a39b3ceb99065692dff6ffa0c9573dc970f61",
+    "tools/contest_plugin_generator/compare_sst_geography.py": "5ecc23b9d9cb731ecc652b52e8039eddc11c6176fa56dd5d636757a530fb8a4c",
+    "tools/contest_plugin_generator/tests/test_compare_sst_geography.py": "aa385606a487aca8fe40bfa739cce8c29c5b20ed64b24fcc6182eaf0c6d1a97b",
+    "Tests/XContestCoreTests/SourceFixtures/sst-geographic-sample.authoring-v2.json": "6396a0692ea9b122dfa8eb5f268dbc365c2764d7e0d480dfcd1d81923c17f215",
+    "Tests/XContestCoreTests/SourceFixtures/sst-geographic-sample.runtime-draft.json": "ae1c44c70d4c2247906108c0404179e9cad6783beca48bca99f2403a66de57e4"
+  }
+}

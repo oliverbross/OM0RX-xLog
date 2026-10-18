@@ -39,6 +39,7 @@ class DefinitionAuthoringBridgeTests(unittest.TestCase):
         pairs = [
             ("ten-ten-winter-phone.authoring-v2.json", "ten-ten-winter-phone.runtime-draft.json"),
             ("custom-two-band-sprint.authoring-v2.json", "custom-two-band-sprint.runtime-draft.json"),
+            ("sst-geographic-sample.authoring-v2.json", "sst-geographic-sample.runtime-draft.json"),
         ]
         for authored, expected in pairs:
             with self.subTest(authored=authored):
@@ -99,6 +100,63 @@ class DefinitionAuthoringBridgeTests(unittest.TestCase):
             duplicate.write_text('{"runtime":{"scoring":1,"scoring":2}}', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "duplicate JSON object key 'scoring'"):
                 validate_definition.load_json(duplicate)
+
+    def test_geographic_multiplier_contract_is_bounded_and_coherent(self) -> None:
+        source = self.load("sst-geographic-sample.authoring-v2.json")
+        self.assertEqual(validate_definition.diagnostics(source), [])
+        authority = self.load("sst-geography-authority.json")
+        authored_contacts = [(qso["band"], qso["callsign"], qso["receivedFields"]["name"],
+                              qso["receivedFields"]["location"])
+                             for qso in source["goldenScenarios"][0]["qsos"]]
+        authority_contacts = [(qso["band"], qso["callsign"], qso["name"], qso["location"])
+                              for qso in authority["officialSample"]["contacts"]]
+        self.assertEqual(authored_contacts, authority_contacts)
+        self.assertEqual(source["goldenScenarios"][0]["expected"]["totalPoints"],
+                         authority["officialSample"]["expected"]["qsoPoints"])
+        self.assertEqual(source["goldenScenarios"][0]["expected"]["multiplierCount"],
+                         authority["officialSample"]["expected"]["totalMultipliers"])
+        self.assertEqual(source["goldenScenarios"][0]["expected"]["claimedScore"],
+                         authority["officialSample"]["expected"]["claimedScore"])
+        missing = self.mutated(source, lambda value: value["runtime"].pop("geographicMultiplier"))
+        self.assertIn("runtime entry scorePolicy, multiplierPolicy, and geographicMultiplier are incompatible",
+                      validate_definition.diagnostics(missing))
+        duplicate = self.mutated(source, lambda value: (
+            value["runtime"]["geographicMultiplier"]["subdivisions"].append(
+                copy.deepcopy(value["runtime"]["geographicMultiplier"]["subdivisions"][0])),
+            value["runtime"]["geographicMultiplier"]["subdivisions"][-1].update({"authority": "other-authority"}),
+        ))
+        self.assertIn("runtime.geographicMultiplier subdivision entityADIF values must be unique",
+                      validate_definition.diagnostics(duplicate))
+        unknown = self.mutated(source, lambda value: value["runtime"]["geographicMultiplier"].update({"adapterID": "python:mults"}))
+        self.assertIn("$.runtime.geographicMultiplier.adapterID is not allowed",
+                      validate_definition.diagnostics(unknown))
+        bad_authority = self.mutated(source, lambda value: value["runtime"]["geographicMultiplier"]["entityFallback"].update(
+            {"authority": "dxcc|entity"}))
+        self.assertTrue(any("entityFallback.authority does not match" in item
+                            for item in validate_definition.diagnostics(bad_authority)))
+        short_field = self.mutated(source, lambda value: value["runtime"]["entry"]["exchange"]["receivedFields"][1].update(
+            {"maximumUTF8Bytes": 1}))
+        self.assertIn("runtime.geographicMultiplier location values must fit the received field byte bound",
+                      validate_definition.diagnostics(short_field))
+        missing_reference = self.mutated(source, lambda value: value["goldenScenarios"][0].pop("referenceDataVersion"))
+        self.assertTrue(any("referenceDataVersion must be trimmed and fit 1...160 UTF-8 bytes" in item
+                            for item in validate_definition.diagnostics(missing_reference)))
+        valid_unicode = self.mutated(source, lambda value: value["goldenScenarios"][0].update(
+            {"referenceDataVersion": "é" * 80}))
+        self.assertEqual(validate_definition.diagnostics(valid_unicode), [])
+        oversized_unicode = self.mutated(source, lambda value: value["goldenScenarios"][0].update(
+            {"referenceDataVersion": "é" * 81}))
+        self.assertTrue(any("referenceDataVersion must be trimmed and fit 1...160 UTF-8 bytes" in item
+                            for item in validate_definition.diagnostics(oversized_unicode)))
+        invalid_golden = self.mutated(source, lambda value: value["goldenScenarios"][0]["expected"]["dispositions"].__setitem__(0, "invalid"))
+        self.assertTrue(any("has unsupported value 'invalid'" in item
+                            for item in validate_definition.diagnostics(invalid_golden)))
+        missing_entity = self.mutated(source, lambda value: value["goldenScenarios"][0]["qsos"][0].pop("entity"))
+        self.assertTrue(any("omits required geographic entity" in item
+                            for item in validate_definition.diagnostics(missing_entity)))
+        contradictory = self.mutated(source, lambda value: value["goldenScenarios"][0]["qsos"][0]["receivedFields"].update({"location": "DX"}))
+        self.assertTrue(any("location contradicts geographic entity" in item
+                            for item in validate_definition.diagnostics(contradictory)))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,458 @@
+{
+  "constraints": {
+    "acceptanceUnresolved": [
+      "Pin the complete sponsor-authorized lower-48 state and Canadian province code sets, including District of Columbia treatment.",
+      "Pin the production DXCC entity reference version and review mobile and portable endpoint resolution.",
+      "Review category, schedule, export, membership, activation, and sponsor-submission behavior separately."
+    ],
+    "runtimeUnresolved": []
+  },
+  "definitionSchemaVersion": "2.0.0",
+  "goldenScenarios": [
+    {
+      "expected": {
+        "claimedScore": 120,
+        "dispositions": [
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted",
+          "accepted"
+        ],
+        "multiplierCount": 10,
+        "points": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "totalPoints": 12
+      },
+      "id": "official-sample-twelve-by-ten",
+      "qsos": [
+        {
+          "band": "80m",
+          "callsign": "K1VUT",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 3530000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "MA",
+            "name": "DAVE"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "80m",
+          "callsign": "N3QE",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 3531000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "MD",
+            "name": "TIM"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "80m",
+          "callsign": "VE3KI",
+          "entity": {
+            "adif": 1,
+            "continent": "NA",
+            "countryPrefix": "VE",
+            "cqZone": 4,
+            "name": "Canada"
+          },
+          "frequencyHz": 3532000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "ON",
+            "name": "RICH"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "80m",
+          "callsign": "DK9PY",
+          "entity": {
+            "adif": 230,
+            "continent": "EU",
+            "countryPrefix": "DL",
+            "cqZone": 14,
+            "name": "Germany"
+          },
+          "frequencyHz": 3533000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "DX",
+            "name": "ARMIN"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "40m",
+          "callsign": "K4BAI",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 7030000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "GA",
+            "name": "JOHN"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "40m",
+          "callsign": "K1RV",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 7031000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "MA",
+            "name": "PI"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "40m",
+          "callsign": "N1VH",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 7032000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "MA",
+            "name": "MARTY"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "40m",
+          "callsign": "K9ZO",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 7033000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "IL",
+            "name": "AL"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "20m",
+          "callsign": "K1DJ",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 14030000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "MA",
+            "name": "RICH"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "20m",
+          "callsign": "DK9PY",
+          "entity": {
+            "adif": 230,
+            "continent": "EU",
+            "countryPrefix": "DL",
+            "cqZone": 14,
+            "name": "Germany"
+          },
+          "frequencyHz": 14031000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "DX",
+            "name": "ARMIN"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "20m",
+          "callsign": "F6HKA",
+          "entity": {
+            "adif": 227,
+            "continent": "EU",
+            "countryPrefix": "F",
+            "cqZone": 14,
+            "name": "France"
+          },
+          "frequencyHz": 14032000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "DX",
+            "name": "BERT"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        },
+        {
+          "band": "20m",
+          "callsign": "K1RV",
+          "entity": {
+            "adif": 291,
+            "continent": "NA",
+            "countryPrefix": "K",
+            "cqZone": 5,
+            "name": "United States"
+          },
+          "frequencyHz": 14033000,
+          "mode": "CW",
+          "receivedFields": {
+            "location": "MA",
+            "name": "PI"
+          },
+          "sentFields": {
+            "location": "DX",
+            "name": "OLIVER"
+          }
+        }
+      ],
+      "referenceDataVersion": "cty-geographic-fixture-v1"
+    }
+  ],
+  "identity": {
+    "contentDigest": "sha256:bed467d500eadd01d4b358e46703bf8009ca32feb2a9a883741532f0e7de0455",
+    "edition": "official-sample-observed-subset",
+    "id": "sst-geographic-sample",
+    "version": "1.0.0-source-draft"
+  },
+  "provenance": [
+    {
+      "kind": "official-rules",
+      "locator": "https://www.k1usn.com/sst_rules.html",
+      "revision": "retrieved-2026-10-18",
+      "sha256": "ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf"
+    },
+    {
+      "kind": "official-rules",
+      "locator": "K1USN SST published rules document",
+      "revision": "retrieved-2026-10-18",
+      "sha256": "2a54b5ad26aa0342ee6036e07bf39df5c22d4176f6c91913fe5bcf4b3ebe04b8"
+    },
+    {
+      "kind": "test-fixture",
+      "locator": "embedded official sample log and scoring explanation",
+      "revision": "retrieved-2026-10-18",
+      "sha256": "b5a4f48ec471d2aca4d9f954006ddedb599cceab5f481b9ba5e5de3db3354249"
+    }
+  ],
+  "runtime": {
+    "cabrilloName": "K1USN-SST",
+    "displayName": "SST Geographic Official Sample Draft",
+    "dupePolicy": "perBand",
+    "eligibilityPolicy": "unrestricted",
+    "entry": {
+      "adifMode": "CW",
+      "cabrilloFormatterVersion": "sst-geographic-source-draft-1",
+      "cabrilloProjectionFormatterVersion": "sst-geographic-source-draft-1",
+      "cabrilloQSOType": "CW",
+      "exchange": {
+        "adifFields": "exchangeStrings",
+        "received": "structured",
+        "receivedFields": [
+          {
+            "acceptedKinds": [
+              "operatorName"
+            ],
+            "id": "name",
+            "label": "Name",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "subdivision"
+            ],
+            "id": "location",
+            "label": "Location",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          }
+        ],
+        "sent": "structured",
+        "sentDefault": "stationFields",
+        "sentFields": [
+          {
+            "acceptedKinds": [
+              "operatorName"
+            ],
+            "id": "name",
+            "label": "Name",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "subdivision"
+            ],
+            "id": "location",
+            "label": "Location",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          }
+        ]
+      },
+      "mode": "CW",
+      "modeProfiles": [
+        {
+          "adifMode": "CW",
+          "cabrilloQSOType": "CW",
+          "mode": "CW",
+          "report": {
+            "defaultReceived": "",
+            "defaultSent": "",
+            "format": "none",
+            "maximumUTF8Bytes": 0
+          }
+        }
+      ],
+      "report": {
+        "defaultReceived": "",
+        "defaultSent": "",
+        "format": "none",
+        "maximumUTF8Bytes": 0
+      },
+      "scorePolicy": "pointsTimesMultipliers",
+      "serial": {
+        "allowedScopes": [],
+        "requirement": "none"
+      },
+      "version": 2
+    },
+    "exportPolicy": "unsupported",
+    "geographicMultiplier": {
+      "entityFallback": {
+        "authority": "dxcc-entity",
+        "locationToken": "DX"
+      },
+      "locationFieldID": "location",
+      "subdivisions": [
+        {
+          "authority": "sst-us-lower48-state",
+          "entityADIF": 291,
+          "values": [
+            "CT",
+            "GA",
+            "IL",
+            "MA",
+            "MD"
+          ]
+        },
+        {
+          "authority": "sst-canadian-province",
+          "entityADIF": 1,
+          "values": [
+            "ON"
+          ]
+        }
+      ]
+    },
+    "multiplierPolicy": "geographic",
+    "scoring": {
+      "clauses": [],
+      "defaultPoints": 1
+    },
+    "sourceProvenance": "Source-derived review draft from K1USN SST rules SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; published rules SHA-256 2a54b5ad26aa0342ee6036e07bf39df5c22d4176f6c91913fe5bcf4b3ebe04b8; official sample SHA-256 b5a4f48ec471d2aca4d9f954006ddedb599cceab5f481b9ba5e5de3db3354249; observed sample geography only, with no activation, membership, category, or sponsor-acceptance claim",
+    "stationEntityRequired": false,
+    "supportedBands": [
+      "80m",
+      "40m",
+      "20m"
+    ],
+    "supportedModes": [
+      "CW"
+    ]
+  },
+  "status": "source-derived-draft"
+}

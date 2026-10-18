@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "fixtureKind": "independent SST geographic multiplier contract",
+  "retrievedAt": "2026-10-18",
+  "boundary": {
+    "status": "contract and fixture review only",
+    "excluded": [
+      "Swift or product implementation",
+      "contest catalog activation or count changes",
+      "worker, UI, export, RF, packaged-app, or sponsor-submission acceptance"
+    ]
+  },
+  "officialAuthorities": [
+    {
+      "name": "K1USN SST rules wrapper",
+      "url": "https://www.k1usn.com/sst_rules.html",
+      "bytes": 3737,
+      "sha256": "ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf"
+    },
+    {
+      "name": "K1USN SST published rules document",
+      "url": "https://docs.google.com/document/d/e/2PACX-1vTFtjDXVkS_wGX2XmBV4P8VyT40iSx_NJcx-m2C9Gb9ANJiCMwNeZdpqk_P8DMNJ2OvIGHydv5e36lQ/pub",
+      "bytes": 186591,
+      "sha256": "2a54b5ad26aa0342ee6036e07bf39df5c22d4176f6c91913fe5bcf4b3ebe04b8"
+    },
+    {
+      "name": "Embedded official sample log and scoring explanation",
+      "parentDocument": "K1USN SST published rules document",
+      "observedURL": "https://docs.google.com/docs-images-rt/ALKuztYTowiu1XO-UUUlLODK7snJ6Lhwkcyl9OtRo55yji2NJe0QEf_q78BEfeXofeVsI_nw1zm5SEFNa0ylJlZIcVfknonk8A3T51oFoBI4icu06nbiM3hF9rdlWkvS3hU1Qh_lgr1tFZboVsvPff7kwDysumg_WNJY94jrCQ=s2048",
+      "imageIndex": 0,
+      "pixelSize": {"width": 1218, "height": 576},
+      "bytes": 87207,
+      "sha256": "b5a4f48ec471d2aca4d9f954006ddedb599cceab5f481b9ba5e5de3db3354249"
+    }
+  ],
+  "officialRuleOracle": {
+    "qsoPoints": 1,
+    "duplicateScope": "callsign per band",
+    "multiplierScope": "geographic identity per band",
+    "exchange": ["name", "location"],
+    "locationTokens": {
+      "lower48US": "state abbreviation",
+      "canada": "province abbreviation",
+      "allOtherDXCCEntities": "DX"
+    },
+    "classification": {
+      "lower48US": "state multiplier only",
+      "canada": "province multiplier only",
+      "allOtherDXCCEntities": "DXCC entity multiplier",
+      "explicitDXExamples": ["Alaska (KL7)", "Hawaii (KH6)"]
+    },
+    "scoreFormula": "total QSO points * total per-band geographic multipliers"
+  },
+  "xlogValidationDesign": {
+    "authority": "proposed xLog validation policy, not an official SST rule",
+    "officialBoundary": "The sponsor says each QSO earns one point; xLog must not retain an accepted QSO and silently turn it into a zero-point nonduplicate.",
+    "draftCommit": "A draft with unresolved or contradictory geography cannot be committed, so it never becomes a QSO, earns no point or multiplier, and occupies no duplicate key.",
+    "retainedContact": "An accepted contact keeps its immutable resolved entity and reference-data version. Later reference drift cannot delete or reclassify it silently; replay scores the pinned snapshot. Corrupt retained data is a surfaced session validation failure requiring correction, not an implicit zero-point QSO."
+  },
+  "pythonComparator": {
+    "repository": "read-only contest-sw checkout supplied via CONTEST_SW_ROOT",
+    "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+    "execution": "selected exact-hash allowlisted AST plus in-memory sqlite3",
+    "plugin": {
+      "path": "not1mm/plugins/k1usn_sst.py",
+      "sha256": "73cf9b72f53c6bd65d1f804f28b4ea80f6bf82d2b8b08406b2153691fd1d8120",
+      "functionFingerprints": {
+        "points": "85b97e42e1b7e92751b0d43db2118c358f7b23d058a7a91bfc1b8b21bdfd46b6",
+        "show_mults": "30324411c5b77a5a7ef7bcb39a02959fcf66d5f4e1e88a0182e00231310022c2",
+        "calc_score": "b6969a173337d305d57625ad2f36548f2708294a69794b45c2a16eb4ee023245"
+      }
+    },
+    "database": {
+      "path": "not1mm/lib/database.py",
+      "sha256": "855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8",
+      "method": "fetch_section_band_count_nodx",
+      "methodFingerprint": "f2dd1e0425d61fb2982e714385100089c8f0a4bc70cd3227213af230d9e2df4e",
+      "query": "select count(DISTINCT(Sect || ':' || Band)) as sb_count from dxlog where ContestNR = ? and Sect != 'DX';"
+    },
+    "queryGuardRows": [
+      {"section": "DX", "band": "15m", "contestNumber": 1, "purpose": "must remain excluded by the reviewed DX predicate"},
+      {"section": "ZZ", "band": "10m", "contestNumber": 2, "purpose": "must remain excluded by the reviewed contest-number predicate"}
+    ],
+    "comparatorInput": {
+      "points": 12,
+      "officialSampleRows": 12,
+      "queryGuardRows": 2
+    },
+    "queryControls": {
+      "exactReviewedQuery": 7,
+      "withoutDXFilter": 10,
+      "withoutContestFilter": 8
+    },
+    "officialSampleSourceOutcome": {
+      "points": 12,
+      "multipliers": 7,
+      "claimedScore": 84
+    },
+    "divergence": {
+      "status": "known source defect; corrected contract intentionally differs",
+      "cause": "show_mults calls fetch_section_band_count_nodx, whose SQL excludes every contact stored with Sect = DX",
+      "officialExpected": {"points": 12, "multipliers": 10, "claimedScore": 120},
+      "mustNotClaim": "exact scoring parity with the pinned Python source"
+    }
+  },
+  "proposedVocabulary": {
+    "type": "geographicMultiplier",
+    "variants": [
+      {
+        "kind": "administrativeSubdivision",
+        "authority": "versioned subdivision scheme",
+        "canonicalValue": "sponsor-authorized normalized code"
+      },
+      {
+        "kind": "dxccEntity",
+        "authority": "versioned DXCC entity reference",
+        "canonicalValue": "ADIF DXCC entity code"
+      }
+    ],
+    "scope": "band",
+    "keyShape": ["kind", "authority", "referenceDataVersion", "resolvedEntityADIF", "canonicalValue", "band"],
+    "runtimeEncoding": "The runtime value uses unambiguous UTF-8 byte-length-prefixed components. The expectedNewMultipliers strings in this fixture are human-readable labels, not serialized runtime ContestMultiplierKey values.",
+    "classificationInput": [
+      "immutable resolved entity snapshot",
+      "canonical typed location field",
+      "versioned sponsor geography policy"
+    ],
+    "invariants": [
+      "exactly one multiplier variant may apply to an accepted QSO",
+      "callsign prefix and the literal DX token are never sufficient entity authority",
+      "name is exchange evidence but never part of the multiplier key",
+      "correction and deletion replay recomputes keys from retained accepted QSOs",
+      "unresolved or contradictory draft geography blocks commit under the proposed xLog validation policy",
+      "accepted contacts retain and score from their pinned immutable geography snapshot"
+    ],
+    "sstSchemes": [
+      "sst-us-lower48-state",
+      "sst-canadian-province",
+      "dxcc-entity"
+    ],
+    "notNAQP": "SST classifies every entity outside the lower 48 US states and Canada, including Alaska and Hawaii, as DXCC. NAQP has a distinct North American territory list and cannot supply SST membership semantics."
+  },
+  "officialSample": {
+    "source": "embedded official sample log",
+    "contacts": [
+      {"qso": 1, "band": "80m", "callsign": "K1VUT", "name": "DAVE", "location": "MA", "newMultipliers": ["administrativeSubdivision:sst-us-lower48-state:MA:80m"]},
+      {"qso": 2, "band": "80m", "callsign": "N3QE", "name": "TIM", "location": "MD", "newMultipliers": ["administrativeSubdivision:sst-us-lower48-state:MD:80m"]},
+      {"qso": 3, "band": "80m", "callsign": "VE3KI", "name": "RICH", "location": "ON", "newMultipliers": ["administrativeSubdivision:sst-canadian-province:ON:80m"]},
+      {"qso": 4, "band": "80m", "callsign": "DK9PY", "name": "ARMIN", "location": "DX", "newMultipliers": ["dxccEntity:dxcc-entity:230:80m"]},
+      {"qso": 5, "band": "40m", "callsign": "K4BAI", "name": "JOHN", "location": "GA", "newMultipliers": ["administrativeSubdivision:sst-us-lower48-state:GA:40m"]},
+      {"qso": 6, "band": "40m", "callsign": "K1RV", "name": "PI", "location": "MA", "newMultipliers": ["administrativeSubdivision:sst-us-lower48-state:MA:40m"]},
+      {"qso": 7, "band": "40m", "callsign": "N1VH", "name": "MARTY", "location": "MA", "newMultipliers": []},
+      {"qso": 8, "band": "40m", "callsign": "K9ZO", "name": "AL", "location": "IL", "newMultipliers": ["administrativeSubdivision:sst-us-lower48-state:IL:40m"]},
+      {"qso": 9, "band": "20m", "callsign": "K1DJ", "name": "RICH", "location": "MA", "newMultipliers": ["administrativeSubdivision:sst-us-lower48-state:MA:20m"]},
+      {"qso": 10, "band": "20m", "callsign": "DK9PY", "name": "ARMIN", "location": "DX", "newMultipliers": ["dxccEntity:dxcc-entity:230:20m"]},
+      {"qso": 11, "band": "20m", "callsign": "F6HKA", "name": "BERT", "location": "DX", "newMultipliers": ["dxccEntity:dxcc-entity:227:20m"]},
+      {"qso": 12, "band": "20m", "callsign": "K1RV", "name": "PI", "location": "MA", "newMultipliers": []}
+    ],
+    "expected": {
+      "qsoPoints": 12,
+      "stateProvinceMultipliers": 7,
+      "dxccMultipliers": 3,
+      "totalMultipliers": 10,
+      "claimedScore": 120
+    }
+  },
+  "independentCases": [
+    {
+      "name": "alaska-and-hawaii-are-dxcc-per-band",
+      "contacts": [
+        {"id": "ak-40-a", "band": "40m", "callsign": "KL7AAA", "name": "ANNA", "location": "DX", "resolvedADIF": 6, "expectedNewMultipliers": ["dxccEntity:dxcc-entity:6:40m"]},
+        {"id": "hi-40", "band": "40m", "callsign": "KH6AAA", "name": "HANA", "location": "DX", "resolvedADIF": 110, "expectedNewMultipliers": ["dxccEntity:dxcc-entity:110:40m"]},
+        {"id": "ak-40-b", "band": "40m", "callsign": "KL7BBB", "name": "BOB", "location": "DX", "resolvedADIF": 6, "expectedNewMultipliers": []},
+        {"id": "ak-20", "band": "20m", "callsign": "KL7AAA", "name": "ANNA", "location": "DX", "resolvedADIF": 6, "expectedNewMultipliers": ["dxccEntity:dxcc-entity:6:20m"]}
+      ],
+      "expected": {"qsoPoints": 4, "multipliers": 3, "claimedScore": 12}
+    },
+    {
+      "name": "unresolved-geography-draft-cannot-commit",
+      "drafts": [
+        {"id": "unknown", "band": "40m", "callsign": "ZZ0ZZ", "name": "ZED", "location": "DX", "resolvedADIF": null, "expectedDisposition": "commitRejected", "expectedReason": "unresolvedGeography"}
+      ],
+      "expected": {"retainedContacts": 0, "qsoPoints": 0, "multipliers": 0, "claimedScore": 0},
+      "authority": "proposed xLog validation policy, not an official SST scoring rule"
+    },
+    {
+      "name": "repeated-dxcc-entity-counts-once-per-band",
+      "contacts": [
+        {"id": "dl-40-a", "band": "40m", "callsign": "DL1AAA", "name": "ANNE", "location": "DX", "resolvedADIF": 230, "expectedNewMultipliers": ["dxccEntity:dxcc-entity:230:40m"]},
+        {"id": "dl-40-b", "band": "40m", "callsign": "DL2BBB", "name": "BERT", "location": "DX", "resolvedADIF": 230, "expectedNewMultipliers": []},
+        {"id": "dl-20-a", "band": "20m", "callsign": "DL1AAA", "name": "ANNE", "location": "DX", "resolvedADIF": 230, "expectedNewMultipliers": ["dxccEntity:dxcc-entity:230:20m"]}
+      ],
+      "expected": {"qsoPoints": 3, "multipliers": 2, "claimedScore": 6}
+    },
+    {
+      "name": "correction-and-deletion-replay",
+      "operations": [
+        {"kind": "create", "id": "us", "band": "40m", "callsign": "W1AAA", "name": "AL", "location": "MA", "resolvedADIF": 291},
+        {"kind": "create", "id": "dl", "band": "40m", "callsign": "DL1AAA", "name": "ANNE", "location": "DX", "resolvedADIF": 230},
+        {"kind": "checkpoint", "expected": {"qsoPoints": 2, "multiplierKeys": ["administrativeSubdivision:sst-us-lower48-state:MA:40m", "dxccEntity:dxcc-entity:230:40m"], "claimedScore": 4}},
+        {"kind": "correct", "id": "us", "location": "CT"},
+        {"kind": "checkpoint", "expected": {"qsoPoints": 2, "multiplierKeys": ["administrativeSubdivision:sst-us-lower48-state:CT:40m", "dxccEntity:dxcc-entity:230:40m"], "claimedScore": 4}},
+        {"kind": "delete", "id": "dl"},
+        {"kind": "checkpoint", "expected": {"qsoPoints": 1, "multiplierKeys": ["administrativeSubdivision:sst-us-lower48-state:CT:40m"], "claimedScore": 1}}
+      ]
+    },
+    {
+      "name": "typed-name-and-location-mismatch-drafts-cannot-commit",
+      "drafts": [
+        {"id": "name-mismatch", "band": "40m", "callsign": "W1AAA", "typed": {"name": "ALICE", "location": "MA"}, "aggregate": "BOB MA", "resolvedADIF": 291, "expectedDisposition": "commitRejected", "expectedReason": "exchangeProjectionMismatch"},
+        {"id": "lower48-dx-mismatch", "band": "40m", "callsign": "W1BBB", "typed": {"name": "BOB", "location": "DX"}, "aggregate": "BOB DX", "resolvedADIF": 291, "expectedDisposition": "commitRejected", "expectedReason": "locationClassificationMismatch"},
+        {"id": "alaska-state-mismatch", "band": "40m", "callsign": "KL7AAA", "typed": {"name": "ANNA", "location": "AK"}, "aggregate": "ANNA AK", "resolvedADIF": 6, "expectedDisposition": "commitRejected", "expectedReason": "locationClassificationMismatch"}
+      ],
+      "expected": {"retainedContacts": 0, "qsoPoints": 0, "multipliers": 0, "claimedScore": 0},
+      "authority": "proposed xLog validation policy, not an official SST scoring rule"
+    }
+  ],
+  "openAuthorityGates": [
+    "activation blocker: pin the exact sponsor-authorized lower-48 state and Canadian province code sets, including an explicit District of Columbia decision",
+    "pin the DXCC entity reference version used for scoring",
+    "review mobile and portable endpoint resolution before activation",
+    "define export and category behavior separately"
+  ]
+}

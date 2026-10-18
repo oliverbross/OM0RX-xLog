@@ -25,12 +25,14 @@ The required corpus check fails rather than skips when the external checkout is 
 
 Unit tests use `CONTEST_SW_ROOT` when set. Corpus tests visibly skip when it is unavailable; they do not replace the required check above.
 
-`definition_schema.json` keeps the historical `1.0.0` draft interchange and adds a strict `2.0.0` authoring envelope. Version 2 uses only the finite policies already implemented by `ContestDefinitionDraft`; it is not an expression language and cannot request an adapter. Runtime-blocking omissions belong in `constraints.runtimeUnresolved` and prevent translation. Sponsor, category, schedule and activation gaps belong in `constraints.acceptanceUnresolved` and remain visible without changing runtime semantics.
+`definition_schema.json` keeps the historical `1.0.0` draft interchange and adds a strict `2.0.0` authoring envelope. Version 2 uses only the finite policies already implemented by `ContestDefinitionDraft`; it is not an expression language and cannot request an adapter. Its optional `geographicMultiplier` maps directly to the bounded Swift configuration: one required received subdivision field, up to eight unique entity policies with uppercase tokens, and one entity fallback. Geographic goldens must provide resolved entity snapshots and a pinned reference-data version. Runtime-blocking omissions belong in `constraints.runtimeUnresolved` and prevent translation. Sponsor, category, schedule, membership and activation gaps belong in `constraints.acceptanceUnresolved` and remain visible without changing runtime semantics.
+
+Version 2 goldens are intentionally limited to fully resolved positive scoring cases with `accepted` or `duplicate` dispositions. Malformed or contradictory contacts are covered by validator and Swift negative tests; authoring an expected `invalid` contact remains unsupported until the interchange defines which validation failure is expected. A geographic golden's reference-data version must be trimmed and no more than 160 UTF-8 bytes, matching the Swift runtime bound rather than JSON character count.
 
 Validate a v2 envelope and emit sorted JSON that Swift decodes directly as `ContestDefinitionDraft`:
 
 ```sh
-/opt/homebrew/bin/python3.14 tools/contest_plugin_generator/validate_definition.py \
+python3 tools/contest_plugin_generator/validate_definition.py \
   Tests/XContestCoreTests/SourceFixtures/custom-two-band-sprint.authoring-v2.json \
   --emit-runtime-draft /tmp/custom-two-band-sprint.runtime-draft.json
 ```
