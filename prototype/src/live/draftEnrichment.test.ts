@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { changedCallDraft, enrichedDraft } from "./draftEnrichment";
+import { changedCallDraft, enrichedDraft, sameNormalLogCall } from "./draftEnrichment";
 describe("callsign-scoped enrichment", () => {
   const old = { id: "draft", call: "M6KUP", name: "Old name", country: "England", dxcc: 223, gridSquare: "IO81", frequencyHz: 14222000, extraFields: { TEST: "keep" } };
   it("clears inherited identity on a new call and preserves explicit spot fields", () => {
@@ -24,5 +24,10 @@ describe("callsign-scoped enrichment", () => {
       .toMatchObject({ name: "", gridSquare: "", country: "" });
     expect(changedCallDraft({ ...old, sig: "COTA", sigInfo: "OM-001" }, { ...old, call: "EA7EU", sig: "COTA", sigInfo: "OM-001" }))
       .toMatchObject({ sig: "", sigInfo: "" });
+  });
+  it("matches normal-log operating suffixes without merging location prefixes", () => {
+    expect(sameNormalLogCall("EA1FOX/P", "ea1fox")).toBe(true);
+    expect(sameNormalLogCall("G7SQW", "G7SQW/QRP")).toBe(true);
+    expect(sameNormalLogCall("9A/SP9WLG/P", "SP9WLG/P")).toBe(false);
   });
 });

@@ -29,6 +29,16 @@ it("shows only the active callsign with the requested default columns and confir
   expect(screen.getAllByLabelText("QSL: Confirmed")).toHaveLength(1);
 });
 
+it("includes portable and mobile variants under the normal-log base callsign", () => {
+  render(<DeskPreviousQSOs call="EA1FOX" qsos={[
+    { id: "base", call: "EA1FOX", start: "2025-10-11T09:35:00Z", band: "20m", mode: "USB" },
+    { id: "portable", call: "EA1FOX/P", start: "2026-10-18T01:26:00Z", band: "17m", mode: "SSB" },
+    { id: "foreign-prefix", call: "9A/EA1FOX/P", start: "2026-10-17T01:26:00Z", band: "20m", mode: "CW" },
+  ]} />);
+  expect(screen.getByText("EA1FOX · 2 QSOs")).toBeTruthy();
+  expect(screen.getAllByRole("row")).toHaveLength(3);
+});
+
 it("sorts by Band high-to-low on first click and reverses on the second", () => {
   render(<DeskPreviousQSOs call="VK8NSB" qsos={qsos} />);
   const band = screen.getByRole("button", { name: /Band/ });

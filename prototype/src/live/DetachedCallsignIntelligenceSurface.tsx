@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { workerRequest } from "../worker";
 import { DeskIntelligence, type IntelligenceRequest } from "./CallsignIntelligence";
 import { CanonicalDraftFollower, CallsignLookupCache, intelligenceIdentity } from "./callsignIntelligenceContext";
-import { normalizedCall } from "./draftEnrichment";
+import { normalizedCall, sameNormalLogCall } from "./draftEnrichment";
 import { requestOperatorDraft } from "./operatorDraftTransport";
 import { connectOperatorDraftChanges, ownDraftUpdateWarnings } from "./operatorDraftWindows";
 import { connectLogbookChanges } from "./logbookWindows";
@@ -56,7 +56,7 @@ export function CallsignIntelligenceSurface({ request = requestDetachedIntellige
     let active = true;
     if (!matched || !identity) return;
     void request("logbook_previous", { call, limit: 10 }).then(value => {
-      if (active) setPrevious({ key: identity, rows: Array.isArray(value?.qsos) ? value.qsos.filter((qso: any) => normalizedCall(qso?.call) === call) : [] });
+      if (active) setPrevious({ key: identity, rows: Array.isArray(value?.qsos) ? value.qsos.filter((qso: any) => sameNormalLogCall(qso?.call, call)) : [] });
     }).catch(() => { if (active) setPrevious({ key: identity, rows: [] }); });
     return () => { active = false; };
   }, [identity, call, matched, request, historyRefresh]);

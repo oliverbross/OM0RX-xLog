@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { normalizedCall } from "./draftEnrichment";
+import { normalizedCall, sameNormalLogCall } from "./draftEnrichment";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
 import "./DeskPreviousQSOs.css";
@@ -123,7 +123,7 @@ function Confirmation({ service, received, sent }: { service: string; received?:
 
 export function DeskPreviousQSOs({ call, qsos }: { call: string; qsos: PreviousQSO[] }) {
   const activeCall = normalizedCall(call);
-  const matching = useMemo(() => qsos.filter(qso => normalizedCall(qso.call) === activeCall), [activeCall, qsos]);
+  const matching = useMemo(() => qsos.filter(qso => sameNormalLogCall(qso.call, activeCall)), [activeCall, qsos]);
   const [visible, setVisible] = useState<Column[]>(loadColumns);
   const [widths, setWidths] = useState<Widths>(loadWidths);
   const [columnsOpen, setColumnsOpen] = useState(false);

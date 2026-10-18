@@ -99,6 +99,20 @@ it("shows unavailable lookup/history rather than claiming unworked or a stale co
   expect(screen.queryByText("Synthetic country")).toBeNull();
 });
 
+it("retains portable variants as normal-log previous contacts when aggregate history is unavailable", async () => {
+  const request = reader(), original = request.getMockImplementation()!;
+  request.mockImplementation((method, params) => method === "logbook_previous"
+    ? Promise.resolve({ qsos: [
+      { call: "TEST1/P", start: "2026-10-18T01:26:00Z", band: "20m", mode: "CW" },
+      { call: "9A/TEST1/P", start: "2026-10-17T01:26:00Z", band: "20m", mode: "CW" },
+    ] })
+    : method === "cluster_history" ? Promise.reject(new Error("offline")) : original(method, params));
+  render(<CallsignIntelligenceSurface request={request} />);
+  const last = await screen.findByText(/CALL LAST/);
+  expect(last.textContent).toContain("18/10/2026");
+  expect(last.textContent).not.toContain("—");
+});
+
 it("routes a direct menu window to a filling card with narrow-window reflow", async () => {
   const Surface = await loadWindowSurface("?view=callsign-intelligence");
   expect(Surface.name).toBe("DetachedCallsignIntelligenceSurface");

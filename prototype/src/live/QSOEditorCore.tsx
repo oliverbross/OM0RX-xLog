@@ -6,7 +6,7 @@ import type { DraftPowerIntent, DraftPowerState } from "./operatorDraftSession";
 import { dxccIdentity } from "./dxccIdentity";
 import { countryDisplay } from "./countryDisplay";
 import { connectLogbookChanges } from "./logbookWindows";
-import { fillEmptyLookupFields } from "./draftEnrichment";
+import { fillEmptyLookupFields, sameNormalLogCall } from "./draftEnrichment";
 import { QSOExtraFields } from "./QSOExtraFields";
 import { qsoBands as bands, qsoFieldGroups as groups, qsoModes as modes, type QSOField as Field } from "./qsoFields";
 import { applyModeSignalReportDefaults } from "./signalReportDefaults";
@@ -215,7 +215,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
   const profileImage = safeProfileURL(profile?.imageURL);
   const profileWebsite = safeProfileURL(profile?.websiteURL);
   useEffect(() => { setFailedImage(null); setViewedImage(null); }, [profileImage, draft?.call]);
-  const matchingPrevious = useMemo(() => previous.filter((item) => call(item.call) === call(draft?.call)).slice(0, 6), [previous, draft?.call]);
+  const matchingPrevious = useMemo(() => previous.filter((item) => sameNormalLogCall(item.call, draft?.call)).slice(0, 6), [previous, draft?.call]);
   const matrixCall = call(draft?.call);
   const duplicateDate = useDuplicateContact(draft, isEditing, request, 0);
   const matrixADIF = sameLookup && Number.isInteger(lookup?.dxcc) && lookup.dxcc > 0 ? lookup.dxcc as number : null;

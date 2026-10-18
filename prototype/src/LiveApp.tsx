@@ -76,7 +76,7 @@ import WorkspaceGate from "./live/WorkspaceGate";
 import SpotBridgePanel from "./live/SpotBridgePanel";
 import WSJTXPanel from "./live/WSJTXPanel";
 import { logMode } from "./live/draftRadio";
-import { changedCallDraft, enrichedDraft, normalizedCall } from "./live/draftEnrichment";
+import { changedCallDraft, enrichedDraft, normalizedCall, sameNormalLogCall } from "./live/draftEnrichment";
 import { settingsLoadingLookup } from "./live/callsignIntelligenceContext";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
@@ -1298,7 +1298,7 @@ function MainLiveApp() {
     rotorConfigured: hasConfiguredRotor(rotorConfigurationState.base?.configuration), autoRotor, setAutoRotor: changeAutoRotor,
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
   const deskCall = normalizedCall(draft?.call);
-  const deskPrevious = previous.filter(qso => normalizedCall(qso?.call) === deskCall);
+  const deskPrevious = previous.filter(qso => sameNormalLogCall(qso?.call, deskCall));
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
   const contestView = operatingModule?.selected === "contesting";
