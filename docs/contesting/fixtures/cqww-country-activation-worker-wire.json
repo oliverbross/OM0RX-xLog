@@ -1,0 +1,176 @@
+{
+  "assertions" : {
+    "cwFinalMultipliers" : 11,
+    "cwFinalPoints" : 9,
+    "cwFinalScore" : 99,
+    "packagedReferenceSHA256" : "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+    "ssbMultipliers" : 2,
+    "ssbPoints" : 2,
+    "ssbScore" : 4
+  },
+  "catalog" : {
+    "id" : "64178e49-e3d8-4ac5-9824-91038840dace",
+    "ok" : true,
+    "result" : {
+      "rules" : [
+        {
+          "countryReference" : {
+            "id" : "cqww-country",
+            "immutablePerSession" : true,
+            "recordCount" : 362,
+            "sha256" : "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+            "submissionReady" : false,
+            "version" : "2026.1-complete"
+          },
+          "displayName" : "CQ WW CW country-reference preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-country-reference-preview",
+            "id" : "cq-ww-cw-country-reference",
+            "sourceRevision" : "cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+            "version" : "2.0.0-country-reference"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "735e80102c6f0d9a91d4ad76edef27885abaa21dfeb315fd34f5d7efe6e858b9",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "CQ WW 2026 practice preview with pinned sponsor-country reference; schedule, category eligibility, results reporting, and maritime-mobile transmitter location remain unsupported",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "countryReference" : {
+            "id" : "cqww-country",
+            "immutablePerSession" : true,
+            "recordCount" : 362,
+            "sha256" : "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+            "submissionReady" : false,
+            "version" : "2026.1-complete"
+          },
+          "displayName" : "CQ WW SSB country-reference preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-country-reference-preview",
+            "id" : "cq-ww-ssb-country-reference",
+            "sourceRevision" : "cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+            "version" : "2.0.0-country-reference"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "6164ffb496be060d087ddd0c5ea15450fdc3540a741344dac7a2dcef6e1265ab",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "CQ WW 2026 practice preview with pinned sponsor-country reference; schedule, category eligibility, results reporting, and maritime-mobile transmitter location remain unsupported",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        }
+      ],
+      "workspaceGeneration" : "01813ab5-315b-4971-91e8-34f78edf8f3c"
+    }
+  },
+  "generatedBy" : "ContestCQWWCountryActivationTests",
+  "schemaVersion" : 1
+}

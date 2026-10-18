@@ -309,7 +309,7 @@ final class ContestingLaneTests: XCTestCase {
         ]
         let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
         XCTAssertTrue(legacyIDs.isSubset(of: catalogIDs))
-        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.count, 26)
         XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 8)
         for rule in rules.filter({ legacyIDs.contains((($0["identity"] as? [String: Any])?["id"] as? String) ?? "") }) {
             let mode = try XCTUnwrap(rule["mode"] as? String)
@@ -958,19 +958,31 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.count, 26)
         let legacyOperatorIDs: Set<String> = ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
                                 "naqp-cw", "naqp-ssb", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"]
+        let countryReferenceOperatorIDs: Set<String> = ["cq-ww-cw-country-reference", "cq-ww-ssb-country-reference"]
         let inertRTTYIDs: Set<String> = ["naqp-rtty", "arrl-rtty-roundup"]
         let declarativeOperatorIDs: Set<String> = ["cwops-cwt", "cwops-open", "icwc-mst", "ten-ten-fallCW", "ten-ten-springCW", "ten-ten-summerPhone", "ten-ten-winterPhone", "k1usn-sst"]
         let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
-        XCTAssertEqual(catalogIDs, legacyOperatorIDs.union(inertRTTYIDs).union(declarativeOperatorIDs))
+        XCTAssertEqual(catalogIDs, legacyOperatorIDs.union(countryReferenceOperatorIDs).union(inertRTTYIDs).union(declarativeOperatorIDs))
         let declarativeRules = rules.filter { $0["declarativeDefinition"] != nil }
         XCTAssertEqual(Set(declarativeRules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }), declarativeOperatorIDs)
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let operatorRules = rules.filter { $0["operatorCapability"] is [String: Any] }
         XCTAssertEqual(Set(operatorRules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       legacyOperatorIDs.union(declarativeOperatorIDs))
+                       legacyOperatorIDs.union(countryReferenceOperatorIDs).union(declarativeOperatorIDs))
+        for candidate in rules where countryReferenceOperatorIDs.contains(
+            ((candidate["identity"] as? [String: Any])?["id"] as? String) ?? "") {
+            let reference = try XCTUnwrap(candidate["countryReference"] as? [String: Any])
+            XCTAssertEqual(Set(reference.keys), Set(["id", "version", "sha256", "recordCount", "immutablePerSession", "submissionReady"]))
+            XCTAssertEqual(reference["id"] as? String, "cqww-country")
+            XCTAssertEqual(reference["version"] as? String, "2026.1-complete")
+            XCTAssertEqual(reference["sha256"] as? String, ContestPackagedCountryReferenceLoader.resourceSHA256)
+            XCTAssertEqual((reference["recordCount"] as? NSNumber)?.intValue, 362)
+            XCTAssertEqual(reference["immutablePerSession"] as? Bool, true)
+            XCTAssertEqual(reference["submissionReady"] as? Bool, false)
+        }
         for candidate in declarativeRules {
             let definition = try XCTUnwrap(candidate["declarativeDefinition"] as? [String: Any])
             let capability = try XCTUnwrap(candidate["operatorCapability"] as? [String: Any])
@@ -992,7 +1004,7 @@ final class ContestingLaneTests: XCTestCase {
         let capabilityDigests = try operatorRules.map {
             try XCTUnwrap(($0["operatorCapability"] as? [String: Any])?["auditDigest"] as? String)
         }
-        XCTAssertEqual(Set(capabilityDigests).count, 22)
+        XCTAssertEqual(Set(capabilityDigests).count, 24)
         XCTAssertTrue(capabilityDigests.allSatisfy { $0.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil })
         XCTAssertFalse(rules.filter { inertRTTYIDs.contains(($0["identity"] as? [String: Any])?["id"] as? String ?? "") }
             .contains { $0["operatorCapability"] != nil })
@@ -1181,15 +1193,15 @@ final class ContestingLaneTests: XCTestCase {
         }
         if let output = ProcessInfo.processInfo.environment["XLOG_CURRENT_CONTEST_CATALOG_FIXTURE_OUTPUT"] {
             let fixture: [String: Any] = ["schemaVersion": 1, "catalog": catalogFrame,
-                "assertions": ["legacyOperatorCapabilities": 14, "declarativeOperatorCapabilities": 8,
-                               "inertRTTYRules": 2, "totalRules": 24]]
+                "assertions": ["legacyOperatorCapabilities": 14, "countryReferenceOperatorCapabilities": 2,
+                               "declarativeOperatorCapabilities": 8, "inertRTTYRules": 2, "totalRules": 26]]
             let url = URL(fileURLWithPath: output)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
         }
         if let output = ProcessInfo.processInfo.environment["XLOG_OPERATOR_CAPABILITIES_TS_OUTPUT"] {
             var bindings: [String: String] = [:]
-            for candidate in operatorRules where legacyOperatorIDs.contains(
+            for candidate in operatorRules where legacyOperatorIDs.union(countryReferenceOperatorIDs).contains(
                 ((candidate["identity"] as? [String: Any])?["id"] as? String) ?? "") {
                 let identity = try XCTUnwrap(candidate["identity"] as? [String: Any])
                 let keyData = try JSONSerialization.data(withJSONObject: [
@@ -1199,7 +1211,7 @@ final class ContestingLaneTests: XCTestCase {
                 let key = try XCTUnwrap(String(data: keyData, encoding: .utf8))
                 bindings[key] = try XCTUnwrap((candidate["operatorCapability"] as? [String: Any])?["auditDigest"] as? String)
             }
-            XCTAssertEqual(bindings.count, 14)
+            XCTAssertEqual(bindings.count, 16)
             let object = try XCTUnwrap(String(data: JSONSerialization.data(withJSONObject: bindings,
                 options: [.prettyPrinted, .sortedKeys]), encoding: .utf8))
             let source = """

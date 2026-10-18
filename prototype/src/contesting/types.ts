@@ -68,6 +68,8 @@ export type ContestRuleMetadata = {
   supportedBands?: string[]; supportedModes?: ContestMode[];
   referenceDataVersion: string; sourceVerification: SourceVerificationStatus; sourceNote: string;
   operatorCapability?: ContestOperatorCapability;
+  countryReference?: { id: string; version: string; sha256: string; recordCount: number;
+    immutablePerSession: true; submissionReady: false };
   declarativeDefinition?: { definitionDigest: string; immutablePerSession: true; exportPurpose: "operatorArchive"; submissionReady: false };
 };
 type StructuredEntry = ContestEntryDescriptorV2 & { exchange: ContestEntryDescriptorV2["exchange"] & {
