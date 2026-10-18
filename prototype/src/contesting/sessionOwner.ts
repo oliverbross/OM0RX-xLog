@@ -1,4 +1,4 @@
-import { ContestClient, validateDraftFields, type ContestMutation, type ContestOperationState } from "./client";
+import { ContestClient, validateEditableDraftFields, type ContestMutation, type ContestOperationState } from "./client";
 import type { ContestDraftFields, ContestDraftResult, ContestDraftSnapshot, ContestQSOChangeResult, ContestRequest, ContestSessionSummary } from "./types";
 
 export type ContestRecoveryStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -124,7 +124,7 @@ export class ContestSessionOwner {
     const key = draftKey(session.sessionID, session.workspaceGeneration), saved = this.recovery.drafts[key];
     let matches = !!saved && saved.draftID === draft.draftID;
     if (matches) {
-      try { validateDraftFields(saved.fields, session.rule); } catch { delete this.recovery.drafts[key]; this.persist(); matches = false; }
+      try { validateEditableDraftFields(saved.fields, session.rule); } catch { delete this.recovery.drafts[key]; this.persist(); matches = false; }
     }
     this.sessionValue = session; this.draftValue = matches ? { ...draft, fields: saved.fields } : draft;
     this.editVersion = matches ? 1 : 0; this.savedVersion = 0; this.emit(); return true;
@@ -137,7 +137,7 @@ export class ContestSessionOwner {
   edit(fields: ContestDraftFields) {
     const draftSaveInFlight = this.recovery.pending?.phase === "inflight" && this.recovery.pending.operation.method === "contest_draft_apply";
     if (!this.sessionValue || !this.draftValue || this.recovery.pending && !draftSaveInFlight) return;
-    validateDraftFields(fields, this.sessionValue.rule);
+    validateEditableDraftFields(fields, this.sessionValue.rule);
     this.editVersion += 1; this.draftValue = { ...this.draftValue, fields };
     this.recovery.drafts[draftKey(this.sessionValue.sessionID, this.sessionValue.workspaceGeneration)] = {
       sessionID: this.sessionValue.sessionID, workspaceGeneration: this.sessionValue.workspaceGeneration, draftID: this.draftValue.draftID, fields,
