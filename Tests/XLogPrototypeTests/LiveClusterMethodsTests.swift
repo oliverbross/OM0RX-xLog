@@ -47,16 +47,16 @@ struct LiveClusterMethodsTests {
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
     }
 
-    @Test("RBN source filtering controls the live skimmer subscription")
-    func rbnSourceSubscription() async throws {
+    @Test("RBN source filtering does not change the live skimmer subscription")
+    func rbnSourceVisibilityIsIndependent() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let configurationURL = root.appendingPathComponent("cluster.json")
         var configuration = ClusterSessionConfiguration(servers: [
             .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
-        ], requestRecentSpotsOnConnect: false, requestSkimmer: false)
-        configuration.filter.sources = ["cluster"]
+        ], requestRecentSpotsOnConnect: false, requestSkimmer: true)
+        configuration.filter.sources = ["cluster", "rbl"]
         try JSONEncoder().encode(configuration).write(to: configurationURL)
         let fixture = WorkerClusterFixture()
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
@@ -68,15 +68,16 @@ struct LiveClusterMethodsTests {
         _ = try await cluster.handle(method: "cluster_connect", params: [:])
         var snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
         var filter = try #require((snapshot["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        let optionUpdateCount = fixture.optionUpdates.count
+        filter["sources"] = ["cluster"]
+        snapshot = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        #expect((snapshot["configuration"] as? [String: Any])?["requestSkimmer"] as? Bool == true)
+        #expect(fixture.optionUpdates.count == optionUpdateCount)
+        filter = try #require((snapshot["configuration"] as? [String: Any])?["filter"] as? [String: Any])
         filter["sources"] = ["cluster", "rbl"]
         snapshot = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
         #expect((snapshot["configuration"] as? [String: Any])?["requestSkimmer"] as? Bool == true)
-        #expect(fixture.optionUpdates.last?.1 == true)
-        filter = try #require((snapshot["configuration"] as? [String: Any])?["filter"] as? [String: Any])
-        filter["sources"] = ["cluster"]
-        snapshot = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
-        #expect((snapshot["configuration"] as? [String: Any])?["requestSkimmer"] as? Bool == false)
-        #expect(fixture.optionUpdates.last?.1 == false)
+        #expect(fixture.optionUpdates.count == optionUpdateCount)
         await cluster.terminate()
     }
 

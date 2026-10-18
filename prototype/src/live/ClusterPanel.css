@@ -101,6 +101,7 @@
 }
 .live-cluster-picker > div:first-child { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .live-cluster-picker-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.live-cluster-picker-note { margin: 0 0 8px; color: var(--secondary); font-size: 11px; line-height: 1.35; }
 .live-cluster-picker label { display: flex; align-items: center; gap: 6px; padding: 2px; }
 .live-cluster-picker input[type="checkbox"] { min-height: auto; }
 .live-cluster-table { flex: 1 1 auto; min-height: 220px; max-height: min(52dvh, 560px); }

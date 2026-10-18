@@ -641,12 +641,15 @@ public actor ClusterSessionService {
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
         let source = SpotLogic.source(spotter: raw.spotter, comment: raw.comment)
         let specials = specialTags(comment: raw.comment, source: source)
+        let displayComment = source == "rbl" && !raw.comment.uppercased().hasPrefix("RBN")
+            ? (raw.comment.isEmpty ? "RBN" : "RBN · \(raw.comment)")
+            : raw.comment
         let (score, reasons) = SpotLogic.score(callStatus: classification.callStatus, dxccStatus: classification.dxccStatus,
                                                specials: specials, source: source)
         var spot = ClassifiedClusterSpot(
             id: UUID(), receivedAt: raw.receivedAt, clusterName: raw.clusterName, spotter: raw.spotter,
             frequencyKHz: raw.frequencyKHz, frequencyText: raw.frequencyText, callsign: raw.callsign,
-            comment: raw.comment,
+            comment: displayComment,
             band: band, mode: mode, country: country?.name ?? "Unknown", adif: country?.adif,
             continent: country?.continent ?? "", cqZone: country?.cqZone, ituZone: country?.ituZone,
             latitude: country?.latitude, longitude: country?.longitude,
@@ -675,7 +678,7 @@ public actor ClusterSessionService {
                     contactRevision: contactRevision))
             }
         }
-        spot.comment = String(decoding: Data(raw.comment.utf8.prefix(512)), as: UTF8.self)
+        spot.comment = String(decoding: Data(displayComment.utf8.prefix(512)), as: UTF8.self)
         if let index = spots.firstIndex(where: { $0.callsign == spot.callsign && abs($0.frequencyKHz - spot.frequencyKHz) <= 0.1
             && raw.receivedAt.timeIntervalSince($0.receivedAt) < 180 }) {
             spot.aggregateCount = spots[index].aggregateCount + 1

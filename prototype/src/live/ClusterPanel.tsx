@@ -301,6 +301,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     </div>
     {activePicker && filterOptions[activePicker] && <div className="live-cluster-picker" role="group" aria-label={filterLabels[activePicker]}>
       <div><strong>{filterLabels[activePicker]}</strong><button type="button" onClick={() => setActivePicker(null)}>Done</button></div>
+      {activePicker === "sources" && <p className="live-cluster-picker-note" role="note">RBN reception is controlled in Cluster settings. Source visibility also follows the selected band and mode filters.</p>}
       <div className="live-cluster-picker-options">
         {activePicker === "specials" ? <SpecialFilterOptions filter={filter} options={filterOptions.specials ?? []} onChange={changeFilter} />
           : filterOptions[activePicker]?.map((option) => {
@@ -407,12 +408,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           <label><input type="checkbox" checked={configuration.connectOnStartup} onChange={(event) => setConfiguration({ ...configuration, connectOnStartup: event.target.checked })} /> Connect automatically when xLog starts</label>
           <label><input type="checkbox" checked={configuration.requestRecentSpotsOnConnect} onChange={(event) => setConfiguration({ ...configuration, requestRecentSpotsOnConnect: event.target.checked })} /> Request 100 recent DX spots after connecting</label>
           <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically after an interruption</label>
-          <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => {
-            const checked = event.target.checked;
-            const sources = checked ? [...new Set([...configuration.filter.sources, "rbl"])] : configuration.filter.sources.filter(source => source !== "rbl");
-            const nextFilter = { ...configuration.filter, sources };
-            setFilter(nextFilter); setConfiguration({ ...configuration, requestSkimmer: checked, filter: nextFilter });
-          }} /> Request RBN / Skimmer</label>
+        <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) =>
+          setConfiguration({ ...configuration, requestSkimmer: event.target.checked })} /> Request RBN / Skimmer</label>
           <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label>
           <label><input type="checkbox" checked={configuration.hideWSPRSpots} onChange={(event) => setConfiguration({ ...configuration, hideWSPRSpots: event.target.checked })} /> Hide WSPR spots</label></div>
         <p>The recent-spots option sends <code>sh/dx/100</code> after each successful connection.</p>
