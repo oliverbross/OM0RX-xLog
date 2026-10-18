@@ -9,12 +9,14 @@ import {
 import type { ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
 
 export type HistoryApplyScope={ownerLeaseID:number;sessionID:string;workspaceGeneration:string;sessionRevision:number;draftID:string;draftRevision:number;callsign:string;datasetGeneration:string};
-type Props={request:ContestRequest;ownerLeaseID:number;session:ContestSessionSummary;draft:ContestDraftSnapshot;disabled?:boolean;ready?:boolean;importDataset?:HistoryImport;onApply:(selection:HistorySelection,projectionIDs:string[],scope:HistoryApplyScope)=>Promise<void>};
+export type ContestHistoryPanelSurface={source:string|null;rows:{candidateID:string;callsign:string;fields:{id:string;label:string;value:string}[]}[];
+  busy:boolean;selectCandidate:(candidateID:string)=>Promise<void>};
+type Props={request:ContestRequest;ownerLeaseID:number;session:ContestSessionSummary;draft:ContestDraftSnapshot;disabled?:boolean;ready?:boolean;importDataset?:HistoryImport;onApply:(selection:HistorySelection,projectionIDs:string[],scope:HistoryApplyScope)=>Promise<void>;onSurfaceChange?:(surface:ContestHistoryPanelSurface|null)=>void};
 const RULES=new Set(["cq-ww-cw","cq-ww-ssb","naqp-cw","naqp-ssb","naqp-rtty","arrl-rtty-roundup","arrl-dx-cw","arrl-dx-ssb"]);
 type QueryPage={totalRecords:number;records:HistoryRecord[];next:null|{recordOffset:number;valueOffset:number}};
 const message=(cause:unknown)=>cause instanceof Error?cause.message:String(cause);
 
-export function ContestCallHistoryPanel({request,ownerLeaseID,session,draft,disabled=false,ready=true,importDataset=nativeHistoryImport,onApply}:Props){
+export function ContestCallHistoryPanel({request,ownerLeaseID,session,draft,disabled=false,ready=true,importDataset=nativeHistoryImport,onApply,onSurfaceChange}:Props){
   const [dataset,setDataset]=useState<HistoryDataset|null>(null),[preview,setPreview]=useState<HistoryPreview|null>(null),[diagnostics,setDiagnostics]=useState<HistoryDiagnostic[]>([]),[diagnosticOffset,setDiagnosticOffset]=useState(0),[diagnosticTotal,setDiagnosticTotal]=useState(0);
   const [query,setQuery]=useState<QueryPage|null>(null),[selection,setSelection]=useState<HistorySelection|null>(null),[selectedIDs,setSelectedIDs]=useState<string[]>([]),[confirmAdvisories,setConfirmAdvisories]=useState(false);
   const [busy,setBusy]=useState(false),[diagnosticBusy,setDiagnosticBusy]=useState(false),[error,setError]=useState(""),[unavailable,setUnavailable]=useState<string|null>(null);
@@ -26,7 +28,23 @@ export function ContestCallHistoryPanel({request,ownerLeaseID,session,draft,disa
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;ticket.current+=1;diagnosticTicket.current+=1;busyOwner.current=null;const q=activeQuery.current;if(q)void historyCancelQuery(request,q);activeQuery.current=null;};},[request]);
   useEffect(()=>{const current=++ticket.current;diagnosticTicket.current+=1;invalidateBusy();setDiagnosticBusy(false);setSelection(null);setSelectedIDs([]);setQuery(null);const old=activeQuery.current;if(old)void historyCancelQuery(request,old);activeQuery.current=null;if(!eligible)return;void historyStatus(request).then(status=>{if(mounted.current&&ticket.current===current){setDataset(status.dataset);setPreview(status.pendingPreview);setUnavailable(status.unavailableReason);if(status.pendingPreview)void loadDiagnostics(status.pendingPreview,0,current);}}).catch(cause=>{if(mounted.current&&ticket.current===current)setError(message(cause));});},[request,contextKey,eligible]);
   useEffect(()=>{if(!eligible||disabled||!ready||preview||!dataset||!/^[A-Z0-9]+(?:\/[A-Z0-9]+)*$/.test(draft.fields.callsign.trim().toUpperCase()))return;const current=++ticket.current,q=historyCoordinates(session,draft,crypto.randomUUID()),owner=beginBusy();activeQuery.current=q;setError("");const timer=window.setTimeout(()=>void historyQueryPage(request,q).then(value=>{if(mounted.current&&ticket.current===current){setQuery(value);setSelection(null);}}).catch(cause=>{if(mounted.current&&ticket.current===current)setError(message(cause));}).finally(()=>endBusy(owner)),180);return()=>{window.clearTimeout(timer);if(activeQuery.current===q){void historyCancelQuery(request,q);activeQuery.current=null;}endBusy(owner);};},[request,contextKey,eligible,disabled,ready,preview,dataset]);
+  useEffect(()=>{if(!onSurfaceChange)return;const current:ContestHistoryPanelSurface={source:dataset?.sourceName??null,
+    rows:query?.records.map(row=>({candidateID:row.recordID,callsign:row.normalizedCallsign??draft.fields.callsign.trim().toUpperCase(),fields:row.values.map(cell=>({id:cell.header.canonicalName,label:cell.header.originalName,value:cell.value}))}))??[],
+    busy:busy||diagnosticBusy,selectCandidate:remoteSelectCandidate};onSurfaceChange(current);return()=>onSurfaceChange(null);},
+    [onSurfaceChange,dataset?.sourceName,query,busy,diagnosticBusy,contextKey]);
   if(!eligible)return null;
+  async function remoteSelectCandidate(candidateID:string){
+    const q=activeQuery.current,row=query?.records.find(item=>item.recordID===candidateID);
+    if(!q||!row||disabled||busy)throw new Error("The call-history candidate no longer matches the current query.");
+    const current=ticket.current,owner=beginBusy();setError("");
+    try{const value=await historySelectAll(request,q,row.recordID);if(!mounted.current||ticket.current!==current||activeQuery.current!==q)
+      throw new Error("The call-history candidate became stale.");
+      const scope:HistoryApplyScope={ownerLeaseID,sessionID:session.sessionID,workspaceGeneration:session.workspaceGeneration,
+        sessionRevision:session.revision,draftID:draft.draftID,draftRevision:draft.revision,
+        callsign:draft.fields.callsign.trim().toUpperCase(),datasetGeneration:value.dataset.generation};
+      await onApply(value,value.projections.map(item=>item.id),scope);
+    }catch(cause){if(mounted.current&&ticket.current===current)setError(message(cause));throw cause;}finally{endBusy(owner);}
+  }
   async function loadDiagnostics(value:HistoryPreview,offset:number,current=ticket.current){const pageTicket=++diagnosticTicket.current;setDiagnosticBusy(true);setError("");try{const page=await historyDiagnosticPage(request,value,offset,20);if(mounted.current&&ticket.current===current&&diagnosticTicket.current===pageTicket){setPreview(page.preview);setDiagnostics(page.diagnostics);setDiagnosticOffset(page.offset);setDiagnosticTotal(page.total);}}catch(cause){if(mounted.current&&ticket.current===current&&diagnosticTicket.current===pageTicket)setError(message(cause));}finally{if(mounted.current&&ticket.current===current&&diagnosticTicket.current===pageTicket)setDiagnosticBusy(false);}}
   async function choose(){if(disabled||busy)return;const current=++ticket.current,owner=beginBusy();diagnosticTicket.current+=1;setDiagnosticBusy(false);setError("");setSelection(null);setQuery(null);const old=activeQuery.current;if(old)void historyCancelQuery(request,old);activeQuery.current=null;try{const response=await importDataset();if(response===null)return;const value=validateHistoryPreviewResponse(response);if(value.workspaceGeneration!==session.workspaceGeneration)throw new Error("The preview belongs to another contest workspace.");if(mounted.current&&ticket.current===current){setPreview(value);setConfirmAdvisories(false);await loadDiagnostics(value,0,current);}}catch(cause){if(mounted.current&&ticket.current===current)setError(message(cause));}finally{endBusy(owner);}}
   async function cancelPreview(){if(!preview||busy)return;const current=++ticket.current,owner=beginBusy();diagnosticTicket.current+=1;setDiagnosticBusy(false);setError("");try{await historyCancelPreview(request,preview);const status=await historyStatus(request);if(mounted.current&&ticket.current===current){setPreview(null);setDiagnostics([]);setDataset(status.dataset);setUnavailable(status.unavailableReason);}}catch(cause){if(mounted.current&&ticket.current===current)setError(message(cause));}finally{endBusy(owner);}}

@@ -3,7 +3,9 @@ import type { ComponentType } from "react";
 /** Load only the requested window before mounting it. Never mount the main
  * station controller as an intermediate screen or as a failed-child fallback. */
 export async function loadWindowSurface(search: string): Promise<ComponentType> {
-  const view = new URLSearchParams(search).get("view");
+  const query = new URLSearchParams(search), view = query.get("view");
+  if (query.get("scope") === "contesting")
+    return (await import("./contesting/DetachedContestSurface")).DetachedContestSurface;
   if (view === "operating-goals") return (await import("./live/DetachedOperatingGoalsSurface")).DetachedOperatingGoalsSurface;
   if (view === "previous-qsos") return (await import("./live/DetachedPreviousQSOsSurface")).DetachedPreviousQSOsSurface;
   if (view === "antenna") return (await import("./live/DetachedAntennaSurface")).DetachedAntennaSurface;

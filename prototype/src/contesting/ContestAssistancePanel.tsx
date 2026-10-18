@@ -4,10 +4,13 @@ import { nativeSCPImport, scpCancel, scpQuery, scpSelect, scpStatus, validateSCP
 import "./ContestAssistancePanel.css";
 
 export type SCPSelectionScope = { ownerLeaseID: number; sessionID: string; workspaceGeneration: string; draftID: string; inputCallsign: string };
+export type ContestSCPPanelSurface = { source: string | null; candidates: { candidateID: string; callsign: string }[];
+  busy: boolean; selectCandidate: (candidateID: string) => Promise<void> };
 type Props = { request: AssistanceRequest; ownerLeaseID: number; sessionID: string; workspaceGeneration: string; draftID: string; callsign: string;
-  disabled?: boolean; onSelect: (callsign: string, scope: SCPSelectionScope) => void; importDataset?: SCPImport };
+  disabled?: boolean; onSelect: (callsign: string, scope: SCPSelectionScope) => void; importDataset?: SCPImport;
+  onSurfaceChange?: (surface: ContestSCPPanelSurface | null) => void };
 
-export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspaceGeneration,draftID,callsign,disabled=false,onSelect,importDataset=nativeSCPImport}:Props) {
+export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspaceGeneration,draftID,callsign,disabled=false,onSelect,importDataset=nativeSCPImport,onSurfaceChange}:Props) {
   const [dataset,setDataset]=useState<SCPDataset|null>(null), [unavailable,setUnavailable]=useState<string|null>(null);
   const [result,setResult]=useState<SCPResult|null>(null), [error,setError]=useState("");
   const [importing,setImporting]=useState(false), [querying,setQuerying]=useState(false), [selecting,setSelecting]=useState(false);
@@ -77,6 +80,11 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
     finally{if(mounted.current&&selectTicket.current===ticket)setSelecting(false);}
   }
   const busy=importing||querying||selecting;
+  useEffect(()=>{if(!onSurfaceChange)return;const current:ContestSCPPanelSurface={source:dataset?.version??null,
+    candidates:result?.matches.map(match=>({candidateID:match.matchID,callsign:match.callsign}))??[],busy,
+    selectCandidate:async candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);
+      if(!match)throw new Error("The SCP candidate no longer matches the current query.");await select(match);}};
+    onSurfaceChange(current);return()=>onSurfaceChange(null);},[onSurfaceChange,dataset?.version,result,busy]);
   return <section className="contest-scp" aria-label="Super Check Partial"><header><strong>Super Check Partial</strong><button type="button" disabled={disabled||importing||selecting} onClick={()=>void (recoveryRequired?recover():choose())}>{recoveryRequired?"Check local status":dataset?"Replace local file":"Import local file"}</button></header>
     {!dataset?<p>{recoveryRequired?"Local SCP status must be checked before another import.":unavailable==="invalid_cache"?"The saved local SCP index is invalid. Import the source file again.":"No local MASTER.SCP file imported."}</p>:<><small>{dataset.version} · {dataset.recordCount.toLocaleString()} calls · local computed digest</small>{busy&&<p>Checking…</p>}<div className="contest-scp-matches">{result?.matches.map(match=><button type="button" key={match.matchID} disabled={disabled||selecting||importing} onClick={()=>void select(match)}><strong>{match.callsign}</strong><span>{Math.round(match.score)}</span></button>)}</div>{result?.isPartial&&<small>Results cover the bounded catalog prefix.</small>}</>}{error&&<p role="alert">{error}</p>}
   </section>;
