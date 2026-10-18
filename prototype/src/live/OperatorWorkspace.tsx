@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { clusterRowTint, clusterSpotTags, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
-import { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
+import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
 import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
 import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds,
@@ -78,7 +78,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
   const columnPages = Math.ceil(compactClusterColumns.length / columnPageSize), currentColumnPage = Math.min(columnPage, columnPages - 1);
   const pages = Math.max(1, Math.ceil(spots.length / rows)), currentPage = Math.min(page, pages - 1), offset = currentPage * rows;
   const totalWidth = preferences.columns.reduce((sum, column) => sum + preferences.widths[column], 0);
-  useEffect(() => { if (remoteFilter) setFilter(remoteFilter); }, [remoteFilter]);
+  useEffect(() => { if (remoteFilter) setFilter(normalizeClusterFilter(remoteFilter)); }, [remoteFilter]);
   useEffect(() => {
     if (!filtersOpen) return;
     filterSearch.current?.focus();
@@ -92,7 +92,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
     const version = ++filterVersion.current;
     void onRequest("cluster_filter", { filter: next }).then(raw => {
       const accepted = (raw as ClusterProjection | null)?.configuration?.filter;
-      if (version === filterVersion.current && accepted) setFilter(accepted);
+      if (version === filterVersion.current && accepted) setFilter(normalizeClusterFilter(accepted));
     }).catch(() => { if (version === filterVersion.current) setFilterError("Could not apply cluster filters."); });
   };
   const closeFilters = () => { setFiltersOpen(false); window.requestAnimationFrame(() => filtersButton.current?.focus()); };

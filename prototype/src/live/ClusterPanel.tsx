@@ -4,7 +4,7 @@ import { boundColumnWidth, compactClusterColumns, compactClusterHeader, defaultW
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { formatSpotAge, spotAgeColor, useSpotAgeClock } from "./spotAge";
 import { countryDisplay } from "./countryDisplay";
-import { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
+import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, type ClusterFilter } from "./clusterFilters";
 import SpecialFilterOptions from "./SpecialFilterOptions";
 import "./ClusterPanel.css";
 
@@ -138,7 +138,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       const remoteFilter = JSON.stringify(next.configuration.filter);
       if (remoteFilter !== lastRemoteFilter.current) {
         lastRemoteFilter.current = remoteFilter;
-        setFilter(next.configuration.filter);
+        setFilter(normalizeClusterFilter(next.configuration.filter));
       }
     }
     if (next?.snapshot_truncated != null) setSnapshotTruncated(next.snapshot_truncated);
@@ -156,7 +156,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       const next = raw as Response;
       if (next.password_storage_available != null) setPasswordStorageAvailable(next.password_storage_available);
       if (next.flex_forwarding_available != null) setForwardingAvailable(next.flex_forwarding_available);
-      if (next.configuration) { setConfiguration(next.configuration); draftBaseConfiguration.current = next.configuration; lastRemoteConfiguration.current = JSON.stringify(next.configuration); setFilter(next.configuration.filter); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
+      if (next.configuration) { setConfiguration(next.configuration); draftBaseConfiguration.current = next.configuration; lastRemoteConfiguration.current = JSON.stringify(next.configuration); setFilter(normalizeClusterFilter(next.configuration.filter)); setSavedServerIDs(next.configuration.servers.map((s) => s.id)); }
       if (next.snapshot) setLive(next.snapshot);
       setPasswordServers(next.password_servers ?? []);
       if (next.forwarding) setForwarding(next.forwarding);
@@ -287,7 +287,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <input aria-label="Search spots" placeholder="Callsign, country or note" value={filter.query} maxLength={128}
         onChange={(event) => changeFilter({ ...filter, query: event.target.value })} />
       {(Object.keys(filterLabels) as (keyof Filter)[]).map((key) => {
-        const values = filter[key] as string[];
+        const values = (filter[key] as string[] | undefined) ?? [];
         const excludedCount = key === "specials" ? (filter.excludedSpecials ?? []).length : 0;
         return <button type="button" key={key} data-filter={key} aria-expanded={activePicker === key}
           onClick={() => setActivePicker(activePicker === key ? null : key)}>

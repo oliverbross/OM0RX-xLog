@@ -16,6 +16,18 @@ export const clusterFilterChoices = {
 export const defaultClusterFilter = (): ClusterFilter => ({ query: "", bands: [], modes: [], continents: [], spotterContinents: [], callStatuses: [], dxccStatuses: [],
   specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" });
 
+export function normalizeClusterFilter(value?: Partial<ClusterFilter> | null): ClusterFilter {
+  const defaults = defaultClusterFilter();
+  const list = <K extends keyof ClusterFilter>(key: K): string[] => Array.isArray(value?.[key]) ? [...value[key] as string[]] : [...defaults[key] as string[]];
+  return {
+    query: typeof value?.query === "string" ? value.query : defaults.query,
+    bands: list("bands"), modes: list("modes"), continents: list("continents"), spotterContinents: list("spotterContinents"),
+    callStatuses: list("callStatuses"), dxccStatuses: list("dxccStatuses"), specials: list("specials"),
+    excludedSpecials: list("excludedSpecials"), sources: list("sources"), worked: list("worked"),
+    sort: typeof value?.sort === "string" ? value.sort : defaults.sort,
+  };
+}
+
 export type SpecialFilterState = "neutral" | "include" | "exclude";
 
 export function setSpecialFilterState(filter: ClusterFilter, option: string, state: SpecialFilterState): ClusterFilter {
