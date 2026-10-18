@@ -176,6 +176,29 @@ final class ContestADIFExportTests: XCTestCase {
         XCTAssertNil(mobile["STATE"])
     }
 
+    func testDescriptorMappedCanadianNewfoundlandAliasesUseADIFSubdivision() throws {
+        let canada = ContestEntitySnapshot(adif: 1, name: "CANADA", countryPrefix: "VE", continent: "NA", cqZone: 5)
+        let sentState = ContestExchangeFieldDescriptor(id: "location", label: "Location",
+                                                       acceptedKinds: [.locationText], maximumUTF8Bytes: 32,
+                                                       adifField: .myState)
+        let receivedState = ContestExchangeFieldDescriptor(id: "location", label: "Location",
+                                                           acceptedKinds: [.locationText], maximumUTF8Bytes: 32,
+                                                           adifField: .state)
+        let sent = ["location": field("NF")]
+        let received = ["location": field("LB")]
+
+        let mapped = try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [sentState], receivedDescriptors: [receivedState],
+            sentValues: sent, receivedValues: received,
+            stationCallsign: "VO1AAA", stationEntity: canada,
+            workedCallsign: "VO2BBB", workedEntity: canada)
+
+        XCTAssertEqual(mapped["MY_STATE"], "NL")
+        XCTAssertEqual(mapped["STATE"], "NL")
+        XCTAssertEqual(sent["location"]?.raw, "NF")
+        XCTAssertEqual(received["location"]?.raw, "LB")
+    }
+
     private func declarativeInput(rule: DeclarativeContestRule,
                                   sent: [String: ContestExchangeFieldValue],
                                   received: [String: ContestExchangeFieldValue],

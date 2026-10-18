@@ -190,7 +190,7 @@ public enum ContestADIFExport {
             case .state, .myState:
                 guard printableASCII(value) else { throw ContestADIFExportError.invalidInput }
                 guard let entity, !isAirOrMaritimeMobile(callsign), adifStateIsApplicable(entity) else { continue }
-                mapped = value
+                mapped = arrlADIFSubdivision(value, entityADIF: entity.adif)
             case .name, .myName:
                 guard printableASCII(value) else { throw ContestADIFExportError.invalidInput }
                 mapped = value
