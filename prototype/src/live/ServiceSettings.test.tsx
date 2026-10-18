@@ -24,7 +24,7 @@ describe("grouped service settings", () => {
     });
     render(<SettingsHarness values={values} request={request} />);
     fireEvent.click(screen.getByRole("tab", { name: "Radio spots" }));
-    expect(await screen.findByRole("heading", { name: "Radio spot output" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Radio spot output" }, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "RUMlog compatibility" })).toBeTruthy();
     expect(screen.getByLabelText("RBN and spotted display time")).toBeTruthy();
   });

@@ -16,7 +16,7 @@ const spot = (index = 0): LiveClusterSpot => ({ id: `feed-${index}`, receivedAt:
   callStatus: "New Call", dxccStatus: "ATNO", specialTags: ["POTA"], score: 90, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["OM0RX"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
 const projection = (count = 12) => ({ snapshot: { connectedClusters: 1, spots: Array.from({ length: count }, (_, index) => spot(index)),
   connections: [{ serverName: "ShackCQ", phase: "connected" }, { serverName: "Backup", phase: "failed", error: "Connection refused" }] }, configuration: {
-    palette: { status: {}, band: { "20m": "#123456" }, mode: {} }, filter: defaultClusterFilter(), specialRules: [{ name: "POTA", enabled: true }],
+    palette: { status: {}, band: { "20m": "#123456" }, mode: {} }, filter: defaultClusterFilter(), specialRules: [{ name: "POTA", enabled: true }, { name: "CONTEST", enabled: true }],
   } });
 beforeEach(() => {
   window.localStorage.clear(); paneWidth = 1100; paneHeight = 290;
@@ -196,7 +196,11 @@ describe("operator workspace", () => {
     expect(Array.from(toolbar.querySelectorAll("button")).slice(-2).map(button => button.textContent)).toEqual(["Filters", "Columns"]);
     const trigger = screen.getByRole("button", { name: "Filters" }); fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Cluster filters" });
-    expect(within(dialog).getByRole("checkbox", { name: "POTA" })).toBeTruthy();
+    expect(within(dialog).getByRole("checkbox", { name: "Show only POTA" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Hide CONTEST" }));
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["CONTEST"] }) });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Show only CONTEST" }));
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: ["CONTEST"], excludedSpecials: [] }) });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "20m" }));
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ bands: ["20m"] }) });
     fireEvent.click(within(dialog).getByRole("button", { name: "Clear filters" }));

@@ -44,6 +44,32 @@ struct LiveClusterMethodsTests {
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
     }
 
+    @Test("Special include and exclude filters remain independent and reject contradictions")
+    func specialIncludeExcludeValidation() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: root.appendingPathComponent("cluster.json"),
+                                         vault: UnavailableClusterTestVault())
+        let initial = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        let configuration = try #require(initial["configuration"] as? [String: Any])
+        var filter = try #require(configuration["filter"] as? [String: Any])
+        filter["specials"] = ["POTA"]
+        filter["excludedSpecials"] = ["POTA"]
+        do {
+            _ = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+            Issue.record("Contradictory Special filters were accepted")
+        } catch let failure as WorkerFailure {
+            #expect(failure.code == "invalid_params")
+        }
+        filter["specials"] = []
+        filter["excludedSpecials"] = ["CONTEST"]
+        let accepted = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        let saved = try #require((accepted["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        #expect(saved["excludedSpecials"] as? [String] == ["CONTEST"])
+        await cluster.terminate()
+    }
+
     @Test("Connect resolves cluster credentials before persisting connected intent")
     func credentialFailurePrecedesResumeIntent() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
