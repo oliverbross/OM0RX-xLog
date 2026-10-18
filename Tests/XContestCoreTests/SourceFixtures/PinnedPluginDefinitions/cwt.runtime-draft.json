@@ -1,0 +1,112 @@
+{
+  "cabrilloName": "CW-OPS",
+  "displayName": "CWops Test (CWT) Preview",
+  "dupePolicy": "perBand",
+  "edition": "official-rules-2026-10-18",
+  "eligibilityPolicy": {
+    "unrestricted": {}
+  },
+  "entry": {
+    "adifMode": "CW",
+    "cabrilloFormatterVersion": "cw-unique-call-preview-1",
+    "cabrilloProjectionFormatterVersion": "cw-unique-call-preview-1",
+    "cabrilloQSOType": "CW",
+    "exchange": {
+      "adifFields": "exchangeStrings",
+      "received": "structured",
+      "receivedFields": [
+        {
+          "acceptedKinds": [
+            "operatorName"
+          ],
+          "adifField": "NAME",
+          "id": "name",
+          "label": "Name",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        },
+        {
+          "acceptedKinds": [
+            "nonnegativeInteger",
+            "locationText"
+          ],
+          "id": "member-or-location",
+          "label": "Member number, CWA, state, province, or DX prefix",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        }
+      ],
+      "sent": "structured",
+      "sentDefault": "stationFields",
+      "sentFields": [
+        {
+          "acceptedKinds": [
+            "operatorName"
+          ],
+          "adifField": "MY_NAME",
+          "id": "name",
+          "label": "Name",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        },
+        {
+          "acceptedKinds": [
+            "nonnegativeInteger",
+            "locationText"
+          ],
+          "id": "member-or-location",
+          "label": "Member number, CWA, state, province, or DX prefix",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        }
+      ]
+    },
+    "mode": "CW",
+    "modeProfiles": [
+      {
+        "adifMode": "CW",
+        "cabrilloQSOType": "CW",
+        "mode": "CW",
+        "report": {
+          "defaultReceived": "",
+          "defaultSent": "",
+          "format": "none",
+          "maximumUTF8Bytes": 0
+        }
+      }
+    ],
+    "report": {
+      "defaultReceived": "",
+      "defaultSent": "",
+      "format": "none",
+      "maximumUTF8Bytes": 0
+    },
+    "scorePolicy": "pointsTimesMultipliers",
+    "serial": {
+      "allowedScopes": [],
+      "requirement": "none"
+    },
+    "version": 2
+  },
+  "exportPolicy": "unsupported",
+  "id": "cwops-cwt",
+  "multiplierPolicy": "uniqueCallsign",
+  "scoring": {
+    "clauses": [],
+    "defaultPoints": 1
+  },
+  "sourceProvenance": "Official https://cwops.org/cwops-tests/ SHA-256 d98a97401dee2cf8106efb1756b78875ce900024715b3bebb19ef2919c646056; pinned contest-sw 7c8b499 cwt.py SHA-256 12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64; inactive: event windows, categories, conditional exchange, reporting, export",
+  "stationEntityRequired": false,
+  "supportedBands": [
+    "160m",
+    "80m",
+    "40m",
+    "20m",
+    "15m",
+    "10m"
+  ],
+  "supportedModes": [
+    "CW"
+  ],
+  "version": "1.0.0-declarative-preview"
+}

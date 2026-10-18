@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-10-18",
+  "branch": "codex/contest-pinned-plugin-converter",
+  "baseCommit": "cc9c21f66171ccb1f3616b7e498d88e02c6b60ca",
+  "source": {
+    "repository": "oliverbross/contest-sw",
+    "commit": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+    "verification": "Converter checked the actual Git revision and SHA-256 of every mapped source before translation."
+  },
+  "scope": {
+    "inventoryPlugins": 94,
+    "convertedHistoricalCompatibilityDrafts": 7,
+    "converterMappingsUnavailable": 87,
+    "runtimeCatalogChanged": false,
+    "runtimeClassesChanged": false,
+    "operatorPolicyEmitted": false,
+    "pinnedGeneratorCIConfigured": true
+  },
+  "artifacts": {
+    "runtimeAndAuthoringFileCount": 14,
+    "runtimeAndAuthoringSHA256ListDigest": "ed09c905e2b6530f472f284aeaaaecf137424ad8ca553ab1dd4a203633504567",
+    "preEvidenceCodeDeltaSHA256": "8210e8ef59a1d3e1a5c15557c54f31853b6ae1a0a60f960cc0e5a27513530f84",
+    "coverage": "docs/contesting/pinned-plugin-conversion-coverage.json"
+  },
+  "tests": [
+    {
+      "command": "CONTEST_SW_ROOT=/Users/oliver/Documents/Projects/contest-sw /opt/homebrew/bin/python3.14 -m unittest discover -s tools/contest_plugin_generator/tests -v",
+      "result": "36 passed, 0 failed",
+      "log": "/tmp/xlog-pinned-plugin-converter-python-2026-10-18.log",
+      "logSHA256": "6a8eb111b934e78255e9efe58050c2b6c1b05105ff16d6274d6238f0d77bd7e8"
+    },
+    {
+      "command": "swift test --jobs 2 --filter Contest(TenTen|CWUniqueCall|DefinitionAuthoringBridge)",
+      "result": "10 passed, 0 failed",
+      "log": "/tmp/xlog-pinned-plugin-converter-swift-2026-10-18.log",
+      "logSHA256": "d61dee1ae60d52cbd98b72e111034a74a2f57c733d4b4b896781afcffc8e6a10"
+    },
+    {
+      "command": "python3.14 tools/contest_plugin_generator/verify_pinned_corpus.py --upstream /Users/oliver/Documents/Projects/contest-sw --ledger docs/contesting/contest-acceptance-ledger.json --inventory docs/contesting/generated/python-plugin-inventory.json",
+      "result": "94 plugins verified at exact pin; 16 active previews reconciled",
+      "log": "/tmp/xlog-pinned-plugin-corpus-2026-10-18.log",
+      "logSHA256": "36d4c30516c06905f55daf838c312c4365a302dbc95ac57f5ae0bc535b438156"
+    },
+    {
+      "command": "Ruby YAML parse of .github/workflows/contest-portability.yml plus git diff --check",
+      "result": "passed",
+      "log": "/tmp/xlog-pinned-plugin-workflow-2026-10-18.log",
+      "logSHA256": "a8f9bd7e7c2a8d01d4a3733f88e7cac10870b0426de40c046ce0812e205a28cb"
+    }
+  ],
+  "claims": [
+    "The seven runtime drafts decode equal to their immutable v1 Swift factory drafts and materialize to the same canonical definition digests.",
+    "Reviewed golden inputs and expected outcomes are stored in the mapping document independently of translator logic and are evaluated by Swift.",
+    "Contest portability CI checks out the exact contest-sw commit with persisted credentials disabled, verifies the complete corpus, and runs all generator tests with CONTEST_SW_ROOT set.",
+    "The emitted v2 envelopes remain source-derived drafts and do not imply sponsor approval, category or schedule completeness, catalog activation, or operator-policy support.",
+    "The 87 other records lack reviewed mappings in this converter; this is not a claim that xLog cannot support those contests."
+  ]
+}

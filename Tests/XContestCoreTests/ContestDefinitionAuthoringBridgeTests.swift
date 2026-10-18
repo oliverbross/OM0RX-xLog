@@ -63,6 +63,29 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
         try assertGoldens(authoring: "sst-geographic-sample.authoring-v2.json", draft: draft)
     }
 
+    func testPinnedPluginConversionsMatchImmutableHistoricalFactoriesAndGoldens() throws {
+        let fixtures: [(String, ContestDefinitionDraft)] = [
+            ("10_10_fall_cw", TenTenDeclarativeDefinitions.draft(for: .fallCW)),
+            ("10_10_spring_cw", TenTenDeclarativeDefinitions.draft(for: .springCW)),
+            ("10_10_summer_phone", TenTenDeclarativeDefinitions.draft(for: .summerPhone)),
+            ("10_10_winter_phone", TenTenDeclarativeDefinitions.draft(for: .winterPhone)),
+            ("cwo", CWUniqueCallDeclarativeDefinitions.draft(for: .cwOpen)),
+            ("cwt", CWUniqueCallDeclarativeDefinitions.draft(for: .cwt)),
+            ("icwc_mst", CWUniqueCallDeclarativeDefinitions.draft(for: .icwcMST)),
+        ]
+        for (name, existing) in fixtures {
+            let base = "PinnedPluginDefinitions/\(name)"
+            let data = try fixtureData("\(base).runtime-draft.json")
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            XCTAssertNil(object["operatorPolicy"], "\(name) is an immutable v1 compatibility draft")
+            let draft = try JSONDecoder().decode(ContestDefinitionDraft.self, from: data)
+            XCTAssertEqual(draft, existing, name)
+            XCTAssertEqual(try draft.materialized().definitionDigest,
+                           try existing.materialized().definitionDigest, name)
+            try assertGoldens(authoring: "\(base).authoring-v2.json", draft: draft)
+        }
+    }
+
     private func assertGoldens(authoring: String, draft: ContestDefinitionDraft) throws {
         let definition = try draft.materialized()
         let rule = DeclarativeContestRule(definition: definition)
@@ -70,8 +93,10 @@ final class ContestDefinitionAuthoringBridgeTests: XCTestCase {
         XCTAssertFalse(authored.goldenScenarios.isEmpty)
         for scenario in authored.goldenScenarios {
             guard let first = scenario.qsos.first else { return XCTFail("empty golden scenario") }
-            let stationFields = values(first.sentFields)
-            let stationExchange = aggregate(first.sentFields, descriptors: draft.entry.exchange.sentFields)
+            let allocatedSerialID = draft.entry.allocatedSerialField?.id
+            let stationSource = first.sentFields.filter { $0.key != allocatedSerialID }
+            let stationFields = values(stationSource)
+            let stationExchange = aggregate(stationSource, descriptors: draft.entry.exchange.sentFields)
             let session = ContestSessionSnapshot(
                 id: sessionID, workspaceGeneration: generation, rule: definition.identity,
                 referenceDataVersion: scenario.referenceDataVersion ?? "authoring-bridge-fixture", startedAt: date,

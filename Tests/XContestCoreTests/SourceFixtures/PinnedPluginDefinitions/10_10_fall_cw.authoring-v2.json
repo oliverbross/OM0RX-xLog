@@ -1,0 +1,191 @@
+{
+  "constraints": {
+    "acceptanceUnresolved": [
+      "Historical compatibility draft only; sponsor/category/schedule review and catalog activation remain unresolved.",
+      "operatorPolicy is intentionally absent because the immutable v1 Swift factory has no operator policy."
+    ],
+    "runtimeUnresolved": []
+  },
+  "definitionSchemaVersion": "2.0.0",
+  "goldenScenarios": [
+    {
+      "expected": {
+        "claimedScore": 2,
+        "dispositions": [
+          "accepted"
+        ],
+        "multiplierCount": 0,
+        "points": [
+          2
+        ],
+        "totalPoints": 2
+      },
+      "id": "reviewed-single-qso",
+      "qsos": [
+        {
+          "band": "10m",
+          "callsign": "K1ABC",
+          "frequencyHz": 28500000,
+          "mode": "CW",
+          "receivedFields": {
+            "member-number": "2468",
+            "name": "AL",
+            "qth": "USA"
+          },
+          "sentFields": {
+            "member-number": "12345",
+            "name": "OLIVER",
+            "qth": "AUSTRALIA"
+          }
+        }
+      ],
+      "referenceDataVersion": "pinned-plugin-mapping-2026-10-18"
+    }
+  ],
+  "identity": {
+    "contentDigest": "sha256:3afd3828081659b761cb9593fff7ac50e18eae08d5b3c286c750b48c5019bc9d",
+    "edition": "2025-newsletter-unscheduled",
+    "id": "ten-ten-fallCW",
+    "version": "1.0.0-declarative-pilot"
+  },
+  "provenance": [
+    {
+      "kind": "official-rules",
+      "locator": "https://www.ten-ten.org/qso-party-handbook/",
+      "revision": "retrieved-2026-10-18",
+      "sha256": "5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b"
+    },
+    {
+      "kind": "official-rules",
+      "locator": "https://www.ten-ten.org/wp-content/uploads/2025/01/2025n4-OnLine.pdf",
+      "revision": "october-2025",
+      "sha256": "aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f"
+    }
+  ],
+  "runtime": {
+    "cabrilloName": "10-10",
+    "displayName": "10-10 Fall CW QSO Party",
+    "dupePolicy": "oncePerContest",
+    "eligibilityPolicy": "unrestricted",
+    "entry": {
+      "adifMode": "CW",
+      "cabrilloFormatterVersion": "ten-ten-declarative-pilot-1",
+      "cabrilloProjectionFormatterVersion": "ten-ten-declarative-pilot-1",
+      "cabrilloQSOType": "CW",
+      "exchange": {
+        "adifFields": "exchangeStrings",
+        "received": "structured",
+        "receivedFields": [
+          {
+            "acceptedKinds": [
+              "operatorName"
+            ],
+            "adifField": "NAME",
+            "id": "name",
+            "label": "Name",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "nonnegativeInteger"
+            ],
+            "id": "member-number",
+            "label": "10-10 Number (0 for non-member)",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "locationText"
+            ],
+            "id": "qth",
+            "label": "QTH",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          }
+        ],
+        "sent": "structured",
+        "sentDefault": "stationFields",
+        "sentFields": [
+          {
+            "acceptedKinds": [
+              "operatorName"
+            ],
+            "adifField": "MY_NAME",
+            "id": "name",
+            "label": "Name",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "nonnegativeInteger"
+            ],
+            "id": "member-number",
+            "label": "10-10 Number (0 for non-member)",
+            "maximumUTF8Bytes": 8,
+            "required": true
+          },
+          {
+            "acceptedKinds": [
+              "locationText"
+            ],
+            "id": "qth",
+            "label": "QTH",
+            "maximumUTF8Bytes": 32,
+            "required": true
+          }
+        ]
+      },
+      "mode": "CW",
+      "modeProfiles": [
+        {
+          "adifMode": "CW",
+          "cabrilloQSOType": "CW",
+          "mode": "CW",
+          "report": {
+            "defaultReceived": "599",
+            "defaultSent": "599",
+            "format": "cwRST",
+            "maximumUTF8Bytes": 3
+          }
+        }
+      ],
+      "report": {
+        "defaultReceived": "599",
+        "defaultSent": "599",
+        "format": "cwRST",
+        "maximumUTF8Bytes": 3
+      },
+      "scorePolicy": "pointsOnly",
+      "serial": {
+        "allowedScopes": [],
+        "requirement": "none"
+      },
+      "version": 2
+    },
+    "exportPolicy": "unsupported",
+    "multiplierPolicy": "none",
+    "scoring": {
+      "clauses": [
+        {
+          "comparison": "greaterThan",
+          "fieldID": "member-number",
+          "points": 2,
+          "threshold": 0
+        }
+      ],
+      "defaultPoints": 1
+    },
+    "sourceProvenance": "10-10 QSO Party Handbook https://www.ten-ten.org/qso-party-handbook/ SHA-256 5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b; October 2025 official newsletter https://www.ten-ten.org/wp-content/uploads/2025/01/2025n4-OnLine.pdf SHA-256 aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f; retrieved 2026-10-18; CW variants are source-compatible definitions and are not asserted to be scheduled in 2026",
+    "stationEntityRequired": false,
+    "supportedBands": [
+      "10m"
+    ],
+    "supportedModes": [
+      "CW"
+    ]
+  },
+  "status": "source-derived-draft"
+}

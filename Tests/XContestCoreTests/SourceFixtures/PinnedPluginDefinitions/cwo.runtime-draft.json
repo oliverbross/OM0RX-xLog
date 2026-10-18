@@ -1,0 +1,114 @@
+{
+  "cabrilloName": "CW-OPEN",
+  "displayName": "CW Open Preview",
+  "dupePolicy": "perBand",
+  "edition": "official-rules-2026-10-18",
+  "eligibilityPolicy": {
+    "unrestricted": {}
+  },
+  "entry": {
+    "adifMode": "CW",
+    "cabrilloFormatterVersion": "cw-unique-call-preview-1",
+    "cabrilloProjectionFormatterVersion": "cw-unique-call-preview-1",
+    "cabrilloQSOType": "CW",
+    "exchange": {
+      "adifFields": "exchangeStrings",
+      "received": "structured",
+      "receivedFields": [
+        {
+          "acceptedKinds": [
+            "serialNumber"
+          ],
+          "adifField": "SRX",
+          "id": "serial",
+          "label": "Serial",
+          "maximumUTF8Bytes": 8,
+          "required": true
+        },
+        {
+          "acceptedKinds": [
+            "operatorName"
+          ],
+          "adifField": "NAME",
+          "id": "name",
+          "label": "Name",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        }
+      ],
+      "sent": "structured",
+      "sentDefault": "stationFields",
+      "sentFields": [
+        {
+          "acceptedKinds": [
+            "serialNumber"
+          ],
+          "adifField": "STX",
+          "id": "serial",
+          "label": "Serial",
+          "maximumUTF8Bytes": 8,
+          "required": true
+        },
+        {
+          "acceptedKinds": [
+            "operatorName"
+          ],
+          "adifField": "MY_NAME",
+          "id": "name",
+          "label": "Name",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        }
+      ]
+    },
+    "mode": "CW",
+    "modeProfiles": [
+      {
+        "adifMode": "CW",
+        "cabrilloQSOType": "CW",
+        "mode": "CW",
+        "report": {
+          "defaultReceived": "",
+          "defaultSent": "",
+          "format": "none",
+          "maximumUTF8Bytes": 0
+        }
+      }
+    ],
+    "report": {
+      "defaultReceived": "",
+      "defaultSent": "",
+      "format": "none",
+      "maximumUTF8Bytes": 0
+    },
+    "scorePolicy": "pointsTimesMultipliers",
+    "serial": {
+      "allowedScopes": [
+        "session"
+      ],
+      "requirement": "requiredForCommit"
+    },
+    "version": 2
+  },
+  "exportPolicy": "unsupported",
+  "id": "cwops-open",
+  "multiplierPolicy": "uniqueCallsign",
+  "scoring": {
+    "clauses": [],
+    "defaultPoints": 1
+  },
+  "sourceProvenance": "Official https://cwops.org/cwops-tests/cw-open/ SHA-256 b73265ece8bc6e6d6e874a108ddf7ec1e2808c3d9fbdffd3b7380cd30629685a; pinned contest-sw 7c8b499 cwo.py SHA-256 e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e; inactive: sessions, categories, combined score, duplicate retention, export",
+  "stationEntityRequired": false,
+  "supportedBands": [
+    "160m",
+    "80m",
+    "40m",
+    "20m",
+    "15m",
+    "10m"
+  ],
+  "supportedModes": [
+    "CW"
+  ],
+  "version": "1.0.0-declarative-preview"
+}

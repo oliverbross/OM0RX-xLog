@@ -1,0 +1,1383 @@
+{
+  "inventoryUpstream": {
+    "commit": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+    "contestPluginCount": 94,
+    "excluded": [
+      {
+        "path": "not1mm/plugins/__init__.py",
+        "reason": "Python package initializer; it has no contest selector entry and is not a contest plugin.",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "pluginRoot": "not1mm/plugins",
+    "pythonFileCount": 95,
+    "repository": "oliverbross/contest-sw"
+  },
+  "mappingSchemaVersion": "1.0.0",
+  "plugins": [
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": false,
+        "path": "not1mm/plugins/10_10_fall_cw.py",
+        "sha256": "c7e0c822a75ba2354d20c58269dd1e2fb8df543ec8ec66ad304915d2562f63b4",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "ten-ten-fallCW",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "10_10_fall_cw",
+      "source": {
+        "bytes": 15965,
+        "path": "not1mm/plugins/10_10_fall_cw.py",
+        "sha256": "c7e0c822a75ba2354d20c58269dd1e2fb8df543ec8ec66ad304915d2562f63b4"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": false,
+        "path": "not1mm/plugins/10_10_spring_cw.py",
+        "sha256": "a0abdb0269d9ca5938cd5784bfae8eab756369f0a2dc2c8e2c5f72c2e836fcd3",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "ten-ten-springCW",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "10_10_spring_cw",
+      "source": {
+        "bytes": 15968,
+        "path": "not1mm/plugins/10_10_spring_cw.py",
+        "sha256": "a0abdb0269d9ca5938cd5784bfae8eab756369f0a2dc2c8e2c5f72c2e836fcd3"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": false,
+        "path": "not1mm/plugins/10_10_summer_phone.py",
+        "sha256": "a15484dc4e954bd4ca014e351d3f96c9e5a6345d158279c6b10fc31b3f5275f4",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "ten-ten-summerPhone",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "10_10_summer_phone",
+      "source": {
+        "bytes": 16078,
+        "path": "not1mm/plugins/10_10_summer_phone.py",
+        "sha256": "a15484dc4e954bd4ca014e351d3f96c9e5a6345d158279c6b10fc31b3f5275f4"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": false,
+        "path": "not1mm/plugins/10_10_winter_phone.py",
+        "sha256": "b07011970d2c56d2e1400c5035c78bcac4e3435fc20dcef842a547164f0660de",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "ten-ten-winterPhone",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "10_10_winter_phone",
+      "source": {
+        "bytes": 15977,
+        "path": "not1mm/plugins/10_10_winter_phone.py",
+        "sha256": "b07011970d2c56d2e1400c5035c78bcac4e3435fc20dcef842a547164f0660de"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "aadx_cw",
+      "source": {
+        "bytes": 23432,
+        "path": "not1mm/plugins/aadx_cw.py",
+        "sha256": "491affb2e8e1a9f64984f30ca95ec8bbf4a4f89788ffdc24f116356dc84df745"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "aadx_ssb",
+      "source": {
+        "bytes": 23424,
+        "path": "not1mm/plugins/aadx_ssb.py",
+        "sha256": "5d6d4a6a9dff5f07bb533041ba259bf901ef33a74e31f0a4091a9235333b0bdc"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "agcw_qrp",
+      "source": {
+        "bytes": 25419,
+        "path": "not1mm/plugins/agcw_qrp.py",
+        "sha256": "fc73ecd9a4ae2252332496f410d1b7bfb770499722818ba5356a9d81784e375c"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ari_40_80",
+      "source": {
+        "bytes": 16520,
+        "path": "not1mm/plugins/ari_40_80.py",
+        "sha256": "55f1ebfc1953a7d6fa65a3dec38adcb2e83e328921ffb07b51c83811f1afb192"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ari_dx",
+      "source": {
+        "bytes": 23637,
+        "path": "not1mm/plugins/ari_dx.py",
+        "sha256": "aca1657269f715fc5d147aa9b5b884575fe63e5de36bc288d3660bb658320d0f"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_10m",
+      "source": {
+        "bytes": 20044,
+        "path": "not1mm/plugins/arrl_10m.py",
+        "sha256": "a2f81691437e8333046b8dae46dc0229638d034d1da30e780320becc55c595c6"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_160m",
+      "source": {
+        "bytes": 21557,
+        "path": "not1mm/plugins/arrl_160m.py",
+        "sha256": "6df35f43815c8426a406ccc93c80ebc77b42c9fd9f59a263975968b3313ccc45"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_dx_cw",
+      "source": {
+        "bytes": 20029,
+        "path": "not1mm/plugins/arrl_dx_cw.py",
+        "sha256": "50dad8d13b4e782f6a846660f96a96357ae96866dac4ae5787f97818ed00e2d2"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_dx_ssb",
+      "source": {
+        "bytes": 20077,
+        "path": "not1mm/plugins/arrl_dx_ssb.py",
+        "sha256": "357f333526a8cda2f654c84245056cf47cc95bbb0be0c1add64b1e53c3474387"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_field_day",
+      "source": {
+        "bytes": 18792,
+        "path": "not1mm/plugins/arrl_field_day.py",
+        "sha256": "c048a3f302063fb8bd575eac9bf06d637af8f1fab995b843c4228367aaa8efa8"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_rtty_ru",
+      "source": {
+        "bytes": 22193,
+        "path": "not1mm/plugins/arrl_rtty_ru.py",
+        "sha256": "51ec034028d5afa0d2788acb4e718d9699a198b2392dde2dbe78a0abfad31df6"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_ss_cw",
+      "source": {
+        "bytes": 19045,
+        "path": "not1mm/plugins/arrl_ss_cw.py",
+        "sha256": "ae6306cbe34df212371989d9c324693b8f88da8e29701f17d8aeb5a32f5b3ce4"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_ss_phone",
+      "source": {
+        "bytes": 18378,
+        "path": "not1mm/plugins/arrl_ss_phone.py",
+        "sha256": "24b9c96dc716769f4c30016b4979d38c33e609ae6ae6af104d10dd66e807a41a"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_vhf_jan",
+      "source": {
+        "bytes": 21476,
+        "path": "not1mm/plugins/arrl_vhf_jan.py",
+        "sha256": "692e8456947e307c15ae04c8ffe56a38f5f9475c22973a30d80b3879aeecb990"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_vhf_jun",
+      "source": {
+        "bytes": 20569,
+        "path": "not1mm/plugins/arrl_vhf_jun.py",
+        "sha256": "dd7d4183aa106125b3223aca6e2479341a8264995ea5b0261357301325573aff"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "arrl_vhf_sep",
+      "source": {
+        "bytes": 20611,
+        "path": "not1mm/plugins/arrl_vhf_sep.py",
+        "sha256": "571558e52d5de8fa886f9b4ce7e49a9a86d045b495d732da43ada9c6f36f3656"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ca_qso_party",
+      "source": {
+        "bytes": 22338,
+        "path": "not1mm/plugins/ca_qso_party.py",
+        "sha256": "0775e71559e17534f6b5817736eb0d89ae8926efd3028d2415d077ecfb6f7116"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "canada_day",
+      "source": {
+        "bytes": 17071,
+        "path": "not1mm/plugins/canada_day.py",
+        "sha256": "6b72955add7b1b016493acc0ad8e2cf9188e63e104e06d1442fb6b79b5a54219"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_160_cw",
+      "source": {
+        "bytes": 19879,
+        "path": "not1mm/plugins/cq_160_cw.py",
+        "sha256": "45dce6c2caa3ee05e56137e2fee226dae5e1f2434b327b0d3506ae17b804379c"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_160_ssb",
+      "source": {
+        "bytes": 19922,
+        "path": "not1mm/plugins/cq_160_ssb.py",
+        "sha256": "db03be688702e523a3d532fabc59e84e689668438e3c3038501a0d82a8b55804"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_wpx_cw",
+      "source": {
+        "bytes": 19471,
+        "path": "not1mm/plugins/cq_wpx_cw.py",
+        "sha256": "27551aab291943acc03b53c74773b8da8ad3c5cbeb96dc6e483870408eadbc86"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_wpx_rtty",
+      "source": {
+        "bytes": 22318,
+        "path": "not1mm/plugins/cq_wpx_rtty.py",
+        "sha256": "71d8ee0996f91ce3ad0dabaa524aae49bd1197b5313bfeb3d709c15e7b84a351"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_wpx_ssb",
+      "source": {
+        "bytes": 18039,
+        "path": "not1mm/plugins/cq_wpx_ssb.py",
+        "sha256": "7d76fc6506c9fa4599db7ba1ea1e609a42994c79fc77096fbb522a7cb129f10d"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_ww_cw",
+      "source": {
+        "bytes": 19282,
+        "path": "not1mm/plugins/cq_ww_cw.py",
+        "sha256": "08f383e8ddb6f02fede9149f5490a1042b71a5cd5e2591ac76b0cf1ba460c3e2"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_ww_rtty",
+      "source": {
+        "bytes": 24424,
+        "path": "not1mm/plugins/cq_ww_rtty.py",
+        "sha256": "38f63367317c92850ae112ba51931a8db477467a18baca5d7d242ef36f66deb5"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_ww_ssb",
+      "source": {
+        "bytes": 19215,
+        "path": "not1mm/plugins/cq_ww_ssb.py",
+        "sha256": "9ec3762986761232042389f0334b4887271772d18025f3dd0fdc820782105b3b"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cq_ww_vhf",
+      "source": {
+        "bytes": 22054,
+        "path": "not1mm/plugins/cq_ww_vhf.py",
+        "sha256": "8793c86b61c995b495401c50ecb7b9f924d51bab85a577293201c690236af91d"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "cqws",
+      "source": {
+        "bytes": 18600,
+        "path": "not1mm/plugins/cqws.py",
+        "sha256": "1aa412935a207a55152a80212a98bdd13409e05d83bb6c512ff52daf649f3720"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": true,
+        "path": "not1mm/plugins/cwo.py",
+        "sha256": "e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "cwops-open",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "cwo",
+      "source": {
+        "bytes": 21970,
+        "path": "not1mm/plugins/cwo.py",
+        "sha256": "e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": true,
+        "path": "not1mm/plugins/cwt.py",
+        "sha256": "12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "cwops-cwt",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "cwt",
+      "source": {
+        "bytes": 20636,
+        "path": "not1mm/plugins/cwt.py",
+        "sha256": "12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "darc_schwaben",
+      "source": {
+        "bytes": 19660,
+        "path": "not1mm/plugins/darc_schwaben.py",
+        "sha256": "77cca83fa1a57ed273f54ec2ada3dec8be377a96a669ff0926e0bfc369ecc237"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "darc_vhf",
+      "source": {
+        "bytes": 19005,
+        "path": "not1mm/plugins/darc_vhf.py",
+        "sha256": "d679f88d4e9c255ff5ec0425c31194e16e61d2448c1a3b02f8c0fbfd1d4a8f2f"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "darc_xmas",
+      "source": {
+        "bytes": 20272,
+        "path": "not1mm/plugins/darc_xmas.py",
+        "sha256": "a88a3bb7eaf765d6ce5039400d6a02db0ccb254cf3df76194604176adc295c4d"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "dxpedition",
+      "source": {
+        "bytes": 10094,
+        "path": "not1mm/plugins/dxpedition.py",
+        "sha256": "7af5440718a7d4910b3c4eeac31a927001c63f6ef806370aa74de0f8b0993bc8"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ea_majestad_cw",
+      "source": {
+        "bytes": 24619,
+        "path": "not1mm/plugins/ea_majestad_cw.py",
+        "sha256": "6c3e2825fea358615df7f9fb1c4c788acf3d7785ae031dbdaa60fff06d8332ad"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ea_majestad_ssb",
+      "source": {
+        "bytes": 24213,
+        "path": "not1mm/plugins/ea_majestad_ssb.py",
+        "sha256": "168ad966df4cbfaf24044b5b9a3840407b6d01255184442e690f99d7693f9391"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ea_rtty",
+      "source": {
+        "bytes": 24494,
+        "path": "not1mm/plugins/ea_rtty.py",
+        "sha256": "464596fc9b95101b2fe7960974753f7805566f8a1805a3ce55e99d3d409cb564"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "es_field_day",
+      "source": {
+        "bytes": 21276,
+        "path": "not1mm/plugins/es_field_day.py",
+        "sha256": "b0dbe23dc1d41aa313eaa76955a7999be3a2066f404daacb66a9cd33dd9d94b4"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "es_ll_kv",
+      "source": {
+        "bytes": 20283,
+        "path": "not1mm/plugins/es_ll_kv.py",
+        "sha256": "68996afb0fd28d9f7e0f31481bea7644e9a2a7391ad384301e7cff43edf37a61"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "es_manual_key",
+      "source": {
+        "bytes": 22908,
+        "path": "not1mm/plugins/es_manual_key.py",
+        "sha256": "785c7367ea9f3d19b11c40bc2d890564e13f1e34dd91c61ba5739b875a9ac9db"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "es_open",
+      "source": {
+        "bytes": 20264,
+        "path": "not1mm/plugins/es_open.py",
+        "sha256": "5b9563e0df2cb275ee1e13ac3d6d8653d566c74d922fdab9d6f4779b03618333"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "eudx",
+      "source": {
+        "bytes": 20722,
+        "path": "not1mm/plugins/eudx.py",
+        "sha256": "ae47db27143eebf8a0651ae023b3250058b81e14aa7e2d868a7777ace2975ae0"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "euhfc",
+      "source": {
+        "bytes": 16610,
+        "path": "not1mm/plugins/euhfc.py",
+        "sha256": "2bec874fc12149a4ab76683b30459141c49f13f5d8423b2dd7c7e263ff68b683"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "general_logging",
+      "source": {
+        "bytes": 9881,
+        "path": "not1mm/plugins/general_logging.py",
+        "sha256": "e016498859d98cc915c2e1bfd1c3aa616fcba827c579ede193347ef39766f26d"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "hadx",
+      "source": {
+        "bytes": 19075,
+        "path": "not1mm/plugins/hadx.py",
+        "sha256": "4a5d1d86471a8e4e41cf163aafa32539efc5bb57056c20efc298478024799812"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "helvetia",
+      "source": {
+        "bytes": 21337,
+        "path": "not1mm/plugins/helvetia.py",
+        "sha256": "104e062b918a78f442f1b23bdb9e08963477a63364367389a8148d3180651c71"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "iaru_fieldday_r1_cw",
+      "source": {
+        "bytes": 18829,
+        "path": "not1mm/plugins/iaru_fieldday_r1_cw.py",
+        "sha256": "6a7d67bb87e31ec32fecd4bdd3cbdecb712e2377b773203170d0ac8bf2fcdb9e"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "iaru_fieldday_r1_ssb",
+      "source": {
+        "bytes": 18833,
+        "path": "not1mm/plugins/iaru_fieldday_r1_ssb.py",
+        "sha256": "296e36f4786551a80666a99f1a6f6dd58d8195035faba545028add495658e06f"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "iaru_hf",
+      "source": {
+        "bytes": 17920,
+        "path": "not1mm/plugins/iaru_hf.py",
+        "sha256": "f8697ee440ee60b85ab88ea499f749294cf379130fa5a4b90fe7ccdb63bc3cde"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "converterSourceProvenance": {
+        "includedInRuntimeSourceProvenance": true,
+        "path": "not1mm/plugins/icwc_mst.py",
+        "sha256": "4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca",
+        "upstreamCommit": "7c8b499225a73f7f8f792246881bd7aefc05452f"
+      },
+      "definitionID": "icwc-mst",
+      "limitations": [
+        "Immutable v1 compatibility target; operatorPolicy is absent.",
+        "No sponsor approval, category completeness, schedule approval, or catalog activation is implied."
+      ],
+      "pluginID": "icwc_mst",
+      "source": {
+        "bytes": 20634,
+        "path": "not1mm/plugins/icwc_mst.py",
+        "sha256": "4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca"
+      },
+      "status": "converted-historical-compatibility-draft"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "jidx_cw",
+      "source": {
+        "bytes": 17472,
+        "path": "not1mm/plugins/jidx_cw.py",
+        "sha256": "457e6ba45da31a90c06fc9508dee8d1dccf053b0676083c2472082dd61c18e53"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "jidx_ph",
+      "source": {
+        "bytes": 16532,
+        "path": "not1mm/plugins/jidx_ph.py",
+        "sha256": "20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "john_moyle_field_day",
+      "source": {
+        "bytes": 25217,
+        "path": "not1mm/plugins/john_moyle_field_day.py",
+        "sha256": "1e0c771ffaec9a889470bfc8d62962b62e4426c2c97b76f5abe5371db90eb5a4"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "k1usn_sst",
+      "source": {
+        "bytes": 20361,
+        "path": "not1mm/plugins/k1usn_sst.py",
+        "sha256": "73cf9b72f53c6bd65d1f804f28b4ea80f6bf82d2b8b08406b2153691fd1d8120"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "labre_rs_digi",
+      "source": {
+        "bytes": 21407,
+        "path": "not1mm/plugins/labre_rs_digi.py",
+        "sha256": "ca3d9eb556a01fa830ab0695a1c156a937e49175e8237c622e8ef70e6a0e603c"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "lz-dx",
+      "source": {
+        "bytes": 21200,
+        "path": "not1mm/plugins/lz-dx.py",
+        "sha256": "a3f3f6b73c0310d78cbdc42cb234b93990575e67257069c42bbe1ca068ac974b"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "nac_vhf",
+      "source": {
+        "bytes": 20830,
+        "path": "not1mm/plugins/nac_vhf.py",
+        "sha256": "f5233348c1df52c49c7a43931b3c45023bebf8574d04969c6860a2452e8c54c3"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "naqp_cw",
+      "source": {
+        "bytes": 20212,
+        "path": "not1mm/plugins/naqp_cw.py",
+        "sha256": "84da97206ac651638498812dc7867432c883e88650a86571161ca5e3a72b222b"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "naqp_rtty",
+      "source": {
+        "bytes": 24576,
+        "path": "not1mm/plugins/naqp_rtty.py",
+        "sha256": "f74bc7f40d257e0f3db7270c8e7b4bec00d6c50c11af37baa8aaa8a7f3f131c1"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "naqp_ssb",
+      "source": {
+        "bytes": 19129,
+        "path": "not1mm/plugins/naqp_ssb.py",
+        "sha256": "551b57f984cbaf4697a3ae9b146ad6f3519a14cc8df0dc9c3f30a7c5fea7c2bc"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "oceania_dx_cw",
+      "source": {
+        "bytes": 19119,
+        "path": "not1mm/plugins/oceania_dx_cw.py",
+        "sha256": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "oceania_dx_ssb",
+      "source": {
+        "bytes": 19127,
+        "path": "not1mm/plugins/oceania_dx_ssb.py",
+        "sha256": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ok1wc",
+      "source": {
+        "bytes": 17159,
+        "path": "not1mm/plugins/ok1wc.py",
+        "sha256": "77d0c2e2dc72d43d56433d01b55222cc57b4215a67a7eecc910fa3d91b6a44ea"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "pacc",
+      "source": {
+        "bytes": 18391,
+        "path": "not1mm/plugins/pacc.py",
+        "sha256": "0e7e85adba1a463c1d8e22648378badda26b3dad651cd74f7044209faccabb1a"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "phone_weekly_test",
+      "source": {
+        "bytes": 17622,
+        "path": "not1mm/plugins/phone_weekly_test.py",
+        "sha256": "94770e46c5f16dae2d1bb0482f37011ff48678b49fa547c28cb4902f35bdefae"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "qso_party_rst",
+      "source": {
+        "bytes": 19874,
+        "path": "not1mm/plugins/qso_party_rst.py",
+        "sha256": "f3d97ca32cdd4a6779153e82d4d75ff1daca2aed27107a514b09e5dcb7e033ef"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "qso_party_sn",
+      "source": {
+        "bytes": 19391,
+        "path": "not1mm/plugins/qso_party_sn.py",
+        "sha256": "1d1ba1669c7308eff804b1c589a35fa523df210c23e1c88db46070e247330325"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "raem",
+      "source": {
+        "bytes": 21056,
+        "path": "not1mm/plugins/raem.py",
+        "sha256": "96e4d4fc89b0f0cf992991d29fe5eb67cfdd8970092ae18a6b42e8468388d5fe"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "randomgram",
+      "source": {
+        "bytes": 7713,
+        "path": "not1mm/plugins/randomgram.py",
+        "sha256": "d93f7009517c4d179062ddd74327dbb90f9800a5e4ecfe6660fda310596112e9"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "rda_contest",
+      "source": {
+        "bytes": 25750,
+        "path": "not1mm/plugins/rda_contest.py",
+        "sha256": "ae456e63e6157b80481557876c5323ab6b980d5e5b044b882712ca8bfad1f9fc"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "rdxc",
+      "source": {
+        "bytes": 24197,
+        "path": "not1mm/plugins/rdxc.py",
+        "sha256": "172f96776943a988ae5139f09beb0a4e1fb74da07b89c0456f0bbd9ce3579c0d"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ref_cw",
+      "source": {
+        "bytes": 22686,
+        "path": "not1mm/plugins/ref_cw.py",
+        "sha256": "1b080f1181d2be51171ed9054dd6e218042c17925d394c3a32ccb1e39a306394"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ref_ssb",
+      "source": {
+        "bytes": 22895,
+        "path": "not1mm/plugins/ref_ssb.py",
+        "sha256": "a3837ad14b6efd487313f82c613b77bf91974fb7a211f72fd4fe1e655a1e764d"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "rsgb_80m_cc",
+      "source": {
+        "bytes": 16195,
+        "path": "not1mm/plugins/rsgb_80m_cc.py",
+        "sha256": "a849ebe314c4072ff4a684bef909d49c6235a9c3fec585ea9197318331b857ec"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "rsgb_commonwealth_beru",
+      "source": {
+        "bytes": 27002,
+        "path": "not1mm/plugins/rsgb_commonwealth_beru.py",
+        "sha256": "2c3cb60a3c1edbb88e29bc39d2ce360ec4144160c1ed6dae420f210fd4037766"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "rsgb_iota",
+      "source": {
+        "bytes": 21508,
+        "path": "not1mm/plugins/rsgb_iota.py",
+        "sha256": "2c1c15b1aa962b65f95b50e955118ff5574950a7a4b60915825f3359bf1ab33a"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "sac_cw",
+      "source": {
+        "bytes": 22611,
+        "path": "not1mm/plugins/sac_cw.py",
+        "sha256": "2c2879d79f59df964e821f5c9ee6a5a460dad93e1c0e04a72b4c3a9ff9aa36ce"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "sac_ssb",
+      "source": {
+        "bytes": 22640,
+        "path": "not1mm/plugins/sac_ssb.py",
+        "sha256": "c8a8fe6189e79a6fe001de2f73cccd574acc0d26ea8f2f8691765619f1b06fd9"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "spdx",
+      "source": {
+        "bytes": 17230,
+        "path": "not1mm/plugins/spdx.py",
+        "sha256": "a36affddfe6b530ad552c9f193527a7ba15acbfa04b93446e1571ae014727125"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ssa_mt_cw",
+      "source": {
+        "bytes": 21696,
+        "path": "not1mm/plugins/ssa_mt_cw.py",
+        "sha256": "24edb651b2a74d327ca820be9d6fb12db9b35d27914c8d5ba88a6da1858dfa36"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ssa_mt_ssb",
+      "source": {
+        "bytes": 21732,
+        "path": "not1mm/plugins/ssa_mt_ssb.py",
+        "sha256": "cb05d6f0e99f49d9e134ef1e749436d97b2a162e337de9ab64fceddf9e4168ca"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "stew_perry_topband",
+      "source": {
+        "bytes": 16573,
+        "path": "not1mm/plugins/stew_perry_topband.py",
+        "sha256": "e6d9e75f13c12e76ed1c8013f7a452acae4492208d647a95c1edc8069e9e20c6"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ta_vhf_uhf_contest",
+      "source": {
+        "bytes": 8975,
+        "path": "not1mm/plugins/ta_vhf_uhf_contest.py",
+        "sha256": "c4a236c0b844b9e172e5e22206a10d9dc3bddf632567062f9ae28e93e9cba93c"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "trans_tasman",
+      "source": {
+        "bytes": 25252,
+        "path": "not1mm/plugins/trans_tasman.py",
+        "sha256": "e077c5bc1f77d7f4ef75c7591cf4a0d5f984a26997fbd6831ddd7f92093e3344"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "ukeidx",
+      "source": {
+        "bytes": 20511,
+        "path": "not1mm/plugins/ukeidx.py",
+        "sha256": "0ffdf2c6f30f10762b718dece31e2f37028406f6b59845884f3ebbbc9b224228"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "vhf_sprint",
+      "source": {
+        "bytes": 20569,
+        "path": "not1mm/plugins/vhf_sprint.py",
+        "sha256": "bcff4ba7bbc843c91932b87a8405905cad8a5d2eecd65f49c626132500640d43"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "wag",
+      "source": {
+        "bytes": 24197,
+        "path": "not1mm/plugins/wag.py",
+        "sha256": "6435691dcf956c73111f6e66058d598a0fe9b0ef94b4cd38ded9a88f186c4276"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "weekly_rtty",
+      "source": {
+        "bytes": 21350,
+        "path": "not1mm/plugins/weekly_rtty.py",
+        "sha256": "595cc4514d88fd3c7d8568bf695366a700b4d08c2a491334958e42702df6d02a"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "wia_remembrance",
+      "source": {
+        "bytes": 19831,
+        "path": "not1mm/plugins/wia_remembrance.py",
+        "sha256": "539627f036aa235ad5ecdc3a5c1ee4590f3fae3975f850ef0b9b7b1ca3df14af"
+      },
+      "status": "converter-mapping-unavailable"
+    },
+    {
+      "mappingReviewNeeded": [
+        "For this converter, exchange fields do not yet have a reviewed finite mapping.",
+        "For this converter, scoring, multiplier, and duplicate authority has not been reconciled to the selected XContestCore policies.",
+        "For this converter, serial, export, schedule, category, and eligibility constraints still need runtime-completeness review."
+      ],
+      "pluginID": "winter_field_day",
+      "source": {
+        "bytes": 19758,
+        "path": "not1mm/plugins/winter_field_day.py",
+        "sha256": "8cc5f8421909a482e52d08e0ce4144c772b04aa7c5364ffeb3f5f2b78bbbd489"
+      },
+      "status": "converter-mapping-unavailable"
+    }
+  ],
+  "schemaVersion": "1.0.0",
+  "summary": {
+    "converted": 7,
+    "inventoryPlugins": 94,
+    "mappingUnavailable": 87
+  }
+}

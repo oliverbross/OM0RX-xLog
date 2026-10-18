@@ -21,6 +21,10 @@ on:
       - 'Tests/XLogPrototypeTests/LiveWSJTXBridgeTests.swift'
       - 'Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift'
       - 'docs/contesting/fixtures/contest-export-worker-wire.json'
+      - 'docs/contesting/contest-acceptance-ledger.json'
+      - 'docs/contesting/generated/python-plugin-inventory.json'
+      - 'docs/contesting/pinned-plugin-conversion-coverage.json'
+      - 'tools/contest_plugin_generator/**'
       - 'prototype/src-tauri/Cargo.lock'
       - 'prototype/src-tauri/Cargo.toml'
       - 'prototype/src-tauri/build.rs'
@@ -49,6 +53,10 @@ on:
       - 'Tests/XContestStoreTests/**'
       - 'Tests/XLogPrototypeTests/Contest*Tests.swift'
       - 'docs/contesting/fixtures/contest-export-worker-wire.json'
+      - 'docs/contesting/contest-acceptance-ledger.json'
+      - 'docs/contesting/generated/python-plugin-inventory.json'
+      - 'docs/contesting/pinned-plugin-conversion-coverage.json'
+      - 'tools/contest_plugin_generator/**'
       - 'prototype/src-tauri/Cargo.lock'
       - 'prototype/src-tauri/Cargo.toml'
       - 'prototype/src-tauri/build.rs'
@@ -237,6 +245,40 @@ jobs:
         run: |
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.LiveRemoteBackupPresentationTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
+
+  contest-definition-generator:
+    name: Contest definition generator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CONTEST_SW_ROOT: ${{ github.workspace }}/.ci/contest-sw
+    steps:
+      - name: Check out xLog source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out exact pinned contest source
+        uses: actions/checkout@v4
+        with:
+          repository: oliverbross/contest-sw
+          ref: 7c8b499225a73f7f8f792246881bd7aefc05452f
+          path: .ci/contest-sw
+          persist-credentials: false
+      - name: Record Python and pinned source revision
+        shell: bash
+        run: |
+          python3 --version
+          python3 -c 'import sys; assert sys.version_info >= (3, 12), sys.version'
+          test "$(git -C "$CONTEST_SW_ROOT" rev-parse HEAD)" = 7c8b499225a73f7f8f792246881bd7aefc05452f
+      - name: Verify complete pinned plugin corpus
+        shell: bash
+        run: |
+          python3 tools/contest_plugin_generator/verify_pinned_corpus.py \
+            --upstream "$CONTEST_SW_ROOT" \
+            --ledger docs/contesting/contest-acceptance-ledger.json \
+            --inventory docs/contesting/generated/python-plugin-inventory.json
+      - name: Test contest definition generator
+        run: python3 -m unittest discover -s tools/contest_plugin_generator/tests -v
 
   contest-native-tests:
     name: Contest native tests (${{ matrix.os }})

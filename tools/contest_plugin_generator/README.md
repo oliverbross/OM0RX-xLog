@@ -23,7 +23,19 @@ The required corpus check fails rather than skips when the external checkout is 
   --inventory docs/contesting/generated/python-plugin-inventory.json
 ```
 
-Unit tests use `CONTEST_SW_ROOT` when set. Corpus tests visibly skip when it is unavailable; they do not replace the required check above.
+The decisive converter tests require `CONTEST_SW_ROOT`; they fail rather than skip when it is absent. Other corpus-dependent tests retain their visible skip behavior, which does not replace the required corpus check above. The `contest-definition-generator` CI job supplies an isolated checkout and runs both the corpus verifier and the complete generator suite.
+
+To reproduce that setup locally with any normal `python3` supporting Python 3.12 or newer:
+
+```sh
+git clone --no-checkout https://github.com/oliverbross/contest-sw.git /tmp/xlog-contest-sw
+git -C /tmp/xlog-contest-sw checkout --detach 7c8b499225a73f7f8f792246881bd7aefc05452f
+CONTEST_SW_ROOT=/tmp/xlog-contest-sw python3 tools/contest_plugin_generator/verify_pinned_corpus.py \
+  --upstream /tmp/xlog-contest-sw \
+  --ledger docs/contesting/contest-acceptance-ledger.json \
+  --inventory docs/contesting/generated/python-plugin-inventory.json
+CONTEST_SW_ROOT=/tmp/xlog-contest-sw python3 -m unittest discover -s tools/contest_plugin_generator/tests -v
+```
 
 `definition_schema.json` keeps the historical `1.0.0` draft interchange and adds a strict `2.0.0` authoring envelope. Version 2 uses only the finite policies already implemented by `ContestDefinitionDraft`; it is not an expression language and cannot request an adapter. Its optional `geographicMultiplier` maps directly to the bounded Swift configuration: one required received subdivision field, up to eight unique entity policies with uppercase tokens, and one entity fallback. Geographic goldens must provide resolved entity snapshots and a pinned reference-data version. Runtime-blocking omissions belong in `constraints.runtimeUnresolved` and prevent translation. Sponsor, category, schedule, membership and activation gaps belong in `constraints.acceptanceUnresolved` and remain visible without changing runtime semantics.
 
@@ -38,3 +50,11 @@ python3 tools/contest_plugin_generator/validate_definition.py \
 ```
 
 Use `--write-digest` only while authoring to replace `identity.contentDigest` with the digest of the complete envelope after that field is zeroed. `runtime.sourceProvenance` is explicit runtime metadata rather than derived authority; the validator requires it to surface every SHA-256 recorded by the envelope, but a reviewer must still verify those source records independently. The translator validates exact nested keys, bounds, finite integer types, the current core band plan, supported mode/ADIF/Cabrillo/report combinations, structured exchange and serial invariants, scoring-field references, and export projection coverage. It never imports or evaluates author content, emits Swift source, adds a definition to the runtime catalog, marks it reviewed, or claims sponsor submission readiness. The 94-plugin inventory remains source metadata until each semantic mapping receives its own review and acceptance evidence.
+
+`convert_pinned_plugins.py` is the bounded source-to-authoring path for the first seven reviewed inventory records: four 10-10 seasonal plugins plus CWT, CW Open and ICWC MST. It checks the pinned upstream commit, exact source path and SHA-256, and reviewed literal declarations before applying one of the existing finite Ten-Ten or CW unique-call mappings. It emits deterministic v2 authoring envelopes and Swift-consumable runtime JSON under `Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions`, plus `docs/contesting/pinned-plugin-conversion-coverage.json` for all 94 inventory records:
+
+```sh
+CONTEST_SW_ROOT=/path/to/contest-sw python3 tools/contest_plugin_generator/convert_pinned_plugins.py
+```
+
+The converter verifies the actual upstream Git revision and hashes the seven source files before trusting the checked-in inventory. Reviewed golden inputs and expected outcomes live in the mapping document rather than translator code. These seven outputs intentionally reproduce the immutable v1 Swift factories and omit `operatorPolicy`; they are historical compatibility drafts, not operator-enabled definitions. Their acceptance constraints also preserve the outstanding sponsor, category, schedule and activation work. Every other inventory record is marked `converter-mapping-unavailable` with the semantic reviews needed to add it; this does not claim that xLog cannot support that contest. Source fingerprints and literal matches guard the reviewed mapping but do not establish semantic authority on their own. The generic `validate_definition.py` authored-v2 route remains available for future human-authored contest descriptions without changing the runtime catalog.
