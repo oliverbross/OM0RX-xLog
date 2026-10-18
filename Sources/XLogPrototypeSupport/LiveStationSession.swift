@@ -691,14 +691,6 @@ actor LiveStationSession {
                   guiPTT.ownerID == nil, transmitOwnership.releases.isEmpty, !carrierReleaseUnconfirmed(observed), observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
                 throw WorkerFailure("station_action_blocked", "Transmit control is not enabled or the station has inhibitors.")
             }
-        } else if action == .operate {
-            // Operate is the Agent's guarded amplifier-state transaction, not an
-            // RF-producing CAT control. The Agent remains authoritative for its
-            // advertised action, current route and hardware interlocks.
-            guard guiPTT.ownerID == nil, lifecycleTransitions == 0, station.inhibitors.isEmpty, station.radioKnown, !station.radioStale,
-                  !observed.isTransmitting, observed.transportReceivedAt.map({ Date().timeIntervalSince($0) >= -1 && Date().timeIntervalSince($0) <= 3 }) == true else {
-                throw WorkerFailure("station_action_blocked", "The station has inhibitors or its connection is changing.")
-            }
         }
         transmitOwnership.beginAction(action)
         let acquiresTransmit = Self.requiresTransmitOptIn(action)
