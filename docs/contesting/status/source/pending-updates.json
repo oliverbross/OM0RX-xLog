@@ -279,6 +279,84 @@
     },
     "scope": "Keep the ledger at 16 previews / 78 pending / 0 complete; extra CQWW preview profiles do not increase full-port parity. Current application scope is macOS, RF remains disabled, and the original app remains user-controlled."
   },
+  "latestIntegrationCheckpoint": {
+    "ratesCombinedIntegration": {
+      "source": "68ccf470530d3eda470617a66defc2c6ebc15875 over 80732f92ce0e285f57404ba560dc5ceab055b0cc",
+      "status": "failed; merge preserved and aborted, repair assigned",
+      "failure": "Committed correction replay after deletion returns qso_deleted because correctedQSO queries the live record to preserve operatorStyle before durable replay.",
+      "swiftLog": {"path": "/tmp/xlog-contest-rates-124-integration-swift.log", "sha256": "a99e5cbcc8aea45361e3152514959912b1bba463d2c3f76b5d5e30d378a8fc66", "exitCode": 1},
+      "nativeLog": {"path": "/tmp/xlog-contest-rates-124-integration-native.log", "sha256": "8e88dbdfa51d3e1bc852d2d48d68937a64ea066759ed72833c0c4f13c7b08983", "passed": 46},
+      "resolvedPatch": {"path": "/tmp/xlog-rates-68ccf47-resolved-integration.patch", "sha256": "080d5a41ad07ce83fdde31c31c89c06080ebec204f0fc16034500cf8a60deb9b"}
+    },
+    "measuredAtLocalDate": "2026-10-18",
+    "sourceHead": "80732f92ce0e285f57404ba560dc5ceab055b0cc",
+    "integrationCommit": "172992c86e7f0acc40077f2718529512b4ad10b3",
+    "mainApplication": {
+      "version": "1.2.24",
+      "sourceCommit": "fd64a5129c9a629490e0f447bf45fa8157d66e63",
+      "releaseRecord": "0106c9f",
+      "installedHostSha256": "c3240bf546e860b83fa34380b452473bfde97e1406f8206439ed23fe8e44f2d9",
+      "installedWorkerSha256": "441fbe33dda552d7a3cd9b7776cf4c1aae476ae11a14675cd0702d619e76973f",
+      "signature": "strict deep verification passed"
+    },
+    "mergeValidation": {
+      "swift": "67 passed",
+      "ui": "65 passed",
+      "rust": "662 + 26 passed",
+      "logs": {
+        "swift": {"path": "/tmp/xlog-contest-124-main-merge-swift.log", "sha256": "61c9ff21ea008ee3a4f82d6a621b168af58aea72ef09681a737fa5af2a5f4b74"},
+        "ui": {"path": "/tmp/xlog-contest-124-main-merge-ui.log", "sha256": "b236364498402069a586c1e2dc478629d1a232b8258d8071d5d5d052a88332ae"},
+        "rust": {"path": "/tmp/xlog-contest-124-main-merge-rust.log", "sha256": "8ff5b0217d342470b3090441157c87eec872867ef72bf8793dd726fa381a28dc"}
+      }
+    },
+    "contestingTest": {
+      "installedSource": "5024b2cf1129347a8f0b1f621d2f2e7306121c90",
+      "nativeCanvas": "failed; accepted geometry fix 9c3fd7453b2d0590c5d9b993378c42974390ac82 awaits packaging"
+    },
+    "cqwwActivation625602dde4a40545a140934826e609ea9bc1d323": {
+      "status": "merged and pushed at 80732f92ce0e285f57404ba560dc5ceab055b0cc; no new Test package from this integration (existing Test remains 5024b2c)",
+      "profiles": "The catalog has 26 total profiles: 16 named legacy, 8 declarative, and 2 CQWW country previews; the parity ledger remains at 16 contest preview entries",
+      "oracleCorrection": "Independent oracle points * multipliers: 14*12=168, 12*12=144, 9*10=90; keep Italy 248, Sicily IT9 and African IG9/IH9 distinct",
+      "tests": {"swift": "41 passed", "ui": "28 passed", "typescript": "passed"},
+      "logs": {"swift": {"path": "/tmp/xlog-contest-cqww-country-124-swift.log", "sha256": "6a79c6ff1d428b4a2dfe30d541935167ad93cfa54622e76c7df01e96b6685fbb"}, "ui": {"path": "/tmp/xlog-contest-cqww-country-124-ui.log", "sha256": "45a8ed965afe40dac0cd4545c4f763a7c3ea3c63d3e4477a381cb1bea0571a10"}}
+    },
+    "ledger": "16 previews, 78 pending, 0 fully ported; full 94-contest parity and F01-F33 programme gates remain open, which does not imply every individual feature is unfinished",
+    "nextGates": "matching frontend/native integration, combined tests, isolated canonical Contesting Test package and actual operator QA; RF disabled",
+    "mainApplicationFollowup": {
+      "amplifierRegressionFix6882602": "reviewed, pending release",
+      "rbn": "diagnosis ongoing"
+    },
+    "boundedNativeAcceptance": {
+      "receipt": "docs/contesting/evidence/operator-desk-canvas-response-fix-2026-10-18.json",
+      "scpSelection": "passed; K1A selected as K1ABC from local fixture",
+      "logProjection": "passed; four saved contacts projected with expected 10 points, 8 multipliers and score 80",
+      "panelPersistence": "passed; Check Partial hidden, retained unchecked across Test app restart, and local SCP fixture recovered when re-enabled",
+      "canvasGeometry": "failed; multi-panel move/resize and operator canvas acceptance remain open"
+    },
+    "rates": {
+      "storeFollowupCommit": "da92cec342dd6306a7c6d1cd6b8032d88c7183af",
+      "nativeCommit": "68ccf470530d3eda470617a66defc2c6ebc15875",
+      "review": "root reviewed core/store/native follow-up",
+      "tests": "83 store + 14 native passed",
+      "storeLog": {"path": "/tmp/xlog-contest-rates/store-followup.log", "sha256": "c3250382d3daaf514091f45bb5f903ced6f6f239834dafc5b3797218b19b7e15"},
+      "nativeLog": {"path": "/tmp/xlog-contest-rates/native.log", "sha256": "252843ee9e48115836d2babf47af2bb3085506fe97e11d7c76ca1cf52060c237"},
+      "boundary": "Combined integration and UI acceptance remain pending."
+    },
+    "nativeBridge": {
+      "commit": "5196aef728355faebe7765733506b19b8e590f43",
+      "sourceCommit": "0ac1c68f0053e533d46bfcbce0cd5d2a02fb043b",
+      "status": "merged and pushed; branch synchronization verified 0/0",
+      "nativeContestTests": "45 passed",
+      "log": {"path": "/tmp/xlog-contest-native-124-bridge.log", "sha256": "9b9e1bfd23387c64907327e14aedf40f8c24c8f5855e356f41504b0b3cbdd950"},
+      "boundary": "Matching frontend integration and package acceptance remain open."
+    },
+    "arrlVhfEligibility471db8b": {
+      "status": "under repair",
+      "reviewFinding": "Unintended legacy provenance/digest change",
+      "requestedCoverage": "Malformed snapshot tests",
+      "activation": "not claimed"
+    }
+  },
   "priorSourceRefresh": {
     "measuredAt": "2026-10-18T07:09:40Z",
     "status": "source refresh only; published workbook and Markdown unchanged",

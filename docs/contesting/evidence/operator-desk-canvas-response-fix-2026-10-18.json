@@ -43,7 +43,7 @@
   },
   "nativeAcceptance": {
     "status": "failed-multi-panel-canvas-gate",
-    "checkedAt": "2026-10-18T07:52:00Z",
+    "checkedAt": "2026-10-18T08:04:47Z",
     "checks": [
       {
         "name": "Installed launch and layout transport",
@@ -70,13 +70,31 @@
         "name": "Test station-status presentation",
         "status": "failed",
         "observed": "Native automatic rotor status unavailable toast remains despite deliberate external-I/O disablement."
+      },
+      {
+        "name": "Compact Check Partial selection",
+        "status": "passed",
+        "observed": "Installed 5024: typed K1A in Entry; Check Partial displayed the local seven-call fixture and K1ABC/K1ABD candidates. Selected K1ABC; returned Entry displayed K1ABC. Cleared the synthetic draft. No QSO committed; simulation remained disarmed."
+      },
+      {
+        "name": "Compact Log projection",
+        "status": "passed",
+        "observed": "Installed 5024: saved SSB Log contains DL1AAA 1 point, K1AAA 3 points, JA1AAA 3 points, VK2AAA 3 points; four contacts with zone/country labels. Total matches 10 points, eight multipliers, score 80."
+      },
+      {
+        "name": "Scoped panel hide/reopen and restart persistence",
+        "status": "passed",
+        "observed": "Hid Check Partial via Panels; selector retained Entry/Log/Statistics. Quit/reopened Test through its startup manager and reopened the saved SSB session; Check Partial remained unchecked. Re-enabled it and the local seven-call SCP dataset recovered. Returned to blank Entry with simulation disarmed. No contacts added, edited or deleted."
       }
     ],
     "notRun": [
-      "Multi-panel move/resize/hide/reopen/restart",
+      "Multi-panel geometry move/resize/restart",
       "Detached native child actions; bridge not packaged in this source",
       "All-contest operator acceptance"
-    ]
+    ],
+    "originalAppSHA256After": "44328c7b35451de30253ca220569c43cda47af6dd515cbf58ca6b838b98c8a8c",
+    "testAppSHA256After": "bcaf95e856789eedf373d144ecec05a54d357c8c2653420afef7add47eaa50bf",
+    "hashBoundary": "Historical hashes measured during this 08:04 UTC Test acceptance; the normal application was subsequently updated by the main chat."
   },
   "boundaries": [
     "macOS Test package only; no RF/PTT/keying/audio output",

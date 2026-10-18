@@ -2,11 +2,13 @@
 
 Last updated: 2026-10-18
 
-Tracked implementation checkpoint: `5459ab196dbc7aa580c12677d19ba1b2b2f0420d`
-on `codex/dual-radio-settings`. The installed macOS application is version
-**1.2.23**. Its exact packaged application source is
-`a2b959da84796babf6b3158a34071e121203ba28`; the later tracked checkpoint adds
-the final installed RBN acceptance documentation only.
+Latest integration gate: the rates backend merge from `68ccf47` failed the existing correction-after-deletion replay test. The unaccepted merge was preserved and aborted; the accepted source remains `80732f9`. The main chat is taking serialized canonical ownership for its requested normal-app patch release. No new Contesting Test package is accepted.
+
+Tracked implementation checkpoint: `80732f92ce0e285f57404ba560dc5ceab055b0cc` on `codex/contest-1.2.24-integration`.
+The installed normal macOS application is version **1.2.24**, packaged from
+`fd64a5129c9a629490e0f447bf45fa8157d66e63` with release-acceptance documentation
+`0106c9f`; the current contesting integration is `172992c86e7f0acc40077f2718529512b4ad10b3`,
+including documentation correction `6d15d7b` and native bridge merge.
 
 ## Consolidated current checkpoint — 18 October 2026
 
@@ -16,22 +18,22 @@ historical unless repeated here or in a later release-acceptance report.
 
 ### Repository and release state
 
-- `/Applications/OM0RX-xLog.app` is version **1.2.23** and passes strict deep
-  Developer ID signature validation. The installed acceptance restored the
-  integrated logbook with **68,200 contacts**, the Remote Station Agent, rotor,
-  KPA500 and ShackCQ live feed. No RF, QSO-log, amplifier-transition or manual
-  rotor action was used for that acceptance.
-- At the start of this audit, the checkout and its upstream branch were synchronized
-  at `5459ab1` with **70 application/release commits not yet on `origin/main`**;
-  this management-only update follows that checkpoint. `origin/main` remains at
-  the accepted 1.1.10 documentation commit `c5059ea`.
-- Therefore 1.2.23 is the current installed/candidate product, but the repository
-  workflow is not yet consolidated: the accepted 1.2.x history must be reviewed
-  and fast-forwarded or merged into canonical `main` before the next development
-  release. The stale `main` worktree registration must be resolved only after its
-  old checkout is confirmed to contain no unique work.
-- Current release evidence: [`docs/releases/v1.2.23-macos.md`](docs/releases/v1.2.23-macos.md).
-  The bundle is signed; notarization was not performed or claimed for 1.2.23.
+- `/Applications/OM0RX-xLog.app` is version **1.2.24**, packaged from source
+  `fd64a5129c9a629490e0f447bf45fa8157d66e63` with release record `0106c9f`; its
+  strict deep signature check passed. Installed host and worker identities are
+  SHA-256 `c3240bf546e860b83fa34380b452473bfde97e1406f8206439ed23fe8e44f2d9` and
+  `441fbe33dda552d7a3cd9b7776cf4c1aae476ae11a14675cd0702d619e76973f`.
+- Contesting compatibility merge `172992c86e7f0acc40077f2718529512b4ad10b3` was
+  based on 1.2.24; documentation correction `6d15d7b` precedes native bridge merge `5196aef`; CQWW activation merge `80732f92ce0e285f57404ba560dc5ceab055b0cc` is current HEAD.
+  The installed Contesting Test package remains `5024b2cf1129347a8f0b1f621d2f2e7306121c90`;
+  native canvas acceptance remains failed and its separate geometry fix awaits packaging.
+- Merge validation passed Swift **67**, UI **65**, and Rust **662 + 26** checks.
+  Logs: `/tmp/xlog-contest-124-main-merge-{swift,ui,rust}.log`; SHA-256 values
+  respectively `61c9ff21ea008ee3a4f82d6a621b168af58aea72ef09681a737fa5af2a5f4b74`,
+  `b236364498402069a586c1e2dc478629d1a232b8258d8071d5d5d052a88332ae`, and
+  `8ff5b0217d342470b3090441157c87eec872867ef72bf8793dd726fa381a28dc`.
+- Release evidence remains in [`docs/MACOS_1_2_24_RELEASE_ACCEPTANCE_2026-10-18.md`](docs/MACOS_1_2_24_RELEASE_ACCEPTANCE_2026-10-18.md).
+  These package/signature records do not claim notarization or RF acceptance.
 
 ### What has been delivered since the TCI checkpoint
 
@@ -80,10 +82,13 @@ accepted**. Independent WinKeyer and rotor ownership remains intentional.
 | P1 | Online-log completion | Complete exact-package/provider acceptance for QRZ, Club Log and Wavelog receipt views; finish LoTW transport plus revision-fenced confirmation-only apply. TQSL signing/upload and eQSL remain separate owners. |
 | P2 | Operator workflows | Decide and sequence activation sessions, heard/calling scratch records, private call/QSO journal, attachments, satellite/VHF editing and opt-in opportunity reminders. None should create a second log owner. |
 | P2 | Awards/reference cache | Implement official-source, versioned, last-known-good POTA/SOTA/IOTA/WWFF/castle directory caches and finish executable sponsor-rule/export work such as QRP DXCC. |
-| P2 | Contesting | The contest programme has substantial isolated branches and its own project plan, but it is not part of the current 1.2.23 canonical release line. Perform a separate inventory/review and explicit integration decision rather than silently absorbing all contest branches. |
+| P2 | Contesting | The contest programme has substantial isolated branches and its own project plan, but it is not part of the current 1.2.24 canonical release line. Perform a separate inventory/review and explicit integration decision rather than silently absorbing all contest branches. |
 | P2 | Windows/Linux | Deferred by user direction. Do not build Windows/Linux application packages; preserve the macOS focus. |
 
-**Contesting Test status — refreshed 18 October 2026, 07:53 UTC:** corrected package `5024b2c` is installed and launches in the isolated Contesting Test app; the original normal app remains unchanged. Saved CQWW SSB opens with 4 QSOs, 10 points, 8 multipliers and score 80, and the panel selector works. A bounded draft check typed W1AW, switched to Statistics and back to Entry, and preserved W1AW with simulation disarmed; this proves panel switching only, not geometry, restart recovery or detached-child acceptance. Native canvas acceptance **FAILED**: the transport fallback is absent, the app remains a compact single-panel selector with large unused canvas at both 1440×940 and native zoom 3840×2160, and there are no movable/resizable multi-panel headers. The earlier framed-envelope failure and safe fallback are documented in `docs/contesting/evidence/operator-desk-canvas-package-2026-10-18.json` at `dc2f601`. Corrected-package native QA receipt: `docs/contesting/evidence/operator-desk-canvas-response-fix-2026-10-18.json`, committed and pushed at `76a6bb3`. Fix `703bc56` is merged at `5024b2c`; independent Canvas/Workspace validation passed 42 tests and TypeScript compilation. A separate frontend fix is in progress; full canvas acceptance remains open. RBN `4bb5571` is integrated at `935816d` (29 Swift, 41 UI checks and TypeScript passed). Native bridge `0ac1c68f0053e533d46bfcbce0cd5d2a02fb043b` remains isolated and queued for review, with four child projections and Entry simulation v2 but no native UI acceptance. CQWW activation `e642d64e14a371d94f6fe9a0d3468e885208176b` remains isolated and under review after correcting the oracle for African Italy IG9/IH9 versus Sicily. Country-resource materialization `1be403` and lifecycle `2ab979` are integrated. Keep the published ledger at 16 previews / 78 pending / 0 complete; extra CQWW preview profiles do not increase full-port parity. macOS remains the application scope, RF is disabled, and the original app remains user-controlled.
+**Contesting Test status — refreshed 18 October 2026, current source checkpoint `80732f9`:** the normal 1.2.24 package and integration provenance are recorded above. Merge validation passed Swift 67, UI 65, Rust 662 plus 26; log digests are recorded in the current checkpoint. The installed Contesting Test remains `5024b2c`. Bounded native QA also passed local SCP selection (K1A → K1ABC), the four-contact Log projection, and scoped panel hide/reopen across app restart with the SCP fixture recovered; the receipt is `docs/contesting/evidence/operator-desk-canvas-response-fix-2026-10-18.json`. Native canvas geometry still failed and its accepted fix awaits package acceptance. The source geometry fix `9c3fd74` is accepted pending packaging. Native bridge `0ac1c68` is merged and pushed at `5196aef`; root verified the branch synchronized `0/0`, and 45 native contest tests passed (`/tmp/xlog-contest-native-124-bridge.log`, SHA-256 `9b9e1bfd23387c64907327e14aedf40f8c24c8f5855e356f41504b0b3cbdd950`). Matching frontend integration and package acceptance remain open. CQWW activation `625602d` is merged and pushed at `80732f9`; 41 Swift and 28 UI tests plus TypeScript passed, with no new Test package from this integration. Swift log `/tmp/xlog-contest-cqww-country-124-swift.log` SHA-256 `6a79c6ff1d428b4a2dfe30d541935167ad93cfa54622e76c7df01e96b6685fbb`; UI log `/tmp/xlog-contest-cqww-country-124-ui.log` SHA-256 `45a8ed965afe40dac0cd4545c4f763a7c3ea3c63d3e4477a381cb1bea0571a10`. The current catalog contains 26 total profiles: 16 named legacy profiles, 8 declarative profiles, and 2 CQWW country previews. The parity ledger remains 16 contest preview entries. Independently, the oracle score products are corrected to 14×12=168, 12×12=144, and 9×10=90; Italy 248, Sicily IT9 and African IG9/IH9 labels remain distinct. The contesting frontend `4993`/`e9e735f` review found unresolved receipt, incremental typing, Enter ordering and stale mutation rebasing issues; repair is in progress and no detached acceptance is claimed. Rates store follow-up `da92cec342dd6306a7c6d1cd6b8032d88c7183af` and native follow-up `68ccf470530d3eda470617a66defc2c6ebc15875` are root-reviewed; 83 store and 14 native tests passed. Store log `/tmp/xlog-contest-rates/store-followup.log` SHA-256 `c3250382d3daaf514091f45bb5f903ced6f6f239834dafc5b3797218b19b7e15`; native log `/tmp/xlog-contest-rates/native.log` SHA-256 `252843ee9e48115836d2babf47af2bb3085506fe97e11d7c76ca1cf52060c237`. Combined integration and UI acceptance remain pending. ARRL VHF `7357645` is reviewed with inactive fixed 17-band and rover core; `471db8b` eligibility is under repair after review found an unintended legacy provenance/digest change; malformed-snapshot tests are requested and no activation is claimed. Keep the parity ledger at **16 previews / 78 pending / 0 fully ported**; full 94-contest parity and F01–F33 programme gates remain open; this does not mean every individual feature is unfinished. Next gates are matching frontend/native integration, combined tests, an isolated canonical Contesting Test package and operator QA; RF remains disabled. Main application amplifier regression source fix `6882602` is reviewed and pending release; RBN diagnosis remains ongoing. The normal app remains user-controlled.
+
+
+**Historical Contesting Test checkpoint — 18 October 2026, 07:53 UTC:** corrected package `5024b2c` was installed and launched in the isolated Contesting Test app; the original normal app remained unchanged. Saved CQWW SSB opened with 4 QSOs, 10 points, 8 multipliers and score 80, and the panel selector worked. A bounded W1AW draft survived Entry → Statistics → Entry while simulation was disarmed; this proved panel switching only. Native canvas acceptance **FAILED**: fallback transport was absent, the app remained a compact single-panel selector at 1440×940 and native zoom 3840×2160, and movable/resizable headers were absent. The earlier framed-envelope mismatch and safe fallback are in `docs/contesting/evidence/operator-desk-canvas-package-2026-10-18.json` at `dc2f601`; corrected-package receipt is `docs/contesting/evidence/operator-desk-canvas-response-fix-2026-10-18.json` at `76a6bb3`. Fix `703bc56` was reviewed and merged at `5024b2c`; 42 Canvas/Workspace tests and TypeScript passed. At that checkpoint, RBN `4bb5571` was integrated at `935816d` (29 Swift, 41 UI and TypeScript passed), native bridge was queued, and CQWW activation was under review. The historical parity count was 16 previews / 78 pending / 0 complete. RF was disabled; the original app remained user-controlled.
 
 ### Recommended next steps
 
