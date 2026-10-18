@@ -1,0 +1,24 @@
+{
+  "retrievedAt": "2026-10-18",
+  "officialSources": [
+    {"url": "https://www.ten-ten.org/qso-party-rules", "sha256": "54ccb256e0e42d2cf3edaf8d4f419e50f64beba425859bf899dfd766455dc091", "bytes": 141427},
+    {"url": "https://www.ten-ten.org/qso-party-handbook/", "sha256": "5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b", "bytes": 156452},
+    {"url": "https://www.ten-ten.org/qso-party-schedule/", "sha256": "47b07443c4abc10c43de2ea0efcacec6dfd2d85176838c6e0ef96293ffbca2da", "bytes": 134333},
+    {"url": "https://www.ten-ten.org/wp-content/uploads/2025/01/2025n4-OnLine.pdf", "sha256": "aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f", "bytes": 2383327}
+  ],
+  "pythonComparator": {
+    "repositoryRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+    "plugins": {
+      "winterPhone": "b07011970d2c56d2e1400c5035c78bcac4e3435fc20dcef842a547164f0660de",
+      "springCW": "a0abdb0269d9ca5938cd5784bfae8eab756369f0a2dc2c8e2c5f72c2e836fcd3",
+      "summerPhone": "a15484dc4e954bd4ca014e351d3f96c9e5a6345d158279c6b10fc31b3f5275f4",
+      "fallCW": "c7e0c822a75ba2354d20c58269dd1e2fb8df543ec8ec66ad304915d2562f63b4"
+    },
+    "sourceInspectedCases": [
+      {"memberNumber": "12345", "duplicate": false, "expectedPoints": 2},
+      {"memberNumber": "0", "duplicate": false, "expectedPoints": 1},
+      {"memberNumber": "12345", "duplicate": true, "expectedPoints": 0}
+    ]
+  },
+  "interpretation": "These independently expected cases were transcribed after inspecting the pinned pure validate/points/dupe/calc-score functions; Python was not executed. Official sources separately govern correctness. The 2026 schedule omission of CW variants is not evidence that they are discontinued."
+}

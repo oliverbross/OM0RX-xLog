@@ -6,6 +6,19 @@ import XContestCore
 final class ContestingLaneTests: XCTestCase {
     private let generation = "f1111111-2222-4333-8444-555555555555"
 
+    func testFoundationBooleanFallbackRejectsNumericAndInt8Values() throws {
+        func number(_ source: String) throws -> NSNumber {
+            let value = try JSONSerialization.jsonObject(with: Data(source.utf8), options: [.fragmentsAllowed])
+            return try XCTUnwrap(value as? NSNumber)
+        }
+        XCTAssertTrue(ContestLane.isFoundationBoolean(try number("true")))
+        XCTAssertTrue(ContestLane.isFoundationBoolean(try number("false")))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(try number("0")))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(try number("1")))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(NSNumber(value: Int8(0))))
+        XCTAssertFalse(ContestLane.isFoundationBoolean(NSNumber(value: Int8(1))))
+    }
+
     private func fixture() throws -> (URL, ContestLane) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-lane-\(UUID().uuidString)")
         let lane = try ContestLane(databaseURL: root.appendingPathComponent("Contesting/contests.sqlite")) { [generation] in generation }
@@ -42,6 +55,19 @@ final class ContestingLaneTests: XCTestCase {
         do { _ = try await operation.value; XCTFail("Expected terminal assistance lane") }
         catch let error as ContestLaneError { XCTAssertEqual(error.code, "scp_unavailable") }
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Contesting/SuperCheckPartial").path))
+    }
+
+    func testAssistanceStatusAfterShutdownPreservesRouteSpecificErrorsWithoutCreatingCaches() async throws {
+        let (root, lane) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        await lane.shutdown()
+        for (method, code) in [("contest_scp_status", "scp_unavailable"),
+                               ("contest_history_status", "history_unavailable")] {
+            do { _ = try await lane.handle(method: method, params: [:]); XCTFail("Expected \(code)") }
+            catch let error as ContestLaneError { XCTAssertEqual(error.code, code) }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Contesting/SuperCheckPartial").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Contesting/CallHistory").path))
     }
 
     private func workerRequest(_ worker: LiveWorker, method: String, params: [String: Any] = [:],

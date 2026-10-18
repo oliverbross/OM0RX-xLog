@@ -42,6 +42,17 @@ struct OperatorDraftRadioFollowTests {
         #expect(try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 7_150_000, observedMode: "CW", enabled: false) == before)
     }
 
+    @Test("Voice and CW observations apply their conventional reports without replacing operator edits")
+    func signalReports() throws {
+        var voice = fixture(); voice.mode = "SSB"; voice.rstSent = "59"; voice.rstReceived = "59"
+        let cw = try OperatorDraftRadioFollow.applying(to: voice, frequencyHz: 14_025_000, observedMode: "CW", enabled: true)
+        #expect(cw.rstSent == "599"); #expect(cw.rstReceived == "599")
+
+        var edited = cw; edited.rstSent = "579"; edited.rstReceived = "559"
+        let ssb = try OperatorDraftRadioFollow.applying(to: edited, frequencyHz: 14_250_000, observedMode: "USB", enabled: true)
+        #expect(ssb.rstSent == "579"); #expect(ssb.rstReceived == "559")
+    }
+
     @Test("CAT aliases match existing logging labels", arguments: [
         ("usb", "SSB"), ("LSB", "SSB"), ("CWR", "CW"), ("rttyr", "RTTY"),
         ("cw", "CW"), ("am", "AM"), ("FM", "FM"), ("ft8", "FT8"), ("CUSTOM_1", "CUSTOM_1"),

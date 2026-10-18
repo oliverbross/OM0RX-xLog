@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "feature": "exclusive Normal Logging and Contesting module ownership",
+  "capturedAtUTC": "2026-10-18T02:02:00Z",
+  "branch": "codex/contest-module-ownership",
+  "baseCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8",
+  "status": "review_candidate",
+  "boundaries": {
+    "included": [
+      "durable module preference and restart-only transition",
+      "fresh-context admission for exclusive renderer and worker mutations",
+      "full-dispatch transition leases for shared station and configuration owners",
+      "dirty, pending, uncertain and recovery-state retirement fences",
+      "terminal Read-radio reconciliation without replay",
+      "main-menu, sidebar and Separate Windows module choice",
+      "Unix and Windows native module test discovery and execution"
+    ],
+    "excluded": [
+      "production Contesting activation",
+      "production background-producer fencing including WSJT-X ingress",
+      "latest accepted 1.2.21, 1.2.22 and 1.2.23 main-source integration",
+      "native packaging or installation",
+      "external I/O, radio, rotor or keying acceptance"
+    ]
+  },
+  "commands": [
+    {
+      "log": "/tmp/xlog-module-native-final.log",
+      "command": "TAURI_CONFIG='{\"bundle\":{\"externalBin\":[]}}' cargo test --locked --jobs 2 --target-dir /tmp/om0rx-module-native-repair --manifest-path prototype/src-tauri/Cargo.toml --bin xlog-prototype --features contesting-test operating_module::tests:: -- --nocapture; then station_session_reads_and_recovery_are_shared_but_every_state_change_is_leased"
+    },
+    {
+      "log": "/tmp/xlog-module-workflow-final.log",
+      "command": "TAURI_CONFIG='{\"bundle\":{\"externalBin\":[]}}' cargo test --locked --jobs 2 --target-dir /tmp/om0rx-module-workflow-portable --manifest-path prototype/src-tauri/Cargo.toml --bin xlog-prototype --features contesting-test operating_module::tests:: -- --list; then execute the same filter"
+    },
+    {
+      "log": "/tmp/xlog-module-frontend-final2.log",
+      "command": "npm test -- tests/live-app.test.tsx src/operatingModule.test.ts src/live/operatorDraftTransport.test.ts src/live/logbookContactTransport.test.ts src/contesting/ContestWorkspace.test.tsx; then vitest workerDataQuality and live-app spot-barrier"
+    },
+    {
+      "log": "/tmp/xlog-module-build-final2.log",
+      "command": "npm run build"
+    }
+  ],
+  "logs": {
+    "/tmp/xlog-module-native-final.log": {
+      "sha256": "8123ada4b375093eb744180e7d3760a5ed2d35d7c26553f66ddfd184facc0501",
+      "result": "8 operating-module tests and 1 station-session action inventory test passed, including partial-retirement admission closure"
+    },
+    "/tmp/xlog-module-workflow-final.log": {
+      "sha256": "e36fbf8f07d8e52c2796ed1b22147cfcacd1790a03d65059f9e15e8619fb8b1a",
+      "result": "8 operating-module tests discovered nonempty and executed successfully"
+    },
+    "/tmp/xlog-module-frontend-final2.log": {
+      "sha256": "05f5e2b9e58ff12d0d52afe31727a177338d18a6a96c6ccd81d756caaff3a5d0",
+      "result": "2 Node assertions, 102 focused Vitest tests and 49 additional lifecycle/barrier tests passed"
+    },
+    "/tmp/xlog-module-build-final2.log": {
+      "sha256": "abd0084c9a42c80d23ba8b354619c4148c278711e4ab55ec8dcb936f469c64d0",
+      "result": "TypeScript, Vite production build and all window bundle checks passed; QSO bundle 405497/405500 bytes"
+    }
+  },
+  "frozenSourceSHA256": {
+    ".github/workflows/contest-portability.yml": "6d06c92c1bb6df33b47f79edffaf20a8c2aa8da3001b1989fb3b8c3f1435aea6",
+    "docs/contesting/MODULE_SELECTION_CONTRACT.md": "41c68ebb751122d08f27260183078eef2c76711d4681694bda80898020314779",
+    "prototype/src-tauri/src/main.rs": "c8eb47aa5abddee45622b961e99239f98219a3b7be135aee916b728f6a7606df",
+    "prototype/src-tauri/src/worker.rs": "9329002db35ed2e05b0d88031f40c6f565298301cd322f40bdffb1c294d51e80",
+    "prototype/src-tauri/src/operating_module.rs": "bb8a853cdd7400d46fbaa97a0220385081be271b81e8138bf735b90d65212cba",
+    "prototype/src/LiveApp.tsx": "d9303ab85e005d01d1c5900a2844e1839ed07bf8fa0362c807712fc9cf76295a",
+    "prototype/src/contesting/ContestWorkspace.test.tsx": "97703aa25eb226a40fb903146c429fc61464d698f4ce17ae4978309b833a367f",
+    "prototype/src/contesting/ContestWorkspace.tsx": "06ab252852f9e577c12b343ea958d5664790cf33f002d7d07cc00f20810bb987",
+    "prototype/src/live/live.css": "8046352a44ed28315ac66ac441a14b96a6a25ea8e16da78b7b6aeb366c59638c",
+    "prototype/src/live/logbookContactTransport.test.ts": "23ce705af6c0b86d9486b1486cd2e334567a7038a131a58d2b20c3d22b7e177a",
+    "prototype/src/live/logbookContactTransport.ts": "7afca9381a8d1942d0132b5f507d0346144f60a52c7d4c9c3aef994ed1b8041d",
+    "prototype/src/live/operatorDraftTransport.test.ts": "2ff351201115df7a801cab3e2753a6cb955110abe8318de7af5ba74aa8771468",
+    "prototype/src/live/operatorDraftTransport.ts": "51c9ecd5e38613f643bcf1f2589658d580b40ca96578716861fdb8dde7206c01",
+    "prototype/src/worker.ts": "13feb5d040c87ca28758c2c133a055489d52a0ae6deca558597602d1311084d8",
+    "prototype/src/workerDataQuality.test.ts": "1088147876918311e15ff581f1a4c708eb0d4f76eb2b714f3f80f1ecaa4f6bf3",
+    "prototype/tests/live-app.test.tsx": "3aaebf9f763b1db22fbf343dace7d0c26b22729259a7e36cc6acb0a29d482977",
+    "prototype/src/operatingModule.test.ts": "91d2c9eda908e1c2cfa90ff04f08849ebd61373816412e86ce5c34f2c120c77c",
+    "prototype/src/operatingModule.ts": "b80b978d19cc68c5913768ef40edcbf8e8b026f02400f1ce5b0d4d5b0dc49258"
+  }
+}

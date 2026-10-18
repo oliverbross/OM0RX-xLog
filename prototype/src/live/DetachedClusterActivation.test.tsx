@@ -25,14 +25,14 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
-it("keeps uncertain activation recovery available in the direct-menu cluster", async () => {
+it("automatically recovers uncertain activation without confirmation UI in the direct-menu cluster", async () => {
   bridge.call.mockResolvedValue({ phase: "uncertain", operationId: crypto.randomUUID(), tuneConfirmed: false, rotor: "uncertain", barrier: null });
   const Surface = await loadWindowSurface("?view=dx-cluster");
   render(<Surface />); await waitFor(() => expect(bridge.receive).not.toBeNull());
   act(() => bridge.receive?.(projection()));
   expect(screen.getByRole("button", { name: "Activate TEST1" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Check activation/ })).toBeTruthy();
-  expect(screen.getByText(/Spot activation outcome is uncertain/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Check activation/ })).toBeNull();
+  expect(screen.queryByText(/activation outcome is uncertain/i)).toBeNull();
   expect(bridge.call).toHaveBeenCalledWith("spot_activation_snapshot", {});
 });
 it("activates from a detached cluster without a Desk relay and never freshens stale reports on projection delivery", async () => {

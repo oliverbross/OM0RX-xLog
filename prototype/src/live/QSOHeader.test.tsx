@@ -39,6 +39,34 @@ it.each(["desk", "editor"])("puts evidence beneath the %s reference fields inste
   expect(status.parentElement).not.toBe(heading.parentElement);
   expect(status.closest(kind === "desk" ? ".desk-active-references" : ".qso-fields")).toBeTruthy();
 });
+it("contains multiple live POTA parks as stable separate rows without scrolling the desk", () => {
+  const view = render(<DeskQSO {...props} referenceEvidence={null} />);
+  const slot = view.container.querySelector(".desk-ref-slot")!;
+  const actions = view.container.querySelector(".desk-active-actions")!;
+  expect(slot).toBeTruthy();
+  expect(slot.querySelector('[role="status"]')).toBeNull();
+  view.rerender(<DeskQSO {...props} referenceEvidence={{ call: "H49A", rows: [
+    { kind: "pota", reference: "GB-3144", status: "verified", name: "Darnford Park" },
+    { kind: "pota", reference: "GB-5759", status: "verified", name: "Heart of England National Scenic Trail" },
+    { kind: "iota", reference: "EU-005", status: "verified", name: "Great Britain" },
+  ] }} />);
+  expect(view.container.querySelector(".desk-ref-slot")).toBe(slot);
+  expect(view.container.querySelector(".desk-active-actions")).toBe(actions);
+  const rows = Array.from(slot.querySelector('[role="status"]')!.children);
+  expect(rows.map(row => row.textContent)).toEqual([
+    "POTA GB-3144 · Verified: Darnford Park",
+    "POTA GB-5759 · Verified: Heart of England National Scenic Trail",
+    "IOTA EU-005 · Verified: Great Britain",
+  ]);
+  const css = readFileSync("src/live/OperatorDesk.css", "utf8");
+  expect(css).toMatch(/\.desk-active \{[^}]*max-width: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-active form \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-active-references \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \{[^}]*grid-column: 1 \/ -1;[^}]*justify-self: stretch;[^}]*block-size: 3em;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot > \.qso-reference-status \{[^}]*display: grid;[^}]*justify-content: stretch;[^}]*justify-items: start;[^}]*row-gap: \.15em;[^}]*height: 100%;[^}]*overflow: hidden;/);
+  expect(css).toMatch(/\.desk-ref-slot \.qso-reference-status > span \{[^}]*display: block;[^}]*width: 100%;[^}]*overflow: hidden;[^}]*text-align: left;[^}]*text-overflow: ellipsis;/);
+  expect(css).toMatch(/\.desk-active-actions \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*flex: 0 0 auto;/);
+});
 it("removes the global tuning status row while retaining the authoritative tune fence and errors", async () => {
   const source = readFileSync("src/LiveApp.tsx", "utf8");
   expect(source).not.toContain("waiting for observed radio state");
@@ -52,13 +80,12 @@ it("removes the global tuning status row while retaining the authoritative tune 
     return { operationId, phase: "confirmed", tuneConfirmed: false, rotor: "not_requested", reservationActive: false };
   });
   const client = new SpotActivationClient(call, () => operationId);
-  await expect(client.activate({ id: "native-report", activation, frequencyKHz: 28020, mode: "CW" })).rejects.toThrow("lost");
-  expect(call).toHaveBeenCalledExactlyOnceWith("activate_spot", { operationId, spotId: "native-report", ...activation });
+  await client.activate({ id: "native-report", activation, frequencyKHz: 28020, mode: "CW" });
+  expect(call).toHaveBeenNthCalledWith(1, "activate_spot", { operationId, spotId: "native-report", ...activation });
+  expect(call).toHaveBeenNthCalledWith(2, "spot_activation_reconcile", { operationId });
   render(<SpotActivationStatus status={client.getSnapshot().status} error={client.getSnapshot().error} reconcile={() => {}} />);
-  expect(screen.getByRole("alert").textContent).toContain("Activation acknowledgement unavailable");
-  expect(screen.getByRole("button", { name: "Check activation" })).toBeTruthy();
-  await client.refresh();
-  expect(call).toHaveBeenLastCalledWith("spot_activation_status", { operationId });
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Check activation" })).toBeNull();
   expect(client.getSnapshot().status).toMatchObject({ tuneConfirmed: false });
   expect(activationMessage(client.getSnapshot().status)).toContain("radio tune is not confirmed");
   expect(call.mock.calls.filter(([command]) => command === "activate_spot")).toHaveLength(1);

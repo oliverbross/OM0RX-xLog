@@ -31,3 +31,16 @@ it("selects the radio requested by a retained native settings route", async () =
   view.rerender(<RadioSettings requestedRadioId="radio1" requestedRadioRevision={2} />);
   expect(screen.getByRole("tab", { name: "Radio 1" }).getAttribute("aria-selected")).toBe("true");
 });
+
+it("refreshes only local app state without exposing a disconnect action", async () => {
+  const refresh = vi.fn(async () => "Local radio state refreshed. Connections were left running.");
+  native.invoke.mockImplementation(async (_command, { params }) => ({ radio_id: params.radio_id, active_radio: "radio1", tx_owner: null,
+    generation: `${params.radio_id}-generation`, revision: 1, base_url: "", last_receipt: null,
+    selection: { provider: null, generation: 0, selection_id: null } }));
+  render(<RadioSettings onRefreshLocalState={refresh} />); await act(async () => {});
+  fireEvent.click(screen.getByRole("button", { name: "Refresh local radio state" }));
+  await act(async () => {});
+  expect(refresh).toHaveBeenCalledOnce();
+  expect(screen.getByText("Local radio state refreshed. Connections were left running.")).toBeTruthy();
+  expect(screen.getAllByText(/does not disconnect the Remote Station Agent, rotor, or Wavelog/i)).toHaveLength(2);
+});

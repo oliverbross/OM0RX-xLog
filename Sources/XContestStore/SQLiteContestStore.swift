@@ -20,6 +20,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
         self.decoder = Self.makeDecoder()
         self.rules = rules
         self.database = try SQLiteDatabase(url: databaseURL, busyTimeoutMilliseconds: busyTimeoutMilliseconds)
+        try Self.validateStoredDefinitions(in: database)
     }
 
     func installReadSnapshotHookForTesting(_ hook: (@Sendable () -> Void)?) {
@@ -33,8 +34,50 @@ public actor SQLiteContestStore: ContestDurableRepository {
     public func createSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
                               initialDraft: ContestDraftSnapshot,
                               scope: ContestMutationScope, committedAt: Date) throws -> ContestSessionCreationResult {
-        let canonical = try canonicalPayload(scope: scope, payload: CreatePayload(session: session, metadata: metadata, draft: initialDraft))
+        try createSession(session, metadata: metadata, initialDraft: initialDraft, scope: scope,
+                          committedAt: committedAt, admittedDefinition: nil)
+    }
+
+    public func createDeclarativeSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
+                                         initialDraft: ContestDraftSnapshot,
+                                         canonicalDefinitionData: Data,
+                                         scope: ContestMutationScope,
+                                         committedAt: Date) async throws -> ContestSessionCreationResult {
+        let definition: ContestDeclarativeDefinition
+        do {
+            guard !canonicalDefinitionData.isEmpty, canonicalDefinitionData.count <= 262_144 else {
+                throw ContestStoreError.invalidDeclarativeDefinition
+            }
+            definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: canonicalDefinitionData)
+            guard try definition.canonicalStorageData() == canonicalDefinitionData,
+                  definition.identity == session.rule else { throw ContestStoreError.invalidDeclarativeDefinition }
+        } catch {
+            throw ContestStoreError.invalidDeclarativeDefinition
+        }
+        return try createSession(session, metadata: metadata, initialDraft: initialDraft, scope: scope,
+                                 committedAt: committedAt,
+                                 admittedDefinition: (definition, canonicalDefinitionData))
+    }
+
+    private func createSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
+                               initialDraft: ContestDraftSnapshot,
+                               scope: ContestMutationScope, committedAt: Date,
+                               admittedDefinition: (ContestDeclarativeDefinition, Data)?) throws -> ContestSessionCreationResult {
+        let canonical: Data
+        if let admittedDefinition {
+            canonical = try canonicalPayload(
+                scope: scope,
+                payload: DeclarativeCreatePayload(session: session, metadata: metadata, draft: initialDraft,
+                                                  canonicalDefinitionData: admittedDefinition.1))
+        } else {
+            canonical = try canonicalPayload(scope: scope,
+                                             payload: CreatePayload(session: session, metadata: metadata,
+                                                                    draft: initialDraft))
+        }
         return try database.transaction {
+            if let admittedDefinition {
+                try persistDefinition(admittedDefinition.0, canonicalData: admittedDefinition.1)
+            }
             if let result: ContestSessionCreationResult = try replay(scope: scope, canonicalPayload: canonical) { return result }
             guard !scope.payloadDigest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 throw ContestRepositoryError.invalidPayloadDigest
@@ -43,9 +86,9 @@ public actor SQLiteContestStore: ContestDurableRepository {
                   scope.workspaceGeneration == session.workspaceGeneration,
                   scope.draftID == initialDraft.id, initialDraft.sessionID == session.id,
                   initialDraft.revision == 1 else { throw ContestRepositoryError.invalidDraft }
-            guard rules.rule(for: session.rule) != nil else { throw ContestStoreError.unknownRule(session.rule) }
-            try validateSession(session, metadata: metadata)
-            try validateDraft(initialDraft, for: session)
+            guard let rule = try resolvedRule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+            try validateSession(session, metadata: metadata, rule: rule)
+            try validateDraft(initialDraft, for: session, rule: rule)
             guard !session.referenceDataVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   !metadata.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   !metadata.operatorCallsign.isEmpty,
@@ -122,7 +165,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             ) { row in active.append(try self.decode(ContestSerialReservation.self, from: row.blob(0))) }
             let pageValues = try qsos(sessionID: id, offset: offset, limit: limit)
             let allValues = try qsos(sessionID: id, offset: 0, limit: Int.max)
-            guard let rule = rules.rule(for: session.session.rule) else { throw ContestStoreError.unknownRule(session.session.rule) }
+            guard let rule = try resolvedRule(for: session.session.rule) else { throw ContestStoreError.unknownRule(session.session.rule) }
             let log = ContestLogPage(sessionID: id, workspaceGeneration: session.session.workspaceGeneration,
                                      revision: session.revision, qsos: pageValues, total: allValues.count,
                                      offset: offset, limit: limit)
@@ -152,8 +195,10 @@ public actor SQLiteContestStore: ContestDurableRepository {
             [.text(id.uuidString)]
         ) { row in reservations.append(try self.decode(ContestSerialReservation.self, from: row.blob(0))) }
         let contacts = try qsos(sessionID: id, offset: 0, limit: Int.max)
+        let definitionData = try canonicalDefinitionData(for: session.session.rule)
         return ContestSessionReadSnapshot(session: session, drafts: sessionDrafts,
-                                          activeReservations: reservations, qsos: contacts)
+                                          activeReservations: reservations, qsos: contacts,
+                                          canonicalDefinitionData: definitionData)
     }
 
     private func mutationProjection(sessionID: UUID, draftID: UUID) throws -> ContestMutationProjection {
@@ -161,7 +206,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
         let currentDraft = try draft(sessionID: sessionID, id: draftID)
         let active = try activeReservations(sessionID: sessionID, draftID: draftID)
         guard active.count <= 1 else { throw ContestStoreError.corruptRecord }
-        guard let rule = rules.rule(for: session.session.rule) else {
+        guard let rule = try resolvedRule(for: session.session.rule) else {
             throw ContestStoreError.unknownRule(session.session.rule)
         }
         let contacts = try qsos(sessionID: sessionID, offset: 0, limit: Int.max)
@@ -256,7 +301,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 throw ContestRepositoryError.notFound
             }
             let before = try openSession(id: scope.sessionID)
-            guard let rule = rules.rule(for: before.session.rule) else {
+            guard let rule = try resolvedRule(for: before.session.rule) else {
                 throw ContestStoreError.unknownRule(before.session.rule)
             }
             let resolvedSerial = try rule.resolvedSerialRequirement(in: before.session)
@@ -307,7 +352,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             guard let draftID = scope.draftID else { throw ContestRepositoryError.invalidDraft }
             _ = try draft(sessionID: scope.sessionID, id: draftID)
             let before = try openSession(id: scope.sessionID)
-            guard let rule = rules.rule(for: before.session.rule) else {
+            guard let rule = try resolvedRule(for: before.session.rule) else {
                 throw ContestStoreError.unknownRule(before.session.rule)
             }
             let serial = try rule.resolvedSerialRequirement(in: before.session)
@@ -416,7 +461,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 throw ContestRepositoryError.invalidSerialTransition
             }
             let before = try openSession(id: scope.sessionID)
-            guard let rule = rules.rule(for: before.session.rule) else {
+            guard let rule = try resolvedRule(for: before.session.rule) else {
                 throw ContestStoreError.unknownRule(before.session.rule)
             }
             let serial = try rule.resolvedSerialRequirement(in: before.session)
@@ -458,7 +503,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             guard committedAt.timeIntervalSinceReferenceDate.isFinite else { throw ContestRepositoryError.invalidDraft }
             guard qso.sessionID == scope.sessionID else { throw ContestEvaluationError.wrongSession(qsoID: qso.id) }
             let stored = try openSession(id: scope.sessionID)
-            guard let rule = rules.rule(for: stored.session.rule) else { throw ContestStoreError.unknownRule(stored.session.rule) }
+            guard let rule = try resolvedRule(for: stored.session.rule) else { throw ContestStoreError.unknownRule(stored.session.rule) }
             try validateQSOStructure(qso, for: stored.session)
             let semanticIssues = semanticFrequencyIssues(band: qso.band, frequencyHz: qso.frequencyHz)
             guard semanticIssues.isEmpty else { throw ContestStoreError.invalidQSO(semanticIssues) }
@@ -484,9 +529,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 guard serial.sessionID == scope.sessionID, serial.draftID == scope.draftID,
                       serialRequirement.allowedScopes.contains(serial.scope),
                       serialScopeMatches,
-                      [.reserved, .transmitted, .uncertain].contains(serial.state),
-                      qso.exchange.rawSent == serial.transmittedText,
-                      qso.exchange.normalizedSent == serial.transmittedText else {
+                      [.reserved, .transmitted, .uncertain].contains(serial.state) else {
                     throw ContestStoreError.reservationMismatch
                 }
                 if rule.metadata.entry.version == .v2 {
@@ -496,6 +539,9 @@ public actor SQLiteContestStore: ContestDurableRepository {
                           value.normalized == serial.transmittedText else {
                         throw ContestStoreError.reservationMismatch
                     }
+                } else if qso.exchange.rawSent != serial.transmittedText
+                            || qso.exchange.normalizedSent != serial.transmittedText {
+                    throw ContestStoreError.reservationMismatch
                 }
                 let committed = ContestSerialReservation(id: serial.id, sessionID: serial.sessionID, draftID: serial.draftID,
                                                          scope: serial.scope, scopeValue: serial.scopeValue, number: serial.number,
@@ -566,7 +612,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             let before = try qso(sessionID: scope.sessionID, id: corrected.id)
             try validateImmutableQSOFields(before: before, after: corrected)
             let stored = try openSession(id: scope.sessionID)
-            guard let rule = rules.rule(for: stored.session.rule) else {
+            guard let rule = try resolvedRule(for: stored.session.rule) else {
                 throw ContestStoreError.unknownRule(stored.session.rule)
             }
             try validateQSOStructure(corrected, for: stored.session)
@@ -619,7 +665,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                   scope: scope, committedAt: committedAt)
             let before = try qso(sessionID: scope.sessionID, id: id)
             let stored = try openSession(id: scope.sessionID)
-            guard let rule = rules.rule(for: stored.session.rule) else {
+            guard let rule = try resolvedRule(for: stored.session.rule) else {
                 throw ContestStoreError.unknownRule(stored.session.rule)
             }
             let contacts = try qsos(sessionID: scope.sessionID, offset: 0, limit: Int.max)
@@ -701,7 +747,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
         try database.readTransaction {
             let stored = try openSession(id: sessionID)
             readSnapshotHookForTesting?()
-            guard let rule = rules.rule(for: stored.session.rule) else { throw ContestStoreError.unknownRule(stored.session.rule) }
+            guard let rule = try resolvedRule(for: stored.session.rule) else { throw ContestStoreError.unknownRule(stored.session.rule) }
             let values = try qsos(sessionID: sessionID, offset: 0, limit: Int.max)
             return ContestScoreSnapshot(sessionID: sessionID, workspaceGeneration: stored.session.workspaceGeneration,
                                         revision: stored.revision,
@@ -740,7 +786,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
     }
 
     private func validateQSOStructure(_ qso: ContestQSO, for session: ContestSessionSnapshot) throws {
-        guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+        guard let rule = try resolvedRule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
         let descriptorIssues = entry.structuralIssues(mode: qso.mode, rstSent: qso.rstSent,
                                                       rstReceived: qso.rstReceived,
@@ -844,7 +890,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                            updatedAt: Date, clearContact: Bool) throws {
         let old = try draft(sessionID: sessionID, id: draftID)
         let session = try openSession(id: sessionID).session
-        guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+        guard let rule = try resolvedRule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
         let resolvedSerial = try rule.resolvedSerialRequirement(in: session)
         let usesStationExchange = entry.exchange.sentDefault == .stationSnapshot ||
@@ -891,7 +937,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                                    revision: UInt64, updatedAt: Date) throws {
         let old = try draft(sessionID: sessionID, id: draftID)
         let session = try openSession(id: sessionID).session
-        guard rules.rule(for: session.rule) != nil else {
+        guard try resolvedRule(for: session.rule) != nil else {
             throw ContestStoreError.unknownRule(session.rule)
         }
         var sentFields = old.exchange.sentFields
@@ -958,8 +1004,87 @@ public actor SQLiteContestStore: ContestDurableRepository {
         }
     }
 
-    private func validateSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata) throws {
-        guard let rule = rules.rule(for: session.rule),
+    private func resolvedRule(for identity: ContestRuleIdentity) throws -> (any ContestRule)? {
+        let storedData = try canonicalDefinitionData(for: identity)
+        guard let storedData else { return rules.rule(for: identity) }
+        let definition = try decodeCanonicalDefinition(storedData, identity: identity)
+        return DeclarativeContestRule(definition: definition)
+    }
+
+    private func canonicalDefinitionData(for identity: ContestRuleIdentity) throws -> Data? {
+        var storedData: Data?
+        try database.query(
+            "SELECT canonical_definition FROM declarative_definitions " +
+            "WHERE rule_id = ? AND rule_version = ? AND rule_edition = ? AND source_revision = ?",
+            definitionIdentityValues(identity)
+        ) { row in storedData = row.blob(0) }
+        guard let storedData else { return nil }
+        _ = try decodeCanonicalDefinition(storedData, identity: identity)
+        return storedData
+    }
+
+    private func decodeCanonicalDefinition(
+        _ storedData: Data, identity: ContestRuleIdentity
+    ) throws -> ContestDeclarativeDefinition {
+        do {
+            let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: storedData)
+            guard definition.identity == identity,
+                  try definition.canonicalStorageData() == storedData else { throw ContestStoreError.corruptRecord }
+            return definition
+        } catch {
+            throw ContestStoreError.corruptRecord
+        }
+    }
+
+    private static func validateStoredDefinitions(in database: SQLiteDatabase) throws {
+        try database.query(
+            "SELECT rule_id, rule_version, rule_edition, source_revision, canonical_definition " +
+            "FROM declarative_definitions ORDER BY rule_id, rule_version, rule_edition, source_revision"
+        ) { row in
+            guard let id = row.text(0), let version = row.text(1), let edition = row.text(2),
+                  let revision = row.text(3) else { throw ContestStoreError.corruptRecord }
+            let data = row.blob(4)
+            do {
+                let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: data)
+                let identity = ContestRuleIdentity(id: id, version: version, edition: edition,
+                                                   sourceRevision: revision)
+                guard definition.identity == identity, try definition.canonicalStorageData() == data else {
+                    throw ContestStoreError.corruptRecord
+                }
+            } catch {
+                throw ContestStoreError.corruptRecord
+            }
+        }
+    }
+
+    private func persistDefinition(_ definition: ContestDeclarativeDefinition, canonicalData: Data) throws {
+        var existing: Data?
+        try database.query(
+            "SELECT canonical_definition FROM declarative_definitions " +
+            "WHERE rule_id = ? AND rule_version = ? AND rule_edition = ? AND source_revision = ?",
+            definitionIdentityValues(definition.identity)
+        ) { row in existing = row.blob(0) }
+        if let existing {
+            guard existing == canonicalData else { throw ContestStoreError.declarativeDefinitionConflict }
+            return
+        }
+        try database.execute(
+            "INSERT INTO declarative_definitions(rule_id, rule_version, rule_edition, source_revision, canonical_definition) " +
+            "VALUES(?, ?, ?, ?, ?)",
+            definitionIdentityValues(definition.identity) + [.blob(canonicalData)])
+    }
+
+    private func definitionIdentityValues(_ identity: ContestRuleIdentity) -> [SQLiteValue] {
+        [.text(identity.id), .text(identity.version), .text(identity.edition), .text(identity.sourceRevision)]
+    }
+
+    private func validateSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
+                                 rule suppliedRule: (any ContestRule)? = nil) throws {
+        let rule: any ContestRule
+        if let suppliedRule { rule = suppliedRule }
+        else if let resolved = try resolvedRule(for: session.rule) { rule = resolved }
+        else { throw ContestStoreError.unknownRule(session.rule) }
+        guard
               rule.metadata.entry.isCoherent(supportedModes: rule.metadata.supportedModes) else {
             throw ContestStoreError.unknownRule(session.rule)
         }
@@ -994,8 +1119,12 @@ public actor SQLiteContestStore: ContestDurableRepository {
     }
 
     private func validateDraft(_ draft: ContestDraftSnapshot, for session: ContestSessionSnapshot,
-                               allowsAllocatedSerial: Bool = false) throws {
-        guard let rule = rules.rule(for: session.rule) else { throw ContestStoreError.unknownRule(session.rule) }
+                               allowsAllocatedSerial: Bool = false,
+                               rule suppliedRule: (any ContestRule)? = nil) throws {
+        let rule: any ContestRule
+        if let suppliedRule { rule = suppliedRule }
+        else if let resolved = try resolvedRule(for: session.rule) { rule = resolved }
+        else { throw ContestStoreError.unknownRule(session.rule) }
         let entry = rule.metadata.entry
         let resolvedSerial = try rule.resolvedSerialRequirement(in: session)
         let descriptorIssues = entry.structuralIssues(mode: draft.mode, rstSent: draft.rstSent,
@@ -1074,6 +1203,13 @@ public actor SQLiteContestStore: ContestDurableRepository {
 }
 
 private struct CreatePayload: Encodable { let operation = "createSession"; let session: ContestSessionSnapshot; let metadata: ContestSessionMetadata; let draft: ContestDraftSnapshot }
+private struct DeclarativeCreatePayload: Encodable {
+    let operation = "createDeclarativeSession"
+    let session: ContestSessionSnapshot
+    let metadata: ContestSessionMetadata
+    let draft: ContestDraftSnapshot
+    let canonicalDefinitionData: Data
+}
 private struct UpdateDraftPayload: Encodable { let operation = "updateDraft"; let draft: ContestDraftSnapshot }
 private struct ReservePayload: Encodable { let operation = "reserveSerial"; let reservationID: UUID; let serialScope: ContestSerialScope; let scopeValue: String }
 private struct TransitionPayload: Encodable { let operation = "transitionSerial"; let reservationID: UUID; let state: ContestSerialState }
@@ -1203,7 +1339,7 @@ private final class SQLiteDatabase: @unchecked Sendable {
     private func migrate() throws {
         try transaction {
             let version = try scalarInt("PRAGMA user_version")
-            guard version <= 2 else { throw ContestStoreError.unsupportedSchema(version) }
+            guard version <= 3 else { throw ContestStoreError.unsupportedSchema(version) }
             if version == 0 {
                 try execute("""
                 CREATE TABLE sessions(
@@ -1271,6 +1407,17 @@ private final class SQLiteDatabase: @unchecked Sendable {
                 try execute("CREATE INDEX qso_audit_target_order ON qso_audit(session_id, qso_id, committed_revision, request_id)")
                 try execute("PRAGMA user_version = 2")
             }
+            if version < 3 {
+                try execute("""
+                    CREATE TABLE IF NOT EXISTS declarative_definitions(
+                        rule_id TEXT NOT NULL, rule_version TEXT NOT NULL,
+                        rule_edition TEXT NOT NULL, source_revision TEXT NOT NULL,
+                        canonical_definition BLOB NOT NULL,
+                        PRIMARY KEY(rule_id, rule_version, rule_edition, source_revision)
+                    )
+                    """)
+                try execute("PRAGMA user_version = 3")
+            }
         }
     }
 
@@ -1287,6 +1434,10 @@ private struct SQLiteRow {
         return Data(bytes: bytes, count: count)
     }
     func double(_ index: Int32) -> Double { sqlite3_column_double(statement, index) }
+    func text(_ index: Int32) -> String? {
+        guard let value = sqlite3_column_text(statement, index) else { return nil }
+        return String(cString: value)
+    }
     func uint(_ index: Int32) throws -> UInt64 {
         let value = sqlite3_column_int64(statement, index)
         guard value >= 0 else { throw ContestStoreError.corruptRecord }

@@ -21,9 +21,12 @@
 .opportunities th:first-child{width:27%}.opportunities th:nth-child(2){width:18%}.opportunities th:nth-child(3){width:14%}.opportunities th:last-child{width:104px}
 .opportunities th{position:sticky;top:0;z-index:1;background:var(--control);color:var(--secondary);font-size:11px}
 .opportunities td,.opportunities th{padding:8px;border-bottom:1px solid var(--border);vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.opportunities tbody tr{height:68px}.opportunities tr.is-selected{background:var(--control)}
+.opportunities tbody tr{height:76px}.opportunities tr.is-selected{background:var(--control)}
 .opportunities td{font-variant-numeric:tabular-nums}.opportunities td strong{color:var(--cyan);font-size:13px}
 .opportunities td small{display:block;color:var(--secondary);margin-top:3px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opportunities td.opportunities-call strong{display:block;font-size:15px;line-height:1.2}.opportunities-call small{color:var(--teal);font-size:12px}
+.opportunities-dxcc-need{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;line-height:1.25;color:var(--secondary)}
+.opportunities-dxcc-need.is-confirmed{color:var(--teal)}.opportunities-dxcc-need.is-worked,.opportunities-dxcc-need.is-wanted{color:var(--amber)}
 .opportunities td a,.opportunities footer a{color:var(--cyan);text-underline-offset:2px}
 .opportunities-verified{color:var(--pink)}.opportunities-empty{color:var(--secondary);text-align:center;padding:28px!important}
 .opportunities-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:var(--secondary);font-size:11px}

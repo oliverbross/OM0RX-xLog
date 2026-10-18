@@ -1,0 +1,75 @@
+{
+  "capturedAt": "2026-10-18T10:40:53+09:30",
+  "branch": "codex/contest-declarative-runtime-base",
+  "baseCommit": "bf654378b28731b9362cf96c2c4bf301bc28a6ed",
+  "mergedCommit": "b25287b223feae0f50eb22d2bbed5379facebe56",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "scratchPath": "/tmp/xlog-declarative-export-build",
+  "mergeState": "merge --no-commit; resolved and staged; no commit or push performed",
+  "integration": {
+    "workflowResolution": "Preserves call-history projection/service/worker discovery and execution and adds declarative export service discovery and execution on macOS, Linux and Windows.",
+    "storeAudit": [
+      "Mutation projection still delegates incomplete-entry duplicate detection to rule.partialDraftDupeKey.",
+      "Structured serial reset still removes only the allocated serial field and preserves the remaining station snapshot fields.",
+      "Session snapshots read canonical declarative definition bytes inside the same database transaction as session, drafts, reservations and QSOs.",
+      "Stored definition bytes are decoded, canonicalized and identity-checked without registry fallback; legacy static sessions still use the registry when no stored definition exists."
+    ],
+    "activeCatalogChanged": false,
+    "uiChanged": false,
+    "definitionsActivated": false
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test list --jobs 2 --scratch-path /tmp/xlog-declarative-export-build > /tmp/xlog-runtime-base-discovery-2026-10-18.log 2>&1",
+      "result": "ContestCallHistoryProjectionTests, ContestCallHistoryWorkerTests and ContestDeclarativeExportServiceTests discovered",
+      "logPath": "/tmp/xlog-runtime-base-discovery-2026-10-18.log",
+      "logSHA256": "7f8d05b73d64859a56a6a0d7233921d5fd03b1148a3287ff6d01e79f1bb456ee"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter XContestCoreTests > /tmp/xlog-runtime-base-core-2026-10-18.log 2>&1",
+      "result": "164 tests, 0 failures",
+      "logPath": "/tmp/xlog-runtime-base-core-2026-10-18.log",
+      "logSHA256": "48bc49f0ff0438b5f59b5e0ef638208f10f456ff251a130fd01cd3428edeb2b6"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter XContestStoreTests > /tmp/xlog-runtime-base-store-2026-10-18.log 2>&1",
+      "result": "80 tests, 0 failures",
+      "logPath": "/tmp/xlog-runtime-base-store-2026-10-18.log",
+      "logSHA256": "c0046c702d19cd0ff08eb0bf31713ce935722e43e17567f9033b5fda9a2ae6cd"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter \"XLogPrototypeTests\\.(ContestCallHistoryServiceTests|ContestCallHistoryWorkerTests)\" > /tmp/xlog-runtime-base-history-2026-10-18.log 2>&1",
+      "result": "15 tests, 0 failures",
+      "logPath": "/tmp/xlog-runtime-base-history-2026-10-18.log",
+      "logSHA256": "aaffbc5310a82acf4bd1b5345752357d906d6b881e68d411c232b0d8449879a5"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter \"XLogPrototypeTests\\.(ContestExportServiceTests|ContestDeclarativeExportServiceTests|ContestExportLaneTests|ContestExportWorkerWireTests)\" > /tmp/xlog-runtime-base-exports-2026-10-18.log 2>&1",
+      "result": "25 tests, 0 failures; includes the persisted declarative archive reopen test",
+      "logPath": "/tmp/xlog-runtime-base-exports-2026-10-18.log",
+      "logSHA256": "aad5dc8a0ceba0131030baa68aa0d056d909e3d7bdb45f6b5dfe016378471bdd"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter \"XLogPrototypeTests\\.(ContestOperatorBrowserAcceptanceTests|ContestingLaneTests)\" > /tmp/xlog-runtime-base-operators-2026-10-18.log 2>&1",
+      "result": "23 tests, 0 failures, 1 expected opt-in browser test skipped",
+      "logPath": "/tmp/xlog-runtime-base-operators-2026-10-18.log",
+      "logSHA256": "f4decedfd71bd4f0af26122198b99ad1c568c26ede4f610219206b6b7cc14c02"
+    },
+    {
+      "command": "git diff --check --cached",
+      "result": "pass"
+    }
+  ],
+  "integrationFileSHA256": {
+    ".github/workflows/contest-portability.yml": "c0969a914edc37f3ca9cdcb9d59551d533f3283927b78922a6849c693d74f4b0",
+    "Sources/XContestStore/SQLiteContestStore.swift": "ca466ec9e8c0afaa95df4b8d07607e993220ae873a6d37d2ef45a3e2691f6dbd",
+    "Sources/XContestStore/StoreModels.swift": "91bd39ed7ae866c1ba575e286d2853301e0ca190d64f6a49fdeeb0f5d5a70a4a",
+    "Sources/XContestCore/DeclarativeContestRule.swift": "c1a8185f613c221568382aca332b771deb08454802b1d5f21720b87cd9d010ed",
+    "Sources/XLogPrototypeSupport/Contesting/ContestExportService.swift": "26dd6ab5207125d6e3bf98b56041c1ce9495d7ad100c093d84db8babb7b219d4"
+  },
+  "limits": [
+    "The seven declarative definitions remain outside the active catalog and UI.",
+    "Operator archives remain explicitly labeled and are not claimed sponsor-ready submissions.",
+    "No package, canonical checkout, version, installation, commit or push was changed in this integration freeze."
+  ]
+}

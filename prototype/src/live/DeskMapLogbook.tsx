@@ -5,23 +5,29 @@ import { boundDeskLogbookPercent, defaultDeskMapLogbookPreferences, deskMapLogbo
 import "./DeskMapLogbook.css";
 
 type Storage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
-export type DeskMapLogbookProps = { map: ReactNode; logbook: ReactNode; busy?: boolean; canChangeView?: () => boolean; storage?: Storage };
+export type DeskMapLogbookProps = { map: ReactNode; logbook: ReactNode; previousQSOs?: ReactNode; hasPreviousQSOs?: boolean;
+  busy?: boolean; canChangeView?: () => boolean; storage?: Storage };
 const blockedMessage = "Finish the current Logbook or editor operation before changing the Desk view.";
 const storageMessage = "Desk view could not be saved. It remains available for this session.";
 
 /** Presentation only: no draft, radio, logbook transport or new data owner. */
-export function DeskMapLogbook({ map, logbook, busy = false, canChangeView, storage }: DeskMapLogbookProps) {
+export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = false, busy = false, canChangeView, storage }: DeskMapLogbookProps) {
   const [initial] = useState(() => {
     try { return { preferences: readDeskMapLogbookPreferences((storage ?? window.localStorage).getItem(deskMapLogbookKey)), error: "" }; }
     catch { return { preferences: defaultDeskMapLogbookPreferences(), error: storageMessage }; }
   });
   const [preferences, setPreferences] = useState(initial.preferences), current = useRef(preferences); current.current = preferences;
-  const [mounted, setMounted] = useState(() => ({ map: initial.preferences.view !== "logbook", logbook: initial.preferences.view !== "map" }));
+  const [mounted, setMounted] = useState(() => ({
+    map: initial.preferences.view !== "logbook",
+    logbook: initial.preferences.view !== "map",
+  }));
   const [storageError, setStorageError] = useState(initial.error), [denied, setDenied] = useState("");
   const [height, setHeight] = useState(0), body = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; y: number; percent: number; usable: number; above: boolean } | null>(null);
   const id = useId();
   const stacked = preferences.view === "logbook-above" || preferences.view === "logbook-below";
+  const previousMode = preferences.view === "logbook-previous";
+  const showPrevious = previousMode && hasPreviousQSOs;
   const above = preferences.view === "logbook-above", bounds = deskMapLogbookBounds(height);
   const percent = Math.max(bounds.min, Math.min(bounds.max, preferences.logbookPercent));
   const logbookHeight = bounds.usable * percent / 100, mapHeight = bounds.usable - logbookHeight;
@@ -46,7 +52,10 @@ export function DeskMapLogbook({ map, logbook, busy = false, canChangeView, stor
     if (!stacked || !Number.isFinite(value) || !permitted()) return;
     save({ ...current.current, logbookPercent: boundDeskLogbookPercent(Math.max(bounds.min, Math.min(bounds.max, value))) });
   }
-  const bodyStyle: CSSProperties = stacked ? { gridTemplateRows: above
+  const bodyStyle: CSSProperties = previousMode ? { gridTemplateRows: showPrevious
+    ? "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr)"
+    : "minmax(0, 1fr) minmax(0, 1fr)" }
+    : stacked ? { gridTemplateRows: above
     ? `${logbookHeight}px ${deskMapLogbookDividerHeight}px ${mapHeight}px`
     : `${mapHeight}px ${deskMapLogbookDividerHeight}px ${logbookHeight}px` } : { gridTemplateRows: "minmax(0, 1fr)" };
   const fixed = bounds.min === bounds.max;
@@ -62,7 +71,8 @@ export function DeskMapLogbook({ map, logbook, busy = false, canChangeView, stor
     </div>
     <div className={`desk-map-logbook-panes${stacked ? " is-stacked" : ""}`} ref={body} style={bodyStyle}>
       <div className="desk-map-logbook-map" hidden={preferences.view === "logbook"} inert={preferences.view === "logbook"}
-        style={{ gridRow: stacked ? above ? 3 : 1 : 1, minHeight: minimumDeskMapHeight }}>
+        style={{ gridRow: previousMode ? showPrevious ? 3 : 2 : stacked ? above ? 3 : 1 : 1,
+          minHeight: previousMode ? 0 : minimumDeskMapHeight }}>
         {mounted.map ? map : null}
       </div>
       <div className="desk-map-logbook-divider" hidden={!stacked} role="separator" aria-label="Map and Logbook height"
@@ -84,8 +94,12 @@ export function DeskMapLogbook({ map, logbook, busy = false, canChangeView, stor
           split(start.percent + (event.clientY - start.y) / start.usable * 100 * (start.above ? 1 : -1));
         }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} />
       <div id={`${id}-logbook`} className="desk-map-logbook-logbook" hidden={preferences.view === "map"} inert={preferences.view === "map"}
-        style={{ gridRow: stacked ? above ? 1 : 3 : 1, minHeight: minimumDeskLogbookHeight }}>
+        style={{ gridRow: previousMode ? showPrevious ? 2 : 1 : stacked ? above ? 1 : 3 : 1,
+          minHeight: previousMode ? 0 : minimumDeskLogbookHeight }}>
         {mounted.logbook ? logbook : null}
+      </div>
+      <div className="desk-map-logbook-previous" hidden={!showPrevious} inert={!showPrevious} style={{ gridRow: 1 }}>
+        {showPrevious ? previousQSOs : null}
       </div>
     </div>
   </section>;

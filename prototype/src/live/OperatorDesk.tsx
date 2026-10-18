@@ -10,6 +10,7 @@ import { DeskAntenna } from "./StationEquipment";
 import { deskEquipmentKind, equipmentProfile } from "./equipmentPreferences";
 import QSOHeader, { ReferenceEvidenceStatus, type ReferenceEvidence } from "./QSOHeader";
 import { useDuplicateContact } from "./useDuplicateContact";
+import { applyModeSignalReportDefaults } from "./signalReportDefaults";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
@@ -32,7 +33,7 @@ export function rotorPathDistance(shortPath: unknown, path: "SP" | "LP"): number
 type DeskQSOProps = Pick<Props, "draft" | "setDraft" | "save" | "clear" | "busy" | "draftLocked" | "follow" | "setFollow" | "isEditing" | "cwControls" | "referenceEvidence" | "request" | "refresh" | "canAcceptLocalInput" | "onLocalInputState" | "resetInputEpoch"> & {
   onEditor?: () => void; onReadRadio?: () => Promise<void>; radioControls?: boolean; followControls?: boolean;
 } & Partial<Omit<Props, "onEditor" | "onReadRadio">>;
-export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState, resetInputEpoch, radioControls = true, followControls = radioControls }: DeskQSOProps) {
+export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftLocked, onEditor, onReadRadio, follow, setFollow, isEditing, cwControls, referenceEvidence, request, refresh, canAcceptLocalInput, onLocalInputState, resetInputEpoch, radioControls = true, followControls = false }: DeskQSOProps) {
   const acceptsInput = () => !draftLocked && (canAcceptLocalInput?.() ?? true);
   const setDraft: Props["setDraft"] = value => { if (acceptsInput()) writeDraft(value); };
   const duplicateDate = useDuplicateContact(draft, isEditing, request, refresh);
@@ -68,7 +69,9 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
   const update = (key: string, value: unknown) => {
     if (!acceptsInput()) return;
     if (["frequencyHz", "band", "mode"].includes(key)) setFollow(false);
-    setDraft(current => current ? { ...current, [key]: value, ...(key === "sigInfo" && value && !current.sig ? { sig: "COTA" } : {}) } : current);
+    setDraft(current => current ? key === "mode" && typeof value === "string"
+      ? applyModeSignalReportDefaults(current, value)
+      : { ...current, [key]: value, ...(key === "sigInfo" && value && !current.sig ? { sig: "COTA" } : {}) } : current);
   };
   const textField = (key: string, title: string, className = "") => <label className={className}><span>{title}</span><input aria-label={`Desk ${title}`} value={draft[key] ?? ""} maxLength={key === "call" ? 32 : undefined} onChange={event => update(key, ["call", "gridSquare"].includes(key) ? event.target.value.toUpperCase() : event.target.value)} autoComplete="off" spellCheck={false} /></label>;
   const selectField = (key: string, title: string, options: string[]) => <label><span>{title}</span><select aria-label={`Desk ${title}`} value={draft[key] ?? ""} onChange={event => update(key, event.target.value)}><option value="">—</option>{draft[key] && !options.includes(draft[key]) && <option>{draft[key]}</option>}{options.map(value => <option key={value}>{value}</option>)}</select></label>;
@@ -106,7 +109,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
       }} /></label>{selectField("band", "Band", bands)}{selectField("mode", "Mode", modes)}{textField("rstSent", "RST S")}{textField("rstReceived", "RST R")}
     </div>
     <div className="desk-active-location">{textField("name", "Name")}{textField("comment", "Comment")}{textField("gridSquare", "Grid")}{textField("country", "Country")}{textField("county", "County")}</div>
-    <div className="desk-active-references">{textField("potaReference", "POTA")}{textField("sotaReference", "SOTA")}{textField("iota", "IOTA")}{textField("wwffReference", "WWFF")}{textField("sigInfo", "Castle")}<ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} /></div>
+    <div className="desk-active-references">{textField("potaReference", "POTA")}{textField("sotaReference", "SOTA")}{textField("iota", "IOTA")}{textField("wwffReference", "WWFF")}{textField("sigInfo", "Castle")}<div className="desk-ref-slot"><ReferenceEvidenceStatus call={draft.call} evidence={referenceEvidence} /></div></div>
     {duplicateDate && <p className="desk-active-duplicate" role="status" title="Previously worked on this band and mode · UTC date">Dupe: Worked on {duplicateDate}</p>}
     {error && <p className="desk-error" role="alert">{error}</p>}
     {(!validFrequency || !validTime || frequencyBand && frequencyBand !== draft.band) && <p className="desk-error" role="alert">Check the UTC date, frequency and band before logging.</p>}

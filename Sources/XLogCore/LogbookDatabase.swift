@@ -1539,6 +1539,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 switch mutation.action {
                 case .replace:
                     guard var replacement = mutation.qso, replacement.id == current.qso.id else { throw OperatorDraftError.invalid }
+                    if replacement.mode != current.qso.mode { replacement.applyDefaultSignalReportsForMode() }
                     if replacement.start != current.qso.start || replacement.end != current.qso.end {
                         automaticStart = false
                     } else if automaticStart,

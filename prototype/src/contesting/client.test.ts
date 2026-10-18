@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { canonicalJSON, ContestClient, ContestMutationUncertain, ContestServerError, validateCreateInput, validateDraftFields } from "./client";
+import type { HistorySelection } from "./contestCallHistory";
 import type { ContestDraftFields, ContestOperatorCapability, ContestRequest, ContestRuleMetadata, ContestScoreSummary, ContestSessionSummary } from "./types";
 
 const capability: ContestOperatorCapability = { version: 1, auditDigest: "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e", policy: "simulated-run-sp-v1",
@@ -181,6 +182,37 @@ describe("ContestClient", () => {
     const client = new ContestClient(request, () => "request", async () => "digest", undefined, () => "2026-10-17T03:04:05+00:00");
     await expect(client.applyDraft(session, "draft-1", fields)).rejects.toThrow("canonical UTC ISO timestamp");
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("sends an explicit call-history selection through the normal mutation envelope", async () => {
+    const request = vi.fn(async () => ({ id: "frame", ok: false as const,
+      error: { code: "fixture_stop", message: "captured", outcome: "confirmed" as const } })) as ContestRequest;
+    const client = new ContestClient(request, () => "history-request", async () => "history-digest",
+      undefined, () => "2026-10-17T03:04:05.000Z");
+    const projected = { ...fields, receivedExchange: "04" };
+    const selection = {
+      context: { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+        sessionRevision: session.revision, draftID: "draft-1", draftRevision: 8,
+        inputCallsign: "K1ABC", requestID: "history-query", ruleIdentity: rule.identity,
+        referenceDataVersion: session.referenceDataVersion },
+      dataset: { generation: "history-generation", sha256: "a".repeat(64), sourceName: "history.any",
+        importedAtUTC: "2026-10-17T00:00:00.000Z", byteCount: 1, recordCount: 1,
+        indexableRecordCount: 1, unindexableRecordCount: 0, duplicateCallCount: 0 },
+      record: { recordID: "record-1", sourceOrdinal: 0, sourceLine: 2, normalizedCallsign: "K1ABC",
+        indexingIssue: null, values: [] },
+      projections: [{ id: "legacy-received-zone", sourceKey: "cqzone", target: "legacyReceivedExchange",
+        fieldID: null, label: "CQ zone", rawValue: "04", normalizedValue: "04" }],
+    } as HistorySelection;
+    await expect(client.applyHistoryProjection(session, "draft-1", selection,
+      ["legacy-received-zone"], projected)).rejects.toMatchObject({ code: "fixture_stop", outcome: "confirmed" });
+    expect(request).toHaveBeenCalledWith("contest_history_apply", expect.objectContaining({
+      sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+      expectedRevision: session.revision, draftID: "draft-1", requestID: "history-request",
+      payloadDigest: "history-digest", payload: {
+        selection: { ...selection.context, recordID: selection.record.recordID },
+        projectionIDs: ["legacy-received-zone"], fields: projected,
+      },
+    }));
   });
 
   it("fails closed on unknown and malformed structured descriptor versions", async () => {

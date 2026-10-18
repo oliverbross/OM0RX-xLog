@@ -10,9 +10,7 @@ export function activationMessage(status: SpotActivationSnapshot | null): string
   if (status.phase === "tuning") return "Spot loaded. Waiting for observed radio confirmation…";
   if (status.phase === "confirmed" && status.draftOnly) return "Chaser selection loaded into the shared draft. Radio follow and Auto rotor are off; no station command was sent.";
   if (status.phase === "confirmed") return `${status.tuneConfirmed ? "Spot loaded · observed radio tune confirmed." : "Spot loaded; radio tune is not confirmed."}${status.error ? ` ${status.error}` : ""}${status.rotor && status.rotor !== "not_requested" ? ` Rotor: ${status.rotor.replaceAll("_", " ")}.` : ""}`;
-  if (status.phase === "uncertain") return status.reservationActive === false
-    ? "Previous activation outcome is uncertain; its reservation is closed. Review the observed radio and rotor state. You can select a new report; no old tune or turn will be replayed."
-    : "Spot activation outcome is uncertain. Check the existing operation; no tune will be replayed.";
+  if (status.phase === "uncertain") return "";
   return status.error || (status.phase === "blocked" ? "Spot activation was blocked. Finish the shared editor operation first." : "Spot activation failed. Check its status before selecting another report.");
 }
 /** Holds the exact operation identity after lost IPC. Only an explicit user
@@ -28,6 +26,7 @@ export class SpotActivationClient {
   constructor(private call: Call, private uuid: () => string = () => crypto.randomUUID(), private command: "activate_spot" | "activate_opportunity" = "activate_spot") {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  canActivate = () => this.active && !this.state.requesting && (!this.operation || this.resolved());
   private update(change: Partial<State>) { if (this.active) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); } }
   private resolved() { const status = this.state.status; return !!status && status.phase !== "idle" && terminal(status) && status.reservationActive === false; }
   private accept(value: unknown, expected?: string) {
@@ -37,9 +36,24 @@ export class SpotActivationClient {
     if (previous?.operationId === value.operationId && terminal(previous) && (!terminal(value) ||
       previous.phase !== "idle" && value.phase !== "idle" && previous.reservationActive === false && value.reservationActive === true)) return;
     if (value.phase === "idle" && this.operation && !this.resolved()) return;
+    if (value.phase === "uncertain" && value.reservationActive === false) {
+      if (value.operationId) this.retired.add(value.operationId);
+      this.operation = null;
+      this.update({ status: { operationId: null, phase: "idle", barrier: null }, error: "", checked: false });
+      return;
+    }
     const changedOperation = value.operationId !== this.operation;
     this.operation = value.operationId;
     this.update({ status: value, error: "", ...(changedOperation ? { checked: false } : {}) });
+  }
+  private async settle(operationId: string, version: number, value: unknown) {
+    this.accept(value, operationId);
+    const status = this.state.status;
+    if (!this.active || version !== this.version || status?.operationId !== operationId ||
+        status.phase !== "uncertain" || status.reservationActive === false) return value;
+    const recovered = await this.call("spot_activation_reconcile", { operationId });
+    if (this.active && version === this.version) this.accept(recovered, operationId);
+    return recovered;
   }
   async activate(spot: Record<string, any>) {
     if (!this.active || this.state.requesting || this.operation && !this.resolved()) throw new Error("Check the existing spot activation before selecting another report.");
@@ -51,10 +65,16 @@ export class SpotActivationClient {
     this.update({ requesting: true, checked: false, status: null, error: "" });
     try {
       const result = await this.call(this.command, { operationId, sourceEpoch: spot.activation.sourceEpoch, spotId: spot.id, spotVersion: spot.activation.spotVersion });
-      if (this.active && version === this.version && !(this.state.status?.operationId === operationId && terminal(this.state.status))) this.accept(result, operationId);
-      return result;
+      if (!this.active || version !== this.version || this.state.status?.operationId === operationId && terminal(this.state.status)) return result;
+      return await this.settle(operationId, version, result);
     } catch (cause) {
-      if (this.active && version === this.version) this.update({ error: "Activation acknowledgement unavailable. Check the existing operation; do not select it again to retry." });
+      if (this.active && version === this.version) {
+        try {
+          const recovered = await this.call("spot_activation_reconcile", { operationId });
+          if (this.active && version === this.version) return await this.settle(operationId, version, recovered);
+        } catch {}
+        this.update({ error: "Activation acknowledgement unavailable. The existing operation will be recovered automatically; no action is replayed." });
+      }
       throw cause;
     } finally { if (version === this.version) this.update({ requesting: false }); }
   }
@@ -65,7 +85,15 @@ export class SpotActivationClient {
     this.reading = (async () => {
       try {
         const result = await this.call(operationId ? "spot_activation_status" : "spot_activation_snapshot", operationId ? { operationId } : {});
-        if (this.active && version === this.version) this.accept(result, operationId ?? undefined);
+        if (this.active && version === this.version) {
+          if (operationId) await this.settle(operationId, version, result);
+          else {
+            this.accept(result);
+            const status = this.state.status;
+            if (status?.operationId && status.phase === "uncertain" && status.reservationActive === true)
+              await this.settle(status.operationId, version, status);
+          }
+        }
       } catch (cause) { if (this.active && version === this.version) this.update({ error: cause instanceof Error ? cause.message : "Activation status is unavailable. No action was replayed." }); }
     })().finally(() => { this.reading = null; });
     return this.reading;

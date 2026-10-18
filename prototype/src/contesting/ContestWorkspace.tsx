@@ -5,6 +5,8 @@ import { ContestExportPanel } from "./ContestExportPanel";
 import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
 import { ContestAssistancePanel, type SCPSelectionScope } from "./ContestAssistancePanel";
 import type { SCPImport } from "./contestAssistance";
+import { ContestCallHistoryPanel, type HistoryApplyScope } from "./ContestCallHistoryPanel";
+import { historyProjectedFields, type HistoryImport, type HistorySelection } from "./contestCallHistory";
 import { isStructuredEntry } from "./types";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
@@ -12,7 +14,8 @@ import type { ContestCabrilloHeader, ContestCreateInput, ContestDraftFields, Con
 import "./ContestWorkspace.css";
 
 const PAGE_SIZE = 20;
-type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter; simulateContestOutput?: ContestSimulationAdapter; scpImport?: SCPImport };
+export type ContestTransitionController = { freeze: () => void; prepare: () => Promise<void>; resume: () => void };
+type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter; simulateContestOutput?: ContestSimulationAdapter; scpImport?: SCPImport; historyImport?: HistoryImport; registerTransition?: (controller: ContestTransitionController | null) => void };
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 function defaultStorage(): ContestRecoveryStorage | undefined { try { return globalThis.localStorage; } catch { return undefined; } }
 function isQSOChange(result: unknown): result is ContestQSOChangeResult { return !!result && typeof result === "object" && "operation" in result; }
@@ -33,7 +36,7 @@ export function projectSCPCallsign(session: ContestSessionSummary, draft: {draft
   return {...draft.fields,callsign};
 }
 
-export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput, scpImport }: Props) {
+export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput, scpImport, historyImport, registerTransition }: Props) {
   const storage = recoveryStorage ?? defaultStorage();
   const owner = useMemo(() => sharedContestSessionOwner(request, createRequestID, digestPayload, storage), [request, createRequestID, digestPayload, storage]);
   const exportSaveOwner = useMemo(() => sharedContestExportSaveOwner(exportSave, storage), [exportSave, storage]);
@@ -66,6 +69,8 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const callsignInput = useRef<HTMLInputElement>(null), exchangeInput = useRef<HTMLInputElement>(null);
   const [create, setCreate] = useState({ name: "", ruleID: "cq-ww-cw", station: "", operator: "", cqZone: "", entity: "", stationExchangeFields: {} as Record<string,string>, stationFields: {} as Record<string,string>, category: "Single Operator" });
   const actionLock = useRef(false);
+  const retiringRef = useRef(false);
+  const [retiring, setRetiring] = useState(false);
   const contextTicket = useRef(0);
   const exportTicket = useRef(0), exportButton = useRef<HTMLButtonElement>(null);
   const leaseRef = useRef<ContestOwnerLease | null>(null);
@@ -73,6 +78,24 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const active = owner.session, draft = owner.draft, uncertain = owner.pendingOperation;
   const draftSaveInFlight = owner.pendingPhase === "inflight" && uncertain?.method === "contest_draft_apply";
   const blockingOperation = !!uncertain && !draftSaveInFlight;
+
+  useEffect(() => {
+    if (!registerTransition) return;
+    const controller: ContestTransitionController = {
+      freeze: () => { retiringRef.current = true; setRetiring(true); },
+      resume: () => { retiringRef.current = false; setRetiring(false); },
+      prepare: async () => {
+      retiringRef.current = true; setRetiring(true);
+      if (busy || actionLock.current || editing || exportOpen || operatorRecovery || blockingOperation)
+        throw new Error("Finish the current contest edit, export or recovery before changing operating module.");
+      if (saveTimer.current !== null) { window.clearTimeout(saveTimer.current); saveTimer.current = null; }
+      await owner.flush();
+      if (owner.dirty || owner.pendingOperation)
+        throw new Error("Resolve the retained contest draft or operation receipt before changing operating module.");
+    } };
+    registerTransition(controller);
+    return () => registerTransition(null);
+  }, [registerTransition, owner, busy, editing, exportOpen, operatorRecovery, blockingOperation]);
 
   useEffect(() => { const lease = owner.acquireLease(); leaseRef.current = lease; return () => { owner.releaseLease(lease); if (leaseRef.current === lease) leaseRef.current = null; }; }, [owner]);
   useEffect(() => owner.subscribe(() => redraw(value => value + 1)), [owner]);
@@ -99,7 +122,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== session.sessionID || owner.session.workspaceGeneration !== session.workspaceGeneration) return;
     setPage(log); setScore(currentScore); setOffset(nextOffset);
   }
-  function beginAction() { if (actionLock.current) return false; actionLock.current = true; setBusy(true); setError(""); setNotice(""); return true; }
+  function beginAction() { if (retiringRef.current || actionLock.current) return false; actionLock.current = true; setBusy(true); setError(""); setNotice(""); return true; }
   function endAction(ticket: number, scope: ReturnType<typeof admissionScope>) { if (ticket === contextTicket.current && accepts(scope)) setBusy(false); actionLock.current = false; }
   function handleFailure(cause: unknown, ticket: number, scope: ReturnType<typeof admissionScope>) {
     if (ticket !== contextTicket.current || !accepts(scope)) return;
@@ -123,7 +146,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   }
 
   function changeField<K extends keyof ContestDraftFields>(key: K, value: ContestDraftFields[K]) {
-    if (!draft || busy || blockingOperation) return;
+    if (!draft || retiringRef.current || busy || blockingOperation) return;
     setOperatorEditGeneration(value => value + 1);
     owner.edit({ ...draft.fields, [key]: value });
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
@@ -131,7 +154,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     saveTimer.current = window.setTimeout(() => void owner.flush().catch(cause => handleFailure(cause, ticket, scope)), 180);
   }
   function changeStructuredReceived(id: string, value: string) {
-    if (!draft || !active || !isStructuredEntry(active.rule.entry) || busy || blockingOperation) return;
+    if (!draft || !active || !isStructuredEntry(active.rule.entry) || retiringRef.current || busy || blockingOperation) return;
     const arrlDX = active.rule.identity.id.startsWith("arrl-dx-");
     const projected = arrlDX ? value.toUpperCase() : value;
     const receivedExchangeFields = arrlDX
@@ -146,7 +169,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   }
   function applyAssistanceCallsign(value: string, selection: SCPSelectionScope) {
     const lease=leaseRef.current, admission=owner.captureAdmission(lease), currentSession=owner.session, currentDraft=owner.draft;
-    if(busy||blockingOperation||!lease||lease.id!==selection.ownerLeaseID||admission===null||!owner.accepts(lease,admission)||!currentSession||!currentDraft)return;
+    if(retiringRef.current||busy||blockingOperation||!lease||lease.id!==selection.ownerLeaseID||admission===null||!owner.accepts(lease,admission)||!currentSession||!currentDraft)return;
     const fields=projectSCPCallsign(currentSession,currentDraft,selection,value);if(!fields)return;
     setOperatorEditGeneration(generation=>generation+1);
     owner.edit(fields);
@@ -154,8 +177,23 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     if(saveTimer.current!==null)window.clearTimeout(saveTimer.current);
     saveTimer.current=window.setTimeout(()=>void owner.flush().catch(cause=>handleFailure(cause,ticket,scope)),180);
   }
+  async function applyHistory(selection: HistorySelection, projectionIDs: string[], selected: HistoryApplyScope) {
+    const currentSession=owner.session,currentDraft=owner.draft,lease=leaseRef.current;
+    if(retiringRef.current||busy||blockingOperation||owner.dirty||!lease||lease.id!==selected.ownerLeaseID||!currentSession||!currentDraft||
+      currentSession.sessionID!==selected.sessionID||currentSession.workspaceGeneration!==selected.workspaceGeneration||currentSession.revision!==selected.sessionRevision||
+      currentDraft.draftID!==selected.draftID||currentDraft.revision!==selected.draftRevision||currentDraft.fields.callsign.trim().toUpperCase()!==selected.callsign||
+      selection.dataset.generation!==selected.datasetGeneration||!beginAction())throw new Error("The call-history selection is stale.");
+    const ticket=contextTicket.current,scope=admissionScope();
+    try{
+      if(!accepts(scope)||owner.pendingOperation||owner.dirty)throw new Error("The contest draft changed before call history was applied.");
+      const fields=historyProjectedFields(selection,projectionIDs,currentDraft);
+      const result=await client.applyHistoryProjection(currentSession,currentDraft.draftID,selection,projectionIDs,fields);
+      if(ticket!==contextTicket.current||!accepts(scope)||!owner.apply(result,scope.lease!,scope.admission!))throw new Error("The call-history response no longer matches the active draft.");
+      setOperatorEditGeneration(value=>value+1);
+    }catch(cause){handleFailure(cause,ticket,scope);throw cause;}finally{endAction(ticket,scope);}
+  }
   function changeFrequency(raw: string) {
-    if (busy || blockingOperation) return;
+    if (retiringRef.current || busy || blockingOperation) return;
     setFrequencyText(raw);
     if (!/^[0-9]{0,11}$/.test(raw)) { setOperatingFrequencyError("Frequency must contain digits only."); return; }
     const parsed = raw === "" ? null : Number(raw);
@@ -354,8 +392,8 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     return prepared;
   }
 
-  const disabled = busy || !!uncertain;
-  const entryDisabled = busy || blockingOperation;
+  const disabled = retiring || busy || !!uncertain;
+  const entryDisabled = retiring || busy || blockingOperation;
   const sacPreview = active?.rule.identity.id.startsWith("sac-") ?? false;
   const selectedCreateRule = rules.find(rule => rule.identity.id === create.ruleID);
   const selectedCreateEntry = selectedCreateRule && isStructuredEntry(selectedCreateRule.entry) ? selectedCreateRule.entry : undefined;
@@ -367,7 +405,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     {notice && <p className="contest-alert" role="status"><CheckCircle2 size={15}/>{notice}</p>}
     {uncertain && <section className="contest-alert is-uncertain"><div><strong>{owner.pendingPhase === "inflight" ? "Saving…" : busy ? "Checking save status…" : "Save status unknown"}</strong><p>The original save is preserved for receipt checking or an exact retry.</p></div>{owner.pendingPhase === "uncertain" && <><button disabled={busy} onClick={() => void checkReceipt(false)}>Check save status</button><button disabled={busy} onClick={() => void checkReceipt(true)}>Retry same save</button></>}</section>}
     {manager && <section className="contest-manager"><div className="contest-session-list"><h2>Contest sessions</h2>{sessions.map(session => <button type="button" key={session.sessionID} disabled={disabled} aria-current={active?.sessionID === session.sessionID || undefined} onClick={() => void openSession(session.sessionID)}><span><strong>{session.name}</strong><small>{session.rule.displayName} · {session.qsoCount} QSOs</small></span><time>{session.rule.identity.edition}</time></button>)}</div>
-      <form className="contest-create" onSubmit={createSession} aria-label="Create contest session"><h2>New session</h2><label>Session name<input maxLength={128} value={create.name} onChange={e => setCreate({...create,name:e.target.value})}/></label><label>Contest<select value={create.ruleID} onChange={e => setCreate({...create,ruleID:e.target.value,stationExchangeFields:{},stationFields:{}})}>{rules.map(rule => <option key={rule.identity.id} value={rule.identity.id}>{rule.displayName} · {rule.identity.edition}</option>)}</select></label><div className="contest-create-fields"><label>Station callsign<input maxLength={32} value={create.station} onChange={e => setCreate({...create,station:e.target.value})}/></label><label>Operator callsign<input maxLength={32} value={create.operator} onChange={e => setCreate({...create,operator:e.target.value})}/></label><label>CQ zone<input maxLength={8} value={create.cqZone} onChange={e => setCreate({...create,cqZone:e.target.value})}/></label><label>DXCC entity<input maxLength={160} value={create.entity} onChange={e => setCreate({...create,entity:e.target.value})}/></label>{selectedCreateEntry && <>{selectedCreateEntry.exchange.sentFields.filter(field => field.id !== selectedAllocatedField).map(field => <label key={`exchange-${field.id}`}>{selectedCreateIsARRLDX ? field.id === "location" ? "Station state or province (W/VE)" : "Station power (DX)" : `Station ${field.label.charAt(0).toLowerCase() + field.label.slice(1)}`}<input maxLength={field.maximumUTF8Bytes} required={field.required} value={create.stationExchangeFields[field.id] ?? ""} onChange={e => { const value = selectedCreateIsARRLDX ? e.target.value.toUpperCase() : e.target.value; setCreate({...create,stationExchangeFields:selectedCreateIsARRLDX ? Object.fromEntries(selectedCreateEntry.exchange.sentFields.map(item => [item.id, item.id === field.id ? value : ""])) : {...create.stationExchangeFields,[field.id]:value}}); }}/></label>)}{(selectedCreateEntry.stationFields ?? []).map(field => <label key={`station-${field.id}`}>{field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} value={create.stationFields[field.id] ?? ""} onChange={e => setCreate({...create,stationFields:{...create.stationFields,[field.id]:e.target.value}})}/></label>)}</>}</div>{selectedCreateIsARRLDX && <p className="contest-source">W/VE stations enter one state or province; DX stations enter one uppercase power token such as 100, K, 1KW, or KILO. An incomplete token stays editable until it is valid. Cabrillo section is an independent station field.</p>}<p className="contest-source">Exact rule and reference versions are pinned at creation.</p><button className="contest-primary" type="submit" disabled={disabled}>Create and open</button></form></section>}
+      <form className="contest-create" onSubmit={createSession} aria-label="Create contest session"><h2>New session</h2><label>Session name<input maxLength={128} disabled={disabled} value={create.name} onChange={e => setCreate({...create,name:e.target.value})}/></label><label>Contest<select disabled={disabled} value={create.ruleID} onChange={e => setCreate({...create,ruleID:e.target.value,stationExchangeFields:{},stationFields:{}})}>{rules.map(rule => <option key={rule.identity.id} value={rule.identity.id}>{rule.displayName} · {rule.identity.edition}</option>)}</select></label><div className="contest-create-fields"><label>Station callsign<input maxLength={32} disabled={disabled} value={create.station} onChange={e => setCreate({...create,station:e.target.value})}/></label><label>Operator callsign<input maxLength={32} disabled={disabled} value={create.operator} onChange={e => setCreate({...create,operator:e.target.value})}/></label><label>CQ zone<input maxLength={8} disabled={disabled} value={create.cqZone} onChange={e => setCreate({...create,cqZone:e.target.value})}/></label><label>DXCC entity<input maxLength={160} disabled={disabled} value={create.entity} onChange={e => setCreate({...create,entity:e.target.value})}/></label>{selectedCreateEntry && <>{selectedCreateEntry.exchange.sentFields.filter(field => field.id !== selectedAllocatedField).map(field => <label key={`exchange-${field.id}`}>{selectedCreateIsARRLDX ? field.id === "location" ? "Station state or province (W/VE)" : "Station power (DX)" : `Station ${field.label.charAt(0).toLowerCase() + field.label.slice(1)}`}<input maxLength={field.maximumUTF8Bytes} required={field.required} disabled={disabled} value={create.stationExchangeFields[field.id] ?? ""} onChange={e => { const value = selectedCreateIsARRLDX ? e.target.value.toUpperCase() : e.target.value; setCreate({...create,stationExchangeFields:selectedCreateIsARRLDX ? Object.fromEntries(selectedCreateEntry.exchange.sentFields.map(item => [item.id, item.id === field.id ? value : ""])) : {...create.stationExchangeFields,[field.id]:value}}); }}/></label>)}{(selectedCreateEntry.stationFields ?? []).map(field => <label key={`station-${field.id}`}>{field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} disabled={disabled} value={create.stationFields[field.id] ?? ""} onChange={e => setCreate({...create,stationFields:{...create.stationFields,[field.id]:e.target.value}})}/></label>)}</>}</div>{selectedCreateIsARRLDX && <p className="contest-source">W/VE stations enter one state or province; DX stations enter one uppercase power token such as 100, K, 1KW, or KILO. An incomplete token stays editable until it is valid. Cabrillo section is an independent station field.</p>}<p className="contest-source">Exact rule and reference versions are pinned at creation.</p><button className="contest-primary" type="submit" disabled={disabled}>Create and open</button></form></section>}
     {active && draft && !manager && <>
       <section className="contest-snapshot" aria-label="Contest identity snapshot"><div><span>Station</span><strong>{active.station.callsign}</strong></div><div><span>Operator</span><strong>{active.operator.callsign}</strong></div><div><span>CQ zone</span><strong>{active.station.cqZone}</strong></div><div><span>Entity</span><strong>{active.station.dxccEntity || (active.rule.identity.id.startsWith("jidx-") && active.station.callsign.endsWith("/MM") ? "Maritime mobile" : "Unavailable")}</strong></div><div><span>Rules</span><small className={`contest-source is-${active.rule.sourceVerification}`}>{active.rule.sourceVerification} · {active.rule.identity.version} · {active.referenceDataVersion}</small></div></section>
       {sacPreview && <p className="contest-alert" role="status">SAC scoring practice preview. Category and contest-date eligibility are not fully enforced.</p>}
@@ -391,6 +429,8 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       </form><aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score & multipliers</h2><dl><div><dt>Claimed score</dt><dd>{score?.claimedScore.toLocaleString() ?? "—"}</dd></div><div><dt>QSOs</dt><dd>{score?.qsos ?? "—"}</dd></div><div><dt>Points</dt><dd>{score?.points ?? "—"}</dd></div><div><dt>Multipliers</dt><dd>{score?.multipliers ?? "—"}</dd></div></dl><div className="contest-multipliers">{score?.multiplierLabels.length ? (score.multiplierDisplayLabels?.length ? score.multiplierDisplayLabels : score.multiplierLabels).map(x => <span key={x}>{x}</span>) : <p>No multipliers recorded.</p>}</div><p className={`contest-source is-${score?.sourceVerification ?? "unverified"}`}>Score source: {score?.sourceVerification ?? "unavailable"}</p></aside></div>
       <ContestAssistancePanel request={request} ownerLeaseID={leaseRef.current?.id??0} sessionID={active.sessionID} workspaceGeneration={active.workspaceGeneration}
         draftID={draft.draftID} callsign={draft.fields.callsign} disabled={entryDisabled} onSelect={applyAssistanceCallsign} importDataset={scpImport}/>
+      <ContestCallHistoryPanel request={request} ownerLeaseID={leaseRef.current?.id??0} session={active} draft={draft}
+        disabled={entryDisabled} ready={!owner.dirty&&!draftSaveInFlight} onApply={applyHistory} importDataset={historyImport}/>
       {editing && <form className="contest-qso-editor" aria-label={`Edit ${editing.original.callsign}`} onSubmit={event => { event.preventDefault(); void applyQSOChange("correction"); }}><header><div><h2><Pencil size={15}/> Edit {editing.original.callsign}</h2><p>Update the contact; score and duplicate credit are recalculated when saved.</p></div><button type="button" aria-label="Cancel contact edit" disabled={disabled} onClick={() => { setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); }}><X size={14}/>Cancel</button></header>
         <div className="contest-qso-fields"><label>Callsign<input autoComplete="off" maxLength={32} disabled={disabled} value={editing.qso.callsign} onChange={event => changeQSO("callsign", event.target.value.toUpperCase())}/></label>{active.rule.entry.report.format !== "none" && <><label>Sent report<input maxLength={active.rule.entry.report.maximumUTF8Bytes} disabled={disabled} value={editing.qso.sentReport} onChange={event => changeQSO("sentReport", event.target.value)}/></label><label>Received report<input maxLength={active.rule.entry.report.maximumUTF8Bytes} disabled={disabled} value={editing.qso.receivedReport} onChange={event => changeQSO("receivedReport", event.target.value)}/></label></>}{isStructuredEntry(active.rule.entry) ? active.rule.entry.exchange.receivedFields.map(field => <label key={field.id}>Received {field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} disabled={disabled} value={editing.qso.receivedExchangeFields?.[field.id] ?? ""} onChange={event => changeQSOReceivedField(field.id, event.target.value)}/></label>) : <label>Received exchange<input maxLength={64} disabled={disabled} value={editing.qso.receivedExchange} onChange={event => { changeQSO("receivedExchange", event.target.value); changeQSO("normalizedReceivedExchange", event.target.value); }}/></label>}<label>Frequency Hz<input inputMode="numeric" maxLength={11} disabled={disabled} value={editFrequencyText} onChange={event => changeQSOFrequency(event.target.value)}/></label><label>Band<select disabled={disabled} value={editing.qso.band} onChange={event => changeQSO("band", event.target.value)}>{["160m","80m","40m","20m","15m","10m"].map(value => <option key={value}>{value}</option>)}</select></label></div>
         <SentExchangeSummary entry={active.rule.entry} values={editing.qso.sentExchangeFields} resolvedSerial={active.resolvedSerial} label="Frozen sent exchange"/>

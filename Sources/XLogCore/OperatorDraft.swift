@@ -124,11 +124,24 @@ public enum OperatorDraftRadioFollow {
         case "RTTYR": result.mode = "RTTY"
         default: result.mode = radioMode
         }
+        result.applyDefaultSignalReportsForMode()
         return result
     }
 }
 
 extension QSO {
+    mutating func applyDefaultSignalReportsForMode() {
+        let target: String
+        let replaced: String
+        switch mode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() {
+        case "CW": target = "599"; replaced = "59"
+        case "SSB": target = "59"; replaced = "599"
+        default: return
+        }
+        if rstSent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || rstSent == replaced { rstSent = target }
+        if rstReceived.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || rstReceived == replaced { rstReceived = target }
+    }
+
     /// In-progress drafts may have an empty/partial callsign. Logging requires a
     /// complete call. Keep drafts bounded without manufacturing radio values.
     func validateOperatorDraft(forSave: Bool) throws {

@@ -1,0 +1,115 @@
+{
+  "capturedAt": "2026-10-18T10:34:51+09:30",
+  "branch": "codex/contest-declarative-exports",
+  "baselineCommit": "4d77f946fe5ad0072d4b2474e0b66c15d35fd20f",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "scratchPath": "/tmp/xlog-declarative-export-build",
+  "scope": {
+    "activeCatalogChanged": false,
+    "activeCatalogSHA256": "4987b84cce1978e43c0a04111841c506f526214f8c1ed44077891957d7c6af69",
+    "catalogPath": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+    "uiChanged": false,
+    "definitionsActivated": false,
+    "archiveDefinitionCount": 7,
+    "archivePurpose": "operatorArchive",
+    "duplicateRecordPolicy": "retainAll"
+  },
+  "authorities": {
+    "officialRules": [
+      {
+        "contest": "CWT",
+        "url": "https://cwops.org/cwops-tests/",
+        "snapshotPath": "/tmp/xlog-cwt-rules-2026-10-18.html",
+        "sha256": "d98a97401dee2cf8106efb1756b78875ce900024715b3bebb19ef2919c646056",
+        "exportClassification": "operator archive; official result reporting uses 3830"
+      },
+      {
+        "contest": "CW Open",
+        "url": "https://cwops.org/cwops-tests/cw-open/",
+        "snapshotPath": "/tmp/xlog-cwo-rules-2026-10-18.html",
+        "sha256": "b73265ece8bc6e6d6e874a108ddf7ec1e2808c3d9fbdffd3b7380cd30629685a",
+        "exportClassification": "official Cabrillo field order; operator archive purpose remains explicit until activation gates close"
+      },
+      {
+        "contest": "ICWC MST",
+        "url": "https://internationalcwcouncil.org/mst-contest/",
+        "snapshotPath": "/tmp/xlog-icwc-mst-rules-2026-10-18.html",
+        "sha256": "c594f23f513853a42c0644fb8243e5d24700b7a381a2611bc2dd44b862fef289",
+        "exportClassification": "operator archive; official score reporting says without logs and to keep logs available"
+      }
+    ],
+    "tenTen": "Official-source hashes and activation limits remain embedded in the unchanged preview definitions and docs/contesting/TEN_TEN_DECLARATIVE_PILOT.md."
+  },
+  "compatibility": {
+    "oldCanonicalProjectionEncoding": "exportProjection is omitted when nil",
+    "pinnedCWUniqueCallDigests": {
+      "cwt": "85894c011a8e7741ff6f3aa767ab89c770f00bdf7945e0bde6fbf77fdd19570d",
+      "cwOpen": "0729818cee710b1e584bd6f18855fafb3f0dcf5725838556748bd44129518ff9",
+      "icwcMST": "8578bf731798cf27711b5ec084a8a3e3753e6b519abaa3da93396583b69c4a12"
+    },
+    "tenTenDigests": "The four pinned digests continue to pass ContestCWUniqueCallDeclarativeRuleTests and full XContestCoreTests.",
+    "snapshotResolution": "Canonical definition bytes are read in the same SQLite transaction as the session and QSOs; stored bytes are decoded, canonicalized, digest-checked and identity-checked without registry fallback.",
+    "legacySessions": "Static sessions without canonical definition bytes retain registry resolution. Historical ContestSessionReadSnapshot JSON without the optional bytes decodes with nil."
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter XContestCoreTests > /tmp/xlog-declarative-exports-2026-10-18-core-review2.log 2>&1",
+      "result": "158 tests, 0 failures",
+      "logPath": "/tmp/xlog-declarative-exports-2026-10-18-core-review2.log",
+      "logSHA256": "4fbd0c2f9016a83857375a78ca0267baba266eb8de7028733bbfd5149b0b4712"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter XContestStoreTests > /tmp/xlog-declarative-exports-2026-10-18-store.log 2>&1",
+      "result": "79 tests, 0 failures",
+      "logPath": "/tmp/xlog-declarative-exports-2026-10-18-store.log",
+      "logSHA256": "b47605f676c9fe57148a528d1ace99e156054d31660ac213856bb4494f0d8698"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter ContestExport > /tmp/xlog-declarative-exports-2026-10-18-export-focused.log 2>&1",
+      "result": "24 legacy ContestExport-matching XLogPrototypeTests plus 7 XContestCoreTests, 0 failures; this broad filter does not match ContestDeclarativeExportServiceTests, which is executed explicitly below",
+      "logPath": "/tmp/xlog-declarative-exports-2026-10-18-export-focused.log",
+      "logSHA256": "af45625f2f835f2243a836f8ade294e7f9735ab11a0c4c694c6410a56f839ebb"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-declarative-export-build --filter ContestDeclarativeExportServiceTests > /tmp/xlog-declarative-export-service-root-review-2026-10-18.log 2>&1",
+      "result": "1 test, 0 failures; run independently by root review",
+      "logPath": "/tmp/xlog-declarative-export-service-root-review-2026-10-18.log",
+      "logSHA256": "ae197bb222ed8270a509cab6cd547167bffefa9d1153e8be460c793bd8b3693f"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test list --jobs 2 --scratch-path /tmp/xlog-declarative-export-build > /tmp/xlog-declarative-exports-2026-10-18-discovery-review2.log 2>&1",
+      "result": "ContestDeclarativeExportServiceTests discovered; portability workflow now checks and executes it explicitly on macOS, Linux and Windows",
+      "logPath": "/tmp/xlog-declarative-exports-2026-10-18-discovery-review2.log",
+      "logSHA256": "0b9ff96fc84308222c478e764c659d8aec0870ef4416b5bbb10bcc41565c3681"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "frozenFiles": {
+    ".github/workflows/contest-portability.yml": "c769d6e6a4b3413befad3ec9a7ca4f6ee51de1cb13427022079086d4657924da",
+    "Sources/XContestCore/CWUniqueCallDeclarativeDefinitions.swift": "05b145d6eabf34ddecc452ea7a24999d54c749bfcfc2eed88c2648642fbb2296",
+    "Sources/XContestCore/Cabrillo.swift": "255a729f8985860ac9d815931130f17f89a44ec148943d3bef8c8bf3c7355729",
+    "Sources/XContestCore/DeclarativeContestRule.swift": "c1a8185f613c221568382aca332b771deb08454802b1d5f21720b87cd9d010ed",
+    "Sources/XContestCore/TenTenDeclarativeDefinitions.swift": "96dc93b7e6642de4712d728ef85169a530f3cee7508370f174aa65c779332091",
+    "Sources/XContestStore/SQLiteContestStore.swift": "b371c9f61ba41cd24f0c90da157a4a87d129a7c0485fdaa74beac3371c1d2416",
+    "Sources/XContestStore/StoreModels.swift": "91bd39ed7ae866c1ba575e286d2853301e0ca190d64f6a49fdeeb0f5d5a70a4a",
+    "Sources/XLogPrototypeSupport/Contesting/ContestADIFExport.swift": "79ed7a092c57da33dcccd536d0d13355fc3b6d57953a5dc6e3d38f10beb6cfc9",
+    "Sources/XLogPrototypeSupport/Contesting/ContestExportArtifactCache.swift": "e77994b2f31a9d9de0703c16c9e465ac903420246d83981e47cb04d5e2324f85",
+    "Sources/XLogPrototypeSupport/Contesting/ContestExportLane.swift": "52cb62db9184464d07d68f15009e9abba80a627cc7ab9adba7b23881043e2c9b",
+    "Sources/XLogPrototypeSupport/Contesting/ContestExportService.swift": "26dd6ab5207125d6e3bf98b56041c1ce9495d7ad100c093d84db8babb7b219d4",
+    "Tests/XContestCoreTests/ContestDeclarativeExportTests.swift": "c86de2932460376707d24a2c8e7f34f31181aa3406bc160d1c40b20f87adbb04",
+    "Tests/XLogPrototypeTests/ContestDeclarativeExportServiceTests.swift": "1f946fb87cef7d2a42860b6f3606b202cc45bc99f10fcbe05c4deed9fb312317",
+    "Tests/XLogPrototypeTests/ContestExportLaneTests.swift": "ce0b679fdc17f8de35d8cbbf40e2f6e2d64ced8184f673b027205fa6797323bf",
+    "Tests/XLogPrototypeTests/ContestExportServiceTests.swift": "de097a887dcf12f50e1e787ac6d70bd0a5bab3b6248c3b5c423f946115dd10db",
+    "docs/contesting/DECLARATIVE_CONTEST_EXPORTS.md": "18b9233b633e96e0af74a397f22c8eab56adcfe84b4144870cdab61b6cc568c3"
+  },
+  "limits": [
+    "All seven definitions remain outside the active 16-rule catalog.",
+    "Operator archives are executable and explicitly labeled; they are not claimed sponsor-ready submissions.",
+    "CW Open combined scoring remains a sum of separate session results, not a union-multiplier replay.",
+    "Categories, event windows and the contest-specific open constraints documented in DECLARATIVE_CONTEST_EXPORTS.md still gate activation.",
+    "No runtime Python, network, filesystem rule loading, AI, expression evaluation or per-contest Swift rule class is introduced."
+  ]
+}

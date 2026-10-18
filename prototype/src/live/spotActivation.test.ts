@@ -51,7 +51,7 @@ it("releases the Desk's frozen editor after uncertain receipt recovery and permi
     throw Error(`Unexpected recovery action ${command}`);
   });
   const client = new SpotActivationClient(native, () => nextId);
-  await client.refresh(); expect(await client.retire()).toBe(true);
+  await client.refresh(); expect(client.canActivate()).toBe(true);
   expect(f.session.canAcceptLocalInput()).toBe(true); expect(f.read).toHaveBeenCalledOnce();
   await client.activate({ id: "next-dx-report", activation: { sourceEpoch: crypto.randomUUID(), spotVersion: crypto.randomUUID() } });
   expect(native.mock.calls.map(([command]) => command)).toEqual(["spot_activation_snapshot", "spot_activation_reconcile", "activate_spot"]);

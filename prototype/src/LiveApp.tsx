@@ -13,9 +13,10 @@ import { useAutoRotor } from "./live/useAutoRotor";
 import { nativeRotorStop } from "./live/nativeRotorStop";
 import { useFollowRadio } from "./live/useFollowRadio";
 import { useReferenceEvidence } from "./live/useReferenceEvidence";
-import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
+import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw, Sun } from "lucide-react";
 import { workerRequest, framedWorkerRequest, openMonitor, openDetachedMap, detachedMapKind,
   type StationProvider } from "./worker";
+import { contestRetirementAssessment, operatingModuleStatus, switchOperatingModule, type OperatingModule, type OperatingModuleStatus } from "./operatingModule";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
@@ -58,6 +59,8 @@ import CWDesk from "./live/CWDesk";
 import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
+import { DeskPreviousQSOs } from "./live/DeskPreviousQSOs";
+import HFPropagationLive from "./live/HFPropagationLive";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
@@ -97,6 +100,7 @@ import { loadStationSession, type RadioID } from "./live/stationSession";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import type { ContestRequest } from "./contesting/types";
+import type { ContestTransitionController } from "./contesting/ContestWorkspace";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
 
@@ -165,13 +169,15 @@ export function boundedCallsignLookup(request: Request, call: string, timeoutMs 
 export const syncSettingsDestination = (logbookMode: unknown): "Logbook" | "Sync" => logbookMode === "local" ? "Logbook" : "Sync";
 const screenIcons: Record<string, typeof Radio> = {
   "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History,
-  "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, awards: Award,
+  "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, "hf-propagation-live": Sun, awards: Award,
   "station-control": Radio, sync: RefreshCw, settings: Settings,
 };
 const monitor = new URLSearchParams(location.search).get("view") === "monitor";
+const hfPropagationLive = new URLSearchParams(location.search).get("view") === "hf-propagation-live";
 const detached = detachedMapKind(new URLSearchParams(location.search).get("view"));
 const frequency = (hz?: number) => typeof hz === "number" && Number.isFinite(hz) ? (hz / 1e6).toFixed(6) : "—";
 const emptySpots: Data[] = [];
+const spotSelectionDebounceMs = 220;
 const radioProviderLabels: Record<StationProvider, string> = {
   direct_agent: "Remote station · embedded xCat",
   direct_flex_lan: "Direct FLEX · LAN",
@@ -192,6 +198,7 @@ function legacyDraftValue(): Data | null {
 }
 
 export default function LiveApp() {
+  if (hfPropagationLive) return <HFPropagationLive detached />;
   if (detached === "world-map") return <DetachedWorldMapSurface />;
   if (detached === "band-maps") return <DetachedBandMapsSurface />;
   if (monitor) return <DetachedMonitorSurface />;
@@ -203,6 +210,7 @@ function MainLiveApp() {
   const viewRef = useRef(view); viewRef.current = view;
   const editorBufferPending = useRef(false), mainClosing = useRef(false), layoutChanging = useRef(false), editorTransition = useRef(false);
   const readingRadio = useRef(false), readOperation = useRef<ReadRadioJournal | null>(loadReadRadioJournal(readRadioJournalKey));
+  const readRecovery = useRef<Promise<any> | null>(null);
   const [radioBusy, setRadioBusy] = useState(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -216,6 +224,12 @@ function MainLiveApp() {
   const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
   const [contestCapability, setContestCapability] = useState<"checking" | "available" | "unavailable">("checking");
+  const [operatingModule, setOperatingModule] = useState<OperatingModuleStatus | null>(null);
+  const [moduleChanging, setModuleChanging] = useState(false);
+  const moduleTransitioning = useRef(false);
+  const moduleChoice = useRef<(target: OperatingModule) => Promise<void>>(async () => {});
+  const contestTransition = useRef<ContestTransitionController | null>(null);
+  const registerContestTransition = useCallback((controller: ContestTransitionController | null) => { contestTransition.current = controller; }, []);
   const contestCapabilityRef = useRef(contestCapability); contestCapabilityRef.current = contestCapability;
   const refreshContestCapability = useCallback(async () => {
     try {
@@ -225,6 +239,9 @@ function MainLiveApp() {
       if (mounted.current) setContestCapability("unavailable");
     }
   }, []);
+  useEffect(() => { let active = true; void operatingModuleStatus(true).then(value => { if (active) setOperatingModule(value); })
+    .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Operating module authority is unavailable."); });
+    return () => { active = false; }; }, []);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
   const modeAction = useRef<(title: string) => Promise<boolean>>(async () => false);
   const [settingsSession] = useState(() => new SettingsSession(requestSettings,
@@ -262,10 +279,10 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
+  const editorLocked = moduleChanging || radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    if (mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
+    if (moduleTransitioning.current || mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
     if (!draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) return;
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) return;
     const contact = contactSession.getSnapshot().draft;
@@ -302,21 +319,13 @@ function MainLiveApp() {
     const radioSettingsRoute = next === "Station Control" || next === "Radio 1 Settings" || next === "Radio 2 Settings";
     const requestedRadioId: RadioID = next === "Radio 2 Settings" ? "radio2" : "radio1";
     if (radioSettingsRoute) next = "Settings";
+    if (next === contestTitle) { void moduleChoice.current("contesting"); return true; }
     if (next === viewRef.current) {
       if (radioSettingsRoute) {
         setSettingsTabRequest(previous => ({ tab: "Radio", revision: previous.revision + 1 }));
         setRadioSettingsRequest(previous => ({ radioId: requestedRadioId, revision: previous.revision + 1 }));
       }
       return true;
-    }
-    if (next === contestTitle && contestCapabilityRef.current !== "available") {
-      if (contestCapabilityRef.current === "unavailable")
-        setError("Contesting requires the isolated OM0RX-xLog Contesting Test runtime.");
-      return false;
-    }
-    if (next === contestTitle && workspaceRef.current?.workspace_exists !== true) {
-      setError("Create or reconnect this isolated workspace before opening Contesting.");
-      return false;
     }
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
     if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
@@ -356,17 +365,30 @@ function MainLiveApp() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(busy); busyRef.current = busy;
   const nativeFollow = useFollowRadio();
+  const reconcileSpotEditor = useRef<(snapshot?: any) => Promise<boolean>>(async () => false);
   const [browserFollow, setBrowserFollow] = useState(true);
   const follow = nativeSpotEditor() ? nativeFollow.state?.enabled === true : browserFollow;
   const latestFollow = useRef(follow); latestFollow.current = follow;
   const changeFollow = useCallback(async (value: boolean) => {
     latestFollow.current = value;
-    if (nativeSpotEditor()) await nativeFollow.set(value);
+    if (nativeSpotEditor()) {
+      const journal = value ? readOperation.current : null;
+      if (journal) {
+        const recovered = await invoke("operator_draft_read_radio_recover", journal);
+        if (!validSpotActivationSnapshot(recovered) || recovered.operationId !== journal.operationId ||
+            !["confirmed", "blocked"].includes(recovered.phase) || recovered.reservationActive === true ||
+            !await reconcileSpotEditor.current(recovered))
+          throw new Error("Previous radio read is active. Follow Radio was not enabled.");
+        localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
+      }
+      await nativeFollow.set(value);
+    }
     else setBrowserFollow(value);
   }, [nativeFollow.set]);
   const setFollowImmediate = useCallback((value: boolean) => {
+    if (moduleTransitioning.current) return;
     latestFollow.current = value;
-    void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : "Follow Radio authority is unavailable."));
+    void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : typeof cause === "string" && cause ? cause : "Follow Radio authority is unavailable."));
   }, [changeFollow]);
   const spotEditor = useSpotEditor([draftSession, contactSession], snapshot => {
     if (readOperation.current && snapshot.operationId !== readOperation.current.operationId)
@@ -384,6 +406,33 @@ function MainLiveApp() {
     return busyRef.current || logbookWorkingRef.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending
       ? { ready: false, reason: "Finish the current logbook or workspace action first." } : { ready: true };
   });
+  reconcileSpotEditor.current = spotEditor.reconcile;
+  const reconcileRetainedRadioRead = useCallback(async () => {
+    const journal = readOperation.current;
+    if (!journal) return null;
+    if (readRecovery.current) return readRecovery.current;
+    const recovery = (async () => {
+      const result = await invoke("operator_draft_read_radio_recover", journal);
+      if (!validSpotActivationSnapshot(result) || result.operationId !== journal.operationId ||
+          !["confirmed", "blocked"].includes(result.phase) || result.reservationActive === true ||
+          !await reconcileSpotEditor.current(result))
+        throw new Error("Read radio state is still settling.");
+      if (readOperation.current?.operationId === journal.operationId) {
+        localStorage.removeItem(readRadioJournalKey);
+        readOperation.current = null;
+      }
+      return result;
+    })();
+    readRecovery.current = recovery;
+    try { return await recovery; }
+    finally { if (readRecovery.current === recovery) readRecovery.current = null; }
+  }, []);
+  useEffect(() => {
+    if (monitor || !readOperation.current || spotEditor.initializing) return;
+    // A retained read journal is recovery evidence, not an operator-facing
+    // lock. Reconcile it in the background and never replay the radio read.
+    void reconcileRetainedRadioRead().catch(() => {});
+  }, [spotEditor.initializing, spotEditor.status?.operationId, spotEditor.status?.phase, reconcileRetainedRadioRead]);
   const spotActivation = useSpotActivation();
   const canChangeMode = (ownTransition = false) => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
@@ -439,14 +488,16 @@ function MainLiveApp() {
       });
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
       deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspace]);
-  const acceptsInput = useCallback(() => !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
-  useEffect(() => protectOperatorDraftClose(() => {
+  const acceptsInput = useCallback(() => !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
+  const normalTransitionBlocked = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
     return readingRadio.current || !!readOperation.current || busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
       current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
       !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
-  }, () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
-  closing => { mainClosing.current = closing; }, "close_main_window"), [draftSession, contactSession, logbookMutations]);
+  }, [draftSession, contactSession, logbookMutations]);
+  useEffect(() => protectOperatorDraftClose(normalTransitionBlocked,
+  () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
+  closing => { mainClosing.current = closing; }, "close_main_window"), [normalTransitionBlocked]);
   const [selected, setSelected] = useState<string | null>(null);
   const nativeAutoRotor = useAutoRotor(), autoRotor = nativeAutoRotor.state?.armed === true;
   const [rotorState, setRotorState] = useState<RotorSnapshot | null>(null);
@@ -455,7 +506,7 @@ function MainLiveApp() {
   const autoRotorSet = useRef(nativeAutoRotor.set); autoRotorSet.current = nativeAutoRotor.set;
   const disarmAutoRotor = useCallback(() => { if (nativeSpotEditor()) void autoRotorSet.current(false).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor could not be disarmed.")); }, []);
   const setAutomaticRotor = (enabled: boolean) => nativeAutoRotor.set(enabled, rotorRef.current);
-  const changeAutoRotor = (enabled: boolean) => { void setAutomaticRotor(enabled).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor authority is unavailable.")); };
+  const changeAutoRotor = (enabled: boolean) => { if (!moduleTransitioning.current) void setAutomaticRotor(enabled).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor authority is unavailable.")); };
   const savedProvider = storedDraftValue("xlog.integration.provider");
   const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" || savedProvider === "direct_tci" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
@@ -469,7 +520,11 @@ function MainLiveApp() {
   const [activeRadio, setActiveRadio] = useState<RadioID | null>(() => nativeStationSelection() ? null : "radio1");
   const selection = useRef(0);
   const activationStarted = useRef(false);
+  const spotAwaitingActivation = useRef<Data | null>(null);
+  const selectSpotRef = useRef<(spot: Data) => void>(() => {});
   const spotPreparation = useRef<Promise<void> | null>(null);
+  const spotActivationDelay = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(spotActivationDelay.current), []);
   const spotDraftRecovery = useRef<Promise<void> | null>(null);
   const spotAwaitingDraftRecovery = useRef<Data | null>(null);
   const [spotEditorEpoch, setSpotEditorEpoch] = useState(0);
@@ -644,7 +699,7 @@ function MainLiveApp() {
     throw new Error("Apply this radio selection before connecting or sending controls. The active radio has not changed.");
   }, [request, stationProvider, viewProvider]);
   const readRadioIntoDraft = useCallback(async () => {
-    if (readOperation.current) throw new Error("Check the existing Read radio activation before reading again. No read was retried.");
+    if (readOperation.current) await reconcileRetainedRadioRead();
     if (nativeSpotEditor()) {
       const before = draftSession.getSnapshot(), contact = contactSession.getSnapshot();
       if (!acceptsInput() || busyRef.current || editorBufferPending.current || providerTransition.current || contact.draft || contact.pending || contact.conflict || contact.workspaceChanged ||
@@ -694,20 +749,7 @@ function MainLiveApp() {
       band: state.station?.band || bandForRadio(state.radio.frequency_hz) || current.band,
       mode: logMode(state.radio.mode, current.mode || "") } : current);
     setMessage("Observed radio frequency and mode copied into the QSO draft.");
-  }, [request, acceptsInput, changeFollow, draftSession, contactSession, spotEditor.reconcile]);
-  const checkReadRadio = async () => {
-    const journal = readOperation.current;
-    if (!journal || readingRadio.current) return;
-    readingRadio.current = true; setRadioBusy(true);
-    try {
-      const result = await invoke("operator_draft_read_radio_recover", journal);
-      if (!validSpotActivationSnapshot(result) || result.operationId !== journal.operationId || !["confirmed", "blocked"].includes(result.phase) || result.reservationActive === true ||
-          !await spotEditor.reconcile(result)) throw new Error("Read radio recovery is incomplete. Its operation is retained; no read was replayed.");
-      localStorage.removeItem(readRadioJournalKey); readOperation.current = null;
-      setMessage(result.phase === "confirmed" ? "Recovered Read radio receipt. The current QSO draft was refreshed." : result.error || "The current QSO draft was checked. No radio read was repeated.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Read radio recovery unavailable. No read was replayed."); }
-    finally { readingRadio.current = false; if (mounted.current) setRadioBusy(false); }
-  };
+  }, [request, acceptsInput, changeFollow, draftSession, contactSession, spotEditor.reconcile, reconcileRetainedRadioRead]);
   useEffect(() => {
     if (monitor) return;
     const focusAfterView = (selector: string) => window.setTimeout(() => document.querySelector<HTMLElement>(selector)?.focus(), 0);
@@ -724,7 +766,7 @@ function MainLiveApp() {
     window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut);
   }, [readRadioIntoDraft, showSyncSettings]);
   const run = async (operation: () => Promise<unknown>) => {
-    if (readingRadio.current) return;
+    if (moduleTransitioning.current || readingRadio.current) return;
     busyRef.current = true;
     setBusy(true); setError("");
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
@@ -883,7 +925,7 @@ function MainLiveApp() {
       }
     };
     const unavailable = () => {
-      if (!disposed) setStation(s => s ? { ...s, available: false, radio: { ...s.radio, connected: false, observed: false }, connection_error: "Station connection unavailable" } : null);
+      if (!disposed) setStation(s => s ? { ...s, available: false, radio: { ...s.radio, observed: false }, connection_error: "Radio observation is refreshing" } : null);
     };
     const stopTelemetry = connectStationTelemetry(activeRadio, stationProvider, observe, unavailable, () => selection.current);
     if (stopTelemetry) return () => { disposed = true; stopTelemetry(); };
@@ -991,7 +1033,7 @@ function MainLiveApp() {
     const timer = setTimeout(() => {
       // A large history query must not hold QRZ details hostage.
       loadLookup(false);
-      void request("logbook_previous", { call, limit: 10 })
+      void request("logbook_previous", { call, limit: 25 })
         .then(history => { if (!disposed) setPrevious(history.qsos); }).catch(() => { if (!disposed) setPrevious([]); });
     }, 400);
     return () => { disposed = true; clearTimeout(timer); if (retryTimer) clearTimeout(retryTimer); };
@@ -1024,15 +1066,38 @@ function MainLiveApp() {
       disarmAutoRotor(); setView("Log QSO");
     } finally { editorTransition.current = false; }
   });
+  const drainLatestSpot = () => {
+    const queued = spotAwaitingActivation.current;
+    if (!queued || activationStarted.current || !spotActivation.canActivate()) return;
+    spotAwaitingActivation.current = null;
+    window.setTimeout(() => selectSpotRef.current(queued), 0);
+  };
   const selectSpot = (spot: Data) => {
-    if (monitor) return;
+    if (monitor || moduleTransitioning.current) return;
     const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
-    if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) return;
-    if ((draftState.activationFrozen || contactState.activationFrozen) && spotEditor.initializing) {
-      setError(spotEditor.error || "QSO editor registration is still initializing. Spot selection remains disabled and your draft is retained; recovery retries automatically.");
+    if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) {
+      selection.current++;
+      spotAwaitingActivation.current = spot;
+      pendingTune.current = true;
+      setSelected(spot.id);
+      setMessage("");
+      setError("");
       return;
     }
-    if (draftState.pending && !draftState.workspaceChanged && !draftState.activationFrozen && !contactState.activationFrozen) {
+    // The lookup/draft side of a spot activation can outlive its preparation
+    // promise.  Keep the whole selection window replaceable so a faster second
+    // click becomes the latest target instead of being mistaken for unrelated
+    // QSO work.
+    const replacingPreparedSpot = pendingTune.current;
+    if ((draftState.activationFrozen || contactState.activationFrozen) && spotEditor.initializing) {
+      selection.current++;
+      spotAwaitingActivation.current = spot;
+      pendingTune.current = true;
+      setSelected(spot.id);
+      setMessage(""); setError("");
+      return;
+    }
+    if (!replacingPreparedSpot && draftState.pending && !draftState.workspaceChanged && !draftState.activationFrozen && !contactState.activationFrozen) {
       // A lost acknowledgement may already have a durable receipt. Re-check it
       // before presenting a permanent selection barrier; never replay here.
       spotAwaitingDraftRecovery.current = spot;
@@ -1043,20 +1108,47 @@ function MainLiveApp() {
           spotAwaitingDraftRecovery.current = null;
           const current = draftSession.getSnapshot();
           if (!current.pending && requested) selectSpot(requested);
-          else setError(current.error || "Resolve the current QSO operation before selecting another spot.");
+          else if (requested && !current.conflict && !current.workspaceChanged && !current.activationFrozen) {
+            // A native activation may have closed while its durable draft
+            // receipt is still arriving.  Retain only the newest report and
+            // retry the read-only reconciliation; never replay the old tune.
+            window.setTimeout(() => selectSpotRef.current(requested), 120);
+          } else setError(current.error || "The current QSO change needs attention before another report can be loaded.");
         }).catch(cause => setError(cause instanceof Error ? cause.message : "The saved QSO operation could not be checked."))
           .finally(() => { spotDraftRecovery.current = null; });
       }
       return;
     }
-    if (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
-      readingRadio.current || readOperation.current || mainClosing.current || layoutChanging.current || editorTransition.current ||
-      draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged || draftState.activationFrozen ||
-      contactState.locked || contactState.pending || contactState.conflict || contactState.workspaceChanged || contactState.activationFrozen ||
-      !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
+    const editorFenceBlocked = draftState.activationFrozen || contactState.activationFrozen ||
+      !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput();
+    if (!replacingPreparedSpot && editorFenceBlocked) {
+      // Terminal Follow/QSY/read operations can briefly outlive their native
+      // reservation in the renderer. Keep the newest click and reconcile the
+      // local fence; this reads receipts only and never replays a tune.
+      selection.current++;
+      spotAwaitingActivation.current = spot;
+      pendingTune.current = true;
+      setSelected(spot.id);
+      setMessage(""); setError("");
+      void spotEditor.reconcile().then(released => { if (released) drainLatestSpot(); }).catch(() => {});
+      return;
+    }
+    // Once the native/editor fence is clear, an old local Read radio journal
+    // cannot veto a deliberate spot selection. The native activation owner
+    // still retires or blocks on the real operation before any tune is sent.
+    if (readOperation.current) {
+      localStorage.removeItem(readRadioJournalKey);
+      readOperation.current = null;
+    }
+    const draftOperationBlocked = draftState.locked || draftState.pending || draftState.conflict || draftState.workspaceChanged;
+    if (!replacingPreparedSpot && (busyRef.current || logbookWorkingRef.current || logbookMutations.getSnapshot().busy || logbookMutations.getSnapshot().pending ||
+      readingRadio.current || mainClosing.current || layoutChanging.current || editorTransition.current ||
+      draftOperationBlocked ||
+      contactState.locked || contactState.pending || contactState.conflict || contactState.workspaceChanged)) {
       setError("Resolve the current QSO operation before selecting another spot."); return;
     }
     const generation = ++selection.current;
+    spotAwaitingActivation.current = null;
     pendingTune.current = true; setSelected(spot.id);
     setMessage(""); setError("");
     // A new selection discards only local, unsaved editor text. A pending write,
@@ -1068,16 +1160,101 @@ function MainLiveApp() {
         if (draftSession.dirty) await draftSession.useShared();
       })().finally(() => { spotPreparation.current = null; });
     }
-    void spotPreparation.current.then(() => {
-      if (selection.current !== generation) return;
-      activationStarted.current = true;
-      return Promise.resolve(spotActivation.activate(spot)).finally(() => { activationStarted.current = false; });
-    }).catch(cause => {
-      const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
-      if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
-    })
-      .finally(() => { if (selection.current === generation) pendingTune.current = false; });
+    const preparation = spotPreparation.current;
+    window.clearTimeout(spotActivationDelay.current);
+    spotActivationDelay.current = window.setTimeout(() => {
+      void preparation.then(() => {
+        if (selection.current !== generation) return;
+        activationStarted.current = true;
+        return Promise.resolve(spotActivation.activate(spot)).finally(() => {
+          activationStarted.current = false;
+          drainLatestSpot();
+        });
+      }).catch(cause => {
+        const message = cause instanceof Error ? cause.message : "Spot activation is unavailable. Check its status before selecting again.";
+        if (selection.current === generation && message !== "Check the existing spot activation before selecting another report.") setError(message);
+      }).finally(() => { if (selection.current === generation) pendingTune.current = false; });
+    }, spotSelectionDebounceMs);
   };
+  selectSpotRef.current = selectSpot;
+  const spotReservationActive = spotActivation.status?.phase === "idle" || !spotActivation.status
+    ? false : spotActivation.status.reservationActive === true;
+  useEffect(() => {
+    if (!spotActivation.requesting && !spotReservationActive && !spotEditor.initializing) drainLatestSpot();
+  }, [spotActivation.requesting, spotActivation.status?.operationId, spotActivation.status?.phase, spotReservationActive,
+    spotEditor.initializing, spotEditor.status?.operationId, spotEditor.status?.phase]);
+  const refreshLocalRadioState = useCallback(async () => {
+    selection.current++;
+    window.clearTimeout(spotActivationDelay.current);
+    pendingTune.current = false;
+    spotAwaitingActivation.current = null;
+    spotAwaitingDraftRecovery.current = null;
+    await changeFollow(false);
+    try { await reconcileRetainedRadioRead(); }
+    catch {
+      // The recovery button intentionally drops only obsolete renderer state.
+      // Native activation and station owners remain authoritative and connected.
+      localStorage.removeItem(readRadioJournalKey);
+      readOperation.current = null;
+    }
+    const released = await spotEditor.reconcile();
+    if (!released) throw new Error("Local QSO state is still settling. Try again in a moment.");
+    await spotActivation.reconcile();
+    await draftSession.reconcile();
+    await contactSession.reconcile();
+    await draftSession.refresh();
+    const observed = await request("station_snapshot");
+    setStation(observed);
+    setError("");
+    return "Local radio state refreshed. Connections were left running.";
+  }, [changeFollow, reconcileRetainedRadioRead, spotEditor.reconcile, spotActivation.reconcile, draftSession, contactSession, request]);
+  const chooseOperatingModule = async (target: OperatingModule) => {
+    const current = operatingModule;
+    if (!current || current.transitioning || moduleTransitioning.current || moduleChanging || current.selected === target) return;
+    moduleTransitioning.current = true;
+    let contestFrozen = false, nativeInvoked = false, nativeOutcomeKnown = false, servicesRetired = false;
+    setModuleChanging(true); setError(""); setMessage("");
+    try {
+      if (target === "contesting" && (contestCapability !== "available" || workspace?.workspace_exists !== true))
+        throw new Error("Create or reconnect this isolated workspace before opening Contesting.");
+      if (current.selected === "normal_logging") {
+        await draftSession.flush();
+        // A terminal native read receipt is recovery evidence. Reconcile it
+        // before deciding whether an unresolved operation still blocks exit.
+        if (readOperation.current) await reconcileRetainedRadioRead();
+        if (normalTransitionBlocked()) throw new Error("Finish the draft fields and resolve unsaved, pending or uncertain Normal Logging work before changing module.");
+        await changeFollow(false);
+        if (nativeAutoRotor.state?.armed === true) await nativeAutoRotor.set(false, rotorRef.current);
+      } else {
+        const transition = contestTransition.current;
+        const assessment = contestRetirementAssessment(contestCapability, workspace?.workspace_exists === true, !!transition);
+        if (assessment === "prepare") { transition!.freeze(); contestFrozen = true; await transition!.prepare(); }
+        else if (assessment === "wait")
+          throw new Error("Contest recovery is still loading. Wait before changing module.");
+      }
+      selection.current += 1;
+      window.clearTimeout(spotActivationDelay.current);
+      spotAwaitingActivation.current = null; spotAwaitingDraftRecovery.current = null;
+      pendingTune.current = false; setSelected(null);
+      nativeInvoked = true;
+      const result = await switchOperatingModule(target);
+      nativeOutcomeKnown = true;
+      servicesRetired = result?.servicesRetired === true;
+      if (result?.message) throw new Error(result.message);
+      throw new Error("xLog did not restart after changing operating module.");
+    } catch (cause) {
+      const canResume = !nativeInvoked || nativeOutcomeKnown && !servicesRetired;
+      if (canResume) {
+        moduleTransitioning.current = false;
+        if (contestFrozen) contestTransition.current?.resume();
+      }
+      if (mounted.current) {
+        if (canResume) setModuleChanging(false);
+        setError(cause instanceof Error ? cause.message : "Operating module was not changed.");
+      }
+    }
+  };
+  moduleChoice.current = chooseOperatingModule;
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
@@ -1119,27 +1296,37 @@ function MainLiveApp() {
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState,
     rotorConfigured: hasConfiguredRotor(rotorConfigurationState.base?.configuration), autoRotor, setAutoRotor: changeAutoRotor,
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };
+  const deskCall = normalizedCall(draft?.call);
+  const deskPrevious = previous.filter(qso => normalizedCall(qso?.call) === deskCall);
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
-  const contestView = view === contestTitle && contestCapability === "available" && workspace?.workspace_exists === true;
+  const contestView = operatingModule?.selected === "contesting";
   const displayedSeparateWindows = separateWindows && !contestView;
   const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" && workspace?.workspace_exists === true })
-    .map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group] as const);
+    .filter(screen => operatingModule?.selected !== "contesting" || screen.id === "contesting")
+    .map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group, screen.id] as const);
+  const radioConnectionLabel = station?.radio?.connected ? station.radio.observed ? "Connected" : "Refreshing" : "Disconnected";
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
-      <span className={station?.radio?.connected ? "teal" : "amber"}>{station?.radio?.connected ? "Connected" : "Disconnected"}</span>
+      <section className="module-choice rail-module-choice" aria-label="Operating module"><strong>Operating module</strong>
+        <button type="button" aria-pressed={operatingModule?.selected === "normal_logging"} disabled={!operatingModule || moduleChanging} onClick={() => void chooseOperatingModule("normal_logging")}>Normal Logging</button>
+        <button type="button" aria-pressed={operatingModule?.selected === "contesting"} disabled={!operatingModule || moduleChanging || contestCapability !== "available" || workspace?.workspace_exists !== true} onClick={() => void chooseOperatingModule("contesting")}>Contesting</button>
+        {moduleChanging && <span role="status">Saving and restarting…</span>}
+      </section>
+      <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
-      <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} reconcile={() => {}} />
+      <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
-    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
-      <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
-        if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
+    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}>
+      <nav>{navigation.map(([name, Icon, group, id], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={contestView && id === "contesting" || view === name ? "page" : undefined} onClick={() => id === "contesting" ? void chooseOperatingModule("contesting") : void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+      {operatingModule?.selected === "normal_logging" && <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
+        if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(cause => setError(String(cause)));
         else void run(async()=>{await request("station_action",{action});});
-      }} />
-      {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
-      <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
+      }} />}
+      {operatingModule?.selected === "normal_logging" && nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
+      <div className="sidebar-foot">{operatingModule?.selected === "normal_logging" && <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button>}<strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main className="qso-feedback-area live-feedback-host" aria-label={displayedSeparateWindows ? "Separate Windows" : view} style={displayedSeparateWindows ? { gridColumn: "1 / -1" } : undefined}>
       <StableFeedbackLayer>
@@ -1149,12 +1336,8 @@ function MainLiveApp() {
           <span>{settingsState.error || rotorConfigurationState.error || deskLayout.state.error || "Configuration or workspace changes need review."}</span>
           <button type="button" onClick={() => setView("Settings")}>Review Settings</button>
         </div>}
-      {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
-      <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting}
-        retire={() => { void Promise.resolve(spotActivation.retire()).then(async retired => { if (retired) { await spotEditor.reconcile(); setError(""); } }); }}
-        reconcile={() => { if (sharedDraft.activationFrozen || contactEdit.activationFrozen) void spotEditor.reconcile(); else void spotActivation.reconcile(); }} />
+      <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting} />
       {nativeAutoRotor.error && <p className="live-error" role="status">{nativeAutoRotor.error}</p>}
-      {nativeFollow.error && <p className="live-error" role="status">{nativeFollow.error}</p>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <ContactEditStatus state={contactEdit} session={contactSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <LogbookMutationStatus state={logbookMutation} session={logbookMutations} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
@@ -1174,7 +1357,10 @@ function MainLiveApp() {
       </StableFeedbackLayer>
       {loggedFeedback.toast}
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
-      {contestView ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} /></Suspense> : <>
+      {!operatingModule ? <section className="live-panel" aria-label="Operating module loading"><h2>Opening operating module…</h2></section>
+        : contestView ? contestCapability === "available" && workspace?.workspace_exists === true
+        ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} registerTransition={registerContestTransition} /></Suspense>
+        : <section className="live-panel" aria-label="Contesting unavailable"><h2>Contesting</h2><p>Reconnect the isolated contest workspace before operating. Normal Logging remains inactive.</p></section> : <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
           <h2>Settings</h2>
@@ -1185,7 +1371,7 @@ function MainLiveApp() {
           retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />
       </>}
       {/* Spot History only reads archive diagnostics; editors still require a verified workspace. */}
-      {(workspace?.workspace_exists === true || view === "Spot History") && <>
+      {(workspace?.workspace_exists === true || view === "Spot History" || view === "HF Prop live") && <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
         canChangeLayout={() => !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
         onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
@@ -1204,9 +1390,10 @@ function MainLiveApp() {
         logbook={<LogbookPanel columnContext="desk" onRequest={request} refreshKey={refresh} mutations={logbookMutations}
           disabled={editorLocked || busy || editorBufferPending.current || editorTransition.current}
           onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
+        previousQSOs={<DeskPreviousQSOs call={deskCall} qsos={deskPrevious} />} hasPreviousQSOs={deskPrevious.length > 0}
         busy={logbookWorking || logbookMutation.busy || !!logbookMutation.pending}
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
-        cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} bandMaps={deskBands} /></div></>} />}
+        cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} onRequest={request} bandMaps={deskBands} /></div></>} />}
       {view === "Log QSO" && <QSOEditor resetInputEpoch={spotEditorEpoch} referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
         clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}
         contactActions={contactEdit.base && <ContactDeleteAction snapshot={contactEdit.base} mutations={logbookMutations}
@@ -1221,6 +1408,7 @@ function MainLiveApp() {
       {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={panelRequest} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
+      {view === "HF Prop live" && <HFPropagationLive initialOwnCall={settings?.stationCall} initialLocator={settings?.gridSquare} />}
       {view === "Spot History" && <SpotHistoryPanel request={request} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
@@ -1241,15 +1429,16 @@ function MainLiveApp() {
         onReconcile={async () => { try { await settingsSession.reconcile(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings receipt could not be checked."); } }}
         onRetry={async () => { try { await settingsSession.retry(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings save could not be retried."); } }}
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
-        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
+        requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
       </>}
       </WorkspaceModeSurface>
     </main></div>;
 }
 
-function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
+export function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
   const s = snapshot?.station, local = provider === "hamlib", flex = provider === "direct_flex_lan", tci = provider === "direct_tci";
+  const native = nativeStationSelection();
   const detail = (text: string | undefined, prefix: string) => text?.split(/[|·]/).map(v => v.trim()).find(v => v.toUpperCase().startsWith(prefix + " "))?.slice(prefix.length).trim();
   const band = (text: string | undefined) => text?.split(/[|·]/).map(v => v.trim()).find(v => /^\d+(\.\d+)?[cm]+$/i.test(v));
   const antenna = s?.kat_detail_primary?.match(/\bANT\s*\d+\b/)?.[0];
@@ -1264,6 +1453,6 @@ function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
   return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex || tci ? "cyan" : "amber"}>{tci ? "DIRECT TCI · READ ONLY" : flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
     {tci && <p>Direct TCI · read only</p>}
-    {!local && !flex && !tci && <><button className={s?.kpa_operate ? "teal" : "orange"} disabled={nativeStationSelection() && action === "standby" ? false : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>{nativeStationSelection() && action !== "standby" && <button onClick={()=>onAction("standby")}>Standby</button>}</>}
+    {!local && !flex && !tci && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={native ? action !== "standby" && !s?.allowed_actions?.includes(action) : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }

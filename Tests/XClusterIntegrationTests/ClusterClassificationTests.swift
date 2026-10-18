@@ -64,6 +64,9 @@ final class ClusterClassificationTests: XCTestCase {
         XCTAssertEqual(index.classify(call: "K1DIGI", band: "20m", mode: "CW", adif: 291).dxccStatus, "C/New Mode")
         XCTAssertEqual(index.classify(call: "K1PHONE", band: "40m", mode: "CW", adif: 291).callStatus, "New Mode")
         XCTAssertEqual(index.classify(call: "K1PHONE", band: "40m", mode: "CW", adif: 291).dxccStatus, "C/New Mode")
+        let history = index.dxccModeHistory(adif: 291)
+        XCTAssertEqual(history.worked, ["SSB", "FT8"])
+        XCTAssertEqual(history.confirmed, ["FT8"])
     }
 
     func testNewCallAtnoAndUnknownEntityAreIndependent() {

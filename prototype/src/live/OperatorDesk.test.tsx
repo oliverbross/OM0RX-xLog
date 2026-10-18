@@ -74,7 +74,7 @@ it("keeps native QSO identity and unknown metadata while editing references and 
   fireEvent.change(screen.getByLabelText("Desk POTA"), { target: { value: "SK-0001" } });
   fireEvent.change(screen.getByLabelText("Desk Frequency MHz"), { target: { value: "7.025000" } });
   expect(draft()).toMatchObject({ ...initial, frequencyHz: 7025000, band: "40m", sig: "COTA", sigInfo: "COTA OM-0001", potaReference: "SK-0001" });
-  expect((screen.getByLabelText("Follow radio") as HTMLInputElement).checked).toBe(false);
+  expect(screen.queryByLabelText("Follow radio")).toBeNull();
   fireEvent.change(screen.getByLabelText("Desk UTC time"), { target: { value: "23:15:30" } });
   expect(draft().start).toBe("2026-10-11T23:15:30Z");
 });

@@ -12,7 +12,6 @@ import { nativeSpotEditor, useSpotEditor } from "./useSpotEditor";
 import { SpotActivationStatus } from "./SpotActivationStatus";
 import { StableFeedbackLayer } from "./StableFeedbackLayer";
 import { useReferenceEvidence } from "./useReferenceEvidence";
-import { useFollowRadio } from "./useFollowRadio";
 import { invoke } from "@tauri-apps/api/core";
 import { validSpotActivationSnapshot } from "./spotActivation";
 import { loadReadRadioJournal, type ReadRadioJournal } from "./readRadioJournal";
@@ -46,7 +45,6 @@ export function DetachedQSOSurface() {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const referenceEvidence = useReferenceEvidence(state.draft, state.base?.generation, request);
   const [error, setError] = useState("");
-  const nativeFollow = useFollowRadio();
   const loggedFeedback = useQSOLoggedToast();
   const [working, setWorking] = useState(false), [closing, setClosing] = useState(false);
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
@@ -138,9 +136,6 @@ export function DetachedQSOSurface() {
     localInput.current = value;
     session.setLocalInputPending(value);
   }, [session]);
-  const setFollow = useCallback((value: boolean) => {
-    void nativeFollow.set(value).catch(cause => report(cause instanceof Error ? cause.message : "Follow Radio authority is unavailable."));
-  }, [nativeFollow.set, report]);
   useEffect(() => protectOperatorDraftClose(cannotClose, explainClose, report, closeState), [cannotClose, explainClose, report, closeState]);
   const setDraft = useCallback((next: SetStateAction<Record<string, any> | null>) => {
     const current = session.getSnapshot();
@@ -181,7 +176,6 @@ export function DetachedQSOSurface() {
   return <div className="app live monitor-app detached-qso-app"><main className="qso-feedback-area live-feedback-host" aria-label="Detached Log QSO">
     {loggedFeedback.toast}
     <StableFeedbackLayer>
-    {nativeFollow.error && <p className="live-error" role="status">{nativeFollow.error}</p>}
     {error && <p className="live-error" role="alert">{error}</p>}
     {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
@@ -190,11 +184,11 @@ export function DetachedQSOSurface() {
     <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
     {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
       busy={working || closing || blocked} draftLocked={working || closing || blocked} request={request} refresh={state.base?.revision ?? 0}
-      follow={nativeFollow.state?.enabled === true} setFollow={setFollow} radioControls={false} followControls onReadRadio={readRadio} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
+      follow={false} setFollow={() => {}} radioControls={false} onReadRadio={readRadio} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
       <button className="detached-qso-fill" type="button" disabled={working || closing || blocked || !normalizedCall(state.draft?.call) || normalizedCall(lookup?.call) !== normalizedCall(state.draft?.call)} onClick={() => setDraft(current => fillEmptyLookupFields(current, lookup))}>Fill empty fields from lookup</button></> :
     <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={save} clear={clear} inspector={false}
       busy={working || closing || blocked} draftLocked={working || closing || blocked}
-      lookup={lookup} previous={previous} follow={nativeFollow.state?.enabled === true} setFollow={setFollow} request={request} radioControls={false} followControls onReadRadio={readRadio}
+      lookup={lookup} previous={previous} follow={false} setFollow={() => {}} request={request} radioControls={false} onReadRadio={readRadio}
       onLocalInputState={inputState}
       canAcceptLocalInput={acceptsInput}
       powerState={state.base?.power} powerIntent={state.powerIntent} automaticPowerEnabled={state.base?.power?.enabled === true}

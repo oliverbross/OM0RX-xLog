@@ -9,13 +9,13 @@ function fixture(){let retained:string[]=[];const receipts=new Map<string,Amplif
     expect(retained).toContain(p.operation_id);const r:AmplifierReceipt={operation_id:p.operation_id,target:p.target,action:p.action,status:"acknowledged"};receipts.set(p.operation_id,r);return r;
   });return{request,journal,receipts,session:new AmplifierTransitionSession(request,journal)};
 }
-it("persists exact native authority before one explicit send; acknowledgement stays unconfirmed",async()=>{const f=fixture();expect(await f.session.transition("operate")).toEqual({accepted:true,confirmed:false});expect(f.session.getSnapshot().pending).toEqual([]);expect(f.session.getSnapshot().message).toContain("unconfirmed");expect(f.request.mock.calls.filter(([p])=>p.action==="operate")).toHaveLength(1);});
+it("persists exact native authority before one explicit send; acknowledgement is silent",async()=>{const f=fixture();expect(await f.session.transition("operate")).toEqual({accepted:true,confirmed:false});expect(f.session.getSnapshot().pending).toEqual([]);expect(f.session.getSnapshot().message).toBe("");expect(f.request.mock.calls.filter(([p])=>p.action==="operate")).toHaveLength(1);});
 it("lost reply reload recovers terminal tombstone by ID without replay",async()=>{const f=fixture(),normal=f.request.getMockImplementation()!;f.request.mockImplementation(async p=>{const r=await normal(p);if(p.action==="operate")throw new Error("Lost ACK");return r;});await expect(f.session.transition("operate")).rejects.toThrow("Lost ACK");const id=f.session.getSnapshot().pending[0];const remount=new AmplifierTransitionSession(f.request,f.journal);await remount.refresh();expect(remount.getSnapshot().pending).toEqual([]);expect(f.request).toHaveBeenCalledWith({action:"receipt",operation_id:id});expect(f.request.mock.calls.filter(([p])=>p.action==="operate")).toHaveLength(1);});
 it("unknown Operate blocks acquisition but never urgent Standby; review is receipt-only",async()=>{const f=fixture(),normal=f.request.getMockImplementation()!;f.request.mockImplementation(async p=>{const r=await normal(p);if(p.action==="operate"){r.status="unknown";r.detail={code:"operate-rollback-incomplete",message:"drive proof failed"};}return r;});await expect(f.session.transition("operate")).rejects.toThrow("operate-rollback-incomplete");const old=f.session.getSnapshot().pending[0];await expect(f.session.transition("operate")).rejects.toThrow("Standby remains available");await f.session.transition("standby");const message=f.session.getSnapshot().message;await f.session.review(old);expect(f.session.getSnapshot().message).toBe(message);expect(f.session.getSnapshot().pending).toEqual([]);});
 it("pending Operate allows Standby and reverse completion cannot overwrite its feedback",async()=>{const f=fixture(),normal=f.request.getMockImplementation()!;let release!:(r:any)=>void;let old:AmplifierReceipt|undefined;
   f.request.mockImplementation(async p=>{const r=await normal(p);if(p.action==="operate"){old={...r,status:"pending"};f.receipts.set(r.operation_id,old!);return new Promise(resolve=>{release=resolve;});}return r;});
   const operate=f.session.transition("operate");await vi.waitFor(()=>expect(release).toBeTypeOf("function"));await f.session.transition("standby");const message=f.session.getSnapshot().message;
-  release({...old,status:"acknowledged"});await operate;expect(f.session.getSnapshot().message).toBe(message);expect(message).toContain("standby");expect(f.session.getSnapshot().pending).toEqual([]);
+  release({...old,status:"acknowledged"});await operate;expect(f.session.getSnapshot().message).toBe(message);expect(message).toBe("");expect(f.session.getSnapshot().pending).toEqual([]);
 });
 it("late receipt reads never replace newer Standby status",async()=>{const f=fixture();await f.session.transition("operate");const old=[...f.receipts.keys()][0];const normal=f.request.getMockImplementation()!;let release!:(r:any)=>void;f.request.mockImplementation(p=>p.action==="receipt"?new Promise(resolve=>{release=resolve;}):normal(p));const check=f.session.check(old);await f.session.transition("standby");const message=f.session.getSnapshot().message;release(f.receipts.get(old));await check;expect(f.session.getSnapshot().message).toBe(message);});
 it("later acknowledged Standby retires an older deferred Operate snapshot even when it returns current native authority",async()=>{
@@ -26,7 +26,7 @@ it("later acknowledged Standby retires an older deferred Operate snapshot even w
   release({target:{...target,control_revision:target.control_revision+1,observation_revision:target.observation_revision+1},receipts:[]});
   await rejected;expect(f.request.mock.calls.filter(([p])=>p.action==="operate")).toHaveLength(0);
   expect(f.request.mock.calls.filter(([p])=>p.action==="standby")).toHaveLength(1);expect(f.session.getSnapshot().pending).toEqual([]);
-  expect(f.session.getSnapshot().message).toBe(message);expect(message).toContain("standby acknowledged");
+  expect(f.session.getSnapshot().message).toBe(message);expect(message).toBe("");
   f.request.mockImplementation(normal);await f.session.transition("operate");expect(f.request.mock.calls.filter(([p])=>p.action==="operate")).toHaveLength(1);
 });
 it("independent Desk and Monitor sessions preserve the native preparation fence despite a delayed fresh Desk target",async()=>{
@@ -46,7 +46,7 @@ it("independent Desk and Monitor sessions preserve the native preparation fence 
   const old=desk.transition("operate"),rejected=expect(old).rejects.toThrow("Native preparation superseded");
   await monitor.transition("standby");releaseDesk({target:{...target,control_revision:target.control_revision+2,observation_revision:target.observation_revision+2},receipts:[]});await rejected;
   expect(admitted).toEqual(["standby"]);expect([...receipts.values()].map(r=>r.action)).toEqual(["standby"]);
-  await desk.check(desk.getSnapshot().pending[0]);expect(desk.getSnapshot().pending).toEqual([]);expect(monitor.getSnapshot().message).toContain("standby acknowledged");
+  await desk.check(desk.getSnapshot().pending[0]);expect(desk.getSnapshot().pending).toEqual([]);expect(monitor.getSnapshot().message).toBe("");
 });
 it("storage failure prevents dispatch and changed selection/acceptance cannot relabel native target",async()=>{const f=fixture();const failing=new AmplifierTransitionSession(f.request,{read:()=>[],write:()=>{throw new Error("storage failed");}});await expect(failing.transition("standby")).rejects.toThrow("storage failed");expect(f.request.mock.calls.some(([p])=>p.action==="standby")).toBe(false);
   await expect(f.session.transition("operate",{selection:{provider:"direct_agent",generation:3,selection_id:target.selection_id}} as any)).rejects.toThrow("exact Agent");

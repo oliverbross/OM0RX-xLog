@@ -64,6 +64,14 @@ struct PendingRadioWrites: Sendable {
 }
 
 public actor RemoteAgentClient: RadioControlling {
+    // The guarded Remote Agent tune route is serialized with station safety reads and
+    // has been observed taking just over seven seconds across the AU-SK link. A lost
+    // reply is never replayed. The one exception is an explicit station-busy rejection:
+    // the Agent guarantees that response was returned before the FLEX command was sent,
+    // so a fresh request identity may wait for the prior guarded writer to drain.
+    static let receiveTuneCommandTimeout: TimeInterval = 12
+    static let receiveTuneBusyWait: Duration = .seconds(12)
+    static let receiveTuneRetryableFailures: Set<String> = ["station-busy"]
     public typealias StateHandler = @Sendable (RadioConnectionState, String) -> Void
     public typealias SnapshotHandler = @Sendable (RadioSnapshot) -> Void
 
@@ -220,19 +228,52 @@ public actor RemoteAgentClient: RadioControlling {
         let normalized = mode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !normalized.isEmpty else { throw XCatError.invalidMode }
         guard value.remoteStationStatus?.supportedCommands.contains("tune_simplex") == true else {
-            try await tuneSimplexLegacy(frequencyHz, mode: normalized)
+            try await tuneSimplexLegacyBounded(frequencyHz, mode: normalized)
             return
         }
-        // Keep the existing one-request fast path for an already-simplex A.
-        if value.slice.uppercased() == "A", value.transmitSlice.uppercased() == "A" {
-            try await setFrequencyAndMode(frequencyHz, mode: normalized)
-            return
-        }
-        try await execute(.tuneSimplex(frequencyHz, mode: normalized))
+        // The Agent's guarded simplex transaction owns radio routing and its
+        // authoritative readback even when the last observation already showed
+        // A/A.  Substituting set_frequency_mode here bypassed that transaction:
+        // the command could acknowledge while the physical radio stayed on the
+        // previous target, leaving native spot activation uncertain.
+        try await executeReceiveTune(.tuneSimplex(frequencyHz, mode: normalized))
+        recordSimplexTarget(frequencyHz, mode: normalized)
+    }
+
+    private func recordSimplexTarget(_ frequencyHz: Int64, mode: String) {
         pendingWrites.expectFrequency(frequencyHz, vfo: "A")
-        pendingWrites.expectMode(normalized, vfo: "A")
+        pendingWrites.expectMode(mode, vfo: "A")
         publishPendingWrites()
         scheduleFrequencyVerification(frequencyHz, vfo: "A")
+    }
+
+    private func tuneSimplexLegacyBounded(_ frequencyHz: Int64, mode: String) async throws {
+        let before = value
+        if before.slice.uppercased() != "A" {
+            try await execute(.receiveVFO("A"), attempts: 1,
+                              timeoutInterval: Self.receiveTuneCommandTimeout)
+        }
+        if before.transmitSlice.uppercased() != "A" {
+            try await execute(.split(false, txFrequencyHz: nil), attempts: 1,
+                              timeoutInterval: Self.receiveTuneCommandTimeout)
+        }
+        try await executeReceiveTune(.frequencyAndMode(frequencyHz, mode: mode, vfo: "A"))
+        recordSimplexTarget(frequencyHz, mode: mode)
+    }
+
+    private func executeReceiveTune(_ command: RemoteAgentCommand) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: Self.receiveTuneBusyWait)
+        while true {
+            do {
+                try await execute(command, attempts: 1, timeoutInterval: Self.receiveTuneCommandTimeout)
+                return
+            } catch let failure as RemoteAgentCommandFailure
+                where Self.receiveTuneRetryableFailures.contains(failure.code) {
+                guard clock.now < deadline else { throw failure }
+                try await Task.sleep(for: .milliseconds(250))
+            }
+        }
     }
 
     public func setSecondaryFrequency(_ frequencyHz: Int64) async throws {
@@ -519,7 +560,7 @@ public actor RemoteAgentClient: RadioControlling {
             } catch {
                 lastError = error
                 if attempt + 1 < attempts {
-                    try? await Task.sleep(for: .milliseconds(200))
+                    try await Task.sleep(for: .milliseconds(200))
                     continue
                 }
             }

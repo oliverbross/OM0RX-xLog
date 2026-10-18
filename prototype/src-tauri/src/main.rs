@@ -4,6 +4,7 @@ mod worker;
 mod runtime_profile;
 mod acceptance;
 mod hamlib;
+mod hf_propagation;
 mod rotor;
 mod rotor_session;
 mod rotor_telemetry;
@@ -48,6 +49,7 @@ mod detached_acceptance;
 mod workspace_windows;
 mod workspace_window_runtime;
 mod canvas_close;
+mod operating_module;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -58,6 +60,7 @@ static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
 static SCP_IMPORT_ACTIVE: AtomicBool = AtomicBool::new(false);
+static HISTORY_PREVIEW_ACTIVE: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
 pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
@@ -68,27 +71,35 @@ pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::C
 fn routes_native_rotor_configuration(method: &str, isolated: bool) -> bool {
     !isolated && matches!(method, "workspace_rotor_configuration_save" | "backup_restore" | "workspace_create")
 }
-fn native_only_worker_method(method: &str) -> bool { method == "contest_scp_import_private" }
-fn scp_import_final_admission(pinned: u64, current: u64, exiting: bool, main_present: bool) -> Result<(), String> {
-    if exiting || !main_present { return Err("SCP import was cancelled because the main window closed.".into()); }
-    if pinned != current { return Err("SCP import was cancelled because the worker restarted.".into()); }
+fn native_only_worker_method(method: &str) -> bool {
+    matches!(method, "contest_scp_import_private" | "contest_history_preview_private")
+}
+fn private_picker_final_admission(action: &str, pinned: u64, current: u64, exiting: bool, main_present: bool) -> Result<(), String> {
+    if exiting || !main_present { return Err(format!("{action} was cancelled because the main window closed.")); }
+    if pinned != current { return Err(format!("{action} was cancelled because the worker restarted.")); }
     Ok(())
 }
-fn dispatch_scp_import<T>(pinned:u64,current:u64,exiting:bool,main_present:bool,
+fn dispatch_private_picker<T>(action:&str,pinned:u64,current:u64,exiting:bool,main_present:bool,
     send:impl FnOnce()->Result<T,String>)->Result<T,String>{
-    scp_import_final_admission(pinned,current,exiting,main_present)?;send()
+    private_picker_final_admission(action,pinned,current,exiting,main_present)?;send()
 }
 
-struct SCPImportLease;
-impl SCPImportLease {
-    fn acquire() -> Result<Self, String> {
-        SCP_IMPORT_ACTIVE.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire)
-            .map(|_|Self).map_err(|_|"Another SCP import is already open.".into())
+struct PrivatePickerLease { active: &'static AtomicBool }
+impl PrivatePickerLease {
+    fn acquire(active:&'static AtomicBool,busy:&str) -> Result<Self, String> {
+        active.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire)
+            .map(|_|Self{active}).map_err(|_|busy.into())
     }
 }
-impl Drop for SCPImportLease { fn drop(&mut self){SCP_IMPORT_ACTIVE.store(false,Ordering::Release);} }
-fn with_scp_import_lease<T>(lease:SCPImportLease,operation:impl FnOnce()->T)->T{
+impl Drop for PrivatePickerLease { fn drop(&mut self){self.active.store(false,Ordering::Release);} }
+fn with_private_picker_lease<T>(lease:PrivatePickerLease,operation:impl FnOnce()->T)->T{
     let _lease=lease;operation()
+}
+fn acquire_scp_import_lease()->Result<PrivatePickerLease,String>{
+    PrivatePickerLease::acquire(&SCP_IMPORT_ACTIVE,"Another SCP import is already open.")
+}
+fn acquire_history_preview_lease()->Result<PrivatePickerLease,String>{
+    PrivatePickerLease::acquire(&HISTORY_PREVIEW_ACTIVE,"Another call-history chooser is already open.")
 }
 
 #[cfg(all(test, feature = "contesting-test"))]
@@ -100,6 +111,7 @@ mod contesting_test_native_admission_tests {
         assert!(super::validate_spot_effect("chaser-dx", isolated, false).is_err());
         assert!(super::validate_auto_rotor_set("main", isolated, false).is_err());
         assert!(super::validate_rotor_stop("monitor", isolated, false).is_err());
+        assert!(super::validate_hf_propagation_fetch_profile().is_err(), "Test profile must reject before the HTTP fetch is constructed");
     }
 
     #[test]
@@ -113,20 +125,25 @@ mod contesting_test_native_admission_tests {
     fn scp_path_import_is_native_only() {
         let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
         assert!(super::native_only_worker_method("contest_scp_import_private"));
+        assert!(super::native_only_worker_method("contest_history_preview_private"));
         assert!(!super::native_only_worker_method("contest_scp_query"));
-        assert!(super::scp_import_final_admission(7,7,false,true).is_ok());
-        assert!(super::scp_import_final_admission(7,8,false,true).is_err());
-        assert!(super::scp_import_final_admission(7,7,true,true).is_err());
-        assert!(super::scp_import_final_admission(7,7,false,false).is_err());
+        assert!(super::private_picker_final_admission("SCP import",7,7,false,true).is_ok());
+        assert!(super::private_picker_final_admission("SCP import",7,8,false,true).is_err());
+        assert!(super::private_picker_final_admission("Call-history preview",7,7,true,true).is_err());
+        assert!(super::private_picker_final_admission("Call-history preview",7,7,false,false).is_err());
         let sent=std::sync::atomic::AtomicUsize::new(0);
-        assert!(super::dispatch_scp_import(7,8,false,true,||{sent.fetch_add(1,std::sync::atomic::Ordering::Relaxed);Ok(())}).is_err());
+        assert!(super::dispatch_private_picker("SCP import",7,8,false,true,||{sent.fetch_add(1,std::sync::atomic::Ordering::Relaxed);Ok(())}).is_err());
         assert_eq!(sent.load(std::sync::atomic::Ordering::Relaxed),0);
-        assert!(super::dispatch_scp_import(7,7,true,true,||{sent.fetch_add(1,std::sync::atomic::Ordering::Relaxed);Ok(())}).is_err());
+        assert!(super::dispatch_private_picker("Call-history preview",7,7,true,true,||{sent.fetch_add(1,std::sync::atomic::Ordering::Relaxed);Ok(())}).is_err());
         assert_eq!(sent.load(std::sync::atomic::Ordering::Relaxed),0);
-        let lease=super::SCPImportLease::acquire().unwrap();
-        assert!(super::SCPImportLease::acquire().is_err());
+        let lease=super::acquire_scp_import_lease().unwrap();
+        assert!(super::acquire_scp_import_lease().is_err());
         drop(lease);
-        assert!(super::SCPImportLease::acquire().is_ok());
+        assert!(super::acquire_scp_import_lease().is_ok());
+        let history=super::acquire_history_preview_lease().unwrap();
+        assert!(super::acquire_history_preview_lease().is_err());
+        drop(history);
+        assert!(super::acquire_history_preview_lease().is_ok());
     }
 
     #[test]
@@ -134,17 +151,17 @@ mod contesting_test_native_admission_tests {
         let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
         let (start_sender,start_receiver)=std::sync::mpsc::sync_channel(1);
         let (done_sender,done_receiver)=std::sync::mpsc::sync_channel(1);
-        let lease=super::SCPImportLease::acquire().unwrap();
+        let lease=super::acquire_scp_import_lease().unwrap();
         let operation=tauri::async_runtime::spawn_blocking(move||{
-            start_receiver.recv().unwrap();super::with_scp_import_lease(lease,||());
+            start_receiver.recv().unwrap();super::with_private_picker_lease(lease,||());
             done_sender.send(()).unwrap();
         });
         let waiter=tauri::async_runtime::spawn(async move{let _=operation.await;});
         waiter.abort();
-        assert!(super::SCPImportLease::acquire().is_err());
+        assert!(super::acquire_scp_import_lease().is_err());
         start_sender.send(()).unwrap();
         done_receiver.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
-        assert!(super::SCPImportLease::acquire().is_ok());
+        assert!(super::acquire_scp_import_lease().is_ok());
     }
 
     #[test]
@@ -152,16 +169,16 @@ mod contesting_test_native_admission_tests {
         let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
         let (started_sender,started_receiver)=std::sync::mpsc::sync_channel(1);
         let (finish_sender,finish_receiver)=std::sync::mpsc::sync_channel(1);
-        let lease=super::SCPImportLease::acquire().unwrap();
-        let task=tauri::async_runtime::spawn_blocking(move||super::with_scp_import_lease(lease,||{
+        let lease=super::acquire_scp_import_lease().unwrap();
+        let task=tauri::async_runtime::spawn_blocking(move||super::with_private_picker_lease(lease,||{
             started_sender.send(()).unwrap();finish_receiver.recv().unwrap();
         }));
         started_receiver.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
         task.abort();
-        assert!(super::SCPImportLease::acquire().is_err());
+        assert!(super::acquire_scp_import_lease().is_err());
         finish_sender.send(()).unwrap();
         tauri::async_runtime::block_on(task).unwrap();
-        assert!(super::SCPImportLease::acquire().is_ok());
+        assert!(super::acquire_scp_import_lease().is_ok());
     }
 }
 fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Value, String> {
@@ -279,16 +296,18 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_spot_effect(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let _module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     radio_follow::revoke_silently();
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
-    tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; owner.activate(request) }).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
 }
 #[tauri::command]
 async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_opportunity_effect(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let _module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     radio_follow::revoke_silently();
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
@@ -296,7 +315,7 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
-    tauri::async_runtime::spawn_blocking(move || owner.activate(request)).await
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; owner.activate(request) }).await
         .map_err(|_| "Opportunity acknowledgement unavailable; inspect the existing operation before selecting again".to_string())?
 }
 fn validate_radio_read(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
@@ -318,10 +337,11 @@ fn validate_follow_set(label: &str, isolated: bool, exiting: bool, enabled: bool
 #[tauri::command]
 async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, operation_id: String) -> Result<serde_json::Value, String> {
     validate_radio_read(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let _module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     radio_follow::revoke("An explicit radio read disabled Follow Radio.");
     qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let admission = radio_read::admit();
-    tauri::async_runtime::spawn_blocking(move || { let _admission = admission; radio_read::execute(operation_id) })
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; let _admission = admission; radio_read::execute(operation_id) })
         .await.map_err(|_| "Radio-read task failed; inspect the existing operation before trying again".to_string())?
 }
 #[tauri::command]
@@ -338,8 +358,9 @@ async fn operator_draft_read_radio_recover(window: tauri::WebviewWindow, state: 
 #[tauri::command]
 async fn operator_draft_follow_set(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, enabled: bool, expected_epoch: u64) -> Result<serde_json::Value, String> {
     validate_follow_set(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), enabled)?;
+    let _module_admission = if enabled { Some(operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?) } else { None };
     if enabled { qsy_clear::retire_terminal(); radio_read::retire_terminal(); }
-    tauri::async_runtime::spawn_blocking(move || radio_follow::set(enabled, expected_epoch)).await.map_err(|_| "Follow Radio permission task failed".to_string())?
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; radio_follow::set(enabled, expected_epoch) }).await.map_err(|_| "Follow Radio permission task failed".to_string())?
 }
 #[tauri::command]
 fn operator_draft_follow_settled(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, instance: String, operation_id: String) -> Result<(), String> {
@@ -403,8 +424,10 @@ static AUTOMATIC_ROTOR_COMMANDS: AutomaticRotorCommands = AutomaticRotorCommands
 async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     armed: bool, owner: Option<String>, generation: Option<u64>) -> Result<serde_json::Value, String> {
     validate_auto_rotor_set(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let module_admission = armed.then(|| operating_module::owner()?.admit_current()).transpose()?;
     let command = AUTOMATIC_ROTOR_COMMANDS.begin(armed, || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()), auto_rotor::revoke)?;
     let result = tauri::async_runtime::spawn_blocking(move || {
+        let _module_admission = module_admission;
         // Read the persisted band policy outside the command-ordering lock so
         // an immediate Off can revoke and supersede even if storage is slow.
         let bands = if armed { rotor_session::configuration_change(||
@@ -999,8 +1022,8 @@ async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde
         return Err("SCP import is unavailable in this window.".into());
     }
     let generation=worker::existing_generation()?;
-    let lease=SCPImportLease::acquire()?;
-    tauri::async_runtime::spawn_blocking(move || with_scp_import_lease(lease,||{
+    let lease=acquire_scp_import_lease()?;
+    tauri::async_runtime::spawn_blocking(move || with_private_picker_lease(lease,||{
         let Some(path) = choose_scp_file(window.clone(),generation)? else { return Ok(None) };
         let app=window.app_handle().clone();
         let source_name = path.file_name().and_then(|value| value.to_str())
@@ -1008,14 +1031,41 @@ async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde
             .ok_or("The selected SCP filename is invalid.")?.to_string();
         let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
             "method":"contest_scp_import_private","params":{"path":path.to_string_lossy(),"sourceName":source_name}});
-        dispatch_scp_import(generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+        dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
             app.get_webview_window("main").is_some(),|| {
                 let response=worker::request_existing_generation(request,generation)?;
-                worker::require_existing_generation(generation)?;
+                private_picker_final_admission("SCP import",generation,worker::generation(),
+                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("main").is_some())?;
                 Ok(response)
             }).map(Some)
     })).await
         .map_err(|_| "SCP import worker task failed.".to_string())?
+}
+
+#[tauri::command]
+async fn contest_history_preview(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, String> {
+    if !runtime_profile::CONTESTING_TEST || window.label() != "main" || APP_EXITING.load(Ordering::Acquire) {
+        return Err("Call-history preview is unavailable in this window.".into());
+    }
+    let generation=worker::existing_generation()?;
+    let lease=acquire_history_preview_lease()?;
+    tauri::async_runtime::spawn_blocking(move || with_private_picker_lease(lease,||{
+        let Some(path) = choose_history_file(window.clone(),generation)? else { return Ok(None) };
+        let app=window.app_handle().clone();
+        let source_name = path.file_name().and_then(|value| value.to_str())
+            .filter(|value| !value.is_empty() && value.len() <= 256)
+            .ok_or("The selected call-history filename is invalid.")?.to_string();
+        let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
+            "method":"contest_history_preview_private","params":{
+                "path":path.to_string_lossy(),"sourceName":source_name}});
+        dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+            app.get_webview_window("main").is_some(),|| {
+                let response=worker::request_existing_generation(request,generation)?;
+                private_picker_final_admission("Call-history preview",generation,worker::generation(),
+                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("main").is_some())?;
+                Ok(response)
+            }).map(Some)
+    })).await.map_err(|_| "Call-history preview worker task failed.".to_string())?
 }
 
 #[cfg(target_os = "macos")]
@@ -1026,7 +1076,7 @@ fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option
     let (sender, receiver) = std::sync::mpsc::sync_channel(1);
     let app=window.app_handle().clone();
     window.run_on_main_thread(move || {
-        let selected = dispatch_scp_import(generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+        let selected = dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
             app.get_webview_window("main").is_some(),|| {
             MainThreadMarker::new().ok_or_else(||"SCP chooser is unavailable.".to_string()).map(|main| {
             let panel = NSOpenPanel::openPanel(main);
@@ -1043,10 +1093,44 @@ fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option
     receiver.recv().map_err(|_| "SCP chooser closed unexpectedly.".to_string())?
 }
 
+#[cfg(target_os = "macos")]
+fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::NSString;
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    let app=window.app_handle().clone();
+    window.run_on_main_thread(move || {
+        let selected = dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+            app.get_webview_window("main").is_some(),|| {
+            MainThreadMarker::new().ok_or_else(||"Call-history chooser is unavailable.".to_string()).map(|main| {
+                let panel = NSOpenPanel::openPanel(main);
+                panel.setCanChooseFiles(true); panel.setCanChooseDirectories(false);
+                panel.setAllowsMultipleSelection(false); panel.setCanCreateDirectories(false);
+                panel.setMessage(Some(&NSString::from_str("Choose an operator-managed call-history file")));
+                if panel.runModal() == NSModalResponseOK {
+                    panel.URL().and_then(|url| url.path()).map(|path| std::path::PathBuf::from(path.to_string()))
+                } else { None }
+            })
+        });
+        let _ = sender.send(selected);
+    }).map_err(|_| "Call-history chooser is unavailable.".to_string())?;
+    receiver.recv().map_err(|_| "Call-history chooser closed unexpectedly.".to_string())?
+}
+
+#[cfg(not(target_os = "macos"))]
+fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
+    let app=window.app_handle().clone();
+    dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+        app.get_webview_window("main").is_some(),|| {
+        Ok(rfd::FileDialog::new().set_title("Choose an operator-managed call-history file").pick_file())
+    })
+}
+
 #[cfg(not(target_os = "macos"))]
 fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
     let app=window.app_handle().clone();
-    dispatch_scp_import(generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
+    dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
         app.get_webview_window("main").is_some(),|| {
         Ok(rfd::FileDialog::new().set_title("Choose an operator-managed MASTER.SCP file")
             .add_filter("Super Check Partial", &["scp", "txt"]).pick_file())
@@ -1159,12 +1243,13 @@ async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppH
 async fn monitor_station_action(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, expected: u64, selection_id: String, provider: String, action: String) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     monitor_context::validate(window.label(), runtime_profile::isolated(state.path.is_some()))?;
+    let _module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     if requires_durable_station_action(&action) { return Err("Use the shared durable radio and amplifier owners.".into()); }
     let request = monitor_context::action_request(&provider, &action)?;
     let selection = station_selection::owner(&app)?;
     let telemetry = station_telemetry::owner(&app)?;
-    tauri::async_runtime::spawn_blocking(move || selection.monitor_action(request, expected, &selection_id,
-        || telemetry.monitor_control(&provider, expected, &selection_id, &action)))
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; selection.monitor_action(request, expected, &selection_id,
+        || telemetry.monitor_control(&provider, expected, &selection_id, &action)) })
         .await.map_err(|_| "Monitor action task failed".to_string())?
 }
 
@@ -1199,6 +1284,7 @@ async fn radio_release_request(app: tauri::AppHandle, window: tauri::WebviewWind
 async fn carrier_tune_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     let action=params["action"].as_str().unwrap_or("");
+    let _module_admission = if action == "tune" { Some(operating_module::owner()?.admit_current()?) } else { None };
     carrier_tune::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action {"snapshot"=>&["action"],"tune"=>&["action","operation_id","target"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|o|o.len()!=keys.len() || o.keys().any(|k|!keys.contains(&k.as_str()))) { return Err("Invalid carrier Tune request.".into()); }
@@ -1209,7 +1295,7 @@ async fn carrier_tune_request(app: tauri::AppHandle, window: tauri::WebviewWindo
     if action=="review" {let result=owner.review(&id);for label in ["main","monitor","station-control"] {let _=app.emit_to(label,"xlog:carrier-tune",());}return result;}
     let target=serde_json::from_value::<carrier_tune::Target>(params["target"].clone()).map_err(|_|"Invalid carrier Tune target")?;
     let changed=app.clone();
-    let result=tauri::async_runtime::spawn_blocking(move||owner.tune(&id,target,|request,target|carrier_tune::execute(&app,request,target)))
+    let result=tauri::async_runtime::spawn_blocking(move||{let _module_admission=_module_admission;owner.tune(&id,target,|request,target|carrier_tune::execute(&app,request,target))})
         .await.map_err(|_|"Carrier Tune task ended; inspect its receipt. No Tune will be replayed.".to_string())?;
     for label in ["main","monitor","station-control"] {let _=changed.emit_to(label,"xlog:carrier-tune",());}result
 }
@@ -1224,7 +1310,9 @@ async fn monitor_rotor_stop(window: tauri::WebviewWindow, state: tauri::State<'_
 #[tauri::command]
 async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String>{
     runtime_profile::require_external_io_disabled()?;
-    let action=params["action"].as_str().unwrap_or("");ptt_session::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
+    let action=params["action"].as_str().unwrap_or("");
+    let _module_admission = if matches!(action, "prepare" | "on") { Some(operating_module::owner()?.admit_current()?) } else { None };
+    ptt_session::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action{"snapshot"=>&["action"],"prepare"=>&["action","enabled"],"recover"=>&["action","operation_id","owner_id","target"],"on"|"off"=>&["action","operation_id","target","intent"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|p|p.len()!=keys.len()||p.keys().any(|k|!keys.contains(&k.as_str()))){return Err("Invalid PTT request".into());}
     let owner=ptt_session::owner(&app)?;owner.reconcile(&station_telemetry::owner(&app)?.snapshot()?)?;
@@ -1235,7 +1323,7 @@ async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,st
     if action=="receipt"{return owner.receipt(&id);}if action=="review"{return owner.review(&id);}
     if action=="recover"{let target=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT recovery target")?;let owner_id=params["owner_id"].as_str().ok_or("Missing retained PTT owner")?;let result=ptt_session::recover(&app,&owner,&id,owner_id,target);let _=app.emit_to("main","xlog:ptt-session",());return result;}
     let target=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT target")?;let intent=params["intent"].as_str().ok_or("Missing native PTT preparation")?.to_owned();let on=action=="on";let changed=app.clone();
-    let result=tauri::async_runtime::spawn_blocking(move||owner.apply_admitted(&id,on,target,&intent,|t|ptt_session::preflight(&app,t,on,&intent),|q,t|ptt_session::execute(&app,q,t,&intent))).await.map_err(|_|"PTT task ended; inspect its retained receipt; never replay".to_string())?;
+    let result=tauri::async_runtime::spawn_blocking(move||{let _module_admission=_module_admission;owner.apply_admitted(&id,on,target,&intent,|t|ptt_session::preflight(&app,t,on,&intent),|q,t|ptt_session::execute(&app,q,t,&intent))}).await.map_err(|_|"PTT task ended; inspect its retained receipt; never replay".to_string())?;
     let _=changed.emit_to("main","xlog:ptt-session",());result
 }
 
@@ -1243,6 +1331,7 @@ async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,st
 async fn amplifier_transition_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     let action=params["action"].as_str().unwrap_or("");
+    let _module_admission = if action == "operate" { Some(operating_module::owner()?.admit_current()?) } else { None };
     amplifier_transition::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action {"snapshot"=>&["action"],"prepare"=>&["action","transition"],"operate"|"standby"=>&["action","operation_id","target","preparation"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|o|o.len()!=keys.len() || o.keys().any(|k|!keys.contains(&k.as_str()))) {return Err("Invalid amplifier request".into());}
@@ -1259,7 +1348,7 @@ async fn amplifier_transition_request(app: tauri::AppHandle, window: tauri::Webv
     let target=serde_json::from_value::<amplifier_transition::Target>(params["target"].clone()).map_err(|_|"Invalid amplifier target")?;
     let preparation=serde_json::from_value::<amplifier_transition::Preparation>(params["preparation"].clone()).map_err(|_|"Invalid amplifier preparation")?;
     let action=action.to_owned();let changed=app.clone();
-    let result=tauri::async_runtime::spawn_blocking(move||owner.transition_prepared(&id,&action,target,&preparation,|request,target|amplifier_transition::execute(&app,request,target,&preparation))).await.map_err(|_|"Amplifier task ended; inspect its receipt. No transition will be replayed.".to_string())?;
+    let result=tauri::async_runtime::spawn_blocking(move||{let _module_admission=_module_admission;owner.transition_prepared(&id,&action,target,&preparation,|request,target|amplifier_transition::execute(&app,request,target,&preparation))}).await.map_err(|_|"Amplifier task ended; inspect its receipt. No transition will be replayed.".to_string())?;
     for label in ["main","monitor","station-control"] {let _=changed.emit_to(label,"xlog:amplifier-transition",());}result
 }
 
@@ -1271,10 +1360,15 @@ async fn station_selection_snapshot(window: tauri::WebviewWindow, app: tauri::Ap
     if radio_id != radio_slots::RADIO1 && legacy.is_some() { return Err("Legacy selection applies only to radio1.".into()); }
     let owner = station_selection::owner_for(&app, &radio_id)?;
     let main = window.label() == "main";
-    let value = tauri::async_runtime::spawn_blocking(move || if main { owner.initialize(legacy.as_deref()) } else { owner.snapshot() })
+    let module_admission = main.then(|| operating_module::owner()?.admit_current()).transpose()?;
+    let value = tauri::async_runtime::spawn_blocking(move || { let _module_admission = module_admission; if main { owner.initialize(legacy.as_deref()) } else { owner.snapshot() } })
         .await.map_err(|_| "Radio selection task failed".to_string())??;
     if main && value["provider"].is_string() { station_telemetry::owner_for(&app, &radio_id)?.select_selection(&value, true)?; }
     Ok(value)
+}
+
+fn station_session_changes_state(action: &str) -> bool {
+    !matches!(action, "snapshot" | "receipt" | "review" | "hamlib_catalogue")
 }
 
 #[tauri::command]
@@ -1288,6 +1382,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     }
     let radio_id = params["radio_id"].as_str().ok_or("Missing radio slot.")?.to_owned();
     radio_slots::index(&radio_id)?;
+    let module_admission = station_session_changes_state(&action).then(|| operating_module::owner()?.admit_current()).transpose()?;
     if action == "set_active_radio" {
         if params.as_object().is_none_or(|value| value.len() != 2) { return Err("Invalid active radio request.".into()); }
         let value = radio_slots::set_active(&app, &radio_id)?;
@@ -1320,7 +1415,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     let telemetry = station_telemetry::owner_for(&app, &radio_id)?;
     let changed = app.clone();
     let routed_radio_id = radio_id.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, generation, identity| {
+    let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = module_admission; owner.apply(&params, |request, generation, identity| {
         let requests_tx = (request["method"] == "station_connect" && request["params"]["allow_transmit"] == true)
             || matches!(request["method"].as_str(), Some("hamlib_connect" | "hamlib_reconnect")) && request["params"]["tx_enabled"] == true;
         if requests_tx { radio_slots::claim_active_tx(&app, &routed_radio_id)?; }
@@ -1350,7 +1445,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
                 Err(error) => { if let Err(sync_error) = synchronized { eprintln!("Radio telemetry selection unavailable: {sync_error}"); } Err(error) }
             }
         } else { selection.monitor_action(request, generation, identity, || telemetry.control()) }
-    })).await.map_err(|_| "Station Control task ended; inspect the operation receipt before retrying.".to_string())?;
+    }) }).await.map_err(|_| "Station Control task ended; inspect the operation receipt before retrying.".to_string())?;
     if matches!(action.as_str(), "disconnect" | "disconnect_hamlib" | "disconnect_flex" | "forget")
         && result.as_ref().is_ok_and(|value| value["status"] == "acknowledged") {
         radio_slots::release_tx(&radio_id);
@@ -1363,6 +1458,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
 async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     let action = params["action"].as_str().unwrap_or("");
+    let _module_admission = if action == "manual_rotor_goto" { Some(operating_module::owner()?.admit_current()?) } else { None };
     manual_rotor::validate_surface(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), action)?;
     let owner = station_session::owner(&app)?;
     if action == "snapshot" {
@@ -1385,7 +1481,7 @@ async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindo
         return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, "manual_rotor_goto");
     }
     let changed = app.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || owner.apply(&params, |request, _, _| manual_rotor::execute(&params, request)))
+    let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; owner.apply(&params, |request, _, _| manual_rotor::execute(&params, request)) })
         .await.map_err(|_| "Manual rotor task ended; inspect its receipt before retrying.".to_string())?;
     for label in ["main", "station-control", "monitor"] { let _ = changed.emit_to(label, "xlog:station-session", ()); }
     result
@@ -1396,13 +1492,14 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     cw_session::validate_surface(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
+    let _module_admission = if matches!(params["action"].as_str(), Some("arm" | "send")) { Some(operating_module::owner()?.admit_current()?) } else { None };
     let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
     if matches!(params["action"].as_str(), Some("arm" | "send"))
         && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
     let owner = cw_session_backend::owner(&app); let label = window.label().to_owned();
-    tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
         let _output=if matches!(params["action"].as_str(),Some("arm"|"send")) {Some(carrier_tune::reserve_output()?)}else{None};
         owner.request(&label, &client, sequence, focused, &params)
     })
@@ -1412,8 +1509,16 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
 #[tauri::command]
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
+    let mut request = request;
+    let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
+    let method = method_value.as_str();
+    let _module_admission = if let Some(module) = operating_module::worker_module(&request) {
+        Some(operating_module::owner()?.admit(module, request["operatingContext"].as_str())?)
+    } else if operating_module::shared_worker_mutation(&request) {
+        Some(operating_module::owner()?.admit_current()?)
+    } else { None };
+    if let Some(object) = request.as_object_mut() { object.remove("operatingContext"); }
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
-    let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
     if native_only_worker_method(method) {
         return Err("Use the native SCP file chooser.".into());
     }
@@ -1455,12 +1560,12 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if state.path.is_none() && cluster_session::handles(method) && !local_history_reader(window.label(), method) {
         cluster_session::validate(window.label(), &request)?;
         let session = cluster_session::owner(&app)?;
-        return tauri::async_runtime::spawn_blocking(move || session.request(request))
+        return tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; session.request(request) })
             .await.map_err(|_| "Cluster session task failed".to_string())?;
     }
     if method.starts_with("winkeyer_") {
         winkeyer::validate_surface(window.label())?;
-        return tauri::async_runtime::spawn_blocking(move || winkeyer::request(request))
+        return tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; winkeyer::request(request) })
             .await.map_err(|_| "WinKeyer task failed".to_string())?;
     }
     if method == "station_action" && request["params"]["action"] == "rotor_stop" {
@@ -1480,7 +1585,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
             worker::validate_surface(window.label(), &request)?;
         }
         let shared = state.path.is_none();
-        return tauri::async_runtime::spawn_blocking(move || if shared { rotor_session::request(request) } else { rotor::request(request) })
+        return tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; if shared { rotor_session::request(request) } else { rotor::request(request) } })
             .await.map_err(|_| "Rotor task failed".to_string())?;
     }
     if method.starts_with("hamlib_") {
@@ -1495,7 +1600,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         let _telemetry_fence = if station_telemetry::changes_radio(&request) { Some(station_telemetry::owner(&app)?.control()?) } else { None };
         let _auto_change = if station_telemetry::changes_radio(&request) { Some(auto_rotor::canonical_will_change()) } else { None };
         let selection = if station_telemetry::changes_radio(&request) { Some(station_selection::owner(&app)?) } else { None };
-        return tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) } else { hamlib::request(request) })
+        return tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; if let Some(selection) = selection { selection.control(request) } else { hamlib::request(request) } })
             .await.map_err(|_| "Hamlib task failed".to_string())?;
     }
     worker::validate_surface(window.label(), &request)?;
@@ -1521,12 +1626,12 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
-    let result = tauri::async_runtime::spawn_blocking(move || if let Some(selection) = selection { selection.control(request) }
+    let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; if let Some(selection) = selection { selection.control(request) }
         else if rotor_configuration_save {
             rotor_session::save_configuration(request)
         }
         else if rotor_configuration_mutation { rotor_session::configuration_change(|| worker::request(request)) }
-        else { worker::request(request) })
+        else { worker::request(request) } })
         .await
         .map_err(|_| "Worker task failed".to_string())?;
     drop(auto_change);
@@ -1574,6 +1679,81 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         }
     }
     result
+}
+
+#[tauri::command]
+fn operating_module_status() -> Result<serde_json::Value, String> {
+    operating_module::owner()?.snapshot()
+}
+
+fn normal_operator_windows_open(app: &tauri::AppHandle) -> Vec<&'static str> {
+    ["log-qso", "logbook", "cw"].into_iter().filter(|label| app.get_webview_window(label).is_some()).collect()
+}
+
+fn require_module_transition_idle(app: &tauri::AppHandle) -> Result<(), String> {
+    let open = normal_operator_windows_open(app);
+    if !open.is_empty() { return Err(format!("Close these operator windows before changing module: {}.", open.join(", "))); }
+    if worker::requests_in_flight() != 0 { return Err("Wait for the current station or logbook operation to finish before changing module.".into()); }
+    if SPOT_ACTIVATION.get().and_then(|owner| owner.snapshot().ok()).is_some_and(|value| value["reservationActive"] == true)
+        || qsy_clear::reservation_active() || radio_read::reservation_active() || radio_follow::reservation_active() {
+        return Err("Resolve the protected draft or radio operation before changing module.".into());
+    }
+    if let Some(owner) = cw_session_backend::existing() {
+        let state = owner.snapshot()?;
+        if state["pending"] == true || state["armed"] == true || !state["owner"].is_null() {
+            return Err("Stop CW and verify that output is idle before changing module.".into());
+        }
+    }
+    if !carrier_tune::owner(app)?.snapshot()?["receipts"].as_array().is_some_and(|value| value.is_empty()) {
+        return Err("Resolve the retained carrier Tune receipt before changing module.".into());
+    }
+    let ptt = ptt_session::owner(app)?.snapshot()?;
+    if !ptt["release_required"].is_null() || !ptt["receipts"].as_array().is_some_and(|value| value.is_empty()) {
+        return Err("Resolve the retained PTT receipt and verify RX before changing module.".into());
+    }
+    Ok(())
+}
+
+fn retire_for_module_restart(app: &tauri::AppHandle) -> Result<(), String> {
+    carrier_tune::revoke_output_intent()?;
+    radio_follow::revoke("The operating module changed. Follow Radio is off.");
+    auto_rotor::revoke();
+    if let Some(owner) = cw_session_backend::existing() { owner.stop()?; }
+    rotor_session::shutdown(); station_identity::shutdown(); dx_alerts::shutdown(); propagation_session::shutdown();
+    auto_rotor_reconcile::shutdown(); logbook_events::shutdown(); workspace_window_runtime::shutdown();
+    cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+    detached_geometry::shutdown(app);
+    Ok(())
+}
+
+#[tauri::command]
+async fn operating_module_switch(app: tauri::AppHandle, window: tauri::WebviewWindow,
+    _state: tauri::State<'_, acceptance::Acceptance>, target: String, context: String) -> Result<serde_json::Value, String> {
+    let rejected = |message: String| serde_json::json!({"status":"rejected","message":message,"servicesRetired":false});
+    let failed = |message: String| serde_json::json!({"status":"failed","message":message,"servicesRetired":true});
+    if window.label() != "main" { return Ok(rejected("Only the main workspace can change operating module.".into())); }
+    if let Err(error) = operating_module::validate_target(&target, runtime_profile::CONTESTING_TEST) {
+        return Ok(rejected(error));
+    }
+    let owner = operating_module::owner()?;
+    let target = match owner.begin(&target, &context) {
+        Ok(target) => target,
+        Err(error) => return Ok(rejected(error)),
+    };
+    if let Err(error) = require_module_transition_idle(&app) {
+        owner.cancel();
+        return Ok(rejected(format!("Operating module was not changed. {error}")));
+    }
+    if let Err(error) = retire_for_module_restart(&app) {
+        // Retirement is not transactional across station services. Keep the
+        // native authority closed until restart once any retirement may have
+        // begun, even though the persisted choice still names the old owner.
+        return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station-service retirement may have started.")));
+    }
+    if let Err(error) = owner.commit(target) {
+        return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station services were retired.")));
+    }
+    app.restart()
 }
 
 #[tauri::command]
@@ -1650,8 +1830,19 @@ fn validate_detached_open(label: &str) -> Result<(), String> {
 }
 
 async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::open(&app, &kind))
+    let _module_admission = if matches!(kind.as_str(), "log-qso" | "logbook" | "cw") { Some(operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?) } else { None };
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; workspace_window_runtime::open(&app, &kind) })
         .await.map_err(|_| "Native workspace window task failed".to_string())?
+}
+
+#[tauri::command]
+async fn hf_propagation_fetch(window: tauri::WebviewWindow, request: hf_propagation::FetchRequest) -> Result<String, String> {
+    validate_hf_propagation_fetch_profile()?;
+    hf_propagation::fetch(window.label(), request).await
+}
+
+fn validate_hf_propagation_fetch_profile() -> Result<(), String> {
+    runtime_profile::require_external_io_disabled()
 }
 
 // Called only by the serialized native owner, never from the UI message loop.
@@ -2016,13 +2207,16 @@ fn main() {
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
         .setup(|app| {
+            let module_path = app.path().app_data_dir().map_err(std::io::Error::other)?;
+            operating_module::install(module_path).map_err(std::io::Error::other)?;
+            let normal_module = operating_module::owner().and_then(|owner| owner.snapshot()).map_err(std::io::Error::other)?["selected"] == "normal_logging";
             acceptance::start_watchdog(app.handle().clone());
             // Follow Radio starts disabled and its snapshot is passive. Install
             // the owner for isolated acceptance as well so renderer reads do
             // not fail merely because hardware/session startup is suppressed.
             let activation = activation_owner(app.handle());
             radio_follow::install(app.handle(), activation.editors.clone());
-            if app.state::<acceptance::Acceptance>().path.is_none() && !runtime_profile::CONTESTING_TEST {
+            if normal_module && app.state::<acceptance::Acceptance>().path.is_none() && !runtime_profile::CONTESTING_TEST {
                 qsy_clear::install(app.handle(), activation.editors.clone());
                 radio_read::install(app.handle(), activation.editors.clone());
                 station_identity::install(app.handle());
@@ -2083,7 +2277,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
@@ -2091,9 +2285,10 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
-            acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
+             hf_propagation_fetch,
+             acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,
             acceptance::acceptance_open_window, acceptance::acceptance_window_step, acceptance::acceptance_window_state, acceptance::acceptance_close_window,
             acceptance::acceptance_spot_history_begin, acceptance::acceptance_spot_history_state,
@@ -2136,7 +2331,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -2166,6 +2361,7 @@ mod workspace_layout_tests {
         assert!(super::screen_group_menu_includes("station-control"));
         assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Logbook");
         assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Settings");
+        assert_eq!(super::window_menu_title("OM0RX-xLog — HF Propagation live"), "HF Propagation live");
     }
 
     #[test]
@@ -2237,6 +2433,19 @@ mod workspace_layout_tests {
         }
         for label in ["cw","rotor","station-status","settings","unknown"] {
             assert!(crate::amplifier_transition::validate(label,false,false,"standby").is_err());
+        }
+    }
+
+    #[test]
+    fn station_session_reads_and_recovery_are_shared_but_every_state_change_is_leased() {
+        for action in ["snapshot", "receipt", "review", "hamlib_catalogue"] {
+            assert!(!station_session_changes_state(action), "{action}");
+        }
+        for action in ["save", "save_hamlib", "save_flex", "save_tci", "connect", "connect_hamlib",
+            "reconnect_hamlib", "disconnect_hamlib", "connect_flex", "reconnect_flex", "disconnect_flex",
+            "connect_tci", "disconnect_tci", "forget", "select", "set_active_radio", "manual_tune",
+            "tci_receive_filter", "receive_frequency", "receive_mode", "set_receive_frequency_a", "set_receive_mode_a"] {
+            assert!(station_session_changes_state(action), "{action}");
         }
     }
 

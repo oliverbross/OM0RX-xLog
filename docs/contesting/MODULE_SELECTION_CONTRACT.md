@@ -71,7 +71,29 @@ The source audit caused no canonical edits, package/install action, station
 command or changes to the active module. All implementation gates below remain
 open until the main baseline is runtime-accepted.
 
-### Transition implementation
+### Accepted 1.2.20 baseline refresh
+
+The main task completed its 1.2.20 handoff at
+`e9ef0c564323cf5a79be3d48f5b7389d8b0b1e66`, reporting a signed installation,
+live previous-QSO layout verification and restoration of the operator's prior
+layout. Root independently confirmed the canonical checkout was clean at that
+commit and the installed bundle reports 1.2.20. The live UI evidence belongs to
+the main task; it is not a contesting runtime acceptance.
+
+This source is being integrated in the isolated
+`codex/contest-main-1-2-20-integration` branch. It preserves the newer spot
+activation and observed-radio behavior, signal-report defaults, cluster filters
+and previous-QSO view as one source baseline. The main task has begun 1.2.21 HF
+propagation work, and the user has confirmed that 1.2.22 and 1.2.23 work is also
+planned there. Its checkout and installed app remain untouched. Isolated
+module-transition implementation may proceed against the accepted 1.2.20
+baseline once the source merge checks pass; final canonical integration must
+reconcile the latest accepted main handoff again, including these later
+releases. Root sent the other task the exact branch, current source changes,
+conflict resolutions, test status and pending ownership scope on 18 October.
+The 1.2.20 merge is a compatibility checkpoint, not the final release baseline.
+
+### Transition implementation steps
 
 1. Audit the latest runtime-accepted main source before changing shared native
    ownership. Record its exact installed-source and build provenance.
@@ -112,3 +134,33 @@ open until the main baseline is runtime-accepted.
 - Synthetic tests prove both module directions with all external I/O disabled.
   Packaged three-platform and station-owner behavior require their own proof
   after canonical integration; source and browser checks do not satisfy them.
+
+### Bounded isolated-runtime implementation status
+
+The first implementation is deliberately limited to the isolated Contesting
+Test runtime. It persists one selected module, restarts only after renderer and
+native owners retire, binds exclusive worker writes to a fresh operating
+context, and gives shared station/configuration owners a transition lease for
+the lifetime of their actual dispatch. Reads and durable Stop/receipt/review
+recovery remain available. The Test profile's existing external-I/O fence is
+checked before shared station controls, so these tests cannot prove RF behavior.
+The native target gate checks the compiled `contesting-test` profile directly;
+a generic acceptance path that happens to use isolated storage cannot persist
+Contesting as an unavailable operating choice.
+
+Renderer input admission closes synchronously before the first awaited
+retirement check. Existing text remains visible and retained, while new normal
+or contest edits are refused until the transition resolves. Native switch
+responses distinguish a confirmed pre-retirement refusal from a failure after
+retirement may have started. The former restores renderer and native admission
+so the operator can correct the blocker and retry; the latter keeps both closed
+until restart while preserving the previously persisted module choice.
+
+Production activation remains open. Before Contesting can be selected in an
+integrated runtime, background Normal Logging producers such as WSJT-X ingress,
+automatic sync/upload and related session continuations must be admitted by the
+same selected-module authority or synchronously retired by the restart. A saved
+terminal radio-read receipt is recovery evidence: the renderer checks it before
+switching and clears it only after native/editor reconciliation. A genuinely
+active or unverifiable read remains a blocking fence. Source, browser and Test
+profile results therefore do not claim packaged production exclusivity.

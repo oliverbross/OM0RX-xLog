@@ -94,8 +94,11 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
     case dxccPrefix
     case jarlPrefectureNumber
     case maidenheadGrid4
+    case nonnegativeInteger
+    case alphaToken
+    case locationText
 
-    fileprivate func accepts(_ value: String) -> Bool {
+    func accepts(_ value: String) -> Bool {
         switch self {
         case .serialNumber:
             return Int(value).map { $0 > 0 } == true
@@ -121,6 +124,15 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
         case .maidenheadGrid4:
             return contestASCIIBytes(value, count: 4...4) { byte, index in
                 index < 2 ? (65...82).contains(byte) : contestIsDigit(byte)
+            }
+        case .nonnegativeInteger:
+            return contestASCIIBytes(value, count: 1...64) { byte, _ in contestIsDigit(byte) }
+        case .alphaToken:
+            return contestASCIIBytes(value, count: 1...32) { byte, _ in contestIsUppercaseLetter(byte) }
+        case .locationText:
+            guard value == value.trimmingCharacters(in: .whitespaces), !value.contains("  ") else { return false }
+            return contestASCIIBytes(value, count: 1...32) { byte, _ in
+                contestIsUppercaseLetter(byte) || contestIsDigit(byte) || byte == 32 || byte == 39 || byte == 45
             }
         }
     }

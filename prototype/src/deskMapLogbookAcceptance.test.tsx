@@ -82,7 +82,7 @@ async function setup(options: { changedDraft?: boolean; utcOnly?: boolean; leakC
 it("proves rendered choices, actual table retention, isolated columns, keyboard split and route persistence with read-only worker access", async () => {
   const context = await setup({ utcOnly: true });
   const evidence = await verifyDeskMapLogbook(context.controls);
-  expect(evidence).toMatchObject({ choices: ["Map", "Logbook", "Logbook above map", "Logbook below map"],
+  expect(evidence).toMatchObject({ choices: ["Map", "Logbook", "Prev QSO's + Logbook + Map (below)", "Logbook above map", "Logbook below map"],
     retainedMap: true, retainedTable: true, columnsIndependent: true, keyboardDivider: true,
     routeRemount: true, restoredMap: true, sameDraft: true, stationIO: false });
   expect(evidence.columnWidth).toBeGreaterThan(150);

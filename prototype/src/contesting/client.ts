@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import { isStructuredEntry } from "./types";
 import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
+import type { HistorySelection } from "./contestCallHistory";
 
 type IDFactory = () => string;
 type DigestFactory = (payload: unknown) => Promise<string>;
@@ -443,7 +444,7 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
   else if (method === "contest_sessions") valid = !!v && Array.isArray(v.sessions) && v.sessions.length <= 1_000 && v.sessions.every(x => validSession(x));
   else if (method === "contest_open" || method === "contest_draft_get") {
     const s = object(v?.session), d = object(v?.draft); valid = !!v && validSession(s, params) && s?.sessionID === params.sessionID && validDraft(d, s!, undefined, s?.rule as ContestRuleMetadata, s?.resolvedSerial) && d?.revision === s?.revision;
-  } else if (["contest_create", "contest_draft_apply", "contest_serial_reserve", "contest_qso_commit"].includes(method)) {
+  } else if (["contest_create", "contest_draft_apply", "contest_serial_reserve", "contest_qso_commit", "contest_history_apply"].includes(method)) {
     const s = object(v?.session), d = object(v?.draft), receipt = object(v?.receipt);
     valid = !!v && validSession(s, params) && validDraft(d, params, params.draftID, s?.rule as ContestRuleMetadata, s?.resolvedSerial) && validReceipt(receipt, params) && s?.revision === d?.revision && s?.revision === receipt?.committedRevision;
     if (valid && method === "contest_create") valid = params.expectedRevision === 0 && s?.sessionID === params.sessionID;
@@ -464,7 +465,7 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
   return value as T;
 }
 
-export type ContestMutation = { method: "contest_create" | "contest_draft_apply" | "contest_serial_reserve" | "contest_qso_commit" | "contest_qso_correct" | "contest_qso_delete"; scope: ContestMutationScope; payload: Record<string, unknown> };
+export type ContestMutation = { method: "contest_create" | "contest_draft_apply" | "contest_serial_reserve" | "contest_qso_commit" | "contest_qso_correct" | "contest_qso_delete" | "contest_history_apply"; scope: ContestMutationScope; payload: Record<string, unknown> };
 export class ContestServerError extends Error {
   constructor(readonly code: string, message: string, readonly outcome: "confirmed" | "uncertain") { super(message); this.name = "ContestServerError"; }
 }
@@ -569,6 +570,18 @@ export class ContestClient {
     return this.mutate<ContestCreateResult>(operation);
   }
   async applyDraft(session: ContestSessionSummary, draftID: string, fields: ContestDraftFields) { validateDraftFields(fields, session.rule); return this.mutate<ContestDraftResult>(await this.operation("contest_draft_apply", session.sessionID, session.workspaceGeneration, session.revision, { fields }, draftID)); }
+  async applyHistoryProjection(session: ContestSessionSummary, draftID: string, selection: HistorySelection,
+                               projectionIDs: string[], fields: ContestDraftFields) {
+    validateDraftFields(fields, session.rule);
+    if (!projectionIDs.length || new Set(projectionIDs).size !== projectionIDs.length ||
+        selection.context.sessionID !== session.sessionID || selection.context.workspaceGeneration !== session.workspaceGeneration ||
+        selection.context.sessionRevision !== session.revision || selection.context.draftID !== draftID ||
+        selection.context.inputCallsign !== fields.callsign.trim().toUpperCase())
+      throw new Error("Call-history selection no longer matches the active contest draft.");
+    const payload = { selection: { ...selection.context, recordID: selection.record.recordID }, projectionIDs, fields };
+    return this.mutate<ContestDraftResult>(await this.operation("contest_history_apply", session.sessionID,
+      session.workspaceGeneration, session.revision, payload, draftID));
+  }
   async reserveSerial(session: ContestSessionSummary, draftID: string) { return this.mutate<ContestDraftResult>(await this.operation("contest_serial_reserve", session.sessionID, session.workspaceGeneration, session.revision, {}, draftID)); }
   async commitQSO(session: ContestSessionSummary, draftID: string) { return this.mutate<ContestCommitResult>(await this.operation("contest_qso_commit", session.sessionID, session.workspaceGeneration, session.revision, {}, draftID)); }
   async correctQSO(session: ContestSessionSummary, qso: ContestFullQSO, reason: string) {

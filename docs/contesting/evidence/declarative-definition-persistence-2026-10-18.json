@@ -1,0 +1,71 @@
+{
+  "capturedAt": "2026-10-18T09:33:15+09:30",
+  "branch": "codex/contest-definition-persistence",
+  "baselineCommit": "25a2504edaf8a77698af8b85ade036aba760f8f2",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "scratchPath": "SwiftPM default .build under workingDirectory; no explicit --scratch-path was supplied",
+  "scope": {
+    "schemaVersion": 3,
+    "activeCatalogChanged": false,
+    "activeCatalogSHA256": "4987b84cce1978e43c0a04111841c506f526214f8c1ed44077891957d7c6af69",
+    "catalogPath": "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift",
+    "uiChanged": false,
+    "exportChanged": false
+  },
+  "historicalPilotLog": {
+    "originalPath": "/Users/oliver/.local/state/lean-ctx/tee/XLOG_PORTABLE_ONLY_1_swift_test_--filter_ca9a7017.log",
+    "historicallyVerifiedSHA256": "9f83a30f82934af727fa45132a5d9495c6e8243bb6386f90aad61a15f6f448d5",
+    "status": "The deterministic path was overwritten by a later run. Archive search recovered only hash and selected-line receipts, not the original raw bytes; no replacement log was fabricated."
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --package-path /Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog --jobs 2 --filter ContestDatabaseSnapshotTests > /tmp/xlog-definition-persistence-2026-10-18-snapshot-tests.log 2>&1",
+      "result": "14 tests, 0 failures; includes genuine v2 read-only inspection/copy migration and malformed-v2 rejection",
+      "logPath": "/tmp/xlog-definition-persistence-2026-10-18-snapshot-tests.log",
+      "logSHA256": "a7b69b0f8c149ce8484894c74a3014494a1050195e0285c98c560c98ef1fc853"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --package-path /Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog --jobs 2 --filter XContestStoreTests > /tmp/xlog-definition-persistence-2026-10-18-store-v2-compat.log 2>&1",
+      "result": "77 tests, 0 failures",
+      "componentResults": {
+        "ContestDatabaseSnapshotTests": "14 tests, 0 failures",
+        "ContestDeclarativeRuleStoreTests": "4 tests, 0 failures"
+      },
+      "logPath": "/tmp/xlog-definition-persistence-2026-10-18-store-v2-compat.log",
+      "logSHA256": "75cf80895bebabaa52d09797e2dd21ba4be272f6ad145ebbe1ba19ddf5f47ff7"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --filter XLogPrototypeTests",
+      "result": "466 tests ran; 465 passed and 1 filesystem-isolation expectation failed",
+      "failure": "Test 'A hard-linked database cannot be reopened as the isolated workspace' at LiveLogbookMethodsTests.swift:229 expected an error, but none was thrown and an isolated_workspace status payload was returned",
+      "logPath": "/tmp/xlog-definition-persistence-2026-10-18-broad.log",
+      "logSHA256": "a12be7e593557003cbc7d82e693a6f4fa05cc7bc84c5acae57ab6f2260c142ca",
+      "testSourceSHA256": "b4cd5f8028ab181b4fe1b85fc92fb5d6d1a22aa2f52911e81ae716df61f3c14c",
+      "baselineTestSourceSHA256": "b4cd5f8028ab181b4fe1b85fc92fb5d6d1a22aa2f52911e81ae716df61f3c14c",
+      "classification": "reproduced on baseline 3f55c1c without the persistence migration on the same filesystem; open pre-existing isolation issue, not introduced by this slice",
+      "baselineCommand": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path .build/arrl-dx-core-integration-portable --filter rejectsHardLinkAlias",
+      "baselineLogPath": "/tmp/xlog-persistence-hardlink-baseline-3f55c1c.log",
+      "baselineLogSHA256": "f98b597b816beece2f94396cb70e03d181c6ae1c4d856515ecc860d939a573f4"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "frozenFiles": {
+    "Sources/XContestStore/ContestDatabaseSnapshot.swift": "866bd9515d1fed9991c7b177866e8efb3050652bcaa8ac29297e59f333fd5d6a",
+    "Sources/XContestStore/SQLiteContestStore.swift": "7c7c1a3cf44830ab0f5a2d54689e676ddb377f86e5a8ad53ffe0dfea17701a74",
+    "Sources/XContestStore/StoreModels.swift": "b7a929e684771ede34372325b84194f5ec11c8693c134f993da54409c0df544c",
+    "Tests/XContestStoreTests/ContestDatabaseSnapshotTests.swift": "dc49281bbabb2fab68eff370201b170b39f4a5ca29d8df743fd35665f1bccb27",
+    "Tests/XContestStoreTests/ContestDeclarativeRuleStoreTests.swift": "28f93735703d945b3628482cf99151387176f71dac61d5f34d0562fbe4120784",
+    "Tests/XContestStoreTests/ContestStoreTests.swift": "da43040bb1ed096deae4df81a99b24c08dcc74171deb994ef46520b85d6cd3b2",
+    "docs/contesting/DECLARATIVE_DEFINITION_PERSISTENCE.md": "35bce0811b7301c354d5b1ffd6dec7bb558dfa7b51a8ee57bcedaa12f05a51ad",
+    "docs/contesting/TEN_TEN_DECLARATIVE_PILOT.md": "1caf96c642ebbef4d5f47bc3fadf94fe70c1b0adf7c447b202ed36334cf01135"
+  },
+  "limits": [
+    "Declarative definitions remain outside the active 16-rule catalog.",
+    "Legacy sessions without a persisted definition continue to resolve through the static registry.",
+    "A stored declarative row is validated and resolved before any static registry fallback; corrupt or unsupported stored bytes fail closed.",
+    "Custom export, UI activation, live Python execution, runtime AI, and general code evaluation are outside this slice."
+  ]
+}

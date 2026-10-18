@@ -12,6 +12,7 @@ export type Opportunity = {
   latitude?: number | null; longitude?: number | null; location_source?: string;
   programmes?: string[]; reference_kind?: string; activity?: string; location_accuracy?: string;
   starts_at?: string | null; ends_at?: string | null; latest_spot_at?: string | null;
+  dxcc_history?: { adif: number; entity: string; worked_modes: string[]; confirmed_modes: string[] } | null;
   band_modes?: { band: string; mode: string; worked_count: number; confirmed_count: number }[];
 };
 type Source = { source: string; state: string; count: number; source_url: string; refreshing?: boolean;
@@ -40,6 +41,25 @@ function activity(item: Opportunity): string {
   const date = (value: string) => dateFormatter.format(new Date(value));
   return item.starts_at && item.ends_at && Number.isFinite(Date.parse(item.starts_at)) && Number.isFinite(Date.parse(item.ends_at))
     ? `Scheduled ${date(item.starts_at)}–${date(item.ends_at)}` : "Scheduled operation";
+}
+type DXCCNeed = { text: string; state: "confirmed" | "worked" | "wanted" | "unknown"; title: string };
+export function opportunityDXCCNeed(item: Opportunity): DXCCNeed {
+  const history = item.dxcc_history;
+  if (!history || !Number.isInteger(history.adif) || history.adif < 1) {
+    return { text: "DXCC history unavailable", state: "unknown", title: "This callsign could not be resolved to a DXCC entity." };
+  }
+  const modes = (values: unknown) => Array.isArray(values) ? [...new Set(values.filter((value): value is string =>
+    typeof value === "string" && value.trim().length > 0).map(value => value.trim().toUpperCase()))] : [];
+  const confirmed = modes(history.confirmed_modes);
+  const confirmedSet = new Set(confirmed);
+  const worked = modes(history.worked_modes).filter(value => !confirmedSet.has(value));
+  const entity = typeof history.entity === "string" && history.entity.trim() ? history.entity.trim() : "DXCC entity";
+  const context = `${entity} · DXCC ${history.adif}`;
+  if (!confirmed.length && !worked.length) return { text: "All Time New One · Wanted", state: "wanted", title: `${context} · All Time New One · Wanted` };
+  const parts = [confirmed.length ? `Confirmed on ${confirmed.join(", ")}` : "", worked.length ? `Worked on ${worked.join(", ")}` : ""].filter(Boolean);
+  if (!confirmed.length) parts.push("Confirmation wanted");
+  const text = parts.join(" · ");
+  return { text, state: worked.length ? "worked" : "confirmed", title: `${context} · ${text}` };
 }
 export function opportunityBand(hz: number | null): string {
   if (hz == null) return "";
@@ -141,7 +161,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     if (!element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(entries => {
       const height = entries[0]?.contentRect.height ?? 0;
-      if (height > 0) setPageSize(Math.max(1, Math.floor((height - 36) / 68)));
+      if (height > 0) setPageSize(Math.max(1, Math.floor((height - 36) / 76)));
     });
     observer.observe(element); return () => observer.disconnect();
   }, [snapshot != null]);
@@ -193,12 +213,12 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
       <span aria-live="polite">{rows.length} matching · {snapshot.total_available} available</span></div>
       {snapshot.history_state !== "ready" && <p className="opportunities-warning">Logbook history is unavailable; worked and confirmed labels are withheld.</p>}
       <div className="opportunities-table-wrap" ref={tableRef}><table><thead><tr><th>Call / operation</th><th>Reference</th><th>Band / mode</th><th>Evidence</th><th>History</th>{onSelect && <th>Action</th>}</tr></thead>
-        <tbody>{pageRows.map(item => <tr key={item.id} className={selected === item.id ? "is-selected" : ""}><td><strong>{item.callsign}</strong><small title={item.name}>{item.name || (item.kind === "dxpedition" || item.kind === "special_event" ? item.source : "Name unavailable")}</small></td>
+        <tbody>{pageRows.map(item => { const dxcc = opportunityDXCCNeed(item); return <tr key={item.id} className={selected === item.id ? "is-selected" : ""}><td className="opportunities-call"><strong>{item.callsign}</strong><small title={item.name}>{item.name || (item.kind === "dxpedition" || item.kind === "special_event" ? item.source : "Name unavailable")}</small><span className={`opportunities-dxcc-need is-${dxcc.state}`} title={dxcc.title}>{dxcc.text}</span></td>
           <td><span className={item.reference_status === "verified" ? "opportunities-verified" : ""}>{item.reference ? `${labels[item.reference_kind || item.kind] || item.kind} · ${item.reference}` : labels[item.kind] || item.kind}</span><small title={item.location_source}>{item.location_accuracy === "reference_area" ? "Approximate IOTA group area" : item.reference_status === "not_found" ? "Not in installed directory" : item.reference_status === "not_installed" ? "Directory not installed" : ""}</small></td>
           <td title={activity(item)}>{item.frequency_hz == null ? activity(item) : mhz(item.frequency_hz)}<small>{item.frequency_hz == null ? "Not a live frequency report" : `${item.mode || "Mode not supplied"} · ${activity(item)}`}</small></td>
           <td>{item.latest_spot_at ? `Cluster · ${time(item.latest_spot_at)}` : time(item.observed_at)}<small>{officialLink(item.source_url) ? <a href={officialLink(item.source_url)} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</small></td>
           <td title={item.band_modes?.map(cell => `${cell.band} ${cell.mode}: ${cell.worked_count} worked, ${cell.confirmed_count} confirmed`).join(" · ")}>{!item.reference ? "No reference history" : snapshot.history_state === "ready" ? <>{item.worked_count ? `${item.worked_count} worked` : "Unworked reference"}<small>{item.confirmed_count} confirmed</small></> : "Unknown"}</td>
-          {onSelect && <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td>}</tr>)}
+          {onSelect && <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td>}</tr>})}
           {!rows.length && <tr><td colSpan={onSelect ? 6 : 5} className="opportunities-empty">{(kind === "all" ? busy : kind !== "castle" && pendingSources.includes(priorityFeed(kind))) ? `Loading ${kind === "all" ? "live feeds" : labels[kind]}…` : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
         </tbody></table></div>
       <nav className="opportunities-pagination" aria-label="Chaser pages"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>{rows.length ? currentPage * pageSize + 1 : 0}–{Math.min((currentPage + 1) * pageSize, rows.length)} of {rows.length}</span><button type="button" disabled={(currentPage + 1) * pageSize >= rows.length} onClick={() => setPage(currentPage + 1)}>Next</button>{showMap && <span>{mapSpots.length} located · {rows.length - mapSpots.length} without published coordinates · selection loads a draft only</span>}</nav>

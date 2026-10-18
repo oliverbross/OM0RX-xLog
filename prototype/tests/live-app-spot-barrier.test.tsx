@@ -6,7 +6,7 @@ import { operatorDraftFixture, testWorkspaceGeneration } from "./operator-draft-
 import { contactEditFixture } from "./contact-edit-fixture";
 
 const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanvas: false,
-  nativeEditor: false, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
+  nativeEditor: false, followEnabled: true, activationReady: true, invoke: vi.fn(), follow: vi.fn(), reconcile: vi.fn(),
   readiness: null as null | ((snapshot: any) => { ready: boolean }),
   navigate: undefined as undefined | ((title: string) => void),
   dock: undefined as undefined | ((kind: string) => void),
@@ -15,7 +15,7 @@ const host = vi.hoisted(() => ({ request: vi.fn(), activate: vi.fn(), customCanv
 }));
 vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof import("@tauri-apps/api/core")>(),
   invoke: (command: string, params: any) => command.startsWith("operator_draft_read_radio") ? host.invoke(command, params) : Promise.resolve({}) }));
-vi.mock("../src/live/useFollowRadio", () => ({ useFollowRadio: () => ({ state: { enabled: true }, error: "", set: host.follow }) }));
+vi.mock("../src/live/useFollowRadio", () => ({ useFollowRadio: () => ({ state: { enabled: host.followEnabled }, error: "", set: host.follow }) }));
 vi.mock("../src/live/useSharedCW", () => ({ useSharedCW: () => ({ profile: { showOnDesk: false, macros: [] }, context: null, state: {}, controller: {}, provider: null }) }));
 vi.mock("../src/live/useSpotEditor", async () => {
   const { useEffect } = await import("react");
@@ -41,11 +41,12 @@ vi.mock("../src/live/useAutoRotor", () => ({ useAutoRotor: () => ({ state: null,
 vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_radioId: string, _provider: string, changed: (value: any) => void) => {
   host.telemetry = changed; return () => { host.telemetry = undefined; };
 } }));
-vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, activate: host.activate, reconcile: vi.fn() }) }));
+vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false,
+  activate: host.activate, canActivate: () => host.activationReady, reconcile: vi.fn() }) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Synthetic map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Synthetic conditions</div> }));
-vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button></> }));
-vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button></> }));
+vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button><button onClick={() => onSelect({ id: "newest-report" })}>Select newest report</button></> }));
+vi.mock("../src/live/OperatorWorkspace", () => ({ OperatorWorkspace: ({ onSelect, map }: any) => <>{map}<button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button><button onClick={() => onSelect({ id: "newest-report" })}>Select newest report</button></> }));
 vi.mock("../src/live/LogbookPanel", () => ({ LogbookPanel: ({ onEdit, onWorkingChange }: any) => <><button onClick={() => onEdit({ id: "historical" })}>Edit synthetic contact</button>
   <button onClick={() => onWorkingChange?.(true)}>Begin synthetic logbook work</button><button onClick={() => onWorkingChange?.(false)}>Finish synthetic logbook work</button></> }));
 vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }: any) => host.customCanvas
@@ -53,7 +54,7 @@ vi.mock("../src/live/OperatorCanvas", () => ({ default: ({ panels, traditional }
 
 beforeEach(() => {
   localStorage.clear(); host.request.mockReset(); host.activate.mockReset(); host.customCanvas = false;
-  host.nativeEditor = false; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
+  host.nativeEditor = false; host.followEnabled = true; host.activationReady = true; host.invoke.mockReset(); host.follow.mockReset(); host.follow.mockResolvedValue(undefined); host.reconcile.mockReset();
   host.navigate = undefined; host.dock = undefined; host.close = undefined; host.telemetry = undefined;
   const initial = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
   const draft = operatorDraftFixture(initial);
@@ -122,9 +123,9 @@ it.each(["lost", "mismatched", "uncertain"])("retains a %s main Read radio opera
   await screen.findByText(outcome === "lost" ? /Synthetic Read radio reply lost/ : outcome === "mismatched" ? /outcome could not be verified/ : /Read radio was not confirmed/);
   expect(host.close?.blocked()).toBe(true);
   cleanup(); await openEditor(false);
-  fireEvent.click(screen.getByRole("button", { name: "Read radio" }));
-  await screen.findByText(/Check the existing Read radio activation before reading again/);
-  expect(host.invoke).toHaveBeenCalledOnce();
+  await waitFor(() => expect(host.invoke.mock.calls.filter(([command]) => command === "operator_draft_read_radio_recover")).toHaveLength(1));
+  expect(screen.queryByText(/Check the existing Read radio activation before reading again/)).toBeNull();
+  expect(host.invoke.mock.calls.filter(([command]) => command === "operator_draft_read_radio")).toHaveLength(1);
   const journal = JSON.parse(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")!);
   expect(host.readiness?.({ operationId: crypto.randomUUID(), phase: "preparing" }).ready).toBe(false);
   expect(host.readiness?.({ operationId: journal.operationId, phase: "preparing" }).ready).toBe(true);
@@ -151,9 +152,28 @@ it.each(["confirmed", "blocked"])("recovers a retained main Read radio after rem
     return { operationId, phase, reservationActive: false, tuneConfirmed: false, rotor: "not-requested" };
   });
   await openEditor(false);
-  fireEvent.click(screen.getByRole("button", { name: "Check Read radio" }));
   await waitFor(() => expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull());
   expect(host.invoke).toHaveBeenCalledOnce(); expect(host.close?.blocked()).toBe(false);
+});
+
+it("retires an obsolete Read radio receipt automatically and accepts the next spot", async () => {
+  host.nativeEditor = true; host.followEnabled = false;
+  const operationId = crypto.randomUUID();
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1.readRadio", JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
+  host.invoke.mockImplementation(async (command, params) => {
+    expect(command).toBe("operator_draft_read_radio_recover");
+    expect(params).toEqual({ operationId, generation: testWorkspaceGeneration });
+    return { operationId, phase: "blocked", reservationActive: false, tuneConfirmed: false, rotor: "not-requested",
+      error: "Old receipt retired without replaying a radio read." };
+  });
+  await openEditor(false);
+  await waitFor(() => expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull());
+  expect(screen.queryByRole("checkbox", { name: "Follow radio" })).toBeNull();
+  expect(host.reconcile).toHaveBeenCalledOnce();
+  sidebar("DX Cluster");
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(screen.queryByText(/Follow Radio authority is unavailable|Durable radio-read receipt did not match|Previous activation outcome is uncertain/)).toBeNull();
 });
 
 it("keeps the main editor and Close frozen while native Read radio prepares", async () => {
@@ -294,16 +314,99 @@ it("uses only the latest of rapid successive spot clicks", async () => {
   expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
 });
 
-it("keeps an activation in flight fenced from a second selection", async () => {
+it("retains the latest rapid click while a durable draft receipt is still arriving", async () => {
+  const qso = { id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" };
+  const operationID = crypto.randomUUID();
+  const mutation = { operationID, draftID: qso.id, expectedRevision: 0, generation: testWorkspaceGeneration,
+    action: "replace", qso };
+  const current = { revision: 1, qso, generation: testWorkspaceGeneration };
+  const receipt = { mutation, draft: current };
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1", JSON.stringify({
+    draft: qso, base: { revision: 0, qso, generation: testWorkspaceGeneration }, pending: mutation,
+  }));
+  const backend = host.request.getMockImplementation()!;
+  let receiptChecks = 0;
+  host.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_receipt")
+      return { result: { receipt: ++receiptChecks < 4 ? null : receipt } };
+    if (method === "logbook_operator_draft" && receiptChecks >= 4) return { result: { draft: current } };
+    return backend(method, params);
+  });
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce(), { timeout: 2_000 });
+  expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
+  expect(receiptChecks).toBeGreaterThanOrEqual(4);
+  expect(screen.queryByText(/current QSO operation|current QSO change needs attention/)).toBeNull();
+});
+
+it("replaces a rapid spot while the first selection is still clearing a dirty draft", async () => {
+  await openEditor(false);
+  fireEvent.change(screen.getByLabelText("Desk Name"), { target: { value: "Unsaved lookup text" } });
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(host.activate).toHaveBeenCalledWith({ id: "newer-report" });
+  expect(screen.queryByText(/Resolve the current QSO operation|Check the pending draft operation/)).toBeNull();
+});
+
+it("keeps the latest preflight spot replaceable while the first selection is still settling", async () => {
+  await openEditor(false);
+  fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value: "logbook" } });
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Begin synthetic logbook work" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  expect(host.activate).toHaveBeenCalledWith({ id: "newest-report" });
+  expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
+});
+
+it("retains only the latest selection while an activation is in flight", async () => {
   let complete!: () => void;
   host.activate.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; }));
   await openEditor(false);
   fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
   await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
   fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
   expect(host.activate).toHaveBeenCalledOnce();
   expect(screen.queryByText("Resolve the current QSO operation before selecting another spot.")).toBeNull();
+  expect(screen.queryByText(/Latest spot retained:/)).toBeNull();
+  expect(screen.queryByText(/It will tune/)).toBeNull();
   await act(async () => complete());
+  await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
+  expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
+});
+
+it("drains the latest selection after a stale active reply when the client is ready", async () => {
+  let complete!: () => void;
+  host.activationReady = false;
+  host.activate.mockImplementationOnce(() => new Promise(resolve => { complete = () => {
+    host.activationReady = true;
+    resolve({ phase: "uncertain", reservationActive: true });
+  }; }));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  expect(host.activate).toHaveBeenCalledOnce();
+  await act(async () => complete());
+  await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
+  expect(host.activate).toHaveBeenLastCalledWith({ id: "newer-report" });
+});
+
+it.each(["uncertain", "failed"])("continues with the latest selection after a closed %s operation", async phase => {
+  let complete!: (value: any) => void;
+  host.activate.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  await openEditor(false);
+  fireEvent.click(screen.getByRole("button", { name: "Select synthetic report" }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "Select newer report" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select newest report" }));
+  await act(async () => complete({ phase, reservationActive: false }));
+  await waitFor(() => expect(host.activate).toHaveBeenCalledTimes(2));
+  expect(host.activate).toHaveBeenLastCalledWith({ id: "newest-report" });
 });
 
 it("does not turn a repeated in-flight spot selection into a persistent page error", async () => {

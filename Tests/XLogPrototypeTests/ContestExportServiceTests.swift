@@ -236,6 +236,42 @@ final class ContestExportServiceTests: XCTestCase {
         XCTAssertEqual(createReceipt, afterReceipt)
     }
 
+    func testDeclarativeSnapshotTamperedVersionAndUnknownPolicyNeverFallBackToRegistry() async throws {
+        let definition = try CWUniqueCallDeclarativeDefinitions.archiveDefinition(for: .cwt)
+        let rule = DeclarativeContestRule(definition: definition)
+        let sessionID = fixedUUID(8_001)
+        let fields = [
+            "name": ContestExchangeFieldValue(raw: "OLIVER", normalized: "OLIVER"),
+            "member-or-location": ContestExchangeFieldValue(raw: "1234", normalized: "1234"),
+        ]
+        let session = ContestSessionSnapshot(
+            id: sessionID, workspaceGeneration: generation, rule: rule.metadata.identity,
+            referenceDataVersion: "declarative-tamper", startedAt: baseDate,
+            station: .init(callsign: "OM0RX", entity: nil, sentExchange: "OLIVER 1234",
+                           operatorCallsigns: ["OM0RX"], location: "DX", sentExchangeFields: fields))
+        let stored = StoredContestSession(
+            session: session,
+            metadata: .init(name: "Tampered archive", operatorCallsign: "OM0RX", operatorCategory: "single-op"),
+            revision: 1, createdAt: baseDate)
+        let canonical = String(decoding: try definition.canonicalStorageData(), as: UTF8.self)
+        let corruptions = [
+            canonical.replacingOccurrences(of: "2.0.0-declarative-archive", with: "9.0.0-declarative-archive"),
+            canonical.replacingOccurrences(of: "operatorArchive", with: "futureArchivePolicy"),
+        ]
+        for corrupted in corruptions {
+            let repository = SnapshotOnlyRepository(
+                snapshot: .init(session: stored, drafts: [], activeReservations: [], qsos: [],
+                                canonicalDefinitionData: Data(corrupted.utf8)), afterRead: {})
+            let service = ContestExportService(repository: repository, rules: ContestRuleRegistry([rule]))
+            await XCTAssertThrowsErrorAsync(try await service.export(
+                sessionID: sessionID, expectedWorkspaceGeneration: generation, expectedRevision: 1,
+                generatedAtUTC: baseDate, format: .cabrillo,
+                header: makeHeader(name: "Oliver Operator"))) {
+                XCTAssertEqual($0 as? ContestExportServiceError, .invalidExportInput)
+            }
+        }
+    }
+
     private struct Fixture: Sendable {
         let store: SQLiteContestStore
         let sessionID: UUID

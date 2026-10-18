@@ -20,6 +20,7 @@ on:
       - 'prototype/src-tauri/tauri.contesting-test.conf.json'
       - 'prototype/src-tauri/src/contest_export.rs'
       - 'prototype/src-tauri/src/main.rs'
+      - 'prototype/src-tauri/src/operating_module.rs'
       - 'prototype/src-tauri/src/runtime_profile.rs'
       - 'prototype/src-tauri/src/worker.rs'
       - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
@@ -47,6 +48,7 @@ on:
       - 'prototype/src-tauri/tauri.contesting-test.conf.json'
       - 'prototype/src-tauri/src/contest_export.rs'
       - 'prototype/src-tauri/src/main.rs'
+      - 'prototype/src-tauri/src/operating_module.rs'
       - 'prototype/src-tauri/src/runtime_profile.rs'
       - 'prototype/src-tauri/src/worker.rs'
       - 'Sources/XStationIntegrationCore/ConnectionDoctor.swift'
@@ -118,6 +120,7 @@ jobs:
           printf '%s\n' "$discovered"
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCallHistoryTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCallHistoryProjectionTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestStoreTests\.ContestStoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestADIFExportTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestNAQPADIFExportTests/')" -ge 1
@@ -127,12 +130,14 @@ jobs:
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestJIDXWorkerWireTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestARRLDXWorkerWireTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportServiceTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestDeclarativeExportServiceTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportLaneTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestExportWorkerWireTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestingLaneTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestAssistanceLaneTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestSCPWorkerIntegrationTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestCallHistoryServiceTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestCallHistoryWorkerTests/')" -ge 1
       - name: Verify contest test discovery (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -142,6 +147,7 @@ jobs:
           $discovered | Write-Output
           $core = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCoreTests/' }).Count
           $callHistoryCore = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCallHistoryTests/' }).Count
+          $callHistoryProjection = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCallHistoryProjectionTests/' }).Count
           $store = @($discovered | Where-Object { $_ -match '^XContestStoreTests\.ContestStoreTests/' }).Count
           $adif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestADIFExportTests/' }).Count
           $naqpAdif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestNAQPADIFExportTests/' }).Count
@@ -151,13 +157,15 @@ jobs:
           $jidxWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestJIDXWorkerWireTests/' }).Count
           $arrlDxWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestARRLDXWorkerWireTests/' }).Count
           $service = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportServiceTests/' }).Count
+          $declarativeExportService = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestDeclarativeExportServiceTests/' }).Count
           $lane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportLaneTests/' }).Count
           $wire = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestExportWorkerWireTests/' }).Count
           $contestingLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestingLaneTests/' }).Count
           $assistanceLane = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestAssistanceLaneTests/' }).Count
           $scpWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestSCPWorkerIntegrationTests/' }).Count
           $callHistoryService = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestCallHistoryServiceTests/' }).Count
-          if ($core -lt 1 -or $callHistoryCore -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1) { throw "Expected contest test targets were not discovered." }
+          $callHistoryWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestCallHistoryWorkerTests/' }).Count
+          if ($core -lt 1 -or $callHistoryCore -lt 1 -or $callHistoryProjection -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $declarativeExportService -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1) { throw "Expected contest test targets were not discovered." }
       - name: Test contest core, store, and export support (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
@@ -171,12 +179,14 @@ jobs:
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestJIDXWorkerWireTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestARRLDXWorkerWireTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportServiceTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestDeclarativeExportServiceTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportLaneTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestExportWorkerWireTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestingLaneTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestAssistanceLaneTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestSCPWorkerIntegrationTests
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestCallHistoryServiceTests
+          swift test --jobs 2 --scratch-path .build/contest-platform --filter XLogPrototypeTests.ContestCallHistoryWorkerTests
       - name: Test contest core, store, and export support (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -185,7 +195,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           swift test --jobs 2 --scratch-path .build/contest-platform --filter XContestStoreTests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestNAQPADIFExportTests', 'XLogPrototypeTests.ContestARRLRTTYADIFExportTests', 'XLogPrototypeTests.ContestJIDXADIFExportTests', 'XLogPrototypeTests.ContestARRLDXADIFExportTests', 'XLogPrototypeTests.ContestJIDXWorkerWireTests', 'XLogPrototypeTests.ContestARRLDXWorkerWireTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests', 'XLogPrototypeTests.ContestSCPWorkerIntegrationTests', 'XLogPrototypeTests.ContestCallHistoryServiceTests')) {
+          foreach ($filter in @('XLogPrototypeTests.ContestADIFExportTests', 'XLogPrototypeTests.ContestNAQPADIFExportTests', 'XLogPrototypeTests.ContestARRLRTTYADIFExportTests', 'XLogPrototypeTests.ContestJIDXADIFExportTests', 'XLogPrototypeTests.ContestARRLDXADIFExportTests', 'XLogPrototypeTests.ContestJIDXWorkerWireTests', 'XLogPrototypeTests.ContestARRLDXWorkerWireTests', 'XLogPrototypeTests.ContestExportServiceTests', 'XLogPrototypeTests.ContestDeclarativeExportServiceTests', 'XLogPrototypeTests.ContestExportLaneTests', 'XLogPrototypeTests.ContestExportWorkerWireTests', 'XLogPrototypeTests.ContestingLaneTests', 'XLogPrototypeTests.ContestAssistanceLaneTests', 'XLogPrototypeTests.ContestSCPWorkerIntegrationTests', 'XLogPrototypeTests.ContestCallHistoryServiceTests', 'XLogPrototypeTests.ContestCallHistoryWorkerTests')) {
             swift test --jobs 2 --scratch-path .build/contest-platform --filter $filter -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -241,13 +251,16 @@ jobs:
           export_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests:: -- --list)"
           admission_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests:: -- --list)"
           passive_read_test="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy -- --list)"
-          printf '%s\n%s\n%s\n' "$export_tests" "$admission_tests" "$passive_read_test"
+          module_tests="$(cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test operating_module::tests:: -- --list)"
+          printf '%s\n%s\n%s\n%s\n' "$export_tests" "$admission_tests" "$passive_read_test" "$module_tests"
           test "$(printf '%s\n' "$export_tests" | grep -c '^contest_export::tests::')" -ge 1
           test "$(printf '%s\n' "$admission_tests" | grep -c '^contesting_test_native_admission_tests::')" -eq 5
           test "$(printf '%s\n' "$passive_read_test" | grep -c '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$')" -eq 1
+          test "$(printf '%s\n' "$module_tests" | grep -c '^operating_module::tests::')" -ge 1
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests::
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests::
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy
+          cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test operating_module::tests::
       - name: Discover and run bounded native contest tests (Windows)
         if: runner.os == 'Windows'
         working-directory: prototype/src-tauri
@@ -257,7 +270,8 @@ jobs:
           $filters = @(
             @{ Name = 'export'; Filter = 'contest_export::tests::'; Pattern = '^contest_export::tests::'; Count = 0 },
             @{ Name = 'admission'; Filter = 'contesting_test_native_admission_tests::'; Pattern = '^contesting_test_native_admission_tests::'; Count = 5 },
-            @{ Name = 'passive read'; Filter = 'worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy'; Pattern = '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$'; Count = 1 }
+            @{ Name = 'passive read'; Filter = 'worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy'; Pattern = '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$'; Count = 1 },
+            @{ Name = 'operating module'; Filter = 'operating_module::tests::'; Pattern = '^operating_module::tests::'; Count = 0 }
           )
           foreach ($entry in $filters) {
             $discovered = & cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test $entry.Filter -- --list 2>&1
