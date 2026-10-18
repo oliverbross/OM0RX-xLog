@@ -1,0 +1,324 @@
+{
+  "cabrilloName" : "K1USNSST",
+  "displayName" : "K1USN SST Operator Archive Preview",
+  "dupePolicy" : "perBand",
+  "edition" : "official-rules-and-faq-2026-10-18",
+  "eligibilityPolicy" : {
+    "unrestricted" : {
+
+    }
+  },
+  "entry" : {
+    "adifMode" : "CW",
+    "cabrilloFormatterVersion" : "sst-archive-1",
+    "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+    "cabrilloQSOType" : "CW",
+    "exchange" : {
+      "adifFields" : "exchangeStrings",
+      "received" : "structured",
+      "receivedFields" : [
+        {
+          "acceptedKinds" : [
+            "operatorName"
+          ],
+          "adifField" : "NAME",
+          "id" : "name",
+          "label" : "Name",
+          "maximumUTF8Bytes" : 32,
+          "required" : true
+        },
+        {
+          "acceptedKinds" : [
+            "subdivision"
+          ],
+          "adifField" : "STATE",
+          "id" : "location",
+          "label" : "State, province, or DX",
+          "maximumUTF8Bytes" : 8,
+          "required" : true
+        }
+      ],
+      "sent" : "structured",
+      "sentDefault" : "stationFields",
+      "sentFields" : [
+        {
+          "acceptedKinds" : [
+            "operatorName"
+          ],
+          "adifField" : "MY_NAME",
+          "id" : "name",
+          "label" : "Name",
+          "maximumUTF8Bytes" : 32,
+          "required" : true
+        },
+        {
+          "acceptedKinds" : [
+            "subdivision"
+          ],
+          "adifField" : "MY_STATE",
+          "id" : "location",
+          "label" : "State, province, or DX",
+          "maximumUTF8Bytes" : 8,
+          "required" : true
+        }
+      ]
+    },
+    "mode" : "CW",
+    "modeProfiles" : [
+      {
+        "adifMode" : "CW",
+        "cabrilloQSOType" : "CW",
+        "mode" : "CW",
+        "report" : {
+          "defaultReceived" : "",
+          "defaultSent" : "",
+          "format" : "none",
+          "maximumUTF8Bytes" : 0
+        }
+      }
+    ],
+    "report" : {
+      "defaultReceived" : "",
+      "defaultSent" : "",
+      "format" : "none",
+      "maximumUTF8Bytes" : 0
+    },
+    "scorePolicy" : "pointsTimesMultipliers",
+    "serial" : {
+      "allowedScopes" : [
+
+      ],
+      "requirement" : "none"
+    },
+    "version" : 2
+  },
+  "exportPolicy" : "operatorArchive",
+  "exportProjection" : {
+    "columns" : [
+      {
+        "alignment" : "right",
+        "required" : true,
+        "source" : {
+          "frequencyKHz" : {
+
+          }
+        },
+        "width" : 5
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "mode" : {
+
+          }
+        },
+        "width" : 2
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "date" : {
+
+          }
+        },
+        "width" : 10
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "time" : {
+
+          }
+        },
+        "width" : 4
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "stationCallsign" : {
+
+          }
+        },
+        "width" : 13
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "sentField" : {
+            "_0" : "name"
+          }
+        },
+        "width" : 10
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "sentField" : {
+            "_0" : "location"
+          }
+        },
+        "width" : 8
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "contactedCallsign" : {
+
+          }
+        },
+        "width" : 13
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "receivedField" : {
+            "_0" : "name"
+          }
+        },
+        "width" : 10
+      },
+      {
+        "alignment" : "left",
+        "required" : true,
+        "source" : {
+          "receivedField" : {
+            "_0" : "location"
+          }
+        },
+        "width" : 8
+      }
+    ],
+    "duplicateRecords" : "retainAll",
+    "formatterVersion" : "sst-archive-1",
+    "purpose" : "operatorArchive"
+  },
+  "geographicMultiplier" : {
+    "entityFallback" : {
+      "authority" : "dxcc-entity",
+      "locationToken" : "DX"
+    },
+    "locationFieldID" : "location",
+    "stationLocationFieldID" : "location",
+    "subdivisions" : [
+      {
+        "aliases" : {
+          "NL" : "NF"
+        },
+        "authority" : "sst-canadian-province",
+        "entityADIF" : 1,
+        "values" : [
+          "AB",
+          "BC",
+          "LB",
+          "MB",
+          "NB",
+          "NF",
+          "NS",
+          "NT",
+          "NU",
+          "ON",
+          "PE",
+          "QC",
+          "SK",
+          "YT"
+        ]
+      },
+      {
+        "authority" : "sst-us-lower48-state",
+        "entityADIF" : 291,
+        "values" : [
+          "AL",
+          "AR",
+          "AZ",
+          "CA",
+          "CO",
+          "CT",
+          "DC",
+          "DE",
+          "FL",
+          "GA",
+          "IA",
+          "ID",
+          "IL",
+          "IN",
+          "KS",
+          "KY",
+          "LA",
+          "MA",
+          "MD",
+          "ME",
+          "MI",
+          "MN",
+          "MO",
+          "MS",
+          "MT",
+          "NC",
+          "ND",
+          "NE",
+          "NH",
+          "NJ",
+          "NM",
+          "NV",
+          "NY",
+          "OH",
+          "OK",
+          "OR",
+          "PA",
+          "RI",
+          "SC",
+          "SD",
+          "TN",
+          "TX",
+          "UT",
+          "VA",
+          "VT",
+          "WA",
+          "WI",
+          "WV",
+          "WY"
+        ]
+      }
+    ]
+  },
+  "id" : "k1usn-sst",
+  "multiplierPolicy" : "geographic",
+  "operatorPolicy" : {
+    "output" : "simulation-only",
+    "policy" : "simulated-run-sp-v1",
+    "signalProfiles" : [
+      {
+        "mode" : "CW",
+        "signal" : "cw"
+      }
+    ],
+    "version" : 1
+  },
+  "scoring" : {
+    "clauses" : [
+
+    ],
+    "defaultPoints" : 1
+  },
+  "sourceProvenance" : "K1USN SST rules https://www.k1usn.com/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; packaged operator archive practice preview only, not sponsor submission; remaining limits: schedule enforcement, results reporting, and current sponsor acceptance",
+  "stationEntityRequired" : true,
+  "supportedBands" : [
+    "10m",
+    "15m",
+    "160m",
+    "20m",
+    "40m",
+    "80m"
+  ],
+  "supportedModes" : [
+    "CW"
+  ],
+  "version" : "2.0.0-declarative-archive"
+}

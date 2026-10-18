@@ -3,6 +3,23 @@ import XCTest
 @testable import XContestCore
 
 final class ContestSSTDeclarativeDefinitionTests: XCTestCase {
+    func testReviewedDraftCanRegenerateThePackagedRuntimeResource() throws {
+        let draft = SSTDeclarativeDefinition.draft()
+        XCTAssertEqual(try draft.materialized().definitionDigest,
+                       "ba937a88a00fa25c4244c8f774e1cf712fa12e9a568f794021018027faae30b5")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let encoded = try encoder.encode(draft)
+        XCTAssertEqual(try JSONDecoder().decode(ContestDefinitionDraft.self, from: encoded), draft)
+
+        if let output = ProcessInfo.processInfo.environment["XLOG_SST_PACKAGED_DEFINITION_OUTPUT"] {
+            let url = URL(fileURLWithPath: output)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try encoded.write(to: url, options: .atomic)
+        }
+    }
+
     private let date = Date(timeIntervalSince1970: 1_900_700_000)
     private let referenceVersion = "cty-sst-authority-2026-10-18"
 
@@ -96,7 +113,7 @@ final class ContestSSTDeclarativeDefinitionTests: XCTestCase {
         XCTAssertEqual(try ContestEngine.score([nf], session: session, rule: rule).multiplierCount, 1)
     }
 
-    func testInvalidGeographyCannotOccupyDupeStateAndDefinitionRemainsInactive() throws {
+    func testInvalidGeographyCannotOccupyDupeState() throws {
         let rule = try SSTDeclarativeDefinition.rule()
         let session = makeSession(rule)
         let unresolved = qso(20, session: session, call: "ZZ0ZZ", band: "40m", name: "ZED",
@@ -113,11 +130,13 @@ final class ContestSSTDeclarativeDefinitionTests: XCTestCase {
         XCTAssertEqual(score.qsos.map(\.disposition), [.invalid, .accepted, .invalid, .invalid])
         XCTAssertEqual(score.totalPoints, 1)
         XCTAssertEqual(score.multiplierCount, 1)
-        XCTAssertFalse(try ContestBuiltInDeclarativeCatalog.operatorArchiveEntries().contains {
+        let packaged = try XCTUnwrap(ContestBuiltInDeclarativeCatalog.operatorArchiveEntries().first {
             $0.identity.id == SSTDeclarativeDefinition.draft().id
         })
 
         let definition = try SSTDeclarativeDefinition.definition()
+        XCTAssertEqual(packaged.identity, definition.identity)
+        XCTAssertEqual(packaged.canonicalDefinitionData, try definition.canonicalStorageData())
         XCTAssertEqual(try JSONDecoder().decode(ContestDeclarativeDefinition.self,
                                                 from: definition.canonicalStorageData()), definition)
     }

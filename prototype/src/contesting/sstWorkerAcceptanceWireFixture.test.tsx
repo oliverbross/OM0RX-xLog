@@ -26,11 +26,11 @@ function OperatorHarness({ session, draft, style, sent }: { session: ContestSess
     </button></form>;
 }
 
-describe("SST real-worker pre-activation fixture", () => {
-  it("roundtrips the injected immutable definition through the strict client", async () => {
+describe("SST packaged real-worker fixture", () => {
+  it("roundtrips the packaged immutable definition through the strict client", async () => {
     const catalog = await new ContestClient(catalogRequest(fixture.catalog)).catalog();
     const rule = catalog.rules.find(candidate => candidate.identity.id === "k1usn-sst")!;
-    expect(fixture.scope).toBe("pre-activation injected immutable definition; SST is not in the built-in catalog");
+    expect(fixture.scope).toBe("packaged immutable SST operator archive practice preview; schedule and results reporting remain outside this gate");
     expect(rule.identity).toEqual({ id: "k1usn-sst", version: "2.0.0-declarative-archive",
       edition: "official-rules-and-faq-2026-10-18", sourceRevision: rule.declarativeDefinition!.definitionDigest });
     expect(rule.referenceDataVersion).toBe(fixture.referenceDataVersion);

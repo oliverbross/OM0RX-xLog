@@ -242,7 +242,7 @@
         "cabrilloSha256": "cd9720c642d17f1e90c7322f835ede6ac4a325ac0a393ab56a9fa700f185381d"
       },
       "scpAndRestartObservation": "Seven-record SCP fixture imported; K1A to K1ABC selection retained reports, frequency and exchange. After restart both session cards recovered CW 3 and SSB 4; reopening SSB restored 4 QSOs, 10 points, 8 multipliers, score 80, 14.250 MHz, report 59, sent zone 15 and all 7 SCP records; test ended disarmed with trace cleared. Restart restored counts; the in-session manager-count refresh defect remains open and a narrow fix is underway.",
-      "headlessStatus": "14-profile plus 11-profile matrix underway; SST worker tests frozen and unreviewed; SST inactive",
+      "headlessStatus": "The installed package retains its recorded bounded CQ WW scope. A later source candidate packages SST as an operator-archive practice preview with real worker, strict-client, shared-workspace, scoring, restart, correction/deletion and in-memory export evidence; that source candidate remains separate from installed-package acceptance, schedule enforcement, results reporting, sponsor acceptance and RF",
       "ledger": "16 previews, 78 pending, 0 complete",
       "platformScope": "macOS application builds only; Windows/Linux app builds deferred at user direction"
     }

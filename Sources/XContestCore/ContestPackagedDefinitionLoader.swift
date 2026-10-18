@@ -71,7 +71,7 @@ private struct ContestPackagedDefinitionManifest: Decodable {
 /// Loads the fixed, reviewed archive catalog from data resources. It does not
 /// discover arbitrary files and never evaluates code or adapter identifiers.
 public enum ContestPackagedDefinitionLoader {
-    public static let bundledManifestSHA256 = "8ddcedf31e30fbc3b59249361db4740f16ac6725efcd8a8be291e78a2f1a9502"
+    public static let bundledManifestSHA256 = "88bbcc8ee0f121a7995726cb1262ba2c41a2ec5ac198903c6d8de6efbb826573"
     private static let manifestName = "manifest.json"
     private static let maximumManifestBytes = 64 * 1024
     private static let maximumDefinitionBytes = 256 * 1024

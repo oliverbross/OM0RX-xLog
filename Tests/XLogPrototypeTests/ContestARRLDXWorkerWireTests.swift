@@ -42,8 +42,8 @@ final class ContestARRLDXWorkerWireTests: XCTestCase {
         let catalog = try XCTUnwrap(catalogFrame["result"] as? [String: Any])
         let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 23)
-        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 7)
+        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 8)
 
         struct Scenario {
             let key: String, ruleID: String, mode: String, sentReport: String
