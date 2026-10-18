@@ -527,9 +527,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 guard serial.sessionID == scope.sessionID, serial.draftID == scope.draftID,
                       serialRequirement.allowedScopes.contains(serial.scope),
                       serialScopeMatches,
-                      [.reserved, .transmitted, .uncertain].contains(serial.state),
-                      qso.exchange.rawSent == serial.transmittedText,
-                      qso.exchange.normalizedSent == serial.transmittedText else {
+                      [.reserved, .transmitted, .uncertain].contains(serial.state) else {
                     throw ContestStoreError.reservationMismatch
                 }
                 if rule.metadata.entry.version == .v2 {
@@ -539,6 +537,9 @@ public actor SQLiteContestStore: ContestDurableRepository {
                           value.normalized == serial.transmittedText else {
                         throw ContestStoreError.reservationMismatch
                     }
+                } else if qso.exchange.rawSent != serial.transmittedText
+                            || qso.exchange.normalizedSent != serial.transmittedText {
+                    throw ContestStoreError.reservationMismatch
                 }
                 let committed = ContestSerialReservation(id: serial.id, sessionID: serial.sessionID, draftID: serial.draftID,
                                                          scope: serial.scope, scopeValue: serial.scopeValue, number: serial.number,
