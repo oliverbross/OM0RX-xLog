@@ -61,6 +61,14 @@ describe("operator workspace", () => {
     expect((cells[0].querySelector(".live-cluster-status") as HTMLElement).style.color).toBe("rgb(18, 52, 86)");
     expect((cells[1].querySelector(".live-cluster-status") as HTMLElement).style.color).toBe("rgb(171, 205, 239)");
   });
+  it("marks native RBN rows in the compact Operator Desk table", () => {
+    const preferences = defaultWorkspacePreferences();
+    window.localStorage.setItem(operatorWorkspaceKey, JSON.stringify({ ...preferences, activeTab: "cluster", columns: ["special"] }));
+    const data = projection(1);
+    data.snapshot.spots[0] = { ...data.snapshot.spots[0], source: "rbl", specialTags: [], scoreReasons: ["RBN source"] };
+    mount(data);
+    expect(screen.getByText("RBN").closest("td")?.title).toBe("RBN");
+  });
   it("shows a live For age instead of clock time and advances without a new spot", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date((812_000_000 + 978_307_200) * 1000));

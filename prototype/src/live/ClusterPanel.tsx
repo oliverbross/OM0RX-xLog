@@ -51,7 +51,7 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
-const isRbnSource = (source: string) => source.trim().toLowerCase() === "rbl";
+export const isRbnSource = (source: string) => source.trim().toLowerCase() === "rbl";
 export const clusterRowTint = (status: string, configured?: Record<string, string>): string | undefined =>
   status === "Unknown" ? undefined : `${paletteColor(status, configured, clusterStatusColors)}1F`;
 const emptyFilter: Filter = defaultClusterFilter();
