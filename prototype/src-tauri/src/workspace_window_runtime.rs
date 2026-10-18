@@ -203,6 +203,7 @@ impl Owner {
                     let result = crate::contest_window_context::admit(&reset.context).and_then(|_| {
                         if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
                         close_contest_windows(&self.app)?;
+                        crate::contest_surface::register_context(&reset.context);
                         engines.insert(WorkspaceWindowScope::Contesting, Engine::for_contest(&reset.context));
                         self.publish(WorkspaceWindowScope::Contesting, Some(reset.context.clone()), contest_idle(&reset.context));
                         Ok(())
@@ -216,6 +217,7 @@ impl Owner {
                     });
                     if result.is_ok() {
                         if crate::contest_window_context::invalidate_if(&close.context) {
+                            crate::contest_surface::invalidate_context(&close.context);
                             engines.remove(&WorkspaceWindowScope::Contesting);
                             if let Ok(mut outcomes) = self.outcome.lock() { outcomes.remove(&WorkspaceWindowScope::Contesting); }
                         }
@@ -519,6 +521,7 @@ pub fn created(window: &WebviewWindow) {
 }
 pub fn shutdown() {
     crate::contest_window_context::invalidate();
+    crate::contest_surface::invalidate_all();
     STOPPED.store(true, Ordering::Release);
     if let Some(registered) = OWNER.get() {
         if let Ok(registered) = registered.lock() {
