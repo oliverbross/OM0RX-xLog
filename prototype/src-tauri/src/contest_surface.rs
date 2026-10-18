@@ -491,6 +491,18 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                 "operator key",
             )?;
         }
+        "entry_operator_arm" => {
+            draft(params, &["armed"])?;
+            boolean(&params["armed"], "operator armed state")?;
+        }
+        "entry_operator_style" => {
+            draft(params, &["value"])?;
+            enum_value(
+                &params["value"],
+                &["run", "search-and-pounce"],
+                "operator style",
+            )?;
+        }
         "assistance_query" => {
             draft(params, &["inputCallsign"])?;
             text_value(&params["inputCallsign"], 32, true, "assistance callsign")?;
@@ -580,10 +592,14 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         return Err("The contest surface projection is too large.".into());
     }
     let projection = object(value, "contest surface projection")?;
-    if projection.get("schemaVersion").and_then(Value::as_u64) != Some(1) {
-        return Err("The contest surface projection schema is invalid.".into());
-    }
+    let schema_version = projection
+        .get("schemaVersion")
+        .and_then(Value::as_u64)
+        .ok_or("The contest surface projection schema is invalid.")?;
     if projection.get("status").and_then(Value::as_str) == Some("unavailable") {
+        if schema_version != 1 {
+            return Err("The contest surface projection schema is invalid.".into());
+        }
         return exact(
             projection,
             &["schemaVersion", "status"],
@@ -594,10 +610,16 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         return Err("The contest surface projection status is invalid.".into());
     }
     match panel_id {
-        "active-qso" => validate_entry_projection(projection),
-        "callsign-intelligence" => validate_assistance_projection(projection),
-        "propagation" => validate_statistics_projection(projection),
-        "logbook" => validate_logbook_projection(projection),
+        "active-qso" if schema_version == 1 => validate_entry_projection(projection),
+        "active-qso" if schema_version == 2 => validate_entry_projection_v2(projection),
+        "callsign-intelligence" if schema_version == 1 => {
+            validate_assistance_projection(projection)
+        }
+        "propagation" if schema_version == 1 => validate_statistics_projection(projection),
+        "logbook" if schema_version == 1 => validate_logbook_projection(projection),
+        "active-qso" | "callsign-intelligence" | "propagation" | "logbook" => {
+            Err("The contest surface projection schema is invalid.".into())
+        }
         _ => Err("That contest surface has no ready projection schema.".into()),
     }
 }
@@ -616,6 +638,41 @@ fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
         ],
         "entry projection",
     )?;
+    validate_entry_projection_body(value)
+}
+
+fn validate_entry_projection_v2(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "session",
+            "draft",
+            "descriptor",
+            "operator",
+            "busy",
+            "dirty",
+            "uncertain",
+        ],
+        "entry projection",
+    )?;
+    validate_entry_projection_body(value)?;
+    let sent_field_ids = validate_entry_descriptor(&value["descriptor"])?;
+    validate_entry_operator(&value["operator"])?;
+    let serial = object(&value["descriptor"]["serial"], "entry serial descriptor")?;
+    if serial["reservedSerial"] != value["draft"]["reservedSerial"] {
+        return Err("The entry serial descriptor does not match the current draft.".into());
+    }
+    if let Some(field_id) = serial["allocatedFieldID"].as_str() {
+        if !sent_field_ids.contains(field_id) {
+            return Err("The allocated serial field is not a sent exchange field.".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), String> {
     let session = object(&value["session"], "entry session")?;
     exact(session, &["name", "ruleName", "mode"], "entry session")?;
     for key in ["name", "ruleName"] {
@@ -675,6 +732,184 @@ fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
         boolean(&value[key], key)?;
     }
     Ok(())
+}
+
+fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> {
+    let descriptor = object(value, "entry descriptor")?;
+    exact(
+        descriptor,
+        &["bands", "modes", "sentFields", "serial"],
+        "entry descriptor",
+    )?;
+    unique_text_array(&descriptor["bands"], 32, 16, None, "entry bands")?;
+    unique_text_array(
+        &descriptor["modes"],
+        5,
+        16,
+        Some(&["CW", "SSB", "RTTY", "AM", "FM"]),
+        "entry modes",
+    )?;
+    let mut field_ids = BTreeSet::new();
+    for field in array(&descriptor["sentFields"], 16, "sent exchange fields")? {
+        let field = object(field, "sent exchange field")?;
+        exact(
+            field,
+            &["id", "label", "value", "required", "maximumUTF8Bytes"],
+            "sent exchange field",
+        )?;
+        let field_id = text_value(&field["id"], 64, false, "sent field ID")?;
+        if !field_ids.insert(field_id.into()) {
+            return Err("The sent exchange field IDs are not unique.".into());
+        }
+        text_value(&field["label"], 160, false, "sent field label")?;
+        boolean(&field["required"], "sent field required")?;
+        let maximum = uint_value(&field["maximumUTF8Bytes"], 1024, "sent field maximum")?;
+        if maximum == 0 {
+            return Err("The sent field maximum is invalid.".into());
+        }
+        text_value(&field["value"], maximum as usize, true, "sent field value")?;
+    }
+    let serial = object(&descriptor["serial"], "entry serial descriptor")?;
+    exact(
+        serial,
+        &["requirement", "allocatedFieldID", "reservedSerial"],
+        "entry serial descriptor",
+    )?;
+    let requirement = enum_value(
+        &serial["requirement"],
+        &["none", "requiredForCommit"],
+        "serial requirement",
+    )?;
+    match requirement {
+        "none" if !serial["allocatedFieldID"].is_null() || !serial["reservedSerial"].is_null() => {
+            return Err("A contest without serial allocation cannot publish a serial field.".into())
+        }
+        "requiredForCommit" => {
+            text_value(
+                &serial["allocatedFieldID"],
+                64,
+                false,
+                "allocated serial field",
+            )?;
+            nullable_uint(
+                &serial["reservedSerial"],
+                MAX_SAFE_INTEGER,
+                "reserved serial",
+            )?;
+        }
+        _ => {}
+    }
+    Ok(field_ids)
+}
+
+fn validate_entry_operator(value: &Value) -> Result<(), String> {
+    if value.is_null() {
+        return Ok(());
+    }
+    let operator = object(value, "entry operator")?;
+    exact(
+        operator,
+        &[
+            "output",
+            "armed",
+            "style",
+            "status",
+            "pending",
+            "functionKeys",
+            "readiness",
+            "trace",
+        ],
+        "entry operator",
+    )?;
+    enum_value(&operator["output"], &["simulation-only"], "operator output")?;
+    boolean(&operator["armed"], "operator armed state")?;
+    enum_value(
+        &operator["style"],
+        &["run", "search-and-pounce"],
+        "operator style",
+    )?;
+    enum_value(
+        &operator["status"],
+        &["disarmed", "armed", "waiting", "uncertain"],
+        "operator status",
+    )?;
+    if !operator["pending"].is_null() {
+        enum_value(
+            &operator["pending"],
+            &["reserve-serial", "send", "commit"],
+            "operator pending state",
+        )?;
+    }
+    let mut keys = BTreeSet::new();
+    for mapping in array(&operator["functionKeys"], 12, "operator function keys")? {
+        let mapping = object(mapping, "operator function key")?;
+        exact(mapping, &["key", "macro"], "operator function key")?;
+        let key = enum_value(
+            &mapping["key"],
+            &[
+                "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+            ],
+            "operator function key",
+        )?;
+        if !keys.insert(key) {
+            return Err("The operator function keys are not unique.".into());
+        }
+        contest_macro(&mapping["macro"])?;
+    }
+    let readiness = object(&operator["readiness"], "operator readiness")?;
+    exact(
+        readiness,
+        &[
+            "canSendCQ",
+            "canSendCall",
+            "canSendDuplicate",
+            "canReserveCall",
+            "canReserveCommit",
+            "canCommit",
+        ],
+        "operator readiness",
+    )?;
+    for key in [
+        "canSendCQ",
+        "canSendCall",
+        "canSendDuplicate",
+        "canReserveCall",
+        "canReserveCommit",
+        "canCommit",
+    ] {
+        boolean(&readiness[key], "operator readiness")?;
+    }
+    for trace in array(&operator["trace"], 24, "operator trace")? {
+        let trace = object(trace, "operator trace")?;
+        exact(
+            trace,
+            &["operationID", "mode", "macro", "text", "status"],
+            "operator trace",
+        )?;
+        text_value(&trace["operationID"], 160, false, "operator operation ID")?;
+        enum_value(
+            &trace["mode"],
+            &["CW", "SSB", "RTTY", "AM", "FM"],
+            "operator mode",
+        )?;
+        contest_macro(&trace["macro"])?;
+        text_value(&trace["text"], 1024, true, "operator trace text")?;
+        enum_value(
+            &trace["status"],
+            &["pending", "confirmed", "failed", "stopped"],
+            "operator trace status",
+        )?;
+    }
+    Ok(())
+}
+
+fn contest_macro(value: &Value) -> Result<(), String> {
+    enum_value(
+        value,
+        &["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"],
+        "contest macro",
+    )
+    .map(|_| ())
 }
 
 fn validate_assistance_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -962,6 +1197,22 @@ fn string_array(
     }
     Ok(())
 }
+fn unique_text_array(
+    value: &Value,
+    maximum: usize,
+    maximum_text: usize,
+    choices: Option<&[&str]>,
+    name: &str,
+) -> Result<(), String> {
+    let mut seen = BTreeSet::new();
+    for value in array(value, maximum, name)? {
+        let value = text_value(value, maximum_text, false, name)?;
+        if choices.is_some_and(|choices| !choices.contains(&value)) || !seen.insert(value) {
+            return Err(format!("The {name} is invalid."));
+        }
+    }
+    Ok(())
+}
 fn enum_value<'a>(value: &'a Value, choices: &[&str], name: &str) -> Result<&'a str, String> {
     let value = value
         .as_str()
@@ -1080,6 +1331,34 @@ mod tests {
     }
 
     #[test]
+    fn entry_operator_actions_are_typed_and_revision_fenced() {
+        assert!(validate_action_envelope(&action(
+            "entry_operator_arm",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"armed":true})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "entry_operator_style",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"value":"search-and-pounce"})
+        ))
+        .is_ok());
+        for (name, params) in [
+            (
+                "entry_operator_arm",
+                json!({"draftID":"draft","expectedDraftRevision":2,"armed":"true"}),
+            ),
+            (
+                "entry_operator_style",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":"assisted"}),
+            ),
+        ] {
+            assert!(validate_action_envelope(&action(name, "active-qso", params)).is_err());
+        }
+    }
+
+    #[test]
     fn projection_schemas_are_exact_and_unavailable_roles_have_no_ready_shape() {
         assert!(validate_projection(
             "monitor",
@@ -1128,6 +1407,59 @@ mod tests {
         let too_many = vec![json!("K"); 10_001];
         missing_display["score"]["multiplierDisplayLabels"] = json!(too_many);
         assert!(validate_projection("propagation", &missing_display).is_err());
+    }
+
+    #[test]
+    fn entry_v2_projects_resolved_sent_exchange_and_simulation_state_exactly() {
+        let entry = entry_v2();
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        assert!(validate_projection(
+            "active-qso",
+            &json!({"schemaVersion":2,"status":"unavailable"})
+        )
+        .is_err());
+
+        let mut serial_entry = entry.clone();
+        serial_entry["draft"]["reservedSerial"] = json!(1);
+        serial_entry["descriptor"]["sentFields"]
+            .as_array_mut()
+            .unwrap()
+            .push(
+                json!({"id":"serial","label":"Serial","value":"001","required":true,
+                "maximumUTF8Bytes":3}),
+            );
+        serial_entry["descriptor"]["serial"] = json!({
+            "requirement":"requiredForCommit","allocatedFieldID":"serial","reservedSerial":1
+        });
+        assert!(validate_projection("active-qso", &serial_entry).is_ok());
+
+        let mut overlong_value = entry.clone();
+        overlong_value["descriptor"]["sentFields"][0]["value"] = json!("ABCDEF");
+        assert!(validate_projection("active-qso", &overlong_value).is_err());
+
+        let mut wrong_serial_field = entry.clone();
+        wrong_serial_field["draft"]["reservedSerial"] = json!(1);
+        wrong_serial_field["descriptor"]["serial"] = json!({
+            "requirement":"requiredForCommit","allocatedFieldID":"missing","reservedSerial":1
+        });
+        assert!(validate_projection("active-qso", &wrong_serial_field).is_err());
+
+        let mut mismatched_serial = entry.clone();
+        mismatched_serial["descriptor"]["serial"]["reservedSerial"] = json!(1);
+        assert!(validate_projection("active-qso", &mismatched_serial).is_err());
+
+        let mut duplicate_modes = entry.clone();
+        duplicate_modes["descriptor"]["modes"] = json!(["CW", "CW"]);
+        assert!(validate_projection("active-qso", &duplicate_modes).is_err());
+
+        let mut excessive_trace = entry;
+        excessive_trace["operator"]["trace"] = json!((0..25)
+            .map(
+                |index| json!({"operationID":format!("simulation-{index}"),"mode":"CW","macro":"CQ",
+                "text":"CQ TEST","status":"confirmed"})
+            )
+            .collect::<Vec<_>>());
+        assert!(validate_projection("active-qso", &excessive_trace).is_err());
     }
 
     #[test]
@@ -1356,5 +1688,22 @@ mod tests {
         let mut value = checked_value();
         value["requestID"] = json!(request_id);
         value
+    }
+
+    fn entry_v2() -> Value {
+        json!({"schemaVersion":2,"status":"ready","session":{"name":"CQ WW","ruleName":"CQ WW CW","mode":"CW"},
+            "draft":{"draftID":"draft","revision":2,"callsign":"DL1AAA","sentReport":"599","receivedReport":"599",
+                "receivedFields":[],"frequencyHz":14025000,"frequencyText":"14025000","frequencyError":"",
+                "band":"20m","mode":"CW","dupe":{"state":"clear","reason":"Not worked on 20m."},
+                "validation":{"errors":[],"warnings":[]},"reservedSerial":null},
+            "descriptor":{"bands":["20m"],"modes":["CW"],
+                "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
+                "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
+            "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,
+                "functionKeys":[{"key":"F1","macro":"CQ"},{"key":"F2","macro":"EXCH"}],
+                "readiness":{"canSendCQ":true,"canSendCall":true,"canSendDuplicate":true,
+                    "canReserveCall":true,"canReserveCommit":true,"canCommit":true},
+                "trace":[{"operationID":"simulation-1","mode":"CW","macro":"CQ","text":"CQ TEST","status":"confirmed"}]},
+            "busy":false,"dirty":true,"uncertain":false})
     }
 }
