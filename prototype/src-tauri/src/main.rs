@@ -2020,6 +2020,16 @@ fn contest_surface_action_next(window: tauri::WebviewWindow, app: tauri::AppHand
 }
 
 #[tauri::command]
+fn contest_surface_escape_next(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, session_i_d: String, workspace_generation: String)
+    -> Result<Option<serde_json::Value>, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    let action = contest_surface::next_escape(&context)?;
+    if action.is_some() { let _ = app.emit("xlog:contest-surface", ()); }
+    Ok(action)
+}
+
+#[tauri::command]
 fn contest_surface_action_complete(window: tauri::WebviewWindow, app: tauri::AppHandle,
     operating_context: String, session_i_d: String, workspace_generation: String, request_i_d: String,
     outcome: String, message: Option<String>, projection_revision: u64) -> Result<serde_json::Value, String> {
@@ -2448,7 +2458,7 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, contest_surface_context_close,
-            contest_surface_action, contest_surface_action_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
+            contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,

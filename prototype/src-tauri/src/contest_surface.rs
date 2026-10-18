@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Mutex, OnceLock};
 
 const MAX_ACTIONS: usize = 64;
+const MAX_ESCAPE_ACTIONS: usize = 8;
 const MAX_RECEIPTS_PER_PANEL: usize = 64;
 const MAX_REQUEST_IDS_PER_CONTEXT: usize = 250_000;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -39,6 +40,7 @@ struct State {
     context: Option<ContestWindowContext>,
     panels: BTreeMap<String, PanelState>,
     actions: VecDeque<QueuedAction>,
+    escape_actions: VecDeque<QueuedAction>,
     seen_request_ids: BTreeSet<String>,
 }
 
@@ -90,9 +92,18 @@ pub fn submit(label: &str, envelope: Value) -> Result<Value, String> {
         let mut state = state()
             .lock()
             .map_err(|_| "Contest surface state unavailable")?;
-        require_context(&state, &checked.context)?;
-        submit_checked(&mut state, &panel_id, &checked, envelope)
+        submit_after_admission(&mut state, &panel_id, &checked, envelope)
     })?
+}
+
+fn submit_after_admission(
+    state: &mut State,
+    panel_id: &str,
+    checked: &CheckedAction,
+    envelope: Value,
+) -> Result<Value, String> {
+    require_context(state, &checked.context)?;
+    submit_checked(state, panel_id, checked, envelope)
 }
 
 fn submit_checked(
@@ -118,23 +129,36 @@ fn submit_checked(
     if state.seen_request_ids.contains(&checked.request_id) {
         return Err("That contest action receipt was retired and will not be replayed.".into());
     }
+    let escape = is_escape_action(&envelope);
     let projection_revision = state
         .panels
         .get(panel_id)
         .and_then(|panel| panel.projection.as_ref())
         .filter(|(revision, projection)| {
-            *revision == checked.projection_revision && projection["status"] == "ready"
+            projection["status"] == "ready"
+                && if escape {
+                    checked.projection_revision <= *revision
+                } else {
+                    checked.projection_revision == *revision
+                }
         })
         .ok_or("Refresh this contest surface before sending an action.")?
         .0;
-    if state.actions.len() >= MAX_ACTIONS {
+    if escape && state.escape_actions.len() >= MAX_ESCAPE_ACTIONS {
+        return Err("The contest Escape queue is full; wait for the main desk.".into());
+    }
+    if !escape && state.actions.len() >= MAX_ACTIONS {
         return Err("The contest surface action queue is full; wait for the main desk.".into());
     }
     if state.seen_request_ids.len() >= MAX_REQUEST_IDS_PER_CONTEXT {
         return Err("The contest surface request ledger is full; reopen the contest session before sending more actions.".into());
     }
     let panel = state.panels.entry(panel_id.into()).or_default();
-    retire_old_receipts(panel)?;
+    if escape {
+        retire_old_receipts(panel, true, MAX_ESCAPE_ACTIONS)?;
+    } else {
+        retire_old_receipts(panel, false, MAX_RECEIPTS_PER_PANEL)?;
+    }
     panel.receipts.push_back((
         checked.request_id.clone(),
         Receipt {
@@ -144,11 +168,16 @@ fn submit_checked(
             projection_revision,
         },
     ));
-    state.actions.push_back(QueuedAction {
+    let queued = QueuedAction {
         panel_id: panel_id.into(),
         request_id: checked.request_id.clone(),
         envelope,
-    });
+    };
+    if escape {
+        state.escape_actions.push_back(queued);
+    } else {
+        state.actions.push_back(queued);
+    }
     state.seen_request_ids.insert(checked.request_id.clone());
     Ok(json!({"requestID":checked.request_id,"status":"queued"}))
 }
@@ -163,6 +192,16 @@ pub fn next(context: &ContestWindowContext) -> Result<Option<Value>, String> {
     })?
 }
 
+pub fn next_escape(context: &ContestWindowContext) -> Result<Option<Value>, String> {
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        take_next_escape(&mut state)
+    })?
+}
+
 fn take_next(state: &mut State) -> Result<Option<Value>, String> {
     let Some(action) = state.actions.pop_front() else {
         return Ok(None);
@@ -170,6 +209,18 @@ fn take_next(state: &mut State) -> Result<Option<Value>, String> {
     let receipt = receipt_mut(state, &action.panel_id, &action.request_id)?;
     if receipt.status != "queued" {
         return Err("The queued contest action receipt is inconsistent.".into());
+    }
+    receipt.status = "uncertain";
+    Ok(Some(action.envelope))
+}
+
+fn take_next_escape(state: &mut State) -> Result<Option<Value>, String> {
+    let Some(action) = state.escape_actions.pop_front() else {
+        return Ok(None);
+    };
+    let receipt = receipt_mut(state, &action.panel_id, &action.request_id)?;
+    if receipt.status != "queued" {
+        return Err("The queued contest Escape receipt is inconsistent.".into());
     }
     receipt.status = "uncertain";
     Ok(Some(action.envelope))
@@ -334,18 +385,38 @@ fn find_receipt_mut<'a>(
     Err("That contest action requestID is unknown.".into())
 }
 
-fn retire_old_receipts(panel: &mut PanelState) -> Result<(), String> {
-    while panel.receipts.len() >= MAX_RECEIPTS_PER_PANEL {
-        let terminal = panel
+fn retire_old_receipts(
+    panel: &mut PanelState,
+    escape: bool,
+    maximum: usize,
+) -> Result<(), String> {
+    while panel
+        .receipts
+        .iter()
+        .filter(|(_, receipt)| is_escape_action(&receipt.envelope) == escape)
+        .count()
+        >= maximum
+    {
+        let oldest = panel
             .receipts
-            .front()
-            .is_some_and(|(_, receipt)| matches!(receipt.status, "applied" | "rejected"));
-        if !terminal {
-            return Err("This contest surface has too many unresolved action receipts.".into());
-        }
-        panel.receipts.pop_front();
+            .iter()
+            .position(|(_, receipt)| is_escape_action(&receipt.envelope) == escape);
+        let index = oldest.filter(|index| {
+            matches!(panel.receipts[*index].1.status, "applied" | "rejected")
+        });
+        let Some(index) = index else {
+            let lane = if escape { " Escape" } else { " action" };
+            return Err(format!("This contest surface has too many unresolved{lane} receipts."));
+        };
+        panel.receipts.remove(index);
     }
     Ok(())
+}
+
+fn is_escape_action(envelope: &Value) -> bool {
+    envelope["panelID"] == "active-qso"
+        && envelope["action"] == "entry_operator_key"
+        && envelope["params"]["key"] == "Escape"
 }
 
 fn receipt_value(request_id: &str, receipt: &Receipt) -> Value {
@@ -2061,6 +2132,176 @@ mod tests {
         assert!(submit_checked(&mut state, "active-qso", &checked, checked_value()).is_err());
     }
 
+    #[test]
+    fn escape_has_a_separate_bounded_at_most_once_lane_without_touching_fifo_work() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        let ordinary = checked_value();
+        let ordinary_checked = validate_action_envelope(&ordinary).unwrap();
+        submit_checked(&mut state, "active-qso", &ordinary_checked, ordinary.clone()).unwrap();
+
+        let escape = escape_with_request("40000000-0000-4000-8000-000000000002");
+        let escape_checked = validate_action_envelope(&escape).unwrap();
+        submit_checked(&mut state, "active-qso", &escape_checked, escape.clone()).unwrap();
+        assert_eq!(state.actions.len(), 1);
+        assert_eq!(state.escape_actions.len(), 1);
+        assert_eq!(take_next_escape(&mut state).unwrap(), Some(escape.clone()));
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &escape_checked, escape.clone()).unwrap()["status"],
+            "uncertain"
+        );
+        assert_eq!(take_next_escape(&mut state).unwrap(), None);
+        assert_eq!(take_next(&mut state).unwrap(), Some(ordinary.clone()));
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &ordinary_checked, ordinary).unwrap()["status"],
+            "uncertain"
+        );
+        assert_eq!(
+            complete_after_admission(
+                &mut state,
+                "40000000-0000-4000-8000-000000000002",
+                "applied",
+                None,
+                8,
+            )
+            .unwrap()["status"],
+            "applied"
+        );
+    }
+
+    #[test]
+    fn escape_accepts_an_older_ready_projection_but_rejects_future_and_expired_contexts() {
+        let current = context();
+        let mut state = State {
+            context: Some(current),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+
+        let mut stale_escape = escape_with_request("40000000-0000-4000-8000-000000000010");
+        stale_escape["projectionRevision"] = json!(6);
+        let stale_escape_checked = validate_action_envelope(&stale_escape).unwrap();
+        submit_after_admission(
+            &mut state,
+            "active-qso",
+            &stale_escape_checked,
+            stale_escape,
+        )
+        .unwrap();
+        assert_eq!(
+            state.panels["active-qso"].receipts.back().unwrap().1.projection_revision,
+            7
+        );
+
+        let mut future_escape = escape_with_request("40000000-0000-4000-8000-000000000011");
+        future_escape["projectionRevision"] = json!(8);
+        let future_escape_checked = validate_action_envelope(&future_escape).unwrap();
+        assert!(submit_after_admission(
+            &mut state,
+            "active-qso",
+            &future_escape_checked,
+            future_escape,
+        )
+        .is_err());
+
+        let mut stale_ordinary = checked_value();
+        stale_ordinary["requestID"] = json!("40000000-0000-4000-8000-000000000012");
+        stale_ordinary["projectionRevision"] = json!(6);
+        let stale_ordinary_checked = validate_action_envelope(&stale_ordinary).unwrap();
+        assert!(submit_after_admission(
+            &mut state,
+            "active-qso",
+            &stale_ordinary_checked,
+            stale_ordinary,
+        )
+        .is_err());
+
+        let mut wrong_context = escape_with_request("40000000-0000-4000-8000-000000000013");
+        wrong_context["sessionID"] = json!("20000000-0000-4000-8000-000000000002");
+        let wrong_context_checked = validate_action_envelope(&wrong_context).unwrap();
+        assert!(submit_after_admission(
+            &mut state,
+            "active-qso",
+            &wrong_context_checked,
+            wrong_context,
+        )
+        .is_err());
+        assert_eq!(state.escape_actions.len(), 1);
+        assert_eq!(state.panels["active-qso"].receipts.len(), 1);
+    }
+
+    #[test]
+    fn escape_lane_is_bounded_and_context_replacement_purges_it() {
+        let current = context();
+        let mut state = State {
+            context: Some(current.clone()),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        for index in 0..MAX_ESCAPE_ACTIONS {
+            let envelope = escape_with_request(&format!("40000000-0000-4000-8000-{index:012x}"));
+            let checked = validate_action_envelope(&envelope).unwrap();
+            submit_checked(&mut state, "active-qso", &checked, envelope).unwrap();
+        }
+        let excess = escape_with_request("40000000-0000-4000-8000-000000000099");
+        let excess_checked = validate_action_envelope(&excess).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &excess_checked, excess).is_err());
+        assert_eq!(state.escape_actions.len(), MAX_ESCAPE_ACTIONS);
+        assert!(state.actions.is_empty());
+        assert_eq!(take_next(&mut state).unwrap(), None);
+
+        let replacement = ContestWindowContext {
+            session_id: "20000000-0000-4000-8000-000000000002".into(),
+            ..current
+        };
+        register_context_in(&mut state, &replacement);
+        assert!(state.escape_actions.is_empty());
+        assert!(state.actions.is_empty());
+        assert!(state.panels.is_empty());
+        assert!(state.seen_request_ids.is_empty());
+    }
+
+    #[test]
+    fn completed_escape_receipts_reuse_only_the_reserved_escape_capacity() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        let panel = state.panels.get_mut("active-qso").unwrap();
+        for index in 0..(MAX_RECEIPTS_PER_PANEL - 1) {
+            let request_id = format!("50000000-0000-4000-8000-{index:012x}");
+            panel.receipts.push_back((request_id, Receipt {
+                envelope: checked_value(), status: "uncertain", message: None, projection_revision: 7,
+            }));
+        }
+        for index in 0..MAX_ESCAPE_ACTIONS {
+            let request_id = format!("60000000-0000-4000-8000-{index:012x}");
+            panel.receipts.push_back((request_id.clone(), Receipt {
+                envelope: escape_with_request(&request_id), status: "applied", message: None,
+                projection_revision: 8,
+            }));
+        }
+        let ordinary = checked_value();
+        let ordinary_checked = validate_action_envelope(&ordinary).unwrap();
+        submit_checked(&mut state, "active-qso", &ordinary_checked, ordinary).unwrap();
+        let envelope = escape_with_request("70000000-0000-4000-8000-000000000001");
+        let checked = validate_action_envelope(&envelope).unwrap();
+        submit_checked(&mut state, "active-qso", &checked, envelope).unwrap();
+        assert_eq!(state.panels["active-qso"].receipts.len(),
+                   MAX_RECEIPTS_PER_PANEL + MAX_ESCAPE_ACTIONS);
+        assert_eq!(state.escape_actions.len(), 1);
+        assert_eq!(state.panels["active-qso"].receipts.iter()
+            .filter(|(_, receipt)| !is_escape_action(&receipt.envelope)).count(),
+            MAX_RECEIPTS_PER_PANEL);
+        assert_eq!(state.panels["active-qso"].receipts.iter()
+            .filter(|(_, receipt)| is_escape_action(&receipt.envelope)).count(),
+            MAX_ESCAPE_ACTIONS);
+    }
+
     fn checked_value() -> Value {
         action(
             "entry_commit",
@@ -2071,6 +2312,16 @@ mod tests {
 
     fn action_with_request(request_id: &str) -> Value {
         let mut value = checked_value();
+        value["requestID"] = json!(request_id);
+        value
+    }
+
+    fn escape_with_request(request_id: &str) -> Value {
+        let mut value = action(
+            "entry_operator_key",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"key":"Escape","focusedField":null}),
+        );
         value["requestID"] = json!(request_id);
         value
     }
