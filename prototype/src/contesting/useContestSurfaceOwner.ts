@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { closeContestSurfaceContext, completeContestSurfaceAction, nextContestSurfaceAction, onContestSurfaceWake,
   publishContestSurface, type ContestSurfaceContext } from "./contestSurfaceNative";
+import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceUUID, type ContestSurfaceActionEnvelope,
   type ContestSurfacePanelID, type ContestSurfaceProjection } from "./contestSurfaceProtocol";
 
@@ -41,17 +42,24 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
         for (let count = 0; active && count < 64; count += 1) {
           const action = await nextContestSurfaceAction(context);
           if (!active || action === null) break;
+          let admitted = false;
           try {
             if (action.projectionRevision !== revisionRef.current) throw new Error("The contest panel changed before this action reached the owner.");
             if (projectionsRef.current[action.panelID].status !== "ready")
               throw new Error("The requested contest panel is not available.");
+            admitted = true;
             await handleRef.current(action);
-            await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
-              projectionRevision: revisionRef.current });
           } catch (cause) {
+            // `next` has already marked the native receipt uncertain. Once a
+            // mutation may have reached the worker, never rewrite that receipt
+            // as rejected or replay the action from this owner.
+            if (admitted && cause instanceof ContestMutationUncertain) { report(boundedMessage(cause)); continue; }
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
               message: boundedMessage(cause), projectionRevision: revisionRef.current }).catch(error => report(boundedMessage(error)));
+            continue;
           }
+          await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
+            projectionRevision: revisionRef.current }).catch(cause => report(boundedMessage(cause)));
         }
       } catch (cause) { if (active) report(boundedMessage(cause)); }
       finally { draining = false; if (active && dirty) { dirty = false; void drain(); } }
