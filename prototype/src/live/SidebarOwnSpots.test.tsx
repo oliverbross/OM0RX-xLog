@@ -35,3 +35,17 @@ it("does not poll the archive while the cluster is disconnected", async () => {
   await Promise.resolve();
   expect(request).not.toHaveBeenCalled();
 });
+
+it("shows direct RBN pickups while the cluster archive is disconnected", async () => {
+  const request = vi.fn(async () => ({ result: { page: { rows: [] } } }));
+  const rbnTransport = vi.fn(async () => JSON.stringify({
+    spots: { "42": ["KM3T5", "10116.1", "OM0RX", 5, 23, "0401z", 0, 7, 1, 1, Math.floor(Date.now() / 1000)] },
+    call_info: { KM3T5: ["K", "United States", "NA", "usa", "5", "8", "40", "-75", "FN20", "skimmer"] },
+  }));
+  render(<SidebarOwnSpots request={request} ownCall="OM0RX" liveSpots={[]} connected={false} rbnTransport={rbnTransport} />);
+  await waitFor(() => expect(screen.getByText("KM3T5")).toBeTruthy());
+  expect(screen.getByText("RBN")).toBeTruthy();
+  expect(screen.getByTitle("+5 dB · 23 WPM · FN20")).toBeTruthy();
+  expect(request).not.toHaveBeenCalled();
+  expect(rbnTransport).toHaveBeenCalledWith("own_rbn", { sinceSeconds:600, ownCall:"OM0RX" });
+});

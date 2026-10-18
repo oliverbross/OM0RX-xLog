@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { RadioTower } from "lucide-react";
+import { loadOwnRBNPickups, type OwnRBNTransport } from "./ownRbnFeed";
+import type { OwnRBNSpot } from "./hfPropagationModel";
 import "./SidebarOwnSpots.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -63,8 +65,25 @@ function responseRows(raw: any): RawSpot[] {
   return Array.isArray(value?.page?.rows) ? value.page.rows : [];
 }
 
-export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected }: { request: Request; ownCall: string; liveSpots: RawSpot[]; connected: boolean }) {
-  const [history, setHistory] = useState<RawSpot[]>([]), [now, setNow] = useState(Date.now());
+function directRBNRows(spots: OwnRBNSpot[], ownCall: string): RawSpot[] {
+  const callsign = ownCall.trim().toUpperCase();
+  return spots.map(spot => ({
+    id: `direct-rbn:${spot.id}`,
+    callsign,
+    spotter: spot.spotter,
+    frequencyKHz: spot.frequencyKHz,
+    band: spot.band,
+    mode: spot.mode,
+    source: "rbl",
+    comment: `${spot.snr >= 0 ? "+" : ""}${spot.snr} dB${spot.speed ? ` · ${spot.speed} WPM` : ""}${spot.grid ? ` · ${spot.grid}` : ""}`,
+    receivedAt: spot.time,
+  }));
+}
+
+export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected, rbnTransport }: {
+  request: Request; ownCall: string; liveSpots: RawSpot[]; connected: boolean; rbnTransport?: OwnRBNTransport;
+}) {
+  const [history, setHistory] = useState<RawSpot[]>([]), [directRBN, setDirectRBN] = useState<RawSpot[]>([]), [now, setNow] = useState(Date.now());
   useEffect(() => {
     let active = true, timer: ReturnType<typeof setTimeout>;
     const read = async () => {
@@ -82,7 +101,21 @@ export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected
     void read();
     return () => { active = false; clearTimeout(timer); };
   }, [request, ownCall, connected]);
-  const items = useMemo(() => sidebarOwnSpotItems(history, liveSpots, ownCall, now), [history, liveSpots, ownCall, now]);
+  useEffect(() => {
+    let active = true, timer: ReturnType<typeof setTimeout>;
+    const read = async () => {
+      const current = Date.now(); setNow(current);
+      if (!rbnTransport || !ownCall.trim()) { if (active) setDirectRBN([]); return; }
+      try {
+        const spots = await loadOwnRBNPickups(rbnTransport, ownCall);
+        if (active) setDirectRBN(directRBNRows(spots, ownCall));
+      } catch { /* Human cluster spots remain available if the direct RBN feed is unavailable. */ }
+      finally { if (active) timer = setTimeout(read, 120_000); }
+    };
+    void read();
+    return () => { active = false; clearTimeout(timer); };
+  }, [rbnTransport, ownCall]);
+  const items = useMemo(() => sidebarOwnSpotItems(history, [...directRBN, ...liveSpots], ownCall, now), [history, directRBN, liveSpots, ownCall, now]);
   if (!ownCall.trim()) return null;
   return <section className="sidebar-own-spots" aria-label="RBN and operator spots for this station">
     <header><span><RadioTower size={13} aria-hidden="true" />RBN / Spotted</span><small>{ownCall.trim().toUpperCase()}</small></header>

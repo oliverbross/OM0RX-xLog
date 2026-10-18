@@ -60,7 +60,7 @@ import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 import { DeskPreviousQSOs } from "./live/DeskPreviousQSOs";
-import HFPropagationLive from "./live/HFPropagationLive";
+import HFPropagationLive, { nativeHFPropagationTransport } from "./live/HFPropagationLive";
 import SyncPanel from "./live/SyncPanel";
 import { watchSyncCompletion } from "./live/syncCompletion";
 import ServiceSettings from "./live/ServiceSettings";
@@ -1241,6 +1241,7 @@ function MainLiveApp() {
         ownCall={settings?.stationCall || ""}
         liveSpots={liveSpots}
         connected={(cluster?.snapshot?.connectedClusters || 0) > 0}
+        rbnTransport={nativeHFPropagationTransport}
       />}
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>

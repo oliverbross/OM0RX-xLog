@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, ExternalLink, MoveDiagonal2, RefreshCw, Settings2, Sun, X } from "lucide-react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { bandFromFrequency, callsignContinent, cleanCall, cleanLocator, contestBands, continents, defaultPropagationSettings,
-  hfOutlook, matrixCounts, mergeSpots, modeCounts, normalizedMode, ownGrid, parseDXHeat, parseForecastText, parseOwnRBN, parseOwnWSPR,
+  hfOutlook, matrixCounts, mergeSpots, modeCounts, normalizedMode, ownGrid, parseDXHeat, parseForecastText, parseOwnWSPR,
   parsePSKReporter, parseWSPR, perMinuteSeries, propagationBands, propagationModes, propagationSources, readPropagationSettings,
   xrayClass, type Continent, type OwnWSPRSpot, type PropagationMode, type PropagationSettings, type PropagationSource,
   type OwnRBNSpot, type PropagationSpot, type SolarConditions } from "./hfPropagationModel";
 import HFPropagationCanvas, { type HFPropagationCanvasPanel } from "./HFPropagationCanvas";
+import { loadOwnRBNPickups } from "./ownRbnFeed";
 import { hfPropagationCanvasLayoutKey, hfPropagationLegacyLayoutKey, readHFPropagationCanvasLayout,
   type HFPropagationCanvasLayout } from "./hfPropagationCanvasLayout";
 import "./HFPropagationLive.css";
@@ -116,7 +117,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     })());
     if (enabled.has("rbn") && active.ownCall) jobs.push((async () => {
       try {
-        const incoming = parseOwnRBN(JSON.parse(await transport("own_rbn", { sinceSeconds: 600, ownCall: active.ownCall })), active.ownCall);
+        const incoming = await loadOwnRBNPickups(transport, active.ownCall, 0);
         if (mounted.current) { setRbnPickups(incoming); setRbnError(""); }
       } catch (cause) { if (mounted.current) setRbnError(humanError(cause)); }
     })());
