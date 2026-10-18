@@ -52,6 +52,7 @@ it("sizes previous QSOs to their content, gives the balance to Logbook and keeps
   view("logbook-previous");
   const panes = result.container.querySelector<HTMLElement>(".desk-map-logbook-panes")!;
   const previous = result.container.querySelector<HTMLElement>(".desk-map-logbook-previous")!;
+  expect(panes.classList.contains("is-previous")).toBe(true);
   const logbook = result.container.querySelector<HTMLElement>(".desk-map-logbook-logbook")!;
   expect(panes.style.gridTemplateRows).toBe("fit-content(50%) minmax(0, 1fr) 50%");
   expect(previous.hidden).toBe(false); expect(previous.style.gridRow).toBe("1");

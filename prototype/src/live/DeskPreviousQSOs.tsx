@@ -162,7 +162,7 @@ export function DeskPreviousQSOs({ call, qsos }: { call: string; qsos: PreviousQ
         onChange={event => setColumn(column, event.target.checked)} />{label}</label>)}
     </fieldset>}
     <div className="desk-previous-table-wrap" role="region" aria-label={`Previous QSOs for ${activeCall}`} tabIndex={0}>
-      <table className="desk-previous-table" style={{ minWidth: totalWidth }}>
+      <table className="desk-previous-table">
         <colgroup>{columns.filter(([column]) => shown(column)).map(([column]) =>
           <col key={column} style={{ width: `${widths[column] / totalWidth * 100}%` }} />)}</colgroup>
         <thead><tr>

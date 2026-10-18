@@ -67,6 +67,14 @@ it("resizes previous-QSO columns by keyboard and restores their widths", () => {
   expect(screen.getByRole("separator", { name: "Resize Date column" }).getAttribute("aria-valuenow")).toBe("155");
 });
 
+it("keeps every visible column inside the panel without an internal scroll region", () => {
+  const result = render(<DeskPreviousQSOs call="VK8NSB" qsos={qsos} />);
+  const table = screen.getByRole("table");
+  const widths = [...table.querySelectorAll<HTMLTableColElement>("col")].map(column => Number.parseFloat(column.style.width));
+  expect(table.style.minWidth).toBe("");
+  expect(widths.reduce((sum, width) => sum + width, 0)).toBeCloseTo(100);
+});
+
 it("renders nothing for a blank, changed or never-worked callsign", () => {
   const view = render(<DeskPreviousQSOs call="" qsos={qsos} />);
   expect(view.container.childElementCount).toBe(0);

@@ -69,7 +69,7 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
       }}>{deskMapLogbookViews.map(([view, label]) => <option key={view} value={view}>{label}</option>)}</select>
       {(denied || storageError) && <span className="desk-map-logbook-feedback" role="status">{denied || storageError}</span>}
     </div>
-    <div className={`desk-map-logbook-panes${stacked ? " is-stacked" : ""}`} ref={body} style={bodyStyle}>
+    <div className={`desk-map-logbook-panes${stacked ? " is-stacked" : ""}${previousMode ? " is-previous" : ""}`} ref={body} style={bodyStyle}>
       <div className="desk-map-logbook-map" hidden={preferences.view === "logbook"} inert={preferences.view === "logbook"}
         style={{ gridRow: previousMode ? showPrevious ? 3 : 2 : stacked ? above ? 3 : 1 : 1,
           minHeight: previousMode ? 0 : minimumDeskMapHeight }}>
