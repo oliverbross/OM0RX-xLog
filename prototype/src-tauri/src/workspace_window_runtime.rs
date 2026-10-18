@@ -7,11 +7,13 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc, Arc, Condvar, Mutex, OnceLock,
 };
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
 
 const MAX_OPENS: usize = 32;
 const MAX_SUPERSEDED: usize = 8;
 const MAX_ATTEMPT: u64 = 9_007_199_254_740_991;
+const CONTEST_RETIRE_TIMEOUT: Duration = Duration::from_secs(2);
 static STOPPED: AtomicBool = AtomicBool::new(false);
 static SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static OWNER: OnceLock<Mutex<Option<Arc<Owner>>>> = OnceLock::new();
@@ -94,6 +96,16 @@ enum Work {
     Destroyed(String, u64),
 }
 impl Queue {
+    fn reject_contest_work(&mut self) {
+        self.refresh.remove(&WorkspaceWindowScope::Contesting);
+        let mut retained = VecDeque::new();
+        for open in self.opens.drain(..) {
+            if open.scope == WorkspaceWindowScope::Contesting {
+                let _ = open.reply.send(Err("The contest window context changed before this window opened.".into()));
+            } else { retained.push_back(open); }
+        }
+        self.opens = retained;
+    }
     fn next(&mut self) -> Option<Work> {
         if let Some(reset) = self.contest_resets.pop_front() { return Some(Work::ContestReset(reset)); }
         if let Some(close) = self.contest_closes.pop_front() { return Some(Work::ContestClose(close)); }
@@ -180,6 +192,7 @@ impl Owner {
             match work {
                 Some(Work::ContestReset(reset)) => {
                     let result = crate::contest_window_context::admit(&reset.context).and_then(|_| {
+                        if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
                         close_contest_windows(&self.app)?;
                         engines.insert(WorkspaceWindowScope::Contesting, Engine::for_contest(&reset.context));
                         self.publish(WorkspaceWindowScope::Contesting, Some(reset.context.clone()), contest_idle(&reset.context));
@@ -188,7 +201,10 @@ impl Owner {
                     let _ = reset.reply.send(result);
                 }
                 Some(Work::ContestClose(close)) => {
-                    let result = crate::contest_window_context::admit(&close.context).and_then(|_| close_contest_windows(&self.app));
+                    let result = crate::contest_window_context::admit(&close.context).and_then(|_| {
+                        if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
+                        close_contest_windows(&self.app)
+                    });
                     if result.is_ok() {
                         engines.remove(&WorkspaceWindowScope::Contesting);
                         if let Ok(mut outcomes) = self.outcome.lock() { outcomes.remove(&WorkspaceWindowScope::Contesting); }
@@ -375,8 +391,16 @@ fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
     // Context retirement must never leave a hidden Separate Windows desk with
     // every usable surface gone, including when one child refuses to close.
     if let Some(main) = app.get_webview_window("main") { main.show().map_err(|error| error.to_string())?; }
-    for label in contest_window_labels() {
-        if let Some(window) = app.get_webview_window(&label) { window.close().map_err(|error| error.to_string())?; }
+    let labels = contest_window_labels();
+    for label in &labels {
+        if let Some(window) = app.get_webview_window(label) { window.close().map_err(|error| error.to_string())?; }
+    }
+    let deadline = Instant::now() + CONTEST_RETIRE_TIMEOUT;
+    while labels.iter().any(|label| app.get_webview_window(label).is_some()) {
+        if Instant::now() >= deadline {
+            return Err("A previous contest window did not close; the main contest workspace was restored. Retry the layout after closing that window.".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
     }
     Ok(())
 }
@@ -989,6 +1013,25 @@ mod tests {
         assert_eq!(contest.scope, WorkspaceWindowScope::Contesting);
         assert_eq!(contest.contest_context, Some(context));
         assert!(!contest.force);
+    }
+    #[test]
+    fn context_reset_rejects_queued_contest_work_without_touching_normal_work() {
+        let mut queue = Queue::default();
+        let context = contest_context("20000000-0000-4000-8000-000000000001");
+        queue.refresh(WorkspaceWindowScope::Contesting, Some(context.clone()), true).unwrap();
+        queue_refresh(&mut queue, false).unwrap();
+        let (contest_reply, contest_received) = mpsc::channel();
+        let (normal_reply, _normal_received) = mpsc::channel();
+        queue.opens.push_back(PendingOpen { label: "contest--logbook".into(), scope: WorkspaceWindowScope::Contesting,
+            contest_context: Some(context), reply: contest_reply });
+        queue.opens.push_back(PendingOpen { label: "logbook".into(), scope: WorkspaceWindowScope::NormalLogging,
+            contest_context: None, reply: normal_reply });
+        queue.reject_contest_work();
+        assert!(contest_received.recv().unwrap().is_err());
+        assert_eq!(queue.opens.len(), 1);
+        assert_eq!(queue.opens[0].label, "logbook");
+        assert!(queue.refresh.contains_key(&WorkspaceWindowScope::NormalLogging));
+        assert!(!queue.refresh.contains_key(&WorkspaceWindowScope::Contesting));
     }
     #[test]
     fn session_replacement_resets_only_the_contest_engine() {

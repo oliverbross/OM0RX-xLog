@@ -1871,6 +1871,17 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
         _ => return Err("Native workspace scope context is invalid.".into()),
     }
     if let Some(existing) = app.get_webview_window(kind) {
+        if let Some(context) = contest_context {
+            let url = existing.url().map_err(|error| error.to_string())?;
+            let query: std::collections::BTreeMap<_, _> = url.query_pairs().map(|(key, value)| (key.into_owned(), value.into_owned())).collect();
+            if query.get("view").map(String::as_str) != Some(role)
+                || query.get("scope").map(String::as_str) != Some("contesting")
+                || query.get("operatingContext").map(String::as_str) != Some(context.operating_context.as_str())
+                || query.get("sessionID").map(String::as_str) != Some(context.session_id.as_str())
+                || query.get("workspaceGeneration").map(String::as_str) != Some(context.workspace_generation.as_str()) {
+                return Err("A previous contest window is still retiring; retry after it closes.".into());
+            }
+        }
         if kind == "cw" && !existing.is_visible().unwrap_or(true) {
             if let Some(owner) = cw_session_backend::existing() { owner.allow_window(kind)?; }
         }
