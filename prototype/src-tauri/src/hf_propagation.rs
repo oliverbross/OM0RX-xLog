@@ -27,7 +27,7 @@ fn checked_bands(value: Option<Vec<i16>>) -> Result<Vec<i16>, String> {
 
 fn checked_call(value: Option<String>) -> Result<String, String> {
     let call: String = value.unwrap_or_default().to_ascii_uppercase().chars().filter(|ch| ch.is_ascii_alphanumeric() || *ch == '/').take(16).collect();
-    if call.len() < 3 { return Err("Own callsign is required for WSPR activity".into()); }
+    if call.len() < 3 { return Err("Own callsign is required for propagation activity".into()); }
     Ok(call)
 }
 
@@ -63,8 +63,9 @@ pub async fn fetch(window_label: &str, request: FetchRequest) -> Result<String, 
     if !matches!(window_label, "main" | "hf-propagation-live") {
         return Err("Only the HF propagation surfaces can fetch propagation data".into());
     }
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(22)).user_agent("OM0RX-xLog/1.2.23 HF-Propagation").build().map_err(|_| "Propagation HTTP client unavailable".to_string())?;
+    if request.source == "own_rbn" { return fetch_own_rbn(&client, &request).await; }
     let (url, query) = endpoint(&request)?;
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(22)).user_agent("OM0RX-xLog/1.2.22 HF-Propagation").build().map_err(|_| "Propagation HTTP client unavailable".to_string())?;
     let mut outbound = client.get(url).header("Accept", if request.source == "pskr" { "application/xml,text/xml;q=0.9,*/*;q=0.5" } else { "application/json,text/plain;q=0.8,*/*;q=0.5" });
     if let Some(sql) = query { outbound = outbound.query(&[("query", sql)]); }
     let response = outbound.send().await.map_err(|error| format!("{} fetch failed: {error}", request.source))?.error_for_status().map_err(|error| format!("{} returned {error}", request.source))?;
@@ -72,6 +73,38 @@ pub async fn fetch(window_label: &str, request: FetchRequest) -> Result<String, 
     let bytes = response.bytes().await.map_err(|error| format!("{} response failed: {error}", request.source))?;
     if bytes.len() > MAX_RESPONSE_BYTES { return Err("Propagation source response was too large".into()); }
     String::from_utf8(bytes.to_vec()).map_err(|_| "Propagation source returned invalid text".into())
+}
+
+async fn fetch_own_rbn(client: &reqwest::Client, request: &FetchRequest) -> Result<String, String> {
+    let call = checked_call(request.own_call.clone())?;
+    let age = checked_seconds(request.since_seconds)?.to_string();
+    let base = "https://www.reversebeacon.net/spots.php";
+    let request_once = |hash: Option<&str>| {
+        let mut query = vec![("cdx", call.as_str()), ("ma", age.as_str()), ("r", "200"), ("s", "0")];
+        if let Some(value) = hash { query.push(("h", value)); }
+        client.get(base).query(&query).header("Accept", "application/json")
+    };
+    let first = request_once(None).send().await.map_err(|error| format!("RBN fetch failed: {error}"))?;
+    let first_status = first.status();
+    if first.content_length().is_some_and(|length| length > MAX_RESPONSE_BYTES as u64) { return Err("RBN response was too large".into()); }
+    let first_bytes = first.bytes().await.map_err(|error| format!("RBN response failed: {error}"))?;
+    if first_bytes.len() > MAX_RESPONSE_BYTES { return Err("RBN response was too large".into()); }
+    let first_text = String::from_utf8(first_bytes.to_vec()).map_err(|_| "RBN returned invalid text".to_string())?;
+    let parsed: serde_json::Value = serde_json::from_str(&first_text).map_err(|_| "RBN returned invalid JSON".to_string())?;
+    let Some(hash) = rbn_verification_hash(&parsed) else {
+        return if first_status.is_success() { Ok(first_text) } else { Err(format!("RBN returned {first_status}")) };
+    };
+    let response = request_once(Some(hash)).send().await.map_err(|error| format!("RBN fetch failed: {error}"))?.error_for_status().map_err(|error| format!("RBN returned {error}"))?;
+    if response.content_length().is_some_and(|length| length > MAX_RESPONSE_BYTES as u64) { return Err("RBN response was too large".into()); }
+    let bytes = response.bytes().await.map_err(|error| format!("RBN response failed: {error}"))?;
+    if bytes.len() > MAX_RESPONSE_BYTES { return Err("RBN response was too large".into()); }
+    String::from_utf8(bytes.to_vec()).map_err(|_| "RBN returned invalid text".into())
+}
+
+fn rbn_verification_hash(payload: &serde_json::Value) -> Option<&str> {
+    (payload.get("error").and_then(serde_json::Value::as_u64) == Some(888))
+        .then(|| payload.get("ver_h").and_then(serde_json::Value::as_str))
+        .flatten()
 }
 
 #[cfg(test)]
@@ -91,5 +124,11 @@ mod tests {
     fn own_call_is_sanitized_before_entering_clickhouse() {
         assert_eq!(checked_call(Some(" om0rx/p;DROP ".into())).unwrap(), "OM0RX/PDROP");
         assert!(checked_call(Some("x".into())).is_err());
+    }
+    #[test]
+    fn rbn_verification_challenge_is_recognized_without_masking_other_errors() {
+        let challenge = serde_json::json!({ "error": 888, "ver_h": "43326f" });
+        assert_eq!(rbn_verification_hash(&challenge), Some("43326f"));
+        assert_eq!(rbn_verification_hash(&serde_json::json!({ "error": 500, "ver_h": "bad" })), None);
     }
 }
