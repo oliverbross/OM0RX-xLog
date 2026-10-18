@@ -117,7 +117,32 @@
     "vhfImplementation": "Store implementation is assigned in isolated branch codex/contest-vhf-grid-move from cabca0f but is not validated or accepted. Worker/Rust/UI/catalog activation remain open.",
     "ledger": "16 previews / 78 pending / 0 fully ported; published workbook unchanged."
   },
-  "refreshGate": "Latest accepted combined contest product source is cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd. Combined source tests and bounded child checks passed, but the full-family rehearsal failed on the earlier 9e1c3dd run and must be rerun against cabca0f; contest packaged-app and native application acceptance remain pending. Installed Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Main macOS 1.2.25 from 5ebc71272914ce8dbc568301d10c564d59839c28 is installed and runtime-accepted, documented at 15f3392281424c72d68caf9bd4abe65f52fe5d11. The canonical checkout is re-reserved for the emergency amplifier operator-verification hotfix; its replacement is pending without an acceptance receipt. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "latestRuntimeAndContestEvidence": {
+    "mainRuntime": {
+      "version": "1.2.26",
+      "source": "966a57ad5097816377c2e5d92a89a5a5a94b7408",
+      "releaseDocs": "a38fbf2",
+      "hostSha256": "e1a447d577a6a3c3aa5a908e1fd8c35da51b0c75bab4b2e45467bb47d215253d",
+      "workerSha256": "c21cbaaa594136f08765c8fd7628acbd8527e87cb7803080ab912bc48be522db",
+      "verification": "strict deep signature passed; main task reported launch, but no live amplifier behavior or RF proof",
+      "contestingTest": "5024b2cf1129347a8f0b1f621d2f2e7306121c90 unchanged"
+    },
+    "cqwwBlankCallFix": {
+      "source": "485ea2c",
+      "review": "root-accepted; 4/4 core tests verified",
+      "diagnostic": "Agent-reported bounded CQWW-country CW/SSB only: 6 QSOs each, scores 6/16/42/80/110/168, 12 commits, Run/S&P duplicates, SCP 7, restart, two corrections, eight Cabrillo/ADIF assertions. Full 16+12 matrix remains pending.",
+      "outerReceipt": {"path": "/Users/oliver/.codex/acceptance/cqww-country-diagnostic-485ea2c/evidence/outer-runner.json", "sha256": "899c0cfbdffa9a7c87684ce24ebb16d46be78dff1f72eb77254977468e775666"},
+      "innerAcceptanceSha256": "10c11026031292cf440a3296b1bb1ad76113490fa7d73a5ded86d9a1720dc233",
+      "boundary": "Metadata actor is unknown; three bounded PID audits do not prove process-lifetime attribution."
+    },
+    "vhfCandidate": {
+      "source": "51e96ab",
+      "status": "pushed dormant store-only candidate; not root-accepted",
+      "pending": "Compound correction/deletion/reopen replay; numeric scoring and activation; invalid-grid, context/timestamp-conflict and full-rollback coverage.",
+      "boundary": "QSO object equality does not prove serialized QSO byte equality."
+    }
+  },
+  "refreshGate": "Latest accepted combined contest product source is cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd. Combined source tests and bounded child checks passed, but the full-family rehearsal failed on the earlier 9e1c3dd run; a bounded agent diagnostic of CQWW-country CW/SSB passed at 485ea2c, while the full 16+12 matrix remains pending. Contest packaged-app and native application acceptance remain pending. Installed Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Main macOS 1.2.26 from 966a57ad5097816377c2e5d92a89a5a5a94b7408 is installed and strictly signed; no live amplifier/RF proof. VHF 51e96ab remains an unaccepted dormant store candidate. Preserve the published 2026-10-18 snapshot and generated files; keep the ledger at 16 previews / 78 pending / 0 fully ported. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
   "previousCombinedOperatorCheckpoint": {
     "productCommit": "5706ca36e96952a782c3b2374ec12b2465fca5ce",
     "receipt": "docs/contesting/evidence/combined-operator-source-checkpoint-2026-10-18.json",
