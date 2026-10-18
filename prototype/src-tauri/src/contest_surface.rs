@@ -1152,6 +1152,94 @@ mod tests {
     }
 
     #[test]
+    fn stale_context_and_capacity_failures_do_not_mutate_admission_state() {
+        let current = context();
+        let stale = ContestWindowContext {
+            session_id: "20000000-0000-4000-8000-000000000002".into(),
+            ..current.clone()
+        };
+        let mut state = State {
+            context: Some(current.clone()),
+            ..State::default()
+        };
+        assert!(require_context(&state, &stale).is_err());
+        assert!(state.actions.is_empty());
+        assert!(state.panels.is_empty());
+
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        for index in 0..MAX_ACTIONS {
+            state.actions.push_back(QueuedAction {
+                panel_id: "active-qso".into(),
+                request_id: format!("queued-{index}"),
+                envelope: json!({}),
+            });
+        }
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        let checked = validate_action_envelope(&envelope).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &checked, envelope).is_err());
+        assert_eq!(state.actions.len(), MAX_ACTIONS);
+        assert!(state.seen_request_ids.is_empty());
+        assert!(state.panels["active-qso"].receipts.is_empty());
+    }
+
+    #[test]
+    fn unresolved_receipts_block_eviction_and_retired_ids_never_replay() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        let panel = state.panels.get_mut("active-qso").unwrap();
+        for index in 0..MAX_RECEIPTS_PER_PANEL {
+            let request_id = format!("00000000-0000-4000-8000-{index:012x}");
+            let envelope = action_with_request(&request_id);
+            panel.receipts.push_back((
+                request_id.clone(),
+                Receipt {
+                    envelope,
+                    status: "uncertain",
+                    message: None,
+                    projection_revision: 7,
+                },
+            ));
+            state.seen_request_ids.insert(request_id);
+        }
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        let checked = validate_action_envelope(&envelope).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &checked, envelope.clone()).is_err());
+        assert_eq!(
+            state.panels["active-qso"].receipts.len(),
+            MAX_RECEIPTS_PER_PANEL
+        );
+        assert!(state.actions.is_empty());
+        assert!(!state.seen_request_ids.contains(REQUEST));
+
+        for (_, receipt) in &mut state.panels.get_mut("active-qso").unwrap().receipts {
+            receipt.status = "applied";
+        }
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &checked, envelope).unwrap()["status"],
+            "queued"
+        );
+        assert_eq!(
+            state.panels["active-qso"].receipts.len(),
+            MAX_RECEIPTS_PER_PANEL
+        );
+        let retired = action_with_request("00000000-0000-4000-8000-000000000000");
+        let retired_checked = validate_action_envelope(&retired).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &retired_checked, retired).is_err());
+        assert_eq!(state.actions.len(), 1);
+    }
+
+    #[test]
     fn unavailable_projection_cannot_enqueue_actions() {
         let mut state = State {
             context: Some(context()),
@@ -1232,5 +1320,11 @@ mod tests {
             "active-qso",
             json!({"draftID":"draft","expectedDraftRevision":2}),
         )
+    }
+
+    fn action_with_request(request_id: &str) -> Value {
+        let mut value = checked_value();
+        value["requestID"] = json!(request_id);
+        value
     }
 }

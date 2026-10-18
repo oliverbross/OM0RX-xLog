@@ -202,8 +202,8 @@ impl Owner {
                 Some(Work::ContestReset(reset)) => {
                     let result = crate::contest_window_context::admit(&reset.context).and_then(|_| {
                         if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
-                        close_contest_windows(&self.app)?;
                         crate::contest_surface::register_context(&reset.context);
+                        close_contest_windows(&self.app)?;
                         engines.insert(WorkspaceWindowScope::Contesting, Engine::for_contest(&reset.context));
                         self.publish(WorkspaceWindowScope::Contesting, Some(reset.context.clone()), contest_idle(&reset.context));
                         Ok(())
