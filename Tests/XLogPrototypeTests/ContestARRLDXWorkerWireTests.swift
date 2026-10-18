@@ -97,6 +97,9 @@ final class ContestARRLDXWorkerWireTests: XCTestCase {
             let created = try await frame(worker, "contest_create", createRequest)
             XCTAssertEqual(created["ok"] as? Bool, true, "\(scenario.key): \(created)")
             let createdResult = try XCTUnwrap(created["result"] as? [String: Any])
+            let capability = try XCTUnwrap((((createdResult["session"] as? [String: Any])?["rule"] as? [String: Any])?["operatorCapability"] as? [String: Any]))
+            XCTAssertEqual(capability["policy"] as? String, "simulated-run-sp-v1")
+            XCTAssertEqual(capability["output"] as? String, "simulation-only")
             let createdStation = try XCTUnwrap((createdResult["session"] as? [String: Any])?["station"] as? [String: Any])
             XCTAssertEqual(createdStation["exchangeFields"] as? [String: String], exchangeFields)
             XCTAssertEqual(createdStation["stationFields"] as? [String: String], ["section": scenario.section])
@@ -113,6 +116,13 @@ final class ContestARRLDXWorkerWireTests: XCTestCase {
                 payload: ["fields": firstFields], draftID: draftID, generation: generation)
             let appliedFirst = try await frame(worker, "contest_draft_apply", applyFirstRequest)
             XCTAssertEqual(appliedFirst["ok"] as? Bool, true, scenario.key)
+            let appliedResult = try XCTUnwrap(appliedFirst["result"] as? [String: Any])
+            let readiness = try XCTUnwrap((appliedResult["draft"] as? [String: Any])?["operatorReadiness"] as? [String: Any])
+            XCTAssertEqual(readiness["capabilityDigest"] as? String, capability["auditDigest"] as? String)
+            XCTAssertEqual(readiness["callsign"] as? String, "ready")
+            XCTAssertEqual(readiness["exchange"] as? String, "ready")
+            XCTAssertEqual(readiness["canSendCall"] as? Bool, true)
+            XCTAssertEqual(readiness["canCommit"] as? Bool, true)
             let commitFirstRequest = mutation(sessionID: sessionID, requestID: UUID(), revision: 2,
                 timestamp: "2026-10-18T21:\(String(format: "%02d", index * 10 + 2)):00.000Z",
                 payload: [:], draftID: draftID, generation: generation)

@@ -38,7 +38,7 @@ private let sacSSBEntry = ContestEntryDescriptor(
     serial: .init(requirement: .requiredForCommit, allowedScopes: sacSerialScopes)
 )
 
-public struct SACCWRule: ContestRule {
+public struct SACCWRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(
         id: "sac-cw", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview",
         sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f"
@@ -58,7 +58,7 @@ public struct SACCWRule: ContestRule {
     }
 }
 
-public struct SACSSBRule: ContestRule {
+public struct SACSSBRule: ContestOperatorCapableRule {
     public static let identity = ContestRuleIdentity(
         id: "sac-ssb", version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview",
         sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f"

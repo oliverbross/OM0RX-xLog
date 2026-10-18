@@ -562,7 +562,9 @@ actor ContestLane {
 
     private func catalog(_ params: [String: Any], generation: String) throws -> [String: Any] {
         try Wire.exact(params, [])
-        return ["workspaceGeneration": generation, "rules": rules.metadata.map { reference.ruleWire($0) }]
+        return ["workspaceGeneration": generation, "rules": try rules.metadata.map {
+            try reference.ruleWire($0, operatorCapability: operatorCapability(for: $0.identity))
+        }]
     }
 
     private func sessions(_ params: [String: Any], generation: String) async throws -> [String: Any] {
@@ -963,7 +965,9 @@ actor ContestLane {
             }
         }
         var result: [String: Any] = ["sessionID": Wire.uuidString(stored.session.id), "workspaceGeneration": generation, "revision": stored.revision,
-            "name": stored.metadata.name, "rule": reference.ruleWire(metadata), "referenceDataVersion": stored.session.referenceDataVersion,
+            "name": stored.metadata.name,
+            "rule": try reference.ruleWire(metadata, operatorCapability: operatorCapability(for: metadata.identity)),
+            "referenceDataVersion": stored.session.referenceDataVersion,
             "station": station,
             "operator": ["callsign": stored.metadata.operatorCallsign, "category": stored.metadata.operatorCategory],
             "qsoCount": suppliedCount,
@@ -1029,11 +1033,20 @@ actor ContestLane {
                      "reason": duplicate == true ? "This callsign and band are already logged in this contest."
                         : (duplicate == nil ? "Reload the contest session to check duplicate state." : "")],
             "updatedAt": Wire.iso(draft.updatedAt)]
+        if let operatorRule = rule as? any ContestOperatorCapableRule {
+            result["operatorReadiness"] = Wire.operatorReadinessWire(try operatorRule.operatorReadiness(
+                for: candidate, validation: validation, duplicate: duplicate, hasReservation: serial != nil))
+        }
         if rule.metadata.entry.stationResolvedSerial != nil {
             result["resolvedSerial"] = try Wire.resolvedSerialWire(
                 rule.resolvedSerialRequirement(in: stored.session))
         }
         return result
+    }
+
+    private func operatorCapability(for identity: ContestRuleIdentity) throws -> ContestOperatorCapability? {
+        guard let operatorRule = rules.rule(for: identity) as? any ContestOperatorCapableRule else { return nil }
+        return try operatorRule.operatorCapability()
     }
 
     private func qsoWire(_ qso: ContestQSO, scored: ContestScoredQSO?) throws -> [String: Any] {
@@ -1412,11 +1425,14 @@ private struct ContestReferenceData {
         default: return "\(key.kind) \(key.value)\(scoped)"
         }
     }
-    func ruleWire(_ metadata: XContestCore.ContestRuleMetadata) -> [String: Any] {
-        ["identity": Wire.ruleIdentityWire(metadata.identity), "displayName": metadata.displayName,
+    func ruleWire(_ metadata: XContestCore.ContestRuleMetadata,
+                  operatorCapability: ContestOperatorCapability?) throws -> [String: Any] {
+        var result: [String: Any] = ["identity": Wire.ruleIdentityWire(metadata.identity), "displayName": metadata.displayName,
          "entryDescriptorVersion": metadata.entry.version.rawValue,
          "mode": metadata.entry.mode, "entry": Wire.entryWire(metadata.entry),
          "referenceDataVersion": version, "sourceVerification": "provisional", "sourceNote": metadata.sourceProvenance]
+        if let operatorCapability { result["operatorCapability"] = Wire.operatorCapabilityWire(operatorCapability) }
+        return result
     }
     private static func csvColumns(_ line: String) -> [String] {
         var values: [String] = [], current = "", quoted = false
@@ -1523,6 +1539,18 @@ private enum Wire {
     }
     static func ruleIdentityWire(_ value: ContestRuleIdentity) -> [String: Any] {
         ["id": value.id, "version": value.version, "edition": value.edition, "sourceRevision": value.sourceRevision]
+    }
+    static func operatorCapabilityWire(_ value: ContestOperatorCapability) -> [String: Any] {
+        ["version": value.version, "auditDigest": value.auditDigest, "policy": value.policy,
+         "output": value.output, "styles": value.styles.map(\.rawValue),
+         "macros": value.macros.map(\.rawValue)]
+    }
+    static func operatorReadinessWire(_ value: ContestOperatorReadiness) -> [String: Any] {
+        ["capabilityDigest": value.capabilityDigest, "callsign": value.callsign.rawValue,
+         "exchange": value.exchange.rawValue, "canSendCQ": value.canSendCQ,
+         "canSendCall": value.canSendCall, "canSendDuplicate": value.canSendDuplicate,
+         "canReserveCall": value.canReserveCall, "canReserveCommit": value.canReserveCommit,
+         "canCommit": value.canCommit]
     }
     static func entryWire(_ value: ContestEntryDescriptor) -> [String: Any] {
         var exchange: [String: Any] = ["sent": value.exchange.sent.rawValue, "received": value.exchange.received.rawValue,

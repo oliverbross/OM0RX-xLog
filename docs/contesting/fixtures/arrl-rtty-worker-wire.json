@@ -1,9 +1,263 @@
 {
   "catalog" : {
-    "id" : "ecc16cdf-1b5c-4db2-8ba3-274fc3c5483d",
+    "id" : "5bd0d005-ca91-4223-ae85-df7229945bdd",
     "ok" : true,
     "result" : {
       "rules" : [
+        {
+          "displayName" : "ARRL International DX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-cw",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "b5cb6c28539f7592cf008a77d92a18f47dbf6a3dde615c59e4fdb633c6b352f1",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional"
+        },
+        {
+          "displayName" : "ARRL International DX SSB Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-ssb",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "ddb3c40744f148d47806eaf272541f4d838b0e3257e93fabdd9a183e6de0894d",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional"
+        },
         {
           "displayName" : "ARRL RTTY Roundup Preview",
           "entry" : {
@@ -148,6 +402,25 @@
             "version" : "1.0.0-source-spike"
           },
           "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
           "sourceVerification" : "provisional"
@@ -189,6 +462,25 @@
             "version" : "1.0.0-source-spike"
           },
           "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "fda55650fecac6c637acdeed3dea77e9ac55417f78ebe4c33c00f95f772312a7",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
           "sourceVerification" : "provisional"
@@ -228,6 +520,25 @@
             "version" : "1.0.0-source-spike"
           },
           "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
           "sourceVerification" : "provisional"
@@ -267,6 +578,25 @@
             "version" : "1.0.0-source-spike"
           },
           "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "88c2ec26c9f9df6d5d54d000c38441ceb2a61be583d0529e658b76f2028f760e",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_ssb.py; source parity only, not current sponsor approval",
           "sourceVerification" : "provisional"
@@ -348,6 +678,25 @@
             "version" : "1.0.0-2026-rules-preview"
           },
           "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "fc5c089d29115cd70b42107b99283b800cb6b05093b5b709c7823d1927174b2f",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
           "sourceVerification" : "provisional"
@@ -429,6 +778,25 @@
             "version" : "1.0.0-2026-rules-preview"
           },
           "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "a2eaa67dee87c6c99822b5e6bb8a76bc58837a43746bfc400444ef098294e4f4",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
           "sourceVerification" : "provisional"
@@ -530,6 +898,25 @@
             "version" : "1.0.0-2026-rules-preview"
           },
           "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
           "sourceVerification" : "provisional"
@@ -732,6 +1119,25 @@
             "version" : "1.0.0-2026-rules-preview"
           },
           "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "040cd5d65b7e4d5547b7c4cdaf7680702b65bc1500380b527acedc72bcbf0d70",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
           "sourceVerification" : "provisional"
@@ -773,6 +1179,25 @@
             "version" : "1.0.0-source-spike"
           },
           "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "8372ac078468e2502f4eae7cec8b871ba3c55037e5e5626def8eb85905b237ce",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
           "sourceVerification" : "provisional"
@@ -814,6 +1239,25 @@
             "version" : "1.0.0-source-spike"
           },
           "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "a638f0f5f4bce58a0cd43649cbbdcf6bfa23207cd3be894a0cc4cb56bc273be2",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
           "sourceVerification" : "provisional"
@@ -855,6 +1299,25 @@
             "version" : "1.0.0-2026-rules-preview"
           },
           "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "6280e5a01c2aada4f3707b4fea26ef53826e4cfd122115b9110722fd251b54f3",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_cw.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
           "sourceVerification" : "provisional"
@@ -896,233 +1359,36 @@
             "version" : "1.0.0-2026-rules-preview"
           },
           "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "b202d90891faeb2bae345d5566ce4cbcf1e5f70abd9dd16c2ceaa29d64ddeb90",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
           "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
           "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
           "sourceVerification" : "provisional"
-        },
-          {
-          "displayName" : "ARRL International DX CW Preview",
-          "entry" : {
-            "adifMode" : "CW",
-            "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
-            "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
-            "cabrilloQSOType" : "CW",
-            "exchange" : {
-              "adifFields" : "exchangeStrings",
-              "received" : "structured",
-              "receivedFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ],
-              "sent" : "structured",
-              "sentDefault" : "stationFields",
-              "sentFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "MY_STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ]
-            },
-            "mode" : "CW",
-            "modeProfiles" : [
-              {
-                "adifMode" : "CW",
-                "adifSubmode" : null,
-                "cabrilloQSOType" : "CW",
-                "mode" : "CW",
-                "report" : {
-                  "defaultReceived" : "599",
-                  "defaultSent" : "599",
-                  "format" : "cwRST",
-                  "maximumUTF8Bytes" : 3
-                }
-              }
-            ],
-            "report" : {
-              "defaultReceived" : "599",
-              "defaultSent" : "599",
-              "format" : "cwRST",
-              "maximumUTF8Bytes" : 3
-            },
-            "scorePolicy" : "pointsTimesMultipliers",
-            "serial" : {
-              "allowedScopes" : [
-
-              ],
-              "requirement" : "none"
-            },
-            "stationFields" : [
-              {
-                "id" : "section",
-                "label" : "Cabrillo section",
-                "maximumUTF8Bytes" : 3,
-                "required" : true,
-                "role" : "cabrilloLocation"
-              }
-            ],
-            "version" : 2
-          },
-          "entryDescriptorVersion" : 2,
-          "identity" : {
-            "edition" : "rules-2.0-preview",
-            "id" : "arrl-dx-cw",
-            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
-            "version" : "1.0.0-2.0-preview"
-          },
-          "mode" : "CW",
-          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
-          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
-          "sourceVerification" : "provisional"
-        },
-          {
-          "displayName" : "ARRL International DX SSB Preview",
-          "entry" : {
-            "adifMode" : "SSB",
-            "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
-            "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
-            "cabrilloQSOType" : "PH",
-            "exchange" : {
-              "adifFields" : "exchangeStrings",
-              "received" : "structured",
-              "receivedFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ],
-              "sent" : "structured",
-              "sentDefault" : "stationFields",
-              "sentFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "MY_STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ]
-            },
-            "mode" : "SSB",
-            "modeProfiles" : [
-              {
-                "adifMode" : "SSB",
-                "adifSubmode" : null,
-                "cabrilloQSOType" : "PH",
-                "mode" : "SSB",
-                "report" : {
-                  "defaultReceived" : "59",
-                  "defaultSent" : "59",
-                  "format" : "phoneRS",
-                  "maximumUTF8Bytes" : 2
-                }
-              }
-            ],
-            "report" : {
-              "defaultReceived" : "59",
-              "defaultSent" : "59",
-              "format" : "phoneRS",
-              "maximumUTF8Bytes" : 2
-            },
-            "scorePolicy" : "pointsTimesMultipliers",
-            "serial" : {
-              "allowedScopes" : [
-
-              ],
-              "requirement" : "none"
-            },
-            "stationFields" : [
-              {
-                "id" : "section",
-                "label" : "Cabrillo section",
-                "maximumUTF8Bytes" : 3,
-                "required" : true,
-                "role" : "cabrilloLocation"
-              }
-            ],
-            "version" : 2
-          },
-          "entryDescriptorVersion" : 2,
-          "identity" : {
-            "edition" : "rules-2.0-preview",
-            "id" : "arrl-dx-ssb",
-            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
-            "version" : "1.0.0-2.0-preview"
-          },
-          "mode" : "SSB",
-          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
-          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
-          "sourceVerification" : "provisional"
         }
-        ],
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      ],
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     }
   },
   "dx" : {
     "applyRequest" : {
-      "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+      "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
       "expectedRevision" : 2,
       "operationTimestamp" : "2026-10-18T16:03:00.000Z",
       "payload" : {
@@ -1145,16 +1411,16 @@
         }
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "a3eed3f0-a5b9-4d80-aa2d-301dabb05877",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "4f78e262-2e42-47e0-8008-6aa107d0147e",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "applyResponse" : {
-      "id" : "438a979e-de42-43da-9294-bc931daf76ae",
+      "id" : "a02f9b2e-5dad-471f-a218-bdaf8702e32f",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+          "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
           "dupe" : {
             "reason" : "",
             "state" : "clear"
@@ -1185,7 +1451,7 @@
             "requirement" : "requiredForCommit"
           },
           "revision" : 3,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:03:00.000Z",
           "validation" : {
             "errors" : [
@@ -1195,13 +1461,13 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "receipt" : {
           "committedAt" : "2026-10-18T16:03:00.000Z",
           "committedRevision" : 3,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "a3eed3f0-a5b9-4d80-aa2d-301dabb05877"
+          "requestID" : "4f78e262-2e42-47e0-8008-6aa107d0147e"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -1326,7 +1592,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "station" : {
             "callsign" : "DL1AAA",
             "cqZone" : "14",
@@ -1340,28 +1606,28 @@
             }
           },
           "updatedAt" : "2026-10-18T16:03:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
     "commitRequest" : {
-      "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+      "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
       "expectedRevision" : 3,
       "operationTimestamp" : "2026-10-18T16:04:00.000Z",
       "payload" : {
 
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "commitResponse" : {
-      "id" : "2b90489e-b098-489c-bb7b-76d5fe4e62e7",
+      "id" : "95ae923d-8883-476d-9498-8a81be29ea7c",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+          "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
           "dupe" : {
             "reason" : "Reload the contest session to check duplicate state.",
             "state" : "unchecked"
@@ -1392,7 +1658,7 @@
             "requirement" : "requiredForCommit"
           },
           "revision" : 4,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:04:00.000Z",
           "validation" : {
             "errors" : [
@@ -1404,7 +1670,7 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "qso" : {
           "band" : "20m",
@@ -1416,17 +1682,17 @@
             "arrl-us-state CA"
           ],
           "points" : 1,
-          "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+          "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
           "receivedExchange" : "CA",
           "sentExchange" : "001",
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "workedAt" : "2026-10-18T16:04:00.000Z"
         },
         "receipt" : {
           "committedAt" : "2026-10-18T16:04:00.000Z",
           "committedRevision" : 4,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb"
+          "requestID" : "459c73b8-432b-47d0-b77b-03ecb3caa263"
         },
         "score" : {
           "claimedScore" : 1,
@@ -1434,9 +1700,9 @@
           "points" : 1,
           "qsos" : 1,
           "revision" : 4,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -1561,7 +1827,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "station" : {
             "callsign" : "DL1AAA",
             "cqZone" : "14",
@@ -1575,7 +1841,7 @@
             }
           },
           "updatedAt" : "2026-10-18T16:04:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
@@ -1598,7 +1864,7 @@
             "source" : "operatorEntry",
             "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
           },
-          "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+          "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
           "receivedExchange" : "NY",
           "receivedExchangeFields" : {
             "exchange" : "NY"
@@ -1617,25 +1883,25 @@
             "serial" : "001"
           },
           "sentReport" : "589",
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "stationLocation" : "DX"
         },
         "reason" : "Correct subdivision"
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "602d87af-3412-40a6-92e4-bd9c8b793e20",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "5f6c17f5-f3ff-456e-a446-03477ed7c71b",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "correctionResponse" : {
-      "id" : "864650e2-9749-4969-b07d-1a4df138e14d",
+      "id" : "c258ba63-e2d1-474c-b3dc-3b3ddf88b7de",
       "ok" : true,
       "result" : {
         "auditReference" : {
-          "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
-          "requestID" : "602d87af-3412-40a6-92e4-bd9c8b793e20",
+          "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
+          "requestID" : "5f6c17f5-f3ff-456e-a446-03477ed7c71b",
           "revision" : 5,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4"
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea"
         },
         "currentTarget" : {
           "allocatedSerial" : "001",
@@ -1659,7 +1925,7 @@
             "source" : "operatorEntry",
             "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
           },
-          "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+          "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
           "receivedExchange" : "NY",
           "receivedExchangeFields" : {
             "exchange" : "NY"
@@ -1678,17 +1944,17 @@
             "serial" : "001"
           },
           "sentReport" : "589",
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "stationLocation" : "DX"
         },
         "operation" : "correction",
         "qsoCount" : 1,
-        "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+        "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
         "receipt" : {
           "committedAt" : "2026-10-18T16:05:00.000Z",
           "committedRevision" : 5,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "602d87af-3412-40a6-92e4-bd9c8b793e20"
+          "requestID" : "5f6c17f5-f3ff-456e-a446-03477ed7c71b"
         },
         "score" : {
           "claimedScore" : 1,
@@ -1696,9 +1962,9 @@
           "points" : 1,
           "qsos" : 1,
           "revision" : 5,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -1711,9 +1977,9 @@
             "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
             "version" : "1.0.0-3.0b-preview"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:05:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
@@ -1733,7 +1999,7 @@
           "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
           "version" : "1.0.0-3.0b-preview"
         },
-        "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+        "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
         "station" : {
           "callsign" : "DL1AAA",
           "cqZone" : "14",
@@ -1748,16 +2014,16 @@
         }
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "createResponse" : {
-      "id" : "5aee9dcf-f4c0-441c-a213-bfbe2ab5e439",
+      "id" : "82a721e9-33d6-415e-9cf5-17c711867931",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+          "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
           "dupe" : {
             "reason" : "Reload the contest session to check duplicate state.",
             "state" : "unchecked"
@@ -1788,7 +2054,7 @@
             "requirement" : "requiredForCommit"
           },
           "revision" : 1,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:00:00.000Z",
           "validation" : {
             "errors" : [
@@ -1801,13 +2067,13 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "receipt" : {
           "committedAt" : "2026-10-18T16:00:00.000Z",
           "committedRevision" : 1,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "dac44320-2d6f-4883-ae33-cc811ac83742"
+          "requestID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -1932,7 +2198,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "station" : {
             "callsign" : "DL1AAA",
             "cqZone" : "14",
@@ -1946,7 +2212,7 @@
             }
           },
           "updatedAt" : "2026-10-18T16:00:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
@@ -1954,33 +2220,33 @@
       "expectedRevision" : 5,
       "operationTimestamp" : "2026-10-18T16:07:00.000Z",
       "payload" : {
-        "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+        "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
         "reason" : "Remove test contact"
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "2f6b2fd1-9c69-45b6-b0d8-704f74bdc6f4",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "1956df74-f04b-478c-865e-c718487a1f02",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "deleteResponse" : {
-      "id" : "a32548de-e012-4698-928a-3d1bd2dffbe0",
+      "id" : "229d8d8d-b22e-44c3-925c-145615ebefb5",
       "ok" : true,
       "result" : {
         "auditReference" : {
-          "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
-          "requestID" : "2f6b2fd1-9c69-45b6-b0d8-704f74bdc6f4",
+          "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
+          "requestID" : "1956df74-f04b-478c-865e-c718487a1f02",
           "revision" : 6,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4"
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea"
         },
         "currentTarget" : null,
         "operation" : "deletion",
         "qsoCount" : 0,
-        "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+        "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
         "receipt" : {
           "committedAt" : "2026-10-18T16:07:00.000Z",
           "committedRevision" : 6,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "2f6b2fd1-9c69-45b6-b0d8-704f74bdc6f4"
+          "requestID" : "1956df74-f04b-478c-865e-c718487a1f02"
         },
         "score" : {
           "claimedScore" : 0,
@@ -1988,9 +2254,9 @@
           "points" : 0,
           "qsos" : 0,
           "revision" : 6,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -2003,39 +2269,39 @@
             "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
             "version" : "1.0.0-3.0b-preview"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:07:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
     "exports" : {
       "adif" : {
         "readRequest" : {
-          "exportID" : "b4b098d1-7be5-42be-8975-b3ac29e7eaa2",
+          "exportID" : "ae93f5a0-0488-48d7-a158-e0e8ccaaeaa6",
           "length" : 1166,
           "offset" : 0,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "readResponse" : {
-          "id" : "7f113db4-e0fc-42a7-bf5e-c3596eec22dc",
+          "id" : "f1c89171-8923-4bc6-9600-8d028ffcf1b7",
           "ok" : true,
           "result" : {
-            "artifactID" : "b4b098d1-7be5-42be-8975-b3ac29e7eaa2",
+            "artifactID" : "ae93f5a0-0488-48d7-a158-e0e8ccaaeaa6",
             "byteLength" : 1166,
-            "dataBase64" : "PEFESUZfVkVSOjU+My4xLjc8UFJPR1JBTUlEOjEwPk9NMFJYLXhMb2c8UFJPR1JBTVZFUlNJT046MTk+YXJybC1ydHR5LXByZXZpZXctMTxDUkVBVEVEX1RJTUVTVEFNUDoxNT4yMDI2MTAxOCAxNjA2MDA8RU9IPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTk+YXJybC1ydHR5LXByZXZpZXctMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+NzNlNDBjM2QtZWZhYi00YTQxLWIyMGEtOGVjNDFjZTM0YWZiPEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjE4PnJ1bGVzLTMuMGItcHJldmlldzxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6MTc+YXJybC1ydHR5LXJvdW5kdXA8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND44N2M5ZjAwMzJlNmNlNTAyYjRhZTk0ZDQ3YjM5N2E5YTM0YzQ5YTNlYWZkYjVhNTBmYzIyNjY5NDY5NmZlMWNlPEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjE4PjEuMC4wLTMuMGItcHJldmlldzxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+MjlmY2NlZTEtOWYyOS00YjI2LTk4Y2YtODJlMTE0YzI5OGU0PEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoxPjU8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj4yMzEwZDc1OS0xNjkyLTQ2NjItYTZlYy1jN2ZkZTM3Y2NhOGQ8QkFORDozPjIwbTxDQUxMOjU+SzFBQUE8Q09OVEVTVF9JRDo5PkFSUkwtUlRUWTxEWENDOjM+MjkxPEZSRVE6OT4xNC4wODAwMDA8TU9ERTo0PlJUVFk8TVlfRFhDQzozPjIzMDxPUEVSQVRPUjo2PkRMMUFBQTxRU09fREFURTo4PjIwMjYxMDE4PFJTVF9SQ1ZEOjM+NTc5PFJTVF9TRU5UOjM+NTg5PFNSWF9TVFJJTkc6Mj5OWTxTVEFURToyPk5ZPFNUQVRJT05fQ0FMTFNJR046Nj5ETDFBQUE8U1RYOjM+MDAxPFNUWF9TVFJJTkc6Mz4wMDE8VElNRV9PTjo2PjE2MDQwMDxFT1I+DQo=",
+            "dataBase64" : "PEFESUZfVkVSOjU+My4xLjc8UFJPR1JBTUlEOjEwPk9NMFJYLXhMb2c8UFJPR1JBTVZFUlNJT046MTk+YXJybC1ydHR5LXByZXZpZXctMTxDUkVBVEVEX1RJTUVTVEFNUDoxNT4yMDI2MTAxOCAxNjA2MDA8RU9IPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTk+YXJybC1ydHR5LXByZXZpZXctMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+NDU5YzczYjgtNDMyYi00N2QwLWI3N2ItMDNlY2IzY2FhMjYzPEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjE4PnJ1bGVzLTMuMGItcHJldmlldzxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6MTc+YXJybC1ydHR5LXJvdW5kdXA8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND44N2M5ZjAwMzJlNmNlNTAyYjRhZTk0ZDQ3YjM5N2E5YTM0YzQ5YTNlYWZkYjVhNTBmYzIyNjY5NDY5NmZlMWNlPEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjE4PjEuMC4wLTMuMGItcHJldmlldzxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+NDZmNjM0MTEtOWM0NS00N2RiLTgzNWUtZmViYjI3Njg0MmVhPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoxPjU8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj45MDNkMDMxMi05ZDc2LTQ5MjktYmQxMi01MGZmYWMwNmI4YWU8QkFORDozPjIwbTxDQUxMOjU+SzFBQUE8Q09OVEVTVF9JRDo5PkFSUkwtUlRUWTxEWENDOjM+MjkxPEZSRVE6OT4xNC4wODAwMDA8TU9ERTo0PlJUVFk8TVlfRFhDQzozPjIzMDxPUEVSQVRPUjo2PkRMMUFBQTxRU09fREFURTo4PjIwMjYxMDE4PFJTVF9SQ1ZEOjM+NTc5PFJTVF9TRU5UOjM+NTg5PFNSWF9TVFJJTkc6Mj5OWTxTVEFURToyPk5ZPFNUQVRJT05fQ0FMTFNJR046Nj5ETDFBQUE8U1RYOjM+MDAxPFNUWF9TVFJJTkc6Mz4wMDE8VElNRV9PTjo2PjE2MDQwMDxFT1I+DQo=",
             "eof" : true,
             "offset" : 0,
             "revision" : 5,
-            "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-            "sha256" : "15c6c87d3529c29d589c12f525c891fc2e3d8397cee64b45ea60bfd08f262f1c",
-            "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+            "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+            "sha256" : "ad352762ad32af177a2fa061afa090743b4bab97b0cabf21967233cdfaf15d7b",
+            "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
           }
         },
         "request" : {
           "expectedRevision" : 5,
-          "exportID" : "b4b098d1-7be5-42be-8975-b3ac29e7eaa2",
+          "exportID" : "ae93f5a0-0488-48d7-a158-e0e8ccaaeaa6",
           "format" : "adif",
           "generatedAtUTC" : "2026-10-18T16:06:00.000Z",
           "header" : {
@@ -2056,14 +2322,14 @@
               "DL1AAA"
             ]
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "response" : {
-          "id" : "32e40d51-cc86-462c-9432-5c21b1eda978",
+          "id" : "ae2a41ee-6057-4203-8c98-6729368c85ed",
           "ok" : true,
           "result" : {
-            "artifactID" : "b4b098d1-7be5-42be-8975-b3ac29e7eaa2",
+            "artifactID" : "ae93f5a0-0488-48d7-a158-e0e8ccaaeaa6",
             "byteLength" : 1166,
             "chunkLimit" : 65536,
             "claimedScore" : 1,
@@ -2075,39 +2341,39 @@
             "multiplierCount" : 1,
             "qsoCount" : 1,
             "revision" : 5,
-            "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-            "sha256" : "15c6c87d3529c29d589c12f525c891fc2e3d8397cee64b45ea60bfd08f262f1c",
+            "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+            "sha256" : "ad352762ad32af177a2fa061afa090743b4bab97b0cabf21967233cdfaf15d7b",
             "totalPoints" : 1,
-            "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+            "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
           }
         }
       },
       "cabrillo" : {
         "readRequest" : {
-          "exportID" : "ed6e246e-b9b0-4186-9382-1ba02b5eeb90",
+          "exportID" : "0f66b82c-1cba-4c6f-a75d-3c434d7c2250",
           "length" : 406,
           "offset" : 0,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "readResponse" : {
-          "id" : "36a25f3f-d46e-47c7-9481-500b780242e7",
+          "id" : "08572cb2-46b6-4ebc-adc1-1aaa8f104466",
           "ok" : true,
           "result" : {
-            "artifactID" : "ed6e246e-b9b0-4186-9382-1ba02b5eeb90",
+            "artifactID" : "0f66b82c-1cba-4c6f-a75d-3c434d7c2250",
             "byteLength" : 406,
             "dataBase64" : "U1RBUlQtT0YtTE9HOiAzLjANCkNSRUFURUQtQlk6IE9NMFJYLXhMb2cNCkNPTlRFU1Q6IEFSUkwtUlRUWQ0KQ0FMTFNJR046IERMMUFBQQ0KTE9DQVRJT046IERYDQpDQVRFR09SWS1PUEVSQVRPUjogU0lOR0xFLU9QDQpDQVRFR09SWS1BU1NJU1RFRDogTk9OLUFTU0lTVEVEDQpDQVRFR09SWS1CQU5EOiBBTEwNCkNBVEVHT1JZLU1PREU6IFJUVFkNCkNBVEVHT1JZLVRSQU5TTUlUVEVSOiBPTkUNCkNBVEVHT1JZLVBPV0VSOiBMT1cNCkNMQUlNRUQtU0NPUkU6IDENCk9QRVJBVE9SUzogREwxQUFBDQpOQU1FOiBEWCBPcGVyYXRvcg0KRU1BSUw6IA0KUVNPOiAxNDA4MCBSWSAyMDI2LTEwLTE4IDE2MDQgREwxQUFBICAgICAgICA1ODkgMDAxICAgIEsxQUFBICAgICAgICAgNTc5IE5ZICAgIA0KRU5ELU9GLUxPRzoNCg==",
             "eof" : true,
             "offset" : 0,
             "revision" : 5,
-            "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+            "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
             "sha256" : "ee170be96124301f5c3d9f7ae869dbd47506629a6092ad76e32c90b025d57593",
-            "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+            "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
           }
         },
         "request" : {
           "expectedRevision" : 5,
-          "exportID" : "ed6e246e-b9b0-4186-9382-1ba02b5eeb90",
+          "exportID" : "0f66b82c-1cba-4c6f-a75d-3c434d7c2250",
           "format" : "cabrillo",
           "generatedAtUTC" : "2026-10-18T16:06:00.000Z",
           "header" : {
@@ -2128,14 +2394,14 @@
               "DL1AAA"
             ]
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "response" : {
-          "id" : "d3965f8f-2a5b-40c0-b5b7-b69e94a20c92",
+          "id" : "425a1ac0-024a-41f9-af15-319bab952f7f",
           "ok" : true,
           "result" : {
-            "artifactID" : "ed6e246e-b9b0-4186-9382-1ba02b5eeb90",
+            "artifactID" : "0f66b82c-1cba-4c6f-a75d-3c434d7c2250",
             "byteLength" : 406,
             "chunkLimit" : 65536,
             "claimedScore" : 1,
@@ -2147,22 +2413,22 @@
             "multiplierCount" : 1,
             "qsoCount" : 1,
             "revision" : 5,
-            "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+            "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
             "sha256" : "ee170be96124301f5c3d9f7ae869dbd47506629a6092ad76e32c90b025d57593",
             "totalPoints" : 1,
-            "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+            "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
           }
         }
       }
     },
     "getRequest" : {
       "expectedRevision" : 4,
-      "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "getResponse" : {
-      "id" : "19344873-647c-4aa4-8419-c19ff680bd55",
+      "id" : "13917647-eeb6-4cf4-9b33-4ce7b685453e",
       "ok" : true,
       "result" : {
         "qso" : {
@@ -2187,7 +2453,7 @@
             "source" : "operatorEntry",
             "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
           },
-          "qsoID" : "73e40c3d-efab-4a41-b20a-8ec41ce34afb",
+          "qsoID" : "459c73b8-432b-47d0-b77b-03ecb3caa263",
           "receivedExchange" : "CA",
           "receivedExchangeFields" : {
             "exchange" : "CA"
@@ -2206,24 +2472,24 @@
             "serial" : "001"
           },
           "sentReport" : "589",
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "stationLocation" : "DX"
         },
         "revision" : 4,
-        "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-        "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+        "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+        "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
       }
     },
     "openRequest" : {
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "openResponse" : {
-      "id" : "780d43e3-2a2d-408e-a43f-d036963328be",
+      "id" : "018767d8-216a-4669-ad1e-fdf5d601f54b",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+          "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
           "dupe" : {
             "reason" : "",
             "state" : "clear"
@@ -2254,7 +2520,7 @@
             "requirement" : "requiredForCommit"
           },
           "revision" : 4,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:04:00.000Z",
           "validation" : {
             "errors" : [
@@ -2265,7 +2531,7 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -2390,7 +2656,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "station" : {
             "callsign" : "DL1AAA",
             "cqZone" : "14",
@@ -2404,16 +2670,16 @@
             }
           },
           "updatedAt" : "2026-10-18T16:04:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
     "reserveReplayResponse" : {
-      "id" : "1e1a0543-530e-490b-91f5-a13379224579",
+      "id" : "c8ea2e1c-6698-4553-8eb2-f442c8fddfc3",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+          "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
           "dupe" : {
             "reason" : "Reload the contest session to check duplicate state.",
             "state" : "unchecked"
@@ -2444,7 +2710,7 @@
             "requirement" : "requiredForCommit"
           },
           "revision" : 2,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:02:00.000Z",
           "validation" : {
             "errors" : [
@@ -2457,13 +2723,13 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "receipt" : {
           "committedAt" : "2026-10-18T16:02:00.000Z",
           "committedRevision" : 2,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "a61064a5-9f2a-4123-80aa-5179188019c9"
+          "requestID" : "bce7ad31-d3c8-4b92-a9b8-7703a7270a16"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -2588,7 +2854,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "station" : {
             "callsign" : "DL1AAA",
             "cqZone" : "14",
@@ -2602,28 +2868,28 @@
             }
           },
           "updatedAt" : "2026-10-18T16:02:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
     "reserveRequest" : {
-      "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+      "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
       "expectedRevision" : 1,
       "operationTimestamp" : "2026-10-18T16:02:00.000Z",
       "payload" : {
 
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "a61064a5-9f2a-4123-80aa-5179188019c9",
-      "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "bce7ad31-d3c8-4b92-a9b8-7703a7270a16",
+      "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "reserveResponse" : {
-      "id" : "44e6a81b-03eb-4ef5-b7c4-ae14bbaa0472",
+      "id" : "9dd9cea9-cea8-4af6-8a15-12ea98f7baf9",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "dac44320-2d6f-4883-ae33-cc811ac83742",
+          "draftID" : "11a12d60-58d2-4c02-bd3f-d1a2227c272a",
           "dupe" : {
             "reason" : "Reload the contest session to check duplicate state.",
             "state" : "unchecked"
@@ -2654,7 +2920,7 @@
             "requirement" : "requiredForCommit"
           },
           "revision" : 2,
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "updatedAt" : "2026-10-18T16:02:00.000Z",
           "validation" : {
             "errors" : [
@@ -2667,13 +2933,13 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "receipt" : {
           "committedAt" : "2026-10-18T16:02:00.000Z",
           "committedRevision" : 2,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "a61064a5-9f2a-4123-80aa-5179188019c9"
+          "requestID" : "bce7ad31-d3c8-4b92-a9b8-7703a7270a16"
         },
         "session" : {
           "name" : "ARRL RTTY DX",
@@ -2798,7 +3064,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "29fccee1-9f29-4b26-98cf-82e114c298e4",
+          "sessionID" : "46f63411-9c45-47db-835e-febb276842ea",
           "station" : {
             "callsign" : "DL1AAA",
             "cqZone" : "14",
@@ -2812,7 +3078,7 @@
             }
           },
           "updatedAt" : "2026-10-18T16:02:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     }
@@ -2823,7 +3089,7 @@
       "message" : "The contest session is invalid.",
       "outcome" : "confirmed"
     },
-    "id" : "9003510f-3a1d-4b42-80ed-bbb3f19caeb6",
+    "id" : "fd4820de-fbbc-4cd3-a154-219aad402d91",
     "ok" : false
   },
   "schemaVersion" : 1,
@@ -2844,7 +3110,7 @@
           "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
           "version" : "1.0.0-3.0b-preview"
         },
-        "sessionID" : "978af795-a3b4-484d-9cbf-b8d3cac9375f",
+        "sessionID" : "a154b1ea-7ea6-41ba-a434-562beac13ce3",
         "station" : {
           "callsign" : "K1AAA",
           "cqZone" : "5",
@@ -2859,16 +3125,16 @@
         }
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "54ccef92-2b79-4762-9a01-892abc0877fa",
-      "sessionID" : "978af795-a3b4-484d-9cbf-b8d3cac9375f",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "fdfc5e7c-8a39-4dd6-ad30-bd09603357b1",
+      "sessionID" : "a154b1ea-7ea6-41ba-a434-562beac13ce3",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "createResponse" : {
-      "id" : "d083071e-b229-4535-bc51-aa1d541c1fb4",
+      "id" : "32c390fd-e128-4a6f-a908-8e8fab549125",
       "ok" : true,
       "result" : {
         "draft" : {
-          "draftID" : "54ccef92-2b79-4762-9a01-892abc0877fa",
+          "draftID" : "fdfc5e7c-8a39-4dd6-ad30-bd09603357b1",
           "dupe" : {
             "reason" : "Reload the contest session to check duplicate state.",
             "state" : "unchecked"
@@ -2899,7 +3165,7 @@
             "requirement" : "none"
           },
           "revision" : 1,
-          "sessionID" : "978af795-a3b4-484d-9cbf-b8d3cac9375f",
+          "sessionID" : "a154b1ea-7ea6-41ba-a434-562beac13ce3",
           "updatedAt" : "2026-10-18T16:00:00.000Z",
           "validation" : {
             "errors" : [
@@ -2912,13 +3178,13 @@
 
             ]
           },
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         },
         "receipt" : {
           "committedAt" : "2026-10-18T16:00:00.000Z",
           "committedRevision" : 1,
           "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "requestID" : "54ccef92-2b79-4762-9a01-892abc0877fa"
+          "requestID" : "fdfc5e7c-8a39-4dd6-ad30-bd09603357b1"
         },
         "session" : {
           "name" : "ARRL RTTY WVE",
@@ -3043,7 +3309,7 @@
             "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
             "sourceVerification" : "provisional"
           },
-          "sessionID" : "978af795-a3b4-484d-9cbf-b8d3cac9375f",
+          "sessionID" : "a154b1ea-7ea6-41ba-a434-562beac13ce3",
           "station" : {
             "callsign" : "K1AAA",
             "cqZone" : "5",
@@ -3057,21 +3323,21 @@
             }
           },
           "updatedAt" : "2026-10-18T16:00:00.000Z",
-          "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+          "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
         }
       }
     },
     "reserveRequest" : {
-      "draftID" : "54ccef92-2b79-4762-9a01-892abc0877fa",
+      "draftID" : "fdfc5e7c-8a39-4dd6-ad30-bd09603357b1",
       "expectedRevision" : 1,
       "operationTimestamp" : "2026-10-18T16:01:00.000Z",
       "payload" : {
 
       },
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "requestID" : "809b338f-8adc-4c7e-bff7-e43383566568",
-      "sessionID" : "978af795-a3b4-484d-9cbf-b8d3cac9375f",
-      "workspaceGeneration" : "2310d759-1692-4662-a6ec-c7fde37cca8d"
+      "requestID" : "a7119643-4f80-43db-be2b-018619df2046",
+      "sessionID" : "a154b1ea-7ea6-41ba-a434-562beac13ce3",
+      "workspaceGeneration" : "903d0312-9d76-4929-bd12-50ffac06b8ae"
     },
     "reserveResponse" : {
       "error" : {
@@ -3079,7 +3345,7 @@
         "message" : "This contest does not allocate serial numbers.",
         "outcome" : "confirmed"
       },
-      "id" : "378417ab-a75f-4acb-be62-853b4f979328",
+      "id" : "89cfa0fc-0689-4324-a1d1-6cad8ab7b8e9",
       "ok" : false
     }
   }

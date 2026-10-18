@@ -52,7 +52,7 @@ private let jidxProvenance = "JIDX Contest Rules 2026-10 https://www.jidx.org/ji
     "practice preview only"
 
 /// JIDX CW practice-preview scoring core. Sponsor submission acceptance remains separate.
-public struct JIDXCWRule: ContestRule, ContestRuleStationEntityPolicy {
+public struct JIDXCWRule: ContestOperatorCapableRule, ContestRuleStationEntityPolicy {
     public let draftResetSentProjection: ContestDraftResetSentProjection = .soleStationField
 
     public static let identity = ContestRuleIdentity(
@@ -79,7 +79,7 @@ public struct JIDXCWRule: ContestRule, ContestRuleStationEntityPolicy {
 }
 
 /// JIDX Phone practice-preview scoring core. Cabrillo renders the sponsor's PH token.
-public struct JIDXSSBRule: ContestRule, ContestRuleStationEntityPolicy {
+public struct JIDXSSBRule: ContestOperatorCapableRule, ContestRuleStationEntityPolicy {
     public let draftResetSentProjection: ContestDraftResetSentProjection = .soleStationField
 
     public static let identity = ContestRuleIdentity(

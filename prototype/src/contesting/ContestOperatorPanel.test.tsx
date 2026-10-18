@@ -5,19 +5,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import workerFixtureJSON from "../../../docs/contesting/fixtures/contesting-worker-wire.json";
 import exportFixtureJSON from "../../../docs/contesting/fixtures/contest-export-worker-wire.json";
 import { ContestMutationUncertain } from "./client";
+import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
 import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
-import type { ContestCommitResult, ContestDraftResult, ContestDraftSnapshot, ContestSessionSummary } from "./types";
+import { isStructuredEntry, type ContestCommitResult, type ContestDraftResult, type ContestDraftSnapshot, type ContestOperatorCapability,
+  type ContestOperatorReadiness, type ContestSessionSummary } from "./types";
 
 const SOURCE = "7c8b499225a73f7f8f792246881bd7aefc05452f";
 const NAQP_SOURCE = "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8";
 type WorkerDraftFixture = { responses: Record<string, { result?: { draft?: ContestDraftSnapshot } }> };
 const workerFixture = workerFixtureJSON as unknown as WorkerDraftFixture;
 const exportFixture = exportFixtureJSON as unknown as WorkerDraftFixture;
+const generatedRules = (workerFixtureJSON as any).responses.catalog.result.rules as ContestSessionSummary["rule"][];
 const WPX_BLANK_ERRORS = workerFixture.responses.commit.result!.draft!.validation.errors;
 const WW_BLANK_ERRORS = exportFixture.responses.openAfterPrepare.result!.draft!.validation.errors;
-const rule = (mode: "CW" | "SSB", serial: boolean): ContestSessionSummary["rule"] => ({
-  identity: { id: serial ? mode === "CW" ? "cq-wpx-cw" : "cq-wpx-ssb" : mode === "CW" ? "cq-ww-cw" : "cq-ww-ssb", version: "1.0.0-source-spike",
-    edition: "source-26.10.11", sourceRevision: SOURCE }, displayName: serial ? `CQ WPX ${mode}` : `CQ WW ${mode}`, mode,
+const capability = (identity: ContestSessionSummary["rule"]["identity"]): ContestOperatorCapability => ({
+  version: 1, auditDigest: reviewedOperatorCapabilityDigest(identity)!, policy: "simulated-run-sp-v1",
+  output: "simulation-only", styles: ["run", "search-and-pounce"],
+  macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"] });
+const rule = (mode: "CW" | "SSB", serial: boolean): ContestSessionSummary["rule"] => {
+  const identity = { id: serial ? mode === "CW" ? "cq-wpx-cw" as const : "cq-wpx-ssb" as const : mode === "CW" ? "cq-ww-cw" as const : "cq-ww-ssb" as const,
+    version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: SOURCE };
+  return { identity, displayName: serial ? `CQ WPX ${mode}` : `CQ WW ${mode}`, mode,
   entryDescriptorVersion: 1, entry: { mode, adifMode: mode, cabrilloQSOType: mode === "CW" ? "CW" : "PH",
     cabrilloFormatterVersion: mode === "CW" ? "pilot-1" : "ssb-pilot-1",
     cabrilloProjectionFormatterVersion: mode === "CW" ? "pilot-2" : "ssb-pilot-2",
@@ -27,7 +35,8 @@ const rule = (mode: "CW" | "SSB", serial: boolean): ContestSessionSummary["rule"
       sentDefault: serial ? "reservedSerial" : "stationSnapshot", adifFields: serial ? "stxSrx" : "none" },
     serial: { requirement: serial ? "requiredForCommit" : "none", allowedScopes: serial ? ["session", "band", "transmitter"] : [] } },
   referenceDataVersion: "cty-test", sourceVerification: "verified", sourceNote: "Pinned test rule",
-});
+    operatorCapability: capability(identity) };
+};
 function session(mode: "CW" | "SSB", serial = false): ContestSessionSummary {
   const selected = rule(mode, serial);
   return { sessionID: "11111111-1111-4111-8111-111111111111", workspaceGeneration: "22222222-2222-4222-8222-222222222222",
@@ -35,12 +44,32 @@ function session(mode: "CW" | "SSB", serial = false): ContestSessionSummary {
     station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" },
     qsoCount: 0, updatedAt: "2026-10-18T00:00:00.000Z" };
 }
+function readiness(value: ContestSessionSummary, fields: ContestDraftSnapshot["fields"], duplicate: ContestDraftSnapshot["dupe"]["state"] = "clear",
+  reservedSerial: number | null = null, blocked = false): ContestOperatorReadiness {
+  const callReady = !!fields.callsign.trim() && !blocked && duplicate !== "unchecked";
+  const entry = value.rule.entry, structured = fields.receivedExchangeFields;
+  const exchangeReady = isStructuredEntry(entry)
+    ? !!structured && entry.exchange.receivedFields.every(field => !field.required || !!structured[field.id]?.trim())
+    : !!fields.receivedExchange.trim();
+  const serial = value.rule.entry.serial.requirement === "requiredForCommit";
+  return { capabilityDigest: value.rule.operatorCapability!.auditDigest, callsign: fields.callsign.trim() ? callReady ? "ready" : "blocked" : "empty",
+    exchange: exchangeReady ? blocked ? "blocked" : "ready" : "empty", canSendCQ: !fields.callsign.trim() && !blocked,
+    canSendCall: callReady && duplicate === "clear", canSendDuplicate: callReady && duplicate === "duplicate",
+    canReserveCall: serial && callReady && duplicate === "clear" && reservedSerial === null,
+    canReserveCommit: serial && callReady && exchangeReady && duplicate === "clear" && reservedSerial === null,
+    canCommit: callReady && exchangeReady && duplicate === "clear" && (!serial || reservedSerial !== null) };
+}
+function readyDraft(value: ContestSessionSummary, next: Omit<ContestDraftSnapshot, "operatorReadiness">, blocked = false): ContestDraftSnapshot {
+  return { ...next, ...(value.rule.operatorCapability
+    ? { operatorReadiness: readiness(value, next.fields, next.dupe.state, next.reservedSerial, blocked) }
+    : {}) };
+}
 function draft(value: ContestSessionSummary, overrides: Partial<ContestDraftSnapshot["fields"]> = {}): ContestDraftSnapshot {
   const report = value.rule.entry.report.defaultSent;
-  return { draftID: "33333333-3333-4333-8333-333333333333", sessionID: value.sessionID, workspaceGeneration: value.workspaceGeneration,
+  return readyDraft(value, { draftID: "33333333-3333-4333-8333-333333333333", sessionID: value.sessionID, workspaceGeneration: value.workspaceGeneration,
     revision: value.revision, fields: { callsign: "", sentReport: report, sentExchange: value.rule.entry.serial.requirement === "none" ? "15" : "",
       receivedReport: report, receivedExchange: "", frequencyHz: 14_025_000, band: "20m", mode: value.rule.mode, ...overrides },
-    reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" }, updatedAt: value.updatedAt };
+    reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" }, updatedAt: value.updatedAt });
 }
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 function draftResult(current: ContestSessionSummary, next: ContestDraftSnapshot): ContestDraftResult {
@@ -108,7 +137,8 @@ function Harness({ mode, serial = false, duplicate = false, invalid = false, unc
         workerMissingSerial ? ["Sent serial must be a positive integer."] : invalid ? ["CQ zone must be an integer from 1 through 40."] : [], warnings: [] },
       dupe: workerBlank || unchecked || invalidCall ? { state: "unchecked", reason: "Awaiting authoritative dupe check" } : value.dupe }));
   }, [invalid, invalidCall, serial, unchecked, workerBlank, workerMissingExchange, workerMissingSerial]);
-  return <><form ref={root}><ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={editGeneration}
+  const presented = readyDraft(active, current, invalid || unchecked || !!invalidCall);
+  return <><form ref={root}><ContestOperatorPanel session={active} draft={presented} entryRoot={root} editGeneration={editGeneration}
     disabled={blocked} recovery={recovery} reserveSerial={reserve} commitQSO={commit}
     admitIntent={identity => !ownerDirty.current && `${admittedDraft.current.draftID}@${admittedDraft.current.revision}` === identity}
     guardFormSubmit={() => {}}
@@ -139,7 +169,9 @@ function naqpSession(mode: "CW" | "SSB" | "RTTY", overrides: Partial<ContestSess
       serial: { requirement: "none", allowedScopes: [] }, modeProfiles: [{ mode, adifMode: mode, adifSubmode: null,
         cabrilloQSOType: mode === "CW" ? "CW" : mode === "SSB" ? "PH" : "RY",
         report: { format: "none", defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0 } }], scorePolicy: "pointsTimesMultipliers" },
-    referenceDataVersion: "cty-test", sourceVerification: "verified", sourceNote: "Pinned NAQP test rule", ...overrides };
+    referenceDataVersion: "cty-test", sourceVerification: "verified", sourceNote: "Pinned NAQP test rule",
+    ...(mode === "RTTY" ? {} : { operatorCapability: capability({ id: `naqp-${mode.toLowerCase()}` as "naqp-cw" | "naqp-ssb",
+      version: "1.0.0-2026-rules-preview", edition: "2026-rules-preview", sourceRevision: NAQP_SOURCE }) }), ...overrides };
   return { sessionID: "a1111111-1111-4111-8111-111111111111", workspaceGeneration: "a2222222-2222-4222-8222-222222222222",
     revision: 1, name: "NAQP operator", rule, referenceDataVersion: rule.referenceDataVersion,
     station: { callsign: "K1AAA", cqZone: "5", dxccEntity: "United States", exchangeFields: { name: "AL", location: "CA" },
@@ -182,7 +214,8 @@ function StructuredHarness({ mode, ruleOverrides, duplicate = false, invalidPart
       sentExchange: current.fields.sentExchange, receivedExchange: current.fields.receivedExchange, points: 1, multiplier: "CA", isDupe: false },
       score: { sessionID: active.sessionID, workspaceGeneration: active.workspaceGeneration, revision, qsos: 1, points: 1, multipliers: 1,
         claimedScore: 1, sourceVerification: "verified" as const } } satisfies ContestCommitResult; };
-  return <><form ref={root}><ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={editGeneration} disabled={false}
+  const presented = mode === "RTTY" ? current : readyDraft(active, current, invalidPartialLocation);
+  return <><form ref={root}><ContestOperatorPanel session={active} draft={presented} entryRoot={root} editGeneration={editGeneration} disabled={false}
     recovery={null} reserveSerial={async () => { setReserves(value => value + 1); throw new Error("NAQP must not reserve serials"); }} commitQSO={commit}
     admitIntent={identity => `${admitted.current.draftID}@${admitted.current.revision}` === identity} guardFormSubmit={() => {}} focusField={() => {}} simulateOutput={simulate}/>
     <input aria-label="Call" data-contest-operator-field="callsign" value={current.fields.callsign} onChange={event => update({ ...current.fields, callsign: event.target.value.toUpperCase() })}/>
@@ -337,7 +370,7 @@ describe("ContestOperatorPanel simulated owner integration", () => {
   });
 
   it.each(["CW", "SSB"] as const)("auto-reserves WPX %s in Run before receiving the exchange", async mode => {
-    const wpxOutput = vi.fn(); render(<Harness mode={mode} serial unchecked workerMissingExchange workerMissingSerial simulate={wpxOutput}/>);
+    const wpxOutput = vi.fn(); render(<Harness mode={mode} serial workerMissingExchange workerMissingSerial simulate={wpxOutput}/>);
     await act(async () => {});
     const call = screen.getByLabelText("Call"); fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(call, { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/0"));
@@ -346,7 +379,7 @@ describe("ContestOperatorPanel simulated owner integration", () => {
   });
 
   it("auto-reserves WPX S&P with a completed received exchange", async () => {
-    const wpxOutput = vi.fn(); render(<Harness mode="CW" serial unchecked workerMissingSerial simulate={wpxOutput}/>);
+    const wpxOutput = vi.fn(); render(<Harness mode="CW" serial workerMissingSerial simulate={wpxOutput}/>);
     await waitFor(() => expect((screen.getByLabelText("Exchange") as HTMLInputElement).value).toBe("123"));
     fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
     fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });
@@ -474,26 +507,46 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     }
   });
 
-  it("keeps NAQP RTTY and crossed NAQP metadata on Plain Log without mutation or simulated output", () => {
+  it("keeps NAQP RTTY and incoherent capability snapshots on Plain Log without mutation or simulated output", () => {
     const simulate = vi.fn(), reserve = vi.fn(), commit = vi.fn();
     const rtty = naqpSession("RTTY"), rttyDraft = { ...draft(rtty), fields: { ...draft(rtty).fields, sentReport: "", receivedReport: "" } };
     const root = { current: null };
     const first = render(<ContestOperatorPanel session={rtty} draft={rttyDraft} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
       reserveSerial={reserve} commitQSO={commit} admitIntent={() => true} guardFormSubmit={() => {}} focusField={() => {}} simulateOutput={simulate}/>);
-    expect(screen.getByText(/RTTY and other profiles remain Plain Log only/i)).toBeTruthy();
+    expect(screen.getByText(/no reviewed simulated-output capability/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Arm simulation" })).toBeNull();
     first.unmount();
     const crossed = naqpSession("SSB", { identity: { ...naqpSession("SSB").rule.identity, id: "naqp-cw" } });
-    render(<ContestOperatorPanel session={crossed} draft={draft(crossed)} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
+    const crossedDraft = draft(crossed);
+    crossedDraft.operatorReadiness = { ...crossedDraft.operatorReadiness!, capabilityDigest: "e".repeat(64) };
+    render(<ContestOperatorPanel session={crossed} draft={crossedDraft} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
       reserveSerial={reserve} commitQSO={commit} admitIntent={() => true} guardFormSubmit={() => {}} focusField={() => {}} simulateOutput={simulate}/>);
     expect(screen.getByText(/simulation unavailable/i)).toBeTruthy();
     expect(simulate).not.toHaveBeenCalled(); expect(reserve).not.toHaveBeenCalled(); expect(commit).not.toHaveBeenCalled();
   });
 
   it("keeps unaudited profiles on Plain Log with an explicit boundary", () => {
-    const active = session("CW"); active.rule = { ...active.rule, identity: { ...active.rule.identity, id: "sac-cw" } }; const current = draft(active); const root = { current: null };
+    const active = session("CW"); active.rule = { ...active.rule, identity: { ...active.rule.identity, id: "sac-cw" }, operatorCapability: undefined };
+    const current = { ...draft(active), operatorReadiness: undefined }; const root = { current: null };
     render(<ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
       reserveSerial={vi.fn()} commitQSO={vi.fn()} admitIntent={() => true} guardFormSubmit={() => {}} focusField={vi.fn()}/>);
-    expect(screen.getByText(/limited to the audited CQ WW, CQ WPX, and NAQP CW\/SSB profiles/i)).toBeTruthy();
+    expect(screen.getByText(/no reviewed simulated-output capability/i)).toBeTruthy();
+  });
+
+  it("admits exactly the fourteen generated reviewed CW and SSB capabilities", () => {
+    const reviewed = generatedRules.filter(candidate => candidate.operatorCapability);
+    expect(reviewed).toHaveLength(14);
+    for (const selected of reviewed) {
+      const active: ContestSessionSummary = { ...session(selected.mode as "CW" | "SSB"), rule: selected,
+        referenceDataVersion: selected.referenceDataVersion };
+      const current = { ...draft(active), operatorReadiness: { capabilityDigest: selected.operatorCapability!.auditDigest,
+        callsign: "empty" as const, exchange: "empty" as const, canSendCQ: true, canSendCall: false,
+        canSendDuplicate: false, canReserveCall: false, canReserveCommit: false, canCommit: false } };
+      const view = render(<ContestOperatorPanel session={active} draft={current} entryRoot={{ current: null }} editGeneration={0}
+        disabled={false} recovery={null} reserveSerial={vi.fn()} commitQSO={vi.fn()} admitIntent={() => true}
+        guardFormSubmit={() => {}} focusField={() => {}}/>);
+      expect(screen.getByRole("button", { name: "Arm simulation" })).toBeTruthy();
+      view.unmount();
+    }
   });
 });

@@ -16,7 +16,7 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "87654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       },
       "complete" : {
         "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
@@ -45,7 +45,7 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "77654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       },
       "create" : {
         "expectedRevision" : 0,
@@ -77,11 +77,11 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "47654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       },
       "open" : {
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       },
       "partial" : {
         "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
@@ -110,7 +110,7 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "57654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       },
       "reset" : {
         "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
@@ -139,12 +139,12 @@
         "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "requestID" : "67654321-89ab-4cde-8fab-0123456789ab",
         "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       }
     },
     "responses" : {
       "commit" : {
-        "id" : "3a226aeb-69cd-4fa8-8dcd-985590531fc9",
+        "id" : "e36f5279-2bf1-4a3e-af65-3e700f6a3c2e",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -171,6 +171,17 @@
               },
               "sentReport" : ""
             },
+            "operatorReadiness" : {
+              "callsign" : "empty",
+              "canCommit" : false,
+              "canReserveCall" : false,
+              "canReserveCommit" : false,
+              "canSendCall" : false,
+              "canSendCQ" : true,
+              "canSendDuplicate" : false,
+              "capabilityDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "exchange" : "empty"
+            },
             "reservedSerial" : null,
             "revision" : 5,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
@@ -186,7 +197,7 @@
 
               ]
             },
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "qso" : {
             "band" : "20m",
@@ -218,7 +229,7 @@
             "revision" : 5,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
             "sourceVerification" : "provisional",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "session" : {
             "name" : "NAQP generated wire",
@@ -326,6 +337,25 @@
                 "version" : "1.0.0-2026-rules-preview"
               },
               "mode" : "CW",
+              "operatorCapability" : {
+                "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+                "macros" : [
+                  "CQ",
+                  "EXCH",
+                  "QRZ",
+                  "AGN",
+                  "HISCALL",
+                  "MYCALL",
+                  "QSOB4"
+                ],
+                "output" : "simulation-only",
+                "policy" : "simulated-run-sp-v1",
+                "styles" : [
+                  "run",
+                  "search-and-pounce"
+                ],
+                "version" : 1
+              },
               "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
               "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
               "sourceVerification" : "provisional"
@@ -341,12 +371,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:04:00.000Z",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           }
         }
       },
       "complete" : {
-        "id" : "3f261379-2dfd-4898-ba5e-34d5ffedea6c",
+        "id" : "c03f4fe0-e7c3-4c87-a4b2-f540f72421d1",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -373,6 +403,17 @@
               },
               "sentReport" : ""
             },
+            "operatorReadiness" : {
+              "callsign" : "ready",
+              "canCommit" : true,
+              "canReserveCall" : false,
+              "canReserveCommit" : false,
+              "canSendCall" : true,
+              "canSendCQ" : false,
+              "canSendDuplicate" : false,
+              "capabilityDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "exchange" : "ready"
+            },
             "reservedSerial" : null,
             "revision" : 4,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
@@ -385,7 +426,7 @@
 
               ]
             },
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:03:00.000Z",
@@ -499,6 +540,25 @@
                 "version" : "1.0.0-2026-rules-preview"
               },
               "mode" : "CW",
+              "operatorCapability" : {
+                "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+                "macros" : [
+                  "CQ",
+                  "EXCH",
+                  "QRZ",
+                  "AGN",
+                  "HISCALL",
+                  "MYCALL",
+                  "QSOB4"
+                ],
+                "output" : "simulation-only",
+                "policy" : "simulated-run-sp-v1",
+                "styles" : [
+                  "run",
+                  "search-and-pounce"
+                ],
+                "version" : 1
+              },
               "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
               "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
               "sourceVerification" : "provisional"
@@ -514,12 +574,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:03:00.000Z",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           }
         }
       },
       "create" : {
-        "id" : "495232e0-03b9-44ad-8d25-34ec2281f6e1",
+        "id" : "19c88b9b-e8fc-4287-b299-4b32d30d5340",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -546,6 +606,17 @@
               },
               "sentReport" : ""
             },
+            "operatorReadiness" : {
+              "callsign" : "empty",
+              "canCommit" : false,
+              "canReserveCall" : false,
+              "canReserveCommit" : false,
+              "canSendCall" : false,
+              "canSendCQ" : false,
+              "canSendDuplicate" : false,
+              "capabilityDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "exchange" : "empty"
+            },
             "reservedSerial" : null,
             "revision" : 1,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
@@ -562,7 +633,7 @@
 
               ]
             },
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:00:00.000Z",
@@ -676,6 +747,25 @@
                 "version" : "1.0.0-2026-rules-preview"
               },
               "mode" : "CW",
+              "operatorCapability" : {
+                "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+                "macros" : [
+                  "CQ",
+                  "EXCH",
+                  "QRZ",
+                  "AGN",
+                  "HISCALL",
+                  "MYCALL",
+                  "QSOB4"
+                ],
+                "output" : "simulation-only",
+                "policy" : "simulated-run-sp-v1",
+                "styles" : [
+                  "run",
+                  "search-and-pounce"
+                ],
+                "version" : 1
+              },
               "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
               "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
               "sourceVerification" : "provisional"
@@ -691,12 +781,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:00:00.000Z",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           }
         }
       },
       "open" : {
-        "id" : "db0b5c8f-d421-481c-bfd2-537b88828a96",
+        "id" : "17cd7b77-2f1c-48ed-afb2-fdf4b098e413",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -723,6 +813,17 @@
               },
               "sentReport" : ""
             },
+            "operatorReadiness" : {
+              "callsign" : "empty",
+              "canCommit" : false,
+              "canReserveCall" : false,
+              "canReserveCommit" : false,
+              "canSendCall" : false,
+              "canSendCQ" : false,
+              "canSendDuplicate" : false,
+              "capabilityDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "exchange" : "empty"
+            },
             "reservedSerial" : null,
             "revision" : 3,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
@@ -737,7 +838,7 @@
 
               ]
             },
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "session" : {
             "name" : "NAQP generated wire",
@@ -845,6 +946,25 @@
                 "version" : "1.0.0-2026-rules-preview"
               },
               "mode" : "CW",
+              "operatorCapability" : {
+                "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+                "macros" : [
+                  "CQ",
+                  "EXCH",
+                  "QRZ",
+                  "AGN",
+                  "HISCALL",
+                  "MYCALL",
+                  "QSOB4"
+                ],
+                "output" : "simulation-only",
+                "policy" : "simulated-run-sp-v1",
+                "styles" : [
+                  "run",
+                  "search-and-pounce"
+                ],
+                "version" : 1
+              },
               "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
               "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
               "sourceVerification" : "provisional"
@@ -860,19 +980,19 @@
               }
             },
             "updatedAt" : "2026-10-18T11:02:00.000Z",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           }
         }
       },
       "partial" : {
-        "id" : "b2acfde2-3b0d-4a95-90e1-00817421d483",
+        "id" : "13bf3dfc-6e51-45ce-b4b3-29b7cf4d4834",
         "ok" : true,
         "result" : {
           "draft" : {
             "draftID" : "47654321-89ab-4cde-8fab-0123456789ab",
             "dupe" : {
-              "reason" : "Reload the contest session to check duplicate state.",
-              "state" : "unchecked"
+              "reason" : "",
+              "state" : "clear"
             },
             "fields" : {
               "band" : "20m",
@@ -892,6 +1012,17 @@
               },
               "sentReport" : ""
             },
+            "operatorReadiness" : {
+              "callsign" : "ready",
+              "canCommit" : false,
+              "canReserveCall" : false,
+              "canReserveCommit" : false,
+              "canSendCall" : true,
+              "canSendCQ" : false,
+              "canSendDuplicate" : false,
+              "capabilityDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "exchange" : "empty"
+            },
             "reservedSerial" : null,
             "revision" : 2,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
@@ -906,7 +1037,7 @@
 
               ]
             },
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:01:00.000Z",
@@ -1020,6 +1151,25 @@
                 "version" : "1.0.0-2026-rules-preview"
               },
               "mode" : "CW",
+              "operatorCapability" : {
+                "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+                "macros" : [
+                  "CQ",
+                  "EXCH",
+                  "QRZ",
+                  "AGN",
+                  "HISCALL",
+                  "MYCALL",
+                  "QSOB4"
+                ],
+                "output" : "simulation-only",
+                "policy" : "simulated-run-sp-v1",
+                "styles" : [
+                  "run",
+                  "search-and-pounce"
+                ],
+                "version" : 1
+              },
               "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
               "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
               "sourceVerification" : "provisional"
@@ -1035,12 +1185,12 @@
               }
             },
             "updatedAt" : "2026-10-18T11:01:00.000Z",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           }
         }
       },
       "reset" : {
-        "id" : "8fee5a01-4605-47d0-ac7e-47ba81629e94",
+        "id" : "65f9ad81-f12b-4ae5-b47e-ea97579b7589",
         "ok" : true,
         "result" : {
           "draft" : {
@@ -1067,6 +1217,17 @@
               },
               "sentReport" : ""
             },
+            "operatorReadiness" : {
+              "callsign" : "empty",
+              "canCommit" : false,
+              "canReserveCall" : false,
+              "canReserveCommit" : false,
+              "canSendCall" : false,
+              "canSendCQ" : false,
+              "canSendDuplicate" : false,
+              "capabilityDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "exchange" : "empty"
+            },
             "reservedSerial" : null,
             "revision" : 3,
             "sessionID" : "37654321-89ab-4cde-8fab-0123456789ab",
@@ -1083,7 +1244,7 @@
 
               ]
             },
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           },
           "receipt" : {
             "committedAt" : "2026-10-18T11:02:00.000Z",
@@ -1197,6 +1358,25 @@
                 "version" : "1.0.0-2026-rules-preview"
               },
               "mode" : "CW",
+              "operatorCapability" : {
+                "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+                "macros" : [
+                  "CQ",
+                  "EXCH",
+                  "QRZ",
+                  "AGN",
+                  "HISCALL",
+                  "MYCALL",
+                  "QSOB4"
+                ],
+                "output" : "simulation-only",
+                "policy" : "simulated-run-sp-v1",
+                "styles" : [
+                  "run",
+                  "search-and-pounce"
+                ],
+                "version" : 1
+              },
               "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
               "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
               "sourceVerification" : "provisional"
@@ -1212,7 +1392,7 @@
               }
             },
             "updatedAt" : "2026-10-18T11:02:00.000Z",
-            "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+            "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
           }
         }
       }
@@ -1256,7 +1436,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "c7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "commit" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -1268,7 +1448,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "create" : {
       "expectedRevision" : 0,
@@ -1296,7 +1476,7 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "a7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "postCommitApply" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -1317,7 +1497,7 @@
       "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "requestID" : "e7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "qsoCorrect" : {
       "expectedRevision" : 4,
@@ -1358,7 +1538,7 @@
       "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
       "requestID" : "17654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "qsoDelete" : {
       "expectedRevision" : 5,
@@ -1370,13 +1550,13 @@
       "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
       "requestID" : "27654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "qsoGet" : {
       "expectedRevision" : 4,
       "qsoID" : "d7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     },
     "reserve" : {
       "draftID" : "a7654321-89ab-4cde-8fab-0123456789ab",
@@ -1388,12 +1568,12 @@
       "payloadDigest" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "requestID" : "b7654321-89ab-4cde-8fab-0123456789ab",
       "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-      "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+      "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
     }
   },
   "responses" : {
     "apply" : {
-      "id" : "00c99c63-4364-40f9-a1f3-21f04e604f4e",
+      "id" : "98d66243-8994-4763-be18-e31eaa477dc4",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -1412,6 +1592,17 @@
             "sentExchange" : "001",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "ready",
+            "canCommit" : true,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : true,
+            "canSendCQ" : false,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "exchange" : "ready"
+          },
           "reservedSerial" : 1,
           "revision" : 3,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
@@ -1424,7 +1615,7 @@
 
             ]
           },
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:02:00.000Z",
@@ -1478,6 +1669,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -1489,15 +1699,269 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:02:00.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
     "catalog" : {
-      "id" : "562e0ec0-8c4e-414d-8ece-78d6abe0374b",
+      "id" : "1f3edd4a-07a7-4152-b2e1-0d8689b3796f",
       "ok" : true,
       "result" : {
         "rules" : [
+          {
+            "displayName" : "ARRL International DX CW Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
+              "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State or province",
+                    "maximumUTF8Bytes" : 2,
+                    "required" : false
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "power"
+                    ],
+                    "adifField" : null,
+                    "id" : "power",
+                    "label" : "Power",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : false
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State or province",
+                    "maximumUTF8Bytes" : 2,
+                    "required" : false
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "power"
+                    ],
+                    "adifField" : null,
+                    "id" : "power",
+                    "label" : "Power",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : false
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "599",
+                    "defaultSent" : "599",
+                    "format" : "cwRST",
+                    "maximumUTF8Bytes" : 3
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "599",
+                "defaultSent" : "599",
+                "format" : "cwRST",
+                "maximumUTF8Bytes" : 3
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "stationFields" : [
+                {
+                  "id" : "section",
+                  "label" : "Cabrillo section",
+                  "maximumUTF8Bytes" : 3,
+                  "required" : true,
+                  "role" : "cabrilloLocation"
+                }
+              ],
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "rules-2.0-preview",
+              "id" : "arrl-dx-cw",
+              "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+              "version" : "1.0.0-2.0-preview"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "b5cb6c28539f7592cf008a77d92a18f47dbf6a3dde615c59e4fdb633c6b352f1",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+            "sourceVerification" : "provisional"
+          },
+          {
+            "displayName" : "ARRL International DX SSB Preview",
+            "entry" : {
+              "adifMode" : "SSB",
+              "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
+              "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
+              "cabrilloQSOType" : "PH",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State or province",
+                    "maximumUTF8Bytes" : 2,
+                    "required" : false
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "power"
+                    ],
+                    "adifField" : null,
+                    "id" : "power",
+                    "label" : "Power",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : false
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State or province",
+                    "maximumUTF8Bytes" : 2,
+                    "required" : false
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "power"
+                    ],
+                    "adifField" : null,
+                    "id" : "power",
+                    "label" : "Power",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : false
+                  }
+                ]
+              },
+              "mode" : "SSB",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "SSB",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "PH",
+                  "mode" : "SSB",
+                  "report" : {
+                    "defaultReceived" : "59",
+                    "defaultSent" : "59",
+                    "format" : "phoneRS",
+                    "maximumUTF8Bytes" : 2
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "59",
+                "defaultSent" : "59",
+                "format" : "phoneRS",
+                "maximumUTF8Bytes" : 2
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "stationFields" : [
+                {
+                  "id" : "section",
+                  "label" : "Cabrillo section",
+                  "maximumUTF8Bytes" : 3,
+                  "required" : true,
+                  "role" : "cabrilloLocation"
+                }
+              ],
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "rules-2.0-preview",
+              "id" : "arrl-dx-ssb",
+              "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+              "version" : "1.0.0-2.0-preview"
+            },
+            "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "ddb3c40744f148d47806eaf272541f4d838b0e3257e93fabdd9a183e6de0894d",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+            "sourceVerification" : "provisional"
+          },
           {
             "displayName" : "ARRL RTTY Roundup Preview",
             "entry" : {
@@ -1642,6 +2106,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -1683,6 +2166,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "fda55650fecac6c637acdeed3dea77e9ac55417f78ebe4c33c00f95f772312a7",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -1722,6 +2224,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -1761,6 +2282,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "88c2ec26c9f9df6d5d54d000c38441ceb2a61be583d0529e658b76f2028f760e",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_ssb.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -1842,6 +2382,25 @@
               "version" : "1.0.0-2026-rules-preview"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "fc5c089d29115cd70b42107b99283b800cb6b05093b5b709c7823d1927174b2f",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
             "sourceVerification" : "provisional"
@@ -1923,6 +2482,25 @@
               "version" : "1.0.0-2026-rules-preview"
             },
             "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "a2eaa67dee87c6c99822b5e6bb8a76bc58837a43746bfc400444ef098294e4f4",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
             "sourceVerification" : "provisional"
@@ -2024,6 +2602,25 @@
               "version" : "1.0.0-2026-rules-preview"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
             "sourceVerification" : "provisional"
@@ -2226,6 +2823,25 @@
               "version" : "1.0.0-2026-rules-preview"
             },
             "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "040cd5d65b7e4d5547b7c4cdaf7680702b65bc1500380b527acedc72bcbf0d70",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
             "sourceVerification" : "provisional"
@@ -2267,6 +2883,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "8372ac078468e2502f4eae7cec8b871ba3c55037e5e5626def8eb85905b237ce",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -2308,6 +2943,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "a638f0f5f4bce58a0cd43649cbbdcf6bfa23207cd3be894a0cc4cb56bc273be2",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -2349,6 +3003,25 @@
               "version" : "1.0.0-2026-rules-preview"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "6280e5a01c2aada4f3707b4fea26ef53826e4cfd122115b9110722fd251b54f3",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_cw.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
             "sourceVerification" : "provisional"
@@ -2390,232 +3063,35 @@
               "version" : "1.0.0-2026-rules-preview"
             },
             "mode" : "SSB",
+            "operatorCapability" : {
+              "auditDigest" : "b202d90891faeb2bae345d5566ce4cbcf1e5f70abd9dd16c2ceaa29d64ddeb90",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
             "sourceVerification" : "provisional"
-          },
-          {
-          "displayName" : "ARRL International DX CW Preview",
-          "entry" : {
-            "adifMode" : "CW",
-            "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
-            "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
-            "cabrilloQSOType" : "CW",
-            "exchange" : {
-              "adifFields" : "exchangeStrings",
-              "received" : "structured",
-              "receivedFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ],
-              "sent" : "structured",
-              "sentDefault" : "stationFields",
-              "sentFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "MY_STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ]
-            },
-            "mode" : "CW",
-            "modeProfiles" : [
-              {
-                "adifMode" : "CW",
-                "adifSubmode" : null,
-                "cabrilloQSOType" : "CW",
-                "mode" : "CW",
-                "report" : {
-                  "defaultReceived" : "599",
-                  "defaultSent" : "599",
-                  "format" : "cwRST",
-                  "maximumUTF8Bytes" : 3
-                }
-              }
-            ],
-            "report" : {
-              "defaultReceived" : "599",
-              "defaultSent" : "599",
-              "format" : "cwRST",
-              "maximumUTF8Bytes" : 3
-            },
-            "scorePolicy" : "pointsTimesMultipliers",
-            "serial" : {
-              "allowedScopes" : [
-
-              ],
-              "requirement" : "none"
-            },
-            "stationFields" : [
-              {
-                "id" : "section",
-                "label" : "Cabrillo section",
-                "maximumUTF8Bytes" : 3,
-                "required" : true,
-                "role" : "cabrilloLocation"
-              }
-            ],
-            "version" : 2
-          },
-          "entryDescriptorVersion" : 2,
-          "identity" : {
-            "edition" : "rules-2.0-preview",
-            "id" : "arrl-dx-cw",
-            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
-            "version" : "1.0.0-2.0-preview"
-          },
-          "mode" : "CW",
-          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
-          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
-          "sourceVerification" : "provisional"
-        },
-          {
-          "displayName" : "ARRL International DX SSB Preview",
-          "entry" : {
-            "adifMode" : "SSB",
-            "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
-            "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
-            "cabrilloQSOType" : "PH",
-            "exchange" : {
-              "adifFields" : "exchangeStrings",
-              "received" : "structured",
-              "receivedFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ],
-              "sent" : "structured",
-              "sentDefault" : "stationFields",
-              "sentFields" : [
-                {
-                  "acceptedKinds" : [
-                    "subdivision"
-                  ],
-                  "adifField" : "MY_STATE",
-                  "id" : "location",
-                  "label" : "State or province",
-                  "maximumUTF8Bytes" : 2,
-                  "required" : false
-                },
-                {
-                  "acceptedKinds" : [
-                    "power"
-                  ],
-                  "adifField" : null,
-                  "id" : "power",
-                  "label" : "Power",
-                  "maximumUTF8Bytes" : 8,
-                  "required" : false
-                }
-              ]
-            },
-            "mode" : "SSB",
-            "modeProfiles" : [
-              {
-                "adifMode" : "SSB",
-                "adifSubmode" : null,
-                "cabrilloQSOType" : "PH",
-                "mode" : "SSB",
-                "report" : {
-                  "defaultReceived" : "59",
-                  "defaultSent" : "59",
-                  "format" : "phoneRS",
-                  "maximumUTF8Bytes" : 2
-                }
-              }
-            ],
-            "report" : {
-              "defaultReceived" : "59",
-              "defaultSent" : "59",
-              "format" : "phoneRS",
-              "maximumUTF8Bytes" : 2
-            },
-            "scorePolicy" : "pointsTimesMultipliers",
-            "serial" : {
-              "allowedScopes" : [
-
-              ],
-              "requirement" : "none"
-            },
-            "stationFields" : [
-              {
-                "id" : "section",
-                "label" : "Cabrillo section",
-                "maximumUTF8Bytes" : 3,
-                "required" : true,
-                "role" : "cabrilloLocation"
-              }
-            ],
-            "version" : 2
-          },
-          "entryDescriptorVersion" : 2,
-          "identity" : {
-            "edition" : "rules-2.0-preview",
-            "id" : "arrl-dx-ssb",
-            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
-            "version" : "1.0.0-2.0-preview"
-          },
-          "mode" : "SSB",
-          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
-          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
-          "sourceVerification" : "provisional"
-        }
+          }
         ],
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       }
     },
     "commit" : {
-      "id" : "dd4d1115-b6ad-4af0-a2e1-c20be8c36949",
+      "id" : "376e4495-428f-4cce-b2b7-d061d837a4b3",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -2634,6 +3110,17 @@
             "sentExchange" : "",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "exchange" : "empty"
+          },
           "reservedSerial" : null,
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
@@ -2650,7 +3137,7 @@
 
             ]
           },
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "qso" : {
           "band" : "20m",
@@ -2682,7 +3169,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2730,6 +3217,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -2741,7 +3247,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
@@ -2751,11 +3257,11 @@
         "message" : "Contest identity must be a canonical lowercase UUID.",
         "outcome" : "confirmed"
       },
-      "id" : "d2f8547c-49f3-4bde-9b6d-1693e3471247",
+      "id" : "22cc2e56-7f43-4566-b719-00dace2ac6f6",
       "ok" : false
     },
     "create" : {
-      "id" : "8dc1b94d-bc49-45c3-a6b4-47b031835c8d",
+      "id" : "9edcca7c-799d-43fb-aefe-cd07c6e42005",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -2774,6 +3280,17 @@
             "sentExchange" : "",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : false,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "exchange" : "empty"
+          },
           "reservedSerial" : null,
           "revision" : 1,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
@@ -2791,7 +3308,7 @@
 
             ]
           },
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:00:00.000Z",
@@ -2845,6 +3362,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -2856,7 +3392,7 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:00:00.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
@@ -2870,7 +3406,7 @@
       "ok" : false
     },
     "qsoCorrect" : {
-      "id" : "4d9a4c85-b571-4118-814d-ef943ccc99f9",
+      "id" : "1a006102-d92d-4f5c-82a6-0f274422c738",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -2933,7 +3469,7 @@
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -2948,12 +3484,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
     "qsoCorrectReplayAfterDelete" : {
-      "id" : "eccc4cfb-836d-4987-8dfb-bc9ea64bda5d",
+      "id" : "7ea811c4-6c0a-442f-bc01-e6e39677a33b",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -3016,7 +3552,7 @@
           "revision" : 5,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -3031,12 +3567,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:30.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
     "qsoDelete" : {
-      "id" : "b94c9efa-19e4-4c19-86af-744c3587a0b1",
+      "id" : "ec8325d4-a6ba-4677-9010-6336110506b2",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -3063,7 +3599,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -3078,12 +3614,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
     "qsoDeleteReplay" : {
-      "id" : "e0376d79-9607-4529-a25b-857051f8084c",
+      "id" : "f72fa5c1-d2d8-4bc6-a662-39394379a0ed",
       "ok" : true,
       "result" : {
         "auditReference" : {
@@ -3110,7 +3646,7 @@
           "revision" : 6,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -3125,12 +3661,12 @@
           },
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "updatedAt" : "2026-10-17T02:03:40.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
     "qsoGet" : {
-      "id" : "59b80e4c-56cf-49ef-a56b-46ff525513f8",
+      "id" : "5b54ef1e-0287-41cd-804d-780c6ce4fb82",
       "ok" : true,
       "result" : {
         "qso" : {
@@ -3172,11 +3708,11 @@
         },
         "revision" : 4,
         "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
-        "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+        "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
       }
     },
     "receiptAfterUncertain" : {
-      "id" : "b9973f41-cf5c-4b8b-b383-311e408ccfa4",
+      "id" : "de596525-7c12-4025-b2ec-1cf61df1e228",
       "ok" : true,
       "result" : {
         "receipt" : {
@@ -3189,7 +3725,7 @@
       }
     },
     "replay" : {
-      "id" : "cb512052-2044-4410-b166-3c6ddf46b789",
+      "id" : "10121581-30e0-429e-a589-32918f1cf3e0",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -3208,6 +3744,17 @@
             "sentExchange" : "",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "exchange" : "empty"
+          },
           "reservedSerial" : null,
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
@@ -3224,7 +3771,7 @@
 
             ]
           },
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "qso" : {
           "band" : "20m",
@@ -3256,7 +3803,7 @@
           "revision" : 4,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
           "sourceVerification" : "provisional",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "session" : {
           "name" : "Browser wire test",
@@ -3304,6 +3851,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -3315,12 +3881,12 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:03:00.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     },
     "reserve" : {
-      "id" : "41cdb665-c88e-4e33-8faa-61613a127fdb",
+      "id" : "3c4e9699-69d3-4ace-a051-adb9fa3ed6ad",
       "ok" : true,
       "result" : {
         "draft" : {
@@ -3339,6 +3905,17 @@
             "sentExchange" : "001",
             "sentReport" : "599"
           },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : false,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "exchange" : "empty"
+          },
           "reservedSerial" : 1,
           "revision" : 2,
           "sessionID" : "f7654321-89ab-4cde-8fab-0123456789ab",
@@ -3355,7 +3932,7 @@
 
             ]
           },
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         },
         "receipt" : {
           "committedAt" : "2026-10-17T02:01:00.000Z",
@@ -3409,6 +3986,25 @@
               "version" : "1.0.0-source-spike"
             },
             "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
             "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
             "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
             "sourceVerification" : "provisional"
@@ -3420,10 +4016,10 @@
             "dxccEntity" : "SLOVAK REPUBLIC"
           },
           "updatedAt" : "2026-10-17T02:01:00.000Z",
-          "workspaceGeneration" : "075b7e4d-cad3-4227-a7f3-3f45ff334296"
+          "workspaceGeneration" : "9d9868c6-9c5f-41d3-8b84-9fd72bce7fea"
         }
       }
     }
   },
-  "schemaVersion" : 7
+  "schemaVersion" : 8
 }

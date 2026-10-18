@@ -4,15 +4,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { ContestWorkspace } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
+import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
 
-const rule: ContestRuleMetadata = { identity: { id: "cq-wpx-cw", version: "2026.2", edition: "2026", sourceRevision: "fixture" },
+const identity: ContestRuleMetadata["identity"] = { id: "cq-wpx-cw", version: "1.0.0-source-spike", edition: "source-26.10.11", sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" };
+const rule: ContestRuleMetadata = { identity,
   displayName: "CQ WPX CW", mode: "CW", entryDescriptorVersion: 1, entry: { mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", cabrilloFormatterVersion: "pilot-1", cabrilloProjectionFormatterVersion: "pilot-2", report: { format: "cwRST", defaultSent: "599", defaultReceived: "599", maximumUTF8Bytes: 3 }, exchange: { sent: "serialNumber", received: "serialNumber", sentDefault: "reservedSerial", adifFields: "stxSrx" }, serial: { requirement: "requiredForCommit", allowedScopes: ["session", "band", "transmitter"] } }, referenceDataVersion: "cty", sourceVerification: "provisional", sourceNote: "Preview" };
+rule.operatorCapability = { version: 1, auditDigest: reviewedOperatorCapabilityDigest(identity)!, policy: "simulated-run-sp-v1", output: "simulation-only",
+  styles: ["run", "search-and-pounce"], macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"] };
 const session: ContestSessionSummary = { sessionID: "20000000-0000-4000-8000-000000000002", workspaceGeneration: "30000000-0000-4000-8000-000000000003",
   revision: 7, name: "WPX", rule, referenceDataVersion: "cty", station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovakia" },
   operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 2, updatedAt: "2026-10-18T00:00:00.000Z" };
 const draft: ContestDraftSnapshot = { draftID: "draft", sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: 7,
   fields: { callsign: "N0CALL", sentReport: "599", sentExchange: "007", receivedReport: "599", receivedExchange: "1", frequencyHz: 14_025_000, band: "20m", mode: "CW" },
-  reservedSerial: 7, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" }, updatedAt: session.updatedAt };
+  reservedSerial: 7, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" }, updatedAt: session.updatedAt,
+  operatorReadiness: { capabilityDigest: rule.operatorCapability.auditDigest, callsign: "ready", exchange: "ready", canSendCQ: false,
+    canSendCall: true, canSendDuplicate: false, canReserveCall: false, canReserveCommit: false, canCommit: true } };
 const other = { ...session, sessionID: "20000000-0000-4000-8000-000000000004", name: "WPX Two", qsoCount: 0 };
 const otherDraft = { ...draft, draftID: "draft-two", sessionID: other.sessionID, reservedSerial: null };
 afterEach(cleanup);
