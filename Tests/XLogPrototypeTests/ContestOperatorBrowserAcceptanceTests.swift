@@ -44,6 +44,10 @@ private actor ContestOperatorAcceptanceBridge {
         }
     }
 
+    private func announceStallReadiness(_ mode: String) {
+        FileHandle.standardError.write(Data("XLOG_ACCEPTANCE_STALL_READY:\(mode)\n".utf8))
+    }
+
     private func forward(id: String, method: String, params: [String: Any]) async throws {
         if worker == nil { worker = newWorker() }
         let request = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": params], options: [.sortedKeys])
@@ -56,7 +60,10 @@ private actor ContestOperatorAcceptanceBridge {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 20,
                           userInfo: [NSLocalizedDescriptionKey: "Malformed test-host request frame."])
         }
-        if stallMode == "response", method == "health" { while true { try? await Task.sleep(for: .seconds(3_600)) } }
+        if stallMode == "response", method == "health" {
+            announceStallReadiness("response")
+            while true { try? await Task.sleep(for: .seconds(3_600)) }
+        }
         switch method {
         case "__acceptance_isolation":
             let resolvedSupportRoot = supportRoot.standardizedFileURL.resolvingSymlinksInPath()
@@ -73,7 +80,10 @@ private actor ContestOperatorAcceptanceBridge {
             worker = newWorker()
             try respond(id: id, result: ["lifecycle": "restarted"])
         case "__acceptance_shutdown":
-            if stallMode == "shutdown" { while true { try? await Task.sleep(for: .seconds(3_600)) } }
+            if stallMode == "shutdown" {
+                announceStallReadiness("shutdown")
+                while true { try? await Task.sleep(for: .seconds(3_600)) }
+            }
             if let worker { await worker.shutdown() }
             worker = nil
             try respond(id: id, result: ["lifecycle": "shutdown"])
