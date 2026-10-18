@@ -51,6 +51,8 @@ describe("DX Cluster filter colours", () => {
     render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
     fireEvent.click(within(screen.getByLabelText("Spot filters")).getByRole("button", { name: "Special" }));
     const picker = screen.getByRole("group", { name: "Special" });
+    expect(within(picker).getByRole("checkbox", { name: "Show only RBN" })).toBeTruthy();
+    expect(within(picker).getByRole("checkbox", { name: "Hide RBN" })).toBeTruthy();
     fireEvent.click(within(picker).getByRole("checkbox", { name: "Hide CONTEST" }));
     expect(request).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["CONTEST"] }) });
     fireEvent.click(within(picker).getByRole("checkbox", { name: "Show only CONTEST" }));
@@ -84,10 +86,23 @@ describe("DX Cluster spot age strip", () => {
     (data.snapshot.spots as any[]).push({ id: "rbn-spot", receivedAt: 812_000_000,
       clusterName: "ShackCQ", spotter: "KM3T5", frequencyKHz: 10116.1, frequencyText: "10.1161", callsign: "OM0RX", comment: "23 dB 28 WPM",
       band: "30m", mode: "CW", country: "Slovak Republic", continent: "EU", cqZone: 15, callStatus: "Worked", dxccStatus: "Confirmed",
-      specialTags: [], score: 18, scoreReasons: ["RBN source"], aggregateCount: 1, aggregateSpotters: ["KM3T5"], source: "RBL", statusHex: "", bandHex: "", modeHex: "" });
+      specialTags: ["RBN"], score: 18, scoreReasons: ["RBN source"], aggregateCount: 1, aggregateSpotters: ["KM3T5"], source: "RBL", statusHex: "", bandHex: "", modeHex: "" });
     render(<ClusterPanel passive snapshot={data} onRequest={vi.fn()} onSelect={vi.fn()} />);
-    expect(screen.getByText("RBN")).toBeTruthy();
+    expect(screen.getAllByText("RBN")).toHaveLength(1);
     expect(screen.getByText("RBN").closest("td")?.classList.contains("live-cluster-special")).toBe(true);
+  });
+
+  it("keeps the Request RBN setting and RBN source filter synchronized", async () => {
+    const data = response(); data.configuration.filter.sources = ["cluster"];
+    const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => data);
+    render(<ClusterPanel passive snapshot={data} onRequest={request} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Request RBN / Skimmer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save cluster settings" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("cluster_configure", {
+      configuration: expect.objectContaining({ requestSkimmer: true, filter: expect.objectContaining({ sources: ["cluster", "rbl"] }) }),
+      base_configuration: data.configuration,
+    }));
   });
 });
 

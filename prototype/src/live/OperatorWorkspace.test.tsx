@@ -197,10 +197,13 @@ describe("operator workspace", () => {
     const trigger = screen.getByRole("button", { name: "Filters" }); fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Cluster filters" });
     expect(within(dialog).getByRole("checkbox", { name: "Show only POTA" })).toBeTruthy();
+    expect(within(dialog).getByRole("checkbox", { name: "Show only RBN" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Hide RBN" }));
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["RBN"] }) });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Hide CONTEST" }));
-    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["CONTEST"] }) });
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: [], excludedSpecials: ["RBN", "CONTEST"] }) });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Show only CONTEST" }));
-    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: ["CONTEST"], excludedSpecials: [] }) });
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ specials: ["CONTEST"], excludedSpecials: ["RBN"] }) });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "20m" }));
     expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ bands: ["20m"] }) });
     fireEvent.click(within(dialog).getByRole("button", { name: "Clear filters" }));

@@ -53,6 +53,8 @@ type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClust
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
 export const isRbnSource = (source: string) => source.trim().toLowerCase() === "rbl";
+export const clusterSpotTags = (spot: Pick<LiveClusterSpot, "source" | "specialTags">): string[] =>
+  [...new Set([...(isRbnSource(spot.source) ? ["RBN"] : []), ...spot.specialTags])];
 export const clusterRowTint = (status: string, configured?: Record<string, string>): string | undefined =>
   status === "Unknown" ? undefined : `${paletteColor(status, configured, clusterStatusColors)}1F`;
 const emptyFilter: Filter = defaultClusterFilter();
@@ -238,7 +240,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
   }, [live?.contactRevision, historySpot]);
   const allConnections = live?.connections ?? [];
   const connected = live?.connectedClusters ?? 0;
-  const specialNames = configuration?.specialRules.filter((r) => r.enabled).map((r) => r.name) ?? [];
+  const specialNames = ["RBN", ...(configuration?.specialRules.filter((r) => r.enabled && r.name.toUpperCase() !== "RBN").map((r) => r.name) ?? [])];
   const filterOptions: Partial<Record<keyof Filter, string[]>> = {
     bands, modes, continents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
     callStatuses, dxccStatuses, specials: specialNames,
@@ -346,8 +348,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <td hidden={!visibleColumns.has("spotter")} title={`${isRbnSource(spot.source) ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
       <td hidden={!visibleColumns.has("callStatus")} title={spot.callStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.callStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.callStatus)}</td>
       <td hidden={!visibleColumns.has("dxccStatus")} title={spot.dxccStatus} className="live-cluster-status live-cluster-status-column" style={{ color: paletteColor(spot.dxccStatus, configuration?.palette.status, clusterStatusColors) }}>{clusterStatusCode(spot.dxccStatus)}</td>
-      <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{isRbnSource(spot.source) || spot.specialTags.length
-        ? [...(isRbnSource(spot.source) ? ["RBN"] : []), ...spot.specialTags].slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>)
+      <td hidden={!visibleColumns.has("special")} className="live-cluster-special">{clusterSpotTags(spot).length
+        ? clusterSpotTags(spot).slice(0, 2).map(tag => <span className="live-cluster-special-tag" style={specialTagColors(tag)} key={tag}>{tag}</span>)
         : "—"}</td>
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
@@ -405,7 +407,12 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
           <label><input type="checkbox" checked={configuration.connectOnStartup} onChange={(event) => setConfiguration({ ...configuration, connectOnStartup: event.target.checked })} /> Connect automatically when xLog starts</label>
           <label><input type="checkbox" checked={configuration.requestRecentSpotsOnConnect} onChange={(event) => setConfiguration({ ...configuration, requestRecentSpotsOnConnect: event.target.checked })} /> Request 100 recent DX spots after connecting</label>
           <label><input type="checkbox" checked={configuration.reconnect} onChange={(event) => setConfiguration({ ...configuration, reconnect: event.target.checked })} /> Reconnect automatically after an interruption</label>
-          <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => setConfiguration({ ...configuration, requestSkimmer: event.target.checked })} /> Request RBN / Skimmer</label>
+          <label><input type="checkbox" checked={configuration.requestSkimmer} onChange={(event) => {
+            const checked = event.target.checked;
+            const sources = checked ? [...new Set([...configuration.filter.sources, "rbl"])] : configuration.filter.sources.filter(source => source !== "rbl");
+            const nextFilter = { ...configuration.filter, sources };
+            setFilter(nextFilter); setConfiguration({ ...configuration, requestSkimmer: checked, filter: nextFilter });
+          }} /> Request RBN / Skimmer</label>
           <label><input type="checkbox" checked={configuration.showWorkedBandModeSpots} onChange={(event) => setConfiguration({ ...configuration, showWorkedBandModeSpots: event.target.checked })} /> Show already-worked combinations</label>
           <label><input type="checkbox" checked={configuration.hideWSPRSpots} onChange={(event) => setConfiguration({ ...configuration, hideWSPRSpots: event.target.checked })} /> Hide WSPR spots</label></div>
         <p>The recent-spots option sends <code>sh/dx/100</code> after each successful connection.</p>

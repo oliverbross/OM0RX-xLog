@@ -252,10 +252,16 @@ public actor LiveClusterMethods {
             guard let object = params["filter"] as? [String: Any] else { throw invalid() }
             let filter: ClusterSpotFilter = try decode(object)
             try validateFilter(filter)
-            await service.updateFilter(filter)
-            try requireRunning()
             var next = try currentConfiguration()
             next.filter = filter
+            let requestSkimmer = filter.sources.contains("rbl")
+            if next.requestSkimmer != requestSkimmer {
+                next.requestSkimmer = requestSkimmer
+                try await service.configure(next, password: { [vault] id in try vault.load(id) ?? "" })
+            } else {
+                await service.updateFilter(filter)
+            }
+            try requireRunning()
             configuration = next
             try saveConfiguration(next)
         case "cluster_password_set":

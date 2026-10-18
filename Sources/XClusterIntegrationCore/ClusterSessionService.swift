@@ -635,8 +635,8 @@ public actor ClusterSessionService {
         let band = SpotLogic.band(for: raw.frequencyKHz)
         let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
-        let specials = SpotLogic.specials(in: raw.comment, rules: configuration.specialRules)
         let source = SpotLogic.source(spotter: raw.spotter, comment: raw.comment)
+        let specials = specialTags(comment: raw.comment, source: source)
         let (score, reasons) = SpotLogic.score(callStatus: classification.callStatus, dxccStatus: classification.dxccStatus,
                                                specials: specials, source: source)
         var spot = ClassifiedClusterSpot(
@@ -717,7 +717,7 @@ public actor ClusterSessionService {
             spots[index].callStatus = result.callStatus
             spots[index].dxccStatus = result.dxccStatus
             spots[index].workedBefore = result.workedBefore
-            spots[index].specialTags = SpotLogic.specials(in: spots[index].comment, rules: configuration.specialRules)
+            spots[index].specialTags = specialTags(comment: spots[index].comment, source: spots[index].source)
             let (score, reasons) = SpotLogic.score(callStatus: result.callStatus, dxccStatus: result.dxccStatus,
                                                    specials: spots[index].specialTags, source: spots[index].source)
             spots[index].score = score
@@ -728,6 +728,12 @@ public actor ClusterSessionService {
             spots[index].modeHex = configuration.palette.mode[spots[index].mode] ?? "#B0B0B0"
         }
         publish()
+    }
+
+    private func specialTags(comment: String, source: String) -> [String] {
+        var tags = SpotLogic.specials(in: comment, rules: configuration.specialRules)
+        if source == "rbl", !tags.contains("RBN") { tags.insert("RBN", at: 0) }
+        return tags
     }
 
     private func appendConsole(source: String, text: String, isCommand: Bool) {

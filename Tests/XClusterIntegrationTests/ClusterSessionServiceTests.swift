@@ -233,6 +233,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.spots[0].callsign, "OM0RX")
         XCTAssertEqual(snapshot.spots[0].source, "rbl")
         XCTAssertEqual(snapshot.spots[0].mode, "FT8")
+        XCTAssertEqual(snapshot.spots[0].specialTags, ["RBN"])
     }
 
     func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
@@ -409,8 +410,12 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(Set(byDXCC.map(\.callsign)), ["K1DIG", "K1RBN"])
         let bySpecial = await matching { $0.specials = ["POTA"] }
         XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
+        let byRBNSpecial = await matching { $0.specials = ["RBN"] }
+        XCTAssertEqual(byRBNSpecial.map(\.callsign), ["K1RBN"])
         let withoutSpecial = await matching { $0.excludedSpecials = ["POTA"] }
         XCTAssertEqual(Set(withoutSpecial.map(\.callsign)), ["K1OLD", "K1RBN", "K1DIG"])
+        let withoutRBN = await matching { $0.excludedSpecials = ["RBN"] }
+        XCTAssertEqual(Set(withoutRBN.map(\.callsign)), ["K1AAA", "K1OLD", "K1DIG"])
         let bySource = await matching { $0.sources = ["rbl"] }
         XCTAssertEqual(bySource.map(\.callsign), ["K1RBN"])
         let byWorked = await matching { $0.worked = ["Worked before"] }
