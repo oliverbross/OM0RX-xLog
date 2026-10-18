@@ -175,13 +175,14 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
 
         let repositoryRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         let scenario = environment["XLOG_OPERATOR_ACCEPTANCE_SCENARIO"] ?? "operator"
-        guard ["operator", "scp", "naqp"].contains(scenario) else {
+        guard ["operator", "scp", "naqp", "family"].contains(scenario) else {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 7,
                           userInfo: [NSLocalizedDescriptionKey: "Unknown browser acceptance scenario."])
         }
         let scriptName = switch scenario {
         case "scp": "accept-contest-scp-operator-browser.mjs"
         case "naqp": "accept-contest-naqp-operator-browser.mjs"
+        case "family": "accept-contest-family-operator-browser.mjs"
         default: "accept-contest-operator-browser.mjs"
         }
         let script = repositoryRoot.appendingPathComponent("prototype/scripts/\(scriptName)")
@@ -220,8 +221,9 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         let requestTask = Task.detached { try await Self.readRequests(fd: requestFD, bridge: bridge) }
         let diagnosticTask = Task.detached { Self.drainDiagnostics(fd: diagnosticFD) }
         let exitTask = Task.detached { process.waitUntilExit(); return process.terminationStatus }
+        let lifecycleDeadline = scenario == "family" ? 900 : 180
         let watchdog = Task.detached {
-            try? await Task.sleep(for: .seconds(180))
+            try? await Task.sleep(for: .seconds(lifecycleDeadline))
             guard !Task.isCancelled else { return }
             await lifecycle.markTimedOut()
             await Self.terminateOwned(process)
@@ -236,7 +238,7 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         let captured = await diagnosticTask.value
         let diagnosticText = String(decoding: captured.data, as: UTF8.self) + (captured.truncated ? "\n[diagnostics truncated]" : "")
         let didTimeOut = await lifecycle.timedOut
-        XCTAssertFalse(didTimeOut, "Browser/worker acceptance exceeded its 180 second lifecycle deadline.")
+        XCTAssertFalse(didTimeOut, "Browser/worker acceptance exceeded its \(lifecycleDeadline) second lifecycle deadline.")
         XCTAssertEqual(process.terminationReason, .exit)
         XCTAssertNil(bridgeError, "Bridge failed: \(String(describing: bridgeError))\n\(diagnosticText)")
         XCTAssertEqual(process.terminationStatus, 0, diagnosticText)
