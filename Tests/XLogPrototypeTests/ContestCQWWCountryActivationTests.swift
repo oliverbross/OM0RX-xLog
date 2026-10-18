@@ -88,21 +88,38 @@ final class ContestCQWWCountryActivationTests: XCTestCase {
         }
         var cwScore = try await score(worker!, sessionID: cw.sessionID, revision: cwRevision)
         XCTAssertEqual(scoreTuple(cwScore), [14, 12, 168])
+        let initialLabels = multiplierLabels(cwScore)
+        XCTAssertTrue(initialLabels.isSuperset(of: [
+            "cqww-country:DXCC-248:20m", "cqww-country:WAE-IT9:20m",
+            "cqww-country:CQWW-IG9-IH9:20m", "cq-zone:33:20m",
+        ]), "\(initialLabels.sorted())")
 
         let ih9 = try XCTUnwrap(committed.first { $0.call == "IH9AAA" })
         let correction = try await correctedQSO(worker!, sessionID: cw.sessionID, qsoID: ih9.qsoID,
-                                                 revision: cwRevision, callsign: "IT9BBB")
+                                                 revision: cwRevision, callsign: "IT9BBB", receivedZone: "15")
         cwRevision += 1
         XCTAssertEqual(scoreTuple(try result(correction)["score"] as? [String: Any]), [12, 12, 144])
+        let correctedScore = try await score(worker!, sessionID: cw.sessionID, revision: cwRevision)
+        let correctedLabels = multiplierLabels(correctedScore)
+        XCTAssertTrue(correctedLabels.isSuperset(of: [
+            "cqww-country:DXCC-248:20m", "cqww-country:WAE-IT9:20m",
+            "cqww-country:CQWW-IG9-IH9:20m", "cq-zone:33:20m",
+        ]), "\(correctedLabels.sorted())")
         let ig9 = try XCTUnwrap(committed.first { $0.call == "IG9AAA" })
         let deletion = try await request(worker!, "contest_qso_delete", params: mutation(
             sessionID: cw.sessionID, requestID: UUID(), revision: cwRevision,
             timestamp: "2026-10-18T02:40:00.000Z",
             payload: ["qsoID": ig9.qsoID, "reason": "Remove African Italy test contact"]))
         cwRevision += 1
-        // IG9/IH9 share the Sicily multiplier with IT9; deleting IG9 removes zone 33,
-        // while the sponsor country remains credited by IT9AAA/IT9BBB.
-        XCTAssertEqual(scoreTuple(try result(deletion)["score"] as? [String: Any]), [9, 11, 99])
+        // Mainland Italy, Sicily, and African Italy are distinct sponsor-country keys.
+        // After IH9 is corrected to Sicily/zone 15, deleting IG9 removes African Italy and zone 33.
+        XCTAssertEqual(scoreTuple(try result(deletion)["score"] as? [String: Any]), [9, 10, 90])
+        let deletedScore = try await score(worker!, sessionID: cw.sessionID, revision: cwRevision)
+        let deletedLabels = multiplierLabels(deletedScore)
+        XCTAssertTrue(deletedLabels.contains("cqww-country:DXCC-248:20m"))
+        XCTAssertTrue(deletedLabels.contains("cqww-country:WAE-IT9:20m"))
+        XCTAssertFalse(deletedLabels.contains("cqww-country:CQWW-IG9-IH9:20m"))
+        XCTAssertFalse(deletedLabels.contains("cq-zone:33:20m"))
 
         for format in ["cabrillo", "adif"] {
             let text = try await export(worker!, format: format, sessionID: cw.sessionID, revision: cwRevision,
@@ -138,7 +155,8 @@ final class ContestCQWWCountryActivationTests: XCTestCase {
         XCTAssertEqual((reopenedRule["countryReference"] as? [String: Any])?["sha256"] as? String,
                        "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b")
         cwScore = try await score(reopenedWorker, sessionID: cw.sessionID, revision: cwRevision)
-        XCTAssertEqual(scoreTuple(cwScore), [9, 11, 99])
+        XCTAssertEqual(scoreTuple(cwScore), [9, 10, 90])
+        XCTAssertEqual(multiplierLabels(cwScore), deletedLabels)
 
         if let output = ProcessInfo.processInfo.environment["XLOG_CQWW_COUNTRY_ACTIVATION_FIXTURE_OUTPUT"] {
             var countryCatalog = catalogFrame
@@ -148,7 +166,7 @@ final class ContestCQWWCountryActivationTests: XCTestCase {
             let fixture: [String: Any] = [
                 "schemaVersion": 1, "generatedBy": "ContestCQWWCountryActivationTests",
                 "catalog": countryCatalog,
-                "assertions": ["cwFinalPoints": 9, "cwFinalMultipliers": 11, "cwFinalScore": 99,
+                "assertions": ["cwFinalPoints": 9, "cwFinalMultipliers": 10, "cwFinalScore": 90,
                                "ssbPoints": 2, "ssbMultipliers": 2, "ssbScore": 4,
                                "packagedReferenceSHA256": "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b"],
             ]
@@ -199,7 +217,7 @@ final class ContestCQWWCountryActivationTests: XCTestCase {
     }
 
     private func correctedQSO(_ worker: LiveWorker, sessionID: UUID, qsoID: String,
-                              revision: Int, callsign: String) async throws -> [String: Any] {
+                              revision: Int, callsign: String, receivedZone: String) async throws -> [String: Any] {
         let got = try result(try await request(worker, "contest_qso_get", params: [
             "sessionID": wireID(sessionID), "workspaceGeneration": generation,
             "expectedRevision": revision, "qsoID": qsoID,
@@ -207,6 +225,8 @@ final class ContestCQWWCountryActivationTests: XCTestCase {
         var qso = try XCTUnwrap(got["qso"] as? [String: Any])
         qso.removeValue(forKey: "entity")
         qso["callsign"] = callsign
+        qso["receivedExchange"] = receivedZone
+        qso["normalizedReceivedExchange"] = receivedZone
         return try await request(worker, "contest_qso_correct", params: mutation(
             sessionID: sessionID, requestID: UUID(), revision: revision,
             timestamp: "2026-10-18T02:39:00.000Z",
@@ -222,6 +242,10 @@ final class ContestCQWWCountryActivationTests: XCTestCase {
     private func scoreTuple(_ value: [String: Any]?) -> [Int] {
         guard let value else { return [] }
         return ["points", "multipliers", "claimedScore"].map { (value[$0] as? NSNumber)?.intValue ?? -1 }
+    }
+
+    private func multiplierLabels(_ value: [String: Any]) -> Set<String> {
+        Set(value["multiplierLabels"] as? [String] ?? [])
     }
 
     private func export(_ worker: LiveWorker, format: String, sessionID: UUID,

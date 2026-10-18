@@ -1,15 +1,15 @@
 {
   "assertions" : {
-    "cwFinalMultipliers" : 11,
+    "cwFinalMultipliers" : 10,
     "cwFinalPoints" : 9,
-    "cwFinalScore" : 99,
+    "cwFinalScore" : 90,
     "packagedReferenceSHA256" : "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
     "ssbMultipliers" : 2,
     "ssbPoints" : 2,
     "ssbScore" : 4
   },
   "catalog" : {
-    "id" : "64178e49-e3d8-4ac5-9824-91038840dace",
+    "id" : "3fb956df-1e89-44db-be7b-b0e3022c36b5",
     "ok" : true,
     "result" : {
       "rules" : [
@@ -168,7 +168,7 @@
           ]
         }
       ],
-      "workspaceGeneration" : "01813ab5-315b-4971-91e8-34f78edf8f3c"
+      "workspaceGeneration" : "9757ec60-7545-4201-a0e9-2a6f38621c67"
     }
   },
   "generatedBy" : "ContestCQWWCountryActivationTests",

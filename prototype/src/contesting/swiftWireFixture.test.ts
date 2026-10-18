@@ -358,7 +358,7 @@ describe("Swift CQWW sponsor-country activation fixture", () => {
     expect(cqwwCountryFixture.schemaVersion).toBe(1);
     expect(cqwwCountryFixture.generatedBy).toBe("ContestCQWWCountryActivationTests");
     expect(cqwwCountryFixture.assertions).toEqual({
-      cwFinalPoints: 9, cwFinalMultipliers: 11, cwFinalScore: 99,
+      cwFinalPoints: 9, cwFinalMultipliers: 10, cwFinalScore: 90,
       ssbPoints: 2, ssbMultipliers: 2, ssbScore: 4,
       packagedReferenceSHA256: "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
     });
