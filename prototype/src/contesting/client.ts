@@ -90,8 +90,8 @@ function validExportChunk(value: unknown, params: Record<string, unknown>) {
 
 function validIdentity(value: unknown) {
   const v = object(value);
-  return !!v && text(v.id, 64) && /^[a-z][A-Za-z0-9-]*$/.test(String(v.id)) &&
-    text(v.version, 64) && text(v.edition, 32) && text(v.sourceRevision, 160);
+  return !!v && text(v.id, 128) && /^[a-z][A-Za-z0-9-]*$/.test(String(v.id)) &&
+    text(v.version, 128) && text(v.edition, 128) && text(v.sourceRevision, 160);
 }
 function validReport(value: unknown) {
   const v = object(value);

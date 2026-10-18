@@ -1819,8 +1819,8 @@ private enum Wire {
     }
     static func ruleIdentity(_ value: [String: Any]) throws -> ContestRuleIdentity {
         try exact(value, ["id", "version", "edition", "sourceRevision"])
-        return .init(id: try text(value, "id", max: 32), version: try text(value, "version", max: 64),
-                     edition: try text(value, "edition", max: 32), sourceRevision: try text(value, "sourceRevision", max: 160))
+        return .init(id: try text(value, "id", max: 128), version: try text(value, "version", max: 128),
+                     edition: try text(value, "edition", max: 128), sourceRevision: try text(value, "sourceRevision", max: 160))
     }
     static func ruleIdentityWire(_ value: ContestRuleIdentity) -> [String: Any] {
         ["id": value.id, "version": value.version, "edition": value.edition, "sourceRevision": value.sourceRevision]
