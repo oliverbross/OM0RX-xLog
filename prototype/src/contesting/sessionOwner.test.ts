@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { ContestClient } from "./client";
+import { ContestClient, validateDraftFields, validateEditableDraftFields } from "./client";
 import { ContestSessionOwner, MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
 import activationFixture from "../../../docs/contesting/fixtures/declarative-activation-worker-wire.json";
+import arrlDXFixture from "../../../docs/contesting/fixtures/arrl-dx-worker-wire.json";
 
 const fixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/contesting-worker-wire.json", import.meta.url), "utf8"));
 const arrlFixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/arrl-rtty-worker-wire.json", import.meta.url), "utf8"));
@@ -90,5 +91,18 @@ describe("ContestSessionOwner structured recovery", () => {
     const naqp = fixture.naqp.responses.create.result as { session: ContestSessionSummary; draft: ContestDraftSnapshot };
     expect(activateRecovered(naqp.session, naqp.draft, result.draft.fields)).toEqual(naqp.draft.fields);
     expect(activateRecovered(result.session, result.draft, naqp.draft.fields)).toEqual(result.draft.fields);
+  });
+
+  it("retains bounded ARRL DX intermediate input locally while the wire boundary stays strict", () => {
+    const result = (arrlDXFixture as any).scenarios["cw-wve"].create.response.result as {
+      session: ContestSessionSummary; draft: ContestDraftSnapshot;
+    };
+    const fields = { ...result.draft.fields, receivedExchange: "KI",
+      receivedExchangeFields: { location: "", power: "KI" } };
+    expect(() => validateEditableDraftFields(fields, result.session.rule)).not.toThrow();
+    expect(() => validateDraftFields(fields, result.session.rule)).toThrow("selected rule entry descriptor");
+    expect(activateRecovered(result.session, result.draft, fields)).toEqual(fields);
+    expect(activateRecovered(result.session, result.draft, { ...fields,
+      receivedExchangeFields: { location: "", power: "KI", extra: "" } } as any)).toEqual(result.draft.fields);
   });
 });

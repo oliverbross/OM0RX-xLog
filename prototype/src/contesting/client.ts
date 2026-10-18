@@ -375,7 +375,7 @@ function validFieldMap(value: unknown, descriptors: {id:string;maximumUTF8Bytes:
   const v = object(value); if (!v || !exact(v, descriptors.map(x => x.id))) return false;
   return descriptors.every(d => text(v[d.id], d.maximumUTF8Bytes, !requireValues || !d.required));
 }
-export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata): asserts value is ContestDraftFields {
+function validateDraftFieldsAtBoundary(value: unknown, rule: ContestRuleMetadata | undefined, requireSemanticValues: boolean): asserts value is ContestDraftFields {
   const v = object(value);
   const hasStructuredMembers = !!v && ("sentExchangeFields" in v || "receivedExchangeFields" in v);
   const structurallyStructured = !!object(v?.sentExchangeFields) && !!object(v?.receivedExchangeFields);
@@ -415,12 +415,18 @@ export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata):
       !selectedReport || !text(v.sentReport, selectedReport.maximumUTF8Bytes, true) ||
       !text(v.receivedReport, selectedReport.maximumUTF8Bytes, true) ||
       (structuredRule ? (!text(v.receivedExchange, aggregateMaximum(structuredRule.exchange.receivedFields), true) ||
-        !validFieldMap(v.sentExchangeFields, structuredSentFields!) || !validFieldMap(v.receivedExchangeFields, structuredRule.exchange.receivedFields, false)) :
+        !validFieldMap(v.sentExchangeFields, structuredSentFields!, requireSemanticValues) || !validFieldMap(v.receivedExchangeFields, structuredRule.exchange.receivedFields, false)) :
         hasStructuredMembers)))
     throw new Error("Contest draft does not match the selected rule entry descriptor.");
-  if (rule?.identity.id.startsWith("arrl-dx-") &&
+  if (requireSemanticValues && rule?.identity.id.startsWith("arrl-dx-") &&
       (!validARRLDXFieldMap(v.sentExchangeFields, false) || !validARRLDXFieldMap(v.receivedExchangeFields, true)))
     throw new Error("Contest draft does not match the selected rule entry descriptor.");
+}
+export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata): asserts value is ContestDraftFields {
+  validateDraftFieldsAtBoundary(value, rule, true);
+}
+export function validateEditableDraftFields(value: unknown, rule: ContestRuleMetadata): asserts value is ContestDraftFields {
+  validateDraftFieldsAtBoundary(value, rule, false);
 }
 function validDraft(value: unknown, params: Record<string, unknown>, expectedDraftID?: unknown, rule?: ContestRuleMetadata,
   authoritativeResolvedSerial?: unknown) {
