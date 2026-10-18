@@ -1632,6 +1632,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let layout_changed = matches!(method, "workspace_layout_apply" | "workspace_create" | "backup_restore");
     let activate_layout = method == "workspace_layout_apply"
         && request["params"]["action"] == "activatePreset";
+    let layout_refresh_scope = workspace_layout_refresh_scope(method, &request);
+    let contest_layout_context = if layout_refresh_scope == workspace_windows::WorkspaceWindowScope::Contesting {
+        Some(contest_window_context::resolve_workspace(request["params"]["generation"].as_str()
+            .ok_or("The contest workspace generation is missing.")?)?)
+    } else { None };
     let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; if let Some(selection) = selection { selection.control(request) }
         else if rotor_configuration_save {
             rotor_session::save_configuration(request)
@@ -1688,7 +1693,11 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
             response["ok"] == true && response["result"]["status"] == "applied");
-        if let Err(error) = workspace_window_runtime::refresh(&app, force) {
+        let refresh = match contest_layout_context {
+            Some(context) => workspace_window_runtime::contest_refresh(&app, context, force),
+            None => workspace_window_runtime::refresh(&app, force),
+        };
+        if let Err(error) = refresh {
             eprintln!("Could not reconcile saved workspace windows: {error}");
         }
     }
@@ -1700,6 +1709,14 @@ fn validate_worker_request_caller(label: &str) -> Result<(), String> {
         return Err("Contest native windows use the contest surface action owner.".into());
     }
     Ok(())
+}
+
+fn workspace_layout_refresh_scope(method: &str, request: &serde_json::Value) -> workspace_windows::WorkspaceWindowScope {
+    if method == "workspace_layout_apply" && request["params"]["scope"] == "contesting" {
+        workspace_windows::WorkspaceWindowScope::Contesting
+    } else {
+        workspace_windows::WorkspaceWindowScope::NormalLogging
+    }
 }
 
 #[tauri::command]
@@ -2547,6 +2564,22 @@ mod workspace_layout_tests {
             assert!(super::validate_contest_surface_main_caller(label).is_err());
         }
         assert!(super::validate_contest_surface_main_caller("main").is_ok());
+    }
+
+    #[test]
+    fn workspace_layout_refresh_dispatch_is_scope_exact() {
+        assert_eq!(super::workspace_layout_refresh_scope("workspace_layout_apply",
+            &json!({"params":{"scope":"contesting","generation":"workspace"}})),
+            crate::workspace_windows::WorkspaceWindowScope::Contesting);
+        for request in [
+            json!({"params":{"generation":"workspace"}}),
+            json!({"params":{"scope":"normal_logging","generation":"workspace"}}),
+            json!({"params":{"scope":"contesting","generation":"workspace"}}),
+        ] {
+            let method = if request["params"]["scope"] == "contesting" { "backup_restore" } else { "workspace_layout_apply" };
+            assert_eq!(super::workspace_layout_refresh_scope(method, &request),
+                crate::workspace_windows::WorkspaceWindowScope::NormalLogging);
+        }
     }
 
     #[test]

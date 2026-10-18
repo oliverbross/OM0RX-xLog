@@ -49,20 +49,28 @@ fn state() -> &'static Mutex<State> {
 
 pub fn register_context(context: &ContestWindowContext) {
     if let Ok(mut state) = state().lock() {
-        if state.context.as_ref() != Some(context) {
-            *state = State {
-                context: Some(context.clone()),
-                ..State::default()
-            };
-        }
+        register_context_in(&mut state, context);
+    }
+}
+
+fn register_context_in(state: &mut State, context: &ContestWindowContext) {
+    if state.context.as_ref() != Some(context) {
+        *state = State {
+            context: Some(context.clone()),
+            ..State::default()
+        };
     }
 }
 
 pub fn invalidate_context(context: &ContestWindowContext) {
     if let Ok(mut state) = state().lock() {
-        if state.context.as_ref() == Some(context) {
-            *state = State::default();
-        }
+        invalidate_context_in(&mut state, context);
+    }
+}
+
+fn invalidate_context_in(state: &mut State, context: &ContestWindowContext) {
+    if state.context.as_ref() == Some(context) {
+        *state = State::default();
     }
 }
 
@@ -1140,15 +1148,37 @@ mod tests {
     #[test]
     fn context_registration_and_invalidation_are_exact() {
         let current = context();
-        register_context(&current);
+        let mut state = State::default();
+        register_context_in(&mut state, &current);
+        state.panels.insert(
+            "active-qso".into(),
+            PanelState {
+                projection: None,
+                receipts: VecDeque::from([(
+                    "receipt".into(),
+                    Receipt {
+                        envelope: json!({}),
+                        status: "uncertain",
+                        message: None,
+                        projection_revision: 7,
+                    },
+                )]),
+            },
+        );
+        register_context_in(&mut state, &current);
+        assert_eq!(state.panels["active-qso"].receipts.len(), 1);
         let stale = ContestWindowContext {
             session_id: "20000000-0000-4000-8000-000000000002".into(),
             ..current.clone()
         };
-        invalidate_context(&stale);
-        assert_eq!(state().lock().unwrap().context, Some(current.clone()));
-        invalidate_context(&current);
-        assert!(state().lock().unwrap().context.is_none());
+        invalidate_context_in(&mut state, &stale);
+        assert_eq!(state.context, Some(current.clone()));
+        register_context_in(&mut state, &stale);
+        assert!(state.panels.is_empty());
+        invalidate_context_in(&mut state, &current);
+        assert_eq!(state.context, Some(stale.clone()));
+        invalidate_context_in(&mut state, &stale);
+        assert!(state.context.is_none());
     }
 
     #[test]

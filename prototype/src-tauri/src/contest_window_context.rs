@@ -36,6 +36,11 @@ pub fn resolve(session_id: &str, workspace_generation: &str) -> Result<ContestWi
     authority().lock().map_err(|_| "Contest window context unavailable")?
         .resolve(&module, session_id, workspace_generation)
 }
+pub fn resolve_workspace(workspace_generation: &str) -> Result<ContestWindowContext, String> {
+    let module = crate::operating_module::owner()?.snapshot()?;
+    authority().lock().map_err(|_| "Contest window context unavailable")?
+        .resolve_workspace(&module, workspace_generation)
+}
 
 pub fn invalidate() {
     if let Ok(mut authority) = authority().lock() { authority.invalidate(); }
@@ -140,6 +145,15 @@ impl ContestWindowContextAuthority {
         Ok(context)
     }
 
+    pub fn resolve_workspace(&self, module: &Value, workspace_generation: &str) -> Result<ContestWindowContext, String> {
+        canonical_uuid_text(workspace_generation, "contest workspace")?;
+        let context = self.active.as_ref().filter(|context|
+            context.workspace_generation == workspace_generation)
+            .ok_or("That contest window belongs to an expired session context.")?.clone();
+        self.admit(module, &context)?;
+        Ok(context)
+    }
+
     pub fn close(&mut self, module: &Value, context: &ContestWindowContext) -> Result<(), String> {
         self.admit(module, context)?;
         self.invalidate();
@@ -208,7 +222,9 @@ mod tests {
         assert_eq!(authority.complete(ticket, &module(OPERATING_A), &response(SESSION_A)).unwrap(), context(OPERATING_A, SESSION_A));
         authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_A)).unwrap();
         assert_eq!(authority.resolve(&module(OPERATING_A), SESSION_A, WORKSPACE).unwrap(), context(OPERATING_A, SESSION_A));
+        assert_eq!(authority.resolve_workspace(&module(OPERATING_A), WORKSPACE).unwrap(), context(OPERATING_A, SESSION_A));
         assert!(authority.resolve(&module(OPERATING_A), SESSION_B, WORKSPACE).is_err());
+        assert!(authority.resolve_workspace(&module(OPERATING_A), "30000000-0000-4000-8000-000000000002").is_err());
         assert!(authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_B)).is_err());
         authority.close(&module(OPERATING_A), &context(OPERATING_A, SESSION_A)).unwrap();
         assert!(authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_A)).is_err());
