@@ -21,9 +21,10 @@ historical unless repeated here or in a later release-acceptance report.
   integrated logbook with **68,200 contacts**, the Remote Station Agent, rotor,
   KPA500 and ShackCQ live feed. No RF, QSO-log, amplifier-transition or manual
   rotor action was used for that acceptance.
-- The current checkout and its upstream branch are synchronized at `5459ab1`.
-  This branch contains **70 commits not yet on `origin/main`**. `origin/main`
-  remains at the accepted 1.1.10 documentation commit `c5059ea`.
+- At the start of this audit, the checkout and its upstream branch were synchronized
+  at `5459ab1` with **70 application/release commits not yet on `origin/main`**;
+  this management-only update follows that checkpoint. `origin/main` remains at
+  the accepted 1.1.10 documentation commit `c5059ea`.
 - Therefore 1.2.23 is the current installed/candidate product, but the repository
   workflow is not yet consolidated: the accepted 1.2.x history must be reviewed
   and fast-forwarded or merged into canonical `main` before the next development
