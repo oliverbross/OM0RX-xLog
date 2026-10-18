@@ -24,6 +24,12 @@ pub fn admit(context: &ContestWindowContext) -> Result<(), String> {
     let module = crate::operating_module::owner()?.snapshot()?;
     authority().lock().map_err(|_| "Contest window context unavailable")?.admit(&module, context)
 }
+pub fn with_admitted<T>(context: &ContestWindowContext, action: impl FnOnce() -> T) -> Result<T, String> {
+    let module = crate::operating_module::owner()?.snapshot()?;
+    let authority = authority().lock().map_err(|_| "Contest window context unavailable")?;
+    authority.admit(&module, context)?;
+    Ok(action())
+}
 
 pub fn resolve(session_id: &str, workspace_generation: &str) -> Result<ContestWindowContext, String> {
     let module = crate::operating_module::owner()?.snapshot()?;
@@ -33,6 +39,9 @@ pub fn resolve(session_id: &str, workspace_generation: &str) -> Result<ContestWi
 
 pub fn invalidate() {
     if let Ok(mut authority) = authority().lock() { authority.invalidate(); }
+}
+pub fn invalidate_if(context: &ContestWindowContext) -> bool {
+    authority().lock().is_ok_and(|mut authority| authority.invalidate_if(context))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -141,6 +150,11 @@ impl ContestWindowContextAuthority {
         self.pending = None;
         self.active = None;
     }
+    pub fn invalidate_if(&mut self, context: &ContestWindowContext) -> bool {
+        if self.active.as_ref() != Some(context) { return false; }
+        self.active = None;
+        true
+    }
 }
 
 fn active_contest_context(module: &Value) -> Result<&str, String> {
@@ -207,6 +221,8 @@ mod tests {
         let current = authority.begin(&module(OPERATING_A), &request("contest_open", OPERATING_A, SESSION_B)).unwrap();
         assert!(authority.complete(old, &module(OPERATING_A), &response(SESSION_A)).is_err());
         authority.complete(current, &module(OPERATING_A), &response(SESSION_B)).unwrap();
+        assert!(!authority.invalidate_if(&context(OPERATING_A, SESSION_A)));
+        authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_B)).unwrap();
         assert!(authority.admit(&module(OPERATING_B), &context(OPERATING_A, SESSION_B)).is_err());
         authority.invalidate();
         assert!(authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_B)).is_err());

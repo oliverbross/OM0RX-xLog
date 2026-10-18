@@ -1511,6 +1511,7 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     let mut request = request;
+    validate_worker_request_caller(window.label())?;
     let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
     let method = method_value.as_str();
     let contest_window_ticket = if window.label() == "main" && matches!(method, "contest_create" | "contest_open") {
@@ -1691,6 +1692,13 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         }
     }
     result
+}
+
+fn validate_worker_request_caller(label: &str) -> Result<(), String> {
+    if label.starts_with(workspace_windows::CONTEST_LABEL_PREFIX) {
+        return Err("Contest native windows use the contest surface action owner.".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -2466,6 +2474,15 @@ mod workspace_layout_tests {
         }
         assert!(super::validate_workspace_window_scope_caller("settings", Some("contesting"), false).is_err());
         assert!(super::validate_workspace_window_scope_caller("main", Some("unknown"), false).is_err());
+    }
+
+    #[test]
+    fn contest_native_children_cannot_bypass_the_surface_action_owner() {
+        assert!(super::validate_worker_request_caller("main").is_ok());
+        assert!(super::validate_worker_request_caller("logbook").is_ok());
+        for label in ["contest--active-qso", "contest--logbook", "contest--unknown"] {
+            assert!(super::validate_worker_request_caller(label).is_err());
+        }
     }
 
     #[test]
