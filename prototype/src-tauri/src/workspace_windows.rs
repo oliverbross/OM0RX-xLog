@@ -228,6 +228,12 @@ fn format_character(character: char) -> bool {
         0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F)
 }
 fn checked(snapshot: &Value, scope: WorkspaceWindowScope) -> Result<(Intent, u64, BTreeSet<String>), String> {
+    let object = snapshot.as_object().ok_or_else(invalid)?;
+    match scope {
+        WorkspaceWindowScope::NormalLogging if object.contains_key("scope") => return Err(invalid()),
+        WorkspaceWindowScope::Contesting if snapshot["scope"].as_str() != Some("contesting") => return Err(invalid()),
+        _ => {}
+    }
     let generation = text(&snapshot["generation"])?;
     if generation.len() != 36 || !generation.bytes().enumerate().all(|(index, byte)|
         if [8, 13, 18, 23].contains(&index) { byte == b'-' } else { byte.is_ascii_hexdigit() }) { return Err(invalid()); }
@@ -352,7 +358,8 @@ mod tests {
     }
     #[test]
     fn scoped_planner_maps_only_contest_native_placements_and_rejects_cross_scope_acknowledgement() {
-        let snapshot = fixture(&["active-qso", "logbook", "band-maps"]);
+        let mut snapshot = fixture(&["active-qso", "logbook", "band-maps"]);
+        snapshot["scope"] = json!("contesting");
         let mut contest = WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting);
         let plan = contest.plan(&snapshot, false).unwrap();
         assert_eq!(plan.show, ["contest--active-qso", "contest--band-maps", "contest--logbook"]);
@@ -362,7 +369,21 @@ mod tests {
         contest.complete(&plan);
         assert!(contest.plan(&snapshot, false).unwrap().show.is_empty());
 
+        let mut closed = fixture(&["logbook"]);
+        closed["scope"] = json!("contesting");
+        closed["revision"] = json!(5);
+        let plan = contest.plan(&closed, false).unwrap();
+        assert_eq!(plan.hide, ["contest--active-qso", "contest--band-maps"]);
+        for label in &plan.hide { contest.acknowledge_hide(label).unwrap(); }
+        contest.complete(&plan);
+        let mut reopened = snapshot.clone();
+        reopened["revision"] = json!(6);
+        let plan = contest.plan(&reopened, false).unwrap();
+        assert_eq!(plan.show, ["contest--active-qso", "contest--band-maps", "contest--logbook"]);
+        assert!(plan.hide.is_empty());
+
         let mut unsupported = fixture(&["world-map"]);
+        unsupported["scope"] = json!("contesting");
         unsupported["document"]["activePresetID"] = json!("contest-windows");
         unsupported["document"]["presets"][0]["id"] = json!("contest-windows");
         let error = WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting).plan(&unsupported, false).unwrap_err();
@@ -371,6 +392,15 @@ mod tests {
         let mut normal = WorkspaceWindowPlanner::default();
         assert!(normal.acknowledge_show("contest--logbook").is_err());
         assert_eq!(normal.plan(&fixture(&["logbook"]), false).unwrap().show, ["logbook"]);
+
+        for scope in [None, Some(json!("normal_logging")), Some(json!("wrong"))] {
+            let mut candidate = fixture(&["logbook"]);
+            if let Some(scope) = scope { candidate["scope"] = scope; }
+            assert!(WorkspaceWindowPlanner::for_scope(WorkspaceWindowScope::Contesting).plan(&candidate, false).is_err());
+        }
+        let mut tagged_normal = fixture(&["logbook"]);
+        tagged_normal["scope"] = json!("contesting");
+        assert!(WorkspaceWindowPlanner::default().plan(&tagged_normal, false).is_err());
     }
     fn apply(planner: &mut WorkspaceWindowPlanner, plan: &Plan) {
         for role in &plan.show { planner.acknowledge_show(role).unwrap(); }
