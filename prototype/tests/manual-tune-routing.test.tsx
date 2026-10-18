@@ -40,7 +40,7 @@ it("detached Station Control tunes from retained native context with no mounted 
   const now=Date.now();native.context={epoch:"e",revision:1,selection:{provider:"direct_flex_lan",generation:2,selection_id:"s",control_revision:3},
     radio:{available:true,provider:"direct_flex_lan",selection_id:"s",selection_generation:2,received_at_ms:now,snapshot:snapshot("direct_flex_lan")},rotor:{available:false,snapshot:null}};
   render(<DetachedStationControlSurface />);await screen.findByRole("main",{name:"Detached Station Control"});expect(native.tune).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
+  fireEvent.change(await screen.findByLabelText("Simplex frequency MHz"),{target:{value:"14.074000"}});
   await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Tune simplex"})));
   expect(native.tune).toHaveBeenCalledExactlyOnceWith("direct_flex_lan",14074000,"USB",native.context);
 });
