@@ -22,8 +22,8 @@ The installed Radio spots settings show a 15-minute default RBN/Spotted window, 
 - Full Rust suite: 639 tests passed.
 - TCI protocol tests: 14 passed.
 - Radio spot broker tests: 15 passed.
-- Portable/native frontend suites: 473 passed.
-- Normal frontend suites: 310 passed.
+- Portable/native Swift suites: 473 passed.
+- Normal Swift suites: 310 passed.
 - Radio spots settings UI tests: 37 passed.
 - TypeScript compile and production Vite bundle: passed.
 - The parallel full-UI run exposed seven pre-existing timing-sensitive failures; the one spot-barrier, two rotor and four live-app cases all passed when rerun in isolation.
