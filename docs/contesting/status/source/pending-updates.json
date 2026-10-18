@@ -1,13 +1,13 @@
 {
   "proposalDate": "2026-10-18",
-  "measuredAt": "2026-10-18T01:00:37Z",
+  "measuredAt": "2026-10-18T01:58:02Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
   "nextReportSource": {
-    "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
-    "reviewedCombinedCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
-    "boundary": "F18 core/service is integrated; picker, worker, UI and prefill remain open. Preserve the explicit evidence boundary and do not claim full call-history parity."
+    "integrationCommit": "6a583a3091aace8c5832c3cfe12d971d6467d69f",
+    "reviewedCombinedCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8",
+    "boundary": "F18 phase 2b is integrated as a bounded explicit draft projection: status/private preview/diagnostics, exact-call query and explicit record selection, paged retained values, blank-only projections and user-triggered draft apply. Automatic prefill, QSO commit/correction/deletion, history generation/export, native OS picker and radio remain outside scope; do not claim full call-history parity."
   },
   "validationEvidence": [
     {
@@ -56,15 +56,15 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "History UI integration 22857aa98a6dce1f4684937443f017866cdc8cd8 is reviewed, committed and pushed; local portable Swift and frontend checks passed, while hosted native CI remains pending. The current main application is reported at 1.2.21 while runtime fixes continue and no final accepted SHA handoff is available; 1.2.22 and 1.2.23 are also in progress. Preserve the published snapshot; update claims only after the integration and release provenance gates are resolved. Generate any review candidate to an alternate output directory; replace published files only after the workbook lock is gone and the report delta is accepted.",
+  "refreshGate": "The accepted source baseline includes operator-panel integration 6a583a3, with 49 focused tests passed; the complete 14-profile operator harness, generic seven-definition activation and exclusive module ownership remain open. Main 1.2.22 is installed and runtime-accepted at the verified source SHA below, while 1.2.23 map work is in progress. The separate 3c7a618 compatibility integration's native run remains pending. Preserve the published snapshot; update claims only after integration, operator and release provenance gates are resolved. Generate any review candidate to an alternate output directory; replace published files only after the workbook lock is gone and the report delta is accepted.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
-    "measuredAtUtc": "2026-10-18T01:00:37Z",
-    "reconciledAtUtc": "2026-10-18T01:00:37Z",
+    "measuredAtUtc": "2026-10-18T01:58:02Z",
+    "reconciledAtUtc": "2026-10-18T01:58:02Z",
     "currentFoundationMilestone": {
-      "commit": "74ef3ba0549c84b5b436e1c5d7a421f0daa328cf",
-      "branch": "codex/contest-shared-policy-integration",
-      "status": "shared-policy integration baseline; portability and regular CI passed",
+      "commit": "6a583a3091aace8c5832c3cfe12d971d6467d69f",
+      "branch": "codex/contest-operator-panel-integration",
+      "status": "operator-panel integration over accepted 1.2.22 contest baseline; 49 focused tests passed",
       "scope": "Original published report snapshot and its cutoff are unchanged."
     },
     "mainApplicationIntegration": {
@@ -75,10 +75,12 @@
       "runtimeBoundary": "The main task's 1.2.20 installed/live check is reported evidence; no independent runtime verification is claimed here."
     },
     "currentMainReleaseStatus": {
-      "reportedInstalledVersion": "1.2.21",
-      "status": "runtime fixes still in progress; no final accepted source SHA handoff yet",
-      "laterReleases": "1.2.22 and 1.2.23 work is ongoing",
-      "integrationBoundary": "Wait for the latest accepted release SHA before main-app integration; do not treat the reported installed version as contesting acceptance."
+      "reportedInstalledVersion": "1.2.22",
+      "acceptedSourceCommit": "6c4dd993fd42f78d030a0e674f830ff339380842",
+      "releaseEvidenceCommit": "3b5ef7a629d1ec453305388b929939d707d0d719",
+      "verification": "Root matched installed host/worker hashes to release evidence, verified strict deep signature and observed both running installed processes.",
+      "nextWork": "The main 1.2.23 map task is in progress.",
+      "integrationBoundary": "The runtime-accepted main release is not full contest-port acceptance; preserve the separate native, module, operator and sponsor gates."
     },
     "mainApplicationBaseline": {
       "version": "1.2.20",
@@ -100,7 +102,23 @@
       "operatorCapabilityMerge65d617f": {"portability": "39083418437 passed all six native jobs", "regularCI": "39083418616 passed"},
       "sharedUniqueCall4d77f94": {"portability": "39083352235 passed all six native jobs", "regularCI": "39083352296 passed"},
       "sharedPolicyMerge74ef3ba": {"portability": "39083682337 passed all six native jobs", "regularCI": "39083682338 passed"},
-      "historyUiIntegration": {"branch": "codex/contest-history-integration", "base": "74ef3ba", "integrationCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8", "status": "reviewed, committed and pushed; hosted native CI pending", "validation": "155 core, 80 store and 63 support tests passed (298 distinct selected tests); a 30-test focused repeat is not counted again; 198 frontend tests, two Node assertions and production build passed"}
+      "compositionCbf8cc1": {"portability": "all six native jobs passed", "regularCI": "passed"},
+      "main122Compatibility3c7a618": {"regularCI": "39087782025 passed", "portability": "39087782113 pending"},
+      "operatorPanelIntegration6a583a3": {"focusedValidation": "49 tests passed"},
+      "declarativeExportB25287b": {"portability": "39085212135 passed all six native jobs", "regularCI": "39085212116 passed"},
+      "historyUiIntegration": {"branch": "codex/contest-history-integration", "base": "74ef3ba", "integrationCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8", "status": "reviewed, committed and pushed; hosted native CI passed all six jobs", "nativeCI": "39084858294 passed", "regularCI": "39084858207 passed", "validation": "155 core, 80 store and 63 support tests passed (298 distinct selected tests); a 30-test focused repeat is not counted again; 198 frontend tests, two Node assertions and production build passed"}
+    },
+    "runtimeAndMain122": {
+      "main121Compatibility": "6f0d94a accepted",
+      "runtimeExportIntegration": "48d68ec accepted",
+      "runtimeExportValidation": "164 core, 80 store, 15 history and 25 export tests passed; 23 operator tests had zero failures and one opt-in browser test skipped.",
+      "composition": "cbf8cc1 passed all six native jobs and regular CI",
+      "main122IntegrationCommit": "3c7a618",
+      "main122Validation": "402 frontend tests, two Node assertions, 16 native telemetry tests, five isolated-profile admission tests and production build passed.",
+      "main122RegularCI": "39087782025 passed",
+      "main122NativeCI": "39087782113 pending",
+      "installedMain122": "1.2.22 accepted at 6c4dd993fd42f78d030a0e674f830ff339380842; release evidence 3b5ef7a629d1ec453305388b929939d707d0d719; root verified installed hashes, signature and processes.",
+      "main123": "Map task is in progress."
     },
     "foundationAndHistory": {
       "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
@@ -164,7 +182,12 @@
       "integrationNativeWorkflow": "39083418437 passed all six jobs",
       "integrationRegularCI": "39083418616 passed",
       "integrationValidation": "147 core, 78 store and 31 support tests; 183 frontend tests and production build passed.",
-      "operatorBoundary": "The 14-profile/84-contact Run and Search & Pounce harness is development evidence only, not accepted operator evidence."
+      "operatorBoundary": "The 14-profile/84-contact Run and Search & Pounce harness is still work in progress; diagnostics below are not accepted operator evidence."
+    },
+    "operatorPanelIntegration": {
+      "sourceCommit": "6a583a3",
+      "result": "49 focused JIDX workspace, ARRL DX workspace and shared operator-panel tests passed.",
+      "scope": "Uses the validated operator capability for supported simulated Run/S&P controls and fixes an actual worker rehearsal failure. It does not complete the 14-profile rehearsal or establish hardware/sponsor acceptance."
     },
     "sharedUniqueCallAndPolicy": {
       "sourceCommit": "4d77f94",
@@ -184,8 +207,30 @@
       "status": "reviewed, committed and pushed into the shared-policy base",
       "sourceValidation": "Six history worker tests, 14 focused frontend tests and production build passed after final repairs.",
       "provenance": "Root verified 19 file hashes and 10 log hashes.",
-      "integrationValidation": "Local combined-worktree validation passed 155 core, 80 store and 63 support tests (298 distinct selected tests; the 30-test focused repeat is not added to the count), plus 198 frontend tests, two Node assertions and production build. Hosted native CI is pending.",
-      "scopeBoundary": "Draft-only explicit projection. No automatic prefill, QSO commit/correction/deletion, history generation/export, native package/picker or operator rehearsal is included."
+      "integrationValidation": "Combined-worktree validation passed 155 core, 80 store and 63 support tests (298 distinct selected tests; the 30-test focused repeat is not added to the count), plus 198 frontend tests, two Node assertions and production build. Native run 39084858294 passed all six jobs; regular CI 39084858207 passed.",
+      "scopeBoundary": "Explicit user-triggered blank-only draft projection is included. No automatic prefill, QSO commit/correction/deletion, history generation/export, native OS picker or radio is included; this is not full call-history parity."
+    },
+    "operatorHarnessDiagnostics": {
+      "run23": "Failed after eight completed profiles: 452 frames, 48 successful commits and 16 export assertions, then a NAQP creation-label mismatch.",
+      "run28": "Dirty-source NAQP CW diagnostic passed: 78 frames, six commits and four exports; protected database metadata unchanged.",
+      "boundary": "Run 23 is terminal failure; run 28 is a single-profile diagnostic only. Neither is full 14-profile acceptance."
+    },
+    "moduleAndDefinitionActivation": {
+      "moduleCandidate": "Bounded source checkpoint f734158cfcc3488de3549bb3cc406fd12921b8d2 was accepted and pushed on codex/contest-module-ownership. It is not merged with the latest main release and does not establish packaged restart or production ingress acceptance.",
+      "genericSevenDefinitionActivation": "Work in progress and not accepted.",
+      "profileHarness": "14-profile Run/Search & Pounce harness remains in progress.",
+      "catalog": "16 catalog previews, 78 pending and 0 fully ported; seven internal declarative definitions remain inactive."
+    },
+    "moduleOwnershipCheckpoint": {
+      "sourceCommit": "f734158cfcc3488de3549bb3cc406fd12921b8d2",
+      "branch": "codex/contest-module-ownership",
+      "status": "bounded source checkpoint accepted and pushed",
+      "verifiedScope": "Root independently checked all 18 source hashes and 4 log hashes. Native checks covered 8 module tests and 1 station inventory test; repeated workflow discovered and ran 8 tests. Frontend checks recorded two Node assertions, 102 focused tests and 49 additional lifecycle tests (do not sum overlapping filters), plus TypeScript, Vite and window-bundle checks.",
+      "evidence": {
+        "path": "/Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/docs/contesting/evidence/module-selection-2026-10-18.json",
+        "sha256": "aeadb2a45cfb39b68730dda9052e60a0acd1a70475f39decdca5bb7e9e5d9f2d"
+      },
+      "boundary": "Source checkpoint only; not full exclusive-module parity, latest-main integration, packaged restart or production-ingress acceptance."
     },
     "windowsBooleanRepair": {
       "sourceCommit": "7839324",
@@ -211,8 +256,15 @@
       },
       "boundary": "Synthetic operator acceptance only. No package, RF, native chooser, or sponsor acceptance."
     },
-    "notShipped": "The reviewed operator-capability, shared unique-call and history UI source components are accepted and pushed. A seven-definition v2 export candidate is frozen and pending root review. The 14-profile/84-contact harness remains development-only. No full-port, package, RF, native-chooser, or sponsor acceptance is implied.",
-    "exportCandidate": "Frozen uncommitted candidate contains seven v2-archive definitions and awaits root review; it is not integrated or shipped.",
+    "notShipped": "The seven-definition v2 archive/export and runtime sources are accepted and pushed, but archive-purpose preservation is not sponsor submission acceptance. Generic definition activation and the 14-profile operator harness remain incomplete. Module ownership has only bounded source acceptance and still lacks latest-main integration, packaged restart and production-ingress acceptance. No full-port, package, RF, native-chooser, or sponsor acceptance is implied.",
+    "declarativeExportRuntime": {
+      "exportSourceCommit": "b25287b223feae0f50eb22d2bbed5379facebe56",
+      "runtimeIntegrationCommit": "48d68ec014e006234aad1325d54feb0a9f634243",
+      "status": "accepted, committed and pushed",
+      "validation": "Seven definition-driven v2 archive projections; source CI 39085212135 passed all six jobs and regular CI 39085212116 passed. Runtime integration validation is recorded in runtimeAndMain122.",
+      "boundary": "Archive-purpose preservation is not sponsor submission acceptance; generic catalog/create/open/UI activation remains in progress."
+    },
+    "exportCandidate": "The seven-definition v2 archive/export and runtime sources are accepted and pushed in b25287b and 48d68ec; generic definition activation remains in progress and is not accepted.",
     "broadSupportSuite": {
       "result": "466 support tests: 465 passed and one hardlink-related failure, reproduced on baseline 3f55c1c; main chat notified."
     },
