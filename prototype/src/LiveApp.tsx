@@ -53,6 +53,7 @@ import { useWorkspaceRecovery } from "./live/useWorkspaceRecovery";
 import { presentWorkspaceMode, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./live/workspaceMode";
 import { WorkspaceModeSurface } from "./live/WorkspaceModeSurface";
 import { DeskAntenna } from "./live/StationEquipment";
+import SidebarOwnSpots from "./live/SidebarOwnSpots";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
 import { useSharedCW } from "./live/useSharedCW";
@@ -1235,6 +1236,12 @@ function MainLiveApp() {
         else void run(async()=>{await request("station_action",{action});});
       }} />
       {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
+      {!separateWindows && <SidebarOwnSpots
+        request={request}
+        ownCall={settings?.stationCall || ""}
+        liveSpots={liveSpots}
+        connected={(cluster?.snapshot?.connectedClusters || 0) > 0}
+      />}
       <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main className="qso-feedback-area live-feedback-host" aria-label={separateWindows ? "Separate Windows" : view} style={separateWindows ? { gridColumn: "1 / -1" } : undefined}>

@@ -60,7 +60,19 @@ public enum SpotLogic {
         let spotterText = spotter.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let text = comment.uppercased()
         let skimmerSpotter = spotterText.hasSuffix("-#") || spotterText.hasSuffix("/#")
-        return skimmerSpotter || text.range(of: #"\b(RBL|RBN|SKIMMER)\b"#, options: .regularExpression) != nil ? "rbl" : "cluster"
+        // DXSpider's FT skimmer feed does not consistently keep the traditional
+        // `-#` spotter suffix. Its decoder reports do retain an unambiguous
+        // mode/SNR/audio-offset signature, for example `FT8 -17 dB 1096 Hz`.
+        let ftSkimmerReport = text.range(
+            of: #"\b(?:FT8|FT4|FT2|Q65[A-D]?|JT65|JT9)\b.*[+-]?\d{1,3}\s*DB\s+\d{1,5}\s*HZ\b"#,
+            options: .regularExpression
+        ) != nil
+        let speedSkimmerReport = text.range(
+            of: #"(?:^|\s)[+-]?\d{1,3}\s*DB\s+\d{1,3}\s*(?:WPM|BPS)\b"#,
+            options: .regularExpression
+        ) != nil
+        return skimmerSpotter || ftSkimmerReport || speedSkimmerReport
+            || text.range(of: #"\b(RBL|RBN|SKIMMER)\b"#, options: .regularExpression) != nil ? "rbl" : "cluster"
     }
 
     /// WSPR is hidden only when a source field or comment identifies it explicitly.

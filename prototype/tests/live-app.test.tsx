@@ -123,7 +123,7 @@ it("recovers a saved Operator Desk callsign after one transient launch lookup fa
   render(<LiveApp />);
   await waitFor(() => expect(attempts).toBe(2), { timeout: 2_500 });
   expect(await screen.findByText("Recovered lookup")).toBeTruthy();
-  expect(screen.getAllByText("United States").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("USA").length).toBeGreaterThan(0);
   expect(screen.queryByText("Worker warming up")).toBeNull();
 });
 
