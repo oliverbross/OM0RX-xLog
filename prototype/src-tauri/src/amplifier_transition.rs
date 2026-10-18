@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
+    cell::Cell,
     io::Write,
     path::PathBuf,
     sync::{Arc, Mutex, OnceLock},
@@ -10,6 +11,7 @@ use std::{
 };
 use tauri::Manager;
 const MAX: u64 = 9_007_199_254_740_991;
+const NOT_SENT: &str = "[amplifier-not-sent] ";
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Target {
@@ -116,7 +118,7 @@ impl Session {
                 || !matches!(r.action.as_str(), "operate" | "standby")
                 || !matches!(
                     r.status.as_str(),
-                    "pending" | "unknown" | "acknowledged" | "reviewed"
+                    "pending" | "unknown" | "acknowledged" | "rejected" | "reviewed"
                 )
             {
                 return Err("Invalid amplifier receipt.".into());
@@ -292,9 +294,6 @@ impl Session {
                 return Ok(r);
             }
             self.check_preparation(&state, preparation, action)?;
-            if action == "operate" && state.receipts.iter().any(unresolved) {
-                return Err("Review unresolved amplifier transitions before Operate; Standby remains available".into());
-            }
             let mut next = state.clone();
             next.receipts.push(Receipt {
                 operation_id: id.into(),
@@ -323,7 +322,7 @@ impl Session {
         r.status = outcome(id, action, &target, &result).into();
         r.detail = match &result {
             Ok(v) if v["ok"] == false => Some(v["error"].clone()),
-            Err(e) => Some(json!({"message":e})),
+            Err(e) => Some(json!({"message":e.strip_prefix(NOT_SENT).unwrap_or(e)})),
             _ => None,
         };
         let value = json!(r);
@@ -346,7 +345,17 @@ fn outcome(
     target: &Target,
     result: &Result<Value, String>,
 ) -> &'static str {
-    let Ok(reply) = result else { return "unknown" };
+    let Ok(reply) = result else {
+        return if result
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.starts_with(NOT_SENT))
+        {
+            "rejected"
+        } else {
+            "unknown"
+        };
+    };
     let result = &reply["result"];
     let state = &result["state"];
     if reply["id"] == id
@@ -390,9 +399,14 @@ fn admission(
     let capability = station["supported_commands"]
         .as_array()
         .is_some_and(|v| v.iter().any(|v| v == &format!("station_{action}")));
+    let observation_is_current = radio["revision"]
+        .as_u64()
+        .is_some_and(|revision| revision >= target.observation_revision)
+        && radio["received_at_ms"]
+            .as_u64()
+            .is_some_and(|received| received >= target.received_at_ms);
     let ready = action == "standby"
-        || radio["revision"] == target.observation_revision
-            && radio["received_at_ms"] == target.received_at_ms
+        || observation_is_current
             && radio["available"] == true
             && recent(&radio["received_at_ms"], 1.0)
             && recent(&snapshot["generated_at"], 1000.0)
@@ -409,7 +423,9 @@ fn admission(
                 .as_array()
                 .is_some_and(|v| v.iter().any(|v| v == "operate"));
     if !exact || !capability || !ready {
-        return Err("Agent amplifier authority changed or fresh Operate readiness is unavailable; no transition was sent".into());
+        return Err(
+            "Amplifier status changed before the command; nothing was sent. Try again.".into(),
+        );
     }
     Ok(())
 }
@@ -438,7 +454,8 @@ pub fn execute(
         .as_str()
         .ok_or("Missing amplifier action")?
         .to_owned();
-    selection.amplifier_transition(
+    let sent = Cell::new(false);
+    let result = selection.amplifier_transition(
         request,
         &expected,
         || {
@@ -453,6 +470,7 @@ pub fn execute(
         },
         |request| {
             authority.require_preparation(preparation, &action)?;
+            sent.set(true);
             let reply =
                 crate::worker::request_existing_generation(request, target.worker_generation)?;
             crate::worker::require_existing_generation(target.worker_generation)?;
@@ -466,7 +484,11 @@ pub fn execute(
             }
             Ok(reply)
         },
-    )
+    );
+    match result {
+        Err(error) if !sent.get() => Err(format!("{NOT_SENT}{error}")),
+        result => result,
+    }
 }
 static OWNER: OnceLock<Mutex<Option<Arc<Session>>>> = OnceLock::new();
 pub fn owner(app: &tauri::AppHandle) -> Result<Arc<Session>, String> {
@@ -669,14 +691,16 @@ mod tests {
         s.transition(&id, "operate", t.clone(), |_, _| Err("lost".into()))
             .unwrap();
         assert_eq!(s.receipt(&id).unwrap()["status"], "unknown");
-        assert!(s
-            .transition(
+        assert_eq!(
+            s.transition(
                 &uuid::Uuid::new_v4().to_string(),
                 "operate",
                 t.clone(),
-                |_, _| panic!()
+                |q, t| Ok(reply(&q, t))
             )
-            .is_err());
+            .unwrap()["status"],
+            "acknowledged"
+        );
         s.review(&id).unwrap();
         for change in [
             "id",
@@ -707,14 +731,38 @@ mod tests {
         s.persist(&saved).unwrap();
         let cold = Session::new(s.path.clone()).unwrap();
         assert_eq!(cold.receipt(&id).unwrap()["status"], "unknown");
-        assert!(cold
+        assert_eq!(
+            cold.transition(&uuid::Uuid::new_v4().to_string(), "operate", t, |q, t| Ok(
+                reply(&q, t)
+            ))
+            .unwrap()["status"],
+            "acknowledged"
+        );
+    }
+    #[test]
+    fn amplifier_known_not_sent_failure_is_terminal_and_retryable() {
+        let (_d, s) = fixture();
+        let t = target();
+        let rejected = s
             .transition(
                 &uuid::Uuid::new_v4().to_string(),
                 "operate",
-                t,
-                |_, _| panic!()
+                t.clone(),
+                |_, _| Err(format!("{NOT_SENT}radio changed before dispatch")),
             )
-            .is_err());
+            .unwrap();
+        assert_eq!(rejected["status"], "rejected");
+        assert_eq!(
+            rejected["detail"]["message"],
+            "radio changed before dispatch"
+        );
+        assert_eq!(s.snapshot().unwrap()["receipts"], json!([]));
+        let retry = s
+            .transition(&uuid::Uuid::new_v4().to_string(), "operate", t, |q, t| {
+                Ok(reply(&q, t))
+            })
+            .unwrap();
+        assert_eq!(retry["status"], "acknowledged");
     }
     #[test]
     fn amplifier_urgent_stale_standby_requires_exact_authority_not_readiness() {
@@ -756,6 +804,13 @@ mod tests {
     fn amplifier_operate_requires_each_fresh_observation_and_policy_field() {
         let t = target();
         let (s, r) = observations(&t);
+        let mut newer = r.clone();
+        newer["revision"] = json!(t.observation_revision + 1);
+        newer["received_at_ms"] = json!(t.received_at_ms + 1);
+        assert!(admission(&s, &newer, &t, "operate", 10001).is_ok());
+        let mut older = r.clone();
+        older["revision"] = json!(t.observation_revision - 1);
+        assert!(admission(&s, &older, &t, "operate", 10000).is_err());
         for field in ["revision", "received_at_ms", "available"] {
             let mut r = r.clone();
             r[field] = Value::Null;
