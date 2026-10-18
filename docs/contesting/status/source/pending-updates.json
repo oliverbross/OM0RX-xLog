@@ -135,7 +135,7 @@
     "rateStatsUIFollowup": {
       "source": "0eff621039d491f26104b880c0e9e63846f0aaca",
       "status": "pushed; review repairs remain pending; not accepted, integrated, or packaged",
-      "validation": "322 + 32 contest tests, TypeScript, and build passed",
+      "validation": "322 tests across 32 files, TypeScript, and build passed",
       "testLogSha256": "19420f835718502b437abef3f607fe8ed3ceee9a87f69b4a8542dbd3465678bc",
       "buildLogSha256": "a085d0b9a43505a6c36f12f6ee91b55aa313f07b20b02f931682911e01f591d8",
       "repairs": "Detached Rate revision-field mismatch, stale/asOf/current-hour presentation, and failed native publication retry."
