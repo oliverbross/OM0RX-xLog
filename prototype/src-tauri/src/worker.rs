@@ -631,6 +631,7 @@ static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
 static CONTESTING_TEST: OnceLock<bool> = OnceLock::new();
 pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
 pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
+pub fn requests_in_flight() -> usize { IN_FLIGHT.load(Ordering::Acquire) }
 
 /// Called once by native main before creating any webviews. A renderer cannot
 /// opt into or out of isolation, or nominate a directory for acceptance data.

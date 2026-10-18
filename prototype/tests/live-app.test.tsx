@@ -13,7 +13,14 @@ import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession
 const calls = vi.hoisted(() => ({ request: vi.fn() }));
 const nativeMenu = vi.hoisted(() => ({ route: undefined as ((title: string) => void) | undefined }));
 const clusterStartup = vi.hoisted(() => ({ native: false, initialize: vi.fn() }));
-const activation = vi.hoisted(() => ({ activate: vi.fn() }));
+const activation = vi.hoisted(() => ({ activate: vi.fn(), reconcile: vi.fn() }));
+const editor = vi.hoisted(() => ({ reconcile: vi.fn() }));
+const native = vi.hoisted(() => ({ invoke: vi.fn() }));
+const moduleAuthority = vi.hoisted(() => ({ selected: "normal_logging" as "normal_logging" | "contesting", switch: vi.fn() }));
+vi.mock("@tauri-apps/api/core", async importOriginal => ({ ...await importOriginal<typeof import("@tauri-apps/api/core")>(), invoke: native.invoke }));
+vi.mock("../src/operatingModule", async importOriginal => ({ ...await importOriginal<typeof import("../src/operatingModule")>(),
+  operatingModuleStatus: async () => ({ selected: moduleAuthority.selected, context: "test-module-context", transitioning: false }),
+  switchOperatingModule: moduleAuthority.switch }));
 vi.mock("../src/live/clusterResume", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/clusterResume")>(),
   nativeClusterSession: () => clusterStartup.native, initializeNativeClusterResume: clusterStartup.initialize }));
 vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/workspaceNavigation")>(),
@@ -23,13 +30,18 @@ vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<ty
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, checked: false,
-  activate: activation.activate, reconcile: vi.fn(), retire: vi.fn() }) }));
+  activate: activation.activate, reconcile: activation.reconcile, retire: vi.fn() }) }));
+vi.mock("../src/live/useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
+  status: null, error: "", initializing: false, reconcile: editor.reconcile,
+}) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Map surface</div> }));
 let exists = false, draftBackend: ReturnType<typeof operatorDraftFixture>;
 beforeEach(() => {
   exists = false; localStorage.clear(); calls.request.mockReset();
   clusterStartup.native = false; clusterStartup.initialize.mockReset().mockResolvedValue(undefined);
-  activation.activate.mockReset();
+  activation.activate.mockReset(); activation.reconcile.mockReset().mockResolvedValue(true);
+  editor.reconcile.mockReset().mockResolvedValue(true); native.invoke.mockReset();
+  moduleAuthority.selected = "normal_logging"; moduleAuthority.switch.mockReset().mockResolvedValue(undefined);
   draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" });
   calls.request.mockImplementation(async (method: string, params: any = {}) => {
     const shared = draftBackend(method, params);
@@ -295,11 +307,114 @@ it("exposes the Contest Manager only for authoritative isolated contest-test hea
   render(<LiveApp />);
   const contest = await screen.findByRole("button", { name: "Contest Manager / Desk" });
   fireEvent.click(contest);
-  expect(await screen.findByRole("heading", { name: "Contest Workspace" })).toBeTruthy();
-  expect(screen.getByRole("main", { name: "Contest Manager / Desk" })).toBeTruthy();
-  await waitFor(() => expect(calls.request.mock.calls.filter(([method]) => method === "contest_catalog")).toHaveLength(1));
-  await act(async () => nativeMenu.route?.("Operator Desk"));
+  await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledExactlyOnceWith("contesting"));
+  expect(screen.getByRole("button", { name: "Contesting" }).closest("header")).toBeTruthy();
   expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+});
+
+it("freezes Normal Logging input synchronously while the native module switch is pending", async () => {
+  exists = true;
+  let release!: () => void;
+  const switchGate = new Promise<void>(resolve => { release = resolve; });
+  moduleAuthority.switch.mockImplementation(() => switchGate);
+  draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "K1ABC", band: "20m", mode: "SSB" });
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method, params) => {
+    if (method === "health") return { id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } };
+    return backend(method, params);
+  });
+  render(<LiveApp />);
+  const callsign = await screen.findByLabelText("Callsign") as HTMLInputElement;
+  fireEvent.click(await screen.findByRole("button", { name: "Contest Manager / Desk" }));
+  fireEvent.change(callsign, { target: { value: "K1ZZZ" } });
+  expect(callsign.value).toBe("K1ABC");
+  await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledExactlyOnceWith("contesting"));
+  expect(await screen.findByText("Saving and restarting…")).toBeTruthy();
+  expect(callsign.closest("form")?.hasAttribute("inert")).toBe(true);
+  fireEvent.change(callsign, { target: { value: "K1ZZZ" } });
+  expect(callsign.value).toBe("K1ABC");
+  release();
+  await screen.findByText("xLog did not restart after changing operating module.");
+});
+
+it("restores Normal Logging input after a confirmed pre-retirement refusal and permits retry", async () => {
+  exists = true;
+  moduleAuthority.switch.mockResolvedValueOnce({ status: "rejected", message: "Close the Log QSO window before changing module.", servicesRetired: false });
+  draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "K1ABC", band: "20m", mode: "SSB" });
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method, params) => method === "health"
+    ? { id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } }
+    : backend(method, params));
+  render(<LiveApp />);
+  const callsign = await screen.findByLabelText("Callsign") as HTMLInputElement;
+  const contest = await screen.findByRole("button", { name: "Contest Manager / Desk" });
+  fireEvent.click(contest);
+  await screen.findByText("Close the Log QSO window before changing module.");
+  await waitFor(() => expect(callsign.closest("form")?.hasAttribute("inert")).toBe(false));
+  fireEvent.change(callsign, { target: { value: "K1ZZZ" } });
+  expect(callsign.value).toBe("K1ZZZ");
+  let release!: () => void;
+  moduleAuthority.switch.mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
+  fireEvent.click(contest);
+  await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledTimes(2));
+  expect(callsign.closest("form")?.hasAttribute("inert")).toBe(true);
+  release();
+});
+
+it("keeps input frozen after native reports that service retirement started", async () => {
+  exists = true;
+  moduleAuthority.switch.mockResolvedValueOnce({ status: "failed", message: "Station-service retirement may have started.", servicesRetired: true });
+  draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "K1ABC", band: "20m", mode: "SSB" });
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method, params) => method === "health"
+    ? { id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } }
+    : backend(method, params));
+  render(<LiveApp />);
+  const callsign = await screen.findByLabelText("Callsign") as HTMLInputElement;
+  fireEvent.click(await screen.findByRole("button", { name: "Contest Manager / Desk" }));
+  await screen.findByText("Station-service retirement may have started.");
+  expect(callsign.closest("form")?.hasAttribute("inert")).toBe(true);
+  expect((screen.getByRole("button", { name: "Contesting" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(callsign, { target: { value: "K1ZZZ" } });
+  expect(callsign.value).toBe("K1ABC");
+});
+
+it("reconciles a terminal Read radio journal before changing to Contesting", async () => {
+  exists = true;
+  const operationId = crypto.randomUUID();
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1.readRadio", JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
+  native.invoke.mockImplementation(async (command, params) => {
+    expect(command).toBe("operator_draft_read_radio_recover");
+    expect(params).toEqual({ operationId, generation: testWorkspaceGeneration });
+    return { operationId, phase: "blocked", reservationActive: false, tuneConfirmed: false, rotor: "not-requested", error: "Old read receipt retired." };
+  });
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } })
+    : backend(method, params));
+  render(<LiveApp />);
+  fireEvent.click(await screen.findByRole("button", { name: "Contest Manager / Desk" }));
+  await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledExactlyOnceWith("contesting"));
+  expect(native.invoke.mock.calls.filter(([command]) => command === "operator_draft_read_radio_recover")).toEqual([
+    ["operator_draft_read_radio_recover", { operationId, generation: testWorkspaceGeneration }],
+  ]);
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).toBeNull();
+});
+
+it("keeps an unresolved Read radio journal as a module-transition fence", async () => {
+  exists = true;
+  const operationId = crypto.randomUUID();
+  localStorage.setItem("xlog.integration.operatorDraft.main.v1.readRadio", JSON.stringify({ operationId, generation: testWorkspaceGeneration }));
+  native.invoke.mockRejectedValue(new Error("Native read is still active."));
+  const backend = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation((method, params) => method === "health"
+    ? Promise.resolve({ id: "health", ok: true, result: { mode: "contesting_test", isolated_workspace: true } })
+    : backend(method, params));
+  render(<LiveApp />);
+  fireEvent.click(await screen.findByRole("button", { name: "Contest Manager / Desk" }));
+  await screen.findByText(/Finish the draft fields and resolve unsaved, pending or uncertain Normal Logging work/);
+  expect(moduleAuthority.switch).not.toHaveBeenCalled();
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1.readRadio")).not.toBeNull();
 });
 
 it("keeps a fresh contest-test profile in onboarding until its isolated workspace is created", async () => {
@@ -321,7 +436,15 @@ it("keeps a fresh contest-test profile in onboarding until its isolated workspac
   const contest = await screen.findByRole("button", { name: "Contest Manager / Desk" });
   expect(calls.request.mock.calls.filter(([method]) => method === "health").length).toBeGreaterThanOrEqual(2);
   fireEvent.click(contest);
-  expect(await screen.findByRole("heading", { name: "Contest Workspace" })).toBeTruthy();
+  await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledExactlyOnceWith("contesting"));
+});
+
+it("can return an unavailable persisted Contesting choice to Normal without mounting a contest owner", async () => {
+  exists = true; moduleAuthority.selected = "contesting";
+  render(<LiveApp />);
+  const normal = await screen.findByRole("button", { name: "Normal Logging" });
+  fireEvent.click(normal);
+  await waitFor(() => expect(moduleAuthority.switch).toHaveBeenCalledExactlyOnceWith("normal_logging"));
 });
 
 it.each([

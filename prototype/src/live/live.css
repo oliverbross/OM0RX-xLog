@@ -9,6 +9,13 @@
 .live .sidebar nav button { min-height: 31px; font-size: 13px; width: 100%; }
 .live .sidebar nav .nav-group { padding: 8px 6px 4px; text-transform: none; }
 .live .sidebar nav button[aria-current] { background: #123247; border: 1px solid #215067; }
+.live .module-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; border-bottom: 1px solid #274252; }
+.live .module-choice strong, .live .module-choice [role="status"] { grid-column: 1 / -1; font-size: 11px; }
+.live .module-choice button { min-width: 0; justify-content: center; }
+.live .rail-module-choice { display: flex; align-items: center; gap: 5px; padding: 0; border: 0; }
+.live .rail-module-choice strong { font-size: 10px; }
+.live .rail-module-choice button { padding: 4px 7px; font-size: 11px; }
+.live .rail-module-choice [role="status"] { font-size: 10px; }
 .live main { min-height: 0; gap: 12px; }
 .live p { line-height: 1.55; }
 .live input[type="checkbox"] { min-height: 0; accent-color: var(--teal); }

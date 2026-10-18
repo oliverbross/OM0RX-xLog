@@ -16,6 +16,7 @@ import { useReferenceEvidence } from "./live/useReferenceEvidence";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw } from "lucide-react";
 import { workerRequest, framedWorkerRequest, openMonitor, openDetachedMap, detachedMapKind,
   type StationProvider } from "./worker";
+import { contestRetirementAssessment, operatingModuleStatus, switchOperatingModule, type OperatingModule, type OperatingModuleStatus } from "./operatingModule";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
@@ -98,6 +99,7 @@ import { loadStationSession, type RadioID } from "./live/stationSession";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import type { ContestRequest } from "./contesting/types";
+import type { ContestTransitionController } from "./contesting/ContestWorkspace";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
 
@@ -218,6 +220,12 @@ function MainLiveApp() {
   const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
   const [contestCapability, setContestCapability] = useState<"checking" | "available" | "unavailable">("checking");
+  const [operatingModule, setOperatingModule] = useState<OperatingModuleStatus | null>(null);
+  const [moduleChanging, setModuleChanging] = useState(false);
+  const moduleTransitioning = useRef(false);
+  const moduleChoice = useRef<(target: OperatingModule) => Promise<void>>(async () => {});
+  const contestTransition = useRef<ContestTransitionController | null>(null);
+  const registerContestTransition = useCallback((controller: ContestTransitionController | null) => { contestTransition.current = controller; }, []);
   const contestCapabilityRef = useRef(contestCapability); contestCapabilityRef.current = contestCapability;
   const refreshContestCapability = useCallback(async () => {
     try {
@@ -227,6 +235,9 @@ function MainLiveApp() {
       if (mounted.current) setContestCapability("unavailable");
     }
   }, []);
+  useEffect(() => { let active = true; void operatingModuleStatus(true).then(value => { if (active) setOperatingModule(value); })
+    .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Operating module authority is unavailable."); });
+    return () => { active = false; }; }, []);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
   const modeAction = useRef<(title: string) => Promise<boolean>>(async () => false);
   const [settingsSession] = useState(() => new SettingsSession(requestSettings,
@@ -264,10 +275,10 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
+  const editorLocked = moduleChanging || radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
-    if (mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
+    if (moduleTransitioning.current || mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
     if (!draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) return;
     if (draftSession.getSnapshot().locked || draftSession.getSnapshot().workspaceChanged || contactSession.getSnapshot().locked || contactSession.getSnapshot().workspaceChanged) return;
     const contact = contactSession.getSnapshot().draft;
@@ -304,21 +315,13 @@ function MainLiveApp() {
     const radioSettingsRoute = next === "Station Control" || next === "Radio 1 Settings" || next === "Radio 2 Settings";
     const requestedRadioId: RadioID = next === "Radio 2 Settings" ? "radio2" : "radio1";
     if (radioSettingsRoute) next = "Settings";
+    if (next === contestTitle) { void moduleChoice.current("contesting"); return true; }
     if (next === viewRef.current) {
       if (radioSettingsRoute) {
         setSettingsTabRequest(previous => ({ tab: "Radio", revision: previous.revision + 1 }));
         setRadioSettingsRequest(previous => ({ radioId: requestedRadioId, revision: previous.revision + 1 }));
       }
       return true;
-    }
-    if (next === contestTitle && contestCapabilityRef.current !== "available") {
-      if (contestCapabilityRef.current === "unavailable")
-        setError("Contesting requires the isolated OM0RX-xLog Contesting Test runtime.");
-      return false;
-    }
-    if (next === contestTitle && workspaceRef.current?.workspace_exists !== true) {
-      setError("Create or reconnect this isolated workspace before opening Contesting.");
-      return false;
     }
     if (logbookWorkingRef.current) { setError("Wait for the logbook operation to finish before changing views."); return false; }
     if (readingRadio.current || editorBufferPending.current || mainClosing.current || layoutChanging.current || editorTransition.current || !draftSession.canAcceptLocalInput() || !contactSession.canAcceptLocalInput()) {
@@ -379,6 +382,7 @@ function MainLiveApp() {
     else setBrowserFollow(value);
   }, [nativeFollow.set]);
   const setFollowImmediate = useCallback((value: boolean) => {
+    if (moduleTransitioning.current) return;
     latestFollow.current = value;
     void changeFollow(value).catch(cause => setError(cause instanceof Error ? cause.message : typeof cause === "string" && cause ? cause : "Follow Radio authority is unavailable."));
   }, [changeFollow]);
@@ -454,14 +458,16 @@ function MainLiveApp() {
       });
   }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
       deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspace]);
-  const acceptsInput = useCallback(() => !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
-  useEffect(() => protectOperatorDraftClose(() => {
+  const acceptsInput = useCallback(() => !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
+  const normalTransitionBlocked = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
     return readingRadio.current || !!readOperation.current || busyRef.current || logbookWorkingRef.current || layoutChanging.current || editorBufferPending.current || draftSession.dirty || !!contact.draft || !!mutation.pending || mutation.busy ||
       current.activationFrozen || contact.activationFrozen || current.locked || contact.locked || !!current.pending || !!contact.pending ||
       !!current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged;
-  }, () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
-  closing => { mainClosing.current = closing; }, "close_main_window"), [draftSession, contactSession, logbookMutations]);
+  }, [draftSession, contactSession, logbookMutations]);
+  useEffect(() => protectOperatorDraftClose(normalTransitionBlocked,
+  () => setError("Finish the draft fields and resolve unsaved or pending QSO changes before closing the Desk."), setError,
+  closing => { mainClosing.current = closing; }, "close_main_window"), [normalTransitionBlocked]);
   const [selected, setSelected] = useState<string | null>(null);
   const nativeAutoRotor = useAutoRotor(), autoRotor = nativeAutoRotor.state?.armed === true;
   const [rotorState, setRotorState] = useState<RotorSnapshot | null>(null);
@@ -470,7 +476,7 @@ function MainLiveApp() {
   const autoRotorSet = useRef(nativeAutoRotor.set); autoRotorSet.current = nativeAutoRotor.set;
   const disarmAutoRotor = useCallback(() => { if (nativeSpotEditor()) void autoRotorSet.current(false).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor could not be disarmed.")); }, []);
   const setAutomaticRotor = (enabled: boolean) => nativeAutoRotor.set(enabled, rotorRef.current);
-  const changeAutoRotor = (enabled: boolean) => { void setAutomaticRotor(enabled).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor authority is unavailable.")); };
+  const changeAutoRotor = (enabled: boolean) => { if (!moduleTransitioning.current) void setAutomaticRotor(enabled).catch(cause => setError(cause instanceof Error ? cause.message : "Automatic rotor authority is unavailable.")); };
   const savedProvider = storedDraftValue("xlog.integration.provider");
   const provider = useRef<StationProvider>(savedProvider === "hamlib" || savedProvider === "direct_flex_lan" || savedProvider === "direct_tci" ? savedProvider : "direct_agent");
   const [stationProvider, setStationProvider] = useState(provider.current);
@@ -743,7 +749,7 @@ function MainLiveApp() {
     window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut);
   }, [readRadioIntoDraft, showSyncSettings]);
   const run = async (operation: () => Promise<unknown>) => {
-    if (readingRadio.current) return;
+    if (moduleTransitioning.current || readingRadio.current) return;
     busyRef.current = true;
     setBusy(true); setError("");
     try { await operation(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); }
@@ -1050,7 +1056,7 @@ function MainLiveApp() {
     window.setTimeout(() => selectSpotRef.current(queued), 0);
   };
   const selectSpot = (spot: Data) => {
-    if (monitor) return;
+    if (monitor || moduleTransitioning.current) return;
     const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
     if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) {
       selection.current++;
@@ -1136,6 +1142,53 @@ function MainLiveApp() {
   useEffect(() => {
     if (!spotActivation.requesting && !spotReservationActive) drainLatestSpot();
   }, [spotActivation.requesting, spotActivation.status?.operationId, spotActivation.status?.phase, spotReservationActive]);
+  const chooseOperatingModule = async (target: OperatingModule) => {
+    const current = operatingModule;
+    if (!current || current.transitioning || moduleTransitioning.current || moduleChanging || current.selected === target) return;
+    moduleTransitioning.current = true;
+    let contestFrozen = false, nativeInvoked = false, nativeOutcomeKnown = false, servicesRetired = false;
+    setModuleChanging(true); setError(""); setMessage("");
+    try {
+      if (target === "contesting" && (contestCapability !== "available" || workspace?.workspace_exists !== true))
+        throw new Error("Create or reconnect this isolated workspace before opening Contesting.");
+      if (current.selected === "normal_logging") {
+        await draftSession.flush();
+        // A terminal native read receipt is recovery evidence. Reconcile it
+        // before deciding whether an unresolved operation still blocks exit.
+        if (readOperation.current) await checkReadRadio();
+        if (normalTransitionBlocked()) throw new Error("Finish the draft fields and resolve unsaved, pending or uncertain Normal Logging work before changing module.");
+        await changeFollow(false);
+        if (nativeAutoRotor.state?.armed === true) await nativeAutoRotor.set(false, rotorRef.current);
+      } else {
+        const transition = contestTransition.current;
+        const assessment = contestRetirementAssessment(contestCapability, workspace?.workspace_exists === true, !!transition);
+        if (assessment === "prepare") { transition!.freeze(); contestFrozen = true; await transition!.prepare(); }
+        else if (assessment === "wait")
+          throw new Error("Contest recovery is still loading. Wait before changing module.");
+      }
+      selection.current += 1;
+      window.clearTimeout(spotActivationDelay.current);
+      spotAwaitingActivation.current = null; spotAwaitingDraftRecovery.current = null;
+      pendingTune.current = false; setSelected(null);
+      nativeInvoked = true;
+      const result = await switchOperatingModule(target);
+      nativeOutcomeKnown = true;
+      servicesRetired = result?.servicesRetired === true;
+      if (result?.message) throw new Error(result.message);
+      throw new Error("xLog did not restart after changing operating module.");
+    } catch (cause) {
+      const canResume = !nativeInvoked || nativeOutcomeKnown && !servicesRetired;
+      if (canResume) {
+        moduleTransitioning.current = false;
+        if (contestFrozen) contestTransition.current?.resume();
+      }
+      if (mounted.current) {
+        if (canResume) setModuleChanging(false);
+        setError(cause instanceof Error ? cause.message : "Operating module was not changed.");
+      }
+    }
+  };
+  moduleChoice.current = chooseOperatingModule;
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
@@ -1181,26 +1234,33 @@ function MainLiveApp() {
   const deskPrevious = previous.filter(qso => normalizedCall(qso?.call) === deskCall);
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
-  const contestView = view === contestTitle && contestCapability === "available" && workspace?.workspace_exists === true;
+  const contestView = operatingModule?.selected === "contesting";
   const displayedSeparateWindows = separateWindows && !contestView;
   const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" && workspace?.workspace_exists === true })
-    .map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group] as const);
+    .filter(screen => operatingModule?.selected !== "contesting" || screen.id === "contesting")
+    .map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group, screen.id] as const);
   const radioConnectionLabel = station?.radio?.connected ? station.radio.observed ? "Connected" : "Refreshing" : "Disconnected";
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
+      <section className="module-choice rail-module-choice" aria-label="Operating module"><strong>Operating module</strong>
+        <button type="button" aria-pressed={operatingModule?.selected === "normal_logging"} disabled={!operatingModule || moduleChanging} onClick={() => void chooseOperatingModule("normal_logging")}>Normal Logging</button>
+        <button type="button" aria-pressed={operatingModule?.selected === "contesting"} disabled={!operatingModule || moduleChanging || contestCapability !== "available" || workspace?.workspace_exists !== true} onClick={() => void chooseOperatingModule("contesting")}>Contesting</button>
+        {moduleChanging && <span role="status">Saving and restarting…</span>}
+      </section>
       <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact request={request} weatherKey={settings?.gridSquare || ""} />}
       <span className="rail-end">{stats?.stats?.qso_count?.toLocaleString() ?? "—"} contacts · Integrated logbook</span>
     </header>
-    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}><nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
-      <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
+    <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}>
+      <nav>{navigation.map(([name, Icon, group, id], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={contestView && id === "contesting" || view === name ? "page" : undefined} onClick={() => id === "contesting" ? void chooseOperatingModule("contesting") : void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+      {operatingModule?.selected === "normal_logging" && <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
         if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(cause => setError(String(cause)));
         else void run(async()=>{await request("station_action",{action});});
-      }} />
-      {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
-      <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
+      }} />}
+      {operatingModule?.selected === "normal_logging" && nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
+      <div className="sidebar-foot">{operatingModule?.selected === "normal_logging" && <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button>}<strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main className="qso-feedback-area live-feedback-host" aria-label={displayedSeparateWindows ? "Separate Windows" : view} style={displayedSeparateWindows ? { gridColumn: "1 / -1" } : undefined}>
       <StableFeedbackLayer>
@@ -1233,7 +1293,10 @@ function MainLiveApp() {
       </StableFeedbackLayer>
       {loggedFeedback.toast}
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
-      {contestView ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} /></Suspense> : <>
+      {!operatingModule ? <section className="live-panel" aria-label="Operating module loading"><h2>Opening operating module…</h2></section>
+        : contestView ? contestCapability === "available" && workspace?.workspace_exists === true
+        ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} registerTransition={registerContestTransition} /></Suspense>
+        : <section className="live-panel" aria-label="Contesting unavailable"><h2>Contesting</h2><p>Reconnect the isolated contest workspace before operating. Normal Logging remains inactive.</p></section> : <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
           <h2>Settings</h2>

@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ContestWorkspace, projectSCPCallsign } from "./ContestWorkspace";
+import { ContestWorkspace, projectSCPCallsign, type ContestTransitionController } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
 import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
@@ -143,6 +143,34 @@ async function openWPX(request: ContestRequest, storage = new MemoryContestRecov
   const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>);
   await screen.findByText("WPX May"); fireEvent.click(screen.getByRole("button", { name: /WPX May/ })); await screen.findByRole("form", { name: "CW contest entry" }); return view;
 }
+
+it("registers an awaited contest retirement controller and removes it on unmount", async () => {
+  const { request } = fixture();
+  let transition: { prepare: () => Promise<void> } | null = null;
+  const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest}
+    recoveryStorage={new MemoryContestRecoveryStorage()} registerTransition={value => { transition = value; }}/>);
+  await screen.findByText("WW November");
+  expect(transition).not.toBeNull();
+  await act(async () => { await transition!.prepare(); });
+  view.unmount();
+  expect(transition).toBeNull();
+});
+
+it("freezes contest entry synchronously before retirement awaits and restores it after a safe failure", async () => {
+  const { request } = fixture();
+  let transition: ContestTransitionController | null = null;
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest}
+    recoveryStorage={new MemoryContestRecoveryStorage()} registerTransition={value => { transition = value; }}/>);
+  await screen.findByText("WW November"); fireEvent.click(screen.getByRole("button", { name: /WW November/ }));
+  const callsign = await screen.findByRole("textbox", { name: "Contest callsign" }) as HTMLInputElement;
+  const before = callsign.value;
+  act(() => transition!.freeze());
+  expect(callsign.disabled).toBe(true);
+  fireEvent.change(callsign, { target: { value: "K1ZZZ" } });
+  expect(callsign.value).toBe(before);
+  act(() => transition!.resume());
+  expect(callsign.disabled).toBe(false);
+});
 
 it("renders repeated authoritative validation messages without duplicate React keys", async () => {
   const { request, state } = fixture();

@@ -4,19 +4,23 @@ import { DraftRequestRejected } from "./operatorDraftSession";
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 beforeEach(() => { native.invoke.mockReset(); });
+const status = { selected: "normal_logging", context: "normal-context", transitioning: false };
+function respond(result: (request: any) => any) {
+  native.invoke.mockImplementation(async (method, args) => method === "operating_module_status" ? status : result(args.request));
+}
 it("only permits contact operations and checks response correlation", async () => {
-  native.invoke.mockImplementation(async (_method, { request }) => ({ id: request.id, ok: true, result: { contact: null } }));
+  respond(request => ({ id: request.id, ok: true, result: { contact: null } }));
   expect(await requestLogbookContact("logbook_contact")).toEqual({ contact: null });
   await expect(requestLogbookContact("logbook_save")).rejects.toThrow("outside");
   await expect(requestLogbookContact("station_tune")).rejects.toThrow("outside");
-  expect(native.invoke).toHaveBeenCalledOnce();
-  native.invoke.mockResolvedValue({ id: "wrong", ok: false, error: { message: "invalid" } });
+  expect(native.invoke).toHaveBeenCalledTimes(2);
+  respond(() => ({ id: "wrong", ok: false, error: { message: "invalid" } }));
   await expect(requestLogbookContact("logbook_contact_apply")).rejects.toThrow("correlated");
 });
 it("distinguishes explicit worker rejection from transport failure", async () => {
-  native.invoke.mockImplementation(async (_method, { request }) => ({ id: request.id, ok: false, error: { message: "invalid" } }));
+  respond(request => ({ id: request.id, ok: false, error: { message: "invalid" } }));
   await expect(requestLogbookContact("logbook_contact_apply")).rejects.toBeInstanceOf(DraftRequestRejected);
-  native.invoke.mockRejectedValue(new Error("IPC lost"));
+  native.invoke.mockImplementation(async method => { if (method === "operating_module_status") return status; throw new Error("IPC lost"); });
   try { await requestLogbookContact("logbook_contact_apply"); throw new Error("expected failure"); }
   catch (error) { expect(error).not.toBeInstanceOf(DraftRequestRejected); expect(String(error)).toContain("IPC lost"); }
 });

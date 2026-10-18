@@ -92,8 +92,9 @@ export async function framedWorkerRequest<T = unknown>(
     throw new Error(
       "The browser cannot connect to station services. Launch OM0RX-xLog on your desktop.",
     );
+  const operating = await invoke<{ context: string }>("operating_module_status");
   return invoke<WorkerResponse<T>>("worker_request", {
-    request: { id: crypto.randomUUID(), method, params },
+    request: { id: crypto.randomUUID(), method, params, operatingContext: operating.context },
   });
 }
 export async function workerRequest(
