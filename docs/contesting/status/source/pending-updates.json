@@ -1,6 +1,6 @@
 {
   "proposalDate": "2026-10-18",
-  "measuredAt": "2026-10-18T07:09:40Z",
+  "measuredAt": "2026-10-18T07:53:19Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
@@ -262,6 +262,24 @@
     }
   },
   "currentSourceRefresh": {
+    "measuredAtUtc": "2026-10-18T07:53:19Z",
+    "status": "source refresh only; published workbook, Markdown report and generated artifacts unchanged",
+    "sourceHead": "5024b2cf1129347a8f0b1f621d2f2e7306121c90",
+    "contestCanvas": {
+      "priorIsolatedPackage": "e38faa0 completed and was installed only in the isolated Contesting Test app; the original normal app was unchanged",
+      "nativeQa": "Initial QA on the earlier package opened saved CQWW SSB state (4 QSOs, 10 points, 8 multipliers, score 80, seven SCP records, disarmed) but canvas failed safely to the fixed fallback because of a framed-envelope mismatch; evidence: docs/contesting/evidence/operator-desk-canvas-package-2026-10-18.json at dc2f601. Corrected 5024b2c launches and opens the saved state, and its panel selector switches Entry/Statistics while preserving a W1AW draft with simulation disarmed. Native canvas gate still fails: transport fallback is absent, the compact single-panel selector leaves large unused canvas at 1440x940 and native zoom 3840x2160, and movable/resizable panel headers are absent. Corrected-package native QA receipt: docs/contesting/evidence/operator-desk-canvas-response-fix-2026-10-18.json, committed and pushed at 76a6bb3. This bounded check does not establish geometry, restart recovery or detached-child acceptance; a separate frontend fix is in progress.",
+      "fix": "703bc56 was reviewed and merged at 5024b2c. Independent Canvas/Workspace validation passed 42 tests and TypeScript compilation.",
+      "correctedPackage": "Packaging for 5024b2c completed with exit 0; the isolated Contesting Test app is installed and launches, with no change to the original normal app. CQWW saved-state/score display and compact panel switching work; native multi-panel canvas acceptance failed pending the separate frontend fix."
+    },
+    "otherCurrentSource": {
+      "rbn": "4bb5571 integrated at 935816d; combined validation passed 29 Swift and 41 UI checks plus TypeScript compilation.",
+      "nativeBridge": "0ac1c68f0053e533d46bfcbce0cd5d2a02fb043b is isolated and queued for review; it supports four child projections and Entry simulation v2, with no native UI acceptance.",
+      "cqwwActivation": "e642d64e14a371d94f6fe9a0d3468e885208176b is isolated and under review after correcting the test oracle for African Italy IG9/IH9 versus Sicily; no integration or native acceptance is claimed.",
+      "countryResources": "Materialization 1be403 and lifecycle 2ab979 are integrated."
+    },
+    "scope": "Keep the ledger at 16 previews / 78 pending / 0 complete; extra CQWW preview profiles do not increase full-port parity. Current application scope is macOS, RF remains disabled, and the original app remains user-controlled."
+  },
+  "priorSourceRefresh": {
     "measuredAt": "2026-10-18T07:09:40Z",
     "status": "source refresh only; published workbook and Markdown unchanged",
     "installedTestApp": "3a05c2e; none of the new canvas, native registry or transient-input changes is installed",

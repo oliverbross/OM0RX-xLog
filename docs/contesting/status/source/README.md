@@ -2,6 +2,10 @@
 
 This folder contains the reproducible source for the 18 October 2026 contesting parity snapshot. The published workbook and status note remain at the parent directory.
 
+## Latest source-only refresh — 18 October 2026, 07:53 UTC
+
+Corrected package `5024b2c` is installed and launches in the isolated Contesting Test app; the original normal app remains unchanged. Saved CQWW SSB opens with 4 QSOs, 10 points, 8 multipliers and score 80, and the panel selector works. A bounded draft check typed W1AW, switched to Statistics and back to Entry, and preserved W1AW with simulation disarmed; this proves panel switching only, not geometry, restart recovery or detached-child acceptance. Native canvas acceptance **FAILED**: the transport fallback is absent, the app remains a compact single-panel selector with large unused canvas at 1440×940 and native zoom 3840×2160, and movable/resizable multi-panel headers are absent. The earlier framed-envelope mismatch and safe fallback are recorded in `docs/contesting/evidence/operator-desk-canvas-package-2026-10-18.json` at `dc2f601`. Corrected-package native QA receipt: `docs/contesting/evidence/operator-desk-canvas-response-fix-2026-10-18.json`, committed and pushed at `76a6bb3`. Fix `703bc56` is reviewed and merged at `5024b2c`; 42 independent Canvas/Workspace tests and TypeScript compilation passed. A separate frontend fix is in progress, so full canvas acceptance remains open. RBN `4bb5571` integrated at `935816d` with 29 Swift and 41 UI checks plus TypeScript passing. Native bridge `0ac1c68f0053e533d46bfcbce0cd5d2a02fb043b` is isolated and queued for review; CQWW activation `e642d64e14a371d94f6fe9a0d3468e885208176b` is isolated and under review after correcting the oracle for African Italy IG9/IH9 versus Sicily. Country-resource materialization `1be403` and lifecycle `2ab979` are integrated. Keep the ledger at 16 previews / 78 pending / 0 complete; extra CQWW preview profiles do not increase full-port parity. macOS only, RF disabled, and the original app remains user-controlled.
+
 ## Rebuild
 
 Use Node.js with `@oai/artifact-tool` available. With the Codex bundled runtime, create a writable working directory and link its `node_modules` to the bundled package directory:
@@ -29,7 +33,11 @@ For a non-destructive reproduction, point `XLOG_REPORT_OUTPUT_DIR` to a new temp
 
 `native-links.json` records the hyperlink manifest used for the published snapshot. Normal builds produce a fresh `native-links.generated.json` beside the output workbook.
 
-## Proposed next refresh
+## Historical refresh notes
+
+This 07:09 UTC checkpoint is retained below as dated historical evidence; the newer source-only refresh above supersedes its current-state wording.
+
+## Historical source evidence — 07:09 UTC
 
 `pending-updates.json` records evidence measured after the published snapshot. The historical baseline `52ef5d3` passed all six native jobs plus regular CI; subsequent shared-policy and history UI results are separately recorded there. The catalog ledger remains 16 previews / 78 pending / 0 fully ported; SST is the eighth bundled declarative definition at source level. The 14-profile/84-contact legacy headless rehearsal passed. The 11-profile/66-contact declarative workflows functionally completed, but their protection gate remains unresolved/failed after concurrent normal-database metadata changed without process attribution; the evidence does not establish that the headless process touched the normal database. Current source receipts include scoped layout isolation, native registry scope validation, a four-panel shared-owner canvas, ARRL DX editable intermediate KI input with strict wire/commit validation, and integrated 30dcdab42bb0337aee9c60e816d6b151d6b453ce/Special filters. Combined source `e22cf95` passed 181/181 tests across 12 files plus TypeScript compilation; the exact receipt preserves the historical 70/71 failure and isolated 26-pass result and records the bounded wait fix passing in combined source. These changes are not in installed Test app source `3a05c2e`. Native runtime `1050a5b` + `2ae19aa` and CQWW country materialization `806873e` remain under review; no bridge/child parity is claimed, and the generated 362-endpoint resource is not active in catalog, worker or UI. SST source `cb18f8f` was reviewed and merged/pushed at `8e2ac9b`, but installed app still has seven definitions. Preserve the published ledger and avoid treating the 94-entry metadata as a completion percentage. The builder does not apply these source updates automatically; review exact evidence boundaries before changing the pinned snapshot.
 
