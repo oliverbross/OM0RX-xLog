@@ -92,9 +92,18 @@ pub fn submit(label: &str, envelope: Value) -> Result<Value, String> {
         let mut state = state()
             .lock()
             .map_err(|_| "Contest surface state unavailable")?;
-        require_context(&state, &checked.context)?;
-        submit_checked(&mut state, &panel_id, &checked, envelope)
+        submit_after_admission(&mut state, &panel_id, &checked, envelope)
     })?
+}
+
+fn submit_after_admission(
+    state: &mut State,
+    panel_id: &str,
+    checked: &CheckedAction,
+    envelope: Value,
+) -> Result<Value, String> {
+    require_context(state, &checked.context)?;
+    submit_checked(state, panel_id, checked, envelope)
 }
 
 fn submit_checked(
@@ -120,16 +129,21 @@ fn submit_checked(
     if state.seen_request_ids.contains(&checked.request_id) {
         return Err("That contest action receipt was retired and will not be replayed.".into());
     }
+    let escape = is_escape_action(&envelope);
     let projection_revision = state
         .panels
         .get(panel_id)
         .and_then(|panel| panel.projection.as_ref())
         .filter(|(revision, projection)| {
-            *revision == checked.projection_revision && projection["status"] == "ready"
+            projection["status"] == "ready"
+                && if escape {
+                    checked.projection_revision <= *revision
+                } else {
+                    checked.projection_revision == *revision
+                }
         })
         .ok_or("Refresh this contest surface before sending an action.")?
         .0;
-    let escape = is_escape_action(&envelope);
     if escape && state.escape_actions.len() >= MAX_ESCAPE_ACTIONS {
         return Err("The contest Escape queue is full; wait for the main desk.".into());
     }
@@ -2156,6 +2170,67 @@ mod tests {
             .unwrap()["status"],
             "applied"
         );
+    }
+
+    #[test]
+    fn escape_accepts_an_older_ready_projection_but_rejects_future_and_expired_contexts() {
+        let current = context();
+        let mut state = State {
+            context: Some(current),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+
+        let mut stale_escape = escape_with_request("40000000-0000-4000-8000-000000000010");
+        stale_escape["projectionRevision"] = json!(6);
+        let stale_escape_checked = validate_action_envelope(&stale_escape).unwrap();
+        submit_after_admission(
+            &mut state,
+            "active-qso",
+            &stale_escape_checked,
+            stale_escape,
+        )
+        .unwrap();
+        assert_eq!(
+            state.panels["active-qso"].receipts.back().unwrap().1.projection_revision,
+            7
+        );
+
+        let mut future_escape = escape_with_request("40000000-0000-4000-8000-000000000011");
+        future_escape["projectionRevision"] = json!(8);
+        let future_escape_checked = validate_action_envelope(&future_escape).unwrap();
+        assert!(submit_after_admission(
+            &mut state,
+            "active-qso",
+            &future_escape_checked,
+            future_escape,
+        )
+        .is_err());
+
+        let mut stale_ordinary = checked_value();
+        stale_ordinary["requestID"] = json!("40000000-0000-4000-8000-000000000012");
+        stale_ordinary["projectionRevision"] = json!(6);
+        let stale_ordinary_checked = validate_action_envelope(&stale_ordinary).unwrap();
+        assert!(submit_after_admission(
+            &mut state,
+            "active-qso",
+            &stale_ordinary_checked,
+            stale_ordinary,
+        )
+        .is_err());
+
+        let mut wrong_context = escape_with_request("40000000-0000-4000-8000-000000000013");
+        wrong_context["sessionID"] = json!("20000000-0000-4000-8000-000000000002");
+        let wrong_context_checked = validate_action_envelope(&wrong_context).unwrap();
+        assert!(submit_after_admission(
+            &mut state,
+            "active-qso",
+            &wrong_context_checked,
+            wrong_context,
+        )
+        .is_err());
+        assert_eq!(state.escape_actions.len(), 1);
+        assert_eq!(state.panels["active-qso"].receipts.len(), 1);
     }
 
     #[test]
