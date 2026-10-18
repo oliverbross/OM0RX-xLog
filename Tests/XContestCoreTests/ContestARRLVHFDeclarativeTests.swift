@@ -323,7 +323,7 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
     func testOfficialModeProfilesPreserveActualModeAndMapOnlyCabrilloClass() throws {
         let expected: [(mode: String, adif: String, cabrillo: String)] = [
             ("AM", "AM", "PH"), ("CW", "CW", "CW"), ("FM", "FM", "FM"),
-            ("FT4", "FT4", "DG"), ("FT8", "FT8", "DG"),
+            ("FT4", "MFSK", "DG"), ("FT8", "FT8", "DG"),
             ("MSK144", "MSK144", "DG"), ("RTTY", "RTTY", "DG"),
             ("SSB", "SSB", "PH"),
         ]
@@ -337,6 +337,7 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         for (index, row) in expected.enumerated() {
             let profile = try XCTUnwrap(rule.metadata.entry.modeProfiles.first { $0.mode == row.mode })
             XCTAssertEqual(profile.adifMode, row.adif)
+            XCTAssertEqual(profile.adifSubmode, row.mode == "FT4" ? "FT4" : nil)
             XCTAssertEqual(profile.cabrilloQSOType, row.cabrillo)
             let contact = qso(index + 20, session, call: "K1AAA", band: "6m", grid: "FN31",
                               mode: row.mode)
