@@ -118,6 +118,7 @@ jobs:
           printf '%s\n' "$discovered"
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCallHistoryTests/')" -ge 1
+          test "$(printf '%s\n' "$discovered" | grep -c '^XContestCoreTests\.ContestCallHistoryProjectionTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XContestStoreTests\.ContestStoreTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestADIFExportTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.ContestNAQPADIFExportTests/')" -ge 1
@@ -143,6 +144,7 @@ jobs:
           $discovered | Write-Output
           $core = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCoreTests/' }).Count
           $callHistoryCore = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCallHistoryTests/' }).Count
+          $callHistoryProjection = @($discovered | Where-Object { $_ -match '^XContestCoreTests\.ContestCallHistoryProjectionTests/' }).Count
           $store = @($discovered | Where-Object { $_ -match '^XContestStoreTests\.ContestStoreTests/' }).Count
           $adif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestADIFExportTests/' }).Count
           $naqpAdif = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestNAQPADIFExportTests/' }).Count
@@ -159,7 +161,7 @@ jobs:
           $scpWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestSCPWorkerIntegrationTests/' }).Count
           $callHistoryService = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestCallHistoryServiceTests/' }).Count
           $callHistoryWorker = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.ContestCallHistoryWorkerTests/' }).Count
-          if ($core -lt 1 -or $callHistoryCore -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1) { throw "Expected contest test targets were not discovered." }
+          if ($core -lt 1 -or $callHistoryCore -lt 1 -or $callHistoryProjection -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1) { throw "Expected contest test targets were not discovered." }
       - name: Test contest core, store, and export support (macOS and Linux)
         if: runner.os != 'Windows'
         run: |

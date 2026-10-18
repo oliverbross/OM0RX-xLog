@@ -10,7 +10,7 @@ const sharedOwners = new WeakMap<ContestRequest, ContestSessionOwner>();
 
 function draftKey(sessionID: string, generation: string) { return `${generation}/${sessionID}`; }
 function operationValid(operation: ContestMutation) {
-  const scope = operation?.scope, methods = ["contest_create", "contest_draft_apply", "contest_serial_reserve", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete"];
+  const scope = operation?.scope, methods = ["contest_create", "contest_draft_apply", "contest_serial_reserve", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete", "contest_history_apply"];
   return methods.includes(operation?.method) && !!scope && typeof scope.sessionID === "string" && scope.sessionID.length <= 128 &&
     typeof scope.workspaceGeneration === "string" && scope.workspaceGeneration.length <= 128 && typeof scope.requestID === "string" && scope.requestID.length <= 128 &&
     typeof scope.payloadDigest === "string" && scope.payloadDigest.length <= 512 && typeof scope.operationTimestamp === "string" && Number.isFinite(Date.parse(scope.operationTimestamp)) && new Date(scope.operationTimestamp).toISOString() === scope.operationTimestamp &&

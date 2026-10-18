@@ -3,6 +3,167 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 final class ContestCallHistoryWorkerTests: XCTestCase {
+    func testExplicitCQWWProjectionAppliesThroughMutationWithoutLoggingQSO() async throws {
+        let fixture = try HistoryWorkerFixture("apply")
+        defer { fixture.remove() }
+        let coordinates = try await fixture.createCQWWDraft(callsign: "K1ABC", receivedExchange: "")
+        let source = fixture.root.appendingPathComponent("operator-history.txt")
+        try Data("!!Order!!,Call,CqZone,UserText\nK1ABC,04,shown-only\n".utf8).write(to: source)
+        let preview = try fixture.result(await fixture.frame("contest_history_preview_private",
+            ["path": source.path, "sourceName": source.lastPathComponent]))
+        _ = try fixture.result(await fixture.frame("contest_history_preview_commit", [
+            "previewID": try XCTUnwrap(preview["previewID"] as? String),
+            "sha256": try XCTUnwrap(preview["sha256"] as? String),
+            "workspaceGeneration": coordinates.generation, "confirmAdvisories": false,
+        ]))
+        let historyRequestID = fixture.wire(UUID())
+        let query = try fixture.result(await fixture.frame("contest_history_query",
+            coordinates.queryParams(requestID: historyRequestID, valueOffset: 0, valueLimit: 128)))
+        let recordID = try XCTUnwrap((query["records"] as? [[String: Any]])?.first?["recordID"] as? String)
+        let selected = try fixture.result(await fixture.frame("contest_history_select",
+            coordinates.selectParams(requestID: historyRequestID, recordID: recordID,
+                                     valueOffset: 0, valueLimit: 128)))
+        let projections = try XCTUnwrap(selected["projections"] as? [[String: Any]])
+        XCTAssertEqual(projections.map { $0["id"] as? String }, ["legacy-received-zone"])
+        XCTAssertEqual(projections.first?["rawValue"] as? String, "04")
+        let opened = try fixture.result(await fixture.frame("contest_draft_get", [
+            "sessionID": coordinates.sessionID, "workspaceGeneration": coordinates.generation,
+        ]))
+        var fields = try XCTUnwrap((opened["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        fields["receivedExchange"] = "04"
+        var selection = try XCTUnwrap(selected["context"] as? [String: Any])
+        selection["recordID"] = recordID
+        let request = fixture.mutation(sessionID: UUID(uuidString: coordinates.sessionID)!, requestID: UUID(),
+            revision: coordinates.revision,
+            payload: ["selection": selection, "projectionIDs": ["legacy-received-zone"], "fields": fields],
+            draftID: UUID(uuidString: coordinates.draftID)!, generation: coordinates.generation)
+        let applied = try fixture.result(await fixture.frame("contest_history_apply", request))
+        XCTAssertEqual(((applied["draft"] as? [String: Any])?["fields"] as? [String: Any])?["receivedExchange"] as? String, "04")
+        XCTAssertEqual((applied["session"] as? [String: Any])?["qsoCount"] as? Int, 0)
+        let appliedSessionRevision = try XCTUnwrap((applied["session"] as? [String: Any])?["revision"] as? Int)
+        var laterFields = try XCTUnwrap((applied["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        laterFields["frequencyHz"] = 7_025_000
+        _ = try fixture.result(await fixture.frame("contest_draft_apply", fixture.mutation(
+            sessionID: UUID(uuidString: coordinates.sessionID)!, requestID: UUID(),
+            revision: appliedSessionRevision, payload: ["fields": laterFields],
+            draftID: UUID(uuidString: coordinates.draftID)!, generation: coordinates.generation)))
+        let replayed = try fixture.result(await fixture.frame("contest_history_apply", request))
+        XCTAssertEqual((replayed["receipt"] as? [String: Any])?["requestID"] as? String,
+                       (applied["receipt"] as? [String: Any])?["requestID"] as? String)
+        XCTAssertEqual((replayed["receipt"] as? [String: Any])?["committedRevision"] as? Int,
+                       (applied["receipt"] as? [String: Any])?["committedRevision"] as? Int)
+        XCTAssertEqual(replayed["draft"] as? NSDictionary, applied["draft"] as? NSDictionary)
+        let staleSelection = await fixture.frame("contest_history_select",
+            coordinates.selectParams(requestID: historyRequestID, recordID: recordID,
+                                     valueOffset: 0, valueLimit: 128))
+        XCTAssertEqual((staleSelection["error"] as? [String: Any])?["code"] as? String,
+                       "stale_revision")
+    }
+
+    func testHistoryApplyRejectsForgedUnselectedOccupiedAndStaleAuthorityWithoutMutation() async throws {
+        let fixture = try HistoryWorkerFixture("apply-negative")
+        defer { fixture.remove() }
+        let coordinates = try await fixture.createCQWWDraft(callsign: "K1ABC", receivedExchange: "")
+        try await fixture.installHistory("!!Order!!,Call,CqZone\nK1ABC,04\n", coordinates: coordinates)
+        let selected = try await fixture.selection(coordinates)
+        let opened = try fixture.result(await fixture.frame("contest_draft_get", [
+            "sessionID": coordinates.sessionID, "workspaceGeneration": coordinates.generation,
+        ]))
+        let original = try XCTUnwrap((opened["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        let cases: [(String, (inout [String: Any]) -> Void)] = [
+            ("forged projected value", { $0["receivedExchange"] = "05" }),
+            ("unselected sent field", { $0["receivedExchange"] = "04"; $0["sentExchange"] = "16" }),
+            ("unselected callsign", { $0["receivedExchange"] = "04"; $0["callsign"] = "K2XYZ" }),
+        ]
+        for (label, mutate) in cases {
+            var fields = original; mutate(&fields)
+            let request = fixture.mutation(sessionID: UUID(uuidString: coordinates.sessionID)!, requestID: UUID(),
+                revision: coordinates.revision,
+                payload: ["selection": selected.context, "projectionIDs": ["legacy-received-zone"], "fields": fields],
+                draftID: UUID(uuidString: coordinates.draftID)!, generation: coordinates.generation)
+            let rejected = await fixture.frame("contest_history_apply", request)
+            XCTAssertEqual((rejected["error"] as? [String: Any])?["code"] as? String,
+                           "invalid_history_projection", label)
+            let unchanged = try fixture.result(await fixture.frame("contest_draft_get", [
+                "sessionID": coordinates.sessionID, "workspaceGeneration": coordinates.generation,
+            ]))
+            XCTAssertEqual((unchanged["draft"] as? [String: Any])?["fields"] as? NSDictionary,
+                           original as NSDictionary, label)
+            XCTAssertEqual((unchanged["session"] as? [String: Any])?["qsoCount"] as? Int, 0, label)
+        }
+
+        var projected = original; projected["receivedExchange"] = "04"
+        let staleDatasetRequest = fixture.mutation(sessionID: UUID(uuidString: coordinates.sessionID)!, requestID: UUID(),
+            revision: coordinates.revision,
+            payload: ["selection": selected.context, "projectionIDs": ["legacy-received-zone"], "fields": projected],
+            draftID: UUID(uuidString: coordinates.draftID)!, generation: coordinates.generation)
+        try await fixture.installHistory("!!Order!!,Call,CqZone\nK1ABC,05\n", coordinates: coordinates)
+        let replaced = await fixture.frame("contest_history_apply", staleDatasetRequest)
+        XCTAssertEqual((replaced["error"] as? [String: Any])?["code"] as? String,
+                       "history_selection_unavailable")
+        let afterReplacement = try fixture.result(await fixture.frame("contest_draft_get", [
+            "sessionID": coordinates.sessionID, "workspaceGeneration": coordinates.generation,
+        ]))
+        XCTAssertEqual((afterReplacement["draft"] as? [String: Any])?["fields"] as? NSDictionary,
+                       original as NSDictionary)
+        XCTAssertEqual((afterReplacement["session"] as? [String: Any])?["qsoCount"] as? Int, 0)
+
+        let occupied = try await fixture.createCQWWDraft(callsign: "K1ABC", receivedExchange: "05")
+        let occupiedSelection = try await fixture.selection(occupied)
+        let occupiedDraft = try fixture.result(await fixture.frame("contest_draft_get", [
+            "sessionID": occupied.sessionID, "workspaceGeneration": occupied.generation,
+        ]))
+        let occupiedFields = try XCTUnwrap((occupiedDraft["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        let occupiedRequest = fixture.mutation(sessionID: UUID(uuidString: occupied.sessionID)!, requestID: UUID(),
+            revision: occupied.revision,
+            payload: ["selection": occupiedSelection.context, "projectionIDs": ["legacy-received-zone"], "fields": occupiedFields],
+            draftID: UUID(uuidString: occupied.draftID)!, generation: occupied.generation)
+        let occupiedRejected = await fixture.frame("contest_history_apply", occupiedRequest)
+        XCTAssertEqual((occupiedRejected["error"] as? [String: Any])?["code"] as? String,
+                       "invalid_history_projection")
+
+        var changedFields = occupiedFields; changedFields["frequencyHz"] = 7_025_000
+        _ = try fixture.result(await fixture.frame("contest_draft_apply", fixture.mutation(
+            sessionID: UUID(uuidString: occupied.sessionID)!, requestID: UUID(), revision: occupied.revision,
+            payload: ["fields": changedFields], draftID: UUID(uuidString: occupied.draftID)!,
+            generation: occupied.generation)))
+        let staleRevision = await fixture.frame("contest_history_apply", occupiedRequest)
+        XCTAssertEqual((staleRevision["error"] as? [String: Any])?["code"] as? String, "stale_revision")
+        let afterStale = try fixture.result(await fixture.frame("contest_draft_get", [
+            "sessionID": occupied.sessionID, "workspaceGeneration": occupied.generation,
+        ]))
+        XCTAssertEqual(((afterStale["draft"] as? [String: Any])?["fields"] as? [String: Any])?["frequencyHz"] as? Int,
+                       7_025_000)
+        XCTAssertEqual((afterStale["session"] as? [String: Any])?["qsoCount"] as? Int, 0)
+    }
+
+    func testStructuredNAQPNameOnlyProjectionPreservesRawAndNormalizedValuesThroughWire() async throws {
+        let fixture = try HistoryWorkerFixture("apply-naqp")
+        defer { fixture.remove() }
+        let coordinates = try await fixture.createNAQPDraft(callsign: "K1ABC")
+        try await fixture.installHistory("!!Order!!,Call,Name,State\nK1ABC,Sam,\n", coordinates: coordinates)
+        let selected = try await fixture.selection(coordinates)
+        XCTAssertEqual(selected.projections.map { $0["id"] as? String }, ["received-name"])
+        XCTAssertEqual(selected.projections.first?["rawValue"] as? String, "Sam")
+        XCTAssertEqual(selected.projections.first?["normalizedValue"] as? String, "SAM")
+        let opened = try fixture.result(await fixture.frame("contest_draft_get", [
+            "sessionID": coordinates.sessionID, "workspaceGeneration": coordinates.generation,
+        ]))
+        var fields = try XCTUnwrap((opened["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        fields["receivedExchange"] = "Sam"
+        fields["receivedExchangeFields"] = ["name": "Sam", "location": ""]
+        let request = fixture.mutation(sessionID: UUID(uuidString: coordinates.sessionID)!, requestID: UUID(),
+            revision: coordinates.revision,
+            payload: ["selection": selected.context, "projectionIDs": ["received-name"], "fields": fields],
+            draftID: UUID(uuidString: coordinates.draftID)!, generation: coordinates.generation)
+        let applied = try fixture.result(await fixture.frame("contest_history_apply", request))
+        let appliedFields = try XCTUnwrap((applied["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        XCTAssertEqual(appliedFields["receivedExchange"] as? String, "Sam")
+        XCTAssertEqual(appliedFields["receivedExchangeFields"] as? [String: String],
+                       ["name": "Sam", "location": ""])
+        XCTAssertEqual((applied["session"] as? [String: Any])?["qsoCount"] as? Int, 0)
+    }
+
     func testEscapedLargeValuesTraverseBudgetedQueryAndSelectionPagesLosslessly() async throws {
         let fixture = try HistoryWorkerFixture("budget")
         defer { fixture.remove() }
@@ -304,7 +465,7 @@ private final class HistoryWorkerFixture {
     func remove() { try? FileManager.default.removeItem(at: root) }
     func wire(_ value: UUID) -> String { value.uuidString.lowercased() }
 
-    func createCQWWDraft(callsign: String) async throws -> Coordinates {
+    func createCQWWDraft(callsign: String, receivedExchange: String = "05") async throws -> Coordinates {
         let catalog = try result(await frame("contest_catalog"))
         let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         let rule = try XCTUnwrap((catalog["rules"] as? [[String: Any]])?.first {
@@ -321,7 +482,7 @@ private final class HistoryWorkerFixture {
                       "operator": ["callsign": "OM0RX", "category": "single-op"]],
             draftID: nil, generation: generation)))
         var fields = try XCTUnwrap((created["draft"] as? [String: Any])?["fields"] as? [String: Any])
-        fields["callsign"] = callsign; fields["receivedExchange"] = "05"; fields["frequencyHz"] = 14_025_000
+        fields["callsign"] = callsign; fields["receivedExchange"] = receivedExchange; fields["frequencyHz"] = 14_025_000
         let applied = try result(await frame("contest_draft_apply", mutation(
             sessionID: session, requestID: UUID(), revision: 1,
             payload: ["fields": fields], draftID: draft, generation: generation)))
@@ -334,7 +495,62 @@ private final class HistoryWorkerFixture {
                      ruleIdentity: identity, referenceDataVersion: reference, callsign: callsign)
     }
 
-    private func mutation(sessionID: UUID, requestID: UUID, revision: Int,
+    func createNAQPDraft(callsign: String) async throws -> Coordinates {
+        let catalog = try result(await frame("contest_catalog"))
+        let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
+        let rule = try XCTUnwrap((catalog["rules"] as? [[String: Any]])?.first {
+            (($0["identity"] as? [String: Any])?["id"] as? String) == "naqp-cw"
+        })
+        let identity = try XCTUnwrap(rule["identity"] as? [String: Any])
+        let reference = try XCTUnwrap(rule["referenceDataVersion"] as? String)
+        let session = UUID(), draft = UUID()
+        let created = try result(await frame("contest_create", mutation(
+            sessionID: session, requestID: draft, revision: 0,
+            payload: ["sessionID": wire(session), "name": "History NAQP",
+                      "ruleIdentity": identity, "referenceDataVersion": reference,
+                      "station": ["callsign": "K1AAA", "cqZone": "5", "dxccEntity": "United States",
+                                  "exchangeFields": ["name": "OLIVER", "location": "CA"]],
+                      "operator": ["callsign": "K1AAA", "category": "single-op"]],
+            draftID: nil, generation: generation)))
+        var fields = try XCTUnwrap((created["draft"] as? [String: Any])?["fields"] as? [String: Any])
+        fields["callsign"] = callsign; fields["frequencyHz"] = 14_050_000
+        fields["receivedExchange"] = ""
+        fields["receivedExchangeFields"] = ["name": "", "location": ""]
+        let applied = try result(await frame("contest_draft_apply", mutation(
+            sessionID: session, requestID: UUID(), revision: 1,
+            payload: ["fields": fields], draftID: draft, generation: generation)))
+        let draftWire = try XCTUnwrap(applied["draft"] as? [String: Any])
+        let liveRevision = try XCTUnwrap(draftWire["revision"] as? Int)
+        return .init(generation: generation, sessionID: wire(session), revision: liveRevision,
+                     draftID: try XCTUnwrap(draftWire["draftID"] as? String), draftRevision: liveRevision,
+                     ruleIdentity: identity, referenceDataVersion: reference, callsign: callsign)
+    }
+
+    func installHistory(_ contents: String, coordinates: Coordinates) async throws {
+        let source = root.appendingPathComponent("history-\(UUID().uuidString).txt")
+        try Data(contents.utf8).write(to: source)
+        let preview = try result(await frame("contest_history_preview_private",
+            ["path": source.path, "sourceName": source.lastPathComponent]))
+        _ = try result(await frame("contest_history_preview_commit", [
+            "previewID": try XCTUnwrap(preview["previewID"] as? String),
+            "sha256": try XCTUnwrap(preview["sha256"] as? String),
+            "workspaceGeneration": coordinates.generation, "confirmAdvisories": false,
+        ]))
+    }
+
+    func selection(_ coordinates: Coordinates) async throws -> (context: [String: Any], recordID: String, projections: [[String: Any]]) {
+        let requestID = wire(UUID())
+        let query = try result(await frame("contest_history_query",
+            coordinates.queryParams(requestID: requestID, valueOffset: 0, valueLimit: 128)))
+        let recordID = try XCTUnwrap((query["records"] as? [[String: Any]])?.first?["recordID"] as? String)
+        let selected = try result(await frame("contest_history_select",
+            coordinates.selectParams(requestID: requestID, recordID: recordID,
+                                     valueOffset: 0, valueLimit: 128)))
+        var context = try XCTUnwrap(selected["context"] as? [String: Any]); context["recordID"] = recordID
+        return (context, recordID, try XCTUnwrap(selected["projections"] as? [[String: Any]]))
+    }
+
+    func mutation(sessionID: UUID, requestID: UUID, revision: Int,
                           payload: [String: Any], draftID: UUID?, generation: String) -> [String: Any] {
         var value: [String: Any] = [
             "sessionID": wire(sessionID), "workspaceGeneration": generation,

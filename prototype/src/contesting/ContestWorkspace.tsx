@@ -5,6 +5,8 @@ import { ContestExportPanel } from "./ContestExportPanel";
 import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
 import { ContestAssistancePanel, type SCPSelectionScope } from "./ContestAssistancePanel";
 import type { SCPImport } from "./contestAssistance";
+import { ContestCallHistoryPanel, type HistoryApplyScope } from "./ContestCallHistoryPanel";
+import { historyProjectedFields, type HistoryImport, type HistorySelection } from "./contestCallHistory";
 import { isStructuredEntry } from "./types";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
@@ -12,7 +14,7 @@ import type { ContestCabrilloHeader, ContestCreateInput, ContestDraftFields, Con
 import "./ContestWorkspace.css";
 
 const PAGE_SIZE = 20;
-type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter; simulateContestOutput?: ContestSimulationAdapter; scpImport?: SCPImport };
+type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter; simulateContestOutput?: ContestSimulationAdapter; scpImport?: SCPImport; historyImport?: HistoryImport };
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 function defaultStorage(): ContestRecoveryStorage | undefined { try { return globalThis.localStorage; } catch { return undefined; } }
 function isQSOChange(result: unknown): result is ContestQSOChangeResult { return !!result && typeof result === "object" && "operation" in result; }
@@ -33,7 +35,7 @@ export function projectSCPCallsign(session: ContestSessionSummary, draft: {draft
   return {...draft.fields,callsign};
 }
 
-export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput, scpImport }: Props) {
+export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput, scpImport, historyImport }: Props) {
   const storage = recoveryStorage ?? defaultStorage();
   const owner = useMemo(() => sharedContestSessionOwner(request, createRequestID, digestPayload, storage), [request, createRequestID, digestPayload, storage]);
   const exportSaveOwner = useMemo(() => sharedContestExportSaveOwner(exportSave, storage), [exportSave, storage]);
@@ -153,6 +155,21 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     const ticket=contextTicket.current, scope={lease,admission};
     if(saveTimer.current!==null)window.clearTimeout(saveTimer.current);
     saveTimer.current=window.setTimeout(()=>void owner.flush().catch(cause=>handleFailure(cause,ticket,scope)),180);
+  }
+  async function applyHistory(selection: HistorySelection, projectionIDs: string[], selected: HistoryApplyScope) {
+    const currentSession=owner.session,currentDraft=owner.draft,lease=leaseRef.current;
+    if(busy||blockingOperation||owner.dirty||!lease||lease.id!==selected.ownerLeaseID||!currentSession||!currentDraft||
+      currentSession.sessionID!==selected.sessionID||currentSession.workspaceGeneration!==selected.workspaceGeneration||currentSession.revision!==selected.sessionRevision||
+      currentDraft.draftID!==selected.draftID||currentDraft.revision!==selected.draftRevision||currentDraft.fields.callsign.trim().toUpperCase()!==selected.callsign||
+      selection.dataset.generation!==selected.datasetGeneration||!beginAction())throw new Error("The call-history selection is stale.");
+    const ticket=contextTicket.current,scope=admissionScope();
+    try{
+      if(!accepts(scope)||owner.pendingOperation||owner.dirty)throw new Error("The contest draft changed before call history was applied.");
+      const fields=historyProjectedFields(selection,projectionIDs,currentDraft);
+      const result=await client.applyHistoryProjection(currentSession,currentDraft.draftID,selection,projectionIDs,fields);
+      if(ticket!==contextTicket.current||!accepts(scope)||!owner.apply(result,scope.lease!,scope.admission!))throw new Error("The call-history response no longer matches the active draft.");
+      setOperatorEditGeneration(value=>value+1);
+    }catch(cause){handleFailure(cause,ticket,scope);throw cause;}finally{endAction(ticket,scope);}
   }
   function changeFrequency(raw: string) {
     if (busy || blockingOperation) return;
@@ -390,6 +407,8 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       </form><aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score & multipliers</h2><dl><div><dt>Claimed score</dt><dd>{score?.claimedScore.toLocaleString() ?? "—"}</dd></div><div><dt>QSOs</dt><dd>{score?.qsos ?? "—"}</dd></div><div><dt>Points</dt><dd>{score?.points ?? "—"}</dd></div><div><dt>Multipliers</dt><dd>{score?.multipliers ?? "—"}</dd></div></dl><div className="contest-multipliers">{score?.multiplierLabels.length ? (score.multiplierDisplayLabels?.length ? score.multiplierDisplayLabels : score.multiplierLabels).map(x => <span key={x}>{x}</span>) : <p>No multipliers recorded.</p>}</div><p className={`contest-source is-${score?.sourceVerification ?? "unverified"}`}>Score source: {score?.sourceVerification ?? "unavailable"}</p></aside></div>
       <ContestAssistancePanel request={request} ownerLeaseID={leaseRef.current?.id??0} sessionID={active.sessionID} workspaceGeneration={active.workspaceGeneration}
         draftID={draft.draftID} callsign={draft.fields.callsign} disabled={entryDisabled} onSelect={applyAssistanceCallsign} importDataset={scpImport}/>
+      <ContestCallHistoryPanel request={request} ownerLeaseID={leaseRef.current?.id??0} session={active} draft={draft}
+        disabled={entryDisabled} ready={!owner.dirty&&!draftSaveInFlight} onApply={applyHistory} importDataset={historyImport}/>
       {editing && <form className="contest-qso-editor" aria-label={`Edit ${editing.original.callsign}`} onSubmit={event => { event.preventDefault(); void applyQSOChange("correction"); }}><header><div><h2><Pencil size={15}/> Edit {editing.original.callsign}</h2><p>Update the contact; score and duplicate credit are recalculated when saved.</p></div><button type="button" aria-label="Cancel contact edit" disabled={disabled} onClick={() => { setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); }}><X size={14}/>Cancel</button></header>
         <div className="contest-qso-fields"><label>Callsign<input autoComplete="off" maxLength={32} disabled={disabled} value={editing.qso.callsign} onChange={event => changeQSO("callsign", event.target.value.toUpperCase())}/></label>{active.rule.entry.report.format !== "none" && <><label>Sent report<input maxLength={active.rule.entry.report.maximumUTF8Bytes} disabled={disabled} value={editing.qso.sentReport} onChange={event => changeQSO("sentReport", event.target.value)}/></label><label>Received report<input maxLength={active.rule.entry.report.maximumUTF8Bytes} disabled={disabled} value={editing.qso.receivedReport} onChange={event => changeQSO("receivedReport", event.target.value)}/></label></>}{isStructuredEntry(active.rule.entry) ? active.rule.entry.exchange.receivedFields.map(field => <label key={field.id}>Received {field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} disabled={disabled} value={editing.qso.receivedExchangeFields?.[field.id] ?? ""} onChange={event => changeQSOReceivedField(field.id, event.target.value)}/></label>) : <label>Received exchange<input maxLength={64} disabled={disabled} value={editing.qso.receivedExchange} onChange={event => { changeQSO("receivedExchange", event.target.value); changeQSO("normalizedReceivedExchange", event.target.value); }}/></label>}<label>Frequency Hz<input inputMode="numeric" maxLength={11} disabled={disabled} value={editFrequencyText} onChange={event => changeQSOFrequency(event.target.value)}/></label><label>Band<select disabled={disabled} value={editing.qso.band} onChange={event => changeQSO("band", event.target.value)}>{["160m","80m","40m","20m","15m","10m"].map(value => <option key={value}>{value}</option>)}</select></label></div>
         <SentExchangeSummary entry={active.rule.entry} values={editing.qso.sentExchangeFields} resolvedSerial={active.resolvedSerial} label="Frozen sent exchange"/>

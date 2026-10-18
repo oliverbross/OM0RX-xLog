@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "feature": "F18 call-history phase 2b operator UI and explicit draft projection",
+  "capturedAtUTC": "2026-10-18T00:14:28Z",
+  "branch": "codex/contest-history-ui",
+  "baseCommit": "4e0ba36112ecfe03443f375ce226b68cb5d51b86",
+  "status": "review_candidate",
+  "boundaries": {
+    "included": [
+      "operator status/private preview/diagnostics/cancel/advisory commit UI",
+      "exact-call query and explicit duplicate-record selection",
+      "paged access to retained known and unknown values",
+      "server-authoritative blank-only CQWW/NAQP/ARRL RTTY/ARRL DX projections",
+      "idempotent draft-only history apply mutation",
+      "owner lease, revision, callsign, dataset, and unmount fences",
+      "operation-owned busy state and fenced diagnostic pagination",
+      "cross-page context, dataset, record, projection, and cursor consistency"
+    ],
+    "excluded": [
+      "automatic prefill",
+      "QSO commit/correction/deletion",
+      "history generation/export",
+      "native package or real OS picker run",
+      "synthetic browser-to-real-worker rehearsal",
+      "operator run",
+      "radio/keying"
+    ]
+  },
+  "commands": [
+    {
+      "log": "/tmp/xlog-history-ui-portable-focused-final.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && XLOG_PORTABLE_ONLY=1 swift test --scratch-path /tmp/om0rx-history-ui-portable --jobs 2 --filter 'ContestCallHistoryProjectionTests|ContestCallHistoryWorkerTests|ContestingLaneTests.testFoundationBooleanFallbackRejectsNumericAndInt8Values|ContestingLaneTests.testAssistanceStatusAfterShutdownPreservesRouteSpecificErrorsWithoutCreatingCaches|ContestingLaneTests.testSCPStatusCannotCreateServiceAfterShutdownDuringInitialGenerationFence'"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-native-focused-final.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && swift test --scratch-path /tmp/om0rx-history-ui-native --jobs 2 --filter 'ContestCallHistoryProjectionTests|ContestCallHistoryWorkerTests|ContestingLaneTests.testFoundationBooleanFallbackRejectsNumericAndInt8Values|ContestingLaneTests.testAssistanceStatusAfterShutdownPreservesRouteSpecificErrorsWithoutCreatingCaches|ContestingLaneTests.testSCPStatusCannotCreateServiceAfterShutdownDuringInitialGenerationFence'"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-portable-scp-compat.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && XLOG_PORTABLE_ONLY=1 swift test --scratch-path /tmp/om0rx-history-ui-portable --jobs 2 --filter 'ContestCallsignAssistanceTests|ContestAssistanceLaneTests|ContestSCPWorkerIntegrationTests'"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-frontend-focused-final.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype && npm test -- src/contesting/ContestCallHistoryPanel.test.tsx src/contesting/contestCallHistory.test.ts src/contesting/ContestWorkspace.test.tsx src/contesting/client.test.ts src/contesting/sessionOwner.test.ts"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-frontend-build-final.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype && npm run build"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-rust-worker-final.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype/src-tauri && TAURI_CONFIG='{\"productName\":\"OM0RX-xLog Contesting Test\",\"identifier\":\"com.oliverbross.xlog.contesting-test\",\"bundle\":{\"active\":false,\"externalBin\":[]}}' cargo test --locked --jobs 2 --target-dir /tmp/om0rx-history-ui-rust --bin xlog-prototype --features contesting-test worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy && TAURI_CONFIG='{\"productName\":\"OM0RX-xLog Contesting Test\",\"identifier\":\"com.oliverbross.xlog.contesting-test\",\"bundle\":{\"active\":false,\"externalBin\":[]}}' cargo test --locked --jobs 2 --target-dir /tmp/om0rx-history-ui-rust --bin xlog-prototype --features contesting-test worker::tests::contest_lane_methods_are_explicitly_admitted_only_on_main_surface"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-portable-discovery.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && XLOG_PORTABLE_ONLY=1 swift test list --scratch-path /tmp/om0rx-history-ui-portable --jobs 2"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-repair-worker.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog && XLOG_PORTABLE_ONLY=1 swift test --scratch-path /tmp/om0rx-history-ui-repair-portable --jobs 2 --filter ContestCallHistoryWorkerTests"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-repair-frontend.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype && npm test -- --run src/contesting/ContestCallHistoryPanel.test.tsx src/contesting/contestCallHistory.test.ts"
+    },
+    {
+      "log": "/tmp/xlog-history-ui-repair-build.log",
+      "command": "cd /Users/oliver/.codex/worktrees/contest-portability/OM0RX-xLog/prototype && npm run build"
+    }
+  ],
+  "logs": {
+    "/tmp/xlog-history-ui-portable-focused-final.log": {
+      "sha256": "53231b3811543c5b4d73623004fa2560d8b9fb487ebfbb85f4f373ac10091bc5",
+      "result": "9 passed: 2 projector, 4 history worker, 3 compatibility/fallback"
+    },
+    "/tmp/xlog-history-ui-native-focused-final.log": {
+      "sha256": "7f969b85c978e64ba7623081b673e06e192fee376c426ba29141e46e19919733",
+      "result": "2 projector tests passed; the native manifest intentionally excludes prototype worker suites"
+    },
+    "/tmp/xlog-history-ui-portable-scp-compat.log": {
+      "sha256": "00e750a002e481f10d827923c709eeb7c1a32c765469855d66452a0a3c14973b",
+      "result": "27 passed: 10 callsign assistance, 13 assistance lane, 4 SCP worker"
+    },
+    "/tmp/xlog-history-ui-frontend-focused-final.log": {
+      "sha256": "8447d6db8326e6dbeaf6e77217eab485b3fc5f4230db0a358456a60aa0d955f3",
+      "result": "2 Node assertions and 57 Vitest tests passed"
+    },
+    "/tmp/xlog-history-ui-frontend-build-final.log": {
+      "sha256": "8a401691c1c12bc760efb1e706df138ac823b2e648b42ee5e619cb77f6b448e1",
+      "result": "TypeScript, Vite production build, and window bundle checks passed"
+    },
+    "/tmp/xlog-history-ui-rust-worker-final.log": {
+      "sha256": "bb55d6f0845b67930d2bc76a15a663ff137700be69b11527d229b38b8e0979df",
+      "result": "2 passed: main-surface admission and mutation timeout classification"
+    },
+    "/tmp/xlog-history-ui-portable-discovery.log": {
+      "sha256": "7150a98780c477a09d357edcc753f662d19996644ea9a1c67eb3cfe22529b8a2",
+      "result": "projection and history worker suites discovered nonempty"
+    },
+    "/tmp/xlog-history-ui-repair-worker.log": {
+      "sha256": "86713afb630c35bbed096614d93d8ea31ace8b5d6e73f556cf883931c6f04437",
+      "result": "6 history worker tests passed, including forged/unselected/occupied/stale rejection, structured NAQP apply, zero-QSO atomicity, and historical replay"
+    },
+    "/tmp/xlog-history-ui-repair-frontend.log": {
+      "sha256": "e14c807917f7b70977c567d470a678594bd1838afe7a280eac4d80d65c03b0f4",
+      "result": "2 Node assertions and 14 focused Vitest tests passed"
+    },
+    "/tmp/xlog-history-ui-repair-build.log": {
+      "sha256": "4ca05d44cf03ea6c6fef856190abbf78aa4026a647a955752004f39706115e8f",
+      "result": "TypeScript, Vite production build, and window bundle checks passed after lifecycle repair"
+    }
+  },
+  "frozenFiles": {
+    ".github/workflows/contest-portability.yml": "c4f9e00a3af2f4e2006dcad69ba8403088726d5a8e15492285654b62803ddb56",
+    "Sources/XContestCore/RuleEngine.swift": "2973bbcca450f41b44e9bcd9bad9efff4a5886b7c7ca50e27393438744dac01e",
+    "Sources/XContestCore/ContestCallHistoryProjection.swift": "bb80c26c4db645224e80ce681616b494941658fcecb48f15da13db9adf8045c0",
+    "Sources/XLogPrototypeSupport/Contesting/ContestLane.swift": "7b0fd8108be344ef6757dc1e4a3368c748756f35eefcfce5be2b717cd44ff155",
+    "Tests/XContestCoreTests/ContestCallHistoryProjectionTests.swift": "20c43c8b32be1d4b047edab9f7372a473c3e37282507b796093a708a21f91e90",
+    "Tests/XLogPrototypeTests/ContestCallHistoryWorkerTests.swift": "27db3b8d2fc044e1123e9d4aa132e39266bc05b56812af41d5b133ad4a35b008",
+    "Tests/XLogPrototypeTests/ContestingLaneTests.swift": "8681468fae61f98a89c34f9f80ca296cfd6e34b8c8a758112a6e280534162498",
+    "docs/contesting/CALL_HISTORY_CONTRACT.md": "e21a6e9a3e14133c5eedc3ab1226e384ec36e294b6fd48a2d4887ae04e84f838",
+    "prototype/src-tauri/src/worker.rs": "5a36c1fb6813066546950a2958912e5dd0bc6ceb2aaacf70337ba71be371580e",
+    "prototype/src/contesting/ContestAssistancePanel.css": "fa86d2e35815e225b15b290ad601eb327de60dcf48cf2b3be5578553240608a7",
+    "prototype/src/contesting/ContestWorkspace.tsx": "9c592023266dbeddd9ebbe82322ea6a2464b1cf0c2ab38079260ace7fc7fc426",
+    "prototype/src/contesting/client.test.ts": "ba56a057d7229908947b473db9aaea4b7507505531a6fee5203dc2f9f85db06d",
+    "prototype/src/contesting/client.ts": "5914b42e01bb104141038ee02735d39f7598f7e04ba53aa8f164fc1da704317e",
+    "prototype/src/contesting/sessionOwner.ts": "9035325cfde9820f9b06fe7f37ee3732588dfbd6fcf1dba7960d682a29638a0e",
+    "prototype/src/contesting/types.ts": "4188baec3ce84a5e5789113f432d06459d9ed13b849e51d4ae7bfff517e3dee7",
+    "prototype/src/contesting/ContestCallHistoryPanel.test.tsx": "9e36ea7ecc37bb82dfd6b831a94a6c9105d1cf728a7c7ad2968e4b2c331ce0f3",
+    "prototype/src/contesting/ContestCallHistoryPanel.tsx": "81c122aa1a618b984109eb98ea7e9902cb5bd9af61637f5da65fb069c27c9263",
+    "prototype/src/contesting/contestCallHistory.test.ts": "e0531504edf04b4c89dc32eafb4f761c79cfbfc505b69b1051006fe116458829",
+    "prototype/src/contesting/contestCallHistory.ts": "099eb72436af15d010a5f85c2254636fca1381e1ce136b028d064c3cee51b681"
+  }
+}

@@ -180,4 +180,12 @@ The native command owns the file chooser and sends only its private path to the 
 
 This phase still has no frontend panel or picker invocation, draft prefill or mutation, QSO mutation, call-history generation/export, catalog activation, native package evidence, or operator-run evidence. Those remain phase 2b or later gates.
 
+### Phase 2b implementation checkpoint
+
+Phase 2b connects the existing native private picker and phase 2a worker routes to the contest workspace. The panel exposes status, private preview, paged diagnostics, cancellation, advisory confirmation, atomic commit, exact-call lookup, duplicate-row selection, paged access to every retained known and unknown value, and explicit field selection. The renderer receives the source name, digest metadata, headers, diagnostics, and bounded row pages; it never receives the selected filesystem path or complete source bytes. Context changes and unmounts cancel the prior query and fence late responses by the owner lease, session, workspace generation, session revision, draft identity and revision, callsign, request identity, rule identity, reference version, and dataset generation.
+
+The worker now owns deterministic blank-only projections for the approved legacy CQ WW zone target and the declared typed fields for NAQP name/location, ARRL RTTY W/VE state or province, and role-specific ARRL DX state or province/power. The operator must select a row and each proposed field. Apply is a normal idempotent draft mutation: the worker reloads the authoritative session and draft, re-resolves the server-held record and proposals, validates the proposed typed values, rejects any newly introduced semantic error or occupied target, and compares the complete proposed draft before persistence. It never commits, edits, or deletes a QSO. Unsupported rules have no call-history surface, and no projection invents an `Exch1`/`Exchange1` alias or maps an unknown header.
+
+This checkpoint adds no automatic prefill, history-file generation/export, native package evidence, real OS-picker evidence, or operator-run evidence. Those remain acceptance gates rather than inferred proof from focused core, worker, and renderer tests.
+
 F18 remains pending until the applicable phase has runtime evidence. This contract provides no native package, real-radio/keying, operator-run, current external-format compatibility, automatic prefill, call-history generation/export, or sponsor acceptance evidence. Those exclusions must remain visible in acceptance records.
