@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Radio, ShieldCheck } from "lucide-react";
+import { Radio, RefreshCw, ShieldCheck } from "lucide-react";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
 import { stationSessionRequest, type RadioID, type StationSession } from "./stationSession";
 import "./RadioSettings.css";
@@ -13,10 +13,11 @@ const providerNames: Record<string, string> = {
   hamlib: "Local Hamlib",
 };
 
-function RadioSlot({ radioId, visible, activeRadio, txOwner, onRouting }: { radioId: RadioID; visible: boolean; activeRadio: RadioID | null; txOwner: RadioID | null; onRouting: (active: RadioID, owner: RadioID | null) => void }) {
+function RadioSlot({ radioId, visible, activeRadio, txOwner, onRouting, onRefreshLocalState }: { radioId: RadioID; visible: boolean; activeRadio: RadioID | null; txOwner: RadioID | null; onRouting: (active: RadioID, owner: RadioID | null) => void; onRefreshLocalState?: () => Promise<string> }) {
   const [session, setSession] = useState<StationSession | null>(null);
   const [routingBusy, setRoutingBusy] = useState(false);
   const [routingMessage, setRoutingMessage] = useState("");
+  const [refreshingLocal, setRefreshingLocal] = useState(false);
   const snapshot = session?.radio?.snapshot;
   const connected = snapshot?.radio?.connected === true && snapshot?.radio?.observed === true;
   const provider = session?.selection.provider;
@@ -52,10 +53,19 @@ function RadioSlot({ radioId, visible, activeRadio, txOwner, onRouting }: { radi
         <p>Operational commands remain gated by the selected radio identity, fresh observations, provider capabilities and station interlocks. Configuration changes never transmit by themselves.</p>
       </div>
     </details>
+    {onRefreshLocalState && <section className="radio-settings-local-refresh" aria-labelledby={`${radioId}-local-refresh-heading`}>
+      <div><h2 id={`${radioId}-local-refresh-heading`}>Local app state</h2>
+        <p>Refresh xLog's local draft and radio observation if a finished operation is still blocking spot selection. This does not disconnect the Remote Station Agent, rotor, or Wavelog.</p></div>
+      <button type="button" disabled={refreshingLocal} onClick={() => {
+        setRefreshingLocal(true); setRoutingMessage("");
+        void onRefreshLocalState().then(setRoutingMessage, cause => setRoutingMessage(cause instanceof Error ? cause.message : "Local radio state could not be refreshed."))
+          .finally(() => setRefreshingLocal(false));
+      }}><RefreshCw size={14} aria-hidden="true" />{refreshingLocal ? "Refreshing…" : "Refresh local radio state"}</button>
+    </section>}
   </div>;
 }
 
-export default function RadioSettings({ requestedRadioId, requestedRadioRevision }: { requestedRadioId?: RadioID; requestedRadioRevision?: number }) {
+export default function RadioSettings({ requestedRadioId, requestedRadioRevision, onRefreshLocalState }: { requestedRadioId?: RadioID; requestedRadioRevision?: number; onRefreshLocalState?: () => Promise<string> }) {
   const [radioId, setRadioId] = useState<RadioID>("radio1");
   const [routing, setRouting] = useState<{ active: RadioID | null; owner: RadioID | null }>({ active: null, owner: null });
   useEffect(() => { if (requestedRadioId) setRadioId(requestedRadioId); }, [requestedRadioId, requestedRadioRevision]);
@@ -71,6 +81,6 @@ export default function RadioSettings({ requestedRadioId, requestedRadioRevision
         }}>{label(id)}</button>)}
     </div>
     {radios.map(id => <RadioSlot key={id} radioId={id} visible={radioId === id} activeRadio={routing.active} txOwner={routing.owner}
-      onRouting={(active, owner) => setRouting({ active, owner })} />)}
+      onRouting={(active, owner) => setRouting({ active, owner })} onRefreshLocalState={onRefreshLocalState} />)}
   </section>;
 }

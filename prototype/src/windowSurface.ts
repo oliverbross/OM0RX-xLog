@@ -26,5 +26,6 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   if (view === "dx-cluster") return (await import("./live/DetachedClusterSurface")).DetachedClusterSurface;
   if (view === "settings") return (await import("./live/DetachedSettingsSurface")).DetachedSettingsSurface;
   if (view === "chaser-dx") return (await import("./live/DetachedOpportunitiesSurface")).DetachedOpportunitiesSurface;
+  if (view === "hf-propagation-live") return (await import("./live/DetachedHFPropagationLiveSurface")).DetachedHFPropagationLiveSurface;
   return import("./LiveApp").then(module => module.default);
 }

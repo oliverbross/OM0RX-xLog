@@ -26,6 +26,7 @@ public struct ContestExportArtifact: Codable, Hashable, Sendable {
     public let multiplierCount: Int64
     public let claimedScore: Int64
     public let requestedHeader: CabrilloHeader
+    public let declarativePurpose: ContestDeclarativeExportPurpose?
 
     public init(data: Data, format: ContestExportFormat, inputSchemaVersion: String,
                 formatterVersion: String, generatedAtUTC: Date, sessionID: UUID,
@@ -51,6 +52,35 @@ public struct ContestExportArtifact: Codable, Hashable, Sendable {
         self.multiplierCount = multiplierCount
         self.claimedScore = claimedScore
         self.requestedHeader = requestedHeader
+        self.declarativePurpose = nil
+    }
+
+    public init(data: Data, format: ContestExportFormat, inputSchemaVersion: String,
+                formatterVersion: String, generatedAtUTC: Date, sessionID: UUID,
+                workspaceGeneration: UUID, revision: UInt64, ruleIdentity: ContestRuleIdentity,
+                referenceDataVersion: String, sessionName: String, operatorCallsign: String,
+                station: ContestStationSnapshot, qsoCount: Int, totalPoints: Int64,
+                multiplierCount: Int64, claimedScore: Int64, requestedHeader: CabrilloHeader,
+                declarativePurpose: ContestDeclarativeExportPurpose?) {
+        self.data = data
+        self.format = format
+        self.inputSchemaVersion = inputSchemaVersion
+        self.formatterVersion = formatterVersion
+        self.generatedAtUTC = generatedAtUTC
+        self.sessionID = sessionID
+        self.workspaceGeneration = workspaceGeneration
+        self.revision = revision
+        self.ruleIdentity = ruleIdentity
+        self.referenceDataVersion = referenceDataVersion
+        self.sessionName = sessionName
+        self.operatorCallsign = operatorCallsign
+        self.station = station
+        self.qsoCount = qsoCount
+        self.totalPoints = totalPoints
+        self.multiplierCount = multiplierCount
+        self.claimedScore = claimedScore
+        self.requestedHeader = requestedHeader
+        self.declarativePurpose = declarativePurpose
     }
 }
 
@@ -90,8 +120,26 @@ public struct ContestExportService: Sendable {
         guard generatedAtUTC.timeIntervalSinceReferenceDate.isFinite else {
             throw ContestExportServiceError.invalidSupplementalField("generatedAtUTC")
         }
-        guard let rule = rules.rule(for: stored.session.rule) else {
-            throw ContestExportServiceError.unknownRule(stored.session.rule)
+        let rule: any ContestRule
+        if let canonical = snapshot.canonicalDefinitionData {
+            do {
+                let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: canonical)
+                guard definition.identity == stored.session.rule,
+                      try definition.canonicalStorageData() == canonical else {
+                    throw ContestExportServiceError.invalidExportInput
+                }
+                rule = DeclarativeContestRule(definition: definition)
+            } catch let error as ContestExportServiceError { throw error }
+            catch { throw ContestExportServiceError.invalidExportInput }
+        } else {
+            guard let staticRule = rules.rule(for: stored.session.rule) else {
+                throw ContestExportServiceError.unknownRule(stored.session.rule)
+            }
+            rule = staticRule
+        }
+        let projection = (rule as? any ContestRuleDeclarativeExportPolicy)?.declarativeExportProjection
+        if rule is DeclarativeContestRule, projection == nil {
+            throw ContestExportServiceError.invalidExportInput
         }
         let category = try Self.canonicalOperatorCategory(stored.metadata.operatorCategory)
         if [JIDXCWRule.identity, JIDXSSBRule.identity, ARRLDXCWRule.identity, ARRLDXSSBRule.identity]
@@ -140,7 +188,8 @@ public struct ContestExportService: Sendable {
             sessionName: stored.metadata.name, operatorCallsign: stored.metadata.operatorCallsign,
             station: stored.session.station, qsoCount: snapshot.qsoCount,
             totalPoints: score.totalPoints, multiplierCount: score.multiplierCount,
-            claimedScore: score.claimedScore, requestedHeader: header
+            claimedScore: score.claimedScore, requestedHeader: header,
+            declarativePurpose: projection?.purpose
         )
     }
 
