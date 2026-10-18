@@ -23,6 +23,7 @@ private final class WorkerClusterFixture: ClusterConnectionTransport, @unchecked
     private let lock = NSLock()
     private var starts = 0, stops = 0
     private var commands: [String] = []
+    private var options: [(Bool, Bool)] = []
     private var state: (@Sendable (ClusterConnectionPhase, String?) -> Void)?
     private var line: (@Sendable (String) -> Void)?
     func callbacks(state: @escaping @Sendable (ClusterConnectionPhase, String?) -> Void,
@@ -32,9 +33,11 @@ private final class WorkerClusterFixture: ClusterConnectionTransport, @unchecked
     func start() { let callback = lock.withLock { starts += 1; return state }; callback?(.connected, nil) }
     func stop() { lock.withLock { stops += 1 } }
     func send(_ command: String) { lock.withLock { commands.append(command) } }
+    func updateOptions(reconnect: Bool, requestSkimmer: Bool) { lock.withLock { options.append((reconnect, requestSkimmer)) } }
     func emit(_ text: String) { let callback = lock.withLock { line }; callback?(text) }
     var counts: (Int, Int) { lock.withLock { (starts, stops) } }
     var sent: [String] { lock.withLock { commands } }
+    var optionUpdates: [(Bool, Bool)] { lock.withLock { options } }
 }
 
 @Suite("Portable live cluster worker bridge")
@@ -42,6 +45,39 @@ struct LiveClusterMethodsTests {
     private func request(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
         let data = try JSONSerialization.data(withJSONObject: ["id": method, "method": method, "params": params])
         return try #require(JSONSerialization.jsonObject(with: await worker.response(to: data)) as? [String: Any])
+    }
+
+    @Test("RBN source filtering controls the live skimmer subscription")
+    func rbnSourceSubscription() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configurationURL = root.appendingPathComponent("cluster.json")
+        var configuration = ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, requestSkimmer: false)
+        configuration.filter.sources = ["cluster"]
+        try JSONEncoder().encode(configuration).write(to: configurationURL)
+        let fixture = WorkerClusterFixture()
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let cluster = LiveClusterMethods(logbook: logbook, configurationURL: configurationURL,
+                                         vault: UnavailableClusterTestVault(),
+                                         transportFactory: { _, _, _, _, state, line in
+            fixture.callbacks(state: state, line: line); return fixture
+        })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        var snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        var filter = try #require((snapshot["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        filter["sources"] = ["cluster", "rbl"]
+        snapshot = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        #expect((snapshot["configuration"] as? [String: Any])?["requestSkimmer"] as? Bool == true)
+        #expect(fixture.optionUpdates.last?.1 == true)
+        filter = try #require((snapshot["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+        filter["sources"] = ["cluster"]
+        snapshot = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        #expect((snapshot["configuration"] as? [String: Any])?["requestSkimmer"] as? Bool == false)
+        #expect(fixture.optionUpdates.last?.1 == false)
+        await cluster.terminate()
     }
 
     @Test("Special include and exclude filters remain independent and reject contradictions")

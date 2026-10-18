@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { clusterRowTint, isRbnSource, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
+import { clusterRowTint, clusterSpotTags, type ClusterPalette, type LiveClusterSpot } from "./ClusterPanel";
 import { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
 import { BandMapsToolbarContext } from "./BandMaps";
 import { clusterBandColors, clusterModeColors, clusterStatusCode, clusterStatusColors, paletteColor, specialTagColors } from "./clusterPalette";
@@ -19,7 +19,7 @@ const filterSections: Array<[keyof Pick<ClusterFilter, "bands" | "modes" | "cont
   ["bands", "Bands"], ["modes", "Modes"], ["continents", "Continent"], ["callStatuses", "Call status"],
   ["dxccStatuses", "DXCC status"], ["specials", "Special"], ["sources", "Source"], ["worked", "Worked"],
 ];
-const spotTags = (spot: LiveClusterSpot): string[] => [...(isRbnSource(spot.source) ? ["RBN"] : []), ...spot.specialTags];
+const spotTags = (spot: LiveClusterSpot): string[] => clusterSpotTags(spot);
 function spotText(column: CompactColumn, spot: LiveClusterSpot, now: number): string {
   switch (column) {
     case "time": return formatSpotAge(spot.receivedAt, now);
@@ -96,7 +96,7 @@ export function OperatorWorkspace({ map, bandMaps, cluster, onSelect, onRequest,
     }).catch(() => { if (version === filterVersion.current) setFilterError("Could not apply cluster filters."); });
   };
   const closeFilters = () => { setFiltersOpen(false); window.requestAnimationFrame(() => filtersButton.current?.focus()); };
-  const specialChoices = projection?.configuration?.specialRules?.filter(rule => rule.enabled).map(rule => rule.name) ?? [];
+  const specialChoices = ["RBN", ...(projection?.configuration?.specialRules?.filter(rule => rule.enabled && rule.name.toUpperCase() !== "RBN").map(rule => rule.name) ?? [])];
   const choices = { ...clusterFilterChoices, specials: specialChoices };
   const setSplit = (value: number) => setPreferences(current => ({ ...current, mapPercent: Math.max(bounds.min, Math.min(bounds.max, value)) }));
   const setColumnWidth = (column: CompactColumn, value: number) => {
