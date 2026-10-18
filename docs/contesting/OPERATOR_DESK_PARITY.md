@@ -35,6 +35,21 @@ The contest catalog remains separate from presentation. Selecting a definition s
 
 Extend panel identities and layout scope deliberately. Normal Logging presets, pending layout operations and detached windows must not be overwritten or accidentally adopted by Contesting. Reuse native geometry recovery and existing unsaved-edit/mode-switch safeguards.
 
+## Functional canvas checkpoint
+
+The first source checkpoint now keeps `ContestWorkspace` as the sole session, draft, serial and mutation owner while the shared `OperatorCanvas` presents four live projections from that controller:
+
+| Canvas panel | Current content |
+| --- | --- |
+| Entry | Contest fields, reports, duplicate/validation state, serial control and the existing Run/S&P macro bank |
+| Check Partial | SCP and call-history import, selection and safe field projection |
+| Statistics | Current score, QSO/point/multiplier totals and multiplier labels |
+| Log | Contest-session log, paging and the existing correction/deletion editor |
+
+The contest `traditional` preset is an editable canvas preset; hiding and restoring Entry does not unmount `ContestWorkspace` or create another draft owner. If the scoped layout cannot be verified, the same live controls remain available in the fixed arrangement. This is a bounded functional checkpoint, not full parity.
+
+The remaining tracked working surfaces are Band Map, Rate, Group Chat, DXCC, Zone, Rotator, VFO and Cluster. They need contest-aware projections through their existing services before they can be exposed as meaningful canvas panels. The scoped native registry and planner recognize all 21 shared roles and the 12 contest-native roles, but native child presentation, action forwarding and state subscription remain separate implementation work.
+
 ## Implementation sequence
 
 1. Inventory current upstream working windows and fields against xLog components; identify missing panels and record exact source references.

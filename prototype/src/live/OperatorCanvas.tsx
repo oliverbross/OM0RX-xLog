@@ -7,13 +7,14 @@ import "./OperatorCanvas.css";
 export type CanvasPanel = { title: string; content: ReactNode; required?: boolean; safetyAction?: ReactNode };
 type Props = { panels: Partial<Record<WorkspacePanelID, CanvasPanel>>; traditional: ReactNode; state: LayoutState;
   session: WorkspaceLayoutSession; subscriptionError?: string; equipment?: "rotor" | "antenna";
-  canChangeLayout?: () => boolean; onChangeInFlight?: (active: boolean) => void };
-export default function OperatorCanvas({ panels, traditional, state, session, subscriptionError = "", equipment, canChangeLayout, onChangeInFlight }: Props) {
+  canvasPresetMode?: "custom-only" | "all"; canChangeLayout?: () => boolean; onChangeInFlight?: (active: boolean) => void };
+export default function OperatorCanvas({ panels, traditional, state, session, subscriptionError = "", equipment,
+  canvasPresetMode = "custom-only", canChangeLayout, onChangeInFlight }: Props) {
   const root = useRef<HTMLDivElement>(null), toolbar = useRef<HTMLSelectElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 }), [showPanels, setShowPanels] = useState(false), [currentPanel, setCurrentPanel] = useState<WorkspacePanelID>("active-qso");
   const [error, setError] = useState(""), [working, setWorking] = useState(false);
   const active = state.snapshot?.document.presets.find(preset => preset.id === state.snapshot?.document.activePresetID);
-  const custom = active && active.id !== "traditional" && active.id !== "windowed";
+  const custom = active && active.id !== "windowed" && (canvasPresetMode === "all" || active.id !== "traditional");
   const blocked = working || state.saving || !!state.pending || !state.snapshot;
   const performing = useRef(false);
   const perform = async (action: () => Promise<void>) => {
