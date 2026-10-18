@@ -118,7 +118,8 @@
       }
     ],
     "scope": "band",
-    "keyShape": ["kind", "authority", "canonicalValue", "band"],
+    "keyShape": ["kind", "authority", "referenceDataVersion", "resolvedEntityADIF", "canonicalValue", "band"],
+    "runtimeEncoding": "The runtime value uses unambiguous UTF-8 byte-length-prefixed components. The expectedNewMultipliers strings in this fixture are human-readable labels, not serialized runtime ContestMultiplierKey values.",
     "classificationInput": [
       "immutable resolved entity snapshot",
       "canonical typed location field",

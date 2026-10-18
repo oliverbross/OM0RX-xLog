@@ -35,7 +35,7 @@ The shared proposal is a `geographicMultiplier` with two variants:
 - `administrativeSubdivision(authority, canonicalValue)` for a sponsor-defined subdivision scheme.
 - `dxccEntity(authority, adifEntityCode)` for a versioned DXCC entity reference.
 
-Its scope is band. The canonical key is `(kind, authority, canonicalValue, band)`. SST would use `sst-us-lower48-state`, `sst-canadian-province`, and `dxcc-entity` authorities. Exactly one variant may apply to an accepted contact.
+Its scope is band. The logical canonical identity includes `kind`, `authority`, the pinned `referenceDataVersion`, the resolved `entityADIF`, the canonical subdivision value when applicable, and `band`. In the runtime `ContestMultiplierKey`, `kind` and `band` remain typed fields while `value` serializes the remaining components with consecutive UTF-8 byte-length prefixes. This prevents collisions between entities that share an authority and token and remains unambiguous when a pinned reference version contains punctuation or non-ASCII metadata. The `expectedNewMultipliers` strings in the fixture are readable semantic labels for review, not serialized runtime key values. SST would use `sst-us-lower48-state`, `sst-canadian-province`, and `dxcc-entity` authorities. Exactly one variant may apply to an accepted contact.
 
 Classification consumes the immutable resolved entity snapshot, the canonical typed location field, and a versioned sponsor policy. A callsign prefix or the literal `DX` is not entity authority. Name is required exchange evidence but never part of a multiplier key. Correction and deletion replay derives keys again from the retained accepted contacts so no stale multiplier survives.
 
