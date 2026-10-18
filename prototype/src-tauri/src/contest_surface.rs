@@ -481,7 +481,7 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
         }
         "entry_reserve_serial" | "entry_commit" => draft(params, &[])?,
         "entry_operator_key" => {
-            draft(params, &["key"])?;
+            draft(params, &["key", "focusedField"])?;
             enum_value(
                 &params["key"],
                 &[
@@ -490,6 +490,13 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                 ],
                 "operator key",
             )?;
+            if !params["focusedField"].is_null() {
+                enum_value(
+                    &params["focusedField"],
+                    &["callsign", "exchange"],
+                    "operator focused field",
+                )?;
+            }
         }
         "entry_operator_arm" => {
             draft(params, &["armed"])?;
@@ -552,6 +559,10 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                 MAX_SAFE_INTEGER,
                 "session revision",
             )?;
+        }
+        "log_edit_confirm_delete" => {
+            qso(params, &["confirmed"])?;
+            boolean(&params["confirmed"], "delete confirmation")?;
         }
         _ => return Err("The contest surface action is invalid.".into()),
     }
@@ -616,8 +627,10 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
             validate_assistance_projection(projection)
         }
         "propagation" if schema_version == 1 => validate_statistics_projection(projection),
+        "propagation" if schema_version == 2 => validate_statistics_projection_v2(projection),
+        "monitor" if schema_version == 1 => validate_rate_projection(projection),
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
-        "active-qso" | "callsign-intelligence" | "propagation" | "logbook" => {
+        "active-qso" | "callsign-intelligence" | "propagation" | "monitor" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }
         _ => Err("That contest surface has no ready projection schema.".into()),
@@ -815,6 +828,7 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
             "style",
             "status",
             "pending",
+            "focusedField",
             "functionKeys",
             "readiness",
             "trace",
@@ -838,6 +852,13 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
             &operator["pending"],
             &["reserve-serial", "send", "commit"],
             "operator pending state",
+        )?;
+    }
+    if !operator["focusedField"].is_null() {
+        enum_value(
+            &operator["focusedField"],
+            &["callsign", "exchange"],
+            "operator focused field",
         )?;
     }
     let mut keys = BTreeSet::new();
@@ -962,10 +983,14 @@ fn validate_statistics_projection(value: &Map<String, Value>) -> Result<(), Stri
         "statistics projection",
     )?;
     boolean(&value["busy"], "statistics busy")?;
-    if value["score"].is_null() {
+    validate_statistics_score(&value["score"])
+}
+
+fn validate_statistics_score(value: &Value) -> Result<(), String> {
+    if value.is_null() {
         return Ok(());
     }
-    let score = object(&value["score"], "contest score")?;
+    let score = object(value, "contest score")?;
     exact(
         score,
         &[
@@ -995,6 +1020,251 @@ fn validate_statistics_projection(value: &Map<String, Value>) -> Result<(), Stri
         "score source verification",
     )?;
     Ok(())
+}
+
+fn validate_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "sessionRevision",
+            "asOfUTC",
+            "fullLogQSOs",
+            "loggedQSOs",
+            "acceptedQSOs",
+            "duplicateQSOs",
+            "invalidQSOs",
+            "currentHourQSOs",
+            "operatorStyles",
+            "trailing60Minutes",
+            "latest10",
+            "latest100",
+            "busy",
+        ],
+        "rate projection",
+    )?;
+    validate_rate_fields(value)?;
+    boolean(&value["busy"], "rate busy")
+}
+
+fn validate_statistics_projection_v2(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "score",
+            "busy",
+            "sessionRevision",
+            "asOfUTC",
+            "fullLogQSOs",
+            "loggedQSOs",
+            "acceptedQSOs",
+            "duplicateQSOs",
+            "invalidQSOs",
+            "bands",
+            "total",
+        ],
+        "statistics projection",
+    )?;
+    boolean(&value["busy"], "statistics busy")?;
+    validate_statistics_score(&value["score"])?;
+    let counts = validate_summary_counts(value)?;
+    let bands = array(&value["bands"], 64, "statistics bands")?;
+    let mut names = BTreeSet::new();
+    let mut sums = [0_u64; 4];
+    let mut points = 0_i64;
+    for band in bands {
+        let row = validate_band_statistics(band, false)?;
+        if !names.insert(row.0) {
+            return Err("The statistics bands are not unique.".into());
+        }
+        for (sum, value) in sums.iter_mut().zip(row.1) {
+            *sum = sum
+                .checked_add(value)
+                .ok_or("The statistics band totals overflow.")?;
+        }
+        points = points
+            .checked_add(row.2)
+            .ok_or("The statistics credited points overflow.")?;
+    }
+    let total = validate_band_statistics(&value["total"], true)?;
+    if sums[0] != total.1[0]
+        || sums[1] != total.1[1]
+        || sums[3] != total.1[3]
+        || points != total.2
+        || total.1[0] != counts.1
+        || total.1[1] != counts.2
+    {
+        return Err("The statistics band totals do not match the summary.".into());
+    }
+    if let Some(score) = value["score"].as_object() {
+        if uint_value(&score["qsos"], MAX_SAFE_INTEGER, "contest score QSOs")? != counts.0 {
+            return Err("The contest score does not match the full log.".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_rate_fields(value: &Map<String, Value>) -> Result<(), String> {
+    let counts = validate_summary_counts(value)?;
+    if counts.5 > counts.1 {
+        return Err("The current-hour count exceeds the visible log.".into());
+    }
+    let styles = object(&value["operatorStyles"], "operator styles")?;
+    exact(styles, &["total", "currentHour"], "operator styles")?;
+    if validate_operator_styles(&styles["total"])? != counts.1
+        || validate_operator_styles(&styles["currentHour"])? != counts.5
+    {
+        return Err("The operator-style counts do not match the log.".into());
+    }
+    let trailing = validate_rate_metric(&value["trailing60Minutes"], None)?;
+    if trailing > counts.1 {
+        return Err("The trailing rate count exceeds the visible log.".into());
+    }
+    validate_nullable_rate_metric(&value["latest10"], 10, counts.1)?;
+    validate_nullable_rate_metric(&value["latest100"], 100, counts.1)?;
+    Ok(())
+}
+
+fn validate_summary_counts(
+    value: &Map<String, Value>,
+) -> Result<(u64, u64, u64, u64, u64, u64), String> {
+    uint_value(
+        &value["sessionRevision"],
+        MAX_SAFE_INTEGER,
+        "session revision",
+    )?;
+    canonical_timestamp(&value["asOfUTC"], "statistics timestamp")?;
+    let full = uint_value(&value["fullLogQSOs"], MAX_SAFE_INTEGER, "full log QSOs")?;
+    let logged = uint_value(&value["loggedQSOs"], MAX_SAFE_INTEGER, "logged QSOs")?;
+    let accepted = uint_value(&value["acceptedQSOs"], MAX_SAFE_INTEGER, "accepted QSOs")?;
+    let duplicate = uint_value(&value["duplicateQSOs"], MAX_SAFE_INTEGER, "duplicate QSOs")?;
+    let invalid = uint_value(&value["invalidQSOs"], MAX_SAFE_INTEGER, "invalid QSOs")?;
+    let current = value
+        .get("currentHourQSOs")
+        .map(|item| uint_value(item, MAX_SAFE_INTEGER, "current-hour QSOs"))
+        .transpose()?
+        .unwrap_or(0);
+    if full < logged
+        || accepted
+            .checked_add(duplicate)
+            .and_then(|sum| sum.checked_add(invalid))
+            != Some(logged)
+    {
+        return Err("The statistics QSO counts are inconsistent.".into());
+    }
+    Ok((full, logged, accepted, duplicate, invalid, current))
+}
+
+fn validate_operator_styles(value: &Value) -> Result<u64, String> {
+    let value = object(value, "operator style counts")?;
+    exact(
+        value,
+        &["run", "searchAndPounce", "unknown"],
+        "operator style counts",
+    )?;
+    ["run", "searchAndPounce", "unknown"]
+        .into_iter()
+        .try_fold(0_u64, |sum, key| {
+            sum.checked_add(uint_value(
+                &value[key],
+                MAX_SAFE_INTEGER,
+                "operator style count",
+            )?)
+            .ok_or_else(|| String::from("The operator style counts overflow."))
+        })
+}
+
+fn validate_nullable_rate_metric(value: &Value, expected: u64, logged: u64) -> Result<(), String> {
+    if value.is_null() {
+        if logged >= expected {
+            return Err("A complete rate sample is missing.".into());
+        }
+        return Ok(());
+    }
+    if logged < expected || validate_rate_metric(value, Some(expected))? != expected {
+        return Err("The rate sample count is invalid.".into());
+    }
+    Ok(())
+}
+
+fn validate_rate_metric(value: &Value, expected: Option<u64>) -> Result<u64, String> {
+    let value = object(value, "rate metric")?;
+    exact(
+        value,
+        &["qsoCount", "spanSeconds", "qsosPerHour"],
+        "rate metric",
+    )?;
+    let count = uint_value(&value["qsoCount"], MAX_SAFE_INTEGER, "rate QSO count")?;
+    if expected.is_some_and(|expected| count != expected) {
+        return Err("The rate sample count is invalid.".into());
+    }
+    nullable_nonnegative_number(&value["spanSeconds"], "rate span")?;
+    nullable_nonnegative_number(&value["qsosPerHour"], "rate value")?;
+    Ok(count)
+}
+
+fn validate_band_statistics(value: &Value, total: bool) -> Result<(String, [u64; 4], i64), String> {
+    let value = object(value, "band statistics")?;
+    exact(
+        value,
+        &[
+            "band",
+            "loggedQSOs",
+            "acceptedQSOs",
+            "distinctCallsigns",
+            "modes",
+            "distinctWPXPrefixes",
+            "creditedPoints",
+        ],
+        "band statistics",
+    )?;
+    let band = text_value(&value["band"], 16, false, "statistics band")?;
+    if (band == "total") != total {
+        return Err("The statistics band identifier is invalid.".into());
+    }
+    let logged = uint_value(&value["loggedQSOs"], MAX_SAFE_INTEGER, "band logged QSOs")?;
+    let accepted = uint_value(
+        &value["acceptedQSOs"],
+        MAX_SAFE_INTEGER,
+        "band accepted QSOs",
+    )?;
+    let distinct = uint_value(
+        &value["distinctCallsigns"],
+        MAX_SAFE_INTEGER,
+        "distinct callsigns",
+    )?;
+    let prefixes = uint_value(
+        &value["distinctWPXPrefixes"],
+        MAX_SAFE_INTEGER,
+        "distinct WPX prefixes",
+    )?;
+    if accepted > logged || distinct > logged || prefixes > logged {
+        return Err("The band statistics exceed the logged count.".into());
+    }
+    let modes = object(&value["modes"], "mode statistics")?;
+    exact(
+        modes,
+        &["cw", "phone", "digital", "other"],
+        "mode statistics",
+    )?;
+    let mode_total =
+        ["cw", "phone", "digital", "other"]
+            .into_iter()
+            .try_fold(0_u64, |sum, key| {
+                sum.checked_add(uint_value(&modes[key], MAX_SAFE_INTEGER, "mode count")?)
+            .ok_or_else(|| String::from("The mode counts overflow."))
+            })?;
+    if mode_total != logged {
+        return Err("The mode counts do not match the band log.".into());
+    }
+    Ok((
+        band.into(),
+        [logged, accepted, distinct, prefixes],
+        integer_value(&value["creditedPoints"], "credited points")?,
+    ))
 }
 
 fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -1174,11 +1444,63 @@ fn nullable_uint(value: &Value, maximum: u64, name: &str) -> Result<(), String> 
     }
 }
 fn integer(value: &Value, name: &str) -> Result<(), String> {
+    integer_value(value, name).map(|_| ())
+}
+fn integer_value(value: &Value, name: &str) -> Result<i64, String> {
     value
         .as_i64()
         .filter(|value| value.unsigned_abs() <= MAX_SAFE_INTEGER)
+        .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn nullable_nonnegative_number(value: &Value, name: &str) -> Result<(), String> {
+    if value.is_null() {
+        return Ok(());
+    }
+    value
+        .as_f64()
+        .filter(|value| value.is_finite() && *value >= 0.0)
         .map(|_| ())
         .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn canonical_timestamp(value: &Value, name: &str) -> Result<(), String> {
+    let value = value
+        .as_str()
+        .filter(|value| value.len() == 24 && value.is_ascii())
+        .ok_or_else(|| format!("The {name} is invalid."))?;
+    let bytes = value.as_bytes();
+    if bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'.'
+        || bytes[23] != b'Z'
+        || bytes.iter().enumerate().any(|(index, byte)| {
+            !matches!(index, 4 | 7 | 10 | 13 | 16 | 19 | 23) && !byte.is_ascii_digit()
+        })
+    {
+        return Err(format!("The {name} is invalid."));
+    }
+    let number =
+        |range: std::ops::Range<usize>| -> u32 { value[range].parse::<u32>().unwrap_or(u32::MAX) };
+    let year = number(0..4);
+    let month = number(5..7);
+    let day = number(8..10);
+    let hour = number(11..13);
+    let minute = number(14..16);
+    let second = number(17..19);
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    if year == 0 || day == 0 || day > days || hour > 23 || minute > 59 || second > 59 {
+        return Err(format!("The {name} is invalid."));
+    }
+    Ok(())
 }
 fn boolean(value: &Value, name: &str) -> Result<(), String> {
     value
@@ -1344,6 +1666,18 @@ mod tests {
             json!({"draftID":"draft","expectedDraftRevision":2,"value":"search-and-pounce"})
         ))
         .is_ok());
+        assert!(validate_action_envelope(&action(
+            "entry_operator_key",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"key":"Enter","focusedField":"callsign"})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "entry_operator_key",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"key":"F1","focusedField":null})
+        ))
+        .is_ok());
         for (name, params) in [
             (
                 "entry_operator_arm",
@@ -1353,9 +1687,31 @@ mod tests {
                 "entry_operator_style",
                 json!({"draftID":"draft","expectedDraftRevision":2,"value":"assisted"}),
             ),
+            (
+                "entry_operator_key",
+                json!({"draftID":"draft","expectedDraftRevision":2,"key":"Enter","focusedField":"band"}),
+            ),
         ] {
             assert!(validate_action_envelope(&action(name, "active-qso", params)).is_err());
         }
+        assert!(validate_action_envelope(&action(
+            "entry_operator_key",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"key":"Enter"})
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
+            "log_edit_confirm_delete",
+            "logbook",
+            json!({"qsoID":"qso","confirmed":true})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "log_edit_confirm_delete",
+            "logbook",
+            json!({"qsoID":"qso","confirmed":1})
+        ))
+        .is_err());
     }
 
     #[test]
@@ -1365,9 +1721,7 @@ mod tests {
             &json!({"schemaVersion":1,"status":"unavailable"})
         )
         .is_ok());
-        assert!(
-            validate_projection("monitor", &json!({"schemaVersion":1,"status":"ready"})).is_err()
-        );
+        assert!(validate_projection("monitor", &rate_projection()).is_ok());
         assert!(validate_projection(
             "active-qso",
             &json!({"schemaVersion":1,"status":"unavailable","extra":true})
@@ -1407,6 +1761,37 @@ mod tests {
         let too_many = vec![json!("K"); 10_001];
         missing_display["score"]["multiplierDisplayLabels"] = json!(too_many);
         assert!(validate_projection("propagation", &missing_display).is_err());
+        assert!(validate_projection("propagation", &statistics_v2()).is_ok());
+    }
+
+    #[test]
+    fn rate_and_statistics_projections_reject_noncanonical_or_inconsistent_snapshots() {
+        let mut rate = rate_projection();
+        rate["asOfUTC"] = json!("2026-10-18T00:00:00Z");
+        assert!(validate_projection("monitor", &rate).is_err(), "timestamp");
+
+        let mut rate = rate_projection();
+        rate["operatorStyles"]["total"]["unknown"] = json!(2);
+        assert!(validate_projection("monitor", &rate).is_err(), "operator styles");
+
+        let mut rate = rate_projection();
+        rate["latest10"] = json!({"qsoCount":10,"spanSeconds":60.0,"qsosPerHour":600.0});
+        assert!(validate_projection("monitor", &rate).is_err(), "latest sample");
+
+        let mut statistics = statistics_v2();
+        statistics["bands"][0]["modes"]["cw"] = json!(1);
+        assert!(validate_projection("propagation", &statistics).is_err());
+
+        let mut statistics = statistics_v2();
+        statistics["score"]["qsos"] = json!(2);
+        assert!(validate_projection("propagation", &statistics).is_err());
+
+        let mut statistics = statistics_v2();
+        statistics["bands"] = json!((0..65).map(|index| json!({
+            "band":format!("b{index}"),"loggedQSOs":0,"acceptedQSOs":0,"distinctCallsigns":0,
+            "modes":{"cw":0,"phone":0,"digital":0,"other":0},"distinctWPXPrefixes":0,"creditedPoints":0
+        })).collect::<Vec<_>>());
+        assert!(validate_projection("propagation", &statistics).is_err());
     }
 
     #[test]
@@ -1690,6 +2075,30 @@ mod tests {
         value
     }
 
+    fn rate_projection() -> Value {
+        json!({"schemaVersion":1,"status":"ready","sessionRevision":7,
+            "asOfUTC":"2026-10-18T00:00:00.000Z","fullLogQSOs":3,"loggedQSOs":2,
+            "acceptedQSOs":1,"duplicateQSOs":1,"invalidQSOs":0,"currentHourQSOs":2,
+            "operatorStyles":{"total":{"run":1,"searchAndPounce":0,"unknown":1},
+                "currentHour":{"run":1,"searchAndPounce":0,"unknown":1}},
+            "trailing60Minutes":{"qsoCount":2,"spanSeconds":60.0,"qsosPerHour":120.0},
+            "latest10":null,"latest100":null,"busy":false})
+    }
+
+    fn statistics_v2() -> Value {
+        json!({"schemaVersion":2,"status":"ready","score":{"qsos":3,"points":3,"multipliers":2,
+                "claimedScore":6,"multiplierLabels":["country:K","country:DL"],
+                "multiplierDisplayLabels":["United States","Germany"],"sourceVerification":"verified"},
+            "busy":false,"sessionRevision":7,"asOfUTC":"2026-10-18T00:00:00.000Z",
+            "fullLogQSOs":3,"loggedQSOs":2,"acceptedQSOs":1,"duplicateQSOs":1,"invalidQSOs":0,
+            "bands":[{"band":"20m","loggedQSOs":2,"acceptedQSOs":1,"distinctCallsigns":1,
+                "modes":{"cw":2,"phone":0,"digital":0,"other":0},"distinctWPXPrefixes":1,
+                "creditedPoints":3}],
+            "total":{"band":"total","loggedQSOs":2,"acceptedQSOs":1,"distinctCallsigns":1,
+                "modes":{"cw":2,"phone":0,"digital":0,"other":0},"distinctWPXPrefixes":1,
+                "creditedPoints":3}})
+    }
+
     fn entry_v2() -> Value {
         json!({"schemaVersion":2,"status":"ready","session":{"name":"CQ WW","ruleName":"CQ WW CW","mode":"CW"},
             "draft":{"draftID":"draft","revision":2,"callsign":"DL1AAA","sentReport":"599","receivedReport":"599",
@@ -1700,6 +2109,7 @@ mod tests {
                 "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
                 "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
             "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,
+                "focusedField":"exchange",
                 "functionKeys":[{"key":"F1","macro":"CQ"},{"key":"F2","macro":"EXCH"}],
                 "readiness":{"canSendCQ":true,"canSendCall":true,"canSendDuplicate":true,
                     "canReserveCall":true,"canReserveCommit":true,"canCommit":true},
