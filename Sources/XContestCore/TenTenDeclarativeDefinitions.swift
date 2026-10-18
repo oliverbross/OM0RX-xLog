@@ -43,7 +43,12 @@ public enum TenTenDeclarativeDefinitions {
             scoring: .init(defaultPoints: 1, clauses: [
                 .init(fieldID: "member-number", comparison: .greaterThan, threshold: 0, points: 2),
             ]), eligibilityPolicy: .unrestricted,
-            exportPolicy: .unsupported, stationEntityRequired: false)
+            exportPolicy: .unsupported,
+            operatorPolicy: .init(signalProfiles: phone
+                ? [.init(mode: "AM", signal: .phone), .init(mode: "FM", signal: .phone),
+                   .init(mode: "SSB", signal: .phone)]
+                : [.init(mode: "CW", signal: .cw)]),
+            stationEntityRequired: false)
     }
 
     public static func archiveDraft(for variant: TenTenSeasonalVariant) -> ContestDefinitionDraft {
@@ -74,6 +79,7 @@ public enum TenTenDeclarativeDefinitions {
             dupePolicy: base.dupePolicy, multiplierPolicy: base.multiplierPolicy, scoring: base.scoring,
             eligibilityPolicy: base.eligibilityPolicy, exportPolicy: .operatorArchive,
             exportProjection: .init(formatterVersion: formatter, columns: columns),
+            operatorPolicy: base.operatorPolicy,
             stationEntityRequired: base.stationEntityRequired)
     }
 

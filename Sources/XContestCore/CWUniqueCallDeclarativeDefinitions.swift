@@ -33,7 +33,9 @@ public enum CWUniqueCallDeclarativeDefinitions {
             entry: entry(for: variant), sourceProvenance: provenance(for: variant),
             dupePolicy: .perBand, multiplierPolicy: .uniqueCallsign,
             scoring: .init(defaultPoints: 1, clauses: []), eligibilityPolicy: .unrestricted,
-            exportPolicy: .unsupported, stationEntityRequired: false)
+            exportPolicy: .unsupported,
+            operatorPolicy: .init(signalProfiles: [.init(mode: "CW", signal: .cw)]),
+            stationEntityRequired: false)
     }
 
     public static func archiveDraft(for variant: CWUniqueCallContestVariant) -> ContestDefinitionDraft {
@@ -55,6 +57,7 @@ public enum CWUniqueCallDeclarativeDefinitions {
             scoring: base.scoring, eligibilityPolicy: base.eligibilityPolicy,
             exportPolicy: .operatorArchive,
             exportProjection: .init(formatterVersion: formatter, columns: archiveColumns(for: variant)),
+            operatorPolicy: base.operatorPolicy,
             stationEntityRequired: base.stationEntityRequired)
     }
 
