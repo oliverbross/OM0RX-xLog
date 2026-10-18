@@ -65,7 +65,7 @@ export class AmplifierTransitionSession {
       if(!validReceipt(r,id)||r.action!==action||!keys.every(k=>r.target[k]===target[k]))throw new Error("Amplifier receipt could not be verified; outcome unknown.");
       this.retain(r);
       if(unresolved(r))throw new Error(`Amplifier ${action} outcome unknown${r.detail?.code?` (${r.detail.code})`:""}${r.detail?.message?`: ${r.detail.message}`:""}. Inspect its receipt; no transition will be replayed.`);
-      this.feedback(id,`Amplifier ${action} acknowledged by Agent; accessory/drive state remains unconfirmed.`);
+      this.feedback(id,"");
       return{accepted:true,confirmed:false};
     }catch(cause){this.feedback(id??marker,cause instanceof Error?cause.message:"Amplifier outcome unknown; inspect its receipt.");throw cause;}
     finally{if(id)this.inFlight.delete(id);this.update({[action==="operate"?"operateBusy":"standbyBusy"]:false});}

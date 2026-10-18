@@ -26,13 +26,15 @@ private final class ObservedCallbackScript: @unchecked Sendable {
     private var commands: [Double?]
     private var commandBodies: [[String: Any]] = []
     private var commandTimeouts: [TimeInterval] = []
+    private var commandFailures: [String]
     private let commandDelay: TimeInterval
     private let commandRevision: Int
     private let onCommand: @Sendable () -> Void
 
-    init(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
+    init(commands: [Double?], commandFailures: [String] = [], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
          onCommand: @escaping @Sendable () -> Void = {}) {
         self.commands = commands
+        self.commandFailures = commandFailures
         self.commandDelay = commandDelay
         self.commandRevision = commandRevision
         self.onCommand = onCommand
@@ -54,6 +56,10 @@ private final class ObservedCallbackScript: @unchecked Sendable {
             }
             onCommand()
             if commandDelay > 0 { Thread.sleep(forTimeInterval: commandDelay) }
+            if let failure = lock.withLock({ commandFailures.isEmpty ? nil : commandFailures.removeFirst() }) {
+                envelope = ["success": false, "error": ["code": failure, "message": "Synthetic \(failure) rejection"]]
+                break
+            }
             let watts = try lock.withLock { () throws -> Double? in
                 guard !commands.isEmpty else { throw URLError(.badServerResponse) }
                 return commands.removeFirst()
@@ -88,7 +94,7 @@ private final class ObservedCallbackScript: @unchecked Sendable {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return ["protocol_version": 1, "revision": revision,
-            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz", "station_operate", "station_standby"]],
+            "capabilities": ["commands": ["set_mode", "set_ptt", "set_frequency_hz", "set_frequency_mode", "tune_simplex", "station_operate", "station_standby"]],
             "radio": ["connected": true, "known": true, "stale": false, "station_bound": true,
                 "mox": true, "frequency_hz": 14_025_000, "mode": "CW",
                 "observed_at": formatter.string(from: observed)],
@@ -132,6 +138,52 @@ private final class ObservedCallbackProtocol: URLProtocol {
 }
 
 final class RemoteAgentObservedSnapshotTests: XCTestCase {
+    func testSimplexTuneMakesOneBoundedAttemptWhenReplyIsLost() async throws {
+        try await fixture(commands: [], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "tune_simplex")
+            XCTAssertNil((script.sentCommands.first?["arguments"] as? [String: Any])?["vfo"])
+            XCTAssertEqual(script.sentTimeouts, [RemoteAgentClient.receiveTuneCommandTimeout])
+        }) { client, _ in
+            do {
+                try await client.tuneSimplex(7_187_000, mode: "LSB")
+                XCTFail("Lost tune reply reported success")
+            } catch {}
+        }
+    }
+
+    func testSimplexTuneAllowsGuardedRouteLongerThanFiveSecondsWithoutRetry() async throws {
+        try await fixture(commands: [nil], commandDelay: 5.25, verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+            XCTAssertEqual(script.sentCommands.first?["command"] as? String, "tune_simplex")
+            XCTAssertEqual(script.sentTimeouts, [12])
+        }) { client, _ in
+            try await client.tuneSimplex(7_088_000, mode: "LSB")
+        }
+    }
+
+    func testSimplexTuneRetriesOnlyAnExplicitStationBusyRejection() async throws {
+        try await fixture(commands: [nil], commandFailures: Array(repeating: "station-busy", count: 5), verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 6,
+                           "A guarded writer can remain busy beyond the former four-attempt window")
+            XCTAssertEqual(Set(script.sentCommands.compactMap { $0["request_id"] as? String }).count, 6,
+                           "A cached pre-dispatch rejection must not poison the next safe attempt")
+        }) { client, _ in
+            try await client.tuneSimplex(7_188_000, mode: "LSB")
+        }
+    }
+
+    func testSimplexTuneDoesNotRetryADifferentStructuredRejection() async throws {
+        try await fixture(commands: [nil], commandFailures: ["digital-engine-owns-radio"], verify: { script in
+            XCTAssertEqual(script.sentCommands.count, 1)
+        }) { client, _ in
+            do {
+                try await client.tuneSimplex(7_189_000, mode: "LSB")
+                XCTFail("Structured rejection reported success")
+            } catch {}
+        }
+    }
+
     func testGUIPTTMakesExactlyOneHTTPAttemptForOnAndOff() async throws {
         for enabled in [true,false] {try await fixture(commands:[],verify:{script in
             XCTAssertEqual(script.sentCommands.count,1);XCTAssertEqual(script.sentCommands.first?["command"] as? String,"set_ptt")
@@ -156,12 +208,12 @@ final class RemoteAgentObservedSnapshotTests: XCTestCase {
             XCTAssertEqual(failure?.message,"KPA standby confirmed; drive restoration unproved")
         }
     }
-    private func fixture(commands: [Double?], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
+    private func fixture(commands: [Double?], commandFailures: [String] = [], commandDelay: TimeInterval = 0, commandRevision: Int = 42,
                          onCommand: @escaping @Sendable () -> Void = {},
                          verify: ((ObservedCallbackScript) -> Void)? = nil,
                          operation: (RemoteAgentClient, ObservedCallbackRecorder) async throws -> Void) async throws {
         let host = "observed-\(UUID().uuidString.lowercased()).invalid"
-        let script = ObservedCallbackScript(commands: commands, commandDelay: commandDelay,
+        let script = ObservedCallbackScript(commands: commands, commandFailures: commandFailures, commandDelay: commandDelay,
                                             commandRevision: commandRevision, onCommand: onCommand)
         ObservedCallbackProtocol.install(script, host: host)
         defer { ObservedCallbackProtocol.remove(host: host) }

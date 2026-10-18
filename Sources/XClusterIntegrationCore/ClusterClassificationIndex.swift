@@ -11,6 +11,8 @@ public struct ClusterClassificationIndex: Sendable {
     private let confirmedCallBandModes: Set<Combination>
     private let dxccBands: [Int: Set<String>]
     private let dxccModes: [Int: Set<String>]
+    private let workedDXCCModes: [Int: Set<String>]
+    private let confirmedDXCCModes: [Int: Set<String>]
     private let workedDXCC: Set<Int>
     private let confirmedDXCC: Set<Int>
     private let confirmedDXCCBandModes: Set<Combination>
@@ -29,6 +31,7 @@ public struct ClusterClassificationIndex: Sendable {
         var callBands: [String: Set<String>] = [:], callModes: [String: Set<String>] = [:]
         var workedCallBandModes = Set<Combination>(), confirmedCallBandModes = Set<Combination>()
         var dxccBands: [Int: Set<String>] = [:], dxccModes: [Int: Set<String>] = [:]
+        var workedDXCCModes: [Int: Set<String>] = [:], confirmedDXCCModes: [Int: Set<String>] = [:]
         var workedDXCC = Set<Int>(), confirmedDXCC = Set<Int>()
         var confirmedDXCCBandModes = Set<Combination>()
         // Original SQLite readers returned newest records first. Establish that
@@ -39,6 +42,7 @@ public struct ClusterClassificationIndex: Sendable {
         for var record in ordered {
             record.callsign = record.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             record.band = record.band.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let exactMode = SpotLogic.normalizedMode(record.mode)
             record.mode = SpotLogic.classificationMode(record.mode)
             let call = record.callsign
             byCall[call, default: []].append(record)
@@ -51,8 +55,10 @@ public struct ClusterClassificationIndex: Sendable {
                 workedDXCC.insert(adif)
                 dxccBands[adif, default: []].insert(record.band)
                 dxccModes[adif, default: []].insert(record.mode)
+                if !exactMode.isEmpty { workedDXCCModes[adif, default: []].insert(exactMode) }
                 if record.isConfirmed {
                     confirmedDXCC.insert(adif)
+                    if !exactMode.isEmpty { confirmedDXCCModes[adif, default: []].insert(exactMode) }
                     confirmedDXCCBandModes.insert(
                         Combination(identity: String(adif), band: record.band, mode: record.mode))
                 }
@@ -66,9 +72,24 @@ public struct ClusterClassificationIndex: Sendable {
         self.confirmedCallBandModes = confirmedCallBandModes
         self.dxccBands = dxccBands
         self.dxccModes = dxccModes
+        self.workedDXCCModes = workedDXCCModes
+        self.confirmedDXCCModes = confirmedDXCCModes
         self.workedDXCC = workedDXCC
         self.confirmedDXCC = confirmedDXCC
         self.confirmedDXCCBandModes = confirmedDXCCBandModes
+    }
+
+    /// Exact local modes worked and confirmed for one DXCC entity. This is a
+    /// retained-logbook summary; no network or award-service lookup is involved.
+    public func dxccModeHistory(adif: Int) -> (worked: [String], confirmed: [String]) {
+        func ordered(_ modes: Set<String>) -> [String] {
+            modes.sorted { left, right in
+                let leftRank = SpotLogic.modes.firstIndex(of: left) ?? SpotLogic.modes.count
+                let rightRank = SpotLogic.modes.firstIndex(of: right) ?? SpotLogic.modes.count
+                return leftRank == rightRank ? left < right : leftRank < rightRank
+            }
+        }
+        return (ordered(workedDXCCModes[adif] ?? []), ordered(confirmedDXCCModes[adif] ?? []))
     }
 
     public func classify(call: String, band: String, mode: String, adif: Int?) -> ClusterClassification {

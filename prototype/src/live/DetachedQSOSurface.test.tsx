@@ -188,7 +188,7 @@ it("loads the canonical full editor with read-only context, no main controller, 
   const view = render(<Surface />);
   await screen.findByDisplayValue("K1ABC");
   expect(screen.getByRole("main", { name: "Detached Log QSO" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Check activation" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Check activation" })).toBeNull();
   expect(document.querySelector(".station-rail")).toBeNull();
   expect(document.querySelector(".qso-editor")).toBeTruthy();
   expect(screen.queryByRole("complementary", { name: "Contact context" })).toBeNull();
@@ -260,7 +260,7 @@ it.each(["Simple", "Full"])("shows one brief overlay after an acknowledged save 
   expect(screen.queryByText(/saved to the local logbook/)).toBeNull();
   act(() => vi.advanceTimersByTime(1000));
   expect(screen.queryByText("QSO logged")).toBeNull();
-  expect(screen.getByText("Global activation warning")).toBeTruthy();
+  expect(screen.queryByText("Global activation warning")).toBeNull();
 });
 
 it.each([

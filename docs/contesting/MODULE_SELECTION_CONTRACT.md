@@ -71,7 +71,29 @@ The source audit caused no canonical edits, package/install action, station
 command or changes to the active module. All implementation gates below remain
 open until the main baseline is runtime-accepted.
 
-### Transition implementation
+### Accepted 1.2.20 baseline refresh
+
+The main task completed its 1.2.20 handoff at
+`e9ef0c564323cf5a79be3d48f5b7389d8b0b1e66`, reporting a signed installation,
+live previous-QSO layout verification and restoration of the operator's prior
+layout. Root independently confirmed the canonical checkout was clean at that
+commit and the installed bundle reports 1.2.20. The live UI evidence belongs to
+the main task; it is not a contesting runtime acceptance.
+
+This source is being integrated in the isolated
+`codex/contest-main-1-2-20-integration` branch. It preserves the newer spot
+activation and observed-radio behavior, signal-report defaults, cluster filters
+and previous-QSO view as one source baseline. The main task has begun 1.2.21 HF
+propagation work, and the user has confirmed that 1.2.22 and 1.2.23 work is also
+planned there. Its checkout and installed app remain untouched. Isolated
+module-transition implementation may proceed against the accepted 1.2.20
+baseline once the source merge checks pass; final canonical integration must
+reconcile the latest accepted main handoff again, including these later
+releases. Root sent the other task the exact branch, current source changes,
+conflict resolutions, test status and pending ownership scope on 18 October.
+The 1.2.20 merge is a compatibility checkpoint, not the final release baseline.
+
+### Transition implementation steps
 
 1. Audit the latest runtime-accepted main source before changing shared native
    ownership. Record its exact installed-source and build provenance.

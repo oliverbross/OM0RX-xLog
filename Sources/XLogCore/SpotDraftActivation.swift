@@ -47,6 +47,7 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
         qso.frequencyHz = frequencyHz
         qso.band = opportunity != nil ? frequencyHz.map(BandPlan.band(for:)) ?? previous.band : band.lowercased()
         qso.mode = opportunity != nil && mode.isEmpty ? previous.mode : mode.uppercased()
+        qso.applyDefaultSignalReportsForMode()
         qso.country = country; qso.dxcc = dxcc; qso.comment = comment
         // A spot's references replace the previous selection even for the same
         // call. Reuse the local parser; no asynchronous enrichment can overwrite

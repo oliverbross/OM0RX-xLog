@@ -43,10 +43,11 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   const data = files.map(file => readFileSync(resolve(dist, file)));
   const bytes = data.reduce((sum, item) => sum + item.length, 0);
   const gzip = data.reduce((sum, item) => sum + gzipSync(item).length, 0);
-  // QSO and Settings share validated cross-window field visibility; Settings
-  // also owns the persisted propagation cadence. The heavier canvas editor
-  // remains outside both detached surfaces.
-  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 405_000 : 400_000;
+  // QSO and Settings share validated cross-window field visibility; QSO also
+  // applies the mode-aware 59/599 defaults in every editor. Settings owns the
+  // persisted propagation cadence. The heavier canvas editor remains outside
+  // both detached surfaces.
+  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 405_500 : 400_000;
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
 }

@@ -4,7 +4,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Condvar, Mutex, OnceLock,
 };
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 type Read = dyn Fn(Value) -> Result<Value, String> + Send + Sync;
 type Publish = dyn Fn(Value) + Send + Sync;
@@ -154,17 +154,46 @@ impl StationTelemetry {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
         self.receive_control_at(generation, identity, connection, control, now)
     }
+    pub fn spot_tune_control(self: &Arc<Self>, generation: u64, identity: &str) -> Result<ControlFence, String> {
+        self.spot_tune_control_with_timeout(generation, identity, Duration::from_millis(1500))
+    }
+    fn spot_tune_control_with_timeout(self: &Arc<Self>, generation: u64, identity: &str, timeout: Duration) -> Result<ControlFence, String> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let connection = self.state.lock().map_err(|_| "Radio telemetry unavailable")?.projection["snapshot"]["generation"]
+                .as_u64().ok_or("A fresh observed radio connection is required before spot tuning.")?;
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
+            match self.receive_control_at(generation, identity, connection, "tune_simplex", now) {
+                Ok(fence) => return Ok(fence),
+                Err(error) => {
+                    let retryable = self.state.lock().map_err(|_| "Radio telemetry unavailable").map(|state| {
+                        !self.stopped.load(Ordering::Acquire) && state.controls == 0
+                            && state.selection_id.as_deref() == Some(identity)
+                            && state.selection_generation == Some(generation)
+                            && matches!(state.provider.as_deref(), Some("direct_agent" | "direct_flex_lan" | "hamlib"))
+                            && state.projection["available"] != true
+                    })?;
+                    if !retryable || Instant::now() >= deadline { return Err(error); }
+                    self.wake.1.notify_all();
+                    std::thread::sleep(Duration::from_millis(20).min(deadline.saturating_duration_since(Instant::now())));
+                }
+            }
+        }
+    }
     fn receive_control_at(self: &Arc<Self>, generation: u64, identity: &str, connection: u64, control: &str, now: u64) -> Result<ControlFence, String> {
         let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
         let value = &state.projection; let snapshot = &value["snapshot"];
         let provider = state.provider.as_deref().unwrap_or("");
-        let (capability_owner, advertised) = match (provider, control) {
-            ("direct_flex_lan", "set_frequency_a") => ("capabilities", "set_frequency_a"),
-            ("direct_flex_lan", "set_mode_a") => ("capabilities", "set_mode_a"),
-            ("direct_agent", "set_receive_frequency_a") => ("station", "set_frequency_hz"),
-            ("direct_agent", "set_receive_mode_a") => ("station", "set_mode"),
-            ("hamlib", "set_receive_frequency_a") => ("station", "set_receive_frequency_a"),
-            ("hamlib", "set_receive_mode_a") => ("station", "set_receive_mode_a"),
+        let (capability_owner, advertised): (&str, &[&str]) = match (provider, control) {
+            ("direct_flex_lan", "set_frequency_a") => ("capabilities", &["set_frequency_a"]),
+            ("direct_flex_lan", "set_mode_a") => ("capabilities", &["set_mode_a"]),
+            ("direct_flex_lan", "tune_simplex") => ("capabilities", &["set_frequency_a", "set_mode_a"]),
+            ("direct_agent", "set_receive_frequency_a") => ("station", &["set_frequency_hz"]),
+            ("direct_agent", "set_receive_mode_a") => ("station", &["set_mode"]),
+            ("direct_agent", "tune_simplex") => ("station", &["set_frequency_hz", "set_mode"]),
+            ("hamlib", "set_receive_frequency_a") => ("station", &["set_receive_frequency_a"]),
+            ("hamlib", "set_receive_mode_a") => ("station", &["set_receive_mode_a"]),
+            ("hamlib", "tune_simplex") => ("station", &["set_receive_frequency_a", "set_receive_mode_a"]),
             _ => return Err("This provider does not expose the requested exact receive control.".into()),
         };
         let age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
@@ -176,6 +205,19 @@ impl StationTelemetry {
                 && observed_age.is_some_and(|age| (-1000..=5000).contains(&age)) && field_fresh
                 && snapshot["fields"]["frequency"].is_object() && snapshot["fields"]["mode"].is_object()
                 && snapshot["fields"]["vfo"]["VFO"] == "VFOA" && snapshot["fields"]["ptt"]["PTT"] == "0"
+        } else if provider == "direct_agent" {
+            // The Remote Station Agent owns the physical receive-VFO choice and
+            // re-reads the radio before and after tuneSimplex.  Its compact
+            // snapshot can legitimately omit per-VFO/timestamp detail, so the
+            // native admission fence must use the fresh transport observation,
+            // exact connection identity, idle radio state and advertised command
+            // capability instead of duplicating the worker's own fresh station
+            // and readback checks or requiring FLEX-specific VFO-A metadata.
+            let radio = &snapshot["radio"];
+            snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
+                && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false
+                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands|
+                    advertised.iter().all(|advertised| commands.iter().any(|command| command == *advertised)))
         } else {
             let radio = &snapshot["radio"];
             let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
@@ -185,7 +227,8 @@ impl StationTelemetry {
                 && snapshot["source"] == provider && snapshot["generation"].as_u64() == Some(connection)
                 && radio["connected"] == true && radio["observed"] == true && radio["transmitting"] == false && radio["receive_vfo"] == "A"
                 && radio["vfos"].as_array().is_some_and(|vfos| vfos.iter().any(|vfo| vfo["letter"] == "A" && vfo["receive"] == true))
-                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands| commands.iter().any(|command| command == advertised))
+                && snapshot[capability_owner]["supported_commands"].as_array().is_some_and(|commands|
+                    advertised.iter().all(|advertised| commands.iter().any(|command| command == *advertised)))
         };
         if self.stopped.load(Ordering::Acquire) || state.controls != 0
             || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
@@ -327,10 +370,12 @@ impl StationTelemetry {
 pub struct ControlFence(Arc<StationTelemetry>);
 impl Drop for ControlFence {
     fn drop(&mut self) {
-        if let Ok(mut state) = self.0.state.lock() {
+        let released = if let Ok(mut state) = self.0.state.lock() {
             state.epoch += 1;
             state.controls = state.controls.saturating_sub(1);
-        }
+            state.controls == 0
+        } else { false };
+        if released { self.0.wake.1.notify_all(); }
     }
 }
 static OWNERS: OnceLock<Mutex<[Option<Arc<StationTelemetry>>; 2]>> = OnceLock::new();
@@ -583,11 +628,25 @@ mod tests {
             assert!(owner.receive_control_at(2, &identity, 13, "set_frequency_a", 10000).is_err(), "{change}");
         }
         for (provider, control) in [("direct_flex_lan", "set_frequency_a"), ("direct_flex_lan", "set_mode_a"),
+                                    ("direct_flex_lan", "tune_simplex"),
                                     ("direct_agent", "set_receive_frequency_a"), ("direct_agent", "set_receive_mode_a"),
-                                    ("hamlib", "set_receive_frequency_a"), ("hamlib", "set_receive_mode_a")] {
+                                    ("direct_agent", "tune_simplex"),
+                                    ("hamlib", "set_receive_frequency_a"), ("hamlib", "set_receive_mode_a"), ("hamlib", "tune_simplex")] {
             let (owner, identity) = receive_fixture(provider); let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
             assert_eq!(owner.snapshot().unwrap()["available"], false); assert!(owner.receive_control_at(2, &identity, 13, control, 10000).is_err()); drop(fence);
             assert_eq!(owner.state.lock().unwrap().controls, 0);
+        }
+        for control in ["set_receive_frequency_a", "set_receive_mode_a", "tune_simplex"] {
+            let (owner, identity) = receive_fixture("direct_agent");
+            {
+                let mut state = owner.state.lock().unwrap();
+                let radio = &mut state.projection["snapshot"]["radio"];
+                radio.as_object_mut().unwrap().remove("observed_at");
+                radio.as_object_mut().unwrap().remove("receive_vfo");
+                radio.as_object_mut().unwrap().remove("vfos");
+            }
+            let fence = owner.receive_control_at(2, &identity, 13, control, 10000).unwrap();
+            drop(fence);
         }
         let (owner, identity) = receive_fixture("direct_flex_lan"); assert!(owner.receive_control_at(2, &identity, 13, "ptt", 10000).is_err());
         assert!(owner.receive_control_at(2, &identity, 13, "set_mode", 10000).is_err());
@@ -602,6 +661,28 @@ mod tests {
             }}
             assert!(owner.receive_control_at(2, &identity, 13, "set_receive_frequency_a", 10000).is_err(), "{change}");
         }
+    }
+    #[test]
+    fn spot_tune_waits_for_post_control_telemetry_refresh() {
+        let (owner, identity) = receive_fixture("direct_agent");
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        owner.state.lock().unwrap().projection["received_at_ms"] = json!(now);
+        let preceding = owner.spot_tune_control_with_timeout(2, &identity, Duration::ZERO).unwrap();
+        drop(preceding);
+        assert_eq!(owner.snapshot().unwrap()["available"], false);
+
+        let refreshed = owner.clone();
+        let refresh = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(40));
+            let mut state = refreshed.state.lock().unwrap();
+            state.projection["available"] = json!(true);
+            state.projection["received_at_ms"] = json!(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64);
+            drop(state);
+            refreshed.wake.1.notify_all();
+        });
+        let next = owner.spot_tune_control_with_timeout(2, &identity, Duration::from_millis(250)).unwrap();
+        refresh.join().unwrap();
+        drop(next);
     }
     #[test]
     fn monitor_cancel_remains_possible_during_stale_disconnected_or_inflight_observation() {

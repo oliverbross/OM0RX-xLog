@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { OpportunitiesPanel } from "./OpportunitiesPanel";
+import { OpportunitiesPanel, opportunityDXCCNeed } from "./OpportunitiesPanel";
 
 const pota = { id: "pota:OM0RX:OM-0001", kind: "pota", callsign: "OM0RX/P", reference: "OM-0001", name: "Verified park",
   frequency_hz: 14_074_000, mode: "FT8", observed_at: "2026-10-12T10:00:00Z", expires_at: "2026-10-12T10:30:00Z",
   source: "POTA official spots", source_url: "https://api.pota.app/spot/activator", comment: "", reference_status: "verified",
-  worked_count: 3, confirmed_count: 1, band_modes: [{ band: "20m", mode: "FT8", worked_count: 3, confirmed_count: 1 }] };
+  worked_count: 3, confirmed_count: 1, dxcc_history: { adif: 291, entity: "United States", worked_modes: ["FT8"], confirmed_modes: ["SSB", "CW"] },
+  band_modes: [{ band: "20m", mode: "FT8", worked_count: 3, confirmed_count: 1 }] };
 const expedition = { ...pota, id: "425dxn:DX1", kind: "dxpedition", callsign: "DX1ABC", reference: "", name: "DX1ABC: DXpedition",
   frequency_hz: null, mode: "", source: "425DXN Worldwide DX Calendar", source_url: "https://www.425dxn.org/index.php?op=wcal",
-  reference_status: "not_applicable", worked_count: 0, confirmed_count: 0, band_modes: [] };
+  reference_status: "not_applicable", dxcc_history: { adif: 999, entity: "New Entity", worked_modes: [], confirmed_modes: [] }, worked_count: 0, confirmed_count: 0, band_modes: [] };
 const snapshot = { generated_at: "2026-10-12T10:01:00Z", items: [pota, expedition], total_available: 2, history_state: "ready",
   sources: [{ source: "pota", state: "stale", count: 1, source_url: pota.source_url, last_success: "2026-10-11T10:00:00Z", last_attempt: null, safe_error: "SOURCE_UNAVAILABLE_OR_INVALID" }], selection_tunes: false, transmit: false };
 vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (spot: { id: string }) => void; spotActionLabel: string }) =>
@@ -17,6 +18,11 @@ vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (s
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("read-only opportunities", () => {
+  it("withholds DXCC claims when a callsign cannot be resolved", () => {
+    expect(opportunityDXCCNeed({ ...pota, dxcc_history: null })).toEqual({
+      text: "DXCC history unavailable", state: "unknown", title: "This callsign could not be resolved to a DXCC entity.",
+    });
+  });
   it("retires pending responses when a logbook revision replaces the request owner", async () => {
     let finishOld!: (value: unknown) => void;
     const oldRequest = vi.fn(() => new Promise(resolve => { finishOld = resolve; }));
@@ -68,6 +74,8 @@ describe("read-only opportunities", () => {
     expect(screen.getByText("stale")).toBeTruthy();
     expect(screen.getByText(/Retrying automatically/)).toBeTruthy();
     expect(screen.getByText("3 worked")).toBeTruthy();
+    expect(screen.getByText("Confirmed on SSB, CW · Worked on FT8").classList.contains("is-worked")).toBe(true);
+    expect(screen.getByText("All Time New One · Wanted").classList.contains("is-wanted")).toBe(true);
     expect(screen.getByTitle("20m FT8: 3 worked, 1 confirmed")).toBeTruthy();
     expect(screen.getByText("No reference history")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Load OM0RX/P into QSO draft" }));

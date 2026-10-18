@@ -28,11 +28,11 @@ function pointer(target: Element, type: string, y: number) {
   const event = new Event(type, { bubbles: true }); Object.assign(event, { button: 0, pointerId: 7, clientY: y }); fireEvent(target, event);
 }
 
-it("offers the four exact choices, defaults to Map and lazily retains each pane in one stable parent", () => {
+it("offers the five exact choices, defaults to Map and lazily retains each pane in one stable parent", () => {
   const mounted = vi.fn(), Map = retained("Map camera", mounted), Logbook = retained("Logbook search", mounted);
   const result = render(<DeskMapLogbook map={<Map />} logbook={<Logbook />} />);
   expect([...screen.getByLabelText<HTMLSelectElement>("Desk map and logbook view").options].map(option => option.text)).toEqual([
-    "Map", "Logbook", "Logbook above map", "Logbook below map",
+    "Map", "Logbook", "Logbook + Previous QSO's", "Logbook above map", "Logbook below map",
   ]);
   expect(mounted.mock.calls).toEqual([["Map camera"]]); expect(screen.queryByLabelText("Logbook search")).toBeNull();
   fireEvent.change(screen.getByLabelText("Map camera"), { target: { value: "Pacific" } });
@@ -44,6 +44,25 @@ it("offers the four exact choices, defaults to Map and lazily retains each pane 
   expect(result.container.querySelector(".desk-map-logbook-map")?.hasAttribute("inert")).toBe(true);
   expect(result.container.querySelector(".desk-map-logbook-map")?.hasAttribute("hidden")).toBe(true);
   expect(mounted.mock.calls).toEqual([["Map camera"], ["Logbook search"]]); expect(stored().view).toBe("logbook");
+});
+
+it("splits previous QSOs above the logbook only while the selected callsign has history", () => {
+  const result = render(<DeskMapLogbook map={<div>Map</div>} logbook={<div>Logbook table</div>}
+    previousQSOs={<div>Worked before table</div>} hasPreviousQSOs />);
+  view("logbook-previous");
+  const panes = result.container.querySelector<HTMLElement>(".desk-map-logbook-panes")!;
+  const previous = result.container.querySelector<HTMLElement>(".desk-map-logbook-previous")!;
+  const logbook = result.container.querySelector<HTMLElement>(".desk-map-logbook-logbook")!;
+  expect(panes.style.gridTemplateRows).toBe("minmax(0, 1fr) minmax(0, 1fr)");
+  expect(previous.hidden).toBe(false); expect(previous.style.gridRow).toBe("1");
+  expect(logbook.hidden).toBe(false); expect(logbook.style.gridRow).toBe("2");
+  expect(result.container.querySelector<HTMLElement>(".desk-map-logbook-map")!.hidden).toBe(true);
+  result.rerender(<DeskMapLogbook map={<div>Map</div>} logbook={<div>Logbook table</div>}
+    previousQSOs={<div>Old history must close</div>} hasPreviousQSOs={false} />);
+  expect(panes.style.gridTemplateRows).toBe("minmax(0, 1fr)");
+  expect(previous.hidden).toBe(true); expect(logbook.style.gridRow).toBe("1");
+  expect(screen.queryByText("Old history must close")).toBeNull();
+  expect(screen.getByText("Logbook table")).toBeTruthy();
 });
 
 it("restores Logbook-only without mounting Map and preserves presentation after remount", () => {

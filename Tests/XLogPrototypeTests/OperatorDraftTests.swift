@@ -30,6 +30,22 @@ struct OperatorDraftTests {
         guard sqlite3_exec(handle, sql, nil, nil, nil) == SQLITE_OK else { throw LogbookDatabaseError.sqlite("test fixture") }
     }
 
+    @Test("New drafts and mode changes use conventional voice and CW reports")
+    func signalReportDefaults() throws {
+        #expect(QSO(call: "", band: "20m", mode: "SSB").rstSent == "59")
+        #expect(QSO(call: "", band: "20m", mode: "CW").rstReceived == "599")
+
+        let url = databaseURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let db = try LogbookDatabase(url: url)
+        defer { db.close() }
+        let before = try db.operatorDraft(initial: QSO(call: "", band: "20m", mode: "SSB"))
+        var cw = before.qso; cw.mode = "CW"
+        let receipt = try db.applyOperatorDraft(mutation(before, .replace, qso: cw), nextDraft: blank())
+        #expect(receipt.draft.qso.rstSent == "599")
+        #expect(receipt.draft.qso.rstReceived == "599")
+    }
+
     @Test("A second connection and a reopened service see the same acknowledged draft")
     func persistentDraft() throws {
         let url = databaseURL()

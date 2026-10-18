@@ -21,5 +21,6 @@ export function useSpotActivation(command: "activate_spot" | "activate_opportuni
   return { ...state, activate: async (spot: Record<string, any>) => {
     if (!client.current) throw new Error("Wait for spot activation to initialize.");
     return client.current.activate(spot);
-  }, reconcile: () => client.current?.reconcile(), retire: () => client.current?.retire() };
+  }, canActivate: () => client.current?.canActivate() === true,
+    reconcile: () => client.current?.reconcile(), retire: () => client.current?.retire() };
 }

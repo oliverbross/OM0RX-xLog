@@ -6,6 +6,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { OperatorWorkspace } from "./OperatorWorkspace";
 import { BandMaps } from "./BandMaps";
 import { type LiveClusterSpot } from "./ClusterPanel";
+import { defaultClusterFilter, type ClusterFilter } from "./clusterFilters";
 import { defaultWorkspacePreferences, operatorWorkspaceKey, readWorkspacePreferences, splitBounds } from "./operatorWorkspacePreferences";
 
 let paneWidth = 1100, paneHeight = 290;
@@ -14,7 +15,9 @@ const spot = (index = 0): LiveClusterSpot => ({ id: `feed-${index}`, receivedAt:
   frequencyText: "14.025", callsign: `VK8NSB${index || ""}`, comment: "Actual received comment", band: "20m", mode: "CW", country: "Australia", adif: 150, continent: "OC", cqZone: 29,
   callStatus: "New Call", dxccStatus: "ATNO", specialTags: ["POTA"], score: 90, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["OM0RX"], source: "cluster", statusHex: "", bandHex: "", modeHex: "" });
 const projection = (count = 12) => ({ snapshot: { connectedClusters: 1, spots: Array.from({ length: count }, (_, index) => spot(index)),
-  connections: [{ serverName: "ShackCQ", phase: "connected" }, { serverName: "Backup", phase: "failed", error: "Connection refused" }] }, configuration: { palette: { status: {}, band: { "20m": "#123456" }, mode: {} } } });
+  connections: [{ serverName: "ShackCQ", phase: "connected" }, { serverName: "Backup", phase: "failed", error: "Connection refused" }] }, configuration: {
+    palette: { status: {}, band: { "20m": "#123456" }, mode: {} }, filter: defaultClusterFilter(), specialRules: [{ name: "POTA", enabled: true }],
+  } });
 beforeEach(() => {
   window.localStorage.clear(); paneWidth = 1100; paneHeight = 290;
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
@@ -23,8 +26,8 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resize = callback; } observe() {} disconnect() {} });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); resize = undefined; });
-function mount(cluster: unknown = projection(), onSelect = vi.fn()) {
-  return { ...render(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={cluster} onSelect={onSelect} />), onSelect };
+function mount(cluster: unknown = projection(), onSelect = vi.fn(), onRequest?: (method: string, params?: Record<string, unknown>) => Promise<unknown>) {
+  return { ...render(<OperatorWorkspace map={<div>Existing map</div>} bandMaps={<div>Existing band maps</div>} cluster={cluster} onSelect={onSelect} onRequest={onRequest} />), onSelect };
 }
 const clusterTab = () => fireEvent.click(screen.getByRole("tab", { name: "Cluster" }));
 
@@ -156,10 +159,10 @@ describe("operator workspace", () => {
     expect(screen.getByRole("checkbox", { name: "Show Comment column" })).toBeTruthy(); expect(screen.getByRole("button", { name: "Next column settings page" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Reset columns and widths" })).toBeTruthy();
   });
-  it("has no request/provider surface and uses bounded no-scroll layout", () => {
+  it("uses only the cluster filter request and keeps the compact table bounded without scrolling", () => {
     const source = readFileSync("src/live/OperatorWorkspace.tsx", "utf8"), css = readFileSync("src/live/OperatorWorkspace.css", "utf8");
-    expect(source).not.toMatch(/workerRequest|setInterval|fetch\(|onRequest|cluster_connect|cluster_snapshot/);
-    expect(css).not.toMatch(/overflow[^;]*:\s*(auto|scroll)/); expect(css).toContain("table-layout: fixed"); expect(css).toContain("min-width: 0; min-height: 0; overflow: hidden");
+    expect(source).not.toMatch(/workerRequest|setInterval|fetch\(|cluster_connect|cluster_snapshot/); expect(source).toContain('onRequest("cluster_filter"');
+    expect(css).toContain(".operator-compact-table { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }"); expect(css).toContain("table-layout: fixed"); expect(css).toContain("min-width: 0; min-height: 0; overflow: hidden");
     expect(css).toContain("tbody tr { height: 28px; max-height: 28px");
     expect(css).toContain("tbody tr:hover { box-shadow: inset 0 0 0 1px");
   });
@@ -178,11 +181,25 @@ describe("operator workspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Band maps" })); expect((screen.getByRole("checkbox", { name: "Follow radio" }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByLabelText(/20m spectrum/).getAttribute("aria-label")).toBe(zoomed); expect(within(toolbar as HTMLElement).getByText("110%")).toBeTruthy(); expect(onSelect).not.toHaveBeenCalled();
   });
-  it("puts every cluster status and Columns in that same toolbar with explicit connected/disconnected/connecting colors", () => {
+  it("opens linked cluster filters before Columns and applies choices through the canonical filter request", () => {
+    const onRequest = vi.fn(async (_method: string, params?: Record<string, unknown>) => ({ ...projection(), configuration: { ...projection().configuration, filter: params?.filter as ClusterFilter } }));
+    const { container } = mount(projection(), vi.fn(), onRequest); clusterTab();
+    const toolbar = container.querySelector(".operator-tool-toolbar")!;
+    expect(Array.from(toolbar.querySelectorAll("button")).slice(-2).map(button => button.textContent)).toEqual(["Filters", "Columns"]);
+    const trigger = screen.getByRole("button", { name: "Filters" }); fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Cluster filters" });
+    expect(within(dialog).getByRole("checkbox", { name: "POTA" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "20m" }));
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: expect.objectContaining({ bands: ["20m"] }) });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear filters" }));
+    expect(onRequest).toHaveBeenLastCalledWith("cluster_filter", { filter: defaultClusterFilter() });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" })); expect(screen.queryByRole("dialog", { name: "Cluster filters" })).toBeNull();
+  });
+  it("puts every cluster status, Filters and Columns in that same toolbar with explicit connected/disconnected/connecting colors", () => {
     const data = projection(); data.snapshot.connections.push({ serverName: "Connecting DX", phase: "connecting" } as any, { serverName: "Offline DX", phase: "disconnected" } as any);
     const { container } = mount(data); clusterTab();
     const status = screen.getByRole("status", { name: "Compact cluster connections" }), toolbar = container.querySelector(".operator-tool-toolbar")!;
-    expect(toolbar.contains(status)).toBe(true); expect(toolbar.contains(screen.getByRole("button", { name: "Columns" }))).toBe(true);
+    expect(toolbar.contains(status)).toBe(true); expect(toolbar.contains(screen.getByRole("button", { name: "Filters" }))).toBe(true); expect(toolbar.contains(screen.getByRole("button", { name: "Columns" }))).toBe(true);
     expect(container.querySelector(".operator-compact-cluster header")).toBeNull(); expect(screen.getAllByText("ShackCQ · Connected")).toHaveLength(1);
     expect(within(status).getByText("ShackCQ · Connected").classList.contains("is-connected")).toBe(true);
     expect(within(status).getByText("Connecting DX · Connecting").classList.contains("is-connecting")).toBe(true);

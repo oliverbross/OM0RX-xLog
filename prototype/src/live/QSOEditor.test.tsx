@@ -452,4 +452,17 @@ describe("QSOEditor", () => {
     fireEvent.keyDown(screen.getByLabelText("QSO note"), { key: "Escape" });
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Callsign")));
   });
+
+  it("does not show callsign validation after a successful save clears the current draft", async () => {
+    function SuccessfulSaveHarness() {
+      const [draft, setDraft] = useState<Record<string, any> | null>(() => initial());
+      return <QSOEditor draft={draft} setDraft={setDraft} save={() => setDraft(current => current ? ({ ...current, call: "" }) : current)}
+        clear={() => {}} busy={false} lookup={null} previous={[]} follow={false} setFollow={() => {}} />;
+    }
+    render(<SuccessfulSaveHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Log QSO" }));
+    await waitFor(() => expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe(""));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Log QSO" }).hasAttribute("disabled")).toBe(true);
+  });
 });
