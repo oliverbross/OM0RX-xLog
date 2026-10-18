@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { OpportunitiesPanel, opportunityDXCCNeed } from "./OpportunitiesPanel";
+import { OpportunitiesPanel, compareOpportunityUnworked, opportunityDXCCNeed } from "./OpportunitiesPanel";
 
 const pota = { id: "pota:OM0RX:OM-0001", kind: "pota", callsign: "OM0RX/P", reference: "OM-0001", name: "Verified park",
   frequency_hz: 14_074_000, mode: "FT8", observed_at: "2026-10-12T10:00:00Z", expires_at: "2026-10-12T10:30:00Z",
   source: "POTA official spots", source_url: "https://api.pota.app/spot/activator", comment: "", reference_status: "verified",
   worked_count: 3, confirmed_count: 1, dxcc_history: { adif: 291, entity: "United States", worked_modes: ["FT8"], confirmed_modes: ["SSB", "CW"] },
+  callsign_history: { worked_count: 5, confirmed_count: 1, worked_modes: ["CW", "SSB", "FT8"], confirmed_modes: ["SSB"] },
   band_modes: [{ band: "20m", mode: "FT8", worked_count: 3, confirmed_count: 1 }] };
 const expedition = { ...pota, id: "425dxn:DX1", kind: "dxpedition", callsign: "DX1ABC", reference: "", name: "DX1ABC: DXpedition",
   frequency_hz: null, mode: "", source: "425DXN Worldwide DX Calendar", source_url: "https://www.425dxn.org/index.php?op=wcal",
-  reference_status: "not_applicable", dxcc_history: { adif: 999, entity: "New Entity", worked_modes: [], confirmed_modes: [] }, worked_count: 0, confirmed_count: 0, band_modes: [] };
+  reference_status: "not_applicable", dxcc_history: { adif: 999, entity: "New Entity", worked_modes: [], confirmed_modes: [] },
+  callsign_history: { worked_count: 0, confirmed_count: 0, worked_modes: [], confirmed_modes: [] }, worked_count: 0, confirmed_count: 0, band_modes: [] };
 const snapshot = { generated_at: "2026-10-12T10:01:00Z", items: [pota, expedition], total_available: 2, history_state: "ready",
   sources: [{ source: "pota", state: "stale", count: 1, source_url: pota.source_url, last_success: "2026-10-11T10:00:00Z", last_attempt: null, safe_error: "SOURCE_UNAVAILABLE_OR_INVALID" }], selection_tunes: false, transmit: false };
 vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (spot: { id: string }) => void; spotActionLabel: string }) =>
@@ -18,9 +20,20 @@ vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (s
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("read-only opportunities", () => {
+  it("sorts unworked operations by callsign history and places missing history last", () => {
+    const referenceWorkedButCallNew = { ...pota, id: "new-call", worked_count: 99,
+      observed_at: "2026-10-12T10:00:00Z", callsign_history: { worked_count: 0, confirmed_count: 0, worked_modes: [], confirmed_modes: [] } };
+    const referenceNewButCallWorked = { ...pota, id: "worked-call", worked_count: 0,
+      observed_at: "2026-10-12T10:02:00Z", callsign_history: { worked_count: 2, confirmed_count: 1, worked_modes: ["CW"], confirmed_modes: ["CW"] } };
+    const unknownCallHistory = { ...pota, id: "unknown-call", worked_count: 0,
+      observed_at: "2026-10-12T10:03:00Z", callsign_history: undefined };
+    expect([unknownCallHistory, referenceNewButCallWorked, referenceWorkedButCallNew]
+      .sort(compareOpportunityUnworked).map(item => item.id)).toEqual(["new-call", "worked-call", "unknown-call"]);
+  });
   it("withholds DXCC claims when a callsign cannot be resolved", () => {
     expect(opportunityDXCCNeed({ ...pota, dxcc_history: null })).toEqual({
       text: "DXCC history unavailable", state: "unknown", title: "This callsign could not be resolved to a DXCC entity.",
+      segments: [{ text: "DXCC history unavailable", state: "unknown" }],
     });
   });
   it("retires pending responses when a logbook revision replaces the request owner", async () => {
@@ -67,21 +80,59 @@ describe("read-only opportunities", () => {
     expect(request).toHaveBeenCalledTimes(3);
     expect(select).not.toHaveBeenCalled();
   });
-  it("shows source age, full reference history and only loads a draft on selection", async () => {
+  it("separates DXCC status colors from exact operation history and only loads a draft on selection", async () => {
     const request = vi.fn(async (_method: string) => snapshot), select = vi.fn();
     render(<OpportunitiesPanel request={request} onSelect={select} />);
     expect(await screen.findByText("Verified park")).toBeTruthy();
     expect(screen.getByText("stale")).toBeTruthy();
     expect(screen.getByText(/Retrying automatically/)).toBeTruthy();
-    expect(screen.getByText("3 worked")).toBeTruthy();
-    expect(screen.getByText("Confirmed on SSB, CW · Worked on FT8").classList.contains("is-worked")).toBe(true);
-    expect(screen.getByText("All Time New One · Wanted").classList.contains("is-wanted")).toBe(true);
-    expect(screen.getByTitle("20m FT8: 3 worked, 1 confirmed")).toBeTruthy();
-    expect(screen.getByText("No reference history")).toBeTruthy();
+    expect(screen.getByText("5 worked").classList.contains("is-worked")).toBe(true);
+    expect(screen.getByText("1 confirmed on SSB").classList.contains("is-confirmed")).toBe(true);
+    expect(screen.getByText("DXCC Confirmed on SSB, CW").classList.contains("is-confirmed")).toBe(true);
+    expect(screen.getByText(/DXCC Worked on FT8/).classList.contains("is-worked")).toBe(true);
+    expect(screen.getByText("DXCC All Time New One · Wanted").classList.contains("is-wanted")).toBe(true);
+    expect(screen.getByTitle("OM0RX/P: 5 worked on CW, SSB, FT8; 1 confirmed on SSB")).toBeTruthy();
+    expect(screen.getByText("0 worked").classList.contains("is-zero")).toBe(true);
+    expect(screen.getByText("0 confirmed").classList.contains("is-zero")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Load OM0RX/P into QSO draft" }));
     expect(select).toHaveBeenCalledWith(pota);
     expect(request).toHaveBeenCalledWith("opportunities_snapshot");
     expect(request.mock.calls.some(([method]) => /tune|station_/.test(method))).toBe(false);
+  });
+  it("resizes Chaser and DX columns with the keyboard and restores bounded widths", async () => {
+    const request = vi.fn(async () => snapshot);
+    const first = render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await screen.findByText("Verified park");
+    const history = screen.getByRole("separator", { name: "Resize History column" });
+    expect(history.getAttribute("aria-valuenow")).toBe("170");
+    fireEvent.keyDown(history, { key: "ArrowRight" });
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("xlog.integration.chaser-column-widths.v1")!).widths.history).toBe(180));
+    first.unmount();
+    render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await screen.findByText("Verified park");
+    expect(screen.getByRole("separator", { name: "Resize History column" }).getAttribute("aria-valuenow")).toBe("180");
+    fireEvent.keyDown(screen.getByRole("separator", { name: "Resize History column" }), { key: "Home" });
+    expect(screen.getByRole("separator", { name: "Resize History column" }).getAttribute("aria-valuenow")).toBe("120");
+  });
+  it("uses the same exact-operation history rule in every programme tab", async () => {
+    const programmes = [
+      ["DXpeditions", "dxpedition"], ["POTA", "pota"], ["SOTA", "sota"], ["WWFF", "wwff"],
+      ["WWBOTA", "wwbota"], ["IOTA", "iota"], ["Castles", "castle"], ["Special events", "special_event"],
+    ] as const;
+    const items = programmes.map(([, kind], index) => ({ ...pota, id: `${kind}:${index}`, kind,
+      callsign: `TEST${index}`, reference: `${kind.toUpperCase()}-${index}`,
+      callsign_history: { worked_count: index + 1, confirmed_count: index % 2,
+        worked_modes: ["CW"], confirmed_modes: index % 2 ? ["CW"] : [] } }));
+    const request = vi.fn(async () => ({ ...snapshot, items, total_available: items.length }));
+    render(<OpportunitiesPanel request={request} onSelect={vi.fn()} />);
+    await screen.findByText("TEST0");
+    for (const [label] of programmes) {
+      const index = programmes.findIndex(([candidate]) => candidate === label);
+      fireEvent.click(screen.getByRole("tab", { name: label }));
+      expect(screen.getByText(`TEST${index}`)).toBeTruthy();
+      expect(screen.getByText(`${index + 1} worked`).classList.contains("is-worked")).toBe(true);
+      expect(screen.getByText(`${index % 2} confirmed${index % 2 ? " on CW" : ""}`).classList.contains(index % 2 ? "is-confirmed" : "is-zero")).toBe(true);
+    }
   });
   it("automatically refreshes every feed and retains a last-good view on failure", async () => {
     const request = vi.fn(async (method: string) => { if (method === "opportunities_refresh") throw Error("network"); return snapshot; });

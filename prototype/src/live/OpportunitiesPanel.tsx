@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { MapSpot } from "../MapSpots";
 import "./OpportunitiesPanel.css";
 const OpportunityMap = lazy(() => import("../Map"));
@@ -13,6 +13,7 @@ export type Opportunity = {
   programmes?: string[]; reference_kind?: string; activity?: string; location_accuracy?: string;
   starts_at?: string | null; ends_at?: string | null; latest_spot_at?: string | null;
   dxcc_history?: { adif: number; entity: string; worked_modes: string[]; confirmed_modes: string[] } | null;
+  callsign_history?: { worked_count: number; confirmed_count: number; worked_modes: string[]; confirmed_modes: string[] };
   band_modes?: { band: string; mode: string; worked_count: number; confirmed_count: number }[];
 };
 type Source = { source: string; state: string; count: number; source_url: string; refreshing?: boolean;
@@ -42,11 +43,13 @@ function activity(item: Opportunity): string {
   return item.starts_at && item.ends_at && Number.isFinite(Date.parse(item.starts_at)) && Number.isFinite(Date.parse(item.ends_at))
     ? `Scheduled ${date(item.starts_at)}–${date(item.ends_at)}` : "Scheduled operation";
 }
-type DXCCNeed = { text: string; state: "confirmed" | "worked" | "wanted" | "unknown"; title: string };
+type HistoryState = "confirmed" | "worked" | "wanted" | "unknown";
+type DXCCNeed = { text: string; state: HistoryState; title: string; segments: { text: string; state: HistoryState }[] };
 export function opportunityDXCCNeed(item: Opportunity): DXCCNeed {
   const history = item.dxcc_history;
   if (!history || !Number.isInteger(history.adif) || history.adif < 1) {
-    return { text: "DXCC history unavailable", state: "unknown", title: "This callsign could not be resolved to a DXCC entity." };
+    const text = "DXCC history unavailable";
+    return { text, state: "unknown", title: "This callsign could not be resolved to a DXCC entity.", segments: [{ text, state: "unknown" }] };
   }
   const modes = (values: unknown) => Array.isArray(values) ? [...new Set(values.filter((value): value is string =>
     typeof value === "string" && value.trim().length > 0).map(value => value.trim().toUpperCase()))] : [];
@@ -55,11 +58,16 @@ export function opportunityDXCCNeed(item: Opportunity): DXCCNeed {
   const worked = modes(history.worked_modes).filter(value => !confirmedSet.has(value));
   const entity = typeof history.entity === "string" && history.entity.trim() ? history.entity.trim() : "DXCC entity";
   const context = `${entity} · DXCC ${history.adif}`;
-  if (!confirmed.length && !worked.length) return { text: "All Time New One · Wanted", state: "wanted", title: `${context} · All Time New One · Wanted` };
-  const parts = [confirmed.length ? `Confirmed on ${confirmed.join(", ")}` : "", worked.length ? `Worked on ${worked.join(", ")}` : ""].filter(Boolean);
-  if (!confirmed.length) parts.push("Confirmation wanted");
-  const text = parts.join(" · ");
-  return { text, state: worked.length ? "worked" : "confirmed", title: `${context} · ${text}` };
+  if (!confirmed.length && !worked.length) {
+    const text = "DXCC All Time New One · Wanted";
+    return { text, state: "wanted", title: `${context} · All Time New One · Wanted`, segments: [{ text, state: "wanted" }] };
+  }
+  const segments = [
+    ...(confirmed.length ? [{ text: `DXCC Confirmed on ${confirmed.join(", ")}`, state: "confirmed" as const }] : []),
+    ...(worked.length ? [{ text: `DXCC Worked on ${worked.join(", ")}`, state: "worked" as const }] : []),
+  ];
+  const text = segments.map(part => part.text).join(" · ");
+  return { text, state: worked.length ? "worked" : "confirmed", title: `${context} · ${text}`, segments };
 }
 export function opportunityBand(hz: number | null): string {
   if (hz == null) return "";
@@ -67,6 +75,63 @@ export function opportunityBand(hz: number | null): string {
   return ([[1.8, 2, "160m"], [3.5, 4, "80m"], [5, 5.5, "60m"], [7, 7.3, "40m"], [10.1, 10.15, "30m"], [14, 14.35, "20m"], [18.068, 18.168, "17m"], [21, 21.45, "15m"], [24.89, 24.99, "12m"], [28, 29.7, "10m"], [50, 54, "6m"], [144, 148, "2m"], [420, 450, "70cm"]] as const).find(([low, high]) => mhz >= low && mhz <= high)?.[2] ?? "Other";
 }
 const preferencesKey = "xlog.integration.chaser.v1";
+const columnWidthsKey = "xlog.integration.chaser-column-widths.v1";
+const opportunityColumns = [
+  ["call", "Call / operation", 300, 180], ["reference", "Reference", 190, 120],
+  ["band", "Band / mode", 160, 105], ["evidence", "Evidence", 200, 120],
+  ["history", "History", 170, 120], ["action", "Action", 105, 84],
+] as const;
+type OpportunityColumn = typeof opportunityColumns[number][0];
+type OpportunityColumnWidths = Record<OpportunityColumn, number>;
+function boundColumnWidth(column: OpportunityColumn, width: number): number {
+  const minimum = opportunityColumns.find(([id]) => id === column)![3];
+  return Math.max(minimum, Math.min(600, Math.round(width)));
+}
+function loadColumnWidths(): OpportunityColumnWidths {
+  const widths = Object.fromEntries(opportunityColumns.map(([id, , width]) => [id, width])) as OpportunityColumnWidths;
+  try {
+    const raw = localStorage.getItem(columnWidthsKey);
+    if (!raw || raw.length > 1024) return widths;
+    const saved = JSON.parse(raw);
+    if (!saved || saved.version !== 1 || !saved.widths || typeof saved.widths !== "object") return widths;
+    for (const [id] of opportunityColumns) if (typeof saved.widths[id] === "number" && Number.isFinite(saved.widths[id]))
+      widths[id] = boundColumnWidth(id, saved.widths[id]);
+  } catch { /* Presentation preferences cannot block live opportunities. */ }
+  return widths;
+}
+function OpportunityColumnHeader({ column, label, width, onWidth, children }: {
+  column: OpportunityColumn; label: string; width: number;
+  onWidth: (column: OpportunityColumn, width: number) => void; children?: ReactNode;
+}) {
+  const drag = useRef<{ x: number; width: number; scale: number } | null>(null);
+  return <th scope="col">{children ?? label}<span className="opportunities-column-resizer" role="separator" tabIndex={0}
+    aria-label={`Resize ${label} column`} aria-orientation="vertical"
+    aria-valuemin={opportunityColumns.find(([id]) => id === column)![3]} aria-valuemax={600} aria-valuenow={width}
+    onPointerDown={event => {
+      if (event.button !== 0) return;
+      event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture?.(event.pointerId);
+      const actual = event.currentTarget.parentElement?.getBoundingClientRect().width ?? width;
+      drag.current = { x: event.clientX, width, scale: actual > 0 ? width / actual : 1 };
+    }}
+    onPointerMove={event => { if (drag.current) onWidth(column, drag.current.width + (event.clientX - drag.current.x) * drag.current.scale); }}
+    onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
+    onLostPointerCapture={() => { drag.current = null; }}
+    onKeyDown={event => {
+      const next = event.key === "ArrowLeft" ? width - 10 : event.key === "ArrowRight" ? width + 10
+        : event.key === "Home" ? 0 : event.key === "End" ? 600 : null;
+      if (next === null) return;
+      event.preventDefault(); onWidth(column, next);
+    }} /></th>;
+}
+export function compareOpportunityUnworked(left: Opportunity, right: Opportunity): number {
+  const leftWorked = left.callsign_history?.worked_count;
+  const rightWorked = right.callsign_history?.worked_count;
+  const leftKnown = typeof leftWorked === "number" && Number.isFinite(leftWorked);
+  const rightKnown = typeof rightWorked === "number" && Number.isFinite(rightWorked);
+  if (leftKnown !== rightKnown) return leftKnown ? -1 : 1;
+  if (leftKnown && rightKnown && leftWorked !== rightWorked) return leftWorked - rightWorked;
+  return right.observed_at.localeCompare(left.observed_at);
+}
 const feedNames = ["pota", "sota", "wwff", "wwbota", "425dxn"];
 function priorityFeed(kind: string): string {
   return ["dxpedition", "special_event", "iota"].includes(kind) ? "425dxn" : feedNames.includes(kind) ? kind : "pota";
@@ -96,6 +161,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
   const [error, setError] = useState("");
   const [page, setPage] = useState(0), [pageSize, setPageSize] = useState(12);
   const [selected, setSelected] = useState<string | null>(null);
+  const [columnWidths, setColumnWidths] = useState<OpportunityColumnWidths>(loadColumnWidths);
   const tableRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef(request); requestRef.current = request;
   const kindRef = useRef(kind); kindRef.current = kind;
@@ -155,6 +221,10 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     return () => { active = false; window.clearInterval(localTimer); window.clearInterval(feedTimer); };
   }, [refresh, inFlight]);
   useEffect(() => { try { localStorage.setItem(preferencesKey, JSON.stringify(prefs)); } catch { /* Session-only fallback. */ } }, [prefs]);
+  useEffect(() => {
+    try { localStorage.setItem(columnWidthsKey, JSON.stringify({ version: 1, widths: columnWidths })); }
+    catch { /* Keep the resized columns in memory for this session. */ }
+  }, [columnWidths]);
   useEffect(() => { setPage(0); }, [kind, band, mode, sort, query]);
   useEffect(() => {
     const element = tableRef.current;
@@ -172,7 +242,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     `${item.callsign} ${item.reference} ${item.name}`.toUpperCase().includes(search)).sort((a, b) =>
       sort === "callsign" ? a.callsign.localeCompare(b.callsign) : sort === "reference" ? a.reference.localeCompare(b.reference) :
       sort === "frequency" ? (a.frequency_hz ?? Infinity) - (b.frequency_hz ?? Infinity) :
-      sort === "unworked" ? a.worked_count - b.worked_count || b.observed_at.localeCompare(a.observed_at) : b.observed_at.localeCompare(a.observed_at)), [snapshot, kind, band, mode, sort, search]);
+      sort === "unworked" ? compareOpportunityUnworked(a, b) : b.observed_at.localeCompare(a.observed_at)), [snapshot, kind, band, mode, sort, search]);
   const bands = useMemo(() => [...new Set([band, ...(snapshot?.items ?? []).map(item => opportunityBand(item.frequency_hz))])].filter(value => value && value !== "all"), [snapshot, band]);
   const modes = useMemo(() => [...new Set([mode, ...(snapshot?.items ?? []).map(item => item.mode)])].filter(value => value && value !== "all").sort(), [snapshot, mode]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1));
@@ -180,9 +250,13 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
   const mapSpots = useMemo<MapSpot[]>(() => !showMap ? [] : rows.filter(item => typeof item.latitude === "number" && typeof item.longitude === "number").map(item => ({
     id: item.id, call: item.callsign, mhz: (item.frequency_hz ?? 0) / 1_000_000, locationOnly: item.frequency_hz == null, mode: item.mode as MapSpot["mode"], band: opportunityBand(item.frequency_hz),
     country: item.name, grid: "", lat: item.latitude!, lon: item.longitude!, reporter: item.source, note: `${item.reference} · ${activity(item)} · ${item.location_source}`,
-    receivedAt: new Date(item.observed_at).valueOf(), state: item.confirmed_count ? "confirmed" : item.worked_count ? "worked" : "needed",
+    receivedAt: new Date(item.observed_at).valueOf(), state: item.callsign_history?.confirmed_count ? "confirmed" : item.callsign_history?.worked_count ? "worked" : "needed",
   })), [rows, showMap]);
   const choose = (item: Opportunity) => { if (!onSelect) return; setSelected(item.id); onSelect(item); };
+  const visibleColumns = opportunityColumns.filter(([id]) => onSelect || id !== "action");
+  const totalColumnWidth = visibleColumns.reduce((total, [id]) => total + columnWidths[id], 0);
+  const resizeColumn = (column: OpportunityColumn, width: number) =>
+    setColumnWidths(current => ({ ...current, [column]: boundColumnWidth(column, width) }));
   return <section className="opportunities" aria-label="Chaser and DX calendar">
     <header className="opportunities-head">{!taskOnly && <h2>Chaser & DX</h2>}<span>Automatic live feeds · 60s</span>
       <button type="button" aria-pressed={showMap} onClick={() => setPrefs(current => ({ ...current, map: !current.map }))}>{showMap ? "Hide map" : "Show map"}</button>
@@ -212,12 +286,18 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
       <label>Sort<select value={sort} onChange={event => setPrefs(current => ({ ...current, sort: event.target.value }))}><option value="newest">Newest</option><option value="callsign">Callsign</option><option value="reference">Reference</option><option value="frequency">Frequency</option><option value="unworked">Unworked first</option></select></label>
       <span aria-live="polite">{rows.length} matching · {snapshot.total_available} available</span></div>
       {snapshot.history_state !== "ready" && <p className="opportunities-warning">Logbook history is unavailable; worked and confirmed labels are withheld.</p>}
-      <div className="opportunities-table-wrap" ref={tableRef}><table><thead><tr><th>Call / operation</th><th>Reference</th><th>Band / mode</th><th>Evidence</th><th>History</th>{onSelect && <th>Action</th>}</tr></thead>
-        <tbody>{pageRows.map(item => { const dxcc = opportunityDXCCNeed(item); return <tr key={item.id} className={selected === item.id ? "is-selected" : ""}><td className="opportunities-call"><strong>{item.callsign}</strong><small title={item.name}>{item.name || (item.kind === "dxpedition" || item.kind === "special_event" ? item.source : "Name unavailable")}</small><span className={`opportunities-dxcc-need is-${dxcc.state}`} title={dxcc.title}>{dxcc.text}</span></td>
+      <div className="opportunities-table-wrap" ref={tableRef}><table><colgroup>{visibleColumns.map(([id]) =>
+        <col key={id} style={{ width: `${columnWidths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
+        {visibleColumns.map(([id, label]) => <OpportunityColumnHeader key={id} column={id} label={label}
+          width={columnWidths[id]} onWidth={resizeColumn} />)}</tr></thead>
+        <tbody>{pageRows.map(item => { const dxcc = opportunityDXCCNeed(item); const station = item.callsign_history; return <tr key={item.id} className={selected === item.id ? "is-selected" : ""}><td className="opportunities-call"><strong>{item.callsign}</strong><small title={item.name}>{item.name || (item.kind === "dxpedition" || item.kind === "special_event" ? item.source : "Name unavailable")}</small><span className="opportunities-dxcc-need" title={dxcc.title}>{dxcc.segments.map((part, index) => <span key={part.text} className={`is-${part.state}`}>{index ? " · " : ""}{part.text}</span>)}</span></td>
           <td><span className={item.reference_status === "verified" ? "opportunities-verified" : ""}>{item.reference ? `${labels[item.reference_kind || item.kind] || item.kind} · ${item.reference}` : labels[item.kind] || item.kind}</span><small title={item.location_source}>{item.location_accuracy === "reference_area" ? "Approximate IOTA group area" : item.reference_status === "not_found" ? "Not in installed directory" : item.reference_status === "not_installed" ? "Directory not installed" : ""}</small></td>
           <td title={activity(item)}>{item.frequency_hz == null ? activity(item) : mhz(item.frequency_hz)}<small>{item.frequency_hz == null ? "Not a live frequency report" : `${item.mode || "Mode not supplied"} · ${activity(item)}`}</small></td>
           <td>{item.latest_spot_at ? `Cluster · ${time(item.latest_spot_at)}` : time(item.observed_at)}<small>{officialLink(item.source_url) ? <a href={officialLink(item.source_url)} target="_blank" rel="noreferrer">{item.source}</a> : item.source}</small></td>
-          <td title={item.band_modes?.map(cell => `${cell.band} ${cell.mode}: ${cell.worked_count} worked, ${cell.confirmed_count} confirmed`).join(" · ")}>{!item.reference ? "No reference history" : snapshot.history_state === "ready" ? <>{item.worked_count ? `${item.worked_count} worked` : "Unworked reference"}<small>{item.confirmed_count} confirmed</small></> : "Unknown"}</td>
+          <td className="opportunities-history" title={station ? `${item.callsign}: ${station.worked_count} worked${station.worked_modes.length ? ` on ${station.worked_modes.join(", ")}` : ""}; ${station.confirmed_count} confirmed${station.confirmed_modes.length ? ` on ${station.confirmed_modes.join(", ")}` : ""}` : undefined}>{snapshot.history_state === "ready" ? station ? <>
+            <span className={station?.worked_count ? "is-worked" : "is-zero"}>{station?.worked_count ?? 0} worked</span>
+            <small className={station?.confirmed_count ? "is-confirmed" : "is-zero"}>{station?.confirmed_count ?? 0} confirmed{station?.confirmed_modes.length ? ` on ${station.confirmed_modes.join(", ")}` : ""}</small>
+          </> : <span className="is-zero">Operation history unavailable</span> : "Unknown"}</td>
           {onSelect && <td><button type="button" onClick={() => choose(item)} aria-label={`Load ${item.callsign} into QSO draft`}>Load QSO</button></td>}</tr>})}
           {!rows.length && <tr><td colSpan={onSelect ? 6 : 5} className="opportunities-empty">{(kind === "all" ? busy : kind !== "castle" && pendingSources.includes(priorityFeed(kind))) ? `Loading ${kind === "all" ? "live feeds" : labels[kind]}…` : kind === "iota" ? "No matching IOTA spots or scheduled island operations. Recent cluster comments must contain an IOTA reference." : kind === "castle" ? "No recent castle-tagged cluster spots match these filters." : "No matching activity. Feeds refresh automatically; try another programme or filter."}</td></tr>}
         </tbody></table></div>
