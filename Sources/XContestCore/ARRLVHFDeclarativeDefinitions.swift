@@ -26,7 +26,7 @@ public enum ARRLVHFDeclarativeDefinitions {
         .init(mode: "AM", adifMode: "AM", cabrilloQSOType: "PH", report: noReport),
         .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", report: noReport),
         .init(mode: "FM", adifMode: "FM", cabrilloQSOType: "FM", report: noReport),
-        .init(mode: "FT4", adifMode: "FT4", cabrilloQSOType: "DG", report: noReport),
+        .init(mode: "FT4", adifMode: "MFSK", adifSubmode: "FT4", cabrilloQSOType: "DG", report: noReport),
         .init(mode: "FT8", adifMode: "FT8", cabrilloQSOType: "DG", report: noReport),
         .init(mode: "MSK144", adifMode: "MSK144", cabrilloQSOType: "DG", report: noReport),
         .init(mode: "RTTY", adifMode: "RTTY", cabrilloQSOType: "DG", report: noReport),
