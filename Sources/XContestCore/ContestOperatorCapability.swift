@@ -126,6 +126,19 @@ public struct ContestOperatorCapability: Codable, Hashable, Sendable {
     public let output: String
     public let styles: [ContestOperatorStyle]
     public let macros: [ContestOperatorMacroRole]
+    public let signalProfiles: [ContestOperatorSignalProfile]?
+
+    public init(version: Int, auditDigest: String, policy: String, output: String,
+                styles: [ContestOperatorStyle], macros: [ContestOperatorMacroRole],
+                signalProfiles: [ContestOperatorSignalProfile]? = nil) {
+        self.version = version
+        self.auditDigest = auditDigest
+        self.policy = policy
+        self.output = output
+        self.styles = styles
+        self.macros = macros
+        self.signalProfiles = signalProfiles
+    }
 }
 
 public enum ContestOperatorFieldState: String, Codable, Hashable, Sendable {
@@ -203,12 +216,13 @@ public enum ContestOperatorProjection {
             return try legacy.operatorCapability()
         }
         guard let declarative = rule as? DeclarativeContestRule,
-              declarative.definition.draft.operatorPolicy != nil else { return nil }
+              let operatorPolicy = declarative.definition.draft.operatorPolicy else { return nil }
         return .init(version: ContestOperatorCapability.version,
                      auditDigest: declarative.definition.definitionDigest,
                      policy: ContestOperatorCapability.policy, output: "simulation-only",
                      styles: [.run, .searchAndPounce],
-                     macros: [.cq, .exchange, .qrz, .again, .hisCall, .myCall, .qsoBefore])
+                     macros: [.cq, .exchange, .qrz, .again, .hisCall, .myCall, .qsoBefore],
+                     signalProfiles: operatorPolicy.signalProfiles)
     }
 
     public static func readiness(for rule: any ContestRule, qso: ContestQSO,
@@ -224,7 +238,8 @@ public enum ContestOperatorProjection {
     public static func partialDraftDupeKey(for rule: any ContestRule, qso: ContestQSO,
                                            session: ContestSessionSnapshot,
                                            validation: [ContestValidationIssue]) -> String? {
-        guard !qso.callsign.isEmpty, validation.filter({ $0.severity == .error }).allSatisfy({
+        guard (try? capability(for: rule)) != nil, !qso.callsign.isEmpty,
+              validation.filter({ $0.severity == .error }).allSatisfy({
             operatorIssueIsMissingInput($0, qso: qso, entry: rule.metadata.entry,
                                         allowBlankCall: false, allowMissingReceived: true,
                                         allowMissingSerial: true,

@@ -54,7 +54,14 @@ final class ContestDeclarativeOperatorPolicyTests: XCTestCase {
         let reopened = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: bytes)
         XCTAssertEqual(reopened.definitionDigest, legacy.definitionDigest)
         XCTAssertNil(reopened.draft.operatorPolicy)
-        XCTAssertNil(try ContestOperatorProjection.capability(for: DeclarativeContestRule(definition: reopened)))
+        let reopenedRule = DeclarativeContestRule(definition: reopened)
+        XCTAssertNil(try ContestOperatorProjection.capability(for: reopenedRule))
+        let fixture = makeFixture(rule: reopenedRule, mode: "CW")
+        let call = phase(fixture.complete, callsign: fixture.complete.callsign,
+                         includeReceived: false, includeSerial: false, rule: reopenedRule)
+        let validation = try validation(reopenedRule, call, fixture.session)
+        XCTAssertNil(ContestOperatorProjection.partialDraftDupeKey(
+            for: reopenedRule, qso: call, session: fixture.session, validation: validation))
 
         let currentDefinition = try current.materialized()
         XCTAssertNotEqual(currentDefinition.definitionDigest, legacy.definitionDigest)

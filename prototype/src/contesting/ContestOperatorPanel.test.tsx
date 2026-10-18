@@ -226,6 +226,60 @@ function StructuredHarness({ mode, ruleOverrides, duplicate = false, invalidPart
     <output data-testid="structured-calls">{reserves}/{commits}</output></>;
 }
 
+function StructuredReportHarness({ ruleID, simulate }: { ruleID: "jidx-cw" | "jidx-ssb" | "arrl-dx-cw" | "arrl-dx-ssb";
+  simulate: ContestSimulationAdapter }) {
+  const selected = generatedRules.find(item => item.identity.id === ruleID)!;
+  const active: ContestSessionSummary = { ...session(selected.mode as "CW" | "SSB"), rule: selected,
+    station: { callsign: ruleID.startsWith("arrl-dx-") ? "K1AAA" : "OM0RX", cqZone: "15", dxccEntity: "United States" } };
+  const sentExchangeFields: Record<string, string> = ruleID.startsWith("jidx-") ? { number: "15" } : { location: "CT", power: "" };
+  const receivedExchangeFields: Record<string, string> = ruleID.startsWith("jidx-") ? { number: "14" } : { location: "DX", power: "100" };
+  const current: ContestDraftSnapshot = { ...draft(active), fields: { ...draft(active).fields, callsign: "JA1AAA",
+    mode: selected.mode, sentReport: selected.entry.report.defaultSent, receivedReport: selected.entry.report.defaultReceived,
+    sentExchange: Object.values(sentExchangeFields).filter(Boolean).join(" "), receivedExchange: Object.values(receivedExchangeFields).filter(Boolean).join(" "),
+    sentExchangeFields, receivedExchangeFields }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Clear" },
+    operatorReadiness: { capabilityDigest: selected.operatorCapability!.auditDigest, callsign: "ready", exchange: "ready",
+      canSendCQ: false, canSendCall: true, canSendDuplicate: false, canReserveCall: false, canReserveCommit: false, canCommit: true } };
+  const root = useRef<HTMLFormElement>(null);
+  return <form ref={root}><ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={0} disabled={false}
+    recovery={null} reserveSerial={async () => { throw new Error("No reservation expected"); }}
+    commitQSO={() => new Promise<ContestCommitResult>(() => {})} admitIntent={() => true} guardFormSubmit={() => {}}
+    focusField={() => {}} simulateOutput={simulate}/><input aria-label="Exchange" data-contest-operator-field="exchange"/></form>;
+}
+
+function MixedModeHarness({ firstOutput, simulate, initialCall = false }: { firstOutput: Promise<void>; simulate: ContestSimulationAdapter; initialCall?: boolean }) {
+  const base = generatedRules.find(item => item.identity.id === "jidx-ssb")!;
+  const selected: ContestSessionSummary["rule"] = { ...base,
+    identity: { id: "operator-authored-mixed", version: "1", edition: "test", sourceRevision: "d".repeat(64) },
+    supportedModes: ["SSB", "AM"], entry: { ...base.entry, modeProfiles: [
+      { mode: "SSB", adifMode: "SSB", adifSubmode: null, cabrilloQSOType: "PH", report: { format: "phoneRS", defaultSent: "59", defaultReceived: "59", maximumUTF8Bytes: 2 } },
+      { mode: "AM", adifMode: "AM", adifSubmode: null, cabrilloQSOType: "PH", report: { format: "phoneRS", defaultSent: "59", defaultReceived: "59", maximumUTF8Bytes: 2 } },
+    ] }, operatorCapability: { ...base.operatorCapability!, auditDigest: "d".repeat(64), signalProfiles: [
+      { mode: "SSB", signal: "phone" }, { mode: "AM", signal: "phone" },
+    ] } };
+  const [active] = useState<ContestSessionSummary>(() => ({ ...session("SSB"), rule: selected }));
+  const makeReadiness = (call: string): ContestOperatorReadiness => ({ capabilityDigest: selected.operatorCapability!.auditDigest,
+    callsign: call ? "ready" : "empty", exchange: "empty", canSendCQ: !call, canSendCall: !!call,
+    canSendDuplicate: false, canReserveCall: false, canReserveCommit: false, canCommit: false });
+  const [current, setCurrent] = useState<ContestDraftSnapshot>(() => ({ ...draft(active),
+    fields: { ...draft(active).fields, callsign: initialCall ? "K1ABC" : "", mode: "SSB", sentReport: "59", receivedReport: "59", sentExchange: "15",
+      sentExchangeFields: { number: "15" }, receivedExchangeFields: { number: "" } },
+    operatorReadiness: makeReadiness(initialCall ? "K1ABC" : "") }));
+  const [editGeneration, setEditGeneration] = useState(0), [commits, setCommits] = useState(0), first = useRef(true), root = useRef<HTMLFormElement>(null);
+  const [settledMode, setSettledMode] = useState(current.fields.mode);
+  useEffect(() => { setSettledMode(current.fields.mode); }, [current.fields.mode]);
+  const output: ContestSimulationAdapter = async entry => { await simulate(entry); if (first.current) { first.current = false; await firstOutput; } };
+  const apply = (mode: "SSB" | "AM", callsign = current.fields.callsign) => setCurrent(value => ({ ...value,
+    fields: { ...value.fields, mode, callsign }, operatorReadiness: makeReadiness(callsign) }));
+  return <><form ref={root}><ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={editGeneration} disabled={false}
+    recovery={null} reserveSerial={async () => { throw new Error("No reservation expected"); }}
+    commitQSO={() => { setCommits(value => value + 1); return new Promise<ContestCommitResult>(() => {}); }} admitIntent={() => true} guardFormSubmit={() => {}}
+    focusField={() => {}} simulateOutput={output}/><input aria-label="Call" data-contest-operator-field="callsign"/></form>
+    <button onClick={() => setEditGeneration(value => value + 1)}>Request AM</button>
+    <button onClick={() => apply("AM")}>Apply AM</button>
+    <button onClick={() => { setEditGeneration(value => value + 1); apply("AM", "K1ABC"); }}>Set AM call</button>
+    <output data-testid="settled-mode">{settledMode}</output><output data-testid="mixed-commits">{commits}</output></>;
+}
+
 describe("ContestOperatorPanel simulated owner integration", () => {
   it.each(["CW", "SSB"] as const)("runs and logs a corrected %s contact only through visible simulation", async mode => {
     const sent: string[] = []; render(<Harness mode={mode} simulate={async entry => { sent.push(`${entry.macro}:${entry.text}`); }}/ >);
@@ -374,8 +428,8 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     await act(async () => {});
     const call = screen.getByLabelText("Call"); fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(call, { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/0"));
-    expect(wpxOutput).toHaveBeenCalledWith(expect.objectContaining({ macro: "HISCALL" }));
-    expect(wpxOutput).toHaveBeenCalledWith(expect.objectContaining({ macro: "EXCH", text: expect.stringContaining("007") }));
+    await waitFor(() => expect(wpxOutput).toHaveBeenCalledWith(expect.objectContaining({ macro: "HISCALL" })));
+    await waitFor(() => expect(wpxOutput).toHaveBeenCalledWith(expect.objectContaining({ macro: "EXCH", text: expect.stringContaining("007") })));
   });
 
   it("auto-reserves WPX S&P with a completed received exchange", async () => {
@@ -471,6 +525,62 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     fireEvent.keyDown(screen.getByLabelText("Received Location"), { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("structured-calls").textContent).toBe("0/1"));
     expect(sent).toEqual([expect.objectContaining({ macro: "MYCALL" }), expect.objectContaining({ macro: "EXCH", text: "AL CA" })]);
+  });
+
+  it.each([
+    ["jidx-cw", "599 15"], ["jidx-ssb", "59 15"],
+    ["arrl-dx-cw", "599 CT"], ["arrl-dx-ssb", "59 CT"],
+  ] as const)("renders the active report and structured exchange for %s", async (ruleID, expected) => {
+    const sent: { macro: string; text: string }[] = [];
+    render(<StructuredReportHarness ruleID={ruleID} simulate={async entry => { sent.push(entry); }}/>);
+    fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });
+    await waitFor(() => expect(sent).toContainEqual(expect.objectContaining({ macro: "EXCH", text: expected })));
+  });
+
+  it("retires delayed old-mode output and admits AM after the authoritative mixed-mode draft arrives", async () => {
+    const gate = deferred(), sent: { macro: string; mode: string }[] = [];
+    render(<MixedModeHarness firstOutput={gate.promise} simulate={async entry => { sent.push(entry); }}/>);
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.map(({ macro, mode }) => ({ macro, mode }))).toEqual([{ macro: "CQ", mode: "SSB" }]));
+    fireEvent.click(screen.getByRole("button", { name: "Request AM" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply AM" }));
+    await waitFor(() => expect(screen.getByTestId("settled-mode").textContent).toBe("AM"));
+    await act(async () => gate.resolve());
+    await waitFor(() => expect((screen.getByRole("button", { name: "Arm simulation" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.at(-1)).toEqual(expect.objectContaining({ macro: "CQ", mode: "AM" })));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Set AM call" }));
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.slice(-2).map(({ macro, mode }) => ({ macro, mode }))).toEqual([
+      { macro: "HISCALL", mode: "AM" }, { macro: "EXCH", mode: "AM" },
+    ]));
+    expect(sent.filter(item => item.mode === "SSB").map(({ macro, mode }) => ({ macro, mode }))).toEqual([{ macro: "CQ", mode: "SSB" }]);
+  });
+
+  it("cancels a delayed old-mode call chain before EXCH or commit and starts a fresh AM chain", async () => {
+    const gate = deferred(), sent: { macro: string; mode: string }[] = [];
+    render(<MixedModeHarness initialCall firstOutput={gate.promise} simulate={async entry => { sent.push(entry); }}/>);
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.map(({ macro, mode }) => ({ macro, mode }))).toEqual([{ macro: "HISCALL", mode: "SSB" }]));
+    fireEvent.click(screen.getByRole("button", { name: "Request AM" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply AM" }));
+    await act(async () => gate.resolve());
+    await waitFor(() => expect((screen.getByRole("button", { name: "Arm simulation" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(sent.map(({ macro, mode }) => ({ macro, mode }))).toEqual([{ macro: "HISCALL", mode: "SSB" }]);
+    expect(screen.getByTestId("mixed-commits").textContent).toBe("0");
+    fireEvent.click(screen.getByRole("button", { name: "Arm simulation" }));
+    fireEvent.keyDown(screen.getByLabelText("Call"), { key: "Enter" });
+    await waitFor(() => expect(sent.slice(-2).map(({ macro, mode }) => ({ macro, mode }))).toEqual([
+      { macro: "HISCALL", mode: "AM" }, { macro: "EXCH", mode: "AM" },
+    ]));
+    expect(screen.getByTestId("mixed-commits").textContent).toBe("0");
   });
 
   it.each(["CW", "SSB"] as const)("sends immediate QSOB4 for an authoritative partial NAQP %s duplicate", async mode => {

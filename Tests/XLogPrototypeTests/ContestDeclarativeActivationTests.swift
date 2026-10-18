@@ -11,6 +11,7 @@ final class ContestDeclarativeActivationTests: XCTestCase {
         let definitions = try ContestBuiltInDeclarativeCatalog.operatorArchiveEntries()
         XCTAssertEqual(definitions.count, 7)
         var clientFixtureCases: [[String: Any]] = []
+        var operatorProfileFixtures: [[String: Any]] = []
         var nondefaultModeCommitFixture: [String: Any]?
         for (offset, definition) in definitions.enumerated() {
             let root = FileManager.default.temporaryDirectory
@@ -29,6 +30,13 @@ final class ContestDeclarativeActivationTests: XCTestCase {
             XCTAssertEqual(definitionWire["immutablePerSession"] as? Bool, true)
             XCTAssertEqual(Set(try XCTUnwrap(rule["supportedBands"] as? [String])), definition.definition.draft.supportedBands)
             XCTAssertEqual(Set(try XCTUnwrap(rule["supportedModes"] as? [String])), definition.definition.draft.supportedModes)
+            let capability = try XCTUnwrap(rule["operatorCapability"] as? [String: Any])
+            XCTAssertEqual(capability["auditDigest"] as? String, definition.definitionDigest)
+            let profiles = try XCTUnwrap(capability["signalProfiles"] as? [[String: String]])
+            XCTAssertEqual(profiles.map { $0["mode"]! }, definition.definition.draft.supportedModes.sorted())
+            XCTAssertEqual(profiles.map { $0["signal"]! }, definition.definition.draft.supportedModes.sorted().map {
+                $0 == "CW" ? "cw" : "phone"
+            })
 
             let sessionID = UUID(), draftID = UUID()
             let created = try await lane!.handle(method: "contest_create", params: mutation(
@@ -37,6 +45,15 @@ final class ContestDeclarativeActivationTests: XCTestCase {
             let createdRule = try XCTUnwrap((created["session"] as? [String: Any])?["rule"] as? [String: Any])
             XCTAssertEqual(((createdRule["declarativeDefinition"] as? [String: Any])?["definitionDigest"] as? String),
                            definition.definitionDigest)
+            let createdDraft = try XCTUnwrap(created["draft"] as? [String: Any])
+            XCTAssertEqual((createdDraft["operatorReadiness"] as? [String: Any])?["capabilityDigest"] as? String,
+                           definition.definitionDigest)
+            operatorProfileFixtures.append([
+                "definitionID": definition.identity.id,
+                "catalogRule": rule,
+                "session": try XCTUnwrap(created["session"] as? [String: Any]),
+                "draft": createdDraft,
+            ])
 
             var revision = 1
             var firstQSOID: String?
@@ -181,14 +198,60 @@ final class ContestDeclarativeActivationTests: XCTestCase {
         XCTAssertNotNil(nondefaultModeCommitFixture)
         if let output = ProcessInfo.processInfo.environment["XLOG_DECLARATIVE_ACTIVATION_FIXTURE_OUTPUT"] {
             let fixture: [String: Any] = [
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "generatedBy": "ContestDeclarativeActivationTests.testSevenDefinitionsShareCatalogCreateDupeCorrectionRestartAndExports",
+                "operatorProfiles": operatorProfileFixtures,
                 "cases": clientFixtureCases,
                 "nondefaultModeCommit": try XCTUnwrap(nondefaultModeCommitFixture),
             ]
             let data = try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: URL(fileURLWithPath: output), options: .atomic)
         }
+    }
+
+    func testPersistedNilPolicySessionRemainsInertWhenCurrentCatalogOptsIn() async throws {
+        let current = try XCTUnwrap(try ContestBuiltInDeclarativeCatalog.operatorArchiveEntries()
+            .first { $0.identity.id == "cwops-cwt" })
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(current.definition.draft)) as? [String: Any])
+        object.removeValue(forKey: "operatorPolicy")
+        let oldDraft = try JSONDecoder().decode(
+            ContestDefinitionDraft.self, from: JSONSerialization.data(withJSONObject: object))
+        let oldDefinition = try oldDraft.materialized()
+        let oldEntry = try ContestDeclarativeCatalogEntry(definition: oldDefinition)
+        XCTAssertNotEqual(oldEntry.identity, current.identity)
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-declarative-inert-policy-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("Contesting/contests.sqlite")
+        var oldLane: ContestLane? = try ContestLane(
+            databaseURL: databaseURL, generationSource: { [generation] in generation },
+            declarativeDefinitions: [oldDefinition])
+        let oldCatalog = try await oldLane!.handle(method: "contest_catalog", params: [:])
+        let oldRule = try XCTUnwrap((oldCatalog["rules"] as? [[String: Any]])?.first {
+            identityID($0) == oldEntry.identity.id
+        })
+        XCTAssertNil(oldRule["operatorCapability"])
+        let sessionID = UUID(), draftID = UUID()
+        let created = try await oldLane!.handle(method: "contest_create", params: mutation(
+            sessionID: sessionID, requestID: draftID, revision: 0, timestamp: timestamp,
+            payload: createPayload(rule: oldRule, definition: oldEntry, sessionID: sessionID)))
+        XCTAssertNil(((created["session"] as? [String: Any])?["rule"] as? [String: Any])?["operatorCapability"])
+        XCTAssertNil((created["draft"] as? [String: Any])?["operatorReadiness"])
+        oldLane = nil
+
+        let currentLane = try ContestLane(databaseURL: databaseURL) { [generation] in generation }
+        let currentCatalog = try await currentLane.handle(method: "contest_catalog", params: [:])
+        let currentRule = try XCTUnwrap((currentCatalog["rules"] as? [[String: Any]])?.first {
+            identityID($0) == current.identity.id
+        })
+        XCTAssertNotNil(currentRule["operatorCapability"])
+        let reopened = try await currentLane.handle(method: "contest_open", params: [
+            "sessionID": wireID(sessionID), "workspaceGeneration": generation,
+        ])
+        XCTAssertNil(((reopened["session"] as? [String: Any])?["rule"] as? [String: Any])?["operatorCapability"])
+        XCTAssertNil((reopened["draft"] as? [String: Any])?["operatorReadiness"])
     }
 
     func testDeclarativeCreateRequiresAuthoritativeDigestAndRequiredStationFields() async throws {
