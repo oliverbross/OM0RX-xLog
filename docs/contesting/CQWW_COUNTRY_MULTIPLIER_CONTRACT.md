@@ -1,8 +1,8 @@
 # CQ WW sponsor-country multiplier contract
 
 **Contract date:** 2026-10-18  
-**Scope:** reusable country-reference primitive and noncatalog CQ WW scoring slice  
-**Activation status:** blocked pending a complete production reference and runtime integration
+**Scope:** reusable country-reference primitive and CQ WW CW/SSB practice-preview activation
+**Activation status:** active under new immutable preview identities; sponsor submission gates remain open
 
 ## Primary authority
 
@@ -26,7 +26,9 @@ The independent fixture remains a small hand-reviewed scoring oracle. The produc
 
 The reference requires one exact runtime geography version. Records are normalized and canonically sorted. Its rule revision token is an unambiguous length-prefixed FNV-64 digest over the identity, pinned geography version, and canonical records. Reversing input records therefore preserves equality, encoding, and rule identity.
 
-The corrected `CQWWSponsorCountryRule` has new CW and SSB identities whose source revision includes `country-reference-fnv64-bc711180563fcc50`. It is deliberately absent from `ContestRuleRegistry.pilots`; the existing `cq-ww-cw` and `cq-ww-ssb` source-preview identities and their ADIF-only replay behavior remain unchanged.
+The corrected `CQWWSponsorCountryRule` has new CW and SSB identities whose source revision binds the exact packaged bytes: `cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b`. It remains absent from `ContestRuleRegistry.pilots`, while the contest worker adds it only after `ContestPackagedCountryReferenceLoader` verifies the resource. The existing `cq-ww-cw` and `cq-ww-ssb` identities, wire rows, and replay behavior remain unchanged.
+
+Catalog and session projections expose a strict optional `countryReference` coordinate containing the reference identity/version, exact SHA-256, record count, `immutablePerSession: true`, and `submissionReady: false`. A missing or mismatched resource omits only the new preview profiles. A persisted new-profile session cannot reopen without its exact rule/reference coordinate; it fails explicitly instead of falling back to legacy ADIF-country scoring. Old identities remain available.
 
 The snapshot policy is current-reference only. The bundled CSV carries no effective or deletion dates, so this materialization includes exactly the endpoints reachable in that immutable snapshot at the stated reference instant. Deleted DXCC or WAE entities absent from the snapshot are not inferred or resurrected. A future CTY or authority edition must generate new bytes, a new packaged reference identity/version and a new rule identity; persisted sessions continue to require their original reference bytes. Historical/deleted-entity scoring remains a separate reference-data project.
 
@@ -36,16 +38,17 @@ The shared classifier accepts an explicit terminal `/MM` component and rejects m
 
 The bundled CTY resolver strips `/MM` and returns the license-prefix home entity. That entity is not evidence of the transmitter location at sea. The 2026 rules provide no separate maritime-mobile QSO-point value: their point branches still depend on transmitter location. The corrected rule therefore exposes only the zone candidate at its policy boundary but marks the QSO invalid with `unsupportedMaritimeMobilePointLocation`; it does not award home-country points or a country multiplier. Accepted zone-only `/MM` scoring requires a future immutable physical-location snapshot and sponsor continental-boundary classification.
 
-## Proven behavior and remaining activation work
+## Proven behavior and remaining sponsor work
 
 The subset fixture independently proves ordinary DXCC, WAE-only, IG9/IH9 shared-country behavior, Sicily separation, per-band country and zone scope, duplicates, correction, deletion, deterministic replay, unknown endpoints, reference mismatch, malformed references, and actual bundled CTY resolutions. Its score oracle is 11 QSO points × 9 multipliers = 99. The complete-reference tests additionally prove every one of the 362 reachable endpoints is classified, token-level zone overrides survive materialization, same-country contacts score 0, same-continent contacts score 1, intercontinental contacts score 3, distinct North American countries score 2, and Austria plus Vienna remain distinct country multipliers.
 
-This slice is not full CQ WW support. Product activation still requires:
+The worker activation tests create both new profiles through the Contesting Test profile, verify complete reference metadata, score the independent same-country/same-continent/intercontinental/North-American branches, distinguish Austria from Vienna, exercise Italy/Sicily/IG9/IH9, then correct, delete, restart, reopen, and export Cabrillo and ADIF. The committed Swift-generated fixtures drive the strict TypeScript parser and retain the historical fixture as a separate compatibility checkpoint.
 
-1. Durable worker persistence of the exact reference coordinate and reconstruction of the corrected rule after restart.
-2. Physical transmitter geography for maritime-mobile point calculation; no license-prefix fallback.
-3. Human multiplier labels resolved from the same pinned reference in score and manager views.
-4. Catalog, parser, worker, UI, and export acceptance under a new immutable sponsor-profile identity.
-5. The other open gates in `PILOT_SPONSOR_RULE_AUDIT.md`, including schedule, category, single-band projection, operating limits, and sponsor-ready Cabrillo validation.
+This preview is not full sponsor submission support. Completion still requires:
 
-Until those gates close, the shipped source-preview CQ WW rules retain their existing labels and limitations.
+1. Physical transmitter geography for maritime-mobile point calculation; no license-prefix fallback.
+2. Schedule, category, single-band projection, and operating-limit enforcement.
+3. Sponsor-ready Cabrillo validation and results-submission workflow acceptance.
+4. Packaged native UI acceptance of the new preview profiles.
+
+The catalog labels the new identities as country-reference previews and keeps `submissionReady: false` until those gates close.

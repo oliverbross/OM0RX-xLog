@@ -572,7 +572,7 @@ fn token(params: &Value, key: &str, choices: &[&str]) -> Result<String, String> 
 fn text_value(values: &Map<String, Value>, key: &str) -> Option<String> {
     values.get(key).and_then(Value::as_str).map(str::to_owned)
 }
-fn observed(session: &mut Session, device: Device) -> Result<Value, String> {
+fn observed(session: &mut Session, device: Device, logging_fields: bool) -> Result<Value, String> {
     const EXTRAS: [(&str, &str, &str); 8] = [
         ("vfo", "+v", "get_vfo"),
         ("split", "+s", "get_split_vfo"),
@@ -600,8 +600,25 @@ fn observed(session: &mut Session, device: Device) -> Result<Value, String> {
     };
     let mut probes = fast.to_vec();
     if device == Device::Radio {
-        probes.push(EXTRAS[session.next_extra_probe % EXTRAS.len()]);
-        session.next_extra_probe = (session.next_extra_probe + 1) % EXTRAS.len();
+        if logging_fields {
+            // Read/Follow Radio need split and actual TX frequency from the
+            // same cycle as RX frequency and mode, not retained round-robin data.
+            probes.extend([EXTRAS[1], EXTRAS[2]]);
+            // Station telemetry uses logging snapshots continuously. Keep one
+            // non-logging field advancing on every cycle so PTT, power and the
+            // remaining radio state never become permanently stale.
+            loop {
+                let extra = EXTRAS[session.next_extra_probe % EXTRAS.len()];
+                session.next_extra_probe = (session.next_extra_probe + 1) % EXTRAS.len();
+                if !matches!(extra.0, "split" | "tx_frequency") {
+                    probes.push(extra);
+                    break;
+                }
+            }
+        } else {
+            probes.push(EXTRAS[session.next_extra_probe % EXTRAS.len()]);
+            session.next_extra_probe = (session.next_extra_probe + 1) % EXTRAS.len();
+        }
     }
     for (name, command, expected) in probes {
         match session.exchange(command, expected) {
@@ -1475,7 +1492,7 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                 }
             };
             *session_slot = Some(session);
-            let result = observed(session_slot.as_mut().unwrap(), device);
+            let result = observed(session_slot.as_mut().unwrap(), device, false);
             if result.is_err() {
                 *session_slot = None;
                 if claimed_tx { crate::radio_slots::release_tx(radio_id.unwrap()); }
@@ -1513,7 +1530,7 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                 .as_mut()
                 .ok_or("Hamlib device is not connected")?;
             let result = if method == "hamlib_snapshot" {
-                observed(session, device)
+                observed(session, device, params["purpose"] == "logging")
             } else {
                 control(session, device, params)
             };
@@ -1631,6 +1648,49 @@ mod tests {
             text_value(&frame.values, "Passband").as_deref(),
             Some("2400")
         );
+    }
+    #[test]
+    fn logging_snapshot_refreshes_frequency_mode_split_and_tx_frequency_together() {
+        let listener = TcpListener::bind((LOOPBACK, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            let core = [
+                ("+f\n", "get_freq:\nFrequency: 28012000\nRPRT 0\n"),
+                ("+m\n", "get_mode:\nMode: CW\nPassband: 500\nRPRT 0\n"),
+                ("+s\n", "get_split_vfo:\nSplit: 1\nTX VFO: VFOB\nRPRT 0\n"),
+                ("+i\n", "get_split_freq:\nTX Frequency: 28015000\nRPRT 0\n"),
+            ];
+            for (command, response) in core.into_iter().chain([
+                ("+v\n", "get_vfo:\nVFO: VFOA\nRPRT 0\n"),
+            ]).chain(core).chain([
+                ("+x\n", "get_split_mode:\nTX Mode: CW\nTX Passband: 500\nRPRT 0\n"),
+            ]).chain(core).chain([
+                ("+t\n", "get_ptt:\nPTT: 0\nRPRT 0\n"),
+            ]).chain(core).chain([
+                ("+l RFPOWER\n", "get_level: RFPOWER\nRFPOWER: 0.5\nRPRT 0\n"),
+            ]) {
+                let mut line = String::new(); reader.read_line(&mut line).unwrap(); assert_eq!(line, command);
+                socket.write_all(response.as_bytes()).unwrap();
+            }
+        });
+        let (reader, writer) = connect_stream(address).unwrap();
+        let mut session = Session::new(reader, writer, None, "external", address.port(), None, false, 7);
+        for _ in 0..3 {
+            let _ = observed(&mut session, Device::Radio, true).unwrap();
+        }
+        let snapshot = observed(&mut session, Device::Radio, true).unwrap();
+        assert_eq!(snapshot["fields"]["frequency"]["Frequency"], "28012000");
+        assert_eq!(snapshot["fields"]["mode"]["Mode"], "CW");
+        assert_eq!(snapshot["fields"]["split"]["Split"], "1");
+        assert_eq!(snapshot["fields"]["tx_frequency"]["TX Frequency"], "28015000");
+        for field in ["frequency", "mode", "split", "tx_frequency", "vfo", "tx_mode", "ptt", "rf_power"] {
+            assert!(snapshot["field_observed_at_ms"][field].as_u64().is_some());
+        }
+        assert_eq!(snapshot["fields"]["ptt"]["PTT"], "0");
+        assert_eq!(snapshot["fields"]["rf_power"]["RFPOWER"], "0.5");
+        drop(session); server.join().unwrap();
     }
     #[test]
     fn parser_rejects_wrong_command_and_unterminated_reply() {

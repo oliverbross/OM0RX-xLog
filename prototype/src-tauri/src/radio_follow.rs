@@ -49,6 +49,7 @@ pub struct Observation {
     selection: Selection,
     revision: u64,
     frequency: u64,
+    receive_frequency: Option<u64>,
     mode: String,
     connection: Option<u64>,
 }
@@ -72,23 +73,46 @@ fn observation(projection: &Value, selected: &Value, now: u64) -> Result<Observa
     {
         return Err("Fresh authoritative radio telemetry is unavailable for Follow Radio.".into());
     }
-    let (frequency, mode, connection) = if selection.provider == "hamlib" {
+    let parse_frequency = |value: &Value| {
+        value.as_u64().or_else(|| value.as_str()?.parse().ok())
+            .filter(|value| (1..=1_000_000_000_000).contains(value))
+    };
+    let parse_split = |value: &Value| match (value.as_bool(), value.as_i64(), value.as_str()) {
+        (Some(value), _, _) => Some(value),
+        (_, Some(0), _) => Some(false),
+        (_, Some(1), _) => Some(true),
+        (_, _, Some("0")) => Some(false),
+        (_, _, Some("1")) => Some(true),
+        _ => None,
+    };
+    let (frequency, receive_frequency, mode, connection) = if selection.provider == "hamlib" {
         // Native Hamlib telemetry retains its raw successful f/m fields. Never
         // issue additional probes or manufacture a projected observation time.
         if snapshot["device"] != "radio"
             || !age(&snapshot["observed_at_ms"], 1.0)
             || !age(&snapshot["field_observed_at_ms"]["frequency"], 1.0)
             || !age(&snapshot["field_observed_at_ms"]["mode"], 1.0)
+            || !age(&snapshot["field_observed_at_ms"]["split"], 1.0)
         {
-            return Err("Fresh Hamlib frequency and mode are unavailable.".into());
+            return Err("Fresh Hamlib frequency, mode and split state are unavailable.".into());
         }
-        let value = &snapshot["fields"]["frequency"]["Frequency"];
-        let frequency = value.as_u64().or_else(|| value.as_str()?.parse().ok());
+        let receive = parse_frequency(&snapshot["fields"]["frequency"]["Frequency"])
+            .ok_or("Observed Hamlib receive frequency is invalid.")?;
+        let split = parse_split(&snapshot["fields"]["split"]["Split"])
+            .ok_or("Observed Hamlib split state is invalid.")?;
+        let frequency = if split {
+            if !age(&snapshot["field_observed_at_ms"]["tx_frequency"], 1.0) {
+                return Err("Fresh Hamlib transmit frequency is unavailable for split logging.".into());
+            }
+            parse_frequency(&snapshot["fields"]["tx_frequency"]["TX Frequency"])
+                .ok_or("Observed Hamlib transmit frequency is invalid.")?
+        } else { receive };
         let connection = snapshot["generation"]
             .as_u64()
             .ok_or("Hamlib connection generation is unavailable.")?;
         (
-            frequency,
+            Some(frequency),
+            split.then_some(receive),
             snapshot["fields"]["mode"]["Mode"].as_str(),
             Some(connection),
         )
@@ -105,7 +129,19 @@ fn observation(projection: &Value, selected: &Value, now: u64) -> Result<Observa
                 "Fresh authoritative radio telemetry is unavailable for Follow Radio.".into(),
             );
         }
-        (radio["frequency_hz"].as_u64(), radio["mode"].as_str(), None)
+        let split = radio["split"].as_bool()
+            .ok_or("Observed radio split state is unavailable.")?;
+        let receive = (if radio["receive_frequency_hz"].is_null() {
+            parse_frequency(&radio["frequency_hz"])
+        } else {
+            parse_frequency(&radio["receive_frequency_hz"])
+        })
+            .ok_or("Observed radio receive frequency is invalid.")?;
+        let frequency = if split {
+            parse_frequency(&radio["transmit_frequency_hz"])
+                .ok_or("Observed radio transmit frequency is unavailable for split logging.")?
+        } else { receive };
+        (Some(frequency), split.then_some(receive), radio["mode"].as_str(), None)
     };
     let frequency = frequency
         .filter(|n| (1..=1_000_000_000_000).contains(n))
@@ -128,6 +164,7 @@ fn observation(projection: &Value, selected: &Value, now: u64) -> Result<Observa
         selection,
         revision,
         frequency,
+        receive_frequency,
         mode,
         connection,
     })
@@ -429,6 +466,7 @@ impl FollowRadio {
                         &canonical,
                         &Evidence {
                             frequency_hz: observed.frequency,
+                            receive_frequency_hz: observed.receive_frequency,
                             observed_mode: observed.mode.clone(),
                         },
                         &result,
@@ -536,12 +574,14 @@ impl Backend for NativeBackend {
             || current.connection != observed.connection
             || current.revision < observed.revision
             || current.frequency != observed.frequency
+            || current.receive_frequency != observed.receive_frequency
             || current.mode != observed.mode
         {
             return Err("Observed radio fields changed before Follow Radio commit.".into());
         }
         let params = json!({"operationID":operation,"draftID":canonical.draft,"expectedRevision":canonical.revision,
-            "generation":canonical.generation,"frequencyHz":observed.frequency,"observedMode":observed.mode});
+            "generation":canonical.generation,"frequencyHz":observed.frequency,
+            "receiveFrequencyHz":observed.receive_frequency,"observedMode":observed.mode});
         match Worker::call(
             canonical.worker,
             "logbook_operator_draft_radio_follow",
@@ -666,6 +706,7 @@ mod tests {
             selection: selection.clone(),
             revision,
             frequency,
+            receive_frequency: None,
             mode: "USB".into(),
             connection: None,
         }
@@ -701,7 +742,8 @@ mod tests {
             Ok(
                 json!({"status":"applied","receipt":{"mutation":{"operationID":operation,"draftID":canonical.draft,
                 "expectedRevision":canonical.revision,"action":"replace"},"draft":{"generation":canonical.generation,
-                "revision":canonical.revision+1,"qso":{"id":canonical.draft,"frequencyHz":observation.frequency,"mode":"SSB"}}}}),
+                "revision":canonical.revision+1,"qso":{"id":canonical.draft,"frequencyHz":observation.frequency,
+                "receiveFrequencyHz":observation.receive_frequency,"mode":"SSB"}}}}),
             )
         }
         fn publish(&self) {}
@@ -923,14 +965,16 @@ mod tests {
         let now = 1_800_000_000_000u64;
         let projection = json!({"available":true,"provider":"direct_agent","selection_id":selected["selection_id"],"selection_generation":3,
             "revision":1,"received_at_ms":now,"snapshot":{"source":"direct_agent","generated_at":now/1000,
-            "radio":{"connected":true,"observed":true,"transmitting":false,"frequency_hz":14_200_000,"mode":"USB","observed_at":now/1000}}});
+            "station":{"radio_stale":false},"radio":{"connected":true,"observed":true,"transmitting":false,
+            "frequency_hz":14_200_000,"receive_frequency_hz":14_200_000,"transmit_frequency_hz":14_200_000,
+            "split":false,"mode":"USB","observed_at":now/1000}}});
         assert!(observation(&projection, &selected, now).is_ok());
         assert!(observation(&projection, &selected, now + 5001).is_err());
         for path in [
             "connected",
             "observed",
             "transmitting",
-            "frequency_hz",
+            "receive_frequency_hz",
             "mode",
         ] {
             let mut changed = projection.clone();
@@ -947,17 +991,44 @@ mod tests {
         assert!(observation(&changed, &selected, now).is_err());
     }
     #[test]
+    fn split_observation_uses_actual_tx_and_retains_rx_as_separate_evidence() {
+        let selected = selected();
+        let now = 1_800_000_000_000u64;
+        let projection = json!({"available":true,"provider":"direct_agent","selection_id":selected["selection_id"],"selection_generation":3,
+            "revision":9,"received_at_ms":now,"snapshot":{"source":"direct_agent","generated_at":now/1000,
+            "station":{"radio_stale":false},"radio":{"connected":true,"observed":true,"transmitting":false,
+            "frequency_hz":28_012_000,"receive_frequency_hz":28_012_000,"transmit_frequency_hz":28_015_000,
+            "split":true,"mode":"CW","observed_at":now/1000}}});
+        let value = observation(&projection, &selected, now).unwrap();
+        assert_eq!(value.frequency, 28_015_000);
+        assert_eq!(value.receive_frequency, Some(28_012_000));
+        let mut missing_tx = projection;
+        missing_tx["snapshot"]["radio"]["transmit_frequency_hz"] = Value::Null;
+        assert!(observation(&missing_tx, &selected, now).is_err());
+    }
+    #[test]
     fn hamlib_uses_only_fresh_retained_frequency_mode_and_connection_generation() {
         let mut selected = selected();
         selected["provider"] = json!("hamlib");
         let now = 1_800_000_000_000u64;
         let projection = json!({"available":true,"provider":"hamlib","selection_id":selected["selection_id"],"selection_generation":3,
             "revision":1,"received_at_ms":now,"snapshot":{"device":"radio","generation":42,"observed_at_ms":now,
-            "field_observed_at_ms":{"frequency":now,"mode":now},"fields":{"frequency":{"Frequency":"14074000"},"mode":{"Mode":"PKTUSB"}}}});
+            "field_observed_at_ms":{"frequency":now,"mode":now,"split":now},"fields":{"frequency":{"Frequency":"14074000"},
+            "mode":{"Mode":"PKTUSB"},"split":{"Split":"0"}}}});
         let value = observation(&projection, &selected, now).unwrap();
         assert_eq!(value.frequency, 14_074_000);
+        assert_eq!(value.receive_frequency, None);
         assert_eq!(value.mode, "PKTUSB");
         assert_eq!(value.connection, Some(42));
+        let mut split = projection.clone();
+        split["snapshot"]["fields"]["split"]["Split"] = json!("1");
+        split["snapshot"]["fields"]["tx_frequency"]["TX Frequency"] = json!("14076000");
+        split["snapshot"]["field_observed_at_ms"]["tx_frequency"] = json!(now);
+        let split_value = observation(&split, &selected, now).unwrap();
+        assert_eq!(split_value.frequency, 14_076_000);
+        assert_eq!(split_value.receive_frequency, Some(14_074_000));
+        split["snapshot"]["field_observed_at_ms"]["tx_frequency"] = json!(now - 5001);
+        assert!(observation(&split, &selected, now).is_err());
         let mut stale = projection.clone();
         stale["snapshot"]["field_observed_at_ms"]["mode"] = json!(now - 5001);
         assert!(observation(&stale, &selected, now).is_err());

@@ -191,7 +191,8 @@ final class ContestingLaneTests: XCTestCase {
     }
 
     private func commitContact(_ lane: ContestLane, sessionID: UUID, draftID: UUID,
-                               revision: Int, callsign: String, minute: Int) async throws -> (UUID, Int, [String: Any]) {
+                               revision: Int, callsign: String, minute: Int,
+                               operatorStyle: String? = nil) async throws -> (UUID, Int, [String: Any]) {
         let reserveID = UUID(), applyID = UUID(), qsoID = UUID()
         let reserved = try await lane.handle(method: "contest_serial_reserve", params: mutation(
             sessionID: sessionID, requestID: reserveID, revision: revision,
@@ -204,10 +205,50 @@ final class ContestingLaneTests: XCTestCase {
             sessionID: sessionID, requestID: applyID, revision: revision + 1,
             timestamp: String(format: "2026-10-17T03:%02d:10.000Z", minute),
             payload: ["fields": fields], draftID: draftID))
+        var commitPayload: [String: Any] = [:]
+        if let operatorStyle { commitPayload["operatorStyle"] = operatorStyle }
         let committed = try await lane.handle(method: "contest_qso_commit", params: mutation(
             sessionID: sessionID, requestID: qsoID, revision: revision + 2,
-            timestamp: String(format: "2026-10-17T03:%02d:20.000Z", minute), payload: [:], draftID: draftID))
+            timestamp: String(format: "2026-10-17T03:%02d:20.000Z", minute),
+            payload: commitPayload, draftID: draftID))
         return (qsoID, revision + 3, committed)
+    }
+
+    func testStatisticsUsesLoggedContactsPersistedStylesAndStableInjectedClockAcrossRestart() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-contest-statistics-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("Contesting/contests.sqlite")
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-17T03:30:00Z"))
+        let lane = try ContestLane(databaseURL: databaseURL, generationSource: { [generation] in generation },
+                                   clock: { now })
+        let (sessionID, draftID, _) = try await makeSession(lane)
+        let (_, revision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
+                                                        revision: 1, callsign: "K1ABC", minute: 1,
+                                                        operatorStyle: "run")
+        let (_, finalRevision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
+                                                             revision: revision, callsign: "K1ABC", minute: 2,
+                                                             operatorStyle: "search-and-pounce")
+        let params: [String: Any] = ["sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                                     "expectedRevision": finalRevision]
+        let statistics = try await lane.handle(method: "contest_statistics", params: params)
+        XCTAssertEqual((statistics["loggedQSOs"] as? NSNumber)?.intValue, 2)
+        XCTAssertEqual((statistics["acceptedQSOs"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((statistics["duplicateQSOs"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((statistics["currentHourQSOs"] as? NSNumber)?.intValue, 2)
+        let styles = try XCTUnwrap((statistics["operatorStyles"] as? [String: Any])?["total"] as? [String: Any])
+        XCTAssertEqual((styles["run"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((styles["searchAndPounce"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((styles["unknown"] as? NSNumber)?.intValue, 0)
+        let total = try XCTUnwrap(statistics["total"] as? [String: Any])
+        XCTAssertEqual((total["distinctWPXPrefixes"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((total["creditedPoints"] as? NSNumber)?.int64Value, 3)
+        XCTAssertEqual(statistics["asOfUTC"] as? String, "2026-10-17T03:30:00.000Z")
+
+        let reopened = try ContestLane(databaseURL: databaseURL,
+                                       generationSource: { [generation] in generation }, clock: { now })
+        let replayed = try await reopened.handle(method: "contest_statistics", params: params)
+        XCTAssertEqual(try canonicalJSON(replayed), try canonicalJSON(statistics))
     }
 
     private func qsoGet(_ lane: ContestLane, sessionID: UUID, qsoID: UUID, revision: Int) async throws -> [String: Any] {
@@ -309,7 +350,7 @@ final class ContestingLaneTests: XCTestCase {
         ]
         let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
         XCTAssertTrue(legacyIDs.isSubset(of: catalogIDs))
-        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.count, 26)
         XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 8)
         for rule in rules.filter({ legacyIDs.contains((($0["identity"] as? [String: Any])?["id"] as? String) ?? "") }) {
             let mode = try XCTUnwrap(rule["mode"] as? String)
@@ -602,7 +643,8 @@ final class ContestingLaneTests: XCTestCase {
         let (root, lane) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let (sessionID, draftID, _) = try await makeSession(lane)
         let (qsoID, revision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
-                                                           revision: 1, callsign: "K1ABC", minute: 10)
+                                                           revision: 1, callsign: "K1ABC", minute: 10,
+                                                           operatorStyle: "run")
         let read = try await qsoGet(lane, sessionID: sessionID, qsoID: qsoID, revision: revision)
         var full = try XCTUnwrap(read["qso"] as? [String: Any])
         XCTAssertEqual(full["qsoID"] as? String, wireID(qsoID))
@@ -958,19 +1000,31 @@ final class ContestingLaneTests: XCTestCase {
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.count, 26)
         let legacyOperatorIDs: Set<String> = ["cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb", "sac-cw", "sac-ssb",
                                 "naqp-cw", "naqp-ssb", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb"]
+        let countryReferenceOperatorIDs: Set<String> = ["cq-ww-cw-country-reference", "cq-ww-ssb-country-reference"]
         let inertRTTYIDs: Set<String> = ["naqp-rtty", "arrl-rtty-roundup"]
         let declarativeOperatorIDs: Set<String> = ["cwops-cwt", "cwops-open", "icwc-mst", "ten-ten-fallCW", "ten-ten-springCW", "ten-ten-summerPhone", "ten-ten-winterPhone", "k1usn-sst"]
         let catalogIDs = Set(rules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String })
-        XCTAssertEqual(catalogIDs, legacyOperatorIDs.union(inertRTTYIDs).union(declarativeOperatorIDs))
+        XCTAssertEqual(catalogIDs, legacyOperatorIDs.union(countryReferenceOperatorIDs).union(inertRTTYIDs).union(declarativeOperatorIDs))
         let declarativeRules = rules.filter { $0["declarativeDefinition"] != nil }
         XCTAssertEqual(Set(declarativeRules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }), declarativeOperatorIDs)
         XCTAssertTrue(rules.allSatisfy { $0["entry"] is [String: Any] })
         let operatorRules = rules.filter { $0["operatorCapability"] is [String: Any] }
         XCTAssertEqual(Set(operatorRules.compactMap { ($0["identity"] as? [String: Any])?["id"] as? String }),
-                       legacyOperatorIDs.union(declarativeOperatorIDs))
+                       legacyOperatorIDs.union(countryReferenceOperatorIDs).union(declarativeOperatorIDs))
+        for candidate in rules where countryReferenceOperatorIDs.contains(
+            ((candidate["identity"] as? [String: Any])?["id"] as? String) ?? "") {
+            let reference = try XCTUnwrap(candidate["countryReference"] as? [String: Any])
+            XCTAssertEqual(Set(reference.keys), Set(["id", "version", "sha256", "recordCount", "immutablePerSession", "submissionReady"]))
+            XCTAssertEqual(reference["id"] as? String, "cqww-country")
+            XCTAssertEqual(reference["version"] as? String, "2026.1-complete")
+            XCTAssertEqual(reference["sha256"] as? String, ContestPackagedCountryReferenceLoader.resourceSHA256)
+            XCTAssertEqual((reference["recordCount"] as? NSNumber)?.intValue, 362)
+            XCTAssertEqual(reference["immutablePerSession"] as? Bool, true)
+            XCTAssertEqual(reference["submissionReady"] as? Bool, false)
+        }
         for candidate in declarativeRules {
             let definition = try XCTUnwrap(candidate["declarativeDefinition"] as? [String: Any])
             let capability = try XCTUnwrap(candidate["operatorCapability"] as? [String: Any])
@@ -992,7 +1046,7 @@ final class ContestingLaneTests: XCTestCase {
         let capabilityDigests = try operatorRules.map {
             try XCTUnwrap(($0["operatorCapability"] as? [String: Any])?["auditDigest"] as? String)
         }
-        XCTAssertEqual(Set(capabilityDigests).count, 22)
+        XCTAssertEqual(Set(capabilityDigests).count, 24)
         XCTAssertTrue(capabilityDigests.allSatisfy { $0.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil })
         XCTAssertFalse(rules.filter { inertRTTYIDs.contains(($0["identity"] as? [String: Any])?["id"] as? String ?? "") }
             .contains { $0["operatorCapability"] != nil })
@@ -1181,15 +1235,15 @@ final class ContestingLaneTests: XCTestCase {
         }
         if let output = ProcessInfo.processInfo.environment["XLOG_CURRENT_CONTEST_CATALOG_FIXTURE_OUTPUT"] {
             let fixture: [String: Any] = ["schemaVersion": 1, "catalog": catalogFrame,
-                "assertions": ["legacyOperatorCapabilities": 14, "declarativeOperatorCapabilities": 8,
-                               "inertRTTYRules": 2, "totalRules": 24]]
+                "assertions": ["legacyOperatorCapabilities": 14, "countryReferenceOperatorCapabilities": 2,
+                               "declarativeOperatorCapabilities": 8, "inertRTTYRules": 2, "totalRules": 26]]
             let url = URL(fileURLWithPath: output)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
         }
         if let output = ProcessInfo.processInfo.environment["XLOG_OPERATOR_CAPABILITIES_TS_OUTPUT"] {
             var bindings: [String: String] = [:]
-            for candidate in operatorRules where legacyOperatorIDs.contains(
+            for candidate in operatorRules where legacyOperatorIDs.union(countryReferenceOperatorIDs).contains(
                 ((candidate["identity"] as? [String: Any])?["id"] as? String) ?? "") {
                 let identity = try XCTUnwrap(candidate["identity"] as? [String: Any])
                 let keyData = try JSONSerialization.data(withJSONObject: [
@@ -1199,7 +1253,7 @@ final class ContestingLaneTests: XCTestCase {
                 let key = try XCTUnwrap(String(data: keyData, encoding: .utf8))
                 bindings[key] = try XCTUnwrap((candidate["operatorCapability"] as? [String: Any])?["auditDigest"] as? String)
             }
-            XCTAssertEqual(bindings.count, 14)
+            XCTAssertEqual(bindings.count, 16)
             let object = try XCTUnwrap(String(data: JSONSerialization.data(withJSONObject: bindings,
                 options: [.prettyPrinted, .sortedKeys]), encoding: .utf8))
             let source = """

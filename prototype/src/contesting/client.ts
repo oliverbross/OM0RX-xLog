@@ -283,12 +283,15 @@ function validRule(value: unknown) {
       (v.operatorCapability === undefined || validOperatorCapability(v.operatorCapability, v));
   }
   const names: Record<string, string> = { "cq-ww-cw": "CQ WW CW", "cq-wpx-cw": "CQ WPX CW", "cq-ww-ssb": "CQ WW SSB", "cq-wpx-ssb": "CQ WPX SSB",
+    "cq-ww-cw-country-reference": "CQ WW CW country-reference preview", "cq-ww-ssb-country-reference": "CQ WW SSB country-reference preview",
     "oceania-dx-cw": "Oceania DX CW", "oceania-dx-ssb": "Oceania DX SSB",
     "sac-cw": "Scandinavian Activity Contest CW", "sac-ssb": "Scandinavian Activity Contest SSB",
     "naqp-cw": "North American QSO Party CW", "naqp-ssb": "North American QSO Party SSB", "naqp-rtty": "North American QSO Party RTTY",
     "arrl-rtty-roundup": "ARRL RTTY Roundup Preview", "jidx-cw": "JIDX CW Preview", "jidx-ssb": "JIDX Phone Preview",
     "arrl-dx-cw": "ARRL International DX CW Preview", "arrl-dx-ssb": "ARRL International DX SSB Preview" };
-  const id = String(identity?.id), expectedMode = id.endsWith("-ssb") ? "SSB" : id.endsWith("-rtty") || id === "arrl-rtty-roundup" ? "RTTY" : "CW";
+  const id = String(identity?.id), expectedMode = id === "cq-ww-ssb-country-reference" || id.endsWith("-ssb")
+    ? "SSB" : id.endsWith("-rtty") || id === "arrl-rtty-roundup" ? "RTTY" : "CW";
+  const sponsorCountryPreview = id === "cq-ww-cw-country-reference" || id === "cq-ww-ssb-country-reference";
   const structured = id.startsWith("naqp-") || id === "arrl-rtty-roundup" || id.startsWith("jidx-") || id.startsWith("arrl-dx-");
   const expectsSerial = id.startsWith("cq-wpx-") || id.startsWith("oceania-dx-") || id.startsWith("sac-");
   const expectedADIF = id.startsWith("cq-wpx-") ? "stxSrx" : expectsSerial ? "exchangeStrings" : "none";
@@ -301,9 +304,21 @@ function validRule(value: unknown) {
   if (v?.supportedBands !== undefined) ruleKeys.push("supportedBands");
   if (v?.supportedModes !== undefined) ruleKeys.push("supportedModes");
   if (operatorCapable) ruleKeys.push("operatorCapability");
+  if (sponsorCountryPreview) ruleKeys.push("countryReference");
+  const countryReference = object(v?.countryReference);
+  const expectedCountrySource = "cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b";
+  const validCountryReference = !sponsorCountryPreview || countryReference !== null &&
+    identity?.version === "2.0.0-country-reference" && identity?.edition === "2026-country-reference-preview" &&
+    identity?.sourceRevision === expectedCountrySource && exact(countryReference,
+      ["id", "version", "sha256", "recordCount", "immutablePerSession", "submissionReady"]) &&
+    countryReference?.id === "cqww-country" && countryReference?.version === "2026.1-complete" &&
+    countryReference?.sha256 === "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b" &&
+    countryReference?.recordCount === 362 && countryReference?.immutablePerSession === true &&
+    countryReference?.submissionReady === false;
   return !!v && exact(v, ruleKeys) &&
     validIdentity(identity) && v.displayName === names[id] && v.entryDescriptorVersion === (structured ? 2 : 1) && validEntry(entry, id) && entry?.mode === v.mode && v.mode === expectedMode &&
-    family && sacIdentity && (id !== "arrl-rtty-roundup" || canonicalJSON(identity) === canonicalJSON(ARRL_IDENTITY)) &&
+    family && sacIdentity && validCountryReference &&
+    (id !== "arrl-rtty-roundup" || canonicalJSON(identity) === canonicalJSON(ARRL_IDENTITY)) &&
     (!id.startsWith("jidx-") || identity?.version === JIDX_IDENTITY.version && identity?.edition === JIDX_IDENTITY.edition && identity?.sourceRevision === JIDX_IDENTITY.sourceRevision) &&
     (!id.startsWith("arrl-dx-") || identity?.version === ARRL_DX_IDENTITY.version && identity?.edition === ARRL_DX_IDENTITY.edition && identity?.sourceRevision === ARRL_DX_IDENTITY.sourceRevision) &&
     (v.supportedBands === undefined || Array.isArray(v.supportedBands) && v.supportedBands.length > 0 && v.supportedBands.every(band => BANDS.has(band))) &&

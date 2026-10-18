@@ -16,6 +16,15 @@ final class ContestCQWWCompleteCountryReferenceTests: XCTestCase {
         XCTAssertEqual(Set(reference.records.map(\.endpoint)).count, reference.records.count)
         XCTAssertEqual(reference.records.filter { $0.authority == .wae }.count, 5)
         XCTAssertEqual(reference.records.filter { $0.authority == .cqwwSupplement }.count, 1)
+        let rule = CQWWSponsorCountryRule(
+            mode: .cw, countryReference: reference,
+            packagedResourceSHA256: ContestPackagedCountryReferenceLoader.resourceSHA256)
+        XCTAssertEqual(rule.countryReferenceBinding, .init(
+            identity: .init(id: "cqww-country", version: "2026.1-complete"),
+            resourceSHA256: "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+            recordCount: 362))
+        XCTAssertEqual(rule.metadata.identity.sourceRevision,
+                       "cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b")
     }
 
     func testIndependentCQWWPointAndMultiplierBranchesUseCompleteReference() throws {

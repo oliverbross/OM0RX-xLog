@@ -1,0 +1,84 @@
+{
+  "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+  "plugins": [
+    {
+      "season": "january",
+      "path": "not1mm/plugins/arrl_vhf_jan.py",
+      "sha256": "692e8456947e307c15ae04c8ffe56a38f5f9475c22973a30d80b3879aeecb990",
+      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 8, "9cm": 8, "6cm": 8, "3cm": 8, "1.25cm": 8, "6mm": 8, "4mm": 8, "2.5mm": 8, "2mm": 8, "1mm": 8, "submm": 8},
+      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 0, "9cm": 0, "6cm": 0, "3cm": 0, "1.25cm": 0, "6mm": 0, "4mm": 0, "2.5mm": 0, "2mm": 0, "1mm": 0, "submm": 0},
+      "allBandPoints": 102,
+      "allBandMultiplierCount": 17,
+      "allBandScore": 1734
+    },
+    {
+      "season": "june",
+      "path": "not1mm/plugins/arrl_vhf_jun.py",
+      "sha256": "dd7d4183aa106125b3223aca6e2479341a8264995ea5b0261357301325573aff",
+      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4, "9cm": 4, "6cm": 4, "3cm": 4, "1.25cm": 4, "6mm": 4, "4mm": 4, "2.5mm": 4, "2mm": 4, "1mm": 4, "submm": 4},
+      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 0, "9cm": 0, "6cm": 0, "3cm": 0, "1.25cm": 0, "6mm": 0, "4mm": 0, "2.5mm": 0, "2mm": 0, "1mm": 0, "submm": 0},
+      "allBandPoints": 56,
+      "allBandMultiplierCount": 17,
+      "allBandScore": 952
+    },
+    {
+      "season": "september",
+      "path": "not1mm/plugins/arrl_vhf_sep.py",
+      "sha256": "571558e52d5de8fa886f9b4ce7e49a9a86d045b495d732da43ada9c6f36f3656",
+      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4, "9cm": 4, "6cm": 4, "3cm": 4, "1.25cm": 4, "6mm": 4, "4mm": 4, "2.5mm": 4, "2mm": 4, "1mm": 4, "submm": 4},
+      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 0, "9cm": 0, "6cm": 0, "3cm": 0, "1.25cm": 0, "6mm": 0, "4mm": 0, "2.5mm": 0, "2mm": 0, "1mm": 0, "submm": 0},
+      "allBandPoints": 56,
+      "allBandMultiplierCount": 17,
+      "allBandScore": 952
+    }
+  ],
+  "shared": {
+    "cabrilloName": "ARRL-VHF",
+    "dupePolicy": "perBand",
+    "multiplierPolicy": "gridPerBand",
+    "exchange": "fourCharacterGrid",
+    "pythonFrequencyMinimumWidth": 4,
+    "pythonModes": ["CW", "PH", "DG"]
+  },
+  "officialGridCorrection": {
+    "ruleVersion": "ARRL VHF Rules 1.2",
+    "sourceURL": "https://www.arrl.org/files/file/Contest%20Rules%20PDFs/2024/Jan-Jun-Sep%20VHF%20Contest%20Rules%20-%201_2.pdf",
+    "sourceClauses": ["2.2", "2.2.1", "5.3.1", "5.4.2"],
+    "duplicateCoordinates": ["contactedCallsign", "band", "transmittingStationGrid", "contactedStationGrid"],
+    "fixedStationCases": [
+      "A fixed station may work the same rover callsign once per band from each contacted rover grid."
+    ],
+    "roverCases": [
+      "A rover may work the same fixed station once per band from each transmitting rover grid.",
+      "Rover-to-rover duplicate identity includes both transmitting and contacted grids.",
+      "Mode does not create another contact for an otherwise identical four-coordinate key."
+    ],
+    "roverActivatedGridMultiplier": {
+      "kind": "activatedMaidenheadGrid4",
+      "scope": "session",
+      "oncePerGrid": true
+    },
+    "pinnedComparatorDifference": "The pinned plugins use call plus band only and count received grids per band; they do not model contacted rover grid in duplicate identity or add the rover activated-grid multiplier."
+  },
+  "officialWVEEligibility": {
+    "ruleVersion": "ARRL VHF Rules 1.2",
+    "sourceURL": "https://www.arrl.org/september-vhf",
+    "sourceClause": "2.3",
+    "bundledCTYSHA256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d",
+    "entityADIFs": [1, 6, 9, 20, 43, 103, 110, 123, 138, 166, 174, 182, 197, 202, 211, 252, 285, 291, 297, 515],
+    "policy": "A station in the W/VE entity set may contact any resolved entity; every other station may contact only a resolved W/VE entity.",
+    "resolverBoundary": "Eligibility uses the immutable resolved entity snapshot and never guesses from callsign prefixes."
+  },
+  "officialModePreview": {
+    "actualModeToCabrillo": {"AM": "PH", "CW": "CW", "FM": "FM", "FT4": "DG", "FT8": "DG", "MSK144": "DG", "RTTY": "DG", "SSB": "PH"},
+    "adifModePolicy": "Each app mode remains the exact ADIF mode; only the Cabrillo QSO mode class is mapped.",
+    "outputBoundary": "The definitions have no operator policy and do not claim an RF, audio, CW, or digital output adapter."
+  },
+  "previewDifferences": [
+    "The pinned plugins test for Band == 2300+ but their shared get_logged_band returns individual canonical numeric values at 13cm and above; the preview deliberately follows the published point table instead of reproducing that executable zero-point defect.",
+    "The portable contest band plan represents the pinned comparator bands through 1mm and its submm bucket, while normal-log band authority remains a later activation gate.",
+    "Legacy identities still admit only CW and SSB. Official-grid identities admit a finite exact-mode preview for CW, SSB, AM, FM, RTTY, FT8, FT4, and MSK144; no operator output adapter is implied.",
+    "The original three source-preview identities retain the pinned per-band duplicate behavior and unrestricted eligibility. Separate fixed and rover official-grid preview identities model four-coordinate duplicates, rover activated grids, and official directional W/VE entity eligibility; store correction admission, schedules, categories, and worker activation remain pending.",
+    "The archive projection is source-shaped operator evidence, not sponsor submission certification."
+  ]
+}

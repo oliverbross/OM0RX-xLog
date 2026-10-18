@@ -201,7 +201,9 @@ impl Owner {
             match work {
                 Some(Work::ContestReset(reset)) => {
                     let result = crate::contest_window_context::admit(&reset.context).and_then(|_| {
+                        if contest_engine_matches(&engines, &reset.context) { return Ok(()); }
                         if let Ok(mut queue) = self.queue.lock() { queue.reject_contest_work(); }
+                        crate::contest_surface::register_context(&reset.context);
                         close_contest_windows(&self.app)?;
                         engines.insert(WorkspaceWindowScope::Contesting, Engine::for_contest(&reset.context));
                         self.publish(WorkspaceWindowScope::Contesting, Some(reset.context.clone()), contest_idle(&reset.context));
@@ -216,6 +218,7 @@ impl Owner {
                     });
                     if result.is_ok() {
                         if crate::contest_window_context::invalidate_if(&close.context) {
+                            crate::contest_surface::invalidate_context(&close.context);
                             engines.remove(&WorkspaceWindowScope::Contesting);
                             if let Ok(mut outcomes) = self.outcome.lock() { outcomes.remove(&WorkspaceWindowScope::Contesting); }
                         }
@@ -519,6 +522,7 @@ pub fn created(window: &WebviewWindow) {
 }
 pub fn shutdown() {
     crate::contest_window_context::invalidate();
+    crate::contest_surface::invalidate_all();
     STOPPED.store(true, Ordering::Release);
     if let Some(registered) = OWNER.get() {
         if let Ok(registered) = registered.lock() {
@@ -744,6 +748,12 @@ fn engine_for<'a>(engines: &'a mut BTreeMap<WorkspaceWindowScope, Engine>, scope
         engines.insert(scope, engine);
     }
     engines.get_mut(&scope).expect("scoped engine")
+}
+
+fn contest_engine_matches(engines: &BTreeMap<WorkspaceWindowScope, Engine>,
+    context: &crate::contest_window_context::ContestWindowContext) -> bool {
+    engines.get(&WorkspaceWindowScope::Contesting)
+        .is_some_and(|engine| engine.contest_context.as_ref() == Some(context))
 }
 
 fn admitted_engine_for<'a>(engines: &'a mut BTreeMap<WorkspaceWindowScope, Engine>, scope: WorkspaceWindowScope,
@@ -1088,6 +1098,19 @@ mod tests {
         assert_eq!(replaced.contest_context, Some(second));
         assert_eq!(replaced.planner.plan(&contest_layout(1, &["logbook"]), false).unwrap().show, ["contest--logbook"]);
         assert!(engines.contains_key(&WorkspaceWindowScope::NormalLogging));
+    }
+
+    #[test]
+    fn same_context_reopen_preserves_contest_engine_and_managed_windows() {
+        let mut engines = BTreeMap::from([(WorkspaceWindowScope::NormalLogging, Engine::default())]);
+        let context = contest_context("20000000-0000-4000-8000-000000000001");
+        let engine = engine_for(&mut engines, WorkspaceWindowScope::Contesting, Some(&context));
+        let plan = engine.planner.plan(&contest_layout(1, &["logbook"]), false).unwrap();
+        engine.planner.acknowledge_show("contest--logbook").unwrap(); engine.planner.complete(&plan);
+
+        assert!(contest_engine_matches(&engines, &context));
+        let retained = engines.get_mut(&WorkspaceWindowScope::Contesting).unwrap();
+        assert!(retained.planner.plan(&contest_layout(1, &["logbook"]), false).unwrap().show.is_empty());
     }
 
     #[test]

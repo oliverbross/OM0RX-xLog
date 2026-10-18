@@ -73,8 +73,8 @@ export default function SpotBridgePanel({ request, provider = "direct_agent", co
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not stop spot receiver."); }
     finally { setBusy(false); }
   };
-  return <section className="spot-bridge" aria-label="RUMlog compatibility">
-    <header><div><h2>RUMlog compatibility</h2><p>Receive RUMlog Logbook and Contest UDP spots, classify their display style, then forward them through xLog to the embedded Remote Station Agent's FLEX display.</p></div>
+  return <section className="spot-bridge" aria-label="Radio spots">
+    <header><div><h2>Radio spots</h2><p>Receive RUMlog Logbook and Contest UDP spots, classify their display style, then forward them through xLog to the embedded Remote Station Agent's FLEX display.</p></div>
       <strong className={snapshot?.running ? "teal" : "secondary"}>{snapshot?.running ? "Listening" : "Stopped"}</strong></header>
     <p className="spot-bridge-safety">One way: RUMlog → xLog → radio display. This does not read or write a RUMlog logbook, synchronize contacts, tune the radio or key PTT. Wavelog remains xLog's two-way synchronization authority.</p>
     {error && <p className="live-error" role="alert">{error}</p>}
@@ -93,7 +93,7 @@ export default function SpotBridgePanel({ request, provider = "direct_agent", co
           <td><input type="color" aria-label={`${title} ${feed} colour`} value={draft.styles[key]?.colorHex ?? "#000000"} onChange={e => style(key, { colorHex: e.target.value.toUpperCase() })} /></td>
           <td><input type="number" aria-label={`${title} ${feed} lifetime seconds`} min="30" max="86400" value={draft.styles[key]?.lifetimeSeconds ?? ""} onChange={e => style(key, { lifetimeSeconds: Number(e.target.value) })} /></td>
         </tr>)}</tbody></table>
-      <div className="live-actions"><button disabled={busy || !validSpotConfiguration(draft)} onClick={() => void save(false)}>Save RUMlog compatibility settings</button>
+      <div className="live-actions"><button disabled={busy || !validSpotConfiguration(draft)} onClick={() => void save(false)}>Save Radio spot settings</button>
         {!configurationOnly && <button className="primary" disabled={busy || provider !== "direct_agent" || !validSpotConfiguration(draft)} onClick={() => void save(true)}>Save and start listeners</button>}
         {!configurationOnly && <button disabled={busy || !snapshot?.running} onClick={() => void stop()}>Stop listeners</button>}
         {dirty && <span className="amber">Unsaved changes</span>}</div>

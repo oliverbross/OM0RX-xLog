@@ -135,28 +135,38 @@ public struct CQWWSSBRule: ContestOperatorCapableRule {
 /// A noncatalog CQ WW scoring slice whose country identity is supplied by a pinned,
 /// independently versioned sponsor-country reference. Remaining 2026 profile gates are not
 /// implied by this type.
-public struct CQWWSponsorCountryRule: ContestOperatorCapableRule {
+public struct CQWWSponsorCountryRule: ContestOperatorCapableRule, ContestCountryReferenceBoundRule {
     public enum Mode: String, Sendable { case cw = "CW", ssb = "SSB" }
 
     public let metadata: ContestRuleMetadata
     public let countryReference: ContestCountryMultiplierReference
+    public let countryReferenceBinding: ContestCountryReferenceBinding?
 
-    public init(mode: Mode, countryReference: ContestCountryMultiplierReference) {
+    public init(mode: Mode, countryReference: ContestCountryMultiplierReference,
+                packagedResourceSHA256: String? = nil) {
         self.countryReference = countryReference
+        countryReferenceBinding = packagedResourceSHA256.map {
+            ContestCountryReferenceBinding(identity: countryReference.identity,
+                                           resourceSHA256: $0,
+                                           recordCount: countryReference.records.count)
+        }
         let cw = mode == .cw
+        let sourceRevision = packagedResourceSHA256.map {
+            "\(countryReference.identity.id)@\(countryReference.identity.version)+sha256:\($0)"
+        } ?? "cqww-2026-rules+\(countryReference.revisionToken)"
         metadata = ContestRuleMetadata(
             identity: ContestRuleIdentity(
                 id: cw ? "cq-ww-cw-country-reference" : "cq-ww-ssb-country-reference",
                 version: "2.0.0-country-reference",
                 edition: "2026-country-reference-preview",
-                sourceRevision: "cqww-2026-rules+\(countryReference.revisionToken)"
+                sourceRevision: sourceRevision
             ),
             displayName: cw ? "CQ WW CW country-reference preview" : "CQ WW SSB country-reference preview",
             cabrilloName: cw ? "CQ-WW-CW" : "CQ-WW-SSB",
             supportedBands: pilotBands,
             supportedModes: [mode.rawValue],
             entry: cw ? cwZoneEntry : ssbZoneEntry,
-            sourceProvenance: "CQ WW 2026 rules country-multiplier slice; noncatalog preview with pinned sponsor-country reference"
+            sourceProvenance: "CQ WW 2026 practice preview with pinned sponsor-country reference; schedule, category eligibility, results reporting, and maritime-mobile transmitter location remain unsupported"
         )
     }
 

@@ -71,7 +71,7 @@ describe("integrated RUMlog spot settings", () => {
     fireEvent.change(port, { target: { value: "13062" } });
     expect(screen.queryByRole("button", { name: "Save and start listeners" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listeners" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Save RUMlog compatibility settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Radio spot settings" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("spot_bridge_configure", expect.objectContaining({
       configuration: expect.objectContaining({ logbookPort: 13062, enabled: false }),
     })));

@@ -64,8 +64,10 @@ public actor LiveClusterMethods {
     private var service: ClusterSessionService?
     private var configuration: ClusterSessionConfiguration?
     private var forwardAcceptedCount = 0
-    private var forwardStatus = "Off"
-    private var forwardRetryAfter = Date.distantPast
+    private var flexForwardStatus = "Off"
+    private var tciForwardStatus = "Off"
+    private var flexForwardRetryAfter = Date.distantPast
+    private var tciForwardRetryAfter = Date.distantPast
     private var configurationMutationBusy = false
     private var configurationMutationWaiters: [CheckedContinuation<Void, Never>] = []
     private var terminated = false
@@ -165,19 +167,22 @@ public actor LiveClusterMethods {
             let base: ClusterSessionConfiguration = try decode(baseObject)
             let next = try mergeClusterConfiguration(draft: draft, base: base, current: currentConfiguration())
             try validate(next)
-            guard forwardingAvailable || !next.forwardSpotsToFlex else {
-                throw WorkerFailure("platform_pending", "FLEX spot forwarding is not yet available on this platform. Turn forwarding off before saving cluster settings.")
+            guard forwardingAvailable || (!next.forwardSpotsToFlex && !next.forwardSpotsToTCI) else {
+                throw WorkerFailure("platform_pending", "Radio spot forwarding is not yet available on this platform. Turn forwarding off before saving cluster settings.")
             }
             try await service.configure(next, password: { [vault] id in try vault.load(id) ?? "" })
             try requireRunning()
             configuration = next
-            forwardStatus = next.forwardSpotsToFlex ? "Enabled; connect a cluster and direct-agent station." : "Off"
+            flexForwardStatus = next.forwardSpotsToFlex ? "Enabled; connect the Remote Station Agent." : "Off"
+            tciForwardStatus = next.forwardSpotsToTCI ? "Enabled; connect TCI." : "Off"
             try saveConfiguration(next)
         case "cluster_radio_spots_configure":
-            try require(params, allowed: ["flex_enabled", "flex_expected", "color_policy", "color_policy_expected",
+            try require(params, allowed: ["flex_enabled", "flex_expected", "tci_enabled", "tci_expected",
+                                          "color_policy", "color_policy_expected",
                                           "status_colors", "status_color_expected"])
             guard !params.isEmpty,
                   (params["flex_enabled"] == nil) == (params["flex_expected"] == nil),
+                  (params["tci_enabled"] == nil) == (params["tci_expected"] == nil),
                   (params["color_policy"] == nil) == (params["color_policy_expected"] == nil),
                   (params["status_colors"] == nil) == (params["status_color_expected"] == nil) else { throw invalid() }
             var next = try currentConfiguration()
@@ -188,6 +193,14 @@ public actor LiveClusterMethods {
                     throw WorkerFailure("platform_pending", "FLEX spot forwarding is unavailable on this platform.")
                 }
                 next.forwardSpotsToFlex = enabled
+            }
+            if let rawEnabled = params["tci_enabled"] {
+                guard let enabled = rawEnabled as? Bool, let expected = params["tci_expected"] as? Bool else { throw invalid() }
+                guard next.forwardSpotsToTCI == expected || next.forwardSpotsToTCI == enabled else { throw configurationConflict() }
+                guard forwardingAvailable || !enabled else {
+                    throw WorkerFailure("platform_pending", "TCI spot forwarding is unavailable on this platform.")
+                }
+                next.forwardSpotsToTCI = enabled
             }
             if let rawPolicy = params["color_policy"] {
                 guard let value = rawPolicy as? String, let policy = ClusterSessionConfiguration.RadioSpotColorPolicy(rawValue: value),
@@ -218,8 +231,10 @@ public actor LiveClusterMethods {
             try requireRunning()
             try saveConfiguration(next)
             configuration = next
-            forwardStatus = next.forwardSpotsToFlex ? "Enabled; waiting for a connected cluster and Remote Station Agent with add_spot." : "Off"
-            forwardRetryAfter = .distantPast
+            flexForwardStatus = next.forwardSpotsToFlex ? "Enabled; waiting for a connected cluster and Remote Station Agent with add_spot." : "Off"
+            tciForwardStatus = next.forwardSpotsToTCI ? "Enabled; waiting for a connected cluster and TCI." : "Off"
+            flexForwardRetryAfter = .distantPast
+            tciForwardRetryAfter = .distantPast
         case "cluster_connect":
             try require(params, allowed: [])
             resumeChecked = true; resumeError = nil
@@ -252,10 +267,16 @@ public actor LiveClusterMethods {
             guard let object = params["filter"] as? [String: Any] else { throw invalid() }
             let filter: ClusterSpotFilter = try decode(object)
             try validateFilter(filter)
-            await service.updateFilter(filter)
-            try requireRunning()
             var next = try currentConfiguration()
             next.filter = filter
+            let requestSkimmer = filter.sources.contains("rbl")
+            if next.requestSkimmer != requestSkimmer {
+                next.requestSkimmer = requestSkimmer
+                try await service.configure(next, password: { [vault] id in try vault.load(id) ?? "" })
+            } else {
+                await service.updateFilter(filter)
+            }
+            try requireRunning()
             configuration = next
             try saveConfiguration(next)
         case "cluster_password_set":
@@ -278,10 +299,13 @@ public actor LiveClusterMethods {
                 "resume_error": resumeError as Any? ?? NSNull(),
                 "resume_initialized": (try? readResumeIntent()) != nil,
                 "flex_forwarding_available": forwardingAvailable,
+                "tci_forwarding_available": forwardingAvailable,
                 "contact_refresh_state": contactRefreshState,
                 "contact_refresh_error": contactRefreshError as Any? ?? NSNull(),
                 "password_servers": try currentConfiguration().servers.filter { try vault.load($0.id) != nil }.map { $0.id.uuidString },
-                "forwarding": ["accepted_count": forwardAcceptedCount, "status": forwardStatus]]
+                "forwarding": ["accepted_count": forwardAcceptedCount,
+                               "status": "FLEX: \(flexForwardStatus) · TCI: \(tciForwardStatus)",
+                               "flex_status": flexForwardStatus, "tci_status": tciForwardStatus]]
     }
 
     private func resolvedPasswords() throws -> [UUID: String] {
@@ -429,7 +453,8 @@ public actor LiveClusterMethods {
             Task { await self?.forwardSpotIfEnabled(spot, generation: generation) }
         }, onObservation: { archive.observe($0) }, onHistoryConnection: { archive.connection($0) }, transportFactory: transportFactory)
         configuration = config
-        forwardStatus = config.forwardSpotsToFlex ? (forwardingAvailable ? "Enabled; connect a cluster and direct-agent station." : "Unavailable on this platform") : "Off"
+        flexForwardStatus = config.forwardSpotsToFlex ? (forwardingAvailable ? "Enabled; connect a cluster and Remote Station Agent." : "Unavailable on this platform") : "Off"
+        tciForwardStatus = config.forwardSpotsToTCI ? (forwardingAvailable ? "Enabled; connect a cluster and TCI." : "Unavailable on this platform") : "Off"
         service = created
         if let csv = try? CTYResolver.bundledCSV() { await created.replaceCountryCSV(csv) }
         if refreshInitialContacts, workspaceTransitionCount == 0, (try logbook.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
@@ -465,10 +490,11 @@ public actor LiveClusterMethods {
 
     private func forwardSpotIfEnabled(_ spot: ClassifiedClusterSpot, generation: UUID) async {
         #if os(macOS)
-        guard configuration?.forwardSpotsToFlex == true, let service,
+        guard let config = configuration,
+              config.forwardSpotsToFlex || config.forwardSpotsToTCI,
+              let service,
               await service.isVisibleSpot(spot.id, in: generation) else { return }
         let now = Date()
-        guard now >= forwardRetryAfter else { return }
         let frequencyHz = Int64((spot.frequencyKHz * 1_000).rounded())
         guard (100_000...60_000_000).contains(frequencyHz),
               abs(now.timeIntervalSince(spot.receivedAt)) < 86_400 else { return }
@@ -480,13 +506,32 @@ public actor LiveClusterMethods {
                                         lifetimeSeconds: 600, priority: 3,
                                         colorHex: radioSpotColor(for: spot))
             guard !flexSpot.mode.isEmpty else { return }
-            if try await SpotForwardBroker.shared.forward(flexSpot) {
-                forwardAcceptedCount += 1
-                forwardStatus = "Accepted by Remote Station Agent; FLEX display is not verified."
+            let destinations = [(config.forwardSpotsToFlex, "direct_agent"), (config.forwardSpotsToTCI, "direct_tci")]
+            for (enabled, provider) in destinations where enabled {
+                let retryAfter = provider == "direct_agent" ? flexForwardRetryAfter : tciForwardRetryAfter
+                guard now >= retryAfter else { continue }
+                do {
+                    if try await SpotForwardBroker.shared.forward(flexSpot, provider: provider) {
+                        forwardAcceptedCount += 1
+                        if provider == "direct_agent" {
+                            flexForwardStatus = "Accepted by Remote Station Agent; FLEX/Maestro display is not verified."
+                        } else {
+                            tciForwardStatus = "Sent through TCI; SunSDR display is not verified."
+                        }
+                    }
+                } catch {
+                    if provider == "direct_agent" {
+                        flexForwardStatus = "FLEX forwarding failed: \(error.localizedDescription)"
+                        flexForwardRetryAfter = now.addingTimeInterval(60)
+                    } else {
+                        tciForwardStatus = "TCI forwarding failed: \(error.localizedDescription)"
+                        tciForwardRetryAfter = now.addingTimeInterval(60)
+                    }
+                }
             }
         } catch {
-            forwardStatus = "FLEX forwarding failed: \(error.localizedDescription). Check the connected Remote Station Agent and add_spot capability."
-            forwardRetryAfter = now.addingTimeInterval(60)
+            if config.forwardSpotsToFlex { flexForwardStatus = "Radio spot rejected: \(error.localizedDescription)" }
+            if config.forwardSpotsToTCI { tciForwardStatus = "Radio spot rejected: \(error.localizedDescription)" }
         }
         #endif
     }

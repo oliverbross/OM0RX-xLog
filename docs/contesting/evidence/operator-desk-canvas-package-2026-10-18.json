@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-18",
+  "source": "e38faa068584cdf8e60b3cf6a97eb242515920a3",
+  "integrations": {
+    "canvas": "b6d9e3b4",
+    "editableExchange": "e22cf95ef3bb67131be8872e5ea46491750e46a8",
+    "surfaceContract": "7029323",
+    "countryReference": "1be403b9a51aee98b95b0bad8d6a59d1a54c4ba1",
+    "nativeRuntime": "2ab979e5953b1b5eb637cb3ba6cd31cd06ff73d0",
+    "mainHistory": "f4c481bf42a2c28bcb7bbac43028e682e76a1111"
+  },
+  "tests": [
+    {
+      "suite": "Rust workspace window planner/runtime",
+      "passed": 51,
+      "log": "/tmp/xlog-e38faa0-native-windows.log",
+      "sha256": "5757fc17669126b9490e22f4133a0dd7570b7dd15522f726a6a9cdfe91052ced"
+    },
+    {
+      "suite": "Rust contest context",
+      "passed": 3,
+      "log": "/tmp/xlog-e38faa0-native-context.log",
+      "sha256": "87b251a50255196b16ece7e1a4419368c50008f99815aaf4474cb99d6ef75a0c"
+    },
+    {
+      "suite": "Swift country materialization/core and main classification/opportunities",
+      "passed": 28,
+      "log": "/tmp/xlog-e38faa0-country-main-swift.log",
+      "sha256": "6f8294c5e2a67b30054536419701407819a334cfc3e72bcc791a4dbe24f0094d"
+    },
+    {
+      "suite": "UI Chaser, contest canvas, surface action protocol",
+      "passed": 74,
+      "log": "/tmp/xlog-e38faa0-chaser-canvas-ui.log",
+      "sha256": "02067197418be6b6b16b912a41cbfc41575db9b25a28795d5983fc3d74651ef5"
+    },
+    {
+      "suite": "TypeScript",
+      "exitCode": 0,
+      "log": "/tmp/xlog-e38faa0-tsc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "boundaries": [
+    "Four canvas panels only; remaining eight upstream working surfaces incomplete.",
+    "Native lifecycle and action contract integrated, but child projection/action bridge not implemented in this source.",
+    "Country resource has 362 endpoints and a strict loader, but new sponsor-country CQWW identities are not yet active.",
+    "No all-contest or RF acceptance; macOS only."
+  ],
+  "originalAppBefore": {
+    "executableSHA256": "44328c7b35451de30253ca220569c43cda47af6dd515cbf58ca6b838b98c8a8c",
+    "plistSHA256": "f44c7b27832871a03af9ded3d88357cdb4ae08415a0085d554ea1a14e70d01ec",
+    "version": "1.2.23"
+  },
+  "package": {
+    "job": "shell_b74a7db0d2cd05cb",
+    "log": "/tmp/xlog-e38faa0-canvas-package.log",
+    "status": "passed",
+    "exitCode": 0,
+    "sha256": "07c998880f1a6879f8e303a064c81ff019a28859a1600f51ca15cd08d159c679",
+    "source": "e38faa068584cdf8e60b3cf6a97eb242515920a3",
+    "installedPath": "/Applications/OM0RX-xLog Contesting Test.app",
+    "hostSHA256": "15cf5de8dca097670577667165a6b10705de7ba34557eb14beb03972effca164",
+    "workerSHA256": "a6a76a0341087ddbfc577561035b855794f5718b589cd18b2f37d1c227dfa52d",
+    "signature": "ad-hoc; deep strict verification passed; not notarized",
+    "backup": "/tmp/xlog-e38faa0-test-backup",
+    "nativeAcceptance": "failed canvas gate; safe fixed-layout fallback verified"
+  },
+  "nativeAcceptance": {
+    "status": "failed-canvas-gate",
+    "checks": [
+      {
+        "name": "Installed Test startup and saved SSB session",
+        "status": "passed",
+        "observed": "Saved QA CQ WW SSB reopened: 4 QSOs, 10 points, 8 multipliers, claimed score 80; SCP fixture 7 calls; simulation disarmed."
+      },
+      {
+        "name": "Flexible canvas",
+        "status": "failed",
+        "observed": "Saved contest layout unavailable; showing the fixed workspace.",
+        "cause": "ContestWorkspace passes framedWorkerRequest response to WorkspaceLayoutSession, which expects unwrapped result.layout. Unit fixture returned unwrapped layout and missed production mismatch.",
+        "fixStatus": "assigned to operator_composition; not accepted"
+      }
+    ],
+    "notRun": [
+      "canvas move/resize/hide/reopen/restart",
+      "native child action bridge (not in packaged source)"
+    ],
+    "originalAppSHA256After": "44328c7b35451de30253ca220569c43cda47af6dd515cbf58ca6b838b98c8a8c"
+  }
+}

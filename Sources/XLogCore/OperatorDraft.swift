@@ -100,10 +100,12 @@ public enum OperatorDraftError: Error {
 /// intent, current draft/selection identity and fresh authoritative telemetry.
 public enum OperatorDraftRadioFollow {
     public static func applying(to previous: QSO, frequencyHz: Int64,
+                                receiveFrequencyHz: Int64? = nil,
                                 observedMode: String, enabled: Bool) throws -> QSO {
         guard enabled else { return previous }
         let radioMode = observedMode.uppercased()
         guard (1...1_000_000_000_000).contains(frequencyHz),
+              receiveFrequencyHz.map({ (1...1_000_000_000_000).contains($0) }) ?? true,
               (1...16).contains(radioMode.utf8.count),
               radioMode.utf8.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) || $0 == 95 || $0 == 45 }) else {
             throw OperatorDraftError.invalid
@@ -112,6 +114,8 @@ public enum OperatorDraftRadioFollow {
         result.frequencyHz = frequencyHz
         let band = BandPlan.band(for: frequencyHz)
         if !band.isEmpty { result.band = band }
+        result.receiveFrequencyHz = receiveFrequencyHz
+        result.receiveBand = receiveFrequencyHz.map(BandPlan.band(for:)) ?? ""
         // Keep parity with prototype/src/live/draftRadio.ts: a data carrier is
         // not evidence of FT8 rather than another chosen digital contact mode.
         let digital = ["FT8", "FT4", "FT2", "JTTY", "PSK", "PSK31", "PSK63", "JT65", "JT9", "MFSK", "OLIVIA", "DATA", "DIGI"]

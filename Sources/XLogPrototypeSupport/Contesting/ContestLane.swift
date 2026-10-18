@@ -13,16 +13,13 @@ import XLogPortableCore
 /// Serialized, local-only boundary for the isolated contest database.
 actor ContestLane {
     typealias GenerationSource = @Sendable () async throws -> String
+    typealias CountryReferenceLoader = @Sendable () throws -> ContestCountryMultiplierReference
+    typealias Clock = @Sendable () -> Date
 
     private let databaseURL: URL
     private let generationSource: GenerationSource
+    private let clock: Clock
     private let reference: ContestReferenceData
-    private static let activeRules = ContestRuleRegistry([
-        CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
-        OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
-        NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
-        JIDXCWRule(), JIDXSSBRule(), ARRLDXCWRule(), ARRLDXSSBRule(),
-    ])
     private let rules: ContestRuleRegistry
     private let declarativeCatalog: [ContestRuleIdentity: ContestDeclarativeCatalogEntry]
     private var store: SQLiteContestStore?
@@ -35,11 +32,26 @@ actor ContestLane {
     init(databaseURL: URL, generationSource: @escaping GenerationSource,
          exportLane: ContestExportLane? = nil,
          rules: ContestRuleRegistry? = nil,
-         declarativeDefinitions: [ContestDeclarativeDefinition]? = nil) throws {
+         declarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
+         countryReferenceLoader: @escaping CountryReferenceLoader = {
+             try ContestPackagedCountryReferenceLoader.cqww2026()
+         },
+         clock: @escaping Clock = { Date() }) throws {
         self.databaseURL = databaseURL
         self.generationSource = generationSource
+        self.clock = clock
         self.exportLane = exportLane
-        self.rules = rules ?? Self.activeRules
+        let countryReference: ContestCountryMultiplierReference?
+        if let rules {
+            self.rules = rules
+            countryReference = nil
+        } else if let loaded = try? countryReferenceLoader() {
+            countryReference = loaded
+            self.rules = Self.activeRules(countryReference: loaded)
+        } else {
+            countryReference = nil
+            self.rules = Self.activeRules(countryReference: nil)
+        }
         let definitions = try declarativeDefinitions.map { try $0.map(ContestDeclarativeCatalogEntry.init) }
             ?? (rules == nil ? ContestBuiltInDeclarativeCatalog.operatorArchiveEntries() : [])
         var catalog: [ContestRuleIdentity: ContestDeclarativeCatalogEntry] = [:]
@@ -52,8 +64,26 @@ actor ContestLane {
             catalog[entry.identity] = entry
         }
         self.declarativeCatalog = catalog
-        self.reference = try ContestReferenceData.bundled()
+        self.reference = try ContestReferenceData.bundled(countryReference: countryReference)
         try ContestDatabaseBoundary.validate(databaseURL: databaseURL)
+    }
+
+    private static func activeRules(countryReference: ContestCountryMultiplierReference?) -> ContestRuleRegistry {
+        var active: [any ContestRule] = [
+            CQWWCWRule(), CQWPXCWRule(), CQWWSSBRule(), CQWPXSSBRule(),
+            OceaniaDXCWRule(), OceaniaDXSSBRule(), SACCWRule(), SACSSBRule(),
+            NAQPCWRule(), NAQPSSBRule(), NAQPRTTYRule(), ARRLRTTYRoundupRule(),
+            JIDXCWRule(), JIDXSSBRule(), ARRLDXCWRule(), ARRLDXSSBRule(),
+        ]
+        if let countryReference {
+            active.append(CQWWSponsorCountryRule(
+                mode: .cw, countryReference: countryReference,
+                packagedResourceSHA256: ContestPackagedCountryReferenceLoader.resourceSHA256))
+            active.append(CQWWSponsorCountryRule(
+                mode: .ssb, countryReference: countryReference,
+                packagedResourceSHA256: ContestPackagedCountryReferenceLoader.resourceSHA256))
+        }
+        return ContestRuleRegistry(active)
     }
 
     func handle(method: String, params: [String: Any]) async throws -> [String: Any] {
@@ -97,6 +127,7 @@ actor ContestLane {
             case "contest_operation_receipt": result = try await receipt(params, generation: before)
             case "contest_log_page": result = try await logPage(params, generation: before)
             case "contest_score": result = try await score(params, generation: before)
+            case "contest_statistics": result = try await statistics(params, generation: before)
             case "contest_export_prepare", "contest_export_read", "contest_export_release":
                 result = try await exportTransport().handle(method: method, params: params)
             case "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
@@ -723,7 +754,10 @@ actor ContestLane {
     private func catalog(_ params: [String: Any], generation: String) throws -> [String: Any] {
         try Wire.exact(params, [])
         let staticRules = try rules.metadata.map {
-            try reference.ruleWire($0, operatorCapability: operatorCapability(for: $0.identity))
+            let rule = rules.rule(for: $0.identity)
+            return try reference.ruleWire(
+                $0, operatorCapability: operatorCapability(for: $0.identity),
+                countryReferenceBinding: (rule as? any ContestCountryReferenceBoundRule)?.countryReferenceBinding)
         }
         let definitions = try declarativeCatalog.values.sorted {
             ($0.identity.id, $0.identity.version, $0.identity.edition, $0.identity.sourceRevision) <
@@ -834,7 +868,7 @@ actor ContestLane {
             guard !(isJIDX && stationCall.hasSuffix("/MM")) else {
                 throw ContestLaneError.confirmed("station_mismatch", "A JIDX maritime-mobile station must not claim a land entity.")
             }
-            guard let country = reference.resolve(stationCall, at: request.timestamp), country.cqZone == zone,
+            guard let country = reference.resolve(stationCall, at: request.timestamp, for: rule), country.cqZone == zone,
                   country.name.caseInsensitiveCompare(entityText) == .orderedSame else {
                 throw ContestLaneError.confirmed("station_mismatch", "The station snapshot does not match bundled offline CTY data.")
             }
@@ -928,7 +962,8 @@ actor ContestLane {
         let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), metadata: rule.metadata,
                                           normalizeJIDXNumbers: isJIDX,
                                           projection: projection.map { policy in { policy.projectExchangeFields($0) } })
-        let entity = try fields.callsign.isEmpty ? nil : reference.resolve(fields.callsign, at: request.timestamp).map(reference.entity)
+        let entity = try fields.callsign.isEmpty ? nil
+            : reference.resolve(fields.callsign, at: request.timestamp, for: rule).map(reference.entity)
         let next = ContestDraftSnapshot(id: current.id, sessionID: current.sessionID,
             revision: prior?.committedRevision ?? (stored.revision + 1), updatedAt: request.timestamp,
             callsign: fields.callsign, band: fields.band, mode: fields.mode, frequencyHz: fields.frequencyHz,
@@ -970,7 +1005,8 @@ actor ContestLane {
     }
 
     private func commit(_ params: [String: Any], generation: String) async throws -> [String: Any] {
-        let request = try Wire.mutation(params, payloadKeys: [], requiresDraft: true)
+        let request = try Wire.mutation(params, payloadKeys: [], optionalPayloadKeys: ["operatorStyle"],
+                                        requiresDraft: true)
         try Wire.requireGeneration(request.workspaceGeneration, generation)
         let prior = try await preflightReplay(request)
         let stored = try await checkedSession(request.sessionID, generation: generation,
@@ -993,6 +1029,16 @@ actor ContestLane {
                 : draft.exchange.normalizedSent
             let rawSent = rule.draftResetSentProjection == .soleStationField
                 ? draft.exchange.rawSent : normalizedSent
+            let operatorStyle: ContestOperatorStyle?
+            if let rawStyle = request.payload["operatorStyle"] {
+                guard let text = rawStyle as? String,
+                      let parsed = ContestOperatorStyle(rawValue: text) else {
+                    throw ContestLaneError.confirmed("invalid_params", "The QSO operator style is invalid.")
+                }
+                operatorStyle = parsed
+            } else {
+                operatorStyle = nil
+            }
             qso = ContestQSO(id: request.requestID, sessionID: request.sessionID, timestampUTC: request.timestamp,
                 callsign: draft.callsign, band: draft.band, mode: draft.mode, frequencyHz: draft.frequencyHz ?? 0,
                 rstSent: draft.rstSent, rstReceived: draft.rstReceived,
@@ -1000,7 +1046,8 @@ actor ContestLane {
                                 rawReceived: draft.exchange.rawReceived, normalizedReceived: draft.exchange.normalizedReceived,
                                 sentFields: draft.exchange.sentFields, receivedFields: draft.exchange.receivedFields),
                 entity: draft.entity, operatorCallsign: draft.operatorCallsign, stationLocation: draft.stationLocation,
-                provenance: .init(source: .operatorEntry, sourceIdentity: reference.version))
+                provenance: .init(source: .operatorEntry, sourceIdentity: reference.version),
+                operatorStyle: operatorStyle)
         }
         let result = try await repository().commitQSO(qso, reservationID: reservation?.id,
             scope: request.coreScope(generation: stored.session.workspaceGeneration), committedAt: request.timestamp)
@@ -1034,7 +1081,9 @@ actor ContestLane {
         let prior = try await preflightReplay(request, compareCommittedTimestamp: false)
         let stored = try await checkedSession(request.sessionID, generation: generation,
                                               revision: prior == nil ? request.expectedRevision : nil)
-        let qso = try await correctedQSO(Wire.object(request.payload, "qso"), stored: stored)
+        let qsoValue = try Wire.object(request.payload, "qso")
+        let original = try await correctionOriginalQSO(qsoValue, request: request, prior: prior)
+        let qso = try await correctedQSO(qsoValue, stored: stored, original: original)
         let reason = try Wire.text(request.payload, "reason", max: 1_024)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !reason.isEmpty else { throw ContestLaneError.confirmed("invalid_params", "A correction reason is required.") }
@@ -1095,6 +1144,20 @@ actor ContestLane {
         try await checked(snapshot.session, generation: generation, revision: revision)
         return scoreWire(snapshot.score, generation: generation,
                          referenceDataVersion: snapshot.session.session.referenceDataVersion)
+    }
+
+    private func statistics(_ params: [String: Any], generation: String) async throws -> [String: Any] {
+        try Wire.exact(params, ["sessionID", "workspaceGeneration", "expectedRevision"])
+        try Wire.requireGeneration(try Wire.text(params, "workspaceGeneration", max: 128), generation)
+        let id = try Wire.uuid(params, "sessionID")
+        let revision = try Wire.uint(params, "expectedRevision")
+        let asOfUTC = clock()
+        let snapshot = try await repository().rateStatisticsSnapshot(sessionID: id, asOfUTC: asOfUTC)
+        guard snapshot.workspaceGeneration == (try Wire.generationID(generation)),
+              snapshot.revision == revision else {
+            throw ContestLaneError.confirmed("stale_revision", "The contest session changed; reload it before retrying.")
+        }
+        return Self.statisticsWire(snapshot, generation: generation)
     }
 
     private func checkedSession(_ id: UUID, generation: String, revision: UInt64? = nil) async throws -> StoredContestSession {
@@ -1186,7 +1249,8 @@ actor ContestLane {
             "name": stored.metadata.name,
             "rule": try reference.ruleWire(
                 metadata, operatorCapability: try ContestOperatorProjection.capability(for: rule),
-                declarativeDefinition: (rule as? DeclarativeContestRule)?.definition),
+                declarativeDefinition: (rule as? DeclarativeContestRule)?.definition,
+                countryReferenceBinding: (rule as? any ContestCountryReferenceBoundRule)?.countryReferenceBinding),
             "referenceDataVersion": stored.session.referenceDataVersion,
             "station": station,
             "operator": ["callsign": stored.metadata.operatorCallsign, "category": stored.metadata.operatorCategory],
@@ -1283,7 +1347,34 @@ actor ContestLane {
             "isDupe": scored.disposition == .duplicate]
     }
 
-    private func correctedQSO(_ value: [String: Any], stored: StoredContestSession) async throws -> ContestQSO {
+    private func correctionOriginalQSO(_ value: [String: Any], request: ContestMutationRequest,
+                                       prior: ContestMutationReceipt?) async throws -> ContestQSO {
+        let qsoID = try Wire.uuid(value, "qsoID")
+        guard let prior else {
+            return try await repository().qso(sessionID: request.sessionID, id: qsoID)
+        }
+        let records = try await repository().qsoAuditTrail(sessionID: request.sessionID, qsoID: qsoID)
+        guard let replay = records.first(where: {
+            $0.sessionID == request.sessionID && $0.qsoID == qsoID &&
+                $0.operation == .correction && $0.requestID == request.requestID &&
+                $0.committedRevision == prior.committedRevision
+        }) else {
+            throw ContestLaneError.uncertain(
+                "invalid_result", "The durable correction replay could not recover its immutable QSO fields.")
+        }
+        guard replay.operationTimestamp == request.timestamp else {
+            throw ContestLaneError.confirmed(
+                "request_conflict", "This request ID was already used with another operation timestamp.")
+        }
+        guard let corrected = replay.after else {
+            throw ContestLaneError.uncertain(
+                "invalid_result", "The durable correction replay could not recover its immutable QSO fields.")
+        }
+        return corrected
+    }
+
+    private func correctedQSO(_ value: [String: Any], stored: StoredContestSession,
+                              original: ContestQSO) async throws -> ContestQSO {
         let rule = try await resolvedRule(for: stored)
         var keys: Set<String> = ["qsoID", "sessionID", "originalUTC", "callsign", "band", "mode",
                                "frequencyHz", "sentReport", "receivedReport", "sentExchange",
@@ -1298,6 +1389,10 @@ actor ContestLane {
         let sessionID = try Wire.uuid(value, "sessionID")
         guard sessionID == stored.session.id else {
             throw ContestLaneError.confirmed("wrong_session", "The contact belongs to another contest session.")
+        }
+        guard original.id == qsoID, original.sessionID == sessionID else {
+            throw ContestLaneError.uncertain(
+                "invalid_result", "The durable correction source does not match the requested QSO.")
         }
         let originalUTC = try Wire.date(value, "originalUTC")
         let callsign = try Wire.callsign(value, "callsign")
@@ -1324,7 +1419,7 @@ actor ContestLane {
         guard try Wire.text(value, "allocatedSerial", max: sentMaximum, empty: true) == normalizedSent else {
             throw ContestLaneError.confirmed("invalid_params", "The allocated sent value is inconsistent.")
         }
-        guard let country = reference.resolve(callsign, at: originalUTC),
+        guard let country = reference.resolve(callsign, at: originalUTC, for: rule),
               let resolvedEntity = try? reference.entity(country) else {
             throw ContestLaneError.confirmed("reference_mismatch", "The corrected callsign does not resolve in pinned CTY data.")
         }
@@ -1366,7 +1461,7 @@ actor ContestLane {
                             sentFields: sentFields, receivedFields: receivedFields),
             entity: resolvedEntity, operatorCallsign: try Wire.callsign(value, "operatorCallsign"),
             stationLocation: try Wire.text(value, "stationLocation", max: 128, empty: true),
-            provenance: provenance)
+            provenance: provenance, operatorStyle: original.operatorStyle)
     }
 
     private func fullQSOWire(_ qso: ContestQSO, stored: StoredContestSession) async throws -> [String: Any] {
@@ -1428,6 +1523,43 @@ actor ContestLane {
                                "requestID": Wire.uuidString(result.receipt.requestID),
                                "revision": result.receipt.committedRevision],
             "receipt": receiptWire(result.receipt)]
+    }
+
+    private static func statisticsWire(_ value: ContestRateStatisticsReadSnapshot,
+                                       generation: String) -> [String: Any] {
+        let statistics = value.statistics
+        return ["sessionID": Wire.uuidString(value.sessionID), "workspaceGeneration": generation,
+                "revision": value.revision, "asOfUTC": Wire.iso(statistics.asOfUTC),
+                "fullLogQSOs": statistics.fullLogQSOs, "loggedQSOs": statistics.loggedQSOs,
+                "acceptedQSOs": statistics.acceptedQSOs,
+                "duplicateQSOs": statistics.duplicateQSOs, "invalidQSOs": statistics.invalidQSOs,
+                "currentHourQSOs": statistics.currentHourQSOs,
+                "operatorStyles": ["total": styleWire(statistics.totalOperatorStyles),
+                                   "currentHour": styleWire(statistics.currentHourOperatorStyles)],
+                "trailing60Minutes": rateWire(statistics.trailing60Minutes),
+                "latest10": statistics.latest10.map(rateWire) as Any? ?? NSNull(),
+                "latest100": statistics.latest100.map(rateWire) as Any? ?? NSNull(),
+                "bands": statistics.bands.map(bandWire),
+                "total": bandWire(statistics.total)]
+    }
+
+    private static func rateWire(_ value: ContestRateMetric) -> [String: Any] {
+        ["qsoCount": value.qsoCount,
+         "spanSeconds": value.spanSeconds as Any? ?? NSNull(),
+         "qsosPerHour": value.qsosPerHour as Any? ?? NSNull()]
+    }
+
+    private static func styleWire(_ value: ContestOperatorStyleStatistics) -> [String: Any] {
+        ["run": value.run, "searchAndPounce": value.searchAndPounce, "unknown": value.unknown]
+    }
+
+    private static func bandWire(_ value: ContestBandStatistics) -> [String: Any] {
+        ["band": value.band, "loggedQSOs": value.loggedQSOs, "acceptedQSOs": value.acceptedQSOs,
+         "distinctCallsigns": value.distinctCallsigns,
+         "modes": ["cw": value.modes.cw, "phone": value.modes.phone,
+                   "digital": value.modes.digital, "other": value.modes.other],
+         "distinctWPXPrefixes": value.distinctWPXPrefixes,
+         "creditedPoints": value.creditedPoints]
     }
 
     private func scoreWire(_ value: ContestScoreSnapshot, generation: String,
@@ -1620,8 +1752,9 @@ struct ContestReferenceData {
     let primaryPrefixes: [Int: String]
     let entityNames: [Int: String]
     let entityNamesByPrefix: [String: String]
+    let countryReference: ContestCountryMultiplierReference?
 
-    static func bundled() throws -> Self {
+    static func bundled(countryReference: ContestCountryMultiplierReference? = nil) throws -> Self {
         let csv = try CTYResolver.bundledCSV()
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in csv.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
@@ -1636,10 +1769,16 @@ struct ContestReferenceData {
             }
         }
         return .init(resolver: try CTYResolver.bundled(), version: String(format: "bundled-cty-fnv64-%016llx", hash),
-                     primaryPrefixes: prefixes, entityNames: names, entityNamesByPrefix: namesByPrefix)
+                     primaryPrefixes: prefixes, entityNames: names, entityNamesByPrefix: namesByPrefix,
+                     countryReference: countryReference)
     }
 
     func resolve(_ callsign: String, at date: Date) -> CountryInfo? { resolver.resolve(callsign, at: date) }
+    func resolve(_ callsign: String, at date: Date, for rule: any ContestRule) -> CountryInfo? {
+        rule is any ContestCountryReferenceBoundRule
+            ? resolver.resolveCountryEndpoint(callsign, at: date)
+            : resolver.resolve(callsign, at: date)
+    }
     func entity(_ country: CountryInfo) throws -> ContestEntitySnapshot {
         guard let prefix = primaryPrefixes[country.adif], !prefix.isEmpty else {
             throw ContestLaneError.confirmed("reference_unavailable", "Bundled CTY data has no canonical prefix for the resolved entity.")
@@ -1666,6 +1805,10 @@ struct ContestReferenceData {
                 return "\(entityNames[identity.entityADIF] ?? "DXCC \(identity.entityADIF)")\(scoped)"
             }
         case "cq-zone": return "CQ zone \(key.value)\(scoped)"
+        case "cqww-country":
+            let label = countryReference?.records.first { $0.multiplierKey == key.value }?.displayLabel
+                ?? key.value
+            return "\(label)\(scoped)"
         case "wpx-prefix": return "\(key.value) prefix\(scoped)"
         case "country":
             let name = Int(key.value).flatMap { entityNames[$0] } ?? "DXCC \(key.value)"
@@ -1682,13 +1825,24 @@ struct ContestReferenceData {
     }
     func ruleWire(_ metadata: XContestCore.ContestRuleMetadata,
                   operatorCapability: ContestOperatorCapability?,
-                  declarativeDefinition: ContestDeclarativeDefinition? = nil) throws -> [String: Any] {
+                  declarativeDefinition: ContestDeclarativeDefinition? = nil,
+                  countryReferenceBinding: ContestCountryReferenceBinding? = nil) throws -> [String: Any] {
         var result: [String: Any] = ["identity": Wire.ruleIdentityWire(metadata.identity), "displayName": metadata.displayName,
          "entryDescriptorVersion": metadata.entry.version.rawValue,
          "mode": metadata.entry.mode, "entry": Wire.entryWire(metadata.entry),
          "supportedBands": metadata.supportedBands.sorted(), "supportedModes": metadata.supportedModes.sorted(),
          "referenceDataVersion": version, "sourceVerification": "provisional", "sourceNote": metadata.sourceProvenance]
         if let operatorCapability { result["operatorCapability"] = Wire.operatorCapabilityWire(operatorCapability) }
+        if let binding = countryReferenceBinding {
+            result["countryReference"] = [
+                "id": binding.identity.id,
+                "version": binding.identity.version,
+                "sha256": binding.resourceSHA256,
+                "recordCount": binding.recordCount,
+                "immutablePerSession": true,
+                "submissionReady": false,
+            ]
+        }
         if let declarativeDefinition {
             result["declarativeDefinition"] = [
                 "definitionDigest": declarativeDefinition.definitionDigest,
@@ -1940,11 +2094,18 @@ private enum Wire {
         ["source": value.source.rawValue, "sourceIdentity": value.sourceIdentity as Any? ?? NSNull(),
          "importedClaimedScore": value.importedClaimedScore as Any? ?? NSNull()]
     }
-    static func mutation(_ params: [String: Any], payloadKeys: Set<String>, requiresDraft: Bool) throws -> ContestMutationRequest {
+    static func mutation(_ params: [String: Any], payloadKeys: Set<String>,
+                         optionalPayloadKeys: Set<String> = [],
+                         requiresDraft: Bool) throws -> ContestMutationRequest {
         var keys: Set<String> = ["sessionID", "workspaceGeneration", "requestID", "expectedRevision", "payloadDigest", "operationTimestamp", "payload"]
         if requiresDraft { keys.insert("draftID") }
         try exact(params, keys)
-        let payload = try object(params, "payload"); try exact(payload, payloadKeys)
+        let payload = try object(params, "payload")
+        let actualPayloadKeys = Set(payload.keys)
+        guard payloadKeys.isSubset(of: actualPayloadKeys),
+              actualPayloadKeys.isSubset(of: payloadKeys.union(optionalPayloadKeys)) else {
+            throw ContestLaneError.confirmed("invalid_params", "Contest request fields are invalid.")
+        }
         return .init(sessionID: try uuid(params, "sessionID"), workspaceGeneration: try text(params, "workspaceGeneration", max: 128),
             requestID: try uuid(params, "requestID"), expectedRevision: try uint(params, "expectedRevision"),
             draftID: requiresDraft ? try uuid(params, "draftID") : nil, payloadDigest: try text(params, "payloadDigest", max: 512),

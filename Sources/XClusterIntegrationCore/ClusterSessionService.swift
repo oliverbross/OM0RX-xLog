@@ -161,8 +161,9 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
     public var palette: ClusterPalette
     public var filter: ClusterSpotFilter
     public var commandPresets: [ClusterCommandPreset]
-    /// Explicit opt-in. Only the direct-agent xCat provider supports add_spot.
+    /// Explicit opt-ins for radio-display spot output transports.
     public var forwardSpotsToFlex: Bool
+    public var forwardSpotsToTCI: Bool
     public var radioSpotColorPolicy: RadioSpotColorPolicy
 
     public init(servers: [ClusterServerConfiguration], connectOnStartup: Bool = true,
@@ -177,7 +178,8 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
                     .init(name: "WCY", command: "sh/wcy/5"),
                     .init(name: "Announcements", command: "sh/ann/10"),
                     .init(name: "Users", command: "sh/u")
-                ], forwardSpotsToFlex: Bool = false, radioSpotColorPolicy: RadioSpotColorPolicy = .callsign) {
+                ], forwardSpotsToFlex: Bool = false, forwardSpotsToTCI: Bool = false,
+                radioSpotColorPolicy: RadioSpotColorPolicy = .callsign) {
         self.servers = servers
         self.connectOnStartup = connectOnStartup
         self.requestRecentSpotsOnConnect = requestRecentSpotsOnConnect
@@ -191,13 +193,14 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         self.filter = filter
         self.commandPresets = commandPresets
         self.forwardSpotsToFlex = forwardSpotsToFlex
+        self.forwardSpotsToTCI = forwardSpotsToTCI
         self.radioSpotColorPolicy = radioSpotColorPolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case servers, connectOnStartup, requestRecentSpotsOnConnect, reconnect, requestSkimmer
         case showWorkedBandModeSpots, hideWSPRSpots, maximumSpots
-        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex, radioSpotColorPolicy
+        case specialRules, palette, filter, commandPresets, forwardSpotsToFlex, forwardSpotsToTCI, radioSpotColorPolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -223,6 +226,7 @@ public struct ClusterSessionConfiguration: Codable, Sendable {
         commandPresets = try values.decodeIfPresent([ClusterCommandPreset].self, forKey: .commandPresets)
             ?? Self(servers: []).commandPresets
         forwardSpotsToFlex = try values.decodeIfPresent(Bool.self, forKey: .forwardSpotsToFlex) ?? false
+        forwardSpotsToTCI = try values.decodeIfPresent(Bool.self, forKey: .forwardSpotsToTCI) ?? false
         radioSpotColorPolicy = try values.decodeIfPresent(RadioSpotColorPolicy.self, forKey: .radioSpotColorPolicy) ?? .callsign
     }
 }
@@ -635,8 +639,8 @@ public actor ClusterSessionService {
         let band = SpotLogic.band(for: raw.frequencyKHz)
         let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
-        let specials = SpotLogic.specials(in: raw.comment, rules: configuration.specialRules)
         let source = SpotLogic.source(spotter: raw.spotter, comment: raw.comment)
+        let specials = specialTags(comment: raw.comment, source: source)
         let (score, reasons) = SpotLogic.score(callStatus: classification.callStatus, dxccStatus: classification.dxccStatus,
                                                specials: specials, source: source)
         var spot = ClassifiedClusterSpot(
@@ -717,7 +721,7 @@ public actor ClusterSessionService {
             spots[index].callStatus = result.callStatus
             spots[index].dxccStatus = result.dxccStatus
             spots[index].workedBefore = result.workedBefore
-            spots[index].specialTags = SpotLogic.specials(in: spots[index].comment, rules: configuration.specialRules)
+            spots[index].specialTags = specialTags(comment: spots[index].comment, source: spots[index].source)
             let (score, reasons) = SpotLogic.score(callStatus: result.callStatus, dxccStatus: result.dxccStatus,
                                                    specials: spots[index].specialTags, source: spots[index].source)
             spots[index].score = score
@@ -728,6 +732,12 @@ public actor ClusterSessionService {
             spots[index].modeHex = configuration.palette.mode[spots[index].mode] ?? "#B0B0B0"
         }
         publish()
+    }
+
+    private func specialTags(comment: String, source: String) -> [String] {
+        var tags = SpotLogic.specials(in: comment, rules: configuration.specialRules)
+        if source == "rbl", !tags.contains("RBN") { tags.insert("RBN", at: 0) }
+        return tags
     }
 
     private func appendConsole(source: String, text: String, isCommand: Bool) {

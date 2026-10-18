@@ -21,7 +21,7 @@ final class ContestDeclarativeActivationTests: XCTestCase {
             var lane: ContestLane? = try ContestLane(databaseURL: databaseURL) { [generation] in generation }
             let catalog = try await lane!.handle(method: "contest_catalog", params: [:])
             let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-            XCTAssertEqual(rules.count, 24)
+            XCTAssertEqual(rules.count, 26)
             let rule = try XCTUnwrap(rules.first { identityID($0) == definition.identity.id })
             let definitionWire = try XCTUnwrap(rule["declarativeDefinition"] as? [String: Any])
             XCTAssertEqual(definitionWire["definitionDigest"] as? String, definition.definitionDigest)

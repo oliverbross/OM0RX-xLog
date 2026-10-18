@@ -124,8 +124,37 @@ actor LiveTCISession {
                       (state["radio"] as? [String: Any])?["transmitting"] as? Bool == false else { throw cancelled() }
                 return ["accepted": true, "confirmed": true, "state": state]
             } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
+        case "station_add_spot":
+            guard Set(params.keys) == ["provider", "spot"], !terminal,
+                  let active = session, let id = connectionID,
+                  let payload = params["spot"] as? [String: Any],
+                  Set(payload.keys) == ["frequency_hz", "callsign", "mode", "source", "spotter",
+                                        "comment", "timestamp", "lifetime_seconds", "priority", "color_hex"],
+                  let frequency = Self.integer(payload["frequency_hz"]), (100_000...60_000_000).contains(frequency),
+                  let timestamp = Self.integer(payload["timestamp"]),
+                  timestamp >= Int(Date().timeIntervalSince1970) - 86_400,
+                  timestamp <= Int(Date().timeIntervalSince1970) + 300,
+                  let lifetime = Self.integer(payload["lifetime_seconds"]), (30...86_400).contains(lifetime),
+                  let priority = Self.integer(payload["priority"]), (1...5).contains(priority),
+                  let callsign = Self.spotText(payload["callsign"], maximum: 32, required: true),
+                  let mode = Self.spotText(payload["mode"], maximum: 16, required: true),
+                  let source = Self.spotText(payload["source"], maximum: 32, required: true),
+                  let spotter = Self.spotText(payload["spotter"], maximum: 32, required: false),
+                  let comment = Self.spotText(payload["comment"], maximum: 96, required: false),
+                  let color = payload["color_hex"] as? String,
+                  color.range(of: #"^#[0-9A-Fa-f]{6}$"#, options: .regularExpression) != nil,
+                  let spot = try? FlexSpot(frequencyHz: Int64(frequency), callsign: callsign, mode: mode,
+                                           source: source, spotter: spotter, comment: comment,
+                                           timestamp: Int64(timestamp), lifetimeSeconds: lifetime,
+                                           priority: priority, colorHex: color) else { throw invalid() }
+            let transportGeneration = (await active.currentObservation()).generation
+            do {
+                try await active.addSpot(spot, expectedGeneration: transportGeneration)
+                guard !terminal, connectionID == id, session === active else { throw cancelled() }
+                return ["accepted": true, "confirmed": false, "state": snapshot()]
+            } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
         default:
-            throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation and bounded receive controls.")
+            throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation, bounded receive controls and spot output.")
         }
     }
 
@@ -150,7 +179,8 @@ actor LiveTCISession {
     private func snapshot() -> [String: Any] {
         let state = observation?.availability == .available ? observation?.snapshot : nil
         let fresh = receivedAt.map { (-1...5).contains(clock().timeIntervalSince($0)) } ?? false
-        let commands = state == nil ? [String]() : ["station_tune"] + (state?.transceiver.receiveFilter == nil ? [] : ["station_receive_filter"])
+        let commands = state == nil ? [String]() : ["station_tune", "station_add_spot"]
+            + (state?.transceiver.receiveFilter == nil ? [] : ["station_receive_filter"])
         let radio: Any = state.map { s in
             ["connected": true, "observed": true, "frequency_hz": s.frequencyHz,
              "receive_frequency_hz": s.frequencyHz, "mode": s.transceiver.modulation as Any? ?? NSNull(),
@@ -217,6 +247,13 @@ actor LiveTCISession {
         guard let raw, let bytes = try? JSONSerialization.data(withJSONObject: [raw]),
               let values = try? JSONDecoder().decode([Int].self, from: bytes) else { return nil }
         return values.first
+    }
+    private static func spotText(_ raw: Any?, maximum: Int, required: Bool) -> String? {
+        guard let value = raw as? String,
+              value.utf8.count <= maximum,
+              value.rangeOfCharacter(from: .controlCharacters) == nil else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return required && trimmed.isEmpty ? nil : trimmed
     }
     private static func tuneTarget(_ params: [String: Any]) throws -> (Int64, String) {
         guard let frequency = integer(params["frequency_hz"]),

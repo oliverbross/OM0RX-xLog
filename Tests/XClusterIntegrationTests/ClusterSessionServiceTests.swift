@@ -233,6 +233,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.spots[0].callsign, "OM0RX")
         XCTAssertEqual(snapshot.spots[0].source, "rbl")
         XCTAssertEqual(snapshot.spots[0].mode, "FT8")
+        XCTAssertEqual(snapshot.spots[0].specialTags, ["RBN"])
     }
 
     func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
@@ -409,8 +410,12 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(Set(byDXCC.map(\.callsign)), ["K1DIG", "K1RBN"])
         let bySpecial = await matching { $0.specials = ["POTA"] }
         XCTAssertEqual(bySpecial.map(\.callsign), ["K1AAA"])
+        let byRBNSpecial = await matching { $0.specials = ["RBN"] }
+        XCTAssertEqual(byRBNSpecial.map(\.callsign), ["K1RBN"])
         let withoutSpecial = await matching { $0.excludedSpecials = ["POTA"] }
         XCTAssertEqual(Set(withoutSpecial.map(\.callsign)), ["K1OLD", "K1RBN", "K1DIG"])
+        let withoutRBN = await matching { $0.excludedSpecials = ["RBN"] }
+        XCTAssertEqual(Set(withoutRBN.map(\.callsign)), ["K1AAA", "K1OLD", "K1DIG"])
         let bySource = await matching { $0.sources = ["rbl"] }
         XCTAssertEqual(bySource.map(\.callsign), ["K1RBN"])
         let byWorked = await matching { $0.worked = ["Worked before"] }
@@ -426,6 +431,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
         object.removeValue(forKey: "commandPresets")
         object.removeValue(forKey: "forwardSpotsToFlex")
+        object.removeValue(forKey: "forwardSpotsToTCI")
         object.removeValue(forKey: "radioSpotColorPolicy")
         object.removeValue(forKey: "hideWSPRSpots")
         object.removeValue(forKey: "connectOnStartup")
@@ -436,6 +442,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
         XCTAssertFalse(decoded.forwardSpotsToFlex)
+        XCTAssertFalse(decoded.forwardSpotsToTCI)
         XCTAssertEqual(decoded.radioSpotColorPolicy, .callsign)
         XCTAssertFalse(decoded.hideWSPRSpots)
         XCTAssertTrue(decoded.connectOnStartup)
@@ -447,9 +454,11 @@ final class ClusterSessionServiceTests: XCTestCase {
 
     func testRadioSpotColorPolicyRoundTrips() throws {
         var config = ClusterSessionConfiguration(servers: [])
+        config.forwardSpotsToTCI = true
         config.radioSpotColorPolicy = .dxcc
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: JSONEncoder().encode(config))
         XCTAssertEqual(decoded.radioSpotColorPolicy, .dxcc)
+        XCTAssertTrue(decoded.forwardSpotsToTCI)
     }
 
     func testCoarseBetaThreeTaxonomyMigratesBackToOpportunityHierarchy() throws {

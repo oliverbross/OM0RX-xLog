@@ -221,6 +221,35 @@ describe("ContestClient", () => {
     }
   });
 
+  it("admits only the exact packaged CQWW country-reference coordinate", async () => {
+    const selected = structuredClone(rule) as ContestRuleMetadata;
+    selected.identity = { id: "cq-ww-cw-country-reference", version: "2.0.0-country-reference",
+      edition: "2026-country-reference-preview",
+      sourceRevision: "cqww-country@2026.1-complete+sha256:3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b" };
+    selected.displayName = "CQ WW CW country-reference preview";
+    selected.operatorCapability = { ...capability, auditDigest: "735e80102c6f0d9a91d4ad76edef27885abaa21dfeb315fd34f5d7efe6e858b9" };
+    selected.countryReference = { id: "cqww-country", version: "2026.1-complete",
+      sha256: "3f4e9752188f47677661a156790ddbbf1ac8afde8b282d3e2ebbbc9f68ba070b",
+      recordCount: 362, immutablePerSession: true, submissionReady: false };
+    const validRequest = vi.fn(async () => ({ id: "frame", ok: true as const,
+      result: { workspaceGeneration: "generation-1", rules: [selected] } }));
+    await expect(new ContestClient(validRequest as ContestRequest).catalog()).resolves.toMatchObject({
+      rules: [{ identity: { id: "cq-ww-cw-country-reference" }, countryReference: selected.countryReference }],
+    });
+
+    const missing = structuredClone(selected) as any; delete missing.countryReference;
+    const wrongDigest = structuredClone(selected) as any; wrongDigest.countryReference.sha256 = "0".repeat(64);
+    const wrongIdentity = structuredClone(selected) as any; wrongIdentity.countryReference.version = "2026.2";
+    const extra = structuredClone(selected) as any; extra.countryReference.path = "/tmp/reference.json";
+    for (const candidate of [missing, wrongDigest, wrongIdentity, extra]) {
+      const request = vi.fn(async () => ({ id: "frame", ok: true as const,
+        result: { workspaceGeneration: "generation-1", rules: [candidate] } }));
+      await expect(new ContestClient(request as ContestRequest).catalog())
+        .rejects.toThrow("Malformed or stale contest_catalog response");
+      expect(request).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it("rejects an oversized SSB report in reads and treats it as uncertain after a mutation", async () => {
     const selected = ssbSession();
     const badFields: ContestDraftFields = { ...fields, mode: "SSB", sentReport: "599", receivedReport: "59" };
