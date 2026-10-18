@@ -141,6 +141,30 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         let emptyValues = geographicPolicy(subdivisions: [subdivision(291, "state", [])])
         XCTAssertThrowsError(try makeDraft(geographic: emptyValues).materialized())
         XCTAssertThrowsError(try makeDraft(locationMaximumUTF8Bytes: 1).materialized())
+        let aliasCanonicalCollision = geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["NF"], aliases: ["NF": "NF"]),
+        ])
+        XCTAssertThrowsError(try makeDraft(geographic: aliasCanonicalCollision).materialized())
+        let unknownAliasTarget = geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["NF"], aliases: ["NL": "XX"]),
+        ])
+        XCTAssertThrowsError(try makeDraft(geographic: unknownAliasTarget).materialized())
+        let aliasChain = geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["NF"], aliases: ["NL": "LB", "LB": "NF"]),
+        ])
+        XCTAssertThrowsError(try makeDraft(geographic: aliasChain).materialized())
+        let aliasCycle = geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["NF"], aliases: ["NL": "LB", "LB": "NL"]),
+        ])
+        XCTAssertThrowsError(try makeDraft(geographic: aliasCycle).materialized())
+        let aliasesTooLarge = Dictionary(uniqueKeysWithValues: (0...128).map { ("A\($0)", "NF") })
+        XCTAssertThrowsError(try makeDraft(geographic: geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["NF"], aliases: aliasesTooLarge),
+        ])).materialized())
+        XCTAssertThrowsError(try makeDraft(
+            geographic: geographicPolicy(subdivisions: [
+                subdivision(1, "province", ["A"], aliases: ["AB": "A"]),
+            ]), locationMaximumUTF8Bytes: 1).materialized())
 
         let encoded = try JSONEncoder().encode(makeDraft())
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -154,6 +178,13 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         var subdivisions = try XCTUnwrap(duplicateValues["subdivisions"] as? [[String: Any]])
         subdivisions[0]["values"] = ["MA", "MA"]
         duplicateValues.removeValue(forKey: "unexpected")
+        duplicateValues["subdivisions"] = subdivisions
+        object["geographicMultiplier"] = duplicateValues
+        XCTAssertThrowsError(try JSONDecoder().decode(ContestDefinitionDraft.self,
+                                                       from: JSONSerialization.data(withJSONObject: object)))
+
+        subdivisions[0]["values"] = ["MA"]
+        subdivisions[0]["unexpected"] = true
         duplicateValues["subdivisions"] = subdivisions
         object["geographicMultiplier"] = duplicateValues
         XCTAssertThrowsError(try JSONDecoder().decode(ContestDefinitionDraft.self,
@@ -181,6 +212,19 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(ContestDeclarativeDefinition.self,
                                                 from: reversedDefinition.canonicalStorageData()),
                        reversedDefinition)
+
+        let aliasA = geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["NF", "ON"], aliases: ["NL": "NF", "ONT": "ON"]),
+        ])
+        let aliasB = geographicPolicy(subdivisions: [
+            subdivision(1, "province", ["ON", "NF"], aliases: ["ONT": "ON", "NL": "NF"]),
+        ])
+        let aliasDefinitionA = try makeDraft(geographic: aliasA).materialized()
+        let aliasDefinitionB = try makeDraft(geographic: aliasB).materialized()
+        XCTAssertEqual(aliasDefinitionA.definitionDigest, aliasDefinitionB.definitionDigest)
+        XCTAssertEqual(try JSONDecoder().decode(ContestDeclarativeDefinition.self,
+                                                from: aliasDefinitionA.canonicalStorageData()),
+                       aliasDefinitionA)
     }
 
     func testLegacyNilConfigDigestsRemainUnchanged() throws {
@@ -195,6 +239,8 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         ])
         let legacyData = try JSONEncoder().encode(TenTenDeclarativeDefinitions.draft(for: .winterPhone))
         XCTAssertNil((try JSONSerialization.jsonObject(with: legacyData) as? [String: Any])?["geographicMultiplier"])
+        let noAliases = try JSONEncoder().encode(subdivision(1, "province", ["ON"]))
+        XCTAssertNil((try JSONSerialization.jsonObject(with: noAliases) as? [String: Any])?["aliases"])
     }
 
     private func makeRule() throws -> DeclarativeContestRule {
@@ -236,9 +282,10 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         ], entityFallback: .init(authority: "dxcc-entity", locationToken: "DX"))
     }
 
-    private func subdivision(_ adif: Int, _ authority: String, _ values: Set<String>)
+    private func subdivision(_ adif: Int, _ authority: String, _ values: Set<String>,
+                             aliases: [String: String] = [:])
         -> ContestDeclarativeGeographicSubdivisionPolicy {
-        .init(entityADIF: adif, authority: authority, values: values)
+        .init(entityADIF: adif, authority: authority, values: values, aliases: aliases)
     }
 
     private func makeSession(_ rule: DeclarativeContestRule) -> ContestSessionSnapshot {

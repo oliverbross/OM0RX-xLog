@@ -24,14 +24,16 @@ public struct ContestDeclarativeGeographicSubdivisionPolicy: Codable, Hashable, 
     public let entityADIF: Int
     public let authority: String
     public let values: Set<String>
+    public let aliases: [String: String]
 
-    public init(entityADIF: Int, authority: String, values: Set<String>) {
+    public init(entityADIF: Int, authority: String, values: Set<String>, aliases: [String: String] = [:]) {
         self.entityADIF = entityADIF
         self.authority = authority
         self.values = values
+        self.aliases = aliases
     }
 
-    private enum CodingKeys: String, CodingKey, CaseIterable { case entityADIF, authority, values }
+    private enum CodingKeys: String, CodingKey, CaseIterable { case entityADIF, authority, values, aliases }
 
     public init(from decoder: Decoder) throws {
         let dynamic = try decoder.container(keyedBy: ContestDefinitionCodingKey.self)
@@ -50,6 +52,7 @@ public struct ContestDeclarativeGeographicSubdivisionPolicy: Codable, Hashable, 
                                                    debugDescription: "Geographic subdivision values must be unique.")
         }
         self.values = Set(decodedValues)
+        aliases = try values.decodeIfPresent([String: String].self, forKey: .aliases) ?? [:]
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -57,6 +60,7 @@ public struct ContestDeclarativeGeographicSubdivisionPolicy: Codable, Hashable, 
         try values.encode(entityADIF, forKey: .entityADIF)
         try values.encode(authority, forKey: .authority)
         try values.encode(self.values.sorted(), forKey: .values)
+        if !aliases.isEmpty { try values.encode(aliases, forKey: .aliases) }
     }
 }
 
@@ -448,7 +452,8 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             result.append("geographic location field must be a required received subdivision")
         }
         if let maximum = locationField?.maximumUTF8Bytes,
-           policy.subdivisions.flatMap(\.values).contains(where: { $0.utf8.count > maximum }) ||
+           policy.subdivisions.flatMap({ $0.values.union($0.aliases.keys) })
+               .contains(where: { $0.utf8.count > maximum }) ||
             policy.entityFallback.locationToken.utf8.count > maximum {
             result.append("geographic location values must fit the received field byte bound")
         }
@@ -463,11 +468,27 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             if !(1...128).contains(subdivision.values.count) {
                 result.append("geographic subdivision values must contain 1...128 items")
             }
+            if subdivision.aliases.count > 128 {
+                result.append("geographic subdivision aliases must contain 0...128 items")
+            }
             if !validGeographicAuthority(subdivision.authority) {
                 result.append("geographic subdivision authorities must be bounded visible ASCII without separators")
             }
             if !subdivision.values.allSatisfy(validGeographicToken) {
                 result.append("geographic subdivision values must be bounded uppercase ASCII tokens")
+            }
+            if !subdivision.aliases.keys.allSatisfy(validGeographicToken) ||
+                !subdivision.aliases.values.allSatisfy(validGeographicToken) {
+                result.append("geographic subdivision aliases must be bounded uppercase ASCII tokens")
+            }
+            if !Set(subdivision.aliases.keys).isDisjoint(with: subdivision.values) {
+                result.append("geographic subdivision aliases must not replace canonical values")
+            }
+            if !Set(subdivision.aliases.values).isSubset(of: subdivision.values) {
+                result.append("geographic subdivision aliases must target canonical values")
+            }
+            if !Set(subdivision.aliases.keys).isDisjoint(with: subdivision.aliases.values) {
+                result.append("geographic subdivision aliases must not form chains or cycles")
             }
         }
         if !validGeographicAuthority(policy.entityFallback.authority) {
@@ -688,7 +709,8 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
                            message: "Location is missing for the resolved entity classification.")], nil)
         }
         if let subdivision = policy.subdivisions.first(where: { $0.entityADIF == entity.adif }) {
-            guard subdivision.values.contains(location) else {
+            let canonicalLocation = subdivision.aliases[location] ?? location
+            guard subdivision.values.contains(canonicalLocation) else {
                 return ([.init(code: "locationClassificationMismatch",
                                field: "exchange.receivedFields.\(policy.locationFieldID)",
                                message: "Location does not match the resolved subdivision entity.")], nil)
@@ -696,7 +718,7 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
             return ([], .init(kind: "administrativeSubdivision",
                               value: canonicalGeographicComponents([
                                   subdivision.authority, session.referenceDataVersion,
-                                  String(entity.adif), location,
+                                  String(entity.adif), canonicalLocation,
                               ]), scope: qso.band))
         }
         guard location == policy.entityFallback.locationToken else {

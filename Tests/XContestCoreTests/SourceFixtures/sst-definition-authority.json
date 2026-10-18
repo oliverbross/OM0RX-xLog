@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "fixtureKind": "K1USN SST declarative definition authority",
+  "retrievedAt": "2026-10-18",
+  "activationStatus": "definition-only; not in the catalog",
+  "sources": [
+    {
+      "name": "K1USN SST sponsor page",
+      "url": "https://www.k1usn.com/sst",
+      "cachedPath": "/tmp/k1usn-sst.html",
+      "bytes": 40944,
+      "sha256": "fdb47ee1c5bc4dde656f6b28dc400d85e8c0559c2d2d19b0d986d3bcc2a2f63c",
+      "authority": "links the rules, FAQ, and sponsor-developed N1MM UDC; states no formal log submission and directs score summaries to 3830"
+    },
+    {
+      "name": "K1USN SST published rules document",
+      "url": "https://docs.google.com/document/d/e/2PACX-1vTFtjDXVkS_wGX2XmBV4P8VyT40iSx_NJcx-m2C9Gb9ANJiCMwNeZdpqk_P8DMNJ2OvIGHydv5e36lQ/pub",
+      "bytes": 186591,
+      "sha256": "2a54b5ad26aa0342ee6036e07bf39df5c22d4176f6c91913fe5bcf4b3ebe04b8"
+    },
+    {
+      "name": "K1USN SST FAQ wrapper",
+      "url": "https://www.k1usn.com/sst_faq.html",
+      "cachedPath": "/tmp/k1usn-sst-faq-wrapper.html",
+      "bytes": 3739,
+      "sha256": "e942c3ccfb46bd7391fb982f5c666863172c8287fdd0ebcb35f8b2989903126f"
+    },
+    {
+      "name": "K1USN SST FAQ embedded document",
+      "url": "https://docs.google.com/document/d/e/2PACX-1vQE0mZkKt5qr-KJ1B7cfOgfgPcCfghxT-jIZd2JomJp1kNelaIAyvyZEViq1sB9aYm3IezL-abEPsi4/pub?embedded=true",
+      "cachedPath": "/tmp/sst-faq-embedded.html",
+      "bytes": 189639,
+      "sha256": "a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb",
+      "sourceSummary": "The FAQ presents the embedded table as the logger's Canadian multiplier abbreviations. It says Newfoundland operators and call history use NL, while N1MM scoring requires changing that entry to the table's NF token."
+    },
+    {
+      "name": "Canadian multiplier table embedded in sponsor FAQ",
+      "url": "https://docs.google.com/docs-images-rt/ALKuztbFCk7dihkPPFFk3K1IFpojipYR6F4Geb0fpSmq2lAV9KBjXI9XGqTadJzavfKfYw7FkkrSyd02A5obsda895Z8PFDAa3WhnLsG4j_PBLPL75zdspem7GXAlz9NBvjyMKLeSnciFadBCEi0LZSA81PkRH1FGGeGz9ijm4E=s2048",
+      "parentDocument": "K1USN SST FAQ embedded document",
+      "cachedPath": "/tmp/sst-province-table.png",
+      "pixelSize": {"width": 652, "height": 664},
+      "bytes": 353859,
+      "sha256": "36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920"
+    },
+    {
+      "name": "Sponsor-linked K1USNSST UDC page",
+      "url": "https://n1mmwp.hamdocs.com/mmfiles/k1usnsst-udc/",
+      "cachedPath": "/tmp/k1usnsst-udc.html",
+      "bytes": 102084,
+      "sha256": "e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76",
+      "adjacentText": "v.1.1.4 updated 2021-08-04 'DC' mult added.",
+      "downloadFormAction": "https://n1mmwp.hamdocs.com/mmfile/get/file/K1USNSST.udc",
+      "downloadStatus": "The authority-discovered POST action returned an access-denied HTML page, not UDC bytes; no file URL was inferred."
+    }
+  ],
+  "subdivisionPolicies": [
+    {
+      "entityADIF": 291,
+      "authority": "sst-us-lower48-state",
+      "tokens": ["AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"],
+      "count": 49,
+      "notes": "The lower 48 state abbreviations exclude AK and HI. DC is included from the sponsor-linked UDC v1.1.4 changelog."
+    },
+    {
+      "entityADIF": 1,
+      "authority": "sst-canadian-province",
+      "tokens": ["AB", "BC", "LB", "MB", "NB", "NF", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"],
+      "count": 14,
+      "aliases": {"NL": "NF"},
+      "notes": "These are logger multiplier tokens from the sponsor FAQ image, not a political-province count or a general Canadian identity model. The table labels LB as Labrador (VO2) and NF as Newfoundland and Labrador (VO1/VO2), so LB remains distinct only under this versioned sponsor-table policy. Raw NL is retained; only its scoring key canonicalizes to NF."
+    }
+  ],
+  "definition": {
+    "qsoPoints": 1,
+    "duplicateScope": "callsign per band",
+    "multiplierScope": "geographic identity per band",
+    "dxLocationToken": "DX",
+    "explicitDXEntities": {"Alaska": 6, "Hawaii": 110},
+    "bands": ["160m", "80m", "40m", "20m", "15m", "10m"],
+    "mode": "CW",
+    "maximumCodeSpeedWPM": 20,
+    "formalLogSubmission": false,
+    "resultsDestination": "3830 score summary",
+    "officialSample": {"qsoPoints": 12, "multipliers": 10, "claimedScore": 120},
+    "preActivationGates": [
+      "validate the station-side sent location against the station entity and the same versioned SST geography policy",
+      "compose and persist the operator station entity and sent fields before starting a session",
+      "add the operator archive export required for source-product parity; it is not a sponsor submission format"
+    ]
+  }
+}
