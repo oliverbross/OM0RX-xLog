@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AlertTriangle, CheckCircle2, ClipboardList, Database, Download, Pencil, Trash2, Trophy, X } from "lucide-react";
 import { ContestMutationUncertain, ContestServerError, normalizedARRLDXPower } from "./client";
 import { ContestExportPanel } from "./ContestExportPanel";
-import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
-import { ContestAssistancePanel, type SCPSelectionScope } from "./ContestAssistancePanel";
+import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestOperatorSurfaceController,
+  type ContestOperatorSurfaceState, type ContestSimulationAdapter } from "./ContestOperatorPanel";
+import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
 import type { SCPImport } from "./contestAssistance";
-import { ContestCallHistoryPanel, type HistoryApplyScope } from "./ContestCallHistoryPanel";
+import { ContestCallHistoryPanel, type ContestHistoryPanelSurface, type HistoryApplyScope } from "./ContestCallHistoryPanel";
 import { ContestOperatorCanvas } from "./ContestOperatorCanvas";
 import { historyProjectedFields, type HistoryImport, type HistorySelection } from "./contestCallHistory";
 import { isStructuredEntry } from "./types";
+import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
+  type ContestSurfaceProjection } from "./contestSurfaceProtocol";
+import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
 import type { ContestCabrilloHeader, ContestCreateInput, ContestDraftFields, ContestEntryDescriptor, ContestExportFormat, ContestFullQSO, ContestLogPage, ContestPreparedExport, ContestQSOChangeResult, ContestRequest, ContestResolvedSerial, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
@@ -16,7 +20,7 @@ import "./ContestWorkspace.css";
 
 const PAGE_SIZE = 20;
 export type ContestTransitionController = { freeze: () => void; prepare: () => Promise<void>; resume: () => void };
-type Props = { request: ContestRequest; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter; simulateContestOutput?: ContestSimulationAdapter; scpImport?: SCPImport; historyImport?: HistoryImport; registerTransition?: (controller: ContestTransitionController | null) => void };
+type Props = { request: ContestRequest; operatingContext?: string; createRequestID?: () => string; digestPayload?: (payload: unknown) => Promise<string>; recoveryStorage?: ContestRecoveryStorage; exportSave?: ContestExportSaveAdapter; simulateContestOutput?: ContestSimulationAdapter; scpImport?: SCPImport; historyImport?: HistoryImport; registerTransition?: (controller: ContestTransitionController | null) => void };
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 function defaultStorage(): ContestRecoveryStorage | undefined { try { return globalThis.localStorage; } catch { return undefined; } }
 function isQSOChange(result: unknown): result is ContestQSOChangeResult { return !!result && typeof result === "object" && "operation" in result; }
@@ -49,7 +53,7 @@ export function projectSCPCallsign(session: ContestSessionSummary, draft: {draft
   return {...draft.fields,callsign};
 }
 
-export function ContestWorkspace({ request, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput, scpImport, historyImport, registerTransition }: Props) {
+export function ContestWorkspace({ request, operatingContext, createRequestID, digestPayload, recoveryStorage, exportSave = nativeContestExportSave, simulateContestOutput, scpImport, historyImport, registerTransition }: Props) {
   const storage = recoveryStorage ?? defaultStorage();
   const owner = useMemo(() => sharedContestSessionOwner(request, createRequestID, digestPayload, storage), [request, createRequestID, digestPayload, storage]);
   const exportSaveOwner = useMemo(() => sharedContestExportSaveOwner(exportSave, storage), [exportSave, storage]);
@@ -77,8 +81,12 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const [editorFrequencyError, setEditorFrequencyError] = useState("");
   const [operatorEditGeneration, setOperatorEditGeneration] = useState(0);
   const [operatorRecovery, setOperatorRecovery] = useState<ContestOperatorRecovery>(null);
+  const [operatorSurfaceSnapshot, setOperatorSurfaceSnapshot] = useState<{ context: string; value: ContestOperatorSurfaceState } | null>(null);
+  const [scpSurface, setSCPSurface] = useState<ContestSCPPanelSurface | null>(null);
+  const [historySurface, setHistorySurface] = useState<ContestHistoryPanelSurface | null>(null);
   const operatorRecoverySequence = useRef(0), entryRoot = useRef<HTMLFormElement>(null);
   const operatorSubmitGuard = useRef(false);
+  const operatorSurfaceController = useRef<{ context: string; value: ContestOperatorSurfaceController } | null>(null);
   const callsignInput = useRef<HTMLInputElement>(null), exchangeInput = useRef<HTMLInputElement>(null);
   const [create, setCreate] = useState({ name: "", ruleID: "cq-ww-cw", station: "", operator: "", cqZone: "", entity: "", stationExchangeFields: {} as Record<string,string>, stationFields: {} as Record<string,string>, category: "Single Operator" });
   const actionLock = useRef(false);
@@ -89,6 +97,16 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
   const leaseRef = useRef<ContestOwnerLease | null>(null);
   const saveTimer = useRef<number | null>(null);
   const active = owner.session, draft = owner.draft, uncertain = owner.pendingOperation;
+  const operatorPanelContext = active ? `${active.sessionID}/${active.workspaceGeneration}` : "";
+  const operatorSurface = operatorSurfaceSnapshot?.context === operatorPanelContext ? operatorSurfaceSnapshot.value : null;
+  const acceptOperatorSurface = useCallback((value: ContestOperatorSurfaceState | null) => {
+    setOperatorSurfaceSnapshot(current => value ? { context: operatorPanelContext, value } :
+      current?.context === operatorPanelContext ? null : current);
+  }, [operatorPanelContext]);
+  const acceptOperatorSurfaceController = useCallback((value: ContestOperatorSurfaceController | null) => {
+    if (value) operatorSurfaceController.current = { context: operatorPanelContext, value };
+    else if (operatorSurfaceController.current?.context === operatorPanelContext) operatorSurfaceController.current = null;
+  }, [operatorPanelContext]);
   const draftSaveInFlight = owner.pendingPhase === "inflight" && uncertain?.method === "contest_draft_apply";
   const blockingOperation = !!uncertain && !draftSaveInFlight;
 
@@ -414,6 +432,142 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
     return prepared;
   }
 
+  const surfaceReport = useCallback((value: string) => setError(value), []);
+  const surfaceUnavailable = { schemaVersion: 1, status: "unavailable" } as const;
+  const receivedSurfaceFields = active && draft ? (isStructuredEntry(active.rule.entry)
+    ? active.rule.entry.exchange.receivedFields.map(field => ({ id: field.id, label: field.label,
+      value: draft.fields.receivedExchangeFields?.[field.id] ?? "", required: field.required,
+      maximumUTF8Bytes: field.maximumUTF8Bytes }))
+    : [{ id: "receivedExchange", label: "Exchange", value: draft.fields.receivedExchange,
+      required: true, maximumUTF8Bytes: 64 }]) : [];
+  const editingSurfaceFields = active && editing ? (isStructuredEntry(active.rule.entry)
+    ? active.rule.entry.exchange.receivedFields.map(field => ({ id: field.id, label: field.label,
+      value: editing.qso.receivedExchangeFields?.[field.id] ?? "", required: field.required,
+      maximumUTF8Bytes: field.maximumUTF8Bytes }))
+    : [{ id: "receivedExchange", label: "Exchange", value: editing.qso.receivedExchange,
+      required: true, maximumUTF8Bytes: 64 }]) : [];
+  const sentSurfaceFields = active && draft ? (isStructuredEntry(active.rule.entry)
+    ? active.rule.entry.exchange.sentFields.map(field => ({ id: field.id, label: field.label,
+      value: draft.fields.sentExchangeFields?.[field.id] ?? "", required: field.required,
+      maximumUTF8Bytes: field.maximumUTF8Bytes }))
+    : [{ id: "sentExchange", label: "Exchange", value: draft.fields.sentExchange,
+      required: true, maximumUTF8Bytes: 64 }]) : [];
+  const liveSurfaceProjections = Object.fromEntries(contestSurfacePanelIDs.map(panelID => [panelID, surfaceUnavailable])) as
+    Record<ContestSurfacePanelID, ContestSurfaceProjection>;
+  if (active && draft) {
+    const serialRequirement = active.rule.entry.serial.requirement;
+    const allocatedFieldID = serialRequirement === "none" ? null : isStructuredEntry(active.rule.entry)
+      ? draft.resolvedSerial?.allocatedFieldID ?? active.resolvedSerial?.allocatedFieldID ?? allocatedSerialFieldID(active.rule.entry) ?? null
+      : "sentExchange";
+    const modes = active.rule.supportedModes ?? (isStructuredEntry(active.rule.entry)
+      ? active.rule.entry.modeProfiles.map(profile => profile.mode) : [active.rule.entry.mode]);
+    liveSurfaceProjections["active-qso"] = { schemaVersion: 2, status: "ready",
+      session: { name: active.name, ruleName: active.rule.displayName, mode: draft.fields.mode },
+      draft: { draftID: draft.draftID, revision: draft.revision, callsign: draft.fields.callsign,
+        sentReport: draft.fields.sentReport, receivedReport: draft.fields.receivedReport, receivedFields: receivedSurfaceFields,
+        frequencyHz: draft.fields.frequencyHz, frequencyText, frequencyError: operatingFrequencyError, band: draft.fields.band,
+        mode: draft.fields.mode, dupe: draft.dupe, validation: draft.validation, reservedSerial: draft.reservedSerial },
+      busy, dirty: owner.dirty, uncertain: !!uncertain,
+      descriptor: { bands: active.rule.supportedBands ?? [draft.fields.band], modes, sentFields: sentSurfaceFields,
+        serial: { requirement: serialRequirement, allocatedFieldID, reservedSerial: draft.reservedSerial } },
+      operator: operatorSurface ? { output: "simulation-only", armed: operatorSurface.armed, style: operatorSurface.style,
+        status: operatorSurface.status, pending: operatorSurface.pending,
+        functionKeys: Object.entries(operatorSurface.functionKeys).map(([key, macro]) => ({ key: key as "F1", macro: macro! })),
+        readiness: { canSendCQ: operatorSurface.readiness?.canSendCQ ?? false,
+          canSendCall: operatorSurface.readiness?.canSendCall ?? false,
+          canSendDuplicate: operatorSurface.readiness?.canSendDuplicate ?? false,
+          canReserveCall: operatorSurface.readiness?.canReserveCall ?? false,
+          canReserveCommit: operatorSurface.readiness?.canReserveCommit ?? false,
+          canCommit: operatorSurface.readiness?.canCommit ?? false },
+        trace: operatorSurface.trace.map(item => ({ ...item })) } : null };
+    liveSurfaceProjections["callsign-intelligence"] = { schemaVersion: 1, status: "ready", draftID: draft.draftID,
+      draftRevision: draft.revision, inputCallsign: draft.fields.callsign,
+      scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
+      history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
+      busy: !!scpSurface?.busy || !!historySurface?.busy };
+    liveSurfaceProjections.propagation = { schemaVersion: 1, status: "ready", score: score ? {
+      qsos: score.qsos, points: score.points, multipliers: score.multipliers, claimedScore: score.claimedScore,
+      multiplierLabels: score.multiplierLabels, multiplierDisplayLabels: score.multiplierDisplayLabels ?? score.multiplierLabels,
+      sourceVerification: score.sourceVerification } : null, busy };
+    liveSurfaceProjections.logbook = { schemaVersion: 1, status: "ready", sessionRevision: active.revision,
+      page: { offset: page?.offset ?? offset, limit: page?.limit ?? PAGE_SIZE, total: page?.total ?? 0,
+        rows: page?.qsos.map(qso => ({ qsoID: qso.qsoID, workedAt: qso.workedAt, callsign: qso.callsign, band: qso.band,
+          mode: qso.mode, sentExchange: qso.sentExchange, receivedExchange: qso.receivedExchange, points: qso.points,
+          multiplierLabels: qso.multiplierDisplayLabels ?? (qso.multiplier ? [qso.multiplier] : []) })) ?? [] },
+      editing: editing ? { qsoID: editing.qso.qsoID, callsign: editing.qso.callsign, band: editing.qso.band,
+        mode: editing.qso.mode, sentReport: editing.qso.sentReport, receivedReport: editing.qso.receivedReport,
+        receivedFields: editingSurfaceFields, frequencyHz: editing.qso.frequencyHz, editFrequencyText,
+        frequencyError: editorFrequencyError, correctionReason, confirmDelete, deletionReason } : null, busy };
+  }
+  const surfaceContext = active && operatingContext ? { operatingContext, sessionID: active.sessionID,
+    workspaceGeneration: active.workspaceGeneration } : null;
+  async function handleSurfaceAction(action: ContestSurfaceActionEnvelope) {
+    const currentSession = owner.session, currentDraft = owner.draft;
+    if (!currentSession || !currentDraft || !surfaceContext || action.operatingContext !== surfaceContext.operatingContext ||
+        action.sessionID !== currentSession.sessionID || action.workspaceGeneration !== currentSession.workspaceGeneration)
+      throw new Error("The contest surface context is no longer active.");
+    if (retiringRef.current || busy || blockingOperation) throw new Error("The contest owner is busy.");
+    if (action.action.startsWith("entry_") || action.action.startsWith("assistance_")) {
+      const params = action.params as { draftID: string; expectedDraftRevision: number };
+      if (params.draftID !== currentDraft.draftID || params.expectedDraftRevision !== currentDraft.revision)
+        throw new Error("The contest draft changed before this action reached the owner.");
+    }
+    switch (action.action) {
+      case "entry_set_text": changeField(action.params.field, action.params.value); return;
+      case "entry_set_exchange":
+        if (isStructuredEntry(currentSession.rule.entry)) changeStructuredReceived(action.params.fieldID, action.params.value);
+        else if (action.params.fieldID === "receivedExchange") changeField("receivedExchange", action.params.value);
+        else throw new Error("The contest exchange field is no longer active."); return;
+      case "entry_set_frequency_text": changeFrequency(action.params.value); return;
+      case "entry_set_band": changeField("band", action.params.value); return;
+      case "entry_set_mode": changeMode(action.params.value as ContestDraftFields["mode"]); return;
+      case "entry_reserve_serial": await reserveSerial(); return;
+      case "entry_commit": await commitQSO(); return;
+      case "entry_operator_arm":
+        if (operatorSurfaceController.current?.context !== operatorPanelContext) throw new Error("The operator simulation is unavailable.");
+        operatorSurfaceController.current.value.setArmed(action.params.armed); return;
+      case "entry_operator_style":
+        if (operatorSurfaceController.current?.context !== operatorPanelContext) throw new Error("The operator simulation is unavailable.");
+        operatorSurfaceController.current.value.setStyle(action.params.value); return;
+      case "entry_operator_key": {
+        const root = entryRoot.current; if (!root) throw new Error("The operator entry surface is unavailable.");
+        root.dispatchEvent(new KeyboardEvent("keydown", { key: action.params.key, bubbles: true, cancelable: true })); return;
+      }
+      case "assistance_query": changeField("callsign", action.params.inputCallsign.toUpperCase()); return;
+      case "assistance_select": {
+        const surface = action.params.kind === "scp" ? scpSurface : historySurface;
+        if (!surface) throw new Error("The callsign candidate set is unavailable.");
+        await surface.selectCandidate(action.params.candidateID); return;
+      }
+      case "log_page": await movePage(action.params.offset); return;
+      case "log_edit_begin": await editQSO(action.params.qsoID); return;
+      case "log_edit_cancel":
+        if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
+        setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); return;
+      case "log_edit_set_text":
+        if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
+        if (action.params.field === "correctionReason") setCorrectionReason(action.params.value);
+        else if (action.params.field === "deletionReason") setDeletionReason(action.params.value);
+        else changeQSO(action.params.field, action.params.value); return;
+      case "log_edit_set_exchange":
+        if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
+        if (isStructuredEntry(currentSession.rule.entry)) changeQSOReceivedField(action.params.fieldID, action.params.value);
+        else if (action.params.fieldID === "receivedExchange") changeQSO("receivedExchange", action.params.value);
+        else throw new Error("The contact exchange field changed."); return;
+      case "log_edit_set_frequency_text":
+        if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
+        changeQSOFrequency(action.params.value); return;
+      case "log_edit_set_band":
+        if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
+        changeQSO("band", action.params.value); return;
+      case "log_edit_save": case "log_edit_delete":
+        if (editing?.qso.qsoID !== action.params.qsoID || action.params.expectedSessionRevision !== currentSession.revision)
+          throw new Error("The contest log changed before this edit reached the owner.");
+        await applyQSOChange(action.action === "log_edit_save" ? "correction" : "deletion"); return;
+    }
+  }
+  useContestSurfaceOwner({ context: surfaceContext, projections: liveSurfaceProjections, handle: handleSurfaceAction, report: surfaceReport });
+
   const disabled = retiring || busy || !!uncertain;
   const entryDisabled = retiring || busy || blockingOperation;
   const sacPreview = active?.rule.identity.id.startsWith("sac-") ?? false;
@@ -438,6 +592,8 @@ reserveSerial={reserveSerial} commitQSO={commitQSO} simulateOutput={simulateCont
 admitIntent={(identity, context) => !owner.dirty && !owner.pendingOperation && owner.session?.sessionID === context.sessionID &&
 owner.session.workspaceGeneration === context.workspaceGeneration && owner.draft?.draftID + "@" + owner.draft?.revision === identity}
 guardFormSubmit={guarded => { operatorSubmitGuard.current = guarded; }}
+onSurfaceChange={acceptOperatorSurface}
+registerSurfaceController={acceptOperatorSurfaceController}
 focusField={field => (field === "callsign" ? callsignInput.current : exchangeInput.current)?.focus()}/>}
 <div className="contest-entry-fields"><label className="contest-call">Callsign<input ref={callsignInput} data-contest-operator-field="callsign" aria-label="Contest callsign" autoComplete="off" maxLength={32} disabled={entryDisabled} value={draft.fields.callsign} onChange={e => changeField("callsign", e.target.value.toUpperCase())}/></label>{draftReport?.format !== "none" && <><label>Sent report<input maxLength={draftReport?.maximumUTF8Bytes} disabled={entryDisabled} value={draft.fields.sentReport} onChange={e => changeField("sentReport", e.target.value)}/></label><label>Received report<input maxLength={draftReport?.maximumUTF8Bytes} disabled={entryDisabled} value={draft.fields.receivedReport} onChange={e => changeField("receivedReport", e.target.value)}/></label></>}{isStructuredEntry(active.rule.entry) ? active.rule.entry.exchange.receivedFields.map((field, index) => <label key={field.id}>Received {field.label}<input ref={index === 0 ? exchangeInput : undefined} data-contest-operator-field="exchange" maxLength={field.maximumUTF8Bytes} disabled={entryDisabled} required={field.required} value={draft.fields.receivedExchangeFields?.[field.id] ?? ""} onChange={e => changeStructuredReceived(field.id, e.target.value)}/></label>) : <><label>Sent exchange<input maxLength={32} disabled={entryDisabled} value={draft.fields.sentExchange} onChange={e => changeField("sentExchange", e.target.value)}/></label><label>Received exchange<input ref={exchangeInput} data-contest-operator-field="exchange" maxLength={32} disabled={entryDisabled} value={draft.fields.receivedExchange} onChange={e => changeField("receivedExchange", e.target.value)}/></label></>}</div>
 <SentExchangeSummary entry={active.rule.entry} values={draft.fields.sentExchangeFields} resolvedSerial={draft.resolvedSerial} label="Sent exchange"/>
@@ -447,9 +603,9 @@ focusField={field => (field === "callsign" ? callsignInput.current : exchangeInp
 </form>;
       const statisticsPanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score & multipliers</h2><dl><div><dt>Claimed score</dt><dd>{score?.claimedScore.toLocaleString() ?? "—"}</dd></div><div><dt>QSOs</dt><dd>{score?.qsos ?? "—"}</dd></div><div><dt>Points</dt><dd>{score?.points ?? "—"}</dd></div><div><dt>Multipliers</dt><dd>{score?.multipliers ?? "—"}</dd></div></dl><div className="contest-multipliers">{score?.multiplierLabels.length ? (score.multiplierDisplayLabels?.length ? score.multiplierDisplayLabels : score.multiplierLabels).map(x => <span key={x}>{x}</span>) : <p>No multipliers recorded.</p>}</div><p className={`contest-source is-${score?.sourceVerification ?? "unverified"}`}>Score source: {score?.sourceVerification ?? "unavailable"}</p></aside>;
       const assistancePanel = <><ContestAssistancePanel request={request} ownerLeaseID={leaseRef.current?.id??0} sessionID={active.sessionID} workspaceGeneration={active.workspaceGeneration}
-draftID={draft.draftID} callsign={draft.fields.callsign} disabled={entryDisabled} onSelect={applyAssistanceCallsign} importDataset={scpImport}/></>;
+draftID={draft.draftID} callsign={draft.fields.callsign} disabled={entryDisabled} onSelect={applyAssistanceCallsign} importDataset={scpImport} onSurfaceChange={setSCPSurface}/></>;
       const historyPanel = <><ContestCallHistoryPanel request={request} ownerLeaseID={leaseRef.current?.id??0} session={active} draft={draft}
-disabled={entryDisabled} ready={!owner.dirty&&!draftSaveInFlight} onApply={applyHistory} importDataset={historyImport}/></>;
+disabled={entryDisabled} ready={!owner.dirty&&!draftSaveInFlight} onApply={applyHistory} importDataset={historyImport} onSurfaceChange={setHistorySurface}/></>;
       const editorPanel = <>{editing && <form className="contest-qso-editor" aria-label={`Edit ${editing.original.callsign}`} onSubmit={event => { event.preventDefault(); void applyQSOChange("correction"); }}><header><div><h2><Pencil size={15}/> Edit {editing.original.callsign}</h2><p>Update the contact; score and duplicate credit are recalculated when saved.</p></div><button type="button" aria-label="Cancel contact edit" disabled={disabled} onClick={() => { setEditing(null); setConfirmDelete(false); setEditorFrequencyError(""); }}><X size={14}/>Cancel</button></header>
 <div className="contest-qso-fields"><label>Callsign<input autoComplete="off" maxLength={32} disabled={disabled} value={editing.qso.callsign} onChange={event => changeQSO("callsign", event.target.value.toUpperCase())}/></label>{editingReport?.format !== "none" && <><label>Sent report<input maxLength={editingReport?.maximumUTF8Bytes} disabled={disabled} value={editing.qso.sentReport} onChange={event => changeQSO("sentReport", event.target.value)}/></label><label>Received report<input maxLength={editingReport?.maximumUTF8Bytes} disabled={disabled} value={editing.qso.receivedReport} onChange={event => changeQSO("receivedReport", event.target.value)}/></label></>}{isStructuredEntry(active.rule.entry) ? active.rule.entry.exchange.receivedFields.map(field => <label key={field.id}>Received {field.label}<input maxLength={field.maximumUTF8Bytes} required={field.required} disabled={disabled} value={editing.qso.receivedExchangeFields?.[field.id] ?? ""} onChange={event => changeQSOReceivedField(field.id, event.target.value)}/></label>) : <label>Received exchange<input maxLength={64} disabled={disabled} value={editing.qso.receivedExchange} onChange={event => { changeQSO("receivedExchange", event.target.value); changeQSO("normalizedReceivedExchange", event.target.value); }}/></label>}<label>Frequency Hz<input inputMode="numeric" maxLength={11} disabled={disabled} value={editFrequencyText} onChange={event => changeQSOFrequency(event.target.value)}/></label><label>Band<select disabled={disabled} value={editing.qso.band} onChange={event => changeQSO("band", event.target.value)}>{(active.rule.supportedBands ?? ["160m","80m","40m","20m","15m","10m"]).map(value => <option key={value}>{value}</option>)}</select></label></div>
 <SentExchangeSummary entry={active.rule.entry} values={editing.qso.sentExchangeFields} resolvedSerial={active.resolvedSerial} label="Frozen sent exchange"/>

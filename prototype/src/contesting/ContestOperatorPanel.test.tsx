@@ -6,7 +6,8 @@ import workerFixtureJSON from "../../../docs/contesting/fixtures/contesting-work
 import exportFixtureJSON from "../../../docs/contesting/fixtures/contest-export-worker-wire.json";
 import { ContestMutationUncertain } from "./client";
 import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
-import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestSimulationAdapter } from "./ContestOperatorPanel";
+import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestOperatorSurfaceController,
+  type ContestOperatorSurfaceState, type ContestSimulationAdapter } from "./ContestOperatorPanel";
 import { isStructuredEntry, type ContestCommitResult, type ContestDraftResult, type ContestDraftSnapshot, type ContestOperatorCapability,
   type ContestOperatorReadiness, type ContestSessionSummary } from "./types";
 
@@ -80,10 +81,13 @@ function draftResult(current: ContestSessionSummary, next: ContestDraftSnapshot)
 afterEach(cleanup);
 
 function Harness({ mode, serial = false, duplicate = false, invalid = false, unchecked = false, workerBlank = false,
-  workerMissingExchange = false, workerMissingSerial = false, invalidCall = "", uncertainCommit = false, reserveReplyGate, simulate }:
+  workerMissingExchange = false, workerMissingSerial = false, invalidCall = "", uncertainCommit = false, reserveReplyGate, simulate,
+  onSurfaceChange, registerSurfaceController }:
   { mode: "CW" | "SSB"; serial?: boolean; duplicate?: boolean; invalid?: boolean; unchecked?: boolean;
     workerBlank?: boolean; workerMissingExchange?: boolean; workerMissingSerial?: boolean; invalidCall?: string;
-    uncertainCommit?: boolean; reserveReplyGate?: Promise<void>; simulate?: ContestSimulationAdapter }) {
+    uncertainCommit?: boolean; reserveReplyGate?: Promise<void>; simulate?: ContestSimulationAdapter;
+    onSurfaceChange?: (surface: ContestOperatorSurfaceState | null) => void;
+    registerSurfaceController?: (controller: ContestOperatorSurfaceController | null) => void }) {
   const [active, setActive] = useState(() => session(mode, serial));
   const [current, setCurrent] = useState(() => ({ ...draft(active), ...(duplicate ? { fields: { ...draft(active).fields, callsign: "K1ABC" }, dupe: { state: "duplicate" as const, reason: "Worked" } } : {}) }));
   const [editGeneration, setEditGeneration] = useState(0), [reserveCount, setReserveCount] = useState(0), [commitCount, setCommitCount] = useState(0);
@@ -142,7 +146,8 @@ function Harness({ mode, serial = false, duplicate = false, invalid = false, unc
     disabled={blocked} recovery={recovery} reserveSerial={reserve} commitQSO={commit}
     admitIntent={identity => !ownerDirty.current && `${admittedDraft.current.draftID}@${admittedDraft.current.revision}` === identity}
     guardFormSubmit={() => {}}
-    focusField={field => document.querySelector<HTMLInputElement>(`[data-contest-operator-field=${field}]`)?.focus()} simulateOutput={simulate}/>
+    focusField={field => document.querySelector<HTMLInputElement>(`[data-contest-operator-field=${field}]`)?.focus()} simulateOutput={simulate}
+    onSurfaceChange={onSurfaceChange} registerSurfaceController={registerSurfaceController}/>
     <input aria-label="Call" data-contest-operator-field="callsign" value={current.fields.callsign} onChange={event => { setEditGeneration(value => value + 1);
       const next = { ...admittedDraft.current, fields: { ...admittedDraft.current.fields, callsign: event.target.value.toUpperCase() } }; admittedDraft.current = next; setCurrent(next); }}/>
     <input aria-label="Exchange" data-contest-operator-field="exchange" value={current.fields.receivedExchange} onChange={event => { setEditGeneration(value => value + 1);
@@ -665,6 +670,21 @@ describe("ContestOperatorPanel simulated owner integration", () => {
     render(<ContestOperatorPanel session={active} draft={current} entryRoot={root} editGeneration={0} disabled={false} recovery={null}
       reserveSerial={vi.fn()} commitQSO={vi.fn()} admitIntent={() => true} guardFormSubmit={() => {}} focusField={vi.fn()}/>);
     expect(screen.getByText(/no reviewed simulated-output capability/i)).toBeTruthy();
+  });
+
+  it("projects the existing controller and applies detached arm and style intents through it", async () => {
+    let controller: ContestOperatorSurfaceController | null = null, surface: ContestOperatorSurfaceState | null = null;
+    render(<Harness mode="CW" onSurfaceChange={value => { surface = value; }}
+      registerSurfaceController={value => { controller = value; }}/>);
+    await waitFor(() => expect(controller).not.toBeNull());
+    act(() => controller!.setArmed(true));
+    await waitFor(() => expect(surface?.armed).toBe(true));
+    expect(screen.getByRole("button", { name: "Disarm" })).toBeTruthy();
+    act(() => controller!.setArmed(false));
+    await waitFor(() => expect(surface?.armed).toBe(false));
+    act(() => controller!.setStyle("search-and-pounce"));
+    await waitFor(() => expect(surface?.style).toBe("search-and-pounce"));
+    expect((screen.getByLabelText("Operating style") as HTMLSelectElement).value).toBe("search-and-pounce");
   });
 
   it("admits exactly the fourteen generated reviewed CW and SSB capabilities", () => {

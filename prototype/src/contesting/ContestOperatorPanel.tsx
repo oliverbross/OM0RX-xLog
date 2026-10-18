@@ -18,6 +18,14 @@ export type ContestSimulationAdapter = (entry: ContestSimulationEntry) => Promis
 export type ContestOperatorRecovery = { sequence: number; method: "contest_serial_reserve" | "contest_qso_commit";
   sessionID: string; workspaceGeneration: string; requestID: string; payloadDigest: string } | null;
 type Trace = ContestSimulationEntry & { status: "pending" | "confirmed" | "failed" | "stopped" };
+export type ContestOperatorSurfaceState = {
+  armed: boolean; style: OperatorStyle; status: "disarmed" | "armed" | "waiting" | "uncertain";
+  pending: "reserve-serial" | "send" | "commit" | null;
+  functionKeys: OperatorFlowState["functionKeys"];
+  readiness: NonNullable<ContestDraftSnapshot["operatorReadiness"]> | null;
+  trace: readonly Trace[];
+};
+export type ContestOperatorSurfaceController = { setArmed: (armed: boolean) => void; setStyle: (style: OperatorStyle) => void };
 type ReservationIntent = Extract<OperatorFlowIntent, { kind: "reserve-serial" }>;
 
 type Props = {
@@ -33,6 +41,8 @@ type Props = {
   guardFormSubmit: (guarded: boolean) => void;
   focusField: (field: OperatorField) => void;
   simulateOutput?: ContestSimulationAdapter;
+  onSurfaceChange?: (surface: ContestOperatorSurfaceState | null) => void;
+  registerSurfaceController?: (controller: ContestOperatorSurfaceController | null) => void;
 };
 
 const immediateSimulation: ContestSimulationAdapter = async () => {};
@@ -73,7 +83,7 @@ function rendered(macro: OperatorMacroRole, session: ContestSessionSummary, draf
 }
 
 export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration, disabled, recovery, reserveSerial, commitQSO,
-  admitIntent, guardFormSubmit, focusField, simulateOutput = immediateSimulation }: Props) {
+  admitIntent, guardFormSubmit, focusField, simulateOutput = immediateSimulation, onSurfaceChange, registerSurfaceController }: Props) {
   const audited = supported(session, draft);
   // Unsupported profiles never execute an operator intent. This inert context
   // lets RTTY render its explicit Plain Log boundary without claiming a
@@ -105,6 +115,14 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     const element = traceRef.current;
     if (element && followTraceRef.current) element.scrollTop = element.scrollHeight;
   }, [trace]);
+  useEffect(() => {
+    if (!audited) { onSurfaceChange?.(null); return; }
+    const pending = state.pending;
+    onSurfaceChange?.({ armed: state.armed, style: state.style,
+      status: pending?.uncertain ? "uncertain" : pending ? "waiting" : state.armed ? "armed" : "disarmed",
+      pending: pending?.kind ?? null, functionKeys: state.functionKeys, readiness: draft.operatorReadiness ?? null, trace });
+  }, [audited, draft.operatorReadiness, onSurfaceChange, state, trace]);
+  useEffect(() => () => onSurfaceChange?.(null), [onSurfaceChange]);
   const traceScrolled = () => {
     const element = traceRef.current;
     if (element) followTraceRef.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 8;
@@ -116,6 +134,27 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     for (const intent of transition.intents) void execute(intent);
     return transition;
   }
+  useEffect(() => {
+    if (!audited) { registerSurfaceController?.(null); return; }
+    registerSurfaceController?.({
+      setArmed: armed => {
+        const current = stateRef.current;
+        if (current.armed === armed) return;
+        if (disabledRef.current || current.pending) throw new Error("The operator simulation is busy.");
+        const result = armed ? step({ type: "arm", context: current.context }) :
+          step({ type: "key", context: current.context, key: "Escape" });
+        if (!result.accepted) throw new Error("The operator simulation state changed.");
+      },
+      setStyle: style => {
+        const current = stateRef.current;
+        if (current.style === style) return;
+        if (disabledRef.current || current.pending) throw new Error("The operator simulation is busy.");
+        if (!step({ type: "style-changed", context: current.context, style }).accepted)
+          throw new Error("The operator simulation state changed.");
+      },
+    });
+    return () => registerSurfaceController?.(null);
+  }, [audited, registerSurfaceController]);
   function settle(token: OperatorOperationToken, outcome: "confirmed" | "failed" | "unknown") {
     if (outcome !== "unknown" && uncertainOperationRef.current?.token.operationID === token.operationID &&
         uncertainOperationRef.current.token.admission === token.admission) uncertainOperationRef.current = null;
