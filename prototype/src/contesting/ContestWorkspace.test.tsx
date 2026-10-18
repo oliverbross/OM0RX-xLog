@@ -467,10 +467,12 @@ it("uses the shared contest canvas while one owner preserves the draft across En
   const source = fixture(), layoutCalls: Array<[string, Record<string, unknown>?]> = [];
   let layout = contestLayout();
   const request = (async (method: string, params: Record<string, unknown> = {}) => {
-    if (method === "workspace_layout_load") { layoutCalls.push([method, params]); return { layout: structuredClone(layout) }; }
+    if (method === "workspace_layout_load") { layoutCalls.push([method, params]); return { id: "00000000-0000-4000-8000-000000000099",
+      ok: true, result: { layout: structuredClone(layout) } }; }
     if (method === "workspace_layout_apply") {
       layoutCalls.push([method, params]); layout = { ...layout, revision: layout.revision + 1, document: changedLayout(layout.document, params as any) };
-      return { status: "applied", layout: structuredClone(layout) };
+      return { id: "00000000-0000-4000-8000-000000000098", ok: true,
+        result: { status: "applied", layout: structuredClone(layout) } };
     }
     return source.request(method as never, params as never);
   }) as ContestRequest;
