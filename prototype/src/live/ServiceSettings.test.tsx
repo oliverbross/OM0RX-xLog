@@ -16,6 +16,18 @@ function SettingsHarness({ values: initial, onSave = async () => {}, ...props }:
   return <ServiceSettings {...props} values={values} onChanged={setValues} onSave={onSave} />;
 }
 describe("grouped service settings", () => {
+  it("names and exposes radio output before the RUMlog compatibility subsection", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "cluster_snapshot") return { configuration: { forwardSpotsToFlex: false, palette: { status: {} } }, flex_forwarding_available: true };
+      if (method === "spot_bridge_snapshot") return { configuration: { enabled: false, logbookPort: 12062, contestPort: 12063, styles: {} }, running: false };
+      return {};
+    });
+    render(<SettingsHarness values={values} request={request} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Radio spots" }));
+    expect(await screen.findByRole("heading", { name: "Radio spot output" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "RUMlog compatibility" })).toBeTruthy();
+    expect(screen.getByLabelText("RBN and spotted display time")).toBeTruthy();
+  });
   it("exposes Cluster as a first-class tab backed by the Cluster snapshot", async () => {
     const configuration = { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }],
       connectOnStartup: true, requestRecentSpotsOnConnect: true, reconnect: false, requestSkimmer: false,

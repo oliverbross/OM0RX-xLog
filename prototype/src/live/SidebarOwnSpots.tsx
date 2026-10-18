@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { RadioTower } from "lucide-react";
 import { loadOwnRBNPickups, type OwnRBNTransport } from "./ownRbnFeed";
+import { useOwnSpotWindowPreference } from "./ownSpotPreferences";
 import type { OwnRBNSpot } from "./hfPropagationModel";
 import "./SidebarOwnSpots.css";
 
@@ -19,7 +20,6 @@ export type SidebarOwnSpot = {
   receivedAt: number;
 };
 
-const windowMilliseconds = 10 * 60 * 1000;
 const maximumCards = 4;
 
 function milliseconds(value: unknown) {
@@ -41,9 +41,10 @@ function normalize(raw: RawSpot): SidebarOwnSpot | null {
   };
 }
 
-export function sidebarOwnSpotItems(history: RawSpot[], live: RawSpot[], ownCall: string, now = Date.now()) {
+export function sidebarOwnSpotItems(history: RawSpot[], live: RawSpot[], ownCall: string, now = Date.now(), windowMinutes = 15) {
   const call = ownCall.trim().toUpperCase();
   if (!call) return [];
+  const windowMilliseconds = windowMinutes * 60 * 1000;
   const unique = new Map<string, SidebarOwnSpot>();
   for (const raw of [...history, ...live]) {
     const spot = normalize(raw);
@@ -84,6 +85,8 @@ export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected
   request: Request; ownCall: string; liveSpots: RawSpot[]; connected: boolean; rbnTransport?: OwnRBNTransport;
 }) {
   const [history, setHistory] = useState<RawSpot[]>([]), [directRBN, setDirectRBN] = useState<RawSpot[]>([]), [now, setNow] = useState(Date.now());
+  const ownSpotWindow = useOwnSpotWindowPreference();
+  const windowMilliseconds = ownSpotWindow.minutes * 60 * 1000;
   useEffect(() => {
     let active = true, timer: ReturnType<typeof setTimeout>;
     const read = async () => {
@@ -100,28 +103,28 @@ export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected
     };
     void read();
     return () => { active = false; clearTimeout(timer); };
-  }, [request, ownCall, connected]);
+  }, [request, ownCall, connected, ownSpotWindow.minutes]);
   useEffect(() => {
     let active = true, timer: ReturnType<typeof setTimeout>;
     const read = async () => {
       const current = Date.now(); setNow(current);
       if (!rbnTransport || !ownCall.trim()) { if (active) setDirectRBN([]); return; }
       try {
-        const spots = await loadOwnRBNPickups(rbnTransport, ownCall);
+        const spots = await loadOwnRBNPickups(rbnTransport, ownCall, 15_000, ownSpotWindow.minutes * 60);
         if (active) setDirectRBN(directRBNRows(spots, ownCall));
       } catch { /* Human cluster spots remain available if the direct RBN feed is unavailable. */ }
       finally { if (active) timer = setTimeout(read, 120_000); }
     };
     void read();
     return () => { active = false; clearTimeout(timer); };
-  }, [rbnTransport, ownCall]);
-  const items = useMemo(() => sidebarOwnSpotItems(history, [...directRBN, ...liveSpots], ownCall, now), [history, directRBN, liveSpots, ownCall, now]);
+  }, [rbnTransport, ownCall, ownSpotWindow.minutes]);
+  const items = useMemo(() => sidebarOwnSpotItems(history, [...directRBN, ...liveSpots], ownCall, now, ownSpotWindow.minutes), [history, directRBN, liveSpots, ownCall, now, ownSpotWindow.minutes]);
   if (!ownCall.trim()) return null;
   return <section className="sidebar-own-spots" aria-label="RBN and operator spots for this station">
     <header><span><RadioTower size={13} aria-hidden="true" />RBN / Spotted</span><small>{ownCall.trim().toUpperCase()}</small></header>
     {items.length ? <div className="sidebar-own-spot-list">{items.map(spot => <article key={spot.id} className={spot.source === "rbl" ? "is-rbn" : "is-human"}>
       <div><strong>{spot.spotter}</strong><span>{spot.source === "rbl" ? "RBN" : "SPOT"}</span><time dateTime={new Date(spot.receivedAt).toISOString()}>{age(spot.receivedAt, now)}</time></div>
       <p><b>{spot.band}</b><span>{(spot.frequencyKHz / 1000).toFixed(4)}</span><span>{spot.mode}</span>{spot.comment && <em title={spot.comment}>{spot.comment}</em>}</p>
-    </article>)}</div> : <p className="sidebar-own-spots-empty">No pickups in the last 10 min.</p>}
+    </article>)}</div> : <p className="sidebar-own-spots-empty">No pickups in the last {ownSpotWindow.minutes} min.</p>}
   </section>;
 }
