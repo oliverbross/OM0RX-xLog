@@ -40,12 +40,16 @@ public enum ContestADIFExport {
         let records = try records(input: input, rule: rule)
         guard validADIFDate(input.generatedAtUTC), validADIFText(programName),
               validADIFText(input.formatterVersion) else { throw ContestADIFExportError.invalidInput }
-        let headerFields = [
+        var headerFields = [
             ("ADIF_VER", "3.1.7"),
             ("PROGRAMID", programName),
             ("PROGRAMVERSION", input.formatterVersion),
             ("CREATED_TIMESTAMP", utc("yyyyMMdd HHmmss", input.generatedAtUTC)),
         ]
+        if let projection = (rule as? any ContestRuleDeclarativeExportPolicy)?.declarativeExportProjection {
+            guard projection.purpose == .operatorArchive else { throw ContestADIFExportError.invalidInput }
+            headerFields.append(("APP_\(programID)_EXPORT_PURPOSE", "OPERATOR_ARCHIVE"))
+        }
         let header = headerFields.map { "<\($0.0):\($0.1.utf8.count)>\($0.1)" }.joined() + "<EOH>\r\n"
         return header + records.map(\.recordDocument).joined(separator: "\r\n") + (records.isEmpty ? "" : "\r\n")
     }

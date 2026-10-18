@@ -180,6 +180,7 @@ actor ContestExportArtifactCache {
                 formatterVersion: artifact.formatterVersion, generatedAtUTC: artifact.generatedAtUTC,
                 qsoCount: artifact.qsoCount, totalPoints: artifact.totalPoints,
                 multiplierCount: artifact.multiplierCount, claimedScore: artifact.claimedScore,
+                declarativePurpose: artifact.declarativePurpose,
                 byteLength: artifact.data.count, sha256: ContestExportDigest.sha256(artifact.data),
                 chunkLimit: limits.chunkLimit,
                 expiresAfterSeconds: Int(limits.ttlNanoseconds / 1_000_000_000))

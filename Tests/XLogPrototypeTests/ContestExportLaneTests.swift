@@ -9,6 +9,21 @@ final class ContestExportLaneTests: XCTestCase {
     private let baseDate = Date(timeIntervalSince1970: 1_800_000_000)
     private let om = ContestEntitySnapshot(adif: 504, name: "SLOVAK REPUBLIC", countryPrefix: "OM", continent: "EU", cqZone: 15)
 
+    func testOperatorArchivePurposeTravelsThroughPreparedAndWorkerWireMetadata() async throws {
+        let request = ContestExportPrepareRequest(
+            exportID: fixedUUID(99), sessionID: fixedUUID(98), workspaceGeneration: generation,
+            expectedRevision: 1, generatedAtUTC: baseDate.addingTimeInterval(60),
+            format: .cabrillo, header: header())
+        let cache = ContestExportArtifactCache()
+        let lane = ContestExportLane(generationSource: { [generation] in generation }, cache: cache) { [om] request in
+            Self.artifact(request, bytes: 4, entity: om, purpose: .operatorArchive)
+        }
+        let prepared = try await lane.prepare(request)
+        XCTAssertEqual(prepared.declarativePurpose, .operatorArchive)
+        let response = try await lane.handle(method: "contest_export_prepare", params: wire(request))
+        XCTAssertEqual(response["declarativePurpose"] as? String, "operatorArchive")
+    }
+
     func testPrepareAndChunkReassemblyForBothFormatsUsesActualService() async throws {
         let fixture = try await makeFixture()
         let lane = ContestExportLane(service: ContestExportService(repository: fixture.store)) { [generation] in generation }
@@ -561,14 +576,16 @@ final class ContestExportLaneTests: XCTestCase {
     }
 
     private static func artifact(_ request: ContestExportPrepareRequest, bytes: Int,
-                                 entity: ContestEntitySnapshot) -> ContestExportArtifact {
+                                 entity: ContestEntitySnapshot,
+                                 purpose: ContestDeclarativeExportPurpose? = nil) -> ContestExportArtifact {
         .init(data: Data(repeating: 0x41, count: bytes), format: request.format,
               inputSchemaVersion: "1", formatterVersion: "pilot-1", generatedAtUTC: request.generatedAtUTC,
               sessionID: request.sessionID, workspaceGeneration: request.workspaceGeneration,
               revision: request.expectedRevision, ruleIdentity: CQWWCWRule.identity,
               referenceDataVersion: "cty-fixture-1", sessionName: "Fixture", operatorCallsign: "OM0RX",
               station: .init(callsign: "OM0RX", entity: entity, sentExchange: "15", operatorCallsigns: ["OM0RX"]),
-              qsoCount: 0, totalPoints: 0, multiplierCount: 0, claimedScore: 0, requestedHeader: request.header)
+              qsoCount: 0, totalPoints: 0, multiplierCount: 0, claimedScore: 0,
+              requestedHeader: request.header, declarativePurpose: purpose)
     }
 
     private func readAll(_ lane: ContestExportLane, prepared: ContestExportPreparedArtifact) async throws -> Data {
