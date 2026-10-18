@@ -77,7 +77,7 @@ git merge --ff-only b9accc7f81453f1f2cab1758a48192322213f590
 test "$(git rev-parse HEAD)" = b9accc7f81453f1f2cab1758a48192322213f590
 
 # The original full-suite proposal was superseded by the reviewed bounded baseline:
-# 22 focused UI tests, 10 focused Swift filters, 6 focused Rust modules,
+# 22 focused UI files, 10 focused Swift filters, 6 focused Rust modules,
 # and the production frontend build. Results are pending from the baseline owner.
 
 git push origin main
@@ -96,5 +96,15 @@ The approved preservation and local fast-forward completed after a refreshed cle
 - The three dirty worktrees retain their exact pre-operation status and content hashes. All nine real worktrees remain registered.
 
 No baseline test, `main` push, contest composition, package installation, or app launch is part of this checkpoint.
+
+## Prepared contest and accepted-main composition
+
+After the inventory commit `25d10e9831e98c960b080d2e1d0136753aff0c7f`, an actual no-commit merge was prepared with these reviewed inputs:
+
+- Contest source: `bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3`.
+- Accepted non-contest main: `b9accc7f81453f1f2cab1758a48192322213f590`.
+- Contest/main merge base: `5459ab196dbc7aa580c12677d19ba1b2b2f0420d`.
+
+The merge is clean. Relative to `bf2fa2c`, the combined index differs only in `PROJECT_STATUS.md` from accepted main and this consolidation evidence document. The application code, tests, packaged contest resources, packaging scripts, and authoring tools are therefore byte-identical to the already reviewed `bf2fa2c` tree. No new full test run is required for this documentation-only composition; the accepted `bf2fa2c` evidence remains 195 UI tests, 7 loader tests, 26 ADIF tests, 23 lane tests, 30 cluster tests, and a passing frontend production build.
 
 The dirty `contest-exports`, `contest-portability`, and `settings-safety` worktrees must remain untouched. Before `git push origin main`, a failed baseline can be rolled back locally to the pushed preservation anchor with `git reset --hard codex/main-pre-consolidation-c5059` only after re-verifying the canonical checkout has no user changes. After the main push, do not force-reset the shared branch; use a reviewed corrective commit. After the non-contest main push, contest integration should be composed on a new reviewed branch from `b9accc7`; the held `fa53447` package must remain labeled as a diagnostic built from the pre-consolidation source.

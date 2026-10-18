@@ -91,6 +91,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   const [reservationContinuation, setReservationContinuation] = useState<{ intent: ReservationIntent; result: ContestDraftResult } | null>(null);
   const aliveRef = useRef(true);
   const [trace, setTrace] = useState<Trace[]>([]);
+  const traceRef = useRef<HTMLOListElement>(null), followTraceRef = useRef(true);
   draftRef.current = draft;
   sessionRef.current = session;
   disabledRef.current = disabled;
@@ -100,6 +101,14 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   const setFlow = (next: OperatorFlowState) => { stateRef.current = next; guardFormSubmit(next.armed || !!next.pending); setState(next); };
   const updateTrace = (operationID: string, status: Trace["status"]) => setTrace(items =>
     items.map(item => item.operationID === operationID ? { ...item, status } : item).slice(-MAX_TRACE));
+  useLayoutEffect(() => {
+    const element = traceRef.current;
+    if (element && followTraceRef.current) element.scrollTop = element.scrollHeight;
+  }, [trace]);
+  const traceScrolled = () => {
+    const element = traceRef.current;
+    if (element) followTraceRef.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 8;
+  };
 
   function step(event: OperatorFlowEvent) {
     const transition = operatorFlowStep(stateRef.current, event);
@@ -290,6 +299,6 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
       onChange={event => step({ type: "style-changed", context: state.context, style: event.target.value as OperatorStyle })}><option value="run">Run</option><option value="search-and-pounce">Search &amp; Pounce</option></select></label>
       <span className={state.armed ? "is-armed" : ""}>{pending?.uncertain ? "Mutation outcome unknown · use the save recovery controls" : pending ? `Waiting for ${pending.kind}` : state.armed ? "Armed for simulated output" : "Disarmed"}</span></div>
     <div className="contest-operator-keys" aria-label="Simulation keyboard map"><kbd>Enter</kbd><span>sequence</span><kbd>F1–F7</kbd><span>messages</span><kbd>Esc</kbd><span>stop</span></div>
-    <ol className="contest-operator-trace" aria-label="Simulated output trace">{trace.length ? trace.map(item => <li key={item.operationID}><span>{item.mode} · {item.macro}</span><strong>{item.text}</strong><small>{item.status}</small></li>) : <li className="is-empty">No simulated messages.</li>}</ol>
+    <ol ref={traceRef} onScroll={traceScrolled} className="contest-operator-trace" aria-label="Simulated output trace">{trace.length ? trace.map(item => <li key={item.operationID}><span>{item.mode} · {item.macro}</span><strong>{item.text}</strong><small>{item.status}</small></li>) : <li className="is-empty">No simulated messages.</li>}</ol>
   </section>;
 }

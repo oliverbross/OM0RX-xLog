@@ -1,0 +1,75 @@
+{
+  "definitions": [
+    {
+      "file": "10_10_fall_cw.runtime-draft.json",
+      "identity": {
+        "edition": "2025-newsletter-unscheduled",
+        "id": "ten-ten-fallCW",
+        "sourceRevision": "abb96cf234420adcd5adeaf6bfa6e133e41fc6776850c0d15f7cda2b943f781d",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "d066bdd75d2db59c8a25bf3b5dabc30e84aaba8a5176a17a36571d6f48c78a8c"
+    },
+    {
+      "file": "10_10_spring_cw.runtime-draft.json",
+      "identity": {
+        "edition": "2025-newsletter-unscheduled",
+        "id": "ten-ten-springCW",
+        "sourceRevision": "c0f455341192f2985b52d25e82f5072012788d6935806fe3087146b0031b24a6",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "efade3985deece15f149855c0caccc632953e5756a229b41259410d58f3781b3"
+    },
+    {
+      "file": "10_10_summer_phone.runtime-draft.json",
+      "identity": {
+        "edition": "2025-rules-2026-schedule",
+        "id": "ten-ten-summerPhone",
+        "sourceRevision": "5600ff890f59eeb877f30ee99ce634f05eb6f98526159ff77fe9261e9d3c7dc1",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "58b6d423bc3a2956c5c72a2c1e5dd259ba61bb0ad66bb389a2c5752b160af63d"
+    },
+    {
+      "file": "10_10_winter_phone.runtime-draft.json",
+      "identity": {
+        "edition": "2025-rules-2026-schedule",
+        "id": "ten-ten-winterPhone",
+        "sourceRevision": "2f8083cd4c3637c9dab684b99f535bf264d42a79506a4adb21d2ee1511869ec9",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "8034607537763e3c62b14056c1a5c8c6d2c891dd8b6d47fee59fbdbbcd9f0d00"
+    },
+    {
+      "file": "cwo.runtime-draft.json",
+      "identity": {
+        "edition": "official-rules-2026-10-18",
+        "id": "cwops-open",
+        "sourceRevision": "4fee4edd547e4a1f339dc1b07a61b9827786164c8e56498edcd700b33aac511f",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "1fc3ec4eae8d77d5655b8e309d44f55371d5c2951cb599e7b8da14962a775ceb"
+    },
+    {
+      "file": "cwt.runtime-draft.json",
+      "identity": {
+        "edition": "official-rules-2026-10-18",
+        "id": "cwops-cwt",
+        "sourceRevision": "76d4a4a080cee771e22240ea50c00dce4210b0c14cdb017efe58c9f1d61c5000",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "f5d33e2b6701a5ac234b3018827e2a55dc5f7e940b9dacd44f31225d47a212ae"
+    },
+    {
+      "file": "icwc_mst.runtime-draft.json",
+      "identity": {
+        "edition": "official-rules-2026-10-18",
+        "id": "icwc-mst",
+        "sourceRevision": "86e9120b60a3a3388d312b1fc139b6ecb8ef3af40322c13612885553c9b5a445",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "d9f55f192ebc810ed2f414386df556b97f5b7f98e7edc65ddb37306ccb731d35"
+    }
+  ],
+  "schemaVersion": 1
+}

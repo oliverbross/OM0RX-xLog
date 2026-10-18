@@ -37,7 +37,11 @@ const isolatedHome = join(outputRoot, "isolated-home");
 const tempRoot = join(outputRoot, "tmp");
 const exportRoot = join(outputRoot, "exports");
 const evidenceRoot = join(outputRoot, "evidence");
-for (const path of [join(isolatedHome, "Library", "Application Support"), tempRoot, exportRoot, evidenceRoot]) mkdirSync(path, { recursive: true });
+const fixtureRoot = join(outputRoot, "fixtures");
+for (const path of [join(isolatedHome, "Library", "Application Support"), tempRoot, exportRoot, evidenceRoot, fixtureRoot]) mkdirSync(path, { recursive: true });
+const scpCorpus = "!!Order,1,1\nK1ABC\nK1ABD\nW1XYZ\nDL1ABC\nJA1AAA\nVK1AAA\nZL1AAA\n";
+writeFileSync(join(fixtureRoot, "acceptance-valid.scp"), scpCorpus, { flag: "wx" });
+writeFileSync(join(fixtureRoot, "acceptance-invalid.scp"), "!!Order,1,1\nK1ABC\nß1\n", { flag: "wx" });
 
 const protectedPaths = [join(homedir(), "Library", "Application Support", "OM0RX-xLog", "OM0RX-xLog.sqlite"), join(homedir(), "Library", "Application Support", "OM0RX-xLog-Integrated Preview", "OM0RX-xLog.sqlite")].flatMap(path => [path, `${path}-wal`, `${path}-shm`]);
 const protectedBefore = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
@@ -80,6 +84,7 @@ const vite = await createViteServer({ root: prototype, appType: "mpa", server: {
 const server = createHTTPServer(async (request, response) => {
   try {
     if (request.method === "POST" && request.url === "/__acceptance/worker") { const body = await jsonBody(request); response.setHeader("content-type", "application/json"); response.end(JSON.stringify(await hostRequest(body.method, body.params))); return; }
+    if (request.method === "POST" && request.url === "/__acceptance/scp-import") { response.setHeader("content-type", "application/json"); response.end(JSON.stringify(await hostRequest("__acceptance_scp_import", { selector: "valid" }))); return; }
     if (request.method === "POST" && request.url === "/__acceptance/export") { response.setHeader("content-type", "application/json"); response.end(JSON.stringify(await captureExport(await jsonBody(request)))); return; }
     if (request.method === "POST" && request.url === "/__acceptance/simulated-output") { simulatedOutput.push(await jsonBody(request)); response.setHeader("content-type", "application/json"); response.end("{}"); return; }
     vite.middlewares(request, response, error => { if (error) { response.statusCode = 500; response.end("Acceptance Vite failure."); } });
@@ -120,12 +125,46 @@ async function waitForFrame(after, predicate, description) {
   }
   throw new Error(`Timed out waiting for ${description}.`);
 }
+async function waitForLifecycle(after, predicate, description) {
+  const until = Date.now() + 10_000;
+  while (Date.now() <= until) {
+    const found = lifecycle.slice(after).find(predicate); if (found) return found;
+    await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
+  }
+  throw new Error(`Timed out waiting for ${description}.`);
+}
+const expectedMacroText = (macro, item, contact, index) => {
+  const sent = expectedInitialSent(item, index);
+  return { CQ: `CQ CQ DE ${item.station.call} ${item.station.call} K`, HISCALL: contact.call,
+    MYCALL: item.station.call, EXCH: item.report ? `${item.report} ${sent}` : sent,
+    QRZ: `TU ${item.station.call} QRZ`, QSOB4: "QSO B4" }[macro];
+};
+async function exerciseDeclarativeSCP(item) {
+  const importStart = lifecycle.length; await click("Import local file");
+  const imported = await waitForLifecycle(importStart, frame => frame.request.method === "__acceptance_scp_import", "SCP import");
+  assert.equal(imported.response.ok, true); assert.equal(imported.response.result.dataset.recordCount, 7);
+  const received = item.contacts[0].fields; for (const [label, value] of Object.entries(received)) await fill(label, value);
+  const queryStart = frames.length; await fill("Contest callsign", "K1A");
+  const query = await waitForFrame(queryStart, frame => frame.request.method === "contest_scp_query" && frame.response.ok, "declarative SCP query");
+  assert.equal(query.response.result.matches[0].callsign, "K1ABC");
+  const selectStart = frames.length;
+  await browser(["eval", `(() => { const root=document.querySelector('.contest-scp-matches'); const button=[...root.querySelectorAll('button')].find(x=>x.textContent.includes('K1ABC')); if(!button) throw new Error('Missing SCP K1ABC candidate'); button.click(); })()`]);
+  const selected = await waitForFrame(selectStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "K1ABC", "declarative SCP selection");
+  assert.deepEqual(selected.response.result.draft.fields.receivedExchangeFields, item.contacts[0].receivedFieldValues);
+  observations.push({ case: item.caseKey, phase: "real-scp-selection", query: query.response.result.normalizedQuery,
+    selected: selected.response.result.draft.fields.callsign, receivedExchangeFields: selected.response.result.draft.fields.receivedExchangeFields });
+  const clearStart = frames.length; await browser(["fill", ".contest-entry-fields input[aria-label='Contest callsign']", "X"]); await browser(["press", "Backspace"]);
+  await waitForFrame(clearStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.callsign === "", "clear SCP-selected draft");
+  for (const label of Object.keys(received)) await fill(label, "");
+}
 
 function utcFields(value) {
   const iso = new Date(value).toISOString();
   return { date: iso.slice(0, 10), adifDate: iso.slice(0, 10).replaceAll("-", ""), minute: iso.slice(11, 16).replace(":", ""), second: iso.slice(11, 19).replaceAll(":", "") };
 }
-const expectedInitialSent = (item, index) => item.serial ? String(index + 1).padStart(3, "0") : item.sentExchange;
+const expectedInitialSent = (item, index) => item.declarative
+  ? item.sentOrder.map(id => id === "serial" ? String(index + 1).padStart(3, "0") : item.sentFields[id]).join(" ")
+  : item.serial ? String(index + 1).padStart(3, "0") : item.sentExchange;
 function parseCabrillo(bytes) {
   const raw = bytes.toString("utf8");
   assert.equal(raw.replaceAll("\r\n", "").includes("\n"), false, "Cabrillo must use CRLF only.");
@@ -135,6 +174,17 @@ function parseCabrillo(bytes) {
     else { const boundary = line.indexOf(":"); assert.ok(boundary > 0); headers[line.slice(0, boundary)] = line.slice(boundary + 1).trim(); }
   }
   return { headers, qsos };
+}
+function parseFixedQSO(line, widths) {
+  assert.equal(line.startsWith("QSO: "), true);
+  const body = line.slice(5), expectedLength = widths.reduce((sum, width) => sum + width, 0) + widths.length - 1;
+  assert.equal(body.length, expectedLength, `Unexpected fixed-width QSO byte count: ${line}`);
+  const values = []; let cursor = 0;
+  for (const [index, width] of widths.entries()) {
+    const value = body.slice(cursor, cursor + width); assert.equal(Buffer.byteLength(value), width); values.push(value.trim()); cursor += width;
+    if (index < widths.length - 1) { assert.equal(body[cursor], " "); cursor += 1; }
+  }
+  assert.equal(cursor, body.length); return values;
 }
 function parseADIF(bytes) {
   const text = bytes.toString("utf8"), records = []; let header = {}, fields = {}, cursor = 0, sawHeader = false;
@@ -153,6 +203,50 @@ function parseADIF(bytes) {
 function validateExport(bytes, prepared, item, format) {
   assert.equal(prepared.format, format); assert.equal(prepared.qsoCount, item.contacts.length);
   assert.deepEqual({ points: prepared.totalPoints, multipliers: prepared.multiplierCount, score: prepared.claimedScore }, item.expected);
+  if (item.declarative) {
+    const expectedCabrilloMode = item.mode === "CW" ? "CW" : "PH";
+    if (format === "cabrillo") {
+      const raw = bytes.toString("utf8"); assert.equal(raw.replaceAll("\r\n", "").includes("\n"), false);
+      const lines = raw.split("\r\n").filter(Boolean), headers = Object.fromEntries(lines.filter(line => !line.startsWith("QSO:"))
+        .map(line => { const boundary = line.indexOf(":"); return [line.slice(0, boundary), line.slice(boundary + 1).trim()]; }));
+      const layout = item.family === "ten-ten" ? [5, 2, 10, 4, 13, 3, 10, 8, 20, 13, 3, 10, 8, 20] :
+        item.id === "cwops-cwt" ? [5, 2, 10, 4, 13, 10, 20, 13, 10, 20] :
+        item.id === "cwops-open" ? [5, 2, 10, 4, 13, 4, 10, 13, 4, 10] : [5, 2, 10, 4, 13, 10, 4, 13, 10, 4];
+      const qsos = lines.filter(line => line.startsWith("QSO:")).map(line => parseFixedQSO(line, layout));
+      assert.equal(headers.CONTEST, item.cabrilloName); assert.equal(headers.CALLSIGN, item.station.call);
+      assert.equal(headers["CATEGORY-MODE"], item.mode === "CW" ? "CW" : "SSB"); assert.equal(Number(headers["CLAIMED-SCORE"]), item.expected.score);
+      assert.equal(headers["X-OM0RXXLOG-PURPOSE"], "OPERATOR-ARCHIVE"); assert.equal(qsos.length, 6);
+      qsos.forEach((fields, index) => {
+        const contact = item.contacts[index], committed = item.commits[index].qso, time = utcFields(committed.workedAt ?? committed.originalUTC);
+        const common = [String(Math.round(contact.frequency / 1_000)), expectedCabrilloMode, time.date, time.minute, item.station.call];
+        const sentSerial = String(index + 1).padStart(3, "0"), received = contact.receivedFieldValues;
+        const expected = item.family === "ten-ten" ? [...common, item.report, item.sentFields.name, item.sentFields["member-number"], item.sentFields.qth,
+          contact.call, item.report, received.name, received["member-number"], received.qth] : item.id === "cwops-cwt"
+          ? [...common, item.sentFields.name, item.sentFields["member-or-location"], contact.call, received.name, received["member-or-location"]]
+          : item.id === "cwops-open" ? [...common, sentSerial, item.sentFields.name, contact.call, received.serial, received.name]
+          : [...common, item.sentFields.name, sentSerial, contact.call, received.name, received.serial];
+        assert.deepEqual(fields, expected); assert.equal(committed.sentExchange, expectedInitialSent(item, index));
+      });
+    } else {
+      const parsed = parseADIF(bytes); assert.equal(parsed.header.ADIF_VER, "3.1.7"); assert.equal(parsed.records.length, 6);
+      parsed.records.forEach((record, index) => {
+        const contact = item.contacts[index], committed = item.commits[index].qso, time = utcFields(committed.workedAt ?? committed.originalUTC);
+        assert.equal(record.CALL, contact.call); assert.equal(record.CONTEST_ID, item.cabrilloName); assert.equal(record.MODE, item.mode);
+        assert.equal(record.BAND, contact.band); assert.equal(record.FREQ, (contact.frequency / 1_000_000).toFixed(6));
+        assert.equal(record.QSO_DATE, time.adifDate); assert.equal(record.TIME_ON, time.second); assert.equal(record.STATION_CALLSIGN, item.station.call);
+        assert.equal(record.STX_STRING, expectedInitialSent(item, index)); assert.equal(record.SRX_STRING, contact.receivedAggregate);
+        if (item.report) { assert.equal(record.RST_SENT, item.report); assert.equal(record.RST_RCVD, item.report); }
+        else { assert.equal(record.RST_SENT, undefined); assert.equal(record.RST_RCVD, undefined); }
+        assert.equal(record.MY_NAME, item.sentFields.name); assert.equal(record.NAME, contact.receivedFieldValues.name);
+        if (item.serial) {
+          assert.equal(record.STX, String(index + 1)); assert.equal(record.SRX, String(Number(contact.receivedFieldValues.serial)));
+        } else {
+          assert.equal(record.STX, undefined); assert.equal(record.SRX, undefined);
+        }
+      });
+    }
+    return;
+  }
   const expectedMode = item.mode === "CW" ? "CW" : "SSB", cabrilloMode = item.mode === "CW" ? "CW" : "PH";
   if (format === "cabrillo") {
     const parsed = parseCabrillo(bytes); assert.equal(parsed.headers.CONTEST, item.cabrilloName); assert.equal(parsed.headers.CALLSIGN, item.station.call);
@@ -181,7 +275,7 @@ function validateExport(bytes, prepared, item, format) {
   }
 }
 
-const profiles = [
+const legacyProfiles = [
   { family: "cq-ww", id: "cq-ww-cw", cabrilloName: "CQ-WW-CW", label: "CQ WW CW", mode: "CW", report: "599", sentExchange: "15", expected: { points: 14, multipliers: 12, score: 168 } },
   { family: "cq-ww", id: "cq-ww-ssb", cabrilloName: "CQ-WW-SSB", label: "CQ WW SSB", mode: "SSB", report: "59", sentExchange: "15", expected: { points: 14, multipliers: 12, score: 168 } },
   { family: "cq-wpx", id: "cq-wpx-cw", cabrilloName: "CQ-WPX-CW", label: "CQ WPX CW", mode: "CW", report: "599", serial: true, numericADIF: true, expected: { points: 21, multipliers: 3, score: 63 } },
@@ -197,6 +291,32 @@ const profiles = [
   { family: "arrl-dx", id: "arrl-dx-cw", cabrilloName: "ARRL-DX-CW", label: "ARRL DX CW", mode: "CW", report: "599", sentExchange: "K", expected: { points: 18, multipliers: 6, score: 108 } },
   { family: "arrl-dx", id: "arrl-dx-ssb", cabrilloName: "ARRL-DX-SSB", label: "ARRL DX SSB", mode: "SSB", report: "59", sentExchange: "K", expected: { points: 18, multipliers: 6, score: 108 } },
 ];
+const declarativeProfiles = [
+  { family: "cw-unique", id: "cwops-cwt", label: "CWops Test (CWT) Archive Preview", mode: "CW", cabrilloName: "CW-OPS", serial: false,
+    sentFields: { name: "OLIVER", "member-or-location": "1234" }, sentOrder: ["name", "member-or-location"], receivedOrder: ["name", "member-or-location"], expected: { points: 6, multipliers: 3, score: 18 } },
+  { family: "cw-unique", id: "cwops-open", label: "CW Open Archive Preview", mode: "CW", cabrilloName: "CW-OPEN", serial: true,
+    sentFields: { name: "OLIVER" }, sentOrder: ["serial", "name"], receivedOrder: ["serial", "name"], expected: { points: 6, multipliers: 3, score: 18 } },
+  { family: "cw-unique", id: "icwc-mst", label: "ICWC Medium Speed Test Archive Preview", mode: "CW", cabrilloName: "ICWC-MST", serial: true,
+    sentFields: { name: "OLIVER" }, sentOrder: ["name", "serial"], receivedOrder: ["name", "serial"], expected: { points: 6, multipliers: 3, score: 18 } },
+  ...[
+    ["ten-ten-fallCW", "10-10 Fall CW QSO Party Operator Archive", "CW"],
+    ["ten-ten-springCW", "10-10 Spring CW QSO Party Operator Archive", "CW"],
+    ...["SSB", "AM", "FM"].map(mode => ["ten-ten-summerPhone", "10-10 Summer Phone QSO Party Operator Archive", mode]),
+    ...["SSB", "AM", "FM"].map(mode => ["ten-ten-winterPhone", "10-10 Winter Phone QSO Party Operator Archive", mode]),
+  ].map(([id, label, mode]) => ({ family: "ten-ten", id, label, mode, cabrilloName: "10-10", serial: false,
+    report: mode === "CW" ? "599" : "59", sentFields: { name: "OLIVER", "member-number": "12345", qth: "SLOVAKIA" },
+    sentOrder: ["name", "member-number", "qth"], receivedOrder: ["name", "member-number", "qth"], expected: { points: 9, multipliers: 0, score: 9 } })),
+];
+const harnessScope = process.env.XLOG_FAMILY_ACCEPTANCE_SCOPE ?? "legacy";
+assert.ok(["legacy", "declarative"].includes(harnessScope), "Unknown family acceptance scope.");
+const availableProfiles = harnessScope === "declarative" ? declarativeProfiles : legacyProfiles;
+const profileFilter = process.env.XLOG_FAMILY_ACCEPTANCE_PROFILE_IDS ?? "";
+const requestedProfileIDs = profileFilter === "" ? [] : profileFilter.split(",");
+assert.equal(new Set(requestedProfileIDs).size, requestedProfileIDs.length, "Profile filter contains duplicate IDs.");
+assert.equal(requestedProfileIDs.every(id => id.length > 0 && id.trim() === id), true, "Profile filter contains an invalid ID.");
+for (const id of requestedProfileIDs) assert.equal(availableProfiles.some(profile => profile.id === id), true, `Unknown profile filter ID: ${id}`);
+const profiles = requestedProfileIDs.length > 0 ? availableProfiles.filter(profile => requestedProfileIDs.includes(profile.id)) : availableProfiles;
+assert.ok(profiles.length > 0, "Profile filter selected no cases.");
 const expectedProgress = {
   "cq-ww": [[3, 2, 6], [4, 4, 16], [7, 6, 42], [10, 8, 80], [11, 10, 110], [14, 12, 168]],
   "cq-wpx": [[3, 1, 3], [4, 2, 8], [7, 3, 21], [13, 3, 39], [15, 3, 45], [21, 3, 63]],
@@ -205,13 +325,31 @@ const expectedProgress = {
   naqp: [[1, 1, 1], [2, 2, 4], [3, 3, 9], [4, 4, 16], [5, 5, 25], [6, 6, 36]],
   jidx: [[1, 1, 1], [2, 2, 4], [3, 3, 9], [4, 4, 16], [5, 5, 25], [6, 6, 36]],
   "arrl-dx": [[3, 1, 3], [6, 2, 12], [9, 3, 27], [12, 4, 48], [15, 5, 75], [18, 6, 108]],
+  "cw-unique": [[1, 1, 1], [2, 2, 4], [3, 3, 9], [4, 3, 12], [5, 3, 15], [6, 3, 18]],
+  "ten-ten": [[2, 0, 2], [3, 0, 3], [5, 0, 5], [6, 0, 6], [8, 0, 8], [9, 0, 9]],
 };
-const station = family => family === "sac" ? { call: "SM0AAA", cq: "14", entity: "Sweden", sentParts: [] } :
+const station = (family, profile) => family === "sac" ? { call: "SM0AAA", cq: "14", entity: "Sweden", sentParts: [] } :
   family === "naqp" ? { call: "K1AAA", cq: "5", entity: "United States", sentParts: ["AL", "CA"], createFields: { "Station name": "AL", "Station location": "CA" } } :
   family === "jidx" ? { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: ["599", "15"], createFields: { "Station prefecture or CQ Zone": "15" } } :
   family === "arrl-dx" ? { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: ["599", "K"], createFields: { "Station power (DX)": "K", "Cabrillo section": "DX" } } :
+  family === "cw-unique" || family === "ten-ten" ? { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: [],
+    createFields: Object.fromEntries(Object.entries(profile.sentFields).map(([id, value]) => [id === "member-or-location" ? "Station member number, CWA, state, province, or DX prefix" : id === "member-number" ? "Station 10-10 Number (0 for non-member)" : id === "qth" ? "Station qTH" : "Station name", value])) } :
   { call: "OM0RX", cq: "15", entity: "Slovak Republic", sentParts: [] };
 const contactsFor = profile => {
+  if (profile.family === "cw-unique") return [
+    ["K1ABC", "AL", "101"], ["DL1ABC", "BOB", "102"], ["JA1AAA", "CHEN", "103"],
+    ["K1ABC", "DAN", "104"], ["DL1ABC", "EVA", "105"], ["JA1AAA", "FINN", "106"],
+  ].map(([call, name, serial]) => profile.id === "cwops-cwt"
+    ? { call, receivedAggregate: `${name} CA`, fields: { "Received Name": name, "Received Member number, CWA, state, province, or DX prefix": "CA" },
+        receivedFieldValues: { name, "member-or-location": "CA" } }
+    : { call, receivedAggregate: profile.id === "cwops-open" ? `${serial} ${name}` : `${name} ${serial}`,
+        fields: { "Received Serial": serial, "Received Name": name }, receivedFieldValues: { serial, name } });
+  if (profile.family === "ten-ten") return [
+    ["K1ABC", "AL", "12345", "CT"], ["W1XYZ", "MARY-JANE", "0", "NEW YORK"], ["DL1ABC", "CHEN", "77", "GERMANY"],
+    ["JA1AAA", "DAN", "0", "TOKYO"], ["VK1AAA", "EVA", "9", "SYDNEY"], ["ZL1AAA", "FINN", "0", "AUCKLAND"],
+  ].map(([call, name, member, qth]) => ({ call, receivedAggregate: `${name} ${member} ${qth}`,
+    fields: { "Received Name": name, "Received 10-10 Number (0 for non-member)": member, "Received QTH": qth },
+    receivedFieldValues: { name, "member-number": member, qth } }));
   if (profile.family === "cq-ww") return [
     { call: "K1ABC", receivedAggregate: "05" }, { call: "DL1ABC", receivedAggregate: "14" }, { call: "JA1AAA", receivedAggregate: "25" },
     { call: "K1ABC", receivedAggregate: "05" }, { call: "DL1ABC", receivedAggregate: "14" }, { call: "JA1AAA", receivedAggregate: "25" },
@@ -248,19 +386,26 @@ const contactsFor = profile => {
   ];
 };
 const allCases = profiles.map(profile => {
-  const itemStation = station(profile.family), contacts = contactsFor(profile).map((contact, index) => ({
+  const itemStation = station(profile.family, profile), contacts = contactsFor(profile).map((contact, index) => ({
     ...contact, style: index < 3 ? "run" : "search-and-pounce",
-    frequency: index < 3 ? (profile.mode === "CW" ? 14_025_000 + index * 1_000 : 14_250_000 + index * 1_000) :
+    frequency: profile.family === "ten-ten" ? ({ CW: 28_030_000, SSB: 28_450_000, AM: 29_000_000, FM: 29_600_000 }[profile.mode] + index * 1_000) :
+      index < 3 ? (profile.mode === "CW" ? 14_025_000 + index * 1_000 : 14_250_000 + index * 1_000) :
       (profile.mode === "CW" ? 7_025_000 + (index - 3) * 1_000 : 7_140_000 + (index - 3) * 1_000),
-    band: index < 3 ? "20m" : "40m", rx: contact.receivedAggregate, receivedReport: profile.report || undefined,
+    band: profile.family === "ten-ten" ? "10m" : index < 3 ? "20m" : "40m", rx: contact.receivedAggregate, receivedReport: profile.report || undefined,
     receivedParts: profile.report ? [profile.report, contact.receivedAggregate] : contact.receivedAggregate.split(" "),
   }));
-  itemStation.sentParts = profile.report ? [profile.report, profile.serial ? "001" : profile.sentExchange] : itemStation.sentParts;
-  return { ...profile, station: itemStation, name: `${profile.label} family operator acceptance`, commits: [], contacts };
+  const declarativeSent = profile.sentOrder?.map(id => id === "serial" ? "001" : profile.sentFields[id]).join(" ");
+  itemStation.sentParts = profile.report ? [profile.report, profile.serial ? "001" : profile.sentExchange ?? declarativeSent] : itemStation.sentParts;
+  return { ...profile, caseKey: `${profile.id}-${profile.mode.toLowerCase()}`, declarative: ["cw-unique", "ten-ten"].includes(profile.family), station: itemStation,
+    name: `${profile.label} ${profile.mode} family operator acceptance`, commits: [], contacts };
 });
 const diagnosticProfile = process.env.XLOG_FAMILY_DIAGNOSTIC_PROFILE ?? "";
-assert.ok(!diagnosticProfile || allCases.some(item => item.id === diagnosticProfile), "Diagnostic profile must name a reviewed family profile.");
-const cases = diagnosticProfile ? allCases.filter(item => item.id === diagnosticProfile) : allCases;
+assert.ok(!diagnosticProfile || allCases.some(item => item.id === diagnosticProfile || item.caseKey === diagnosticProfile), "Diagnostic profile must name a reviewed family profile.");
+const cases = diagnosticProfile ? allCases.filter(item => item.id === diagnosticProfile || item.caseKey === diagnosticProfile) : allCases;
+if (!diagnosticProfile) {
+  const expectedCaseCount = requestedProfileIDs.length > 0 ? profiles.length : harnessScope === "declarative" ? 11 : 14;
+  assert.equal(cases.length, expectedCaseCount);
+}
 
 async function exportDOMState(item, phase) {
   const state = JSON.parse(await browser(["eval", `(() => { const buttons=[...document.querySelectorAll('button')].filter(x=>x.textContent.trim()==='Export…'); const button=buttons[0], rect=button?.getBoundingClientRect(); return JSON.stringify({phase:${JSON.stringify(phase)},expectedSession:${JSON.stringify(item.name)},heading:document.querySelector('.contest-header h1')?.textContent?.trim()??null,sessionPresent:document.body.textContent.includes(${JSON.stringify(item.name)}),profilePresent:document.body.textContent.includes(${JSON.stringify(item.label)}),buttons:buttons.map(x=>({disabled:x.disabled,connected:x.isConnected,rect:{x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,width:x.getBoundingClientRect().width,height:x.getBoundingClientRect().height}})),alert:document.querySelector('.contest-alert')?.textContent?.trim()??null,dialogs:[...document.querySelectorAll('[role=dialog]')].map(x=>x.textContent?.trim()),active:document.activeElement?.textContent?.trim()??document.activeElement?.getAttribute('aria-label')??null,hit:rect?[...document.elementsFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)].slice(0,5).map(x=>({tag:x.tagName,class:x.className,text:x.textContent?.trim().slice(0,80)})):[]}); })()`]));
@@ -284,9 +429,10 @@ async function exportCase(item, format) {
   const preparedFrame = await waitForFrame(prepareStart, frame => frame.request.method === "contest_export_prepare", `export preparation ${item.name}/${format}`);
   assert.equal(preparedFrame.response.ok, true, JSON.stringify(preparedFrame.response.error));
   await waitSelector("[aria-label='Prepared export summary']");
-  const practicePreview = ["sac", "jidx", "arrl-dx"].includes(item.family);
+  const practicePreview = item.declarative || ["sac", "jidx", "arrl-dx"].includes(item.family);
   await expectText("[aria-label='Prepared export summary']", format === "cabrillo" ?
-    (practicePreview ? /Cabrillo practice export/ : /Cabrillo submission preview/) : /ADIF compatibility export/);
+    (item.declarative ? /Cabrillo operator archive/ : practicePreview ? /Cabrillo practice export/ : /Cabrillo submission preview/) :
+    (item.declarative ? /ADIF operator archive/ : /ADIF compatibility export/));
   const assertionCount = exportAssertions.length; pendingExportExpectation = { item, format }; await click("Save…");
   const until = Date.now() + 10_000; while (exportAssertions.length === assertionCount && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
   assert.equal(exportAssertions.length, assertionCount + 1, `Export save did not complete for ${item.name} ${format}.`); await waitText("Saved"); await waitText("Plain Log");
@@ -298,8 +444,21 @@ async function createCase(item) {
   for (const [label, value] of Object.entries(item.station.createFields ?? {})) await fill(label, value);
   await waitEnabledButton("Create and open"); const createStart = frames.length;
   await pressIn(Object.keys(item.station.createFields ?? {}).at(-1) ?? "DXCC entity", "Enter");
-  await waitForFrame(createStart, frame => frame.request.method === "contest_create" && frame.response.ok, `create ${item.name}`);
+  const created = await waitForFrame(createStart, frame => frame.request.method === "contest_create" && frame.response.ok, `create ${item.name}`);
+  if (item.declarative) {
+    const rule = created.response.result.session.rule;
+    assert.equal(rule.identity.id, item.id); assert.equal(rule.identity.version, "2.0.0-declarative-archive");
+    assert.equal(rule.operatorCapability.policy, "simulated-run-sp-v1"); assert.equal(rule.operatorCapability.output, "simulation-only");
+    assert.equal(rule.operatorCapability.auditDigest, rule.declarativeDefinition.definitionDigest);
+    assert.equal(rule.operatorCapability.signalProfiles.some(profile => profile.mode === item.mode && profile.signal === (item.mode === "CW" ? "cw" : "phone")), true);
+  }
   await waitText("Plain Log");
+  if (item.declarative && item.mode !== (item.family === "ten-ten" && item.mode !== "CW" ? "SSB" : "CW")) {
+    const modeStart = frames.length; await select("Mode", item.mode);
+    await waitForFrame(modeStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.mode === item.mode,
+      `authoritative ${item.mode} mode`);
+  }
+  if (harnessScope === "declarative" && item === cases[0]) await exerciseDeclarativeSCP(item);
   for (const [index, contact] of item.contacts.entries()) {
     const style = contact.style;
     await select("Operating style", style); await fill("Frequency Hz", String(contact.frequency)); await select("Band", contact.band);
@@ -308,17 +467,23 @@ async function createCase(item) {
       const outputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
       const until = Date.now() + 10_000; while (!simulatedOutput.slice(outputStart).some(entry => entry.macro === "CQ") && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
       assert.equal(simulatedOutput.slice(outputStart).some(entry => entry.macro === "CQ"), true, `Blank CQ did not settle for ${item.name}.`);
+      if (item.declarative) assert.equal(simulatedOutput.at(-1).text, expectedMacroText("CQ", item, contact, index));
     }
     await fill("Contest callsign", contact.call); if (item.report) await fill("Received report", item.report);
     await ensureArmed(item.name);
     const callOutputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
     const callMacro = style === "run" ? "HISCALL" : "MYCALL";
-    const callUntil = Date.now() + 10_000; while (!simulatedOutput.slice(callOutputStart).some(entry => entry.macro === callMacro) && Date.now() <= callUntil) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
-    assert.equal(simulatedOutput.slice(callOutputStart).some(entry => entry.macro === callMacro), true, `Call-first output did not settle for ${item.name}/${style}.`);
+    const callMacros = item.declarative && style === "run" ? ["HISCALL", "EXCH"] : [callMacro];
+    const callUntil = Date.now() + 10_000; while (simulatedOutput.slice(callOutputStart).length < callMacros.length && Date.now() <= callUntil) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
+    assert.deepEqual(simulatedOutput.slice(callOutputStart).map(entry => entry.macro), callMacros, `Call-first output did not settle for ${item.name}/${style}.`);
+    if (item.declarative) for (const [offset, macro] of callMacros.entries())
+      assert.equal(simulatedOutput[callOutputStart + offset].text, expectedMacroText(macro, item, contact, index));
     const exercisesInvalidExchange = index === 0 || index === 3;
     if (exercisesInvalidExchange) {
       const before = frames.filter(frame => frame.request.method === "contest_qso_commit" && frame.response.ok).length;
-      const invalid = item.family === "naqp" ? { "Received Name": "BOB", "Received Location": "ZZ" } :
+      const invalid = item.family === "cw-unique" ? (item.id === "cwops-cwt" ? { "Received Name": "123" } : { "Received Serial": "0" }) :
+        item.family === "ten-ten" ? { "Received 10-10 Number (0 for non-member)": "ABC" } :
+        item.family === "naqp" ? { "Received Name": "BOB", "Received Location": "ZZ" } :
         item.family === "jidx" ? { "Received Prefecture or CQ Zone": "99" } :
         item.family === "arrl-dx" ? { "Received State or province": "ZZ" } :
         { "Received exchange": item.family === "cq-ww" ? "99" : "0" };
@@ -349,16 +514,20 @@ async function createCase(item) {
     const commitStart = frames.length;
     if (exercisesInvalidExchange) {
       const outputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
-      const until = Date.now() + 10_000; while (!simulatedOutput.slice(outputStart).some(entry => entry.macro === callMacro) && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
-      assert.equal(simulatedOutput.slice(outputStart).some(entry => entry.macro === callMacro), true, `Rearmed call-first output did not settle for ${item.name}/${style}.`);
+      const macros = item.declarative && style === "run" ? ["HISCALL", "EXCH"] : [callMacro];
+      const until = Date.now() + 10_000; while (simulatedOutput.slice(outputStart).length < macros.length && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
+      assert.deepEqual(simulatedOutput.slice(outputStart).map(entry => entry.macro), macros, `Rearmed call-first output did not settle for ${item.name}/${style}.`);
+      if (item.declarative) for (const [offset, macro] of macros.entries())
+        assert.equal(simulatedOutput[outputStart + offset].text, expectedMacroText(macro, item, contact, index));
       await waitEnabledButton("Disarm");
     }
-    if (style === "run") {
+    if (style === "run" && !item.declarative) {
       const outputStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
       const until = Date.now() + 10_000; while (!simulatedOutput.slice(outputStart).some(entry => entry.macro === "EXCH") && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
       assert.equal(simulatedOutput.slice(outputStart).some(entry => entry.macro === "EXCH"), true, `Run exchange did not settle for ${item.name} ${index}.`);
       await waitEnabledButton("Disarm");
     }
+    const settleOutputStart = simulatedOutput.length;
     await pressIn(Object.keys(contact.fields ?? { "Received exchange": contact.receivedAggregate }).at(-1), "Enter");
     const committed = await waitForFrame(commitStart, frame => frame.request.method === "contest_qso_commit" && frame.response.ok, `commit ${item.name} ${index}`);
     item.commits.push(committed.response.result);
@@ -366,6 +535,12 @@ async function createCase(item) {
     assert.deepEqual({ qsoCount: committed.response.result.score.qsos, points: committed.response.result.score.points,
       multipliers: committed.response.result.score.multipliers, score: committed.response.result.score.claimedScore },
     { qsoCount: index + 1, points, multipliers, score });
+    if (item.declarative) {
+      const settleMacros = [style === "run" ? "QRZ" : "EXCH"];
+      const until = Date.now() + 10_000; while (simulatedOutput.slice(settleOutputStart).length < settleMacros.length && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
+      assert.deepEqual(simulatedOutput.slice(settleOutputStart).map(entry => entry.macro), settleMacros);
+      assert.equal(simulatedOutput[settleOutputStart].text, expectedMacroText(settleMacros[0], item, contact, index));
+    }
     await new Promise(resolveDelay => setTimeout(resolveDelay, 250));
     observations.push({ case: item.id, contact: index, phase: "after-enter", operator: await text("[aria-label='Run and S&P simulation']") });
     await waitText(`${index + 1} contacts`);
@@ -373,6 +548,7 @@ async function createCase(item) {
       const cqStart = simulatedOutput.length; await pressIn("Contest callsign", "Enter");
       const until = Date.now() + 10_000; while (!simulatedOutput.slice(cqStart).some(entry => entry.macro === "CQ") && Date.now() <= until) await new Promise(resolveDelay => setTimeout(resolveDelay, 25));
       assert.equal(simulatedOutput.slice(cqStart).some(entry => entry.macro === "CQ"), true, `Next blank CQ did not settle after ${item.name} Run contact ${index}.`);
+      if (item.declarative) assert.equal(simulatedOutput.at(-1).text, expectedMacroText("CQ", item, contact, index));
     }
   }
   for (const duplicateIndex of [0, 3]) {
@@ -381,15 +557,27 @@ async function createCase(item) {
       reserves: frames.filter(frame => frame.request.method === "contest_serial_reserve").length,
       output: simulatedOutput.length,
     };
+    const crossModeDuplicate = item.id === "ten-ten-winterPhone" && item.mode === "SSB" && duplicateIndex === 0;
+    if (crossModeDuplicate) {
+      const modeStart = frames.length; await select("Mode", "AM");
+      await waitForFrame(modeStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.mode === "AM",
+        "TenTen once-contest cross-mode duplicate mode");
+    }
     await select("Operating style", duplicate.style); await fill("Frequency Hz", String(duplicate.frequency)); await select("Band", duplicate.band);
     await fill("Contest callsign", duplicate.call); if (item.report) await fill("Received report", item.report);
     await waitText("Duplicate"); await ensureArmed(item.name); await pressIn("Contest callsign", "Enter"); await new Promise(resolveDelay => setTimeout(resolveDelay, 250));
     assert.equal(frames.filter(frame => frame.request.method === "contest_qso_commit").length, beforeDuplicate.commits);
     assert.equal(frames.filter(frame => frame.request.method === "contest_serial_reserve").length, beforeDuplicate.reserves);
     assert.equal(simulatedOutput.length, beforeDuplicate.output + 1); assert.equal(simulatedOutput.at(-1)?.macro, "QSOB4");
+    if (item.declarative) assert.equal(simulatedOutput.at(-1)?.text, expectedMacroText("QSOB4", item, duplicate, duplicateIndex));
     observations.push({ case: item.id, style: duplicate.style, phase: "call-first-duplicate-blocked",
       operator: await text("[aria-label='Run and S&P simulation']") });
     await pressIn("Contest callsign", "Escape");
+    if (crossModeDuplicate) {
+      const modeStart = frames.length; await select("Mode", item.mode);
+      await waitForFrame(modeStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok && frame.response.result.draft.fields.mode === item.mode,
+        "restore TenTen primary mode after cross-mode duplicate");
+    }
   }
   const resetStart = frames.length;
   await browser(["fill", ".contest-entry-fields input[aria-label='Contest callsign']", "X"]);
@@ -397,7 +585,7 @@ async function createCase(item) {
   await waitForFrame(resetStart, frame => frame.request.method === "contest_draft_apply" && frame.response.ok &&
     frame.response.result.draft.fields.callsign === "", `clean draft after ${item.name} duplicate probes`);
   await waitScore(item);
-  await browser(["screenshot", "--full", join(evidenceRoot, `${item.id}-both-styles.png`)]);
+  await browser(["screenshot", "--full", join(evidenceRoot, `${item.caseKey}-both-styles.png`)]);
   await exportCase(item, "cabrillo"); await exportCase(item, "adif");
   await click("Contest Manager"); await waitText("Contest sessions");
 }
@@ -421,17 +609,34 @@ try {
       assert.equal(reserve.response.result.draft.reservedSerial, 7); await waitText("Serial 7");
     }
     await click(`Edit ${item.contacts[0].call}`); await waitText("Update the contact");
-    const correctionLabel = item.family === "naqp" ? "Received Name" : item.report ? "Received report" : "Received exchange";
-    const correctionValue = item.family === "naqp" ? "ROBERT" : item.mode === "CW" ? "579" : "57";
-    await browser(["eval", `(() => { const root=document.querySelector('.contest-qso-editor'); const label=[...root.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(correctionLabel)})); const input=label?.querySelector('input'); if(!input) throw new Error('Missing correction field'); const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; setter.call(input,${JSON.stringify(correctionValue)}); input.dispatchEvent(new Event('input',{bubbles:true})); })()`]);
-    await fill("Correction note", `Synthetic ${item.id} family correction`); const correctionStart = frames.length; await click("Save correction");
+    const correctionLabel = item.declarative || item.family === "naqp" ? "Received Name" : item.report ? "Received report" : "Received exchange";
+    const correctionValue = item.declarative ? "ALICE" : item.family === "naqp" ? "ROBERT" : item.mode === "CW" ? "579" : "57";
+    if (item.declarative) {
+      const correctionTarget = JSON.parse(JSON.parse(await browser(["eval", `(() => { const root=document.querySelector('.contest-qso-editor'); if(!root) throw new Error('Missing correction editor'); const labels=[...root.querySelectorAll('label')], matches=labels.filter(label=>label.textContent.trim().startsWith(${JSON.stringify(correctionLabel)})); if(matches.length!==1) throw new Error('Correction label is not unique: '+matches.length); const input=matches[0].querySelector('input'); if(!input) throw new Error('Correction input is missing'); input.setAttribute('data-acceptance-correction','true'); return JSON.stringify({label:matches[0].textContent.trim(),labels:labels.map(label=>label.textContent.trim())}); })()`])));
+      observations.push({ case: item.caseKey, phase: "correction-target", state: correctionTarget });
+      await browser(["fill", ".contest-qso-editor input[data-acceptance-correction='true']", correctionValue]);
+      const correctedValue = JSON.parse(JSON.parse(await browser(["eval", `(() => { const root=document.querySelector('.contest-qso-editor'); const labels=[...root.querySelectorAll('label')], matches=labels.filter(label=>label.textContent.trim().startsWith(${JSON.stringify(correctionLabel)})); if(matches.length!==1) throw new Error('Correction label changed'); return JSON.stringify(matches[0].querySelector('input')?.value??null); })()`])));
+      assert.equal(correctedValue, correctionValue);
+    } else {
+      await browser(["eval", `(() => { const root=document.querySelector('.contest-qso-editor'); const label=[...root.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(correctionLabel)})); const input=label?.querySelector('input'); if(!input) throw new Error('Missing correction field'); const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; setter.call(input,${JSON.stringify(correctionValue)}); input.dispatchEvent(new Event('input',{bubbles:true})); })()`]);
+    }
+    await fill("Correction note", `Synthetic ${item.id} family correction`); await waitEnabledButton("Save correction");
+    const correctionForm = JSON.parse(JSON.parse(await browser(["eval", `(() => { const form=document.querySelector('.contest-qso-editor'); return JSON.stringify({valid:form?.checkValidity()??false,fields:[...form.querySelectorAll('input')].map(input=>({value:input.value,required:input.required,valid:input.checkValidity(),message:input.validationMessage})),buttonDisabled:[...form.querySelectorAll('button')].find(button=>button.textContent.includes('Save correction'))?.disabled??null}); })()`])));
+    observations.push({ case: item.id, phase: "correction-form", state: correctionForm }); assert.equal(correctionForm.valid, true);
+    const correctionStart = frames.length; await pressIn("Correction note", "Enter");
     const correction = await waitForFrame(correctionStart, frame => frame.request.method === "contest_qso_correct" && frame.response.ok, `${item.id} correction receipt`);
+    await browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ if(!document.querySelector('.contest-qso-editor')) return resolve(true); if(Date.now()>until) return reject(new Error('Correction editor did not close')); setTimeout(poll,50); }; poll(); })`]);
     const target = correction.response.result.currentTarget;
-    if (item.family === "naqp") assert.equal(target.receivedExchangeFields.name, "ROBERT");
+    if (item.declarative) assert.equal(target.receivedExchangeFields.name, "ALICE");
+    else if (item.family === "naqp") assert.equal(target.receivedExchangeFields.name, "ROBERT");
     else { assert.equal(target.receivedReport, correctionValue); item.contacts[0] = { ...item.contacts[0], receivedReport: correctionValue }; }
     await waitScore(item);
     item.commits[0] = { ...item.commits[0], qso: target };
-    if (item.family === "naqp") {
+    if (item.declarative) {
+      item.contacts[0] = { ...item.contacts[0], receivedFieldValues: { ...item.contacts[0].receivedFieldValues, name: "ALICE" } };
+      item.contacts[0].receivedAggregate = item.receivedOrder.map(id => item.contacts[0].receivedFieldValues[id]).join(" ");
+      item.contacts[0].rx = item.contacts[0].receivedAggregate;
+    } else if (item.family === "naqp") {
       item.contacts[0] = { ...item.contacts[0], receivedAggregate: `ROBERT ${item.contacts[0].receivedParts[1]}`,
         receivedParts: ["ROBERT", item.contacts[0].receivedParts[1]], rx: `ROBERT ${item.contacts[0].receivedParts[1]}`,
         adif: { ...item.contacts[0].adif, NAME: "ROBERT" } };
@@ -446,7 +651,8 @@ try {
   assert.equal(simulatedOutput.some(item => item.macro === "CQ"), true); assert.equal(simulatedOutput.some(item => item.macro === "EXCH"), true);
   const commits = frames.filter(item => item.request.method === "contest_qso_commit" && item.response.ok).map(item => item.response.result);
   assert.equal(commits.length, cases.length * 6);
-  for (const item of cases.filter(item => item.serial)) assert.deepEqual(item.commits.map(result => result.qso.sentExchange), ["001", "002", "003", "004", "005", "006"]);
+  for (const item of cases.filter(item => item.serial)) assert.deepEqual(item.commits.map((result, index) => result.qso.sentExchange),
+    item.declarative ? item.commits.map((_, index) => expectedInitialSent(item, index)) : ["001", "002", "003", "004", "005", "006"]);
   assert.equal(exportAssertions.length, cases.length * 4);
 } catch (error) { primaryFailure = error; }
 finally { try { await browser(["close"], false); } catch {} try { await successful("__acceptance_shutdown"); } catch {} try { await vite.close(); } catch {} await new Promise(resolveClose => server.close(resolveClose)); }
@@ -454,7 +660,7 @@ finally { try { await browser(["close"], false); } catch {} try { await successf
 const inventory = rootPath => { const rows = []; const visit = (path, relative) => { const value = lstatSync(path); assert.equal(value.isSymbolicLink(), false); if (value.isDirectory()) for (const name of readdirSync(path).sort()) visit(join(path, name), relative ? `${relative}/${name}` : name); else rows.push({ path: relative, size: value.size, sha256: hashFile(path) }); }; visit(rootPath, ""); return rows; };
 const protectedAfter = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
 if (primaryFailure === null) { try { assert.deepEqual(protectedAfter, protectedBefore, "Protected production database metadata changed."); } catch (error) { primaryFailure = error; } }
-const evidence = { schemaVersion: 2, ok: primaryFailure === null, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, sha256: testHostSha256 }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), protectedDatabaseMetadataUnchanged: JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore), failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
+const evidence = { schemaVersion: 2, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, sha256: testHostSha256 }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), protectedDatabaseMetadataUnchanged: JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore), failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
 writeFileSync(join(evidenceRoot, "acceptance.json"), `${JSON.stringify(evidence, null, 2)}\n`);
 process.stdin.destroy();
 if (primaryFailure) throw primaryFailure;

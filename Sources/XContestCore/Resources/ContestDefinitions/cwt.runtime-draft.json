@@ -1,0 +1,218 @@
+{
+  "cabrilloName": "CW-OPS",
+  "displayName": "CWops Test (CWT) Archive Preview",
+  "dupePolicy": "perBand",
+  "edition": "official-rules-2026-10-18",
+  "eligibilityPolicy": {
+    "unrestricted": {}
+  },
+  "entry": {
+    "adifMode": "CW",
+    "cabrilloFormatterVersion": "cw-unique-call-archive-1",
+    "cabrilloProjectionFormatterVersion": "cw-unique-call-archive-1",
+    "cabrilloQSOType": "CW",
+    "exchange": {
+      "adifFields": "exchangeStrings",
+      "received": "structured",
+      "receivedFields": [
+        {
+          "acceptedKinds": [
+            "operatorName"
+          ],
+          "adifField": "NAME",
+          "id": "name",
+          "label": "Name",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        },
+        {
+          "acceptedKinds": [
+            "nonnegativeInteger",
+            "locationText"
+          ],
+          "id": "member-or-location",
+          "label": "Member number, CWA, state, province, or DX prefix",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        }
+      ],
+      "sent": "structured",
+      "sentDefault": "stationFields",
+      "sentFields": [
+        {
+          "acceptedKinds": [
+            "operatorName"
+          ],
+          "adifField": "MY_NAME",
+          "id": "name",
+          "label": "Name",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        },
+        {
+          "acceptedKinds": [
+            "nonnegativeInteger",
+            "locationText"
+          ],
+          "id": "member-or-location",
+          "label": "Member number, CWA, state, province, or DX prefix",
+          "maximumUTF8Bytes": 32,
+          "required": true
+        }
+      ]
+    },
+    "mode": "CW",
+    "modeProfiles": [
+      {
+        "adifMode": "CW",
+        "cabrilloQSOType": "CW",
+        "mode": "CW",
+        "report": {
+          "defaultReceived": "",
+          "defaultSent": "",
+          "format": "none",
+          "maximumUTF8Bytes": 0
+        }
+      }
+    ],
+    "report": {
+      "defaultReceived": "",
+      "defaultSent": "",
+      "format": "none",
+      "maximumUTF8Bytes": 0
+    },
+    "scorePolicy": "pointsTimesMultipliers",
+    "serial": {
+      "allowedScopes": [],
+      "requirement": "none"
+    },
+    "version": 2
+  },
+  "exportPolicy": "operatorArchive",
+  "exportProjection": {
+    "columns": [
+      {
+        "alignment": "right",
+        "required": true,
+        "source": {
+          "frequencyKHz": {}
+        },
+        "width": 5
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "mode": {}
+        },
+        "width": 2
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "date": {}
+        },
+        "width": 10
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "time": {}
+        },
+        "width": 4
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "stationCallsign": {}
+        },
+        "width": 13
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "sentField": {
+            "_0": "name"
+          }
+        },
+        "width": 10
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "sentField": {
+            "_0": "member-or-location"
+          }
+        },
+        "width": 20
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "contactedCallsign": {}
+        },
+        "width": 13
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "receivedField": {
+            "_0": "name"
+          }
+        },
+        "width": 10
+      },
+      {
+        "alignment": "left",
+        "required": true,
+        "source": {
+          "receivedField": {
+            "_0": "member-or-location"
+          }
+        },
+        "width": 20
+      }
+    ],
+    "duplicateRecords": "retainAll",
+    "formatterVersion": "cw-unique-call-archive-1",
+    "purpose": "operatorArchive"
+  },
+  "id": "cwops-cwt",
+  "multiplierPolicy": "uniqueCallsign",
+  "operatorPolicy": {
+    "output": "simulation-only",
+    "policy": "simulated-run-sp-v1",
+    "signalProfiles": [
+      {
+        "mode": "CW",
+        "signal": "cw"
+      }
+    ],
+    "version": 1
+  },
+  "scoring": {
+    "clauses": [],
+    "defaultPoints": 1
+  },
+  "sourceProvenance": "Official https://cwops.org/cwops-tests/ SHA-256 d98a97401dee2cf8106efb1756b78875ce900024715b3bebb19ef2919c646056; pinned contest-sw 7c8b499 cwt.py SHA-256 12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64; inactive: event windows, categories, conditional exchange, reporting, export; operator archive only, not sponsor submission",
+  "stationEntityRequired": false,
+  "supportedBands": [
+    "160m",
+    "80m",
+    "40m",
+    "20m",
+    "15m",
+    "10m"
+  ],
+  "supportedModes": [
+    "CW"
+  ],
+  "version": "2.0.0-declarative-archive"
+}

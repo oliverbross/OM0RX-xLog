@@ -18,7 +18,9 @@ npx tauri build --bundles app
 # separate acceptance step, never inferred from a valid code signature.
 bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
+rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
+ditto "$binary_dir/OM0RXXLogPrototype_XContestCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$root/prototype/src-tauri/binaries/hamlib-4.7.2-notices" "$bundle/Contents/Resources/Hamlib-Licenses"
 ditto "$root/prototype/distribution-metadata" "$bundle/Contents/Resources/DistributionMetadata"
 signing_identity="${CODE_SIGN_IDENTITY:-}"

@@ -64,16 +64,23 @@ const binDirectory = run(swiftPath, [
   "-c", "release", "--show-bin-path",
 ], { env: buildEnvironment });
 const workerPath = join(binDirectory, "xlog-prototype-worker");
-const resourcesPath = join(binDirectory, "OM0RXXLogPrototype_XLogCore.bundle");
+const resourcePaths = {
+  logbook: join(binDirectory, "OM0RXXLogPrototype_XLogCore.bundle"),
+  contest: join(binDirectory, "OM0RXXLogPrototype_XContestCore.bundle"),
+};
 assert.ok(statSync(workerPath).isFile(), "Fresh worker binary is missing.");
-assert.ok(statSync(resourcesPath).isDirectory(), "Fresh worker resource bundle is missing.");
+for (const [kind, path] of Object.entries(resourcePaths)) {
+  assert.ok(statSync(path).isDirectory(), `Fresh ${kind} worker resource bundle is missing.`);
+}
 const headAfterBuild = run("git", ["rev-parse", "HEAD"]);
 const compiledDiffAfterBuild = run("git", ["status", "--porcelain=v1", "--", "Package.swift", "Sources", "Tests"]);
 assert.equal(headAfterBuild, head, "Source HEAD changed while the worker was building.");
 assert.equal(compiledDiffAfterBuild, "", `Compiled inputs changed while the worker was building:\n${compiledDiffAfterBuild}`);
-const resources = resourceManifest(resourcesPath);
+const resources = Object.fromEntries(Object.entries(resourcePaths).map(([kind, path]) => [
+  kind, { path, ...resourceManifest(path) },
+]));
 const manifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   sourceHead: head,
   sourceHeadAfterBuild: headAfterBuild,
   compiledInputsClean: true,
@@ -86,8 +93,9 @@ const manifest = {
     scratchPath,
   },
   worker: { path: workerPath, size: statSync(workerPath).size, sha256: hashFile(workerPath) },
-  resources: { path: resourcesPath, ...resources },
+  resources,
 };
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
-console.log(JSON.stringify({ ok: true, manifest: output, sourceHead: head, workerSha256: manifest.worker.sha256, resourcesSha256: resources.treeSha256 }));
+console.log(JSON.stringify({ ok: true, manifest: output, sourceHead: head, workerSha256: manifest.worker.sha256,
+  resourcesSha256: Object.fromEntries(Object.entries(resources).map(([kind, value]) => [kind, value.treeSha256])) }));

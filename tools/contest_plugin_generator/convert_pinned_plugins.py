@@ -24,6 +24,8 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_INVENTORY = HERE.parent.parent / "docs/contesting/generated/python-plugin-inventory.json"
 DEFAULT_MAPPINGS = HERE / "reviewed_pinned_mappings.json"
 DEFAULT_OUTPUT = HERE.parent.parent / "Tests/XContestCoreTests/SourceFixtures/PinnedPluginDefinitions"
+DEFAULT_ARCHIVE_AUTHORING_OUTPUT = HERE.parent.parent / "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions"
+DEFAULT_RUNTIME_CATALOG_OUTPUT = HERE.parent.parent / "Sources/XContestCore/Resources/ContestDefinitions"
 DEFAULT_COVERAGE = HERE.parent.parent / "docs/contesting/pinned-plugin-conversion-coverage.json"
 SAFE_PLUGIN_ID = re.compile(r"[a-z0-9_]+", flags=re.ASCII)
 SAFE_SOURCE_PATH = re.compile(r"not1mm/plugins/[a-z0-9_]+\.py", flags=re.ASCII)
@@ -147,6 +149,92 @@ def _provenance(mapping: dict[str, Any], runtime: dict[str, Any]) -> list[dict[s
     official_sha = text.split(" SHA-256 ", 1)[1].split(";", 1)[0]
     return [{"kind": "official-rules", "locator": official_url, "revision": "retrieved-2026-10-18", "sha256": official_sha},
             {"kind": "python-comparator", "locator": mapping["sourcePath"], "revision": "contest-sw-7c8b499", "sha256": mapping["sourceSHA256"]}]
+
+
+def _column(source: str | dict[str, str], width: int, alignment: str = "left") -> dict[str, Any]:
+    return {"source": source, "width": width, "alignment": alignment, "required": True}
+
+
+def _archive_columns(mapping: dict[str, Any]) -> list[dict[str, Any]]:
+    leading = [_column("frequencyKHz", 5, "right"), _column("mode", 2), _column("date", 10),
+               _column("time", 4), _column("stationCallsign", 13)]
+    contact = _column("contactedCallsign", 13)
+    field = lambda direction, id_: {"kind": f"{direction}Field", "fieldID": id_}
+    if mapping["family"] == "ten-ten":
+        return leading + [_column("sentReport", 3), _column(field("sent", "name"), 10),
+                          _column(field("sent", "member-number"), 8, "right"),
+                          _column(field("sent", "qth"), 20), contact, _column("receivedReport", 3),
+                          _column(field("received", "name"), 10),
+                          _column(field("received", "member-number"), 8, "right"),
+                          _column(field("received", "qth"), 20)]
+    if mapping["variant"] == "cwt":
+        return leading + [_column(field("sent", "name"), 10),
+                          _column(field("sent", "member-or-location"), 20), contact,
+                          _column(field("received", "name"), 10),
+                          _column(field("received", "member-or-location"), 20)]
+    order = ["serial", "name"] if mapping["variant"] == "cwOpen" else ["name", "serial"]
+    width = {"serial": 4, "name": 10}
+    alignment = {"serial": "right", "name": "left"}
+    return leading + [_column(field("sent", item), width[item], alignment[item]) for item in order] + [contact] + \
+        [_column(field("received", item), width[item], alignment[item]) for item in order]
+
+
+def archive_outputs(outputs: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Promote only the seven reviewed compatibility drafts to the existing archive policy."""
+    result: dict[str, dict[str, Any]] = {}
+    for plugin_id, item in outputs.items():
+        authored = copy.deepcopy(item["authoring"])
+        mapping = item["mapping"]
+        runtime = authored["runtime"]
+        formatter = "ten-ten-archive-1" if mapping["family"] == "ten-ten" else "cw-unique-call-archive-1"
+        authored["identity"]["version"] = "2.0.0-declarative-archive"
+        if mapping["family"] == "ten-ten":
+            runtime["displayName"] += " Operator Archive"
+        else:
+            runtime["displayName"] = runtime["displayName"].replace(" Preview", " Archive Preview")
+        runtime["entry"]["cabrilloFormatterVersion"] = formatter
+        runtime["entry"]["cabrilloProjectionFormatterVersion"] = formatter
+        runtime["sourceProvenance"] += "; operator archive only, not sponsor submission"
+        runtime["exportPolicy"] = "operatorArchive"
+        runtime["exportProjection"] = {"formatterVersion": formatter, "purpose": "operatorArchive",
+                                       "duplicateRecords": "retainAll", "columns": _archive_columns(mapping)}
+        runtime["operatorPolicy"] = {
+            "version": 1, "policy": "simulated-run-sp-v1", "output": "simulation-only",
+            "signalProfiles": [{"mode": mode, "signal": "cw" if mode == "CW" else "phone"}
+                               for mode in sorted(runtime["supportedModes"])],
+        }
+        authored["constraints"]["acceptanceUnresolved"] = [
+            "Operator archive and simulation policy only; sponsor/category/schedule review and catalog activation remain unresolved."
+        ]
+        authored["identity"]["contentDigest"] = validate_definition.expected_digest(authored)
+        failures = validate_definition.diagnostics(authored)
+        if failures:
+            raise ValueError(f"{plugin_id} archive: " + "; ".join(failures))
+        result[plugin_id] = {"authoring": authored, "runtime": validate_definition.runtime_draft(authored),
+                             "mapping": mapping}
+    return result
+
+
+def write_archive_outputs(outputs: dict[str, dict[str, Any]], authoring_output: Path,
+                          catalog_output: Path) -> None:
+    authoring_output.mkdir(parents=True, exist_ok=True)
+    catalog_output.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for plugin_id, item in sorted(outputs.items()):
+        authoring_output.joinpath(f"{plugin_id}.authoring-v2.json").write_bytes(_bytes(item["authoring"]))
+        runtime_bytes = _bytes(item["runtime"])
+        filename = f"{plugin_id}.runtime-draft.json"
+        catalog_output.joinpath(filename).write_bytes(runtime_bytes)
+        digest_draft = copy.deepcopy(item["runtime"])
+        digest_draft["supportedBands"] = sorted(digest_draft["supportedBands"])
+        digest_draft["supportedModes"] = sorted(digest_draft["supportedModes"])
+        canonical = json.dumps(digest_draft, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
+        revision = hashlib.sha256(canonical).hexdigest()
+        entries.append({"file": filename, "sha256": hashlib.sha256(runtime_bytes).hexdigest(),
+                        "identity": {"id": item["runtime"]["id"], "version": item["runtime"]["version"],
+                                     "edition": item["runtime"]["edition"], "sourceRevision": revision}})
+    manifest = {"schemaVersion": 1, "definitions": entries}
+    catalog_output.joinpath("manifest.json").write_bytes(_bytes(manifest))
 
 
 def _validate_mapping_document(document: dict[str, Any]) -> None:
@@ -299,11 +387,14 @@ def main() -> None:
                         required="CONTEST_SW_ROOT" not in os.environ)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--coverage", type=Path, default=DEFAULT_COVERAGE)
+    parser.add_argument("--archive-authoring-output", type=Path, default=DEFAULT_ARCHIVE_AUTHORING_OUTPUT)
+    parser.add_argument("--runtime-catalog-output", type=Path, default=DEFAULT_RUNTIME_CATALOG_OUTPUT)
     args = parser.parse_args()
     inventory = validate_definition.load_json(args.inventory)
     mappings = validate_definition.load_json(args.mappings)
     outputs, coverage = convert(inventory, mappings, args.upstream)
     write_outputs(outputs, coverage, args.output, args.coverage)
+    write_archive_outputs(archive_outputs(outputs), args.archive_authoring_output, args.runtime_catalog_output)
     print(json.dumps(coverage["summary"], sort_keys=True))
 
 

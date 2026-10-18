@@ -32,14 +32,27 @@ const expectedHead = valueOption("--expected-head");
 const outputRoot = option("--output");
 const buildManifestBytes = readFileSync(buildManifestPath);
 const buildManifest = JSON.parse(buildManifestBytes);
-assert.equal(buildManifest.schemaVersion, 1, "Unsupported worker build manifest.");
+assert.equal(buildManifest.schemaVersion, 2, "Unsupported worker build manifest.");
 assert.equal(buildManifest.sourceHead, expectedHead, "Worker build manifest source does not match the required commit.");
 assert.equal(buildManifest.compiledInputsClean, true, "Worker build manifest did not record clean compiled inputs.");
 const sourceWorker = resolve(buildManifest.worker.path);
-const sourceResources = resolve(buildManifest.resources.path);
+assert.ok(buildManifest.resources && typeof buildManifest.resources === "object"
+  && !Array.isArray(buildManifest.resources), "Worker build manifest resources are missing.");
+assert.deepEqual(Object.keys(buildManifest.resources).sort(), ["contest", "logbook"],
+  "Worker build manifest must contain exactly the contest and logbook resource records.");
+for (const value of Object.values(buildManifest.resources)) {
+  assert.equal(typeof value?.path, "string", "Worker resource path is invalid.");
+  assert.ok(Array.isArray(value.files), "Worker resource file manifest is invalid.");
+  assert.match(value.treeSha256 ?? "", /^[0-9a-f]{64}$/, "Worker resource tree digest is invalid.");
+}
+const sourceResources = Object.fromEntries(Object.entries(buildManifest.resources).map(([kind, value]) => [
+  kind, resolve(value.path),
+]));
 assert.equal(process.platform, "darwin", "This acceptance gate is macOS-specific.");
 assert.ok(existsSync(sourceWorker) && statSync(sourceWorker).isFile(), "Built worker is missing.");
-assert.ok(existsSync(sourceResources) && statSync(sourceResources).isDirectory(), "Worker resources are missing.");
+for (const [kind, path] of Object.entries(sourceResources)) {
+  assert.ok(existsSync(path) && statSync(path).isDirectory(), `${kind} worker resources are missing.`);
+}
 assert.ok(!existsSync(outputRoot), "Acceptance output must be a new path.");
 
 const runID = randomUUID().toLowerCase();
@@ -55,7 +68,9 @@ for (const path of [dirname(executable), join(contents, "Resources"), applicatio
 }
 copyFileSync(sourceWorker, executable);
 chmodSync(executable, 0o755);
-cpSync(sourceResources, join(contents, "Resources", basename(sourceResources)), { recursive: true });
+for (const path of Object.values(sourceResources)) {
+  cpSync(path, join(contents, "Resources", basename(path)), { recursive: true });
+}
 writeFileSync(join(contents, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -95,10 +110,12 @@ function resourceManifest(directory) {
 }
 
 assert.equal(hashFile(sourceWorker), buildManifest.worker.sha256, "Built worker does not match its build manifest.");
-assert.deepEqual(resourceManifest(sourceResources), {
-  files: buildManifest.resources.files,
-  treeSha256: buildManifest.resources.treeSha256,
-}, "Worker resources do not match their build manifest.");
+for (const [kind, path] of Object.entries(sourceResources)) {
+  assert.deepEqual(resourceManifest(path), {
+    files: buildManifest.resources[kind].files,
+    treeSha256: buildManifest.resources[kind].treeSha256,
+  }, `${kind} worker resources do not match their build manifest.`);
+}
 
 function metadata(path) {
   try {
@@ -167,12 +184,14 @@ async function within(promise, milliseconds, message) {
 }
 
 const stagedWorkerBefore = { size: statSync(executable).size, sha256: hashFile(executable) };
-const stagedResourcesBefore = resourceManifest(join(contents, "Resources", basename(sourceResources)));
+const stagedResourcesBefore = Object.fromEntries(Object.entries(sourceResources).map(([kind, path]) => [
+  kind, resourceManifest(join(contents, "Resources", basename(path))),
+]));
 assert.deepEqual(stagedWorkerBefore, { size: buildManifest.worker.size, sha256: buildManifest.worker.sha256 },
   "Staged worker does not match the recorded build artifact.");
-assert.deepEqual(stagedResourcesBefore, {
-  files: buildManifest.resources.files, treeSha256: buildManifest.resources.treeSha256,
-}, "Staged resources do not match the recorded build artifact.");
+assert.deepEqual(stagedResourcesBefore, Object.fromEntries(Object.entries(buildManifest.resources).map(
+  ([kind, value]) => [kind, { files: value.files, treeSha256: value.treeSha256 }]
+)), "Staged resources do not match the recorded build artifact.");
 const workerProcesses = [];
 class WorkerProcess {
   constructor(label) {
@@ -726,8 +745,10 @@ const syntheticInventory = finalInspection("syntheticInventory",
 const stagedWorkerAfter = finalInspection("stagedWorker", () => ({
   size: statSync(executable).size, sha256: hashFile(executable),
 }), null);
-const stagedResourcesAfter = finalInspection("stagedResources",
-  () => resourceManifest(join(contents, "Resources", basename(sourceResources))), null);
+const stagedResourcesAfter = finalInspection("stagedResources", () => Object.fromEntries(
+  Object.entries(sourceResources).map(([kind, path]) => [
+    kind, resourceManifest(join(contents, "Resources", basename(path))),
+  ])), null);
 const stagedArtifactsUnchanged = stagedWorkerAfter !== null && stagedResourcesAfter !== null
   && JSON.stringify(stagedWorkerAfter) === JSON.stringify(stagedWorkerBefore)
   && JSON.stringify(stagedResourcesAfter) === JSON.stringify(stagedResourcesBefore);
@@ -754,7 +775,8 @@ const evidence = {
     buildManifestSha256: createHash("sha256").update(buildManifestBytes).digest("hex"),
     buildManifest, workerSourcePath: sourceWorker,
     workerSha256: buildManifest.worker.sha256, resourcesSourcePath: sourceResources,
-    resourcesName: basename(sourceResources), dirtyPathsAtRun: status,
+    resourcesName: Object.fromEntries(Object.entries(sourceResources).map(([kind, path]) => [kind, basename(path)])),
+    dirtyPathsAtRun: status,
     packageManifestDiffSha256: createHash("sha256").update(manifestDiff).digest("hex"),
     packageManifestDirty: manifestDiff.length > 0,
   },

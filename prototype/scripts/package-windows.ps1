@@ -226,7 +226,14 @@ try {
     Copy-Item -LiteralPath $sharedMetadata -Destination (Join-Path $notices.FullName 'shared') -Recurse
     $coreResources = Join-Path $release 'OM0RXXLogPrototype_XLogPortableCore.resources'
     if (-not (Test-Path -LiteralPath $coreResources -PathType Container)) { throw 'Local logbook CTY and awards resources are missing.' }
-    Copy-Item -LiteralPath $coreResources -Destination (Join-Path $package 'OM0RXXLogPrototype_XLogPortableCore.resources') -Recurse
+    $packagedCoreResources = Join-Path $package 'OM0RXXLogPrototype_XLogPortableCore.resources'
+    if (Test-Path -LiteralPath $packagedCoreResources) { Remove-Item -LiteralPath $packagedCoreResources -Recurse -Force }
+    Copy-Item -LiteralPath $coreResources -Destination $packagedCoreResources -Recurse
+    $contestResources = Join-Path $release 'OM0RXXLogPrototype_XContestCore.resources'
+    if (-not (Test-Path -LiteralPath $contestResources -PathType Container)) { throw 'Packaged contest definitions are missing.' }
+    $packagedContestResources = Join-Path $package 'OM0RXXLogPrototype_XContestCore.resources'
+    if (Test-Path -LiteralPath $packagedContestResources) { Remove-Item -LiteralPath $packagedContestResources -Recurse -Force }
+    Copy-Item -LiteralPath $contestResources -Destination $packagedContestResources -Recurse
     $auditDirectory = New-Item -ItemType Directory -Path (Join-Path $package 'evidence/native-imports')
     $origins = @{}
     $queue = [Collections.Generic.Queue[string]]::new()
