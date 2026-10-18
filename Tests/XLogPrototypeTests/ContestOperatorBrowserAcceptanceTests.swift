@@ -175,14 +175,14 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
 
         let repositoryRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         let scenario = environment["XLOG_OPERATOR_ACCEPTANCE_SCENARIO"] ?? "operator"
-        guard ["operator", "scp", "naqp", "family"].contains(scenario) else {
+        guard ["operator", "scp", "naqp", "family", "declarative"].contains(scenario) else {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 7,
                           userInfo: [NSLocalizedDescriptionKey: "Unknown browser acceptance scenario."])
         }
         let scriptName = switch scenario {
         case "scp": "accept-contest-scp-operator-browser.mjs"
         case "naqp": "accept-contest-naqp-operator-browser.mjs"
-        case "family": "accept-contest-family-operator-browser.mjs"
+        case "family", "declarative": "accept-contest-family-operator-browser.mjs"
         default: "accept-contest-operator-browser.mjs"
         }
         let script = repositoryRoot.appendingPathComponent("prototype/scripts/\(scriptName)")
@@ -205,6 +205,7 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         process.currentDirectoryURL = repositoryRoot
         var childEnvironment = environment
         childEnvironment["TZ"] = "UTC"
+        childEnvironment["XLOG_FAMILY_ACCEPTANCE_SCOPE"] = scenario == "declarative" ? "declarative" : "legacy"
         process.environment = childEnvironment
         let requests = Pipe(), responses = Pipe(), diagnostics = Pipe()
         process.standardOutput = requests
@@ -221,7 +222,7 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         let requestTask = Task.detached { try await Self.readRequests(fd: requestFD, bridge: bridge) }
         let diagnosticTask = Task.detached { Self.drainDiagnostics(fd: diagnosticFD) }
         let exitTask = Task.detached { process.waitUntilExit(); return process.terminationStatus }
-        let lifecycleDeadline = scenario == "family" ? 900 : 180
+        let lifecycleDeadline = ["family", "declarative"].contains(scenario) ? 900 : 180
         let watchdog = Task.detached {
             try? await Task.sleep(for: .seconds(lifecycleDeadline))
             guard !Task.isCancelled else { return }
