@@ -11,6 +11,7 @@ public enum ContestDeclarativeDupePolicy: String, Codable, Hashable, Sendable {
     case oncePerContest
     case perBand
     case perBandMode
+    case perBandStationGridPair
     case none
 }
 
@@ -41,6 +42,37 @@ public struct ContestDeclarativeGridMultiplierPolicy: Codable, Hashable, Sendabl
         }
         let values = try decoder.container(keyedBy: CodingKeys.self)
         receivedFieldID = try values.decode(String.self, forKey: .receivedFieldID)
+    }
+}
+
+public enum ContestDeclarativeStationGridBehavior: String, Codable, Hashable, Sendable {
+    case fixed
+    case rover
+}
+
+public struct ContestDeclarativeStationGridPolicy: Codable, Hashable, Sendable {
+    public let behavior: ContestDeclarativeStationGridBehavior
+    public let sentFieldID: String
+
+    public init(behavior: ContestDeclarativeStationGridBehavior, sentFieldID: String) {
+        self.behavior = behavior
+        self.sentFieldID = sentFieldID
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable { case behavior, sentFieldID }
+
+    public init(from decoder: Decoder) throws {
+        let dynamic = try decoder.container(keyedBy: ContestDefinitionCodingKey.self)
+        let unknown = Set(dynamic.allKeys.map(\.stringValue))
+            .subtracting(CodingKeys.allCases.map(\.rawValue))
+        guard unknown.isEmpty else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Unknown station-grid policy keys: \(unknown.sorted())"))
+        }
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        behavior = try values.decode(ContestDeclarativeStationGridBehavior.self, forKey: .behavior)
+        sentFieldID = try values.decode(String.self, forKey: .sentFieldID)
     }
 }
 
@@ -344,6 +376,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
     public let multiplierPolicy: ContestDeclarativeMultiplierPolicy
     public let geographicMultiplier: ContestDeclarativeGeographicMultiplierPolicy?
     public let gridMultiplier: ContestDeclarativeGridMultiplierPolicy?
+    public let stationGridPolicy: ContestDeclarativeStationGridPolicy?
     public let scoring: ContestDeclarativeScoringPolicy
     public let eligibilityPolicy: ContestDeclarativeEligibilityPolicy
     public let exportPolicy: ContestDeclarativeExportPolicy
@@ -358,6 +391,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
                 multiplierPolicy: ContestDeclarativeMultiplierPolicy,
                 geographicMultiplier: ContestDeclarativeGeographicMultiplierPolicy? = nil,
                 gridMultiplier: ContestDeclarativeGridMultiplierPolicy? = nil,
+                stationGridPolicy: ContestDeclarativeStationGridPolicy? = nil,
                 scoring: ContestDeclarativeScoringPolicy,
                 eligibilityPolicy: ContestDeclarativeEligibilityPolicy = .unrestricted,
                 exportPolicy: ContestDeclarativeExportPolicy = .unsupported,
@@ -378,6 +412,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         self.multiplierPolicy = multiplierPolicy
         self.geographicMultiplier = geographicMultiplier
         self.gridMultiplier = gridMultiplier
+        self.stationGridPolicy = stationGridPolicy
         self.scoring = scoring
         self.eligibilityPolicy = eligibilityPolicy
         self.exportPolicy = exportPolicy
@@ -389,7 +424,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case id, version, edition, displayName, cabrilloName, supportedBands, supportedModes, entry,
-             sourceProvenance, dupePolicy, multiplierPolicy, geographicMultiplier, gridMultiplier, scoring, eligibilityPolicy, exportPolicy,
+             sourceProvenance, dupePolicy, multiplierPolicy, geographicMultiplier, gridMultiplier, stationGridPolicy, scoring, eligibilityPolicy, exportPolicy,
              exportProjection, operatorPolicy, stationEntityRequired, adapterID
     }
 
@@ -417,6 +452,8 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
                                                            forKey: key(.geographicMultiplier))
         gridMultiplier = try values.decodeIfPresent(ContestDeclarativeGridMultiplierPolicy.self,
                                                     forKey: key(.gridMultiplier))
+        stationGridPolicy = try values.decodeIfPresent(ContestDeclarativeStationGridPolicy.self,
+                                                       forKey: key(.stationGridPolicy))
         scoring = try values.decode(ContestDeclarativeScoringPolicy.self, forKey: key(.scoring))
         eligibilityPolicy = try values.decode(ContestDeclarativeEligibilityPolicy.self, forKey: key(.eligibilityPolicy))
         exportPolicy = try values.decode(ContestDeclarativeExportPolicy.self, forKey: key(.exportPolicy))
@@ -443,6 +480,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         try values.encode(multiplierPolicy, forKey: .multiplierPolicy)
         try values.encodeIfPresent(geographicMultiplier, forKey: .geographicMultiplier)
         try values.encodeIfPresent(gridMultiplier, forKey: .gridMultiplier)
+        try values.encodeIfPresent(stationGridPolicy, forKey: .stationGridPolicy)
         try values.encode(scoring, forKey: .scoring)
         try values.encode(eligibilityPolicy, forKey: .eligibilityPolicy)
         try values.encode(exportPolicy, forKey: .exportPolicy)
@@ -567,6 +605,17 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
                 (sent[fieldID]?.maximumUTF8Bytes ?? 19) > 18 {
                 result.append("eligibility field must be a sent nonnegativeInteger with a nonnegative threshold")
             }
+        }
+        if let stationGrid = draft.stationGridPolicy {
+            let sent = draft.entry.exchange.sentFields.first { $0.id == stationGrid.sentFieldID }
+            if sent?.required != true || sent?.acceptedKinds != [.maidenheadGrid4] {
+                result.append("station grid policy field must be a required sent Maidenhead grid")
+            }
+            if draft.dupePolicy != .perBandStationGridPair || draft.multiplierPolicy != .maidenheadGrid {
+                result.append("station grid policy requires paired-grid duplicate and grid multiplier policies")
+            }
+        } else if draft.dupePolicy == .perBandStationGridPair {
+            result.append("paired-grid duplicate policy requires an explicit station grid policy")
         }
         return result
     }
@@ -817,6 +866,14 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
                 break
             }
         }
+        if let stationGrid = definition.draft.stationGridPolicy {
+            guard let value = session.station.sentExchangeFields[stationGrid.sentFieldID]?.normalized,
+                  ContestExchangeFieldKind.maidenheadGrid4.accepts(value) else {
+                result.append(.init(code: "invalidStationGrid", field: "station.sentExchangeFields.\(stationGrid.sentFieldID)",
+                                    message: "An explicit four-character station grid is required."))
+                return result
+            }
+        }
         if let policy = definition.draft.geographicMultiplier,
            let stationFieldID = policy.stationLocationFieldID {
             guard validGeographicReferenceVersion(session.referenceDataVersion) else {
@@ -895,6 +952,11 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
         case .oncePerContest: return qso.callsign
         case .perBand: return "\(qso.callsign)|\(qso.band)"
         case .perBandMode: return "\(qso.callsign)|\(qso.band)|\(qso.mode)"
+        case .perBandStationGridPair:
+            guard definition.draft.stationGridPolicy != nil,
+                  let receivedGrid = definition.draft.gridMultiplier?.receivedFieldID,
+                  let workedGrid = qso.exchange.receivedFields[receivedGrid]?.normalized else { return nil }
+            return "\(qso.callsign)|\(qso.band)|\(qso.stationLocation)|\(workedGrid)"
         case .none: return nil
         }
     }
@@ -911,7 +973,14 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
         case .maidenheadGrid:
             guard let fieldID = definition.draft.gridMultiplier?.receivedFieldID,
                   let grid = qso.exchange.receivedFields[fieldID]?.normalized else { return [] }
-            return [.init(kind: "maidenheadGrid4", value: grid, scope: qso.band)]
+            var result: Set<ContestMultiplierKey> = [
+                .init(kind: "maidenheadGrid4", value: grid, scope: qso.band),
+            ]
+            if definition.draft.stationGridPolicy?.behavior == .rover {
+                result.insert(.init(kind: "activatedMaidenheadGrid4",
+                                    value: qso.stationLocation, scope: "session"))
+            }
+            return result
         }
     }
 
@@ -1004,8 +1073,15 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
     }
 
     private func sentExchangeMatches(_ qso: ContestQSO, session: ContestSessionSnapshot) -> Bool {
+        if let stationGrid = definition.draft.stationGridPolicy,
+           stationGrid.behavior == .rover {
+            guard let value = qso.exchange.sentFields[stationGrid.sentFieldID]?.normalized else { return false }
+            return value == qso.stationLocation
+        }
         guard let serialFieldID = metadata.entry.allocatedSerialField?.id else {
-            return qso.exchange.sentFields == session.station.sentExchangeFields &&
+            let stationGridMatches = definition.draft.stationGridPolicy == nil ||
+                qso.stationLocation == session.station.location
+            return stationGridMatches && qso.exchange.sentFields == session.station.sentExchangeFields &&
                 qso.exchange.normalizedSent == session.station.sentExchange
         }
         var nonserial = qso.exchange.sentFields

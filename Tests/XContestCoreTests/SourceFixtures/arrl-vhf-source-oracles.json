@@ -40,11 +40,31 @@
     "pythonFrequencyMinimumWidth": 4,
     "pythonModes": ["CW", "PH", "DG"]
   },
+  "officialGridCorrection": {
+    "ruleVersion": "ARRL VHF Rules 1.2",
+    "sourceURL": "https://www.arrl.org/files/file/Contest%20Rules%20PDFs/2024/Jan-Jun-Sep%20VHF%20Contest%20Rules%20-%201_2.pdf",
+    "sourceClauses": ["2.2", "2.2.1", "5.3.1", "5.4.2"],
+    "duplicateCoordinates": ["contactedCallsign", "band", "transmittingStationGrid", "contactedStationGrid"],
+    "fixedStationCases": [
+      "A fixed station may work the same rover callsign once per band from each contacted rover grid."
+    ],
+    "roverCases": [
+      "A rover may work the same fixed station once per band from each transmitting rover grid.",
+      "Rover-to-rover duplicate identity includes both transmitting and contacted grids.",
+      "Mode does not create another contact for an otherwise identical four-coordinate key."
+    ],
+    "roverActivatedGridMultiplier": {
+      "kind": "activatedMaidenheadGrid4",
+      "scope": "session",
+      "oncePerGrid": true
+    },
+    "pinnedComparatorDifference": "The pinned plugins use call plus band only and count received grids per band; they do not model contacted rover grid in duplicate identity or add the rover activated-grid multiplier."
+  },
   "previewDifferences": [
     "The pinned plugins test for Band == 2300+ but their shared get_logged_band returns individual canonical numeric values at 13cm and above; the preview deliberately follows the published point table instead of reproducing that executable zero-point defect.",
     "The portable contest band plan represents the pinned comparator bands through 1mm and its submm bucket, while normal-log band authority remains a later activation gate.",
     "Only CW and SSB are admitted; upstream digital mode mapping remains pending.",
-    "Rover changing-grid scoring, schedules, and categories remain pending.",
+    "The original three source-preview identities retain the pinned per-band duplicate behavior. Separate fixed and rover official-grid preview identities model four-coordinate duplicates, and rover previews add activated grids globally; store correction admission, schedules, categories, and worker activation remain pending.",
     "The archive projection is source-shaped operator evidence, not sponsor submission certification."
   ]
 }
