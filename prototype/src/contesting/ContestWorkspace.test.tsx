@@ -246,9 +246,12 @@ it("labels SAC as a practice scoring preview without claiming submission readine
   fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
   await screen.findByRole("form", { name: "SSB contest entry" });
   expect(screen.getByText(/SAC scoring practice preview/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
-  expect(await screen.findByText(/not sponsor-submission ready/)).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Prepare a practice export" })).toBeTruthy();
+  const exportButton = screen.getByRole("button", { name: "Export…" }) as HTMLButtonElement;
+  await waitFor(() => expect(exportButton.disabled).toBe(false));
+  fireEvent.click(exportButton);
+  const exportDialog = await screen.findByRole("dialog", { name: "Export contest log" });
+  expect(within(exportDialog).getByText(/not sponsor-submission ready/)).toBeTruthy();
+  expect(within(exportDialog).getByRole("heading", { name: "Prepare a practice export" })).toBeTruthy();
 });
 
 it("drains edits made during a delayed save before an immediate Log", async () => {
