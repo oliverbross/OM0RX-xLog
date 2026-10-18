@@ -17,17 +17,40 @@ function operationValid(operation: ContestMutation) {
     Number.isSafeInteger(scope.expectedRevision) && scope.expectedRevision >= 0 &&
     !!operation.payload && typeof operation.payload === "object" && !Array.isArray(operation.payload);
 }
+const utf8 = (value: string) => new TextEncoder().encode(value).length;
+function recoveredFieldMapValid(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value); return entries.length <= 16 && entries.every(([key, item]) =>
+    /^[a-z][a-z0-9-]{0,31}$/.test(key) && typeof item === "string" && utf8(item) <= 64);
+}
+function recoveredFieldsValid(value: unknown): value is ContestDraftFields {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const fields = value as Record<string, unknown>, required = ["callsign", "sentReport", "sentExchange", "receivedReport", "receivedExchange", "frequencyHz", "band", "mode"],
+    optional = ["sentExchangeFields", "receivedExchangeFields"], keys = Object.keys(fields);
+  if (!required.every(key => keys.includes(key)) || !keys.every(key => required.includes(key) || optional.includes(key))) return false;
+  const text = (key: string, maximum: number) => typeof fields[key] === "string" && utf8(fields[key] as string) <= maximum;
+  const frequency = fields.frequencyHz;
+  return text("callsign", 32) && text("sentReport", 3) && text("sentExchange", 2048) && text("receivedReport", 3) && text("receivedExchange", 2048) &&
+    text("band", 8) && ["CW", "SSB", "RTTY", "AM", "FM"].includes(String(fields.mode)) &&
+    (frequency === null || Number.isSafeInteger(frequency) && (frequency as number) >= 0 && (frequency as number) <= 100_000_000_000) &&
+    (fields.sentExchangeFields === undefined || recoveredFieldMapValid(fields.sentExchangeFields)) &&
+    (fields.receivedExchangeFields === undefined || recoveredFieldMapValid(fields.receivedExchangeFields));
+}
+function recoveredDraftValid(value: unknown): value is RecoveredDraft {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const draft = value as Record<string, unknown>;
+  return ["sessionID", "workspaceGeneration", "draftID"].every(key => typeof draft[key] === "string" && (draft[key] as string).length <= 128) &&
+    recoveredFieldsValid(draft.fields);
+}
 function load(storage: ContestRecoveryStorage | undefined, key: string): Recovery {
   if (!storage) return { drafts: {} };
   try {
     const value = JSON.parse(storage.getItem(key) || "null") as Recovery | null;
-    if (!value || typeof value !== "object" || !value.drafts || typeof value.drafts !== "object") return { drafts: {} };
-    for (const draft of Object.values(value.drafts)) validateDraftFields(draft.fields);
-    if (value.pending) {
-      if (!operationValid(value.pending.operation)) throw new Error("Invalid contest recovery operation.");
-      value.pending.phase = "uncertain";
-    }
-    return value;
+    if (!value || typeof value !== "object") return { drafts: {} };
+    const drafts = value.drafts && typeof value.drafts === "object" && !Array.isArray(value.drafts) ? value.drafts : {};
+    const recovery: Recovery = { drafts: Object.fromEntries(Object.entries(drafts).filter(([, draft]) => recoveredDraftValid(draft))) };
+    if (value.pending && operationValid(value.pending.operation)) recovery.pending = { operation: value.pending.operation, phase: "uncertain" };
+    return recovery;
   } catch { storage.removeItem(key); return { drafts: {} }; }
 }
 function sameOperation(a: ContestMutation, b: ContestMutation) {
@@ -112,9 +135,9 @@ export class ContestSessionOwner {
     if (local) this.edit(local); return true;
   }
   edit(fields: ContestDraftFields) {
-    validateDraftFields(fields);
     const draftSaveInFlight = this.recovery.pending?.phase === "inflight" && this.recovery.pending.operation.method === "contest_draft_apply";
     if (!this.sessionValue || !this.draftValue || this.recovery.pending && !draftSaveInFlight) return;
+    validateDraftFields(fields, this.sessionValue.rule);
     this.editVersion += 1; this.draftValue = { ...this.draftValue, fields };
     this.recovery.drafts[draftKey(this.sessionValue.sessionID, this.sessionValue.workspaceGeneration)] = {
       sessionID: this.sessionValue.sessionID, workspaceGeneration: this.sessionValue.workspaceGeneration, draftID: this.draftValue.draftID, fields,

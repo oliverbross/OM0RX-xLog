@@ -97,7 +97,9 @@ final class ContestCWUniqueCallDeclarativeRuleTests: XCTestCase {
 
     func testTenTenCanonicalDigestsRemainStableWhenMultiplierVocabularyExpands() throws {
         let digests = try Dictionary(uniqueKeysWithValues: TenTenSeasonalVariant.allCases.map {
-            ($0.rawValue, try TenTenDeclarativeDefinitions.definition(for: $0).definitionDigest)
+            let definition = try TenTenDeclarativeDefinitions.definition(for: $0)
+            XCTAssertNil(definition.draft.operatorPolicy)
+            return ($0.rawValue, definition.definitionDigest)
         })
         XCTAssertEqual(digests, [
             "winterPhone": "0d05cff62ae87dca57224fbdc49222e346e5008235a37b493c80a04e6959ebd7",

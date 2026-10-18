@@ -15,6 +15,7 @@ from typing import Any
 SCHEMA_VERSION = "1.0.0"
 EXTRACTOR_VERSION = "1.0.0"
 REQUIRED_PIN = "7c8b499225a73f7f8f792246881bd7aefc05452f"
+REQUIRED_PYTHON = (3, 14)
 DECLARATIONS = ("name", "cabrillo_name", "mode", "EXCHANGE_HINT", "columns", "dupe_type")
 REQUIRED_DECLARATIONS = ("name", "cabrillo_name", "mode", "columns", "dupe_type")
 BEHAVIOR_KINDS = {
@@ -38,6 +39,18 @@ BEHAVIOR_KINDS = {
     "init_contest": "initialization",
 }
 UI_METHODS = {"show", "hide", "setText", "setAccessibleName"}
+
+
+def require_inventory_python(version_info: tuple[int, ...] | None = None) -> None:
+    """Keep version-sensitive ast.dump fingerprints reproducible."""
+    observed = tuple(version_info or sys.version_info)
+    if observed[:2] != REQUIRED_PYTHON:
+        found = ".".join(str(part) for part in observed[:3])
+        required = ".".join(str(part) for part in REQUIRED_PYTHON)
+        raise SystemExit(
+            f"contest plugin inventory requires Python {required}.x; found {found} "
+            "(ast.dump fingerprints are Python-version-dependent)"
+        )
 
 
 def digest(data: bytes) -> str:
@@ -378,6 +391,7 @@ def git_head(root: Path) -> str:
 
 
 def build_inventory(upstream: Path, ledger_path: Path, required_pin: str) -> dict[str, Any]:
+    require_inventory_python()
     actual_pin = git_head(upstream)
     if actual_pin != required_pin:
         raise SystemExit(f"pin mismatch: expected {required_pin}, found {actual_pin}")

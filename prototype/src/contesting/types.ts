@@ -55,6 +55,7 @@ export type ContestOperatorCapability = {
   version: 1; auditDigest: string; policy: "simulated-run-sp-v1"; output: "simulation-only";
   styles: ["run", "search-and-pounce"];
   macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"];
+  signalProfiles?: { mode: "CW" | "SSB" | "AM" | "FM"; signal: "cw" | "phone" }[];
 };
 export type ContestOperatorReadiness = {
   capabilityDigest: string; callsign: "empty" | "ready" | "blocked"; exchange: "empty" | "ready" | "blocked";

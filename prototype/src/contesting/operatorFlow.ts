@@ -1,5 +1,5 @@
 export type OperatorStyle = "run" | "search-and-pounce";
-export type OperatorSignalMode = "CW" | "SSB";
+export type OperatorSignalMode = "CW" | "SSB" | "AM" | "FM";
 export type OperatorField = "callsign" | "exchange";
 export type OperatorValueState = "empty" | "valid" | "invalid";
 export type OperatorMacroRole = "CQ" | "EXCH" | "QRZ" | "AGN" | "HISCALL" | "MYCALL" | "QSOB4";
@@ -143,7 +143,7 @@ function validContext(context: OperatorFlowContext) {
   return context && /^[^\x00-\x1f\x7f]{1,128}$/.test(context.sessionID) &&
     /^[^\x00-\x1f\x7f]{1,128}$/.test(context.workspaceGeneration) &&
     Number.isSafeInteger(context.contextGeneration) && context.contextGeneration >= 1 &&
-    (context.signalMode === "CW" || context.signalMode === "SSB") && typeof context.serialRequired === "boolean";
+    ["CW", "SSB", "AM", "FM"].includes(context.signalMode) && typeof context.serialRequired === "boolean";
 }
 
 function validCues(cues: OperatorFlowCues, context: OperatorFlowContext) {

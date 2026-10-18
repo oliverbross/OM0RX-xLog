@@ -244,6 +244,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
     public let eligibilityPolicy: ContestDeclarativeEligibilityPolicy
     public let exportPolicy: ContestDeclarativeExportPolicy
     public let exportProjection: ContestDeclarativeExportProjection?
+    public let operatorPolicy: ContestDeclarativeOperatorPolicy?
     public let stationEntityRequired: Bool
     public let adapterID: String?
 
@@ -256,6 +257,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
                 eligibilityPolicy: ContestDeclarativeEligibilityPolicy = .unrestricted,
                 exportPolicy: ContestDeclarativeExportPolicy = .unsupported,
                 exportProjection: ContestDeclarativeExportProjection? = nil,
+                operatorPolicy: ContestDeclarativeOperatorPolicy? = nil,
                 stationEntityRequired: Bool,
                 adapterID: String? = nil) {
         self.id = id
@@ -274,6 +276,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         self.eligibilityPolicy = eligibilityPolicy
         self.exportPolicy = exportPolicy
         self.exportProjection = exportProjection
+        self.operatorPolicy = operatorPolicy
         self.stationEntityRequired = stationEntityRequired
         self.adapterID = adapterID
     }
@@ -281,7 +284,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case id, version, edition, displayName, cabrilloName, supportedBands, supportedModes, entry,
              sourceProvenance, dupePolicy, multiplierPolicy, geographicMultiplier, scoring, eligibilityPolicy, exportPolicy,
-             exportProjection, stationEntityRequired, adapterID
+             exportProjection, operatorPolicy, stationEntityRequired, adapterID
     }
 
     public init(from decoder: Decoder) throws {
@@ -311,6 +314,8 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         exportPolicy = try values.decode(ContestDeclarativeExportPolicy.self, forKey: key(.exportPolicy))
         exportProjection = try values.decodeIfPresent(ContestDeclarativeExportProjection.self,
                                                       forKey: key(.exportProjection))
+        operatorPolicy = try values.decodeIfPresent(ContestDeclarativeOperatorPolicy.self,
+                                                    forKey: key(.operatorPolicy))
         stationEntityRequired = try values.decode(Bool.self, forKey: key(.stationEntityRequired))
         adapterID = try values.decodeIfPresent(String.self, forKey: key(.adapterID))
     }
@@ -333,6 +338,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         try values.encode(eligibilityPolicy, forKey: .eligibilityPolicy)
         try values.encode(exportPolicy, forKey: .exportPolicy)
         try values.encodeIfPresent(exportProjection, forKey: .exportProjection)
+        try values.encodeIfPresent(operatorPolicy, forKey: .operatorPolicy)
         try values.encode(stationEntityRequired, forKey: .stationEntityRequired)
         try values.encodeIfPresent(adapterID, forKey: .adapterID)
     }
@@ -416,6 +422,7 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             result.append("score and multiplier policies are incompatible")
         }
         result += exportDiagnostics(for: draft)
+        result += operatorDiagnostics(for: draft)
         if draft.scoring.defaultPoints < 0 { result.append("default points must be nonnegative") }
         guard coherentEntry else { return result }
         let fields = Dictionary(uniqueKeysWithValues: draft.entry.exchange.receivedFields.map { ($0.id, $0) })
@@ -552,6 +559,29 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             return ["export policy and projection must be supplied together"]
         }
     }
+
+    private static func operatorDiagnostics(for draft: ContestDefinitionDraft) -> [String] {
+        guard let policy = draft.operatorPolicy else { return [] }
+        guard policy.version == ContestDeclarativeOperatorPolicy.version,
+              policy.policy == ContestDeclarativeOperatorPolicy.policy,
+              policy.output == ContestDeclarativeOperatorPolicy.output else {
+            return ["operator policy identifier or version is unsupported"]
+        }
+        let expected = draft.supportedModes.sorted()
+        let actual = policy.signalProfiles.map(\.mode)
+        guard actual == expected, Set(actual).count == actual.count else {
+            return ["operator policy must map every supported mode exactly once in sorted order"]
+        }
+        for profile in policy.signalProfiles {
+            switch (profile.mode, profile.signal) {
+            case ("CW", .cw), ("SSB", .phone), ("AM", .phone), ("FM", .phone):
+                continue
+            default:
+                return ["operator policy contains an unsupported mode or signal mapping"]
+            }
+        }
+        return []
+    }
 }
 
 public protocol ContestRuleDeclarativeExportPolicy: Sendable {
@@ -627,6 +657,13 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
     }
 
     public func cabrilloReceivedExchange(for qso: ContestQSO) -> String { qso.exchange.normalizedReceived }
+
+    public func partialDraftDupeKey(for qso: ContestQSO, in session: ContestSessionSnapshot,
+                                    validation: [ContestValidationIssue]) -> String? {
+        guard definition.draft.operatorPolicy != nil else { return nil }
+        return ContestOperatorProjection.partialDraftDupeKey(
+            for: self, qso: qso, session: session, validation: validation)
+    }
 
     private func points(_ qso: ContestQSO) -> Int64 {
         for clause in definition.draft.scoring.clauses {

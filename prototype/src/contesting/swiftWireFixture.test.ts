@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { ContestClient, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
-import type { ContestCreateInput, ContestDraftFields, ContestRequest, ContestSessionSummary, ContestWorkerResponse } from "./types";
+import type { ContestCreateInput, ContestDraftFields, ContestEntryDescriptorV2, ContestRequest, ContestSessionSummary, ContestWorkerResponse } from "./types";
 
 type WireFixture = {
   schemaVersion: number;
@@ -17,6 +17,11 @@ type WireFixture = {
 };
 
 const fixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/contesting-worker-wire.json", import.meta.url), "utf8")) as WireFixture;
+const currentCatalogFixture = JSON.parse(readFileSync(new URL("../../../docs/contesting/fixtures/current-contesting-catalog-worker-wire.json", import.meta.url), "utf8")) as {
+  schemaVersion: number;
+  catalog: ContestWorkerResponse<{ workspaceGeneration: string; rules: unknown[] }>;
+  assertions: { legacyOperatorCapabilities: number; declarativeOperatorCapabilities: number; inertRTTYRules: number; totalRules: number };
+};
 type LifecycleRequestKey = "create" | "reserve" | "apply" | "commit";
 const lifecycleRequestKey: Record<string, LifecycleRequestKey> = {
   contest_create: "create", contest_serial_reserve: "reserve", contest_draft_apply: "apply", contest_qso_commit: "commit",
@@ -289,5 +294,43 @@ describe("Swift contest worker wire fixture", () => {
     const receipt = await client.receipt(uncertainty.operation);
     expect(receipt).toEqual(fixture.responses.receiptAfterUncertain.ok && fixture.responses.receiptAfterUncertain.result);
     expect(receipt).toMatchObject({ status: "committed", receipt: { requestID, payloadDigest, committedRevision: 8 } });
+  });
+});
+
+describe("current Swift contest catalog fixture", () => {
+  it("partitions reviewed legacy and stored declarative operator capabilities", async () => {
+    expect(currentCatalogFixture.schemaVersion).toBe(1);
+    expect(currentCatalogFixture.assertions).toEqual({
+      legacyOperatorCapabilities: 14, declarativeOperatorCapabilities: 7, inertRTTYRules: 2, totalRules: 23,
+    });
+    const request = vi.fn(async () => currentCatalogFixture.catalog) as ContestRequest;
+    const catalog = await new ContestClient(request).catalog();
+    const legacyOperatorIDs = new Set([
+      "cq-ww-cw", "cq-wpx-cw", "cq-ww-ssb", "cq-wpx-ssb", "oceania-dx-cw", "oceania-dx-ssb",
+      "sac-cw", "sac-ssb", "naqp-cw", "naqp-ssb", "jidx-cw", "jidx-ssb", "arrl-dx-cw", "arrl-dx-ssb",
+    ]);
+    const declarativeOperatorIDs = new Set([
+      "cwops-cwt", "cwops-open", "icwc-mst", "ten-ten-fallCW", "ten-ten-springCW", "ten-ten-summerPhone", "ten-ten-winterPhone",
+    ]);
+    const inertRTTYIDs = new Set(["naqp-rtty", "arrl-rtty-roundup"]);
+    expect(catalog.rules).toHaveLength(23);
+    const operatorRules = catalog.rules.filter(rule => rule.operatorCapability);
+    expect(new Set(operatorRules.filter(rule => !rule.declarativeDefinition).map(rule => rule.identity.id))).toEqual(legacyOperatorIDs);
+    const declarativeRules = operatorRules.filter(rule => rule.declarativeDefinition);
+    expect(new Set(declarativeRules.map(rule => rule.identity.id))).toEqual(declarativeOperatorIDs);
+    expect(catalog.rules.filter(rule => inertRTTYIDs.has(rule.identity.id)).every(rule => !rule.operatorCapability)).toBe(true);
+    expect(new Set(operatorRules.map(rule => rule.operatorCapability!.auditDigest)).size).toBe(21);
+    for (const rule of declarativeRules) {
+      const capability = rule.operatorCapability;
+      if (!capability || !rule.declarativeDefinition) throw new Error("Declarative worker rule omitted its reviewed capability binding.");
+      const signalProfiles = capability.signalProfiles;
+      if (!signalProfiles) throw new Error("Declarative worker rule omitted its reviewed signal profiles.");
+      expect(capability.auditDigest).toBe(rule.declarativeDefinition.definitionDigest);
+      expect(rule.entryDescriptorVersion).toBe(2);
+      const entry = rule.entry as ContestEntryDescriptorV2;
+      expect(entry.version).toBe(2);
+      expect(signalProfiles.map(profile => profile.mode).sort())
+        .toEqual(entry.modeProfiles.map(profile => profile.mode).sort());
+    }
   });
 });

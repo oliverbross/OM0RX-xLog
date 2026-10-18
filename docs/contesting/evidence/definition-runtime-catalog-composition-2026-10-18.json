@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-10-18",
+  "branch": "codex/contest-definition-runtime-catalog",
+  "operation": "git merge --no-commit --no-ff",
+  "baseCommit": "5a116345caa66eda5c19c9a45266a478fb01a75b",
+  "mergeSourceCommit": "2a66f6a7088cd088f1ddf49d8640009cf3d7d3c6",
+  "pendingCommitParents": [
+    "5a116345caa66eda5c19c9a45266a478fb01a75b",
+    "2a66f6a7088cd088f1ddf49d8640009cf3d7d3c6"
+  ],
+  "mergeHeadPresent": true,
+  "conflictResolution": {
+    "file": "Sources/XContestCore/DeclarativeContestRule.swift",
+    "resolution": "Retained both optional geographicMultiplier and optional operatorPolicy in the strict Codable key set."
+  },
+  "scope": {
+    "mergeStagedFilesBeforeCIRepair": 23,
+    "mergeStagedDeltaBeforeCIRepairSHA256": "64ca0ff2293dd0c05848f77f688b934f719c12f25de68c17123061ac74589365",
+    "generatorWorkflowPreservedFromBase": true,
+    "windowsPortabilityChecksPreservedFromBase": true,
+    "runtimeLoaderImplemented": false,
+    "packageOrInstallPerformed": false
+  },
+  "generatorCIRepair": {
+    "failedRun": "39097437189",
+    "failedJob": "117586681296",
+    "rootCause": "Python 3.12 and 3.14 produce different ast.dump serializations for some nodes, so version-sensitive AST fingerprints differed even though extracted semantic fields were identical.",
+    "python312": "3.12.13",
+    "python314": "3.14.3",
+    "checkedInventorySHA256": "cf70ab169725af94151a2aaf9e65b0bb9227f613a404f2d79452406c71b434d5",
+    "python312InventorySHA256": "68fa03b8b6e25545903c8eb025af60aab423121d0322f111fe91148ac7b40d65",
+    "fingerprintsCompared": 2772,
+    "fingerprintsChanged": 1864,
+    "fingerprintsUnchanged": 908,
+    "semanticProjection": {
+      "removedFields": [
+        "extractor.python",
+        "all astSha256 values"
+      ],
+      "python312SHA256": "18758014a02d1b7478a290d444363beabaa37475e2138049c749f76a1ef23f72",
+      "python314SHA256": "18758014a02d1b7478a290d444363beabaa37475e2138049c749f76a1ef23f72"
+    },
+    "resolution": "Preserved the checked inventory bytes, pinned CI and inventory generation to Python 3.14.x, and added an early version gate before corpus access."
+  },
+  "tests": [
+    {
+      "command": "swift test --jobs 2 --filter Contest(CWUniqueCallDeclarativeRule|DeclarativeExport|DeclarativeOperatorPolicy|DefinitionAuthoringBridge|DeclarativeActivation|ingLane)Tests",
+      "result": "24 passed, 0 failed",
+      "log": "/tmp/xlog-runtime-catalog-composition-swift-2026-10-18.log",
+      "logSHA256": "3c102ffdc16437d222ddde8c6ce62edf60306870bcb504ddc75613daf5d08cd9"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --filter XLogPrototypeTests.(ContestDeclarativeActivationTests|ContestingLaneTests)",
+      "result": "27 passed, 0 failed",
+      "log": "/tmp/xlog-runtime-catalog-composition-lane-2026-10-18.log",
+      "logSHA256": "b8b419663e5f8789cccfdbd830d09d46ba568450e5261385d3a466dccc03acaa"
+    },
+    {
+      "command": "vitest run --maxWorkers=2 ContestOperatorPanel ContestWorkspace declarativeWorkerWireFixture sessionOwner swiftWireFixture",
+      "result": "5 files, 102 passed, 0 failed",
+      "log": "/tmp/xlog-runtime-catalog-composition-frontend-2026-10-18.log",
+      "logSHA256": "caa32fae1bd01ddd0ae71d7129331b4f24e2c14f831a91c2bb979451333eede2"
+    },
+    {
+      "command": "CONTEST_SW_ROOT=/Users/oliver/Documents/Projects/contest-sw /opt/homebrew/bin/python3.14 -m unittest discover -s tools/contest_plugin_generator/tests -v",
+      "result": "37 passed, 0 failed with Python 3.14.3",
+      "log": "/tmp/xlog-runtime-catalog-generator-python314-2026-10-18.log",
+      "logSHA256": "26814d496202d840c313c983c1a9d404984f6cc6b593a371c42fe19320c39e22"
+    },
+    {
+      "command": "/opt/homebrew/bin/python3.14 tools/contest_plugin_generator/verify_pinned_corpus.py --upstream /Users/oliver/Documents/Projects/contest-sw --ledger docs/contesting/contest-acceptance-ledger.json --inventory docs/contesting/generated/python-plugin-inventory.json",
+      "result": "94 plugins and 16 active previews verified at the exact pin",
+      "log": "/tmp/xlog-runtime-catalog-corpus-python314-2026-10-18.log",
+      "logSHA256": "36d4c30516c06905f55daf838c312c4365a302dbc95ac57f5ae0bc535b438156"
+    },
+    {
+      "command": "/opt/homebrew/bin/python3.12 tools/contest_plugin_generator/verify_pinned_corpus.py --upstream /Users/oliver/Documents/Projects/contest-sw ...",
+      "result": "rejected before corpus access with the Python 3.14.x requirement",
+      "log": "/tmp/xlog-runtime-catalog-python312-rejection-2026-10-18.log",
+      "logSHA256": "e7142079af6b024c399d656b2ae31b3766f198a4a55f6267ea5c9c8957cfc516"
+    }
+  ],
+  "nextCheckpoints": [
+    "Compose reviewed SST geographic/operator changes before extending the shared authoring schema and packaged runtime loader."
+  ]
+}

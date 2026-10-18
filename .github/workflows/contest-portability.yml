@@ -264,11 +264,15 @@ jobs:
           ref: 7c8b499225a73f7f8f792246881bd7aefc05452f
           path: .ci/contest-sw
           persist-credentials: false
+      - name: Install inventory Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
       - name: Record Python and pinned source revision
         shell: bash
         run: |
           python3 --version
-          python3 -c 'import sys; assert sys.version_info >= (3, 12), sys.version'
+          python3 -c 'import sys; assert sys.version_info[:2] == (3, 14), sys.version'
           test "$(git -C "$CONTEST_SW_ROOT" rev-parse HEAD)" = 7c8b499225a73f7f8f792246881bd7aefc05452f
       - name: Verify complete pinned plugin corpus
         shell: bash

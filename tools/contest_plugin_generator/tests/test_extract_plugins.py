@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parents[1]
@@ -21,6 +22,16 @@ LEDGER = REPOSITORY / "docs/contesting/contest-acceptance-ledger.json"
 
 
 class ExtractorUnitTests(unittest.TestCase):
+    def test_inventory_rejects_wrong_python_before_reading_corpus(self) -> None:
+        with mock.patch.object(extract_plugins.sys, "version_info", (3, 12, 13)):
+            with mock.patch.object(extract_plugins, "git_head") as git_head:
+                with self.assertRaisesRegex(
+                    SystemExit,
+                    r"requires Python 3\.14\.x; found 3\.12\.13.*fingerprints are Python-version-dependent",
+                ):
+                    extract_plugins.build_inventory(Path("/must-not-be-read"), Path("/must-not-be-read"), "0" * 40)
+                git_head.assert_not_called()
+
     def write_plugin(self, root: Path, source: str, name: str = "fixture.py") -> tuple[Path, Path]:
         plugin_root = root / "not1mm" / "plugins"
         plugin_root.mkdir(parents=True)

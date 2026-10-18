@@ -14,7 +14,7 @@ Generate the pinned inventory and non-catalog Swift fixture:
   --output docs/contesting/generated/PythonContestDefinitions.generated.swift
 ```
 
-The required corpus check fails rather than skips when the external checkout is absent, on a different commit, has any included or excluded plugin bytes that differ from the ledger SHA-256 values, or differs from the checked-in inventory:
+The required corpus check fails rather than skips when the external checkout is absent, on a different commit, has any included or excluded plugin bytes that differ from the ledger SHA-256 values, or differs from the checked-in inventory. Inventory extraction and verification require Python 3.14.x because `ast.dump` fingerprints vary across Python minor versions; the inventory records the required `3.14` major/minor while allowing any 3.14 patch release:
 
 ```sh
 /opt/homebrew/bin/python3.14 tools/contest_plugin_generator/verify_pinned_corpus.py \
@@ -25,16 +25,16 @@ The required corpus check fails rather than skips when the external checkout is 
 
 The decisive converter tests require `CONTEST_SW_ROOT`; they fail rather than skip when it is absent. Other corpus-dependent tests retain their visible skip behavior, which does not replace the required corpus check above. The `contest-definition-generator` CI job supplies an isolated checkout and runs both the corpus verifier and the complete generator suite.
 
-To reproduce that setup locally with any normal `python3` supporting Python 3.12 or newer:
+To reproduce that setup locally, install Python 3.14 and use that interpreter explicitly:
 
 ```sh
 git clone --no-checkout https://github.com/oliverbross/contest-sw.git /tmp/xlog-contest-sw
 git -C /tmp/xlog-contest-sw checkout --detach 7c8b499225a73f7f8f792246881bd7aefc05452f
-CONTEST_SW_ROOT=/tmp/xlog-contest-sw python3 tools/contest_plugin_generator/verify_pinned_corpus.py \
+CONTEST_SW_ROOT=/tmp/xlog-contest-sw python3.14 tools/contest_plugin_generator/verify_pinned_corpus.py \
   --upstream /tmp/xlog-contest-sw \
   --ledger docs/contesting/contest-acceptance-ledger.json \
   --inventory docs/contesting/generated/python-plugin-inventory.json
-CONTEST_SW_ROOT=/tmp/xlog-contest-sw python3 -m unittest discover -s tools/contest_plugin_generator/tests -v
+CONTEST_SW_ROOT=/tmp/xlog-contest-sw python3.14 -m unittest discover -s tools/contest_plugin_generator/tests -v
 ```
 
 `definition_schema.json` keeps the historical `1.0.0` draft interchange and adds a strict `2.0.0` authoring envelope. Version 2 uses only the finite policies already implemented by `ContestDefinitionDraft`; it is not an expression language and cannot request an adapter. Its optional `geographicMultiplier` maps directly to the bounded Swift configuration: one required received subdivision field, up to eight unique entity policies with uppercase tokens, and one entity fallback. Geographic goldens must provide resolved entity snapshots and a pinned reference-data version. Runtime-blocking omissions belong in `constraints.runtimeUnresolved` and prevent translation. Sponsor, category, schedule, membership and activation gaps belong in `constraints.acceptanceUnresolved` and remain visible without changing runtime semantics.

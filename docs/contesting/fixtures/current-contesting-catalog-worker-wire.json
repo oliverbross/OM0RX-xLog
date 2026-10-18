@@ -1,0 +1,2685 @@
+{
+  "assertions" : {
+    "declarativeOperatorCapabilities" : 7,
+    "inertRTTYRules" : 2,
+    "legacyOperatorCapabilities" : 14,
+    "totalRules" : 23
+  },
+  "catalog" : {
+    "id" : "d77d22bd-8d29-445f-81f8-a746f3ac7a65",
+    "ok" : true,
+    "result" : {
+      "rules" : [
+        {
+          "displayName" : "ARRL International DX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-cw",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "b5cb6c28539f7592cf008a77d92a18f47dbf6a3dde615c59e4fdb633c6b352f1",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "ARRL International DX SSB Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-ssb",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "ddb3c40744f148d47806eaf272541f4d838b0e3257e93fabdd9a183e6de0894d",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "ARRL RTTY Roundup Preview",
+          "entry" : {
+            "adifMode" : "RTTY",
+            "cabrilloFormatterVersion" : "arrl-rtty-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-rtty-preview-1",
+            "cabrilloQSOType" : "RY",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "serialNumber"
+                  ],
+                  "adifField" : null,
+                  "id" : "exchange",
+                  "label" : "State, province, or serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "RTTY",
+            "modeProfiles" : [
+              {
+                "adifMode" : "RTTY",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "RY",
+                "mode" : "RTTY",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "digitalRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "digitalRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "stationResolvedSerial" : {
+              "allocatedSerialFieldID" : "serial",
+              "allowedScopes" : [
+                "session"
+              ],
+              "locationFieldID" : "location",
+              "policy" : "arrlRTTYRoundupWVEOrDX"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-3.0b-preview",
+            "id" : "arrl-rtty-roundup",
+            "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
+            "version" : "1.0.0-3.0b-preview"
+          },
+          "mode" : "RTTY",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "RTTY"
+          ]
+        },
+        {
+          "displayName" : "CQ WPX CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "stxSrx",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-wpx-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "CQ WPX SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "stxSrx",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-wpx-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "fda55650fecac6c637acdeed3dea77e9ac55417f78ebe4c33c00f95f772312a7",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "CQ WW CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-ww-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "CQ WW SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-ww-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "88c2ec26c9f9df6d5d54d000c38441ceb2a61be583d0529e658b76f2028f760e",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_ssb.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "JIDX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "jidx-preview-1",
+            "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-cw",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "fc5c089d29115cd70b42107b99283b800cb6b05093b5b709c7823d1927174b2f",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "JIDX Phone Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "jidx-preview-1",
+            "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-ssb",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "a2eaa67dee87c6c99822b5e6bb8a76bc58837a43746bfc400444ef098294e4f4",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "North American QSO Party CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-cw",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "North American QSO Party RTTY",
+          "entry" : {
+            "adifMode" : "RTTY",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "RY",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "RTTY",
+            "modeProfiles" : [
+              {
+                "adifMode" : "RTTY",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "RY",
+                "mode" : "RTTY",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-rtty",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "RTTY",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "RTTY"
+          ]
+        },
+        {
+          "displayName" : "North American QSO Party SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-ssb",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "040cd5d65b7e4d5547b7c4cdaf7680702b65bc1500380b527acedc72bcbf0d70",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "Oceania DX CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "oceania-dx-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "8372ac078468e2502f4eae7cec8b871ba3c55037e5e5626def8eb85905b237ce",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "Oceania DX SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "oceania-dx-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "a638f0f5f4bce58a0cd43649cbbdcf6bfa23207cd3be894a0cc4cb56bc273be2",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "Scandinavian Activity Contest CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "sac-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "6280e5a01c2aada4f3707b4fea26ef53826e4cfd122115b9110722fd251b54f3",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_cw.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "Scandinavian Activity Contest SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "sac-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "b202d90891faeb2bae345d5566ce4cbcf1e5f70abd9dd16c2ceaa29d64ddeb90",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "76d4a4a080cee771e22240ea50c00dce4210b0c14cdb017efe58c9f1d61c5000",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "CWops Test (CWT) Archive Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "cw-unique-call-archive-1",
+            "cabrilloProjectionFormatterVersion" : "cw-unique-call-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger",
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-or-location",
+                  "label" : "Member number, CWA, state, province, or DX prefix",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger",
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-or-location",
+                  "label" : "Member number, CWA, state, province, or DX prefix",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "official-rules-2026-10-18",
+            "id" : "cwops-cwt",
+            "sourceRevision" : "76d4a4a080cee771e22240ea50c00dce4210b0c14cdb017efe58c9f1d61c5000",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "76d4a4a080cee771e22240ea50c00dce4210b0c14cdb017efe58c9f1d61c5000",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "Official https:\/\/cwops.org\/cwops-tests\/ SHA-256 d98a97401dee2cf8106efb1756b78875ce900024715b3bebb19ef2919c646056; pinned contest-sw 7c8b499 cwt.py SHA-256 12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64; inactive: event windows, categories, conditional exchange, reporting, export; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "4fee4edd547e4a1f339dc1b07a61b9827786164c8e56498edcd700b33aac511f",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "CW Open Archive Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "cw-unique-call-archive-1",
+            "cabrilloProjectionFormatterVersion" : "cw-unique-call-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+                "session"
+              ],
+              "requirement" : "requiredForCommit"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "official-rules-2026-10-18",
+            "id" : "cwops-open",
+            "sourceRevision" : "4fee4edd547e4a1f339dc1b07a61b9827786164c8e56498edcd700b33aac511f",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "4fee4edd547e4a1f339dc1b07a61b9827786164c8e56498edcd700b33aac511f",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "Official https:\/\/cwops.org\/cwops-tests\/cw-open\/ SHA-256 b73265ece8bc6e6d6e874a108ddf7ec1e2808c3d9fbdffd3b7380cd30629685a; pinned contest-sw 7c8b499 cwo.py SHA-256 e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e; inactive: sessions, categories, combined score, duplicate retention, export; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "86e9120b60a3a3388d312b1fc139b6ecb8ef3af40322c13612885553c9b5a445",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "ICWC Medium Speed Test Archive Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "cw-unique-call-archive-1",
+            "cabrilloProjectionFormatterVersion" : "cw-unique-call-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+                "session"
+              ],
+              "requirement" : "requiredForCommit"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "official-rules-2026-10-18",
+            "id" : "icwc-mst",
+            "sourceRevision" : "86e9120b60a3a3388d312b1fc139b6ecb8ef3af40322c13612885553c9b5a445",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "86e9120b60a3a3388d312b1fc139b6ecb8ef3af40322c13612885553c9b5a445",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "Official https:\/\/internationalcwcouncil.org\/mst-contest\/ SHA-256 c594f23f513853a42c0644fb8243e5d24700b7a381a2611bc2dd44b862fef289; pinned contest-sw 7c8b499 icwc_mst.py SHA-256 4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca; inactive: event windows, categories, regional frequency limits, 7030 kHz QRP running constraint, export; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "abb96cf234420adcd5adeaf6bfa6e133e41fc6776850c0d15f7cda2b943f781d",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "10-10 Fall CW QSO Party Operator Archive",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloProjectionFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsOnly",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2025-newsletter-unscheduled",
+            "id" : "ten-ten-fallCW",
+            "sourceRevision" : "abb96cf234420adcd5adeaf6bfa6e133e41fc6776850c0d15f7cda2b943f781d",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "abb96cf234420adcd5adeaf6bfa6e133e41fc6776850c0d15f7cda2b943f781d",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "10-10 QSO Party Handbook https:\/\/www.ten-ten.org\/qso-party-handbook\/ SHA-256 5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b; October 2025 official newsletter https:\/\/www.ten-ten.org\/wp-content\/uploads\/2025\/01\/2025n4-OnLine.pdf SHA-256 aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f; retrieved 2026-10-18; CW variants are source-compatible definitions and are not asserted to be scheduled in 2026; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "c0f455341192f2985b52d25e82f5072012788d6935806fe3087146b0031b24a6",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "10-10 Spring CW QSO Party Operator Archive",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloProjectionFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsOnly",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2025-newsletter-unscheduled",
+            "id" : "ten-ten-springCW",
+            "sourceRevision" : "c0f455341192f2985b52d25e82f5072012788d6935806fe3087146b0031b24a6",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "c0f455341192f2985b52d25e82f5072012788d6935806fe3087146b0031b24a6",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "10-10 QSO Party Handbook https:\/\/www.ten-ten.org\/qso-party-handbook\/ SHA-256 5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b; October 2025 official newsletter https:\/\/www.ten-ten.org\/wp-content\/uploads\/2025\/01\/2025n4-OnLine.pdf SHA-256 aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f; retrieved 2026-10-18; CW variants are source-compatible definitions and are not asserted to be scheduled in 2026; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "5600ff890f59eeb877f30ee99ce634f05eb6f98526159ff77fe9261e9d3c7dc1",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "10-10 Summer Phone QSO Party Operator Archive",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloProjectionFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              },
+              {
+                "adifMode" : "AM",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "AM",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              },
+              {
+                "adifMode" : "FM",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "FM",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsOnly",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2025-rules-2026-schedule",
+            "id" : "ten-ten-summerPhone",
+            "sourceRevision" : "5600ff890f59eeb877f30ee99ce634f05eb6f98526159ff77fe9261e9d3c7dc1",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "5600ff890f59eeb877f30ee99ce634f05eb6f98526159ff77fe9261e9d3c7dc1",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "AM",
+                "signal" : "phone"
+              },
+              {
+                "mode" : "FM",
+                "signal" : "phone"
+              },
+              {
+                "mode" : "SSB",
+                "signal" : "phone"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "10-10 QSO Party Handbook https:\/\/www.ten-ten.org\/qso-party-handbook\/ SHA-256 5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b; October 2025 official newsletter https:\/\/www.ten-ten.org\/wp-content\/uploads\/2025\/01\/2025n4-OnLine.pdf SHA-256 aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f; retrieved 2026-10-18; current rules https:\/\/www.ten-ten.org\/qso-party-rules SHA-256 54ccb256e0e42d2cf3edaf8d4f419e50f64beba425859bf899dfd766455dc091; 2026 schedule https:\/\/www.ten-ten.org\/qso-party-schedule\/ SHA-256 47b07443c4abc10c43de2ea0efcacec6dfd2d85176838c6e0ef96293ffbca2da; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m"
+          ],
+          "supportedModes" : [
+            "AM",
+            "FM",
+            "SSB"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "2f8083cd4c3637c9dab684b99f535bf264d42a79506a4adb21d2ee1511869ec9",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "10-10 Winter Phone QSO Party Operator Archive",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloProjectionFormatterVersion" : "ten-ten-archive-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "nonnegativeInteger"
+                  ],
+                  "adifField" : null,
+                  "id" : "member-number",
+                  "label" : "10-10 Number (0 for non-member)",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "locationText"
+                  ],
+                  "adifField" : null,
+                  "id" : "qth",
+                  "label" : "QTH",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              },
+              {
+                "adifMode" : "AM",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "AM",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              },
+              {
+                "adifMode" : "FM",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "FM",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsOnly",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2025-rules-2026-schedule",
+            "id" : "ten-ten-winterPhone",
+            "sourceRevision" : "2f8083cd4c3637c9dab684b99f535bf264d42a79506a4adb21d2ee1511869ec9",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "2f8083cd4c3637c9dab684b99f535bf264d42a79506a4adb21d2ee1511869ec9",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "AM",
+                "signal" : "phone"
+              },
+              {
+                "mode" : "FM",
+                "signal" : "phone"
+              },
+              {
+                "mode" : "SSB",
+                "signal" : "phone"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "10-10 QSO Party Handbook https:\/\/www.ten-ten.org\/qso-party-handbook\/ SHA-256 5959521401da9a8758f55c83bed72a374e7e20341ced4180000378b906cf7b7b; October 2025 official newsletter https:\/\/www.ten-ten.org\/wp-content\/uploads\/2025\/01\/2025n4-OnLine.pdf SHA-256 aaa5560aa58b831513b0b3efcf66403e17d2c79b7ebd348322d80f7552326d1f; retrieved 2026-10-18; current rules https:\/\/www.ten-ten.org\/qso-party-rules SHA-256 54ccb256e0e42d2cf3edaf8d4f419e50f64beba425859bf899dfd766455dc091; 2026 schedule https:\/\/www.ten-ten.org\/qso-party-schedule\/ SHA-256 47b07443c4abc10c43de2ea0efcacec6dfd2d85176838c6e0ef96293ffbca2da; operator archive only, not sponsor submission",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m"
+          ],
+          "supportedModes" : [
+            "AM",
+            "FM",
+            "SSB"
+          ]
+        }
+      ],
+      "workspaceGeneration" : "6b15422e-e507-430f-a336-ee0d18a48f42"
+    }
+  },
+  "schemaVersion" : 1
+}

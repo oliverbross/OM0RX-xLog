@@ -55,6 +55,7 @@ public enum CWUniqueCallDeclarativeDefinitions {
             scoring: base.scoring, eligibilityPolicy: base.eligibilityPolicy,
             exportPolicy: .operatorArchive,
             exportProjection: .init(formatterVersion: formatter, columns: archiveColumns(for: variant)),
+            operatorPolicy: .init(signalProfiles: [.init(mode: "CW", signal: .cw)]),
             stationEntityRequired: base.stationEntityRequired)
     }
 
