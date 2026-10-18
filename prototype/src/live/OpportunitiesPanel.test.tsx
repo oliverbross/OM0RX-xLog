@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { OpportunitiesPanel, opportunityDXCCNeed } from "./OpportunitiesPanel";
+import { OpportunitiesPanel, compareOpportunityUnworked, opportunityDXCCNeed } from "./OpportunitiesPanel";
 
 const pota = { id: "pota:OM0RX:OM-0001", kind: "pota", callsign: "OM0RX/P", reference: "OM-0001", name: "Verified park",
   frequency_hz: 14_074_000, mode: "FT8", observed_at: "2026-10-12T10:00:00Z", expires_at: "2026-10-12T10:30:00Z",
@@ -20,6 +20,16 @@ vi.mock("../Map", () => ({ default: (props: { data: { id: string }[]; onSpot: (s
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("read-only opportunities", () => {
+  it("sorts unworked operations by callsign history and places missing history last", () => {
+    const referenceWorkedButCallNew = { ...pota, id: "new-call", worked_count: 99,
+      observed_at: "2026-10-12T10:00:00Z", callsign_history: { worked_count: 0, confirmed_count: 0, worked_modes: [], confirmed_modes: [] } };
+    const referenceNewButCallWorked = { ...pota, id: "worked-call", worked_count: 0,
+      observed_at: "2026-10-12T10:02:00Z", callsign_history: { worked_count: 2, confirmed_count: 1, worked_modes: ["CW"], confirmed_modes: ["CW"] } };
+    const unknownCallHistory = { ...pota, id: "unknown-call", worked_count: 0,
+      observed_at: "2026-10-12T10:03:00Z", callsign_history: undefined };
+    expect([unknownCallHistory, referenceNewButCallWorked, referenceWorkedButCallNew]
+      .sort(compareOpportunityUnworked).map(item => item.id)).toEqual(["new-call", "worked-call", "unknown-call"]);
+  });
   it("withholds DXCC claims when a callsign cannot be resolved", () => {
     expect(opportunityDXCCNeed({ ...pota, dxcc_history: null })).toEqual({
       text: "DXCC history unavailable", state: "unknown", title: "This callsign could not be resolved to a DXCC entity.",

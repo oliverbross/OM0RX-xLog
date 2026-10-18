@@ -123,6 +123,15 @@ function OpportunityColumnHeader({ column, label, width, onWidth, children }: {
       event.preventDefault(); onWidth(column, next);
     }} /></th>;
 }
+export function compareOpportunityUnworked(left: Opportunity, right: Opportunity): number {
+  const leftWorked = left.callsign_history?.worked_count;
+  const rightWorked = right.callsign_history?.worked_count;
+  const leftKnown = typeof leftWorked === "number" && Number.isFinite(leftWorked);
+  const rightKnown = typeof rightWorked === "number" && Number.isFinite(rightWorked);
+  if (leftKnown !== rightKnown) return leftKnown ? -1 : 1;
+  if (leftKnown && rightKnown && leftWorked !== rightWorked) return leftWorked - rightWorked;
+  return right.observed_at.localeCompare(left.observed_at);
+}
 const feedNames = ["pota", "sota", "wwff", "wwbota", "425dxn"];
 function priorityFeed(kind: string): string {
   return ["dxpedition", "special_event", "iota"].includes(kind) ? "425dxn" : feedNames.includes(kind) ? kind : "pota";
@@ -233,7 +242,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     `${item.callsign} ${item.reference} ${item.name}`.toUpperCase().includes(search)).sort((a, b) =>
       sort === "callsign" ? a.callsign.localeCompare(b.callsign) : sort === "reference" ? a.reference.localeCompare(b.reference) :
       sort === "frequency" ? (a.frequency_hz ?? Infinity) - (b.frequency_hz ?? Infinity) :
-      sort === "unworked" ? a.worked_count - b.worked_count || b.observed_at.localeCompare(a.observed_at) : b.observed_at.localeCompare(a.observed_at)), [snapshot, kind, band, mode, sort, search]);
+      sort === "unworked" ? compareOpportunityUnworked(a, b) : b.observed_at.localeCompare(a.observed_at)), [snapshot, kind, band, mode, sort, search]);
   const bands = useMemo(() => [...new Set([band, ...(snapshot?.items ?? []).map(item => opportunityBand(item.frequency_hz))])].filter(value => value && value !== "all"), [snapshot, band]);
   const modes = useMemo(() => [...new Set([mode, ...(snapshot?.items ?? []).map(item => item.mode)])].filter(value => value && value !== "all").sort(), [snapshot, mode]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1));
