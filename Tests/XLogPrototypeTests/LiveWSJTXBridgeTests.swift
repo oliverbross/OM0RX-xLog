@@ -143,6 +143,28 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "worker_stopping") }
     }
 
+    func testDatagramAfterTerminalRetirementCannotImportOrPublish() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-retire-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let importedCalls = ImportCounter()
+        let receiver = FakeWSJTXReceiver()
+        let bridge = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
+            workspaceAvailable: { true }, importer: { _ in importedCalls.nextResult() },
+            receiverFactory: { handler, _ in receiver.onDatagram = handler; return receiver })
+        let initial = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        var configuration = initial["configuration"] as! [String: Any]
+        configuration["enabled"] = true
+        _ = try await bridge.handle(method: "wsjtx_configure", params: ["configuration": configuration])
+        _ = try await bridge.handle(method: "wsjtx_start", params: [:])
+        await bridge.ingest(datagram())
+        await bridge.stopForShutdown()
+        await bridge.ingest(datagram(adif: "<ADIF_VER:5>3.1.4<EOH><CALL:5>VK8ZZ<QSO_DATE:8>20261014<TIME_ON:6>120000<BAND:3>20M<MODE:3>FT8<EOR>"))
+        let snapshot = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        XCTAssertEqual(snapshot["imported_count"] as? Int, 1)
+        XCTAssertEqual(snapshot["running"] as? Bool, false)
+        XCTAssertEqual(receiver.stopCount, 1)
+    }
+
     func testRealLogbookImportLeavesOneLocalContact() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-log-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }

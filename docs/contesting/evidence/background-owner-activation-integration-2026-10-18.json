@@ -1,0 +1,91 @@
+{
+  "capturedAt": "2026-10-18T12:43:04+09:30",
+  "branch": "codex/contest-main-123-integration",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "firstParent": "9a8828b5ee8c0520fbe53c4082fd8750b1f1a2d7",
+  "mergedCheckpoint": "843c116842f7b76589ed6f3eaa62cb51d0b92abd",
+  "mergeMode": "git merge --no-commit --no-ff",
+  "conflicts": [
+    {
+      "path": ".github/workflows/contest-portability.yml",
+      "resolution": "Preserved declarative activation discovery and execution while adding WorkerStartup, LiveOnlineLogDeliveryService and NativeDraftPowerCapture discovery and execution on Unix and Windows, plus Rust operating-module and shutdown suites."
+    }
+  ],
+  "contract": {
+    "backgroundOwnership": "Normal-logging background services are owned by the immutable operating-module generation; contesting cannot resume WSJT-X ingress, online delivery, or Normal draft-power capture.",
+    "activation": "The seven immutable declarative definitions retain the accepted shared activation, lane, restart, correction and operator-archive behavior.",
+    "scope": "This checkpoint composes background ownership only. It does not merge main 1.2.23, package or install an application, activate sponsor-submission exports, or change normal Follow Radio and spot behavior."
+  },
+  "tests": [
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter ContestDeclarativeActivationTests",
+      "result": "4 tests, 0 failures",
+      "logPath": "/tmp/xlog-background-combine-activation-2026-10-18.log",
+      "logSHA256": "2375341973d1b56dd0c44b2dcbdfbe08f82617da9590550e952503687b2d0318"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter ContestingLaneTests",
+      "result": "22 tests, 0 failures; reused the Swift scratch",
+      "logPath": "/tmp/xlog-background-combine-lane-2026-10-18.log",
+      "logSHA256": "d3d2ca4b75e78fa9d96615c8bcc146a49ba3756cf0e5d19c6da3a9f6f1484514"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter WorkerStartupTests",
+      "result": "6 tests, 0 failures; reused the Swift scratch",
+      "logPath": "/tmp/xlog-background-combine-worker-startup-2026-10-18.log",
+      "logSHA256": "163380e88b24e4027c613c98427e33ef22686ee866f449381b125c37b3420329"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter LiveOnlineLogDeliveryServiceTests",
+      "result": "10 tests, 0 failures; reused the Swift scratch",
+      "logPath": "/tmp/xlog-background-combine-online-delivery-2026-10-18.log",
+      "logSHA256": "ab8485ea8a9649c407089e8ccad9169811e49225386746ea5bba99cf7de0abb0"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter NativeDraftPowerCaptureTests",
+      "result": "6 tests, 0 failures; reused the Swift scratch",
+      "logPath": "/tmp/xlog-background-combine-draft-power-2026-10-18.log",
+      "logSHA256": "4c5a3b85287aae9c0651300c5d760236aa5c1022f3c17ba9260c62b73ba11f84"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter LiveWSJTXBridgeTests",
+      "result": "8 tests, 0 failures; reused the Swift scratch",
+      "logPath": "/tmp/xlog-background-combine-wsjtx-2026-10-18.log",
+      "logSHA256": "0ba1b29312200eb056cd04981feb758394493fe79b95ce6caefa7bd4c79dec2e"
+    },
+    {
+      "command": "cd prototype/src-tauri && cargo test --locked --jobs 2 --target-dir /tmp/xlog-background-combine-rust --bin xlog-prototype --features contesting-test operating_module::tests::",
+      "result": "10 tests, 0 failures",
+      "logPath": "/tmp/xlog-background-combine-rust-module-2026-10-18.log",
+      "logSHA256": "dbc3b65c42a199153d30c0abac973e9650f9d4bbcbe0a219f1f714f39d6837b9"
+    },
+    {
+      "command": "cd prototype/src-tauri && cargo test --locked --jobs 2 --target-dir /tmp/xlog-background-combine-rust --bin xlog-prototype --features contesting-test worker::tests::shutdown_",
+      "result": "6 tests, 0 failures; reused the Rust target",
+      "logPath": "/tmp/xlog-background-combine-rust-shutdown-2026-10-18.log",
+      "logSHA256": "67aabfa1a58f12c415c885a65b7768136c75028a301163be0ae29fe193da26ec"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "notRepeated": {
+    "frontendReason": "The merged checkpoint changes Swift and Rust background-owner paths and the portability workflow, with no prototype TypeScript or TSX source changes. The first parent 9a8828b already records passing contest frontend, nine normal-log regression files, TypeScript and production build evidence in declarative-activation-module-integration-2026-10-18.json.",
+    "futureComposition": "The accepted main 1.2.23 release and Windows shutdown-test checkpoint 10674b6 are intentionally deferred to the next reviewed composition."
+  },
+  "mergedFiles": {
+    ".github/workflows/contest-portability.yml": "83df0e6af7264ca3d586a495da9f6167e9ce0744c1317298b52d3c8d62c4f166",
+    "Sources/XLogPrototypeSupport/LiveOnlineLogDeliveryService.swift": "b576eb9ff4e42d443e5704df3662fc289cf95bcb9ecff7eff8a1fbc7ff9f1e66",
+    "Sources/XLogPrototypeSupport/LiveServiceMethods.swift": "1fad00a978fa98b3331d780c7150448e6a84a09019204f947005f4e453683f94",
+    "Sources/XLogPrototypeSupport/LiveWorker.swift": "e22b6a104bb85e51e4373901e4b9a5bbad3a7d41ea504322505c2a5ad314863c",
+    "Sources/XLogPrototypeWorker/main.swift": "5fa9a3ca7e254509ebfb7e96402c20e0d46b69fe3d7caf05de35c4ccbfd49795",
+    "Tests/XLogPrototypeTests/LiveOnlineLogDeliveryServiceTests.swift": "0ada7d31bbe2d4e6b05b5568e941184a24337c7b6eb7e534446a51d9e066cc35",
+    "Tests/XLogPrototypeTests/LiveWSJTXBridgeTests.swift": "e6f19e39d5f787ebb888cf9b77acd0fcbf9b52c8eff51906db6f5c049e9902b8",
+    "Tests/XLogPrototypeTests/NativeDraftPowerCaptureTests.swift": "d5d62f410bd1471988b0eeb8549117a14c3c7925b2b64c58ece31e8351ec9942",
+    "Tests/XLogPrototypeTests/WorkerStartupTests.swift": "45c9ecdf4e2259dcac0b300ffaf5b657bffc20171d0d0d852ca5e5a94d327fbd",
+    "prototype/src-tauri/src/main.rs": "221289a130f640a68a2a98b9916497563690b57cfc88b786882613db2616dd90",
+    "prototype/src-tauri/src/operating_module.rs": "c996bcde7771309634c61b7210b7c070dfae81fa3f7aa8c83c7457cfa66ee8a1",
+    "prototype/src-tauri/src/worker.rs": "bce0054439a0e0d5c34be244bddbf47a33e7e46a12ac537ec184a3db9ef07867"
+  }
+}

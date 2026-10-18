@@ -367,6 +367,8 @@ struct Session {
     abandoned: Mutex<VecDeque<String>>,
     accepting: AtomicBool,
     alive: AtomicBool,
+    retirement_failed: AtomicBool,
+    output_finished: AtomicBool,
     writes_pending: AtomicUsize,
 }
 
@@ -388,6 +390,8 @@ impl Session {
             abandoned: Mutex::new(VecDeque::new()),
             accepting: AtomicBool::new(true),
             alive: AtomicBool::new(true),
+            retirement_failed: AtomicBool::new(false),
+            output_finished: AtomicBool::new(false),
             writes_pending: AtomicUsize::new(0),
         });
         let weak = Arc::downgrade(&session);
@@ -456,6 +460,7 @@ impl Session {
     }
 
     fn retire(&self, reason: &str) {
+        self.retirement_failed.store(true, Ordering::Release);
         self.accepting.store(false, Ordering::Release);
         if !self.alive.swap(false, Ordering::AcqRel) {
             return;
@@ -492,11 +497,11 @@ impl Session {
         }
     }
 
-    fn shutdown(self: &Arc<Self>) {
-        self.shutdown_with_grace(Duration::from_secs(8));
+    fn shutdown(self: &Arc<Self>) -> bool {
+        self.shutdown_with_grace(Duration::from_secs(8))
     }
 
-    fn shutdown_with_grace(self: &Arc<Self>, grace: Duration) {
+    fn shutdown_with_grace(self: &Arc<Self>, grace: Duration) -> bool {
         // Stop admission atomically with registration, but keep routing alive
         // while accepted requests finish. The worker needs stdin EOF to release
         // only the station controls it owns.
@@ -504,11 +509,11 @@ impl Session {
             self.accepting.store(false, Ordering::Release);
         } else {
             self.retire("Station service routing failed during shutdown");
-            return;
+            return false;
         }
         if !self.alive.load(Ordering::Acquire) {
             self.kill_reap();
-            return;
+            return false;
         }
         // A writer can be blocked on a full stdin pipe. Close on another
         // thread only after all admitted writers attempted their writes; the
@@ -525,11 +530,13 @@ impl Session {
             }
         });
         let deadline = Instant::now() + grace;
+        let mut graceful = true;
         loop {
             let exited = match self.child.lock() {
                 Ok(mut child) => match child.as_mut() {
                     Some(process) => match process.try_wait() {
-                        Ok(Some(_)) => {
+                        Ok(Some(status)) => {
+                            if !status.success() { graceful = false; }
                             *child = None;
                             true
                         }
@@ -537,13 +544,18 @@ impl Session {
                         Err(_) => {
                             drop(child);
                             self.kill_reap();
+                            graceful = false;
                             true
                         }
                     },
-                    None => true,
+                    None => {
+                        graceful = false;
+                        true
+                    },
                 },
                 Err(_) => {
                     self.kill_reap();
+                    graceful = false;
                     true
                 }
             };
@@ -552,6 +564,7 @@ impl Session {
             }
             if Instant::now() >= deadline {
                 self.kill_reap();
+                graceful = false;
                 break;
             }
             std::thread::sleep(Duration::from_millis(25));
@@ -560,7 +573,7 @@ impl Session {
         // before exit; do not discard a confirmed response in the reap race.
         let drain_deadline = Instant::now() + Duration::from_millis(250);
         while Instant::now() < drain_deadline {
-            if self
+            if self.output_finished.load(Ordering::Acquire) && self
                 .pending
                 .lock()
                 .map(|pending| pending.is_empty())
@@ -570,6 +583,14 @@ impl Session {
             }
             std::thread::sleep(Duration::from_millis(5));
         }
+        if self.pending.lock().map(|pending| !pending.is_empty()).unwrap_or(true) {
+            graceful = false;
+        }
+        if !self.output_finished.load(Ordering::Acquire)
+            || self.retirement_failed.load(Ordering::Acquire)
+        {
+            graceful = false;
+        }
         self.alive.store(false, Ordering::Release);
         if let Ok(mut pending) = self.pending.lock() {
             for (_, sender) in pending.drain() {
@@ -578,6 +599,7 @@ impl Session {
                 ));
             }
         }
+        graceful
     }
 }
 
@@ -588,21 +610,29 @@ impl Drop for WritePending<'_> {
     }
 }
 
+struct OutputFinished(Arc<Session>);
+impl Drop for OutputFinished {
+    fn drop(&mut self) { self.0.output_finished.store(true, Ordering::Release); }
+}
+
 fn read_responses(output: impl Read, weak: Weak<Session>) {
+    let Some(session) = weak.upgrade() else { return; };
+    let _finished = OutputFinished(Arc::clone(&session));
     let mut reader = BufReader::new(output);
     loop {
         let mut bytes = Vec::new();
         let result = (&mut reader)
             .take(MAX_RESPONSE + 1)
             .read_until(b'\n', &mut bytes);
-        let Some(session) = weak.upgrade() else {
-            return;
-        };
         if !session.alive.load(Ordering::Acquire) {
             return;
         }
         let response = match result {
             Ok(0) => {
+                // EOF after native closed stdin is the expected graceful path;
+                // shutdown owns wait/status validation. An unsolicited EOF is
+                // a crash and must retire the generation immediately.
+                if !session.accepting.load(Ordering::Acquire) { return; }
                 session.retire("Station service closed; control outcome unknown");
                 return;
             }
@@ -664,6 +694,9 @@ fn start() -> Result<Arc<Session>, String> {
         return Err("Bundled station service is missing. Reinstall the application.".into());
     }
     let mut command = Command::new(path);
+    // The native persisted owner, rather than renderer payload, binds every
+    // worker generation to one operating module for its entire lifetime.
+    command.env("XLOG_OPERATING_MODULE", crate::operating_module::selected_worker_value()?);
     if LOCAL_ACCEPTANCE.get() == Some(&true) {
         command.arg("--local-ui-acceptance");
     } else if CONTESTING_TEST.get() == Some(&true) {
@@ -806,10 +839,23 @@ pub fn shutdown() {
     if let Some(lock) = SESSION.get() {
         if let Ok(mut guard) = lock.lock() {
             if let Some(session) = guard.take() {
-                session.shutdown();
+                let _ = session.shutdown();
             }
         }
     }
+}
+
+pub fn shutdown_for_module_transition() -> Result<(), String> {
+    SHUTTING_DOWN.store(true, Ordering::Release);
+    if let Some(lock) = SESSION.get() {
+        let mut guard = lock.lock().map_err(|_| "Station service retirement lock failed")?;
+        if let Some(session) = guard.take() {
+            if !session.shutdown() {
+                return Err("The station service did not finish accepted background work before the retirement deadline.".into());
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn request(request: Value) -> Result<Value, String> {
@@ -1628,7 +1674,7 @@ mod tests {
             *generations.lock().unwrap(),
             vec![(first.generation, json!(1)), (second.generation, json!(2))]
         );
-        second.shutdown_with_grace(Duration::from_secs(1));
+        let _ = second.shutdown_with_grace(Duration::from_secs(1));
     }
 
     #[cfg(unix)]
@@ -1671,7 +1717,7 @@ mod tests {
         let reused = reuser.join().unwrap();
         assert!(Arc::ptr_eq(&created, &reused));
         assert!(*published.announced.lock().unwrap());
-        published.shutdown_with_grace(Duration::from_secs(1));
+        let _ = published.shutdown_with_grace(Duration::from_secs(1));
     }
 
     #[cfg(unix)]
@@ -1900,7 +1946,7 @@ mod tests {
             assert!(Instant::now() < deadline, "fixture request was not written");
             std::thread::sleep(Duration::from_millis(5));
         }
-        session.shutdown_with_grace(Duration::from_secs(2));
+        assert!(session.shutdown_with_grace(Duration::from_secs(2)));
         let reply = requester.join().unwrap().unwrap();
         assert_eq!(reply["result"]["released"], true);
         assert!(session.child.lock().unwrap().is_none());
@@ -1929,11 +1975,53 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         let started = Instant::now();
-        session.shutdown_with_grace(Duration::from_millis(100));
+        assert!(!session.shutdown_with_grace(Duration::from_millis(100)));
         assert!(started.elapsed() < Duration::from_secs(1));
         assert!(requester.join().unwrap().is_err());
         assert!(session.child.lock().unwrap().is_none());
         assert!(session.register("later").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shutdown_rejects_nonzero_worker_exit() {
+        let session = scripted_session("while IFS= read -r request; do :; done; exit 7");
+        assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
+        assert!(session.child.lock().unwrap().is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shutdown_cannot_relabel_unsolicited_eof_retirement_graceful() {
+        let session = scripted_session("exit 0");
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while session.alive.load(Ordering::Acquire) {
+            assert!(Instant::now() < deadline, "fixture EOF was not observed");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(!session.shutdown_with_grace(Duration::from_secs(1)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shutdown_rejects_clean_exit_without_accepted_reply() {
+        let session = scripted_session("IFS= read -r request; while IFS= read -r extra; do :; done; exit 0");
+        let reply = session.register("pending").unwrap();
+        session.input.lock().unwrap().as_mut().unwrap()
+            .write_all(b"{\"id\":\"pending\"}\n").unwrap();
+        assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
+        assert!(reply.recv_timeout(Duration::from_secs(1)).unwrap().is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shutdown_rejects_malformed_final_response_racing_clean_exit() {
+        let session = scripted_session(
+            "while IFS= read -r request; do :; done; printf '%s\\n' 'malformed'; exit 0",
+        );
+        assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
+        assert!(session.retirement_failed.load(Ordering::Acquire));
+        assert!(session.output_finished.load(Ordering::Acquire));
     }
 
     #[cfg(unix)]

@@ -20,6 +20,27 @@ private final class OnlineLogProbe: @unchecked Sendable {
     var deliveries: Int { lock.withLock { deliveriesValue } }
 }
 
+private actor OnlineLogDeliveryGate {
+    private var started = false
+    private var released = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+    func markStartedAndWait() async {
+        started = true
+        startWaiters.forEach { $0.resume() }; startWaiters.removeAll()
+        if released { return }
+        await withCheckedContinuation { releaseWaiters.append($0) }
+    }
+    func waitUntilStarted() async {
+        if started { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+    func release() {
+        released = true
+        releaseWaiters.forEach { $0.resume() }; releaseWaiters.removeAll()
+    }
+}
+
 @Suite("Native online-log delivery owner", .serialized)
 struct LiveOnlineLogDeliveryServiceTests {
     private func fixture() throws -> (LiveLogbookMethods, LogbookDatabase, URL) {
@@ -189,5 +210,67 @@ struct LiveOnlineLogDeliveryServiceTests {
         #expect(try !database.onlineLogEnrollmentStatus(service: .qrz).enabled)
         #expect(try database.onlineLogCandidateIDs(service: .qrz).isEmpty)
         await service.terminate()
+    }
+
+    @Test func terminalRetirementWaitsForAcceptedDeliveryAndPreservesDurableOutbox() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "VK8DRAIN", start: Date(timeIntervalSince1970: 1_700_001_400),
+                      band: "20m", mode: "FT8", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let persistedPlan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
+        let gate = OnlineLogDeliveryGate()
+        let service = LiveOnlineLogDeliveryService(logbook: logbook, credential: { "fixture-key" },
+            delivery: { database, contactID, _, now in
+                await gate.markStartedAndWait()
+                let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: contactID)
+                let attempt = UUID()
+                guard try database.claimOnlineLogDelivery(plan, attemptID: attempt, at: now).shouldDispatch else {
+                    throw OnlineLogDeliveryError.operationMismatch
+                }
+                return try database.resolveOnlineLogDelivery(plan, attemptID: attempt,
+                    resolution: .delivered(remoteID: "drained"), at: now)
+            })
+        await service.requestDelivery()
+        await gate.waitUntilStarted()
+        let retiring = Task { await service.terminate() }
+        await Task.yield()
+        #expect(await service.hasScheduledWorkForTesting())
+        await gate.release()
+        #expect(await retiring.value)
+        #expect(try database.lookup(localID: qso.id) != nil)
+        let receipt = try #require(try database.onlineLogDeliveryReceipt(service: .qrz,
+            contactID: qso.id, contactRevision: persistedPlan.contact.revision))
+        #expect(receipt.state == .uncertain)
+    }
+
+    @Test func retirementRecoveryFailureIsReportedInsteadOfClaimingCleanExit() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        let service = LiveOnlineLogDeliveryService(logbook: logbook,
+            retirementRecovery: { throw OnlineLogDeliveryError.invalidPlan },
+            credential: { "fixture-key" },
+            delivery: { _, _, _, _ in throw OnlineLogDeliveryError.invalidPlan })
+        await service.startAutomaticDelivery()
+        #expect(await service.terminate() == false)
+    }
+
+    @Test func inactiveContestingOwnerDoesNotRewriteExistingDispatchReceipt() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        let qso = QSO(call: "VK8OWN", start: Date(timeIntervalSince1970: 1_700_001_500),
+                      band: "20m", mode: "FT8", myCall: "OM0RX")
+        try database.saveNewContactForOnlineLogs(qso)
+        let plan = try database.prepareOnlineLogDelivery(service: .qrz, contactID: qso.id)
+        #expect(try database.claimOnlineLogDelivery(plan, attemptID: UUID()).shouldDispatch)
+        let service = LiveOnlineLogDeliveryService(logbook: logbook,
+            backgroundOwnershipAllowed: { false }, credential: { "fixture-key" },
+            delivery: { _, _, _, _ in throw OnlineLogDeliveryError.invalidPlan })
+        #expect(await service.terminate())
+        let receipt = try #require(try database.onlineLogDeliveryReceipt(service: .qrz,
+            contactID: qso.id, contactRevision: plan.contact.revision))
+        #expect(receipt.state == .dispatching)
     }
 }

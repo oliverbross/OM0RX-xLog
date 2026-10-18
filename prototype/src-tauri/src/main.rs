@@ -1721,7 +1721,7 @@ fn retire_for_module_restart(app: &tauri::AppHandle) -> Result<(), String> {
     if let Some(owner) = cw_session_backend::existing() { owner.stop()?; }
     rotor_session::shutdown(); station_identity::shutdown(); dx_alerts::shutdown(); propagation_session::shutdown();
     auto_rotor_reconcile::shutdown(); logbook_events::shutdown(); workspace_window_runtime::shutdown();
-    cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown();
+    cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown_for_module_transition()?;
     detached_geometry::shutdown(app);
     Ok(())
 }

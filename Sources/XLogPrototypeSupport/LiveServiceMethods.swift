@@ -56,6 +56,10 @@ actor LiveServiceMethods {
         await running?.value
     }
 
+    func hasScheduledWorkForTesting() -> Bool {
+        automaticTask != nil || syncTask != nil
+    }
+
     func automaticTick(now: Date = Date()) {
         guard !stopped, syncTask == nil else { return }
         // No workspace (or unreadable consent) is not permission to start a job.
