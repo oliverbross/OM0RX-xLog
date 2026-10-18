@@ -23,6 +23,26 @@ struct CTYResolverTests {
         #expect(country.continent == "EU")
     }
 
+    @Test("Continent annotations remain opt-in and do not change legacy token matching")
+    func continentOverrideDoesNotChangeLegacyMatching() throws {
+        let csv = "XY,Fixture Country,999,EU,14,28,48.00,-17.00,-1.0,ZZ{AF};\n"
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try csv.write(to: file, atomically: true, encoding: .utf8)
+
+        let resolver = try CTYResolver(csvURL: file)
+        #expect(resolver.resolve("ZZ1ABC") == nil)
+        let endpoint = try #require(resolver.resolveCountryEndpoint("ZZ1ABC"))
+        #expect(endpoint.adif == 999)
+        #expect(endpoint.continent == "AF")
+    }
+
+    @Test("Pinned bundled CTY currently has no continent annotations")
+    func bundledCTYHasNoContinentAnnotations() throws {
+        let csv = try CTYResolver.bundledCSV()
+        #expect(!csv.contains("{"))
+    }
+
     @Test("XML PJ rules honor validity dates and exact-call exceptions")
     func datedPJRulesAndExceptions() throws {
         // Deliberately include Bangladesh: its presence must not override PJ rules.

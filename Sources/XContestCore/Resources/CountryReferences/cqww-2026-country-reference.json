@@ -1,0 +1,3991 @@
+{
+  "identity" : {
+    "id" : "cqww-country",
+    "version" : "2026.1-complete"
+  },
+  "records" : [
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CANADA",
+      "endpoint" : {
+        "adif" : 1,
+        "continent" : "NA",
+        "cqZone" : 1,
+        "entityName" : "CANADA"
+      },
+      "multiplierKey" : "DXCC-1"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CANADA",
+      "endpoint" : {
+        "adif" : 1,
+        "continent" : "NA",
+        "cqZone" : 2,
+        "entityName" : "CANADA"
+      },
+      "multiplierKey" : "DXCC-1"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CANADA",
+      "endpoint" : {
+        "adif" : 1,
+        "continent" : "NA",
+        "cqZone" : 4,
+        "entityName" : "CANADA"
+      },
+      "multiplierKey" : "DXCC-1"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CANADA",
+      "endpoint" : {
+        "adif" : 1,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "CANADA"
+      },
+      "multiplierKey" : "DXCC-1"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AFGHANISTAN",
+      "endpoint" : {
+        "adif" : 3,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "AFGHANISTAN"
+      },
+      "multiplierKey" : "DXCC-3"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AGALEGA & ST. BRANDON",
+      "endpoint" : {
+        "adif" : 4,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "AGALEGA & ST. BRANDON"
+      },
+      "multiplierKey" : "DXCC-4"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ALAND ISLANDS",
+      "endpoint" : {
+        "adif" : 5,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "ALAND ISLANDS"
+      },
+      "multiplierKey" : "DXCC-5"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ALASKA",
+      "endpoint" : {
+        "adif" : 6,
+        "continent" : "NA",
+        "cqZone" : 1,
+        "entityName" : "ALASKA"
+      },
+      "multiplierKey" : "DXCC-6"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ALBANIA",
+      "endpoint" : {
+        "adif" : 7,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "ALBANIA"
+      },
+      "multiplierKey" : "DXCC-7"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AMERICAN SAMOA",
+      "endpoint" : {
+        "adif" : 9,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "AMERICAN SAMOA"
+      },
+      "multiplierKey" : "DXCC-9"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AMSTERDAM & ST. PAUL IS.",
+      "endpoint" : {
+        "adif" : 10,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "AMSTERDAM & ST. PAUL IS."
+      },
+      "multiplierKey" : "DXCC-10"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANDAMAN & NICOBAR IS.",
+      "endpoint" : {
+        "adif" : 11,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "ANDAMAN & NICOBAR IS."
+      },
+      "multiplierKey" : "DXCC-11"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANGUILLA",
+      "endpoint" : {
+        "adif" : 12,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ANGUILLA"
+      },
+      "multiplierKey" : "DXCC-12"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANTARCTICA",
+      "endpoint" : {
+        "adif" : 13,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "ANTARCTICA"
+      },
+      "multiplierKey" : "DXCC-13"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANTARCTICA",
+      "endpoint" : {
+        "adif" : 13,
+        "continent" : "SA",
+        "cqZone" : 29,
+        "entityName" : "ANTARCTICA"
+      },
+      "multiplierKey" : "DXCC-13"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANTARCTICA",
+      "endpoint" : {
+        "adif" : 13,
+        "continent" : "SA",
+        "cqZone" : 30,
+        "entityName" : "ANTARCTICA"
+      },
+      "multiplierKey" : "DXCC-13"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANTARCTICA",
+      "endpoint" : {
+        "adif" : 13,
+        "continent" : "SA",
+        "cqZone" : 38,
+        "entityName" : "ANTARCTICA"
+      },
+      "multiplierKey" : "DXCC-13"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANTARCTICA",
+      "endpoint" : {
+        "adif" : 13,
+        "continent" : "SA",
+        "cqZone" : 39,
+        "entityName" : "ANTARCTICA"
+      },
+      "multiplierKey" : "DXCC-13"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ARMENIA",
+      "endpoint" : {
+        "adif" : 14,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "ARMENIA"
+      },
+      "multiplierKey" : "DXCC-14"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ASIATIC RUSSIA",
+      "endpoint" : {
+        "adif" : 15,
+        "continent" : "AS",
+        "cqZone" : 16,
+        "entityName" : "ASIATIC RUSSIA"
+      },
+      "multiplierKey" : "DXCC-15"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ASIATIC RUSSIA",
+      "endpoint" : {
+        "adif" : 15,
+        "continent" : "AS",
+        "cqZone" : 17,
+        "entityName" : "ASIATIC RUSSIA"
+      },
+      "multiplierKey" : "DXCC-15"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ASIATIC RUSSIA",
+      "endpoint" : {
+        "adif" : 15,
+        "continent" : "AS",
+        "cqZone" : 18,
+        "entityName" : "ASIATIC RUSSIA"
+      },
+      "multiplierKey" : "DXCC-15"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ASIATIC RUSSIA",
+      "endpoint" : {
+        "adif" : 15,
+        "continent" : "AS",
+        "cqZone" : 19,
+        "entityName" : "ASIATIC RUSSIA"
+      },
+      "multiplierKey" : "DXCC-15"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "N.Z. SUBANTARCTIC IS.",
+      "endpoint" : {
+        "adif" : 16,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "N.Z. SUBANTARCTIC IS."
+      },
+      "multiplierKey" : "DXCC-16"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AVES ISLAND",
+      "endpoint" : {
+        "adif" : 17,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "AVES ISLAND"
+      },
+      "multiplierKey" : "DXCC-17"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AZERBAIJAN",
+      "endpoint" : {
+        "adif" : 18,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "AZERBAIJAN"
+      },
+      "multiplierKey" : "DXCC-18"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BAKER & HOWLAND ISLANDS",
+      "endpoint" : {
+        "adif" : 20,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "BAKER & HOWLAND ISLANDS"
+      },
+      "multiplierKey" : "DXCC-20"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BALEARIC ISLANDS",
+      "endpoint" : {
+        "adif" : 21,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "BALEARIC ISLANDS"
+      },
+      "multiplierKey" : "DXCC-21"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PALAU",
+      "endpoint" : {
+        "adif" : 22,
+        "continent" : "OC",
+        "cqZone" : 27,
+        "entityName" : "PALAU"
+      },
+      "multiplierKey" : "DXCC-22"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BOUVET",
+      "endpoint" : {
+        "adif" : 24,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "BOUVET"
+      },
+      "multiplierKey" : "DXCC-24"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BELARUS",
+      "endpoint" : {
+        "adif" : 27,
+        "continent" : "EU",
+        "cqZone" : 16,
+        "entityName" : "BELARUS"
+      },
+      "multiplierKey" : "DXCC-27"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CANARY ISLANDS",
+      "endpoint" : {
+        "adif" : 29,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "CANARY ISLANDS"
+      },
+      "multiplierKey" : "DXCC-29"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CENTRAL KIRIBATI",
+      "endpoint" : {
+        "adif" : 31,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "CENTRAL KIRIBATI"
+      },
+      "multiplierKey" : "DXCC-31"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CEUTA & MELILLA",
+      "endpoint" : {
+        "adif" : 32,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "CEUTA & MELILLA"
+      },
+      "multiplierKey" : "DXCC-32"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHAGOS ISLANDS",
+      "endpoint" : {
+        "adif" : 33,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "CHAGOS ISLANDS"
+      },
+      "multiplierKey" : "DXCC-33"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHATHAM ISLANDS",
+      "endpoint" : {
+        "adif" : 34,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "CHATHAM ISLANDS"
+      },
+      "multiplierKey" : "DXCC-34"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHRISTMAS ISLAND",
+      "endpoint" : {
+        "adif" : 35,
+        "continent" : "OC",
+        "cqZone" : 29,
+        "entityName" : "CHRISTMAS ISLAND"
+      },
+      "multiplierKey" : "DXCC-35"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CLIPPERTON ISLAND",
+      "endpoint" : {
+        "adif" : 36,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "CLIPPERTON ISLAND"
+      },
+      "multiplierKey" : "DXCC-36"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "COCOS ISLAND",
+      "endpoint" : {
+        "adif" : 37,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "COCOS ISLAND"
+      },
+      "multiplierKey" : "DXCC-37"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "COCOS (KEELING) ISLANDS",
+      "endpoint" : {
+        "adif" : 38,
+        "continent" : "OC",
+        "cqZone" : 29,
+        "entityName" : "COCOS (KEELING) ISLANDS"
+      },
+      "multiplierKey" : "DXCC-38"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CRETE",
+      "endpoint" : {
+        "adif" : 40,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "CRETE"
+      },
+      "multiplierKey" : "DXCC-40"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CROZET ISLAND",
+      "endpoint" : {
+        "adif" : 41,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "CROZET ISLAND"
+      },
+      "multiplierKey" : "DXCC-41"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DESECHEO ISLAND",
+      "endpoint" : {
+        "adif" : 43,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "DESECHEO ISLAND"
+      },
+      "multiplierKey" : "DXCC-43"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DODECANESE",
+      "endpoint" : {
+        "adif" : 45,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "DODECANESE"
+      },
+      "multiplierKey" : "DXCC-45"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EAST MALAYSIA",
+      "endpoint" : {
+        "adif" : 46,
+        "continent" : "OC",
+        "cqZone" : 28,
+        "entityName" : "EAST MALAYSIA"
+      },
+      "multiplierKey" : "DXCC-46"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EASTER ISLAND",
+      "endpoint" : {
+        "adif" : 47,
+        "continent" : "SA",
+        "cqZone" : 12,
+        "entityName" : "EASTER ISLAND"
+      },
+      "multiplierKey" : "DXCC-47"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EASTERN KIRIBATI",
+      "endpoint" : {
+        "adif" : 48,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "EASTERN KIRIBATI"
+      },
+      "multiplierKey" : "DXCC-48"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EQUATORIAL GUINEA",
+      "endpoint" : {
+        "adif" : 49,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "EQUATORIAL GUINEA"
+      },
+      "multiplierKey" : "DXCC-49"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MEXICO",
+      "endpoint" : {
+        "adif" : 50,
+        "continent" : "NA",
+        "cqZone" : 6,
+        "entityName" : "MEXICO"
+      },
+      "multiplierKey" : "DXCC-50"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ERITREA",
+      "endpoint" : {
+        "adif" : 51,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "ERITREA"
+      },
+      "multiplierKey" : "DXCC-51"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ESTONIA",
+      "endpoint" : {
+        "adif" : 52,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "ESTONIA"
+      },
+      "multiplierKey" : "DXCC-52"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ETHIOPIA",
+      "endpoint" : {
+        "adif" : 53,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "ETHIOPIA"
+      },
+      "multiplierKey" : "DXCC-53"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EUROPEAN RUSSIA",
+      "endpoint" : {
+        "adif" : 54,
+        "continent" : "EU",
+        "cqZone" : 16,
+        "entityName" : "EUROPEAN RUSSIA"
+      },
+      "multiplierKey" : "DXCC-54"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EUROPEAN RUSSIA",
+      "endpoint" : {
+        "adif" : 54,
+        "continent" : "EU",
+        "cqZone" : 17,
+        "entityName" : "EUROPEAN RUSSIA"
+      },
+      "multiplierKey" : "DXCC-54"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EUROPEAN RUSSIA",
+      "endpoint" : {
+        "adif" : 54,
+        "continent" : "EU",
+        "cqZone" : 40,
+        "entityName" : "EUROPEAN RUSSIA"
+      },
+      "multiplierKey" : "DXCC-54"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FERNANDO DE NORONHA",
+      "endpoint" : {
+        "adif" : 56,
+        "continent" : "SA",
+        "cqZone" : 11,
+        "entityName" : "FERNANDO DE NORONHA"
+      },
+      "multiplierKey" : "DXCC-56"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BAHAMAS",
+      "endpoint" : {
+        "adif" : 60,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "BAHAMAS"
+      },
+      "multiplierKey" : "DXCC-60"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FRANZ JOSEF LAND",
+      "endpoint" : {
+        "adif" : 61,
+        "continent" : "EU",
+        "cqZone" : 40,
+        "entityName" : "FRANZ JOSEF LAND"
+      },
+      "multiplierKey" : "DXCC-61"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BARBADOS",
+      "endpoint" : {
+        "adif" : 62,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "BARBADOS"
+      },
+      "multiplierKey" : "DXCC-62"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FRENCH GUIANA",
+      "endpoint" : {
+        "adif" : 63,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "FRENCH GUIANA"
+      },
+      "multiplierKey" : "DXCC-63"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BERMUDA",
+      "endpoint" : {
+        "adif" : 64,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "BERMUDA"
+      },
+      "multiplierKey" : "DXCC-64"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BRITISH VIRGIN ISLANDS",
+      "endpoint" : {
+        "adif" : 65,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "BRITISH VIRGIN ISLANDS"
+      },
+      "multiplierKey" : "DXCC-65"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BELIZE",
+      "endpoint" : {
+        "adif" : 66,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "BELIZE"
+      },
+      "multiplierKey" : "DXCC-66"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CAYMAN ISLANDS",
+      "endpoint" : {
+        "adif" : 69,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "CAYMAN ISLANDS"
+      },
+      "multiplierKey" : "DXCC-69"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CUBA",
+      "endpoint" : {
+        "adif" : 70,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "CUBA"
+      },
+      "multiplierKey" : "DXCC-70"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GALAPAGOS ISLANDS",
+      "endpoint" : {
+        "adif" : 71,
+        "continent" : "SA",
+        "cqZone" : 10,
+        "entityName" : "GALAPAGOS ISLANDS"
+      },
+      "multiplierKey" : "DXCC-71"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DOMINICAN REPUBLIC",
+      "endpoint" : {
+        "adif" : 72,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "DOMINICAN REPUBLIC"
+      },
+      "multiplierKey" : "DXCC-72"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EL SALVADOR",
+      "endpoint" : {
+        "adif" : 74,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "EL SALVADOR"
+      },
+      "multiplierKey" : "DXCC-74"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GEORGIA",
+      "endpoint" : {
+        "adif" : 75,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "GEORGIA"
+      },
+      "multiplierKey" : "DXCC-75"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUATEMALA",
+      "endpoint" : {
+        "adif" : 76,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "GUATEMALA"
+      },
+      "multiplierKey" : "DXCC-76"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GRENADA",
+      "endpoint" : {
+        "adif" : 77,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "GRENADA"
+      },
+      "multiplierKey" : "DXCC-77"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "HAITI",
+      "endpoint" : {
+        "adif" : 78,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "HAITI"
+      },
+      "multiplierKey" : "DXCC-78"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUADELOUPE",
+      "endpoint" : {
+        "adif" : 79,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "GUADELOUPE"
+      },
+      "multiplierKey" : "DXCC-79"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "HONDURAS",
+      "endpoint" : {
+        "adif" : 80,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "HONDURAS"
+      },
+      "multiplierKey" : "DXCC-80"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JAMAICA",
+      "endpoint" : {
+        "adif" : 82,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "JAMAICA"
+      },
+      "multiplierKey" : "DXCC-82"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MARTINIQUE",
+      "endpoint" : {
+        "adif" : 84,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "MARTINIQUE"
+      },
+      "multiplierKey" : "DXCC-84"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NICARAGUA",
+      "endpoint" : {
+        "adif" : 86,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "NICARAGUA"
+      },
+      "multiplierKey" : "DXCC-86"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PANAMA",
+      "endpoint" : {
+        "adif" : 88,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "PANAMA"
+      },
+      "multiplierKey" : "DXCC-88"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TURKS & CAICOS ISLANDS",
+      "endpoint" : {
+        "adif" : 89,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "TURKS & CAICOS ISLANDS"
+      },
+      "multiplierKey" : "DXCC-89"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TRINIDAD & TOBAGO",
+      "endpoint" : {
+        "adif" : 90,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "TRINIDAD & TOBAGO"
+      },
+      "multiplierKey" : "DXCC-90"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ARUBA",
+      "endpoint" : {
+        "adif" : 91,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "ARUBA"
+      },
+      "multiplierKey" : "DXCC-91"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANTIGUA & BARBUDA",
+      "endpoint" : {
+        "adif" : 94,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ANTIGUA & BARBUDA"
+      },
+      "multiplierKey" : "DXCC-94"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DOMINICA",
+      "endpoint" : {
+        "adif" : 95,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "DOMINICA"
+      },
+      "multiplierKey" : "DXCC-95"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MONTSERRAT",
+      "endpoint" : {
+        "adif" : 96,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "MONTSERRAT"
+      },
+      "multiplierKey" : "DXCC-96"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. LUCIA",
+      "endpoint" : {
+        "adif" : 97,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ST. LUCIA"
+      },
+      "multiplierKey" : "DXCC-97"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. VINCENT",
+      "endpoint" : {
+        "adif" : 98,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ST. VINCENT"
+      },
+      "multiplierKey" : "DXCC-98"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GLORIOSO ISLANDS",
+      "endpoint" : {
+        "adif" : 99,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "GLORIOSO ISLANDS"
+      },
+      "multiplierKey" : "DXCC-99"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ARGENTINA",
+      "endpoint" : {
+        "adif" : 100,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "ARGENTINA"
+      },
+      "multiplierKey" : "DXCC-100"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUAM",
+      "endpoint" : {
+        "adif" : 103,
+        "continent" : "OC",
+        "cqZone" : 27,
+        "entityName" : "GUAM"
+      },
+      "multiplierKey" : "DXCC-103"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BOLIVIA",
+      "endpoint" : {
+        "adif" : 104,
+        "continent" : "SA",
+        "cqZone" : 10,
+        "entityName" : "BOLIVIA"
+      },
+      "multiplierKey" : "DXCC-104"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUANTANAMO BAY",
+      "endpoint" : {
+        "adif" : 105,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "GUANTANAMO BAY"
+      },
+      "multiplierKey" : "DXCC-105"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUERNSEY",
+      "endpoint" : {
+        "adif" : 106,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "GUERNSEY"
+      },
+      "multiplierKey" : "DXCC-106"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUINEA",
+      "endpoint" : {
+        "adif" : 107,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "GUINEA"
+      },
+      "multiplierKey" : "DXCC-107"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BRAZIL",
+      "endpoint" : {
+        "adif" : 108,
+        "continent" : "SA",
+        "cqZone" : 11,
+        "entityName" : "BRAZIL"
+      },
+      "multiplierKey" : "DXCC-108"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUINEA-BISSAU",
+      "endpoint" : {
+        "adif" : 109,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "GUINEA-BISSAU"
+      },
+      "multiplierKey" : "DXCC-109"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "HAWAII",
+      "endpoint" : {
+        "adif" : 110,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "HAWAII"
+      },
+      "multiplierKey" : "DXCC-110"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "HEARD ISLAND",
+      "endpoint" : {
+        "adif" : 111,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "HEARD ISLAND"
+      },
+      "multiplierKey" : "DXCC-111"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHILE",
+      "endpoint" : {
+        "adif" : 112,
+        "continent" : "SA",
+        "cqZone" : 12,
+        "entityName" : "CHILE"
+      },
+      "multiplierKey" : "DXCC-112"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ISLE OF MAN",
+      "endpoint" : {
+        "adif" : 114,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "ISLE OF MAN"
+      },
+      "multiplierKey" : "DXCC-114"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "COLOMBIA",
+      "endpoint" : {
+        "adif" : 116,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "COLOMBIA"
+      },
+      "multiplierKey" : "DXCC-116"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ITU HQ",
+      "endpoint" : {
+        "adif" : 117,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "ITU HQ"
+      },
+      "multiplierKey" : "DXCC-117"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JAN MAYEN",
+      "endpoint" : {
+        "adif" : 118,
+        "continent" : "EU",
+        "cqZone" : 40,
+        "entityName" : "JAN MAYEN"
+      },
+      "multiplierKey" : "DXCC-118"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ECUADOR",
+      "endpoint" : {
+        "adif" : 120,
+        "continent" : "SA",
+        "cqZone" : 10,
+        "entityName" : "ECUADOR"
+      },
+      "multiplierKey" : "DXCC-120"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JERSEY",
+      "endpoint" : {
+        "adif" : 122,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "JERSEY"
+      },
+      "multiplierKey" : "DXCC-122"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JOHNSTON ISLAND",
+      "endpoint" : {
+        "adif" : 123,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "JOHNSTON ISLAND"
+      },
+      "multiplierKey" : "DXCC-123"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JUAN DE NOVA & EUROPA",
+      "endpoint" : {
+        "adif" : 124,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "JUAN DE NOVA & EUROPA"
+      },
+      "multiplierKey" : "DXCC-124"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JUAN FERNANDEZ ISLANDS",
+      "endpoint" : {
+        "adif" : 125,
+        "continent" : "SA",
+        "cqZone" : 12,
+        "entityName" : "JUAN FERNANDEZ ISLANDS"
+      },
+      "multiplierKey" : "DXCC-125"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KALININGRAD",
+      "endpoint" : {
+        "adif" : 126,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "KALININGRAD"
+      },
+      "multiplierKey" : "DXCC-126"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GUYANA",
+      "endpoint" : {
+        "adif" : 129,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "GUYANA"
+      },
+      "multiplierKey" : "DXCC-129"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KAZAKHSTAN",
+      "endpoint" : {
+        "adif" : 130,
+        "continent" : "AS",
+        "cqZone" : 17,
+        "entityName" : "KAZAKHSTAN"
+      },
+      "multiplierKey" : "DXCC-130"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KERGUELEN ISLANDS",
+      "endpoint" : {
+        "adif" : 131,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "KERGUELEN ISLANDS"
+      },
+      "multiplierKey" : "DXCC-131"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PARAGUAY",
+      "endpoint" : {
+        "adif" : 132,
+        "continent" : "SA",
+        "cqZone" : 11,
+        "entityName" : "PARAGUAY"
+      },
+      "multiplierKey" : "DXCC-132"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KERMADEC ISLANDS",
+      "endpoint" : {
+        "adif" : 133,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "KERMADEC ISLANDS"
+      },
+      "multiplierKey" : "DXCC-133"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KYRGYZSTAN",
+      "endpoint" : {
+        "adif" : 135,
+        "continent" : "AS",
+        "cqZone" : 17,
+        "entityName" : "KYRGYZSTAN"
+      },
+      "multiplierKey" : "DXCC-135"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PERU",
+      "endpoint" : {
+        "adif" : 136,
+        "continent" : "SA",
+        "cqZone" : 10,
+        "entityName" : "PERU"
+      },
+      "multiplierKey" : "DXCC-136"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "REPUBLIC OF KOREA",
+      "endpoint" : {
+        "adif" : 137,
+        "continent" : "AS",
+        "cqZone" : 25,
+        "entityName" : "REPUBLIC OF KOREA"
+      },
+      "multiplierKey" : "DXCC-137"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KURE ISLAND",
+      "endpoint" : {
+        "adif" : 138,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "KURE ISLAND"
+      },
+      "multiplierKey" : "DXCC-138"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SURINAME",
+      "endpoint" : {
+        "adif" : 140,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "SURINAME"
+      },
+      "multiplierKey" : "DXCC-140"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FALKLAND ISLANDS",
+      "endpoint" : {
+        "adif" : 141,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "FALKLAND ISLANDS"
+      },
+      "multiplierKey" : "DXCC-141"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LAKSHADWEEP ISLANDS",
+      "endpoint" : {
+        "adif" : 142,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "LAKSHADWEEP ISLANDS"
+      },
+      "multiplierKey" : "DXCC-142"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LAOS",
+      "endpoint" : {
+        "adif" : 143,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "LAOS"
+      },
+      "multiplierKey" : "DXCC-143"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "URUGUAY",
+      "endpoint" : {
+        "adif" : 144,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "URUGUAY"
+      },
+      "multiplierKey" : "DXCC-144"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LATVIA",
+      "endpoint" : {
+        "adif" : 145,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "LATVIA"
+      },
+      "multiplierKey" : "DXCC-145"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LITHUANIA",
+      "endpoint" : {
+        "adif" : 146,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "LITHUANIA"
+      },
+      "multiplierKey" : "DXCC-146"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LORD HOWE ISLAND",
+      "endpoint" : {
+        "adif" : 147,
+        "continent" : "OC",
+        "cqZone" : 30,
+        "entityName" : "LORD HOWE ISLAND"
+      },
+      "multiplierKey" : "DXCC-147"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "VENEZUELA",
+      "endpoint" : {
+        "adif" : 148,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "VENEZUELA"
+      },
+      "multiplierKey" : "DXCC-148"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AZORES",
+      "endpoint" : {
+        "adif" : 149,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "AZORES"
+      },
+      "multiplierKey" : "DXCC-149"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AUSTRALIA",
+      "endpoint" : {
+        "adif" : 150,
+        "continent" : "OC",
+        "cqZone" : 29,
+        "entityName" : "AUSTRALIA"
+      },
+      "multiplierKey" : "DXCC-150"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AUSTRALIA",
+      "endpoint" : {
+        "adif" : 150,
+        "continent" : "OC",
+        "cqZone" : 30,
+        "entityName" : "AUSTRALIA"
+      },
+      "multiplierKey" : "DXCC-150"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MACAO",
+      "endpoint" : {
+        "adif" : 152,
+        "continent" : "AS",
+        "cqZone" : 24,
+        "entityName" : "MACAO"
+      },
+      "multiplierKey" : "DXCC-152"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MACQUARIE ISLAND",
+      "endpoint" : {
+        "adif" : 153,
+        "continent" : "OC",
+        "cqZone" : 30,
+        "entityName" : "MACQUARIE ISLAND"
+      },
+      "multiplierKey" : "DXCC-153"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NAURU",
+      "endpoint" : {
+        "adif" : 157,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "NAURU"
+      },
+      "multiplierKey" : "DXCC-157"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "VANUATU",
+      "endpoint" : {
+        "adif" : 158,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "VANUATU"
+      },
+      "multiplierKey" : "DXCC-158"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MALDIVES",
+      "endpoint" : {
+        "adif" : 159,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "MALDIVES"
+      },
+      "multiplierKey" : "DXCC-159"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TONGA",
+      "endpoint" : {
+        "adif" : 160,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "TONGA"
+      },
+      "multiplierKey" : "DXCC-160"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MALPELO ISLAND",
+      "endpoint" : {
+        "adif" : 161,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "MALPELO ISLAND"
+      },
+      "multiplierKey" : "DXCC-161"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NEW CALEDONIA",
+      "endpoint" : {
+        "adif" : 162,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "NEW CALEDONIA"
+      },
+      "multiplierKey" : "DXCC-162"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PAPUA NEW GUINEA",
+      "endpoint" : {
+        "adif" : 163,
+        "continent" : "OC",
+        "cqZone" : 28,
+        "entityName" : "PAPUA NEW GUINEA"
+      },
+      "multiplierKey" : "DXCC-163"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MAURITIUS",
+      "endpoint" : {
+        "adif" : 165,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "MAURITIUS"
+      },
+      "multiplierKey" : "DXCC-165"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MARIANA ISLANDS",
+      "endpoint" : {
+        "adif" : 166,
+        "continent" : "OC",
+        "cqZone" : 27,
+        "entityName" : "MARIANA ISLANDS"
+      },
+      "multiplierKey" : "DXCC-166"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MARKET REEF",
+      "endpoint" : {
+        "adif" : 167,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "MARKET REEF"
+      },
+      "multiplierKey" : "DXCC-167"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MARSHALL ISLANDS",
+      "endpoint" : {
+        "adif" : 168,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "MARSHALL ISLANDS"
+      },
+      "multiplierKey" : "DXCC-168"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MAYOTTE",
+      "endpoint" : {
+        "adif" : 169,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "MAYOTTE"
+      },
+      "multiplierKey" : "DXCC-169"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NEW ZEALAND",
+      "endpoint" : {
+        "adif" : 170,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "NEW ZEALAND"
+      },
+      "multiplierKey" : "DXCC-170"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MELLISH REEF",
+      "endpoint" : {
+        "adif" : 171,
+        "continent" : "OC",
+        "cqZone" : 30,
+        "entityName" : "MELLISH REEF"
+      },
+      "multiplierKey" : "DXCC-171"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PITCAIRN ISLAND",
+      "endpoint" : {
+        "adif" : 172,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "PITCAIRN ISLAND"
+      },
+      "multiplierKey" : "DXCC-172"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MICRONESIA",
+      "endpoint" : {
+        "adif" : 173,
+        "continent" : "OC",
+        "cqZone" : 27,
+        "entityName" : "MICRONESIA"
+      },
+      "multiplierKey" : "DXCC-173"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MIDWAY ISLAND",
+      "endpoint" : {
+        "adif" : 174,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "MIDWAY ISLAND"
+      },
+      "multiplierKey" : "DXCC-174"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FRENCH POLYNESIA",
+      "endpoint" : {
+        "adif" : 175,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "FRENCH POLYNESIA"
+      },
+      "multiplierKey" : "DXCC-175"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FIJI",
+      "endpoint" : {
+        "adif" : 176,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "FIJI"
+      },
+      "multiplierKey" : "DXCC-176"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MINAMI TORISHIMA",
+      "endpoint" : {
+        "adif" : 177,
+        "continent" : "OC",
+        "cqZone" : 27,
+        "entityName" : "MINAMI TORISHIMA"
+      },
+      "multiplierKey" : "DXCC-177"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MOLDOVA",
+      "endpoint" : {
+        "adif" : 179,
+        "continent" : "EU",
+        "cqZone" : 16,
+        "entityName" : "MOLDOVA"
+      },
+      "multiplierKey" : "DXCC-179"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MOUNT ATHOS",
+      "endpoint" : {
+        "adif" : 180,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "MOUNT ATHOS"
+      },
+      "multiplierKey" : "DXCC-180"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MOZAMBIQUE",
+      "endpoint" : {
+        "adif" : 181,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "MOZAMBIQUE"
+      },
+      "multiplierKey" : "DXCC-181"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NAVASSA ISLAND",
+      "endpoint" : {
+        "adif" : 182,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "NAVASSA ISLAND"
+      },
+      "multiplierKey" : "DXCC-182"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOLOMON ISLANDS",
+      "endpoint" : {
+        "adif" : 185,
+        "continent" : "OC",
+        "cqZone" : 28,
+        "entityName" : "SOLOMON ISLANDS"
+      },
+      "multiplierKey" : "DXCC-185"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NIGER",
+      "endpoint" : {
+        "adif" : 187,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "NIGER"
+      },
+      "multiplierKey" : "DXCC-187"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NIUE",
+      "endpoint" : {
+        "adif" : 188,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "NIUE"
+      },
+      "multiplierKey" : "DXCC-188"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NORFOLK ISLAND",
+      "endpoint" : {
+        "adif" : 189,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "NORFOLK ISLAND"
+      },
+      "multiplierKey" : "DXCC-189"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SAMOA",
+      "endpoint" : {
+        "adif" : 190,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "SAMOA"
+      },
+      "multiplierKey" : "DXCC-190"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NORTH COOK ISLANDS",
+      "endpoint" : {
+        "adif" : 191,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "NORTH COOK ISLANDS"
+      },
+      "multiplierKey" : "DXCC-191"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "OGASAWARA",
+      "endpoint" : {
+        "adif" : 192,
+        "continent" : "AS",
+        "cqZone" : 27,
+        "entityName" : "OGASAWARA"
+      },
+      "multiplierKey" : "DXCC-192"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANNOBON ISLAND",
+      "endpoint" : {
+        "adif" : 195,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "ANNOBON ISLAND"
+      },
+      "multiplierKey" : "DXCC-195"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PALMYRA & JARVIS ISLANDS",
+      "endpoint" : {
+        "adif" : 197,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "PALMYRA & JARVIS ISLANDS"
+      },
+      "multiplierKey" : "DXCC-197"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PETER 1 ISLAND",
+      "endpoint" : {
+        "adif" : 199,
+        "continent" : "SA",
+        "cqZone" : 12,
+        "entityName" : "PETER 1 ISLAND"
+      },
+      "multiplierKey" : "DXCC-199"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PR. EDWARD & MARION IS.",
+      "endpoint" : {
+        "adif" : 201,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "PR. EDWARD & MARION IS."
+      },
+      "multiplierKey" : "DXCC-201"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PUERTO RICO",
+      "endpoint" : {
+        "adif" : 202,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "PUERTO RICO"
+      },
+      "multiplierKey" : "DXCC-202"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANDORRA",
+      "endpoint" : {
+        "adif" : 203,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "ANDORRA"
+      },
+      "multiplierKey" : "DXCC-203"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "REVILLAGIGEDO",
+      "endpoint" : {
+        "adif" : 204,
+        "continent" : "NA",
+        "cqZone" : 6,
+        "entityName" : "REVILLAGIGEDO"
+      },
+      "multiplierKey" : "DXCC-204"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ASCENSION ISLAND",
+      "endpoint" : {
+        "adif" : 205,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "ASCENSION ISLAND"
+      },
+      "multiplierKey" : "DXCC-205"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AUSTRIA",
+      "endpoint" : {
+        "adif" : 206,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "AUSTRIA"
+      },
+      "multiplierKey" : "DXCC-206"
+    },
+    {
+      "authority" : "wae",
+      "displayLabel" : "Vienna International Centre",
+      "endpoint" : {
+        "adif" : 206,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "VIENNA INTL CTR"
+      },
+      "multiplierKey" : "WAE-4U1V"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "RODRIGUEZ ISLAND",
+      "endpoint" : {
+        "adif" : 207,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "RODRIGUEZ ISLAND"
+      },
+      "multiplierKey" : "DXCC-207"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BELGIUM",
+      "endpoint" : {
+        "adif" : 209,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "BELGIUM"
+      },
+      "multiplierKey" : "DXCC-209"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SABLE ISLAND",
+      "endpoint" : {
+        "adif" : 211,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "SABLE ISLAND"
+      },
+      "multiplierKey" : "DXCC-211"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BULGARIA",
+      "endpoint" : {
+        "adif" : 212,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "BULGARIA"
+      },
+      "multiplierKey" : "DXCC-212"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. MARTIN",
+      "endpoint" : {
+        "adif" : 213,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ST. MARTIN"
+      },
+      "multiplierKey" : "DXCC-213"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CORSICA",
+      "endpoint" : {
+        "adif" : 214,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "CORSICA"
+      },
+      "multiplierKey" : "DXCC-214"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CYPRUS",
+      "endpoint" : {
+        "adif" : 215,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "CYPRUS"
+      },
+      "multiplierKey" : "DXCC-215"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SAN ANDRES & PROVIDENCIA",
+      "endpoint" : {
+        "adif" : 216,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "SAN ANDRES & PROVIDENCIA"
+      },
+      "multiplierKey" : "DXCC-216"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SAN FELIX & SAN AMBROSIO",
+      "endpoint" : {
+        "adif" : 217,
+        "continent" : "SA",
+        "cqZone" : 12,
+        "entityName" : "SAN FELIX & SAN AMBROSIO"
+      },
+      "multiplierKey" : "DXCC-217"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SAO TOME & PRINCIPE",
+      "endpoint" : {
+        "adif" : 219,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "SAO TOME & PRINCIPE"
+      },
+      "multiplierKey" : "DXCC-219"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DENMARK",
+      "endpoint" : {
+        "adif" : 221,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "DENMARK"
+      },
+      "multiplierKey" : "DXCC-221"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FAROE ISLANDS",
+      "endpoint" : {
+        "adif" : 222,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "FAROE ISLANDS"
+      },
+      "multiplierKey" : "DXCC-222"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ENGLAND",
+      "endpoint" : {
+        "adif" : 223,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "ENGLAND"
+      },
+      "multiplierKey" : "DXCC-223"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FINLAND",
+      "endpoint" : {
+        "adif" : 224,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "FINLAND"
+      },
+      "multiplierKey" : "DXCC-224"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SARDINIA",
+      "endpoint" : {
+        "adif" : 225,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SARDINIA"
+      },
+      "multiplierKey" : "DXCC-225"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FRANCE",
+      "endpoint" : {
+        "adif" : 227,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "FRANCE"
+      },
+      "multiplierKey" : "DXCC-227"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "FED. REP. OF GERMANY",
+      "endpoint" : {
+        "adif" : 230,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "FED. REP. OF GERMANY"
+      },
+      "multiplierKey" : "DXCC-230"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOMALIA",
+      "endpoint" : {
+        "adif" : 232,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "SOMALIA"
+      },
+      "multiplierKey" : "DXCC-232"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GIBRALTAR",
+      "endpoint" : {
+        "adif" : 233,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "GIBRALTAR"
+      },
+      "multiplierKey" : "DXCC-233"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOUTH COOK ISLANDS",
+      "endpoint" : {
+        "adif" : 234,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "SOUTH COOK ISLANDS"
+      },
+      "multiplierKey" : "DXCC-234"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOUTH GEORGIA ISLAND",
+      "endpoint" : {
+        "adif" : 235,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "SOUTH GEORGIA ISLAND"
+      },
+      "multiplierKey" : "DXCC-235"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GREECE",
+      "endpoint" : {
+        "adif" : 236,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "GREECE"
+      },
+      "multiplierKey" : "DXCC-236"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GREENLAND",
+      "endpoint" : {
+        "adif" : 237,
+        "continent" : "NA",
+        "cqZone" : 40,
+        "entityName" : "GREENLAND"
+      },
+      "multiplierKey" : "DXCC-237"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOUTH ORKNEY ISLANDS",
+      "endpoint" : {
+        "adif" : 238,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "SOUTH ORKNEY ISLANDS"
+      },
+      "multiplierKey" : "DXCC-238"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "HUNGARY",
+      "endpoint" : {
+        "adif" : 239,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "HUNGARY"
+      },
+      "multiplierKey" : "DXCC-239"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOUTH SANDWICH ISLANDS",
+      "endpoint" : {
+        "adif" : 240,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "SOUTH SANDWICH ISLANDS"
+      },
+      "multiplierKey" : "DXCC-240"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOUTH SHETLAND ISLANDS",
+      "endpoint" : {
+        "adif" : 241,
+        "continent" : "SA",
+        "cqZone" : 13,
+        "entityName" : "SOUTH SHETLAND ISLANDS"
+      },
+      "multiplierKey" : "DXCC-241"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ICELAND",
+      "endpoint" : {
+        "adif" : 242,
+        "continent" : "EU",
+        "cqZone" : 40,
+        "entityName" : "ICELAND"
+      },
+      "multiplierKey" : "DXCC-242"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "IRELAND",
+      "endpoint" : {
+        "adif" : 245,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "IRELAND"
+      },
+      "multiplierKey" : "DXCC-245"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOV MIL ORDER OF MALTA",
+      "endpoint" : {
+        "adif" : 246,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SOV MIL ORDER OF MALTA"
+      },
+      "multiplierKey" : "DXCC-246"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SPRATLY ISLANDS",
+      "endpoint" : {
+        "adif" : 247,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "SPRATLY ISLANDS"
+      },
+      "multiplierKey" : "DXCC-247"
+    },
+    {
+      "authority" : "cqwwSupplement",
+      "displayLabel" : "African Italy (IG9/IH9)",
+      "endpoint" : {
+        "adif" : 248,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "AFRICAN ITALY"
+      },
+      "multiplierKey" : "CQWW-IG9-IH9"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ITALY",
+      "endpoint" : {
+        "adif" : 248,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "ITALY"
+      },
+      "multiplierKey" : "DXCC-248"
+    },
+    {
+      "authority" : "wae",
+      "displayLabel" : "Sicily",
+      "endpoint" : {
+        "adif" : 248,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SICILY"
+      },
+      "multiplierKey" : "WAE-IT9"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. KITTS & NEVIS",
+      "endpoint" : {
+        "adif" : 249,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ST. KITTS & NEVIS"
+      },
+      "multiplierKey" : "DXCC-249"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. HELENA",
+      "endpoint" : {
+        "adif" : 250,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "ST. HELENA"
+      },
+      "multiplierKey" : "DXCC-250"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LIECHTENSTEIN",
+      "endpoint" : {
+        "adif" : 251,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "LIECHTENSTEIN"
+      },
+      "multiplierKey" : "DXCC-251"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. PAUL ISLAND",
+      "endpoint" : {
+        "adif" : 252,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "ST. PAUL ISLAND"
+      },
+      "multiplierKey" : "DXCC-252"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. PETER & ST. PAUL",
+      "endpoint" : {
+        "adif" : 253,
+        "continent" : "SA",
+        "cqZone" : 11,
+        "entityName" : "ST. PETER & ST. PAUL"
+      },
+      "multiplierKey" : "DXCC-253"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LUXEMBOURG",
+      "endpoint" : {
+        "adif" : 254,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "LUXEMBOURG"
+      },
+      "multiplierKey" : "DXCC-254"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MADEIRA ISLANDS",
+      "endpoint" : {
+        "adif" : 256,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "MADEIRA ISLANDS"
+      },
+      "multiplierKey" : "DXCC-256"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MALTA",
+      "endpoint" : {
+        "adif" : 257,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "MALTA"
+      },
+      "multiplierKey" : "DXCC-257"
+    },
+    {
+      "authority" : "wae",
+      "displayLabel" : "Bear Island",
+      "endpoint" : {
+        "adif" : 259,
+        "continent" : "EU",
+        "cqZone" : 40,
+        "entityName" : "BEAR ISLAND"
+      },
+      "multiplierKey" : "WAE-JW-BEAR"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SVALBARD",
+      "endpoint" : {
+        "adif" : 259,
+        "continent" : "EU",
+        "cqZone" : 40,
+        "entityName" : "SVALBARD"
+      },
+      "multiplierKey" : "DXCC-259"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MONACO",
+      "endpoint" : {
+        "adif" : 260,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "MONACO"
+      },
+      "multiplierKey" : "DXCC-260"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TAJIKISTAN",
+      "endpoint" : {
+        "adif" : 262,
+        "continent" : "AS",
+        "cqZone" : 17,
+        "entityName" : "TAJIKISTAN"
+      },
+      "multiplierKey" : "DXCC-262"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NETHERLANDS",
+      "endpoint" : {
+        "adif" : 263,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "NETHERLANDS"
+      },
+      "multiplierKey" : "DXCC-263"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NORTHERN IRELAND",
+      "endpoint" : {
+        "adif" : 265,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "NORTHERN IRELAND"
+      },
+      "multiplierKey" : "DXCC-265"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NORWAY",
+      "endpoint" : {
+        "adif" : 266,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "NORWAY"
+      },
+      "multiplierKey" : "DXCC-266"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "POLAND",
+      "endpoint" : {
+        "adif" : 269,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "POLAND"
+      },
+      "multiplierKey" : "DXCC-269"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TOKELAU ISLANDS",
+      "endpoint" : {
+        "adif" : 270,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "TOKELAU ISLANDS"
+      },
+      "multiplierKey" : "DXCC-270"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PORTUGAL",
+      "endpoint" : {
+        "adif" : 272,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "PORTUGAL"
+      },
+      "multiplierKey" : "DXCC-272"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TRINDADE & MARTIM VAZ",
+      "endpoint" : {
+        "adif" : 273,
+        "continent" : "SA",
+        "cqZone" : 11,
+        "entityName" : "TRINDADE & MARTIM VAZ"
+      },
+      "multiplierKey" : "DXCC-273"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TRISTAN DA CUNHA & GOUGH ISLANDS",
+      "endpoint" : {
+        "adif" : 274,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "TRISTAN DA CUNHA & GOUGH ISLANDS"
+      },
+      "multiplierKey" : "DXCC-274"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ROMANIA",
+      "endpoint" : {
+        "adif" : 275,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "ROMANIA"
+      },
+      "multiplierKey" : "DXCC-275"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TROMELIN ISLAND",
+      "endpoint" : {
+        "adif" : 276,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "TROMELIN ISLAND"
+      },
+      "multiplierKey" : "DXCC-276"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. PIERRE & MIQUELON",
+      "endpoint" : {
+        "adif" : 277,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "ST. PIERRE & MIQUELON"
+      },
+      "multiplierKey" : "DXCC-277"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SAN MARINO",
+      "endpoint" : {
+        "adif" : 278,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SAN MARINO"
+      },
+      "multiplierKey" : "DXCC-278"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SCOTLAND",
+      "endpoint" : {
+        "adif" : 279,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "SCOTLAND"
+      },
+      "multiplierKey" : "DXCC-279"
+    },
+    {
+      "authority" : "wae",
+      "displayLabel" : "Shetland Islands",
+      "endpoint" : {
+        "adif" : 279,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "SHETLAND ISLANDS"
+      },
+      "multiplierKey" : "WAE-GM-SHETLAND"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TURKMENISTAN",
+      "endpoint" : {
+        "adif" : 280,
+        "continent" : "AS",
+        "cqZone" : 17,
+        "entityName" : "TURKMENISTAN"
+      },
+      "multiplierKey" : "DXCC-280"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SPAIN",
+      "endpoint" : {
+        "adif" : 281,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "SPAIN"
+      },
+      "multiplierKey" : "DXCC-281"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TUVALU",
+      "endpoint" : {
+        "adif" : 282,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "TUVALU"
+      },
+      "multiplierKey" : "DXCC-282"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UK BASE AREAS ON CYPRUS",
+      "endpoint" : {
+        "adif" : 283,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "UK BASE AREAS ON CYPRUS"
+      },
+      "multiplierKey" : "DXCC-283"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SWEDEN",
+      "endpoint" : {
+        "adif" : 284,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "SWEDEN"
+      },
+      "multiplierKey" : "DXCC-284"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "US VIRGIN ISLANDS",
+      "endpoint" : {
+        "adif" : 285,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "US VIRGIN ISLANDS"
+      },
+      "multiplierKey" : "DXCC-285"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UGANDA",
+      "endpoint" : {
+        "adif" : 286,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "UGANDA"
+      },
+      "multiplierKey" : "DXCC-286"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SWITZERLAND",
+      "endpoint" : {
+        "adif" : 287,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "SWITZERLAND"
+      },
+      "multiplierKey" : "DXCC-287"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UKRAINE",
+      "endpoint" : {
+        "adif" : 288,
+        "continent" : "EU",
+        "cqZone" : 16,
+        "entityName" : "UKRAINE"
+      },
+      "multiplierKey" : "DXCC-288"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UNITED NATIONS HQ",
+      "endpoint" : {
+        "adif" : 289,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "UNITED NATIONS HQ"
+      },
+      "multiplierKey" : "DXCC-289"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UNITED STATES",
+      "endpoint" : {
+        "adif" : 291,
+        "continent" : "NA",
+        "cqZone" : 3,
+        "entityName" : "UNITED STATES"
+      },
+      "multiplierKey" : "DXCC-291"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UNITED STATES",
+      "endpoint" : {
+        "adif" : 291,
+        "continent" : "NA",
+        "cqZone" : 4,
+        "entityName" : "UNITED STATES"
+      },
+      "multiplierKey" : "DXCC-291"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UNITED STATES",
+      "endpoint" : {
+        "adif" : 291,
+        "continent" : "NA",
+        "cqZone" : 5,
+        "entityName" : "UNITED STATES"
+      },
+      "multiplierKey" : "DXCC-291"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UZBEKISTAN",
+      "endpoint" : {
+        "adif" : 292,
+        "continent" : "AS",
+        "cqZone" : 17,
+        "entityName" : "UZBEKISTAN"
+      },
+      "multiplierKey" : "DXCC-292"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "VIETNAM",
+      "endpoint" : {
+        "adif" : 293,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "VIETNAM"
+      },
+      "multiplierKey" : "DXCC-293"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WALES",
+      "endpoint" : {
+        "adif" : 294,
+        "continent" : "EU",
+        "cqZone" : 14,
+        "entityName" : "WALES"
+      },
+      "multiplierKey" : "DXCC-294"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "VATICAN CITY",
+      "endpoint" : {
+        "adif" : 295,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "VATICAN CITY"
+      },
+      "multiplierKey" : "DXCC-295"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SERBIA",
+      "endpoint" : {
+        "adif" : 296,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SERBIA"
+      },
+      "multiplierKey" : "DXCC-296"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WAKE ISLAND",
+      "endpoint" : {
+        "adif" : 297,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "WAKE ISLAND"
+      },
+      "multiplierKey" : "DXCC-297"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WALLIS & FUTUNA ISLANDS",
+      "endpoint" : {
+        "adif" : 298,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "WALLIS & FUTUNA ISLANDS"
+      },
+      "multiplierKey" : "DXCC-298"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WEST MALAYSIA",
+      "endpoint" : {
+        "adif" : 299,
+        "continent" : "AS",
+        "cqZone" : 28,
+        "entityName" : "WEST MALAYSIA"
+      },
+      "multiplierKey" : "DXCC-299"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WESTERN KIRIBATI",
+      "endpoint" : {
+        "adif" : 301,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "WESTERN KIRIBATI"
+      },
+      "multiplierKey" : "DXCC-301"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WESTERN SAHARA",
+      "endpoint" : {
+        "adif" : 302,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "WESTERN SAHARA"
+      },
+      "multiplierKey" : "DXCC-302"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "WILLIS ISLAND",
+      "endpoint" : {
+        "adif" : 303,
+        "continent" : "OC",
+        "cqZone" : 30,
+        "entityName" : "WILLIS ISLAND"
+      },
+      "multiplierKey" : "DXCC-303"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BAHRAIN",
+      "endpoint" : {
+        "adif" : 304,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "BAHRAIN"
+      },
+      "multiplierKey" : "DXCC-304"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BANGLADESH",
+      "endpoint" : {
+        "adif" : 305,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "BANGLADESH"
+      },
+      "multiplierKey" : "DXCC-305"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BHUTAN",
+      "endpoint" : {
+        "adif" : 306,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "BHUTAN"
+      },
+      "multiplierKey" : "DXCC-306"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "COSTA RICA",
+      "endpoint" : {
+        "adif" : 308,
+        "continent" : "NA",
+        "cqZone" : 7,
+        "entityName" : "COSTA RICA"
+      },
+      "multiplierKey" : "DXCC-308"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MYANMAR",
+      "endpoint" : {
+        "adif" : 309,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "MYANMAR"
+      },
+      "multiplierKey" : "DXCC-309"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CAMBODIA",
+      "endpoint" : {
+        "adif" : 312,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "CAMBODIA"
+      },
+      "multiplierKey" : "DXCC-312"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SRI LANKA",
+      "endpoint" : {
+        "adif" : 315,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "SRI LANKA"
+      },
+      "multiplierKey" : "DXCC-315"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHINA",
+      "endpoint" : {
+        "adif" : 318,
+        "continent" : "AS",
+        "cqZone" : 23,
+        "entityName" : "CHINA"
+      },
+      "multiplierKey" : "DXCC-318"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHINA",
+      "endpoint" : {
+        "adif" : 318,
+        "continent" : "AS",
+        "cqZone" : 24,
+        "entityName" : "CHINA"
+      },
+      "multiplierKey" : "DXCC-318"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "HONG KONG",
+      "endpoint" : {
+        "adif" : 321,
+        "continent" : "AS",
+        "cqZone" : 24,
+        "entityName" : "HONG KONG"
+      },
+      "multiplierKey" : "DXCC-321"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "INDIA",
+      "endpoint" : {
+        "adif" : 324,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "INDIA"
+      },
+      "multiplierKey" : "DXCC-324"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "INDONESIA",
+      "endpoint" : {
+        "adif" : 327,
+        "continent" : "OC",
+        "cqZone" : 28,
+        "entityName" : "INDONESIA"
+      },
+      "multiplierKey" : "DXCC-327"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "IRAN",
+      "endpoint" : {
+        "adif" : 330,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "IRAN"
+      },
+      "multiplierKey" : "DXCC-330"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "IRAQ",
+      "endpoint" : {
+        "adif" : 333,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "IRAQ"
+      },
+      "multiplierKey" : "DXCC-333"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ISRAEL",
+      "endpoint" : {
+        "adif" : 336,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "ISRAEL"
+      },
+      "multiplierKey" : "DXCC-336"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JAPAN",
+      "endpoint" : {
+        "adif" : 339,
+        "continent" : "AS",
+        "cqZone" : 25,
+        "entityName" : "JAPAN"
+      },
+      "multiplierKey" : "DXCC-339"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "JORDAN",
+      "endpoint" : {
+        "adif" : 342,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "JORDAN"
+      },
+      "multiplierKey" : "DXCC-342"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DPR OF KOREA",
+      "endpoint" : {
+        "adif" : 344,
+        "continent" : "AS",
+        "cqZone" : 25,
+        "entityName" : "DPR OF KOREA"
+      },
+      "multiplierKey" : "DXCC-344"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BRUNEI DARUSSALAM",
+      "endpoint" : {
+        "adif" : 345,
+        "continent" : "OC",
+        "cqZone" : 28,
+        "entityName" : "BRUNEI DARUSSALAM"
+      },
+      "multiplierKey" : "DXCC-345"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KUWAIT",
+      "endpoint" : {
+        "adif" : 348,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "KUWAIT"
+      },
+      "multiplierKey" : "DXCC-348"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LEBANON",
+      "endpoint" : {
+        "adif" : 354,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "LEBANON"
+      },
+      "multiplierKey" : "DXCC-354"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MONGOLIA",
+      "endpoint" : {
+        "adif" : 363,
+        "continent" : "AS",
+        "cqZone" : 23,
+        "entityName" : "MONGOLIA"
+      },
+      "multiplierKey" : "DXCC-363"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NEPAL",
+      "endpoint" : {
+        "adif" : 369,
+        "continent" : "AS",
+        "cqZone" : 22,
+        "entityName" : "NEPAL"
+      },
+      "multiplierKey" : "DXCC-369"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "OMAN",
+      "endpoint" : {
+        "adif" : 370,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "OMAN"
+      },
+      "multiplierKey" : "DXCC-370"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PAKISTAN",
+      "endpoint" : {
+        "adif" : 372,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "PAKISTAN"
+      },
+      "multiplierKey" : "DXCC-372"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PHILIPPINES",
+      "endpoint" : {
+        "adif" : 375,
+        "continent" : "OC",
+        "cqZone" : 27,
+        "entityName" : "PHILIPPINES"
+      },
+      "multiplierKey" : "DXCC-375"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "QATAR",
+      "endpoint" : {
+        "adif" : 376,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "QATAR"
+      },
+      "multiplierKey" : "DXCC-376"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SAUDI ARABIA",
+      "endpoint" : {
+        "adif" : 378,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "SAUDI ARABIA"
+      },
+      "multiplierKey" : "DXCC-378"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SEYCHELLES",
+      "endpoint" : {
+        "adif" : 379,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "SEYCHELLES"
+      },
+      "multiplierKey" : "DXCC-379"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SINGAPORE",
+      "endpoint" : {
+        "adif" : 381,
+        "continent" : "AS",
+        "cqZone" : 28,
+        "entityName" : "SINGAPORE"
+      },
+      "multiplierKey" : "DXCC-381"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DJIBOUTI",
+      "endpoint" : {
+        "adif" : 382,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "DJIBOUTI"
+      },
+      "multiplierKey" : "DXCC-382"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SYRIA",
+      "endpoint" : {
+        "adif" : 384,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "SYRIA"
+      },
+      "multiplierKey" : "DXCC-384"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TAIWAN",
+      "endpoint" : {
+        "adif" : 386,
+        "continent" : "AS",
+        "cqZone" : 24,
+        "entityName" : "TAIWAN"
+      },
+      "multiplierKey" : "DXCC-386"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "THAILAND",
+      "endpoint" : {
+        "adif" : 387,
+        "continent" : "AS",
+        "cqZone" : 26,
+        "entityName" : "THAILAND"
+      },
+      "multiplierKey" : "DXCC-387"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ASIATIC TURKEY",
+      "endpoint" : {
+        "adif" : 390,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "ASIATIC TURKEY"
+      },
+      "multiplierKey" : "DXCC-390"
+    },
+    {
+      "authority" : "wae",
+      "displayLabel" : "European Turkey",
+      "endpoint" : {
+        "adif" : 390,
+        "continent" : "EU",
+        "cqZone" : 20,
+        "entityName" : "EUROPEAN TURKEY"
+      },
+      "multiplierKey" : "WAE-TA1"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "UNITED ARAB EMIRATES",
+      "endpoint" : {
+        "adif" : 391,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "UNITED ARAB EMIRATES"
+      },
+      "multiplierKey" : "DXCC-391"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ALGERIA",
+      "endpoint" : {
+        "adif" : 400,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "ALGERIA"
+      },
+      "multiplierKey" : "DXCC-400"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ANGOLA",
+      "endpoint" : {
+        "adif" : 401,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "ANGOLA"
+      },
+      "multiplierKey" : "DXCC-401"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BOTSWANA",
+      "endpoint" : {
+        "adif" : 402,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "BOTSWANA"
+      },
+      "multiplierKey" : "DXCC-402"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BURUNDI",
+      "endpoint" : {
+        "adif" : 404,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "BURUNDI"
+      },
+      "multiplierKey" : "DXCC-404"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CAMEROON",
+      "endpoint" : {
+        "adif" : 406,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "CAMEROON"
+      },
+      "multiplierKey" : "DXCC-406"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CENTRAL AFRICAN REPUBLIC",
+      "endpoint" : {
+        "adif" : 408,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "CENTRAL AFRICAN REPUBLIC"
+      },
+      "multiplierKey" : "DXCC-408"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CAPE VERDE",
+      "endpoint" : {
+        "adif" : 409,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "CAPE VERDE"
+      },
+      "multiplierKey" : "DXCC-409"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHAD",
+      "endpoint" : {
+        "adif" : 410,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "CHAD"
+      },
+      "multiplierKey" : "DXCC-410"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "COMOROS",
+      "endpoint" : {
+        "adif" : 411,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "COMOROS"
+      },
+      "multiplierKey" : "DXCC-411"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "REPUBLIC OF THE CONGO",
+      "endpoint" : {
+        "adif" : 412,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "REPUBLIC OF THE CONGO"
+      },
+      "multiplierKey" : "DXCC-412"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DEM. REP. OF THE CONGO",
+      "endpoint" : {
+        "adif" : 414,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "DEM. REP. OF THE CONGO"
+      },
+      "multiplierKey" : "DXCC-414"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BENIN",
+      "endpoint" : {
+        "adif" : 416,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "BENIN"
+      },
+      "multiplierKey" : "DXCC-416"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GABON",
+      "endpoint" : {
+        "adif" : 420,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "GABON"
+      },
+      "multiplierKey" : "DXCC-420"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "THE GAMBIA",
+      "endpoint" : {
+        "adif" : 422,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "THE GAMBIA"
+      },
+      "multiplierKey" : "DXCC-422"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "GHANA",
+      "endpoint" : {
+        "adif" : 424,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "GHANA"
+      },
+      "multiplierKey" : "DXCC-424"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "COTE D'IVOIRE",
+      "endpoint" : {
+        "adif" : 428,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "COTE D'IVOIRE"
+      },
+      "multiplierKey" : "DXCC-428"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KENYA",
+      "endpoint" : {
+        "adif" : 430,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "KENYA"
+      },
+      "multiplierKey" : "DXCC-430"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LESOTHO",
+      "endpoint" : {
+        "adif" : 432,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "LESOTHO"
+      },
+      "multiplierKey" : "DXCC-432"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LIBERIA",
+      "endpoint" : {
+        "adif" : 434,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "LIBERIA"
+      },
+      "multiplierKey" : "DXCC-434"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "LIBYA",
+      "endpoint" : {
+        "adif" : 436,
+        "continent" : "AF",
+        "cqZone" : 34,
+        "entityName" : "LIBYA"
+      },
+      "multiplierKey" : "DXCC-436"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MADAGASCAR",
+      "endpoint" : {
+        "adif" : 438,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "MADAGASCAR"
+      },
+      "multiplierKey" : "DXCC-438"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MALAWI",
+      "endpoint" : {
+        "adif" : 440,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "MALAWI"
+      },
+      "multiplierKey" : "DXCC-440"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MALI",
+      "endpoint" : {
+        "adif" : 442,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "MALI"
+      },
+      "multiplierKey" : "DXCC-442"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MAURITANIA",
+      "endpoint" : {
+        "adif" : 444,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "MAURITANIA"
+      },
+      "multiplierKey" : "DXCC-444"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MOROCCO",
+      "endpoint" : {
+        "adif" : 446,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "MOROCCO"
+      },
+      "multiplierKey" : "DXCC-446"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NIGERIA",
+      "endpoint" : {
+        "adif" : 450,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "NIGERIA"
+      },
+      "multiplierKey" : "DXCC-450"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ZIMBABWE",
+      "endpoint" : {
+        "adif" : 452,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "ZIMBABWE"
+      },
+      "multiplierKey" : "DXCC-452"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "REUNION ISLAND",
+      "endpoint" : {
+        "adif" : 453,
+        "continent" : "AF",
+        "cqZone" : 39,
+        "entityName" : "REUNION ISLAND"
+      },
+      "multiplierKey" : "DXCC-453"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "RWANDA",
+      "endpoint" : {
+        "adif" : 454,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "RWANDA"
+      },
+      "multiplierKey" : "DXCC-454"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SENEGAL",
+      "endpoint" : {
+        "adif" : 456,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "SENEGAL"
+      },
+      "multiplierKey" : "DXCC-456"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SIERRA LEONE",
+      "endpoint" : {
+        "adif" : 458,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "SIERRA LEONE"
+      },
+      "multiplierKey" : "DXCC-458"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ROTUMA ISLAND",
+      "endpoint" : {
+        "adif" : 460,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "ROTUMA ISLAND"
+      },
+      "multiplierKey" : "DXCC-460"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SOUTH AFRICA",
+      "endpoint" : {
+        "adif" : 462,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "SOUTH AFRICA"
+      },
+      "multiplierKey" : "DXCC-462"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NAMIBIA",
+      "endpoint" : {
+        "adif" : 464,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "NAMIBIA"
+      },
+      "multiplierKey" : "DXCC-464"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SUDAN",
+      "endpoint" : {
+        "adif" : 466,
+        "continent" : "AF",
+        "cqZone" : 34,
+        "entityName" : "SUDAN"
+      },
+      "multiplierKey" : "DXCC-466"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "KINGDOM OF ESWATINI",
+      "endpoint" : {
+        "adif" : 468,
+        "continent" : "AF",
+        "cqZone" : 38,
+        "entityName" : "KINGDOM OF ESWATINI"
+      },
+      "multiplierKey" : "DXCC-468"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TANZANIA",
+      "endpoint" : {
+        "adif" : 470,
+        "continent" : "AF",
+        "cqZone" : 37,
+        "entityName" : "TANZANIA"
+      },
+      "multiplierKey" : "DXCC-470"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TUNISIA",
+      "endpoint" : {
+        "adif" : 474,
+        "continent" : "AF",
+        "cqZone" : 33,
+        "entityName" : "TUNISIA"
+      },
+      "multiplierKey" : "DXCC-474"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "EGYPT",
+      "endpoint" : {
+        "adif" : 478,
+        "continent" : "AF",
+        "cqZone" : 34,
+        "entityName" : "EGYPT"
+      },
+      "multiplierKey" : "DXCC-478"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BURKINA FASO",
+      "endpoint" : {
+        "adif" : 480,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "BURKINA FASO"
+      },
+      "multiplierKey" : "DXCC-480"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ZAMBIA",
+      "endpoint" : {
+        "adif" : 482,
+        "continent" : "AF",
+        "cqZone" : 36,
+        "entityName" : "ZAMBIA"
+      },
+      "multiplierKey" : "DXCC-482"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TOGO",
+      "endpoint" : {
+        "adif" : 483,
+        "continent" : "AF",
+        "cqZone" : 35,
+        "entityName" : "TOGO"
+      },
+      "multiplierKey" : "DXCC-483"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CONWAY REEF",
+      "endpoint" : {
+        "adif" : 489,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "CONWAY REEF"
+      },
+      "multiplierKey" : "DXCC-489"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BANABA ISLAND",
+      "endpoint" : {
+        "adif" : 490,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "BANABA ISLAND"
+      },
+      "multiplierKey" : "DXCC-490"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "YEMEN",
+      "endpoint" : {
+        "adif" : 492,
+        "continent" : "AS",
+        "cqZone" : 21,
+        "entityName" : "YEMEN"
+      },
+      "multiplierKey" : "DXCC-492"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CROATIA",
+      "endpoint" : {
+        "adif" : 497,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "CROATIA"
+      },
+      "multiplierKey" : "DXCC-497"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SLOVENIA",
+      "endpoint" : {
+        "adif" : 499,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SLOVENIA"
+      },
+      "multiplierKey" : "DXCC-499"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BOSNIA-HERZEGOVINA",
+      "endpoint" : {
+        "adif" : 501,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "BOSNIA-HERZEGOVINA"
+      },
+      "multiplierKey" : "DXCC-501"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "NORTH MACEDONIA",
+      "endpoint" : {
+        "adif" : 502,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "NORTH MACEDONIA"
+      },
+      "multiplierKey" : "DXCC-502"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CZECH REPUBLIC",
+      "endpoint" : {
+        "adif" : 503,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "CZECH REPUBLIC"
+      },
+      "multiplierKey" : "DXCC-503"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SLOVAK REPUBLIC",
+      "endpoint" : {
+        "adif" : 504,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "SLOVAK REPUBLIC"
+      },
+      "multiplierKey" : "DXCC-504"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PRATAS ISLAND",
+      "endpoint" : {
+        "adif" : 505,
+        "continent" : "AS",
+        "cqZone" : 24,
+        "entityName" : "PRATAS ISLAND"
+      },
+      "multiplierKey" : "DXCC-505"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SCARBOROUGH REEF",
+      "endpoint" : {
+        "adif" : 506,
+        "continent" : "AS",
+        "cqZone" : 27,
+        "entityName" : "SCARBOROUGH REEF"
+      },
+      "multiplierKey" : "DXCC-506"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TEMOTU PROVINCE",
+      "endpoint" : {
+        "adif" : 507,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "TEMOTU PROVINCE"
+      },
+      "multiplierKey" : "DXCC-507"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "AUSTRAL ISLANDS",
+      "endpoint" : {
+        "adif" : 508,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "AUSTRAL ISLANDS"
+      },
+      "multiplierKey" : "DXCC-508"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MARQUESAS ISLANDS",
+      "endpoint" : {
+        "adif" : 509,
+        "continent" : "OC",
+        "cqZone" : 31,
+        "entityName" : "MARQUESAS ISLANDS"
+      },
+      "multiplierKey" : "DXCC-509"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "PALESTINE",
+      "endpoint" : {
+        "adif" : 510,
+        "continent" : "AS",
+        "cqZone" : 20,
+        "entityName" : "PALESTINE"
+      },
+      "multiplierKey" : "DXCC-510"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "TIMOR - LESTE",
+      "endpoint" : {
+        "adif" : 511,
+        "continent" : "OC",
+        "cqZone" : 28,
+        "entityName" : "TIMOR - LESTE"
+      },
+      "multiplierKey" : "DXCC-511"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CHESTERFIELD ISLANDS",
+      "endpoint" : {
+        "adif" : 512,
+        "continent" : "OC",
+        "cqZone" : 30,
+        "entityName" : "CHESTERFIELD ISLANDS"
+      },
+      "multiplierKey" : "DXCC-512"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "DUCIE ISLAND",
+      "endpoint" : {
+        "adif" : 513,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "DUCIE ISLAND"
+      },
+      "multiplierKey" : "DXCC-513"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "MONTENEGRO",
+      "endpoint" : {
+        "adif" : 514,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "MONTENEGRO"
+      },
+      "multiplierKey" : "DXCC-514"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SWAINS ISLAND",
+      "endpoint" : {
+        "adif" : 515,
+        "continent" : "OC",
+        "cqZone" : 32,
+        "entityName" : "SWAINS ISLAND"
+      },
+      "multiplierKey" : "DXCC-515"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "ST. BARTHELEMY",
+      "endpoint" : {
+        "adif" : 516,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "ST. BARTHELEMY"
+      },
+      "multiplierKey" : "DXCC-516"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "CURACAO",
+      "endpoint" : {
+        "adif" : 517,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "CURACAO"
+      },
+      "multiplierKey" : "DXCC-517"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SINT MAARTEN",
+      "endpoint" : {
+        "adif" : 518,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "SINT MAARTEN"
+      },
+      "multiplierKey" : "DXCC-518"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "SABA & ST. EUSTATIUS",
+      "endpoint" : {
+        "adif" : 519,
+        "continent" : "NA",
+        "cqZone" : 8,
+        "entityName" : "SABA & ST. EUSTATIUS"
+      },
+      "multiplierKey" : "DXCC-519"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "BONAIRE",
+      "endpoint" : {
+        "adif" : 520,
+        "continent" : "SA",
+        "cqZone" : 9,
+        "entityName" : "BONAIRE"
+      },
+      "multiplierKey" : "DXCC-520"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "REPUBLIC OF SOUTH SUDAN",
+      "endpoint" : {
+        "adif" : 521,
+        "continent" : "AF",
+        "cqZone" : 34,
+        "entityName" : "REPUBLIC OF SOUTH SUDAN"
+      },
+      "multiplierKey" : "DXCC-521"
+    },
+    {
+      "authority" : "dxcc",
+      "displayLabel" : "REPUBLIC OF KOSOVO",
+      "endpoint" : {
+        "adif" : 522,
+        "continent" : "EU",
+        "cqZone" : 15,
+        "entityName" : "REPUBLIC OF KOSOVO"
+      },
+      "multiplierKey" : "DXCC-522"
+    }
+  ],
+  "requiredReferenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+}

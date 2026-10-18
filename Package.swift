@@ -76,7 +76,9 @@ portableTargets.append(contentsOf: [
     .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
     .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
     .target(name: "XStationIntegrationCore"),
-    .target(name: "XContestCore", resources: [.copy("Resources/ContestDefinitions")]),
+    .target(name: "XContestCore", resources: [
+        .copy("Resources/ContestDefinitions"), .copy("Resources/CountryReferences"),
+    ]),
     .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
     .target(name: "XLogPrototypeSupport", dependencies: prototypeSupportDependencies),
     .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
@@ -121,7 +123,9 @@ if portableOnly {
                 .linkedLibrary("z"),
             ]
         ),
-        .target(name: "XContestCore", resources: [.copy("Resources/ContestDefinitions")]),
+        .target(name: "XContestCore", resources: [
+            .copy("Resources/ContestDefinitions"), .copy("Resources/CountryReferences"),
+        ]),
         .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
         .executableTarget(
             name: "XLogApp",

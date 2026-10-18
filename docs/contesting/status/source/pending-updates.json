@@ -1,6 +1,6 @@
 {
   "proposalDate": "2026-10-18",
-  "measuredAt": "2026-10-18T06:09:57Z",
+  "measuredAt": "2026-10-18T07:09:40Z",
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
@@ -259,6 +259,55 @@
       ],
       "installedBoundary": "The installed Contesting Test app remains source 3a05c2e and contains seven declarative definitions; SST has not been packaged or installed there. Native packaged presentation, schedule enforcement, results reporting, current sponsor acceptance and RF remain open.",
       "ledger": "Published ledger unchanged: 16 previews, 78 pending, 0 complete."
+    }
+  },
+  "currentSourceRefresh": {
+    "measuredAt": "2026-10-18T07:09:40Z",
+    "status": "source refresh only; published workbook and Markdown unchanged",
+    "installedTestApp": "3a05c2e; none of the new canvas, native registry or transient-input changes is installed",
+    "sourceChanges": [
+      {
+        "area": "scoped layout isolation",
+        "sourceCommit": "9c8b5ddb2713a407c9bd97f8059cf874b0c30c90 + 952f24675a47066022ab042829be3d1d709476a0",
+        "integrationCommit": "18c8ba144d26c6f1d80322c81fc5e5475b8d2bc3",
+        "detail": "scope tags, journals and restore retention fixed; Normal unchanged"
+      },
+      {
+        "area": "native registry scope validation",
+        "integrationCommit": "5e43c53669c26c34ee5c233847315e09bd9fb1d6",
+        "status": "merged"
+      },
+      {
+        "area": "four-panel canvas",
+        "sourceCommit": "e0026bc",
+        "integrationCommit": "b6d9e3b4",
+        "detail": "Entry, Check Partial, Statistics and Log share one owner; eight upstream windows remain unimplemented"
+      },
+      {
+        "area": "ARRL DX editable input",
+        "sourceCommit": "7b0ed2d",
+        "integrationCommit": "e22cf95ef3bb67131be8872e5ea46491750e46a8",
+        "detail": "local intermediate KI allowed; strict wire and commit validation retained"
+      },
+      {
+        "area": "filters",
+        "detail": "30dcdab42bb0337aee9c60e816d6b151d6b453ce and 1d5eefb Special filters integrated"
+      }
+    ],
+    "combinedSourceValidation": {
+      "sourceCommit": "e22cf95",
+      "tests": "181/181 across 12 files",
+      "typescript": "passed",
+      "receipt": "docs/contesting/evidence/main-spot-settings-integration-2026-10-18.json",
+      "receiptUpdatedAt": "3b5b93d",
+      "detail": "receipt retains historical 70/71 failure and isolated 26-pass result; bounded 3000 ms wait fix passes combined source"
+    },
+    "reviewBoundaries": {
+      "nativeRuntime": "1050a5b + 2ae19aa UNDER REVIEW; concurrency fixes pending; no bridge/child parity claim",
+      "cqwwCountryMaterialization": "806873e UNDER REVIEW pending legacy-token matching fix; complete 362-endpoint resource generated but inactive in catalog, worker and UI",
+      "headless": "14 legacy profiles / 84 contacts passed; 11 declarative profiles / 66 contacts functionally completed, protection failed/unresolved after concurrent normal-database metadata changed without process attribution; does not establish that headless process touched normal database",
+      "ledger": "16 previews / 78 pending / 0 complete; do not derive completion percentage from metadata",
+      "platformScope": "macOS only for current app tranche; Windows/Linux builds deferred"
     }
   }
 }
