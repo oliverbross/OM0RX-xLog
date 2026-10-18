@@ -37,8 +37,8 @@ final class ContestJIDXWorkerWireTests: XCTestCase {
         let catalog = try XCTUnwrap(catalogFrame["result"] as? [String: Any])
         let generation = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-        XCTAssertEqual(rules.count, 23)
-        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 7)
+        XCTAssertEqual(rules.count, 24)
+        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 8)
         let cw = try XCTUnwrap(rules.first { ($0["identity"] as? [String: Any])?["id"] as? String == "jidx-cw" })
         let ssb = try XCTUnwrap(rules.first { ($0["identity"] as? [String: Any])?["id"] as? String == "jidx-ssb" })
 

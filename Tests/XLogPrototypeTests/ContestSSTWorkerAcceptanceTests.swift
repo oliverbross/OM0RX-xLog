@@ -28,7 +28,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         return try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
     }
 
-    func testInjectedSSTDefinitionRunsThroughRealWorkerAndGeneratesAcceptanceFixture() async throws {
+    func testPackagedSSTDefinitionRunsThroughRealWorkerAndCanGenerateActivationFixture() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-sst-worker-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let definition = try SSTDeclarativeDefinition.definition()
@@ -37,8 +37,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         let logbook = LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: false,
                                          runtimeProfile: profile)
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
-        var worker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting,
-                                contestDeclarativeDefinitions: [definition])
+        var worker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting)
 
         let catalogFrame = try await frame(worker, "contest_catalog")
         let catalog = try XCTUnwrap(catalogFrame["result"] as? [String: Any])
@@ -47,7 +46,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         let rule = try XCTUnwrap(rules.first {
             ($0["identity"] as? [String: Any])?["id"] as? String == definition.identity.id
         })
-        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 1)
+        XCTAssertEqual(rules.filter { $0["declarativeDefinition"] != nil }.count, 8)
         let definitionWire = try XCTUnwrap(rule["declarativeDefinition"] as? [String: Any])
         XCTAssertEqual(definitionWire["definitionDigest"] as? String, definition.definitionDigest)
         XCTAssertEqual(definitionWire["exportPurpose"] as? String, "operatorArchive")
@@ -215,8 +214,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         revision += 1
 
         _ = await worker.shutdown()
-        worker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting,
-                            contestDeclarativeDefinitions: [definition])
+        worker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting)
         let openRequest: [String: Any] = ["sessionID": wire(sessionID), "workspaceGeneration": generation]
         let reopened = try await frame(worker, "contest_open", openRequest)
         XCTAssertEqual(((reopened["result"] as? [String: Any])?["session"] as? [String: Any])?["qsoCount"] as? Int, 13)
@@ -293,16 +291,15 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         XCTAssertEqual((recoveredOfficialScore["claimedScore"] as? NSNumber)?.intValue, 120)
         revision += 1
         _ = await worker.shutdown()
-        worker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting,
-                            contestDeclarativeDefinitions: [definition])
+        worker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting)
         let reopenedAfterDeletion = try await frame(worker, "contest_open", openRequest)
         XCTAssertEqual(((reopenedAfterDeletion["result"] as? [String: Any])?["session"] as? [String: Any])?["qsoCount"] as? Int,
                        12)
 
-        if let output = ProcessInfo.processInfo.environment["XLOG_SST_WORKER_FIXTURE_OUTPUT"] {
+        if let output = ProcessInfo.processInfo.environment["XLOG_SST_PACKAGED_WORKER_FIXTURE_OUTPUT"] {
             let fixture: [String: Any] = [
                 "schemaVersion": 1,
-                "scope": "pre-activation injected immutable definition; SST is not in the built-in catalog",
+                "scope": "packaged immutable SST operator archive practice preview; schedule and results reporting remain outside this gate",
                 "referenceDataVersion": referenceVersion,
                 "catalog": catalogFrame,
                 "create": ["request": createRequest, "response": created],
@@ -345,7 +342,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         let builtInWorker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting)
         let builtInCatalog = try await frame(builtInWorker, "contest_catalog")
         let builtInRules = try XCTUnwrap((builtInCatalog["result"] as? [String: Any])?["rules"] as? [[String: Any]])
-        XCTAssertFalse(builtInRules.contains {
+        XCTAssertTrue(builtInRules.contains {
             ($0["identity"] as? [String: Any])?["id"] as? String == definition.identity.id
         })
         _ = await builtInWorker.shutdown()
@@ -356,7 +353,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
         ]
         let boundaryDefinitions = try boundaryCases.map { try boundaryDefinition(field: $0.0, value: $0.1) }
         let testWorker = LiveWorker(logbook: logbook, runtimeProfile: profile, operatingModule: .contesting,
-                                    contestDeclarativeDefinitions: [definition] + boundaryDefinitions)
+                                    contestDeclarativeDefinitions: boundaryDefinitions)
         let external = try await frame(testWorker, "cluster_connect", ["host": "127.0.0.1", "port": 23])
         XCTAssertEqual((external["error"] as? [String: Any])?["code"] as? String, "external_io_disabled")
 

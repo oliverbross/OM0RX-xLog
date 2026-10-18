@@ -1,6 +1,6 @@
 # SST geographic multiplier contract
 
-Status: source-backed inactive declarative definition and independent fixtures for review. This change does not activate SST, change the catalog, or establish worker, UI, export, RF, packaged-app, or sponsor-submission acceptance.
+Status: source-backed packaged declarative archive preview. SST is present in the immutable packaged catalog and has bounded worker, strict-client, shared-workspace, scoring, replay, and in-memory archive evidence. It remains a practice preview: schedule enforcement, results reporting, current sponsor acceptance, native packaged-app acceptance, and RF operation are outside this checkpoint.
 
 ## Official rule
 
@@ -57,6 +57,6 @@ This vocabulary is intentionally broader than SST while keeping contest membersh
 - deterministic correction and deletion replay;
 - typed name/aggregate disagreement, lower-48 `DX`, and Alaska `AK` drafts being blocked before commit.
 
-`Tests/XContestCoreTests/SourceFixtures/sst-definition-authority.json` additionally freezes the complete 49-token lower-48-plus-DC policy, the sponsor table's 14 Canadian tokens, and the `NL` to `NF` scoring alias. `SSTDeclarativeDefinition` uses those policies without a contest-specific rule class and remains absent from the built-in catalog.
+`Tests/XContestCoreTests/SourceFixtures/sst-definition-authority.json` additionally freezes the complete 49-token lower-48-plus-DC policy, the sponsor table's 14 Canadian tokens, and the `NL` to `NF` scoring alias. `SSTDeclarativeDefinition` uses those policies without a contest-specific rule class. The exact reviewed definition is now included in the packaged catalog as `k1usn_sst.runtime-draft.json`; the other seven packaged definition files retain their prior bytes and digests.
 
-The inactive definition now requires a station entity and validates its sent location with the same versioned geographic policy used for contacts. Its CW operator policy and deterministic operator archive are also defined; the archive retains a heard `NL` token even though scoring uses `NF`, and it is explicitly not a sponsor submission format. Before activation, review must still pin the concrete DXCC entity reference version and prove that the worker and UI persist a compatible station entity and sent fields. Mobile and portable endpoint resolution, category, schedule, complete product archive flow, and 3830 reporting behavior remain separate gates. SST therefore remains absent from the built-in catalog.
+The packaged definition requires a station entity and validates its sent location with the same versioned geographic policy used for contacts. Its CW operator policy and deterministic operator archive retain a heard `NL` token even though scoring uses `NF`; neither archive format is marked sponsor-submission ready. The session pins the bundled `cty.dat` reference identity `bundled-cty-fnv64-cf9c48a44d4b5e66`, and the real worker fixture proves compatible station entity, sent name, and sent location persistence. Mobile and portable endpoint resolution, category breadth, schedule enforcement, native packaged-app operation, and 3830/results reporting remain separate gates.

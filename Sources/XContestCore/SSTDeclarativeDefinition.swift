@@ -1,7 +1,7 @@
 import Foundation
 
-/// Inactive K1USN SST operator-archive definition. Scheduling, reference-data
-/// selection, and product catalog activation remain separate acceptance gates.
+/// K1USN SST operator-archive preview. Scheduling and sponsor results reporting
+/// remain separate acceptance gates from the bundled practice catalog.
 public enum SSTDeclarativeDefinition {
     public static func definition() throws -> ContestDeclarativeDefinition {
         try draft().materialized()
@@ -47,7 +47,7 @@ public enum SSTDeclarativeDefinition {
             cabrilloName: "K1USNSST",
             supportedBands: ["160m", "80m", "40m", "20m", "15m", "10m"], supportedModes: ["CW"],
             entry: entry,
-            sourceProvenance: "K1USN SST rules https://www.k1usn.com/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            sourceProvenance: "K1USN SST rules https://www.k1usn.com/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; packaged operator archive practice preview only, not sponsor submission; remaining limits: schedule enforcement, results reporting, and current sponsor acceptance",
             dupePolicy: .perBand, multiplierPolicy: .geographic, geographicMultiplier: geography,
             scoring: .init(defaultPoints: 1, clauses: []), exportPolicy: .operatorArchive,
             exportProjection: .init(formatterVersion: "sst-archive-1", columns: [

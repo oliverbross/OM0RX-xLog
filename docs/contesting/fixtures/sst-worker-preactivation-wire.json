@@ -1,0 +1,3862 @@
+{
+  "blankReadiness" : {
+    "callsign" : "empty",
+    "canCommit" : false,
+    "canReserveCall" : false,
+    "canReserveCommit" : false,
+    "canSendCall" : false,
+    "canSendCQ" : false,
+    "canSendDuplicate" : false,
+    "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+    "exchange" : "empty"
+  },
+  "catalog" : {
+    "id" : "e102d4fd-9f1f-4d56-a71c-a15f69cc7d27",
+    "ok" : true,
+    "result" : {
+      "rules" : [
+        {
+          "displayName" : "ARRL International DX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-cw-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-cw",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "b5cb6c28539f7592cf008a77d92a18f47dbf6a3dde615c59e4fdb633c6b352f1",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "ARRL International DX SSB Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-dx-ssb-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "power"
+                  ],
+                  "adifField" : null,
+                  "id" : "power",
+                  "label" : "Power",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-2.0-preview",
+            "id" : "arrl-dx-ssb",
+            "sourceRevision" : "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+            "version" : "1.0.0-2.0-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "ddb3c40744f148d47806eaf272541f4d838b0e3257e93fabdd9a183e6de0894d",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL International DX Contest Rules v2.0 and January 2026 DXCC list, retrieved 2026-10-18; ARRL multiplier and section guidance; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f; preview only, not sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "ARRL RTTY Roundup Preview",
+          "entry" : {
+            "adifMode" : "RTTY",
+            "cabrilloFormatterVersion" : "arrl-rtty-preview-1",
+            "cabrilloProjectionFormatterVersion" : "arrl-rtty-preview-1",
+            "cabrilloQSOType" : "RY",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "serialNumber"
+                  ],
+                  "adifField" : null,
+                  "id" : "exchange",
+                  "label" : "State, province, or serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State or province",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : false
+                },
+                {
+                  "acceptedKinds" : [
+                    "serialNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "serial",
+                  "label" : "Serial",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "RTTY",
+            "modeProfiles" : [
+              {
+                "adifMode" : "RTTY",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "RY",
+                "mode" : "RTTY",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "digitalRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "digitalRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "stationFields" : [
+              {
+                "id" : "section",
+                "label" : "Cabrillo section",
+                "maximumUTF8Bytes" : 3,
+                "required" : true,
+                "role" : "cabrilloLocation"
+              }
+            ],
+            "stationResolvedSerial" : {
+              "allocatedSerialFieldID" : "serial",
+              "allowedScopes" : [
+                "session"
+              ],
+              "locationFieldID" : "location",
+              "policy" : "arrlRTTYRoundupWVEOrDX"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "rules-3.0b-preview",
+            "id" : "arrl-rtty-roundup",
+            "sourceRevision" : "87c9f0032e6ce502b4ae94d47b397a9a34c49a3eafdb5a50fc226694696fe1ce",
+            "version" : "1.0.0-3.0b-preview"
+          },
+          "mode" : "RTTY",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "ARRL RTTY Roundup Rules v3.0b and January 2026 DXCC list, retrieved 2026-10-18; multiplier lists v1.2.0; compared with contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/arrl_rtty_ru.py; preview only, not sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "RTTY"
+          ]
+        },
+        {
+          "displayName" : "CQ WPX CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "stxSrx",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-wpx-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "49825a503dd7d9889abf0cfd70e72f31e180a601fd9f8ee3cd707d495ce23c22",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "CQ WPX SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "stxSrx",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-wpx-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "fda55650fecac6c637acdeed3dea77e9ac55417f78ebe4c33c00f95f772312a7",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_wpx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "CQ WW CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-ww-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "f068c4cf73ab0b9ec9f77a43c75e6deaca9a11da946fd9c8216b41c925f6cc4e",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_cw.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "CQ WW SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "none",
+              "received" : "cqZone",
+              "sent" : "cqZone",
+              "sentDefault" : "stationSnapshot"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "cq-ww-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "88c2ec26c9f9df6d5d54d000c38441ceb2a61be583d0529e658b76f2028f760e",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/cq_ww_ssb.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "JIDX CW Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "jidx-preview-1",
+            "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "599",
+                  "defaultSent" : "599",
+                  "format" : "cwRST",
+                  "maximumUTF8Bytes" : 3
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-cw",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "fc5c089d29115cd70b42107b99283b800cb6b05093b5b709c7823d1927174b2f",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "JIDX Phone Preview",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "jidx-preview-1",
+            "cabrilloProjectionFormatterVersion" : "jidx-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "SRX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "cqZone",
+                    "jarlPrefectureNumber"
+                  ],
+                  "adifField" : "STX",
+                  "id" : "number",
+                  "label" : "Prefecture or CQ Zone",
+                  "maximumUTF8Bytes" : 2,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "59",
+                  "defaultSent" : "59",
+                  "format" : "phoneRS",
+                  "maximumUTF8Bytes" : 2
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-10-rules-preview",
+            "id" : "jidx-ssb",
+            "sourceRevision" : "01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "a2eaa67dee87c6c99822b5e6bb8a76bc58837a43746bfc400444ef098294e4f4",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "JIDX Contest Rules 2026-10 https:\/\/www.jidx.org\/jidxrule-e.html SHA-256 01f529ab02a70c70e33ece347ee4387feb59b7786085795ed7609d0a7bebd4aa, multiplier list https:\/\/www.jidx.org\/jidxmult.lst SHA-256 8bc36d111fa659368de86d85ae6a6b386cbe46f67a1c04ea59088250b2840de5, retrieved 2026-10-18; current entity validation reuses the January 2026 DXCC authority currently named arrlRTTYCurrentDXCCEntityCodes; comparator contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/jidx_cw.py and jidx_ph.py; visitor prefix authority https:\/\/rsgb.org\/main\/operating\/licensing-novs-visitors\/operating-for-visitors\/ SHA-256 c115478a145a6d8cd9746917f5f3c7b70e58af3c3fa45cac787767b038282d56; practice preview only",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "North American QSO Party CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-cw",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "3722eedff7f3f10feed35cdec2c4bc149d3adfbd77f1598a14a4737fd69dafd6",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "North American QSO Party RTTY",
+          "entry" : {
+            "adifMode" : "RTTY",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "RY",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "RTTY",
+            "modeProfiles" : [
+              {
+                "adifMode" : "RTTY",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "RY",
+                "mode" : "RTTY",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-rtty",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "RTTY",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "RTTY"
+          ]
+        },
+        {
+          "displayName" : "North American QSO Party SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "naqp-preview-1",
+            "cabrilloProjectionFormatterVersion" : "naqp-preview-1",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision",
+                    "dxccPrefix"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "Location",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : false
+                }
+              ]
+            },
+            "mode" : "SSB",
+            "modeProfiles" : [
+              {
+                "adifMode" : "SSB",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "PH",
+                "mode" : "SSB",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "naqp-ssb",
+            "sourceRevision" : "0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "040cd5d65b7e4d5547b7c4cdaf7680702b65bc1500380b527acedc72bcbf0d70",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "NCJ North American QSO Party Rules 2026 https:\/\/ncjweb.com\/NAQP-Rules.pdf SHA-256 0c98451d9dc4111dbb371c0a7d806a5ccd88624e21b1553672e9066c417064e8, multiplier form https:\/\/ncjweb.com\/NAQP-Paper-Log-Form.pdf SHA-256 6ea80c5118f0520f95762cc679ff3ee05154d74dc1817a681664e690a01f5a8d, retrieved 2026-10-18; comparator oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/naqp_cw.py, naqp_ssb.py, naqp_rtty.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "Oceania DX CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "oceania-dx-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "8372ac078468e2502f4eae7cec8b871ba3c55037e5e5626def8eb85905b237ce",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_cw.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "Oceania DX SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "source-26.10.11",
+            "id" : "oceania-dx-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-source-spike"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "a638f0f5f4bce58a0cd43649cbbdcf6bfa23207cd3be894a0cc4cb56bc273be2",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/oceania_dx_ssb.py + not1mm\/lib\/ham_utility.py; source parity only, not current sponsor approval",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "displayName" : "Scandinavian Activity Contest CW",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "pilot-1",
+            "cabrilloProjectionFormatterVersion" : "pilot-2",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "CW",
+            "report" : {
+              "defaultReceived" : "599",
+              "defaultSent" : "599",
+              "format" : "cwRST",
+              "maximumUTF8Bytes" : 3
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "sac-cw",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "6280e5a01c2aada4f3707b4fea26ef53826e4cfd122115b9110722fd251b54f3",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_cw.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        },
+        {
+          "displayName" : "Scandinavian Activity Contest SSB",
+          "entry" : {
+            "adifMode" : "SSB",
+            "cabrilloFormatterVersion" : "ssb-pilot-1",
+            "cabrilloProjectionFormatterVersion" : "ssb-pilot-2",
+            "cabrilloQSOType" : "PH",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "serialNumber",
+              "sent" : "serialNumber",
+              "sentDefault" : "reservedSerial"
+            },
+            "mode" : "SSB",
+            "report" : {
+              "defaultReceived" : "59",
+              "defaultSent" : "59",
+              "format" : "phoneRS",
+              "maximumUTF8Bytes" : 2
+            },
+            "serial" : {
+              "allowedScopes" : [
+                "session",
+                "band",
+                "transmitter"
+              ],
+              "requirement" : "requiredForCommit"
+            }
+          },
+          "entryDescriptorVersion" : 1,
+          "identity" : {
+            "edition" : "2026-rules-preview",
+            "id" : "sac-ssb",
+            "sourceRevision" : "7c8b499225a73f7f8f792246881bd7aefc05452f",
+            "version" : "1.0.0-2026-rules-preview"
+          },
+          "mode" : "SSB",
+          "operatorCapability" : {
+            "auditDigest" : "b202d90891faeb2bae345d5566ce4cbcf1e5f70abd9dd16c2ceaa29d64ddeb90",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "SAC 2026 rules https:\/\/www.sactest.net\/blog\/scandinavian-activity-contest-2026-rules\/ verified 2026-10-18; oliverbross\/contest-sw 7c8b499225a73f7f8f792246881bd7aefc05452f not1mm\/plugins\/sac_ssb.py + not1mm\/lib\/database.py + not1mm\/lib\/ham_utility.py",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "SSB"
+          ]
+        },
+        {
+          "declarativeDefinition" : {
+            "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exportPurpose" : "operatorArchive",
+            "immutablePerSession" : true,
+            "submissionReady" : false
+          },
+          "displayName" : "K1USN SST Operator Archive Preview",
+          "entry" : {
+            "adifMode" : "CW",
+            "cabrilloFormatterVersion" : "sst-archive-1",
+            "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+            "cabrilloQSOType" : "CW",
+            "exchange" : {
+              "adifFields" : "exchangeStrings",
+              "received" : "structured",
+              "receivedFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "STATE",
+                  "id" : "location",
+                  "label" : "State, province, or DX",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ],
+              "sent" : "structured",
+              "sentDefault" : "stationFields",
+              "sentFields" : [
+                {
+                  "acceptedKinds" : [
+                    "operatorName"
+                  ],
+                  "adifField" : "MY_NAME",
+                  "id" : "name",
+                  "label" : "Name",
+                  "maximumUTF8Bytes" : 32,
+                  "required" : true
+                },
+                {
+                  "acceptedKinds" : [
+                    "subdivision"
+                  ],
+                  "adifField" : "MY_STATE",
+                  "id" : "location",
+                  "label" : "State, province, or DX",
+                  "maximumUTF8Bytes" : 8,
+                  "required" : true
+                }
+              ]
+            },
+            "mode" : "CW",
+            "modeProfiles" : [
+              {
+                "adifMode" : "CW",
+                "adifSubmode" : null,
+                "cabrilloQSOType" : "CW",
+                "mode" : "CW",
+                "report" : {
+                  "defaultReceived" : "",
+                  "defaultSent" : "",
+                  "format" : "none",
+                  "maximumUTF8Bytes" : 0
+                }
+              }
+            ],
+            "report" : {
+              "defaultReceived" : "",
+              "defaultSent" : "",
+              "format" : "none",
+              "maximumUTF8Bytes" : 0
+            },
+            "scorePolicy" : "pointsTimesMultipliers",
+            "serial" : {
+              "allowedScopes" : [
+
+              ],
+              "requirement" : "none"
+            },
+            "version" : 2
+          },
+          "entryDescriptorVersion" : 2,
+          "identity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "mode" : "CW",
+          "operatorCapability" : {
+            "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "macros" : [
+              "CQ",
+              "EXCH",
+              "QRZ",
+              "AGN",
+              "HISCALL",
+              "MYCALL",
+              "QSOB4"
+            ],
+            "output" : "simulation-only",
+            "policy" : "simulated-run-sp-v1",
+            "signalProfiles" : [
+              {
+                "mode" : "CW",
+                "signal" : "cw"
+              }
+            ],
+            "styles" : [
+              "run",
+              "search-and-pounce"
+            ],
+            "version" : 1
+          },
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+          "sourceVerification" : "provisional",
+          "supportedBands" : [
+            "10m",
+            "15m",
+            "160m",
+            "20m",
+            "40m",
+            "80m"
+          ],
+          "supportedModes" : [
+            "CW"
+          ]
+        }
+      ],
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    }
+  },
+  "correction" : {
+    "openAfterRestart" : {
+      "id" : "be91b297-879b-4d8c-a18f-fa6728868984",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "",
+            "state" : "clear"
+          },
+          "fields" : {
+            "band" : "15m",
+            "callsign" : "",
+            "frequencyHz" : 21025000,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedExchangeFields" : {
+              "location" : "",
+              "name" : ""
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "empty"
+          },
+          "reservedSerial" : null,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:32:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A bounded ASCII callsign is required.",
+              "Geographic scoring requires an immutable resolved entity snapshot."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 13,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 30,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:32:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "replayAfterRestart" : {
+      "id" : "f7654d43-c951-4117-896a-20be960f630c",
+      "ok" : true,
+      "result" : {
+        "auditReference" : {
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "requestID" : "1ce8f929-5986-4574-8c00-9168bc934c63",
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e"
+        },
+        "currentTarget" : {
+          "allocatedSerial" : "DAVE MA",
+          "band" : "15m",
+          "callsign" : "VO1AAA",
+          "entity" : {
+            "adif" : 1,
+            "continent" : "NA",
+            "countryPrefix" : "VE",
+            "cqZone" : 5,
+            "name" : "CANADA"
+          },
+          "frequencyHz" : 21025000,
+          "mode" : "CW",
+          "normalizedReceivedExchange" : "ALLEN NL",
+          "normalizedSentExchange" : "DAVE MA",
+          "operatorCallsign" : "K1USN",
+          "originalUTC" : "2026-10-18T12:32:00.000Z",
+          "provenance" : {
+            "importedClaimedScore" : null,
+            "source" : "operatorEntry",
+            "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+          },
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "receivedExchange" : "ALLEN NL",
+          "receivedExchangeFields" : {
+            "location" : "NL",
+            "name" : "ALLEN"
+          },
+          "receivedReport" : "",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "ruleIdentity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "sentExchange" : "DAVE MA",
+          "sentExchangeFields" : {
+            "location" : "MA",
+            "name" : "DAVE"
+          },
+          "sentReport" : "",
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "stationLocation" : "MA"
+        },
+        "operation" : "correction",
+        "qsoCount" : 13,
+        "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:33:00.000Z",
+          "committedRevision" : 30,
+          "payloadDigest" : "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "requestID" : "1ce8f929-5986-4574-8c00-9168bc934c63"
+        },
+        "score" : {
+          "claimedScore" : 143,
+          "multipliers" : 11,
+          "points" : 13,
+          "qsos" : 13,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sourceVerification" : "provisional",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "qsoCount" : 13,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 30,
+          "ruleIdentity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:33:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "request" : {
+      "expectedRevision" : 29,
+      "operationTimestamp" : "2026-10-18T12:33:00.000Z",
+      "payload" : {
+        "qso" : {
+          "allocatedSerial" : "DAVE MA",
+          "band" : "15m",
+          "callsign" : "VO1AAA",
+          "frequencyHz" : 21025000,
+          "mode" : "CW",
+          "normalizedReceivedExchange" : "ALLEN NL",
+          "normalizedSentExchange" : "DAVE MA",
+          "operatorCallsign" : "K1USN",
+          "originalUTC" : "2026-10-18T12:32:00.000Z",
+          "provenance" : {
+            "importedClaimedScore" : null,
+            "source" : "operatorEntry",
+            "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+          },
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "receivedExchange" : "ALLEN NL",
+          "receivedExchangeFields" : {
+            "location" : "NL",
+            "name" : "ALLEN"
+          },
+          "receivedReport" : "",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "ruleIdentity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "sentExchange" : "DAVE MA",
+          "sentExchangeFields" : {
+            "location" : "MA",
+            "name" : "DAVE"
+          },
+          "sentReport" : "",
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "stationLocation" : "MA"
+        },
+        "reason" : "Correct copied name"
+      },
+      "payloadDigest" : "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "requestID" : "1ce8f929-5986-4574-8c00-9168bc934c63",
+      "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    },
+    "response" : {
+      "id" : "f41e4f2f-2086-4850-9de2-4839b8ef48cb",
+      "ok" : true,
+      "result" : {
+        "auditReference" : {
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "requestID" : "1ce8f929-5986-4574-8c00-9168bc934c63",
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e"
+        },
+        "currentTarget" : {
+          "allocatedSerial" : "DAVE MA",
+          "band" : "15m",
+          "callsign" : "VO1AAA",
+          "entity" : {
+            "adif" : 1,
+            "continent" : "NA",
+            "countryPrefix" : "VE",
+            "cqZone" : 5,
+            "name" : "CANADA"
+          },
+          "frequencyHz" : 21025000,
+          "mode" : "CW",
+          "normalizedReceivedExchange" : "ALLEN NL",
+          "normalizedSentExchange" : "DAVE MA",
+          "operatorCallsign" : "K1USN",
+          "originalUTC" : "2026-10-18T12:32:00.000Z",
+          "provenance" : {
+            "importedClaimedScore" : null,
+            "source" : "operatorEntry",
+            "sourceIdentity" : "bundled-cty-fnv64-cf9c48a44d4b5e66"
+          },
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "receivedExchange" : "ALLEN NL",
+          "receivedExchangeFields" : {
+            "location" : "NL",
+            "name" : "ALLEN"
+          },
+          "receivedReport" : "",
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "ruleIdentity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "sentExchange" : "DAVE MA",
+          "sentExchangeFields" : {
+            "location" : "MA",
+            "name" : "DAVE"
+          },
+          "sentReport" : "",
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "stationLocation" : "MA"
+        },
+        "operation" : "correction",
+        "qsoCount" : 13,
+        "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:33:00.000Z",
+          "committedRevision" : 30,
+          "payloadDigest" : "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "requestID" : "1ce8f929-5986-4574-8c00-9168bc934c63"
+        },
+        "score" : {
+          "claimedScore" : 143,
+          "multipliers" : 11,
+          "points" : 13,
+          "qsos" : 13,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sourceVerification" : "provisional",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "qsoCount" : 13,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 30,
+          "ruleIdentity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:33:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    }
+  },
+  "cqReady" : {
+    "request" : {
+      "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+      "expectedRevision" : 1,
+      "operationTimestamp" : "2026-10-18T12:00:01.000Z",
+      "payload" : {
+        "fields" : {
+          "band" : "20m",
+          "callsign" : "",
+          "frequencyHz" : 14025000,
+          "mode" : "CW",
+          "receivedExchange" : "",
+          "receivedExchangeFields" : {
+            "location" : "",
+            "name" : ""
+          },
+          "receivedReport" : "",
+          "sentExchange" : "DAVE MA",
+          "sentExchangeFields" : {
+            "location" : "MA",
+            "name" : "DAVE"
+          },
+          "sentReport" : ""
+        }
+      },
+      "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
+      "requestID" : "3d711914-db18-4ca1-b233-fca15155ecc2",
+      "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    },
+    "response" : {
+      "id" : "223715f6-5635-420c-b810-385651a7fad6",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : 14025000,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedExchangeFields" : {
+              "location" : "",
+              "name" : ""
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "empty"
+          },
+          "reservedSerial" : null,
+          "revision" : 2,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:00:01.000Z",
+          "validation" : {
+            "errors" : [
+              "A required exchange field is missing.",
+              "A required exchange field is missing.",
+              "A bounded ASCII callsign is required.",
+              "Geographic scoring requires an immutable resolved entity snapshot."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:00:01.000Z",
+          "committedRevision" : 2,
+          "payloadDigest" : "2222222222222222222222222222222222222222222222222222222222222222",
+          "requestID" : "3d711914-db18-4ca1-b233-fca15155ecc2"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 0,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 2,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:00:01.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    }
+  },
+  "create" : {
+    "request" : {
+      "expectedRevision" : 0,
+      "operationTimestamp" : "2026-10-18T12:00:00.000Z",
+      "payload" : {
+        "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+        "name" : "SST Worker Acceptance",
+        "operator" : {
+          "callsign" : "K1USN",
+          "category" : "Single Operator"
+        },
+        "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+        "ruleIdentity" : {
+          "edition" : "official-rules-and-faq-2026-10-18",
+          "id" : "k1usn-sst",
+          "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+          "version" : "2.0.0-declarative-archive"
+        },
+        "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+        "station" : {
+          "callsign" : "K1USN",
+          "cqZone" : "5",
+          "dxccEntity" : "UNITED STATES",
+          "exchangeFields" : {
+            "location" : "MA",
+            "name" : "DAVE"
+          }
+        }
+      },
+      "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+      "requestID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+      "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    },
+    "response" : {
+      "id" : "498e3848-d33b-49bd-bc4e-2b8649901fc9",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "20m",
+            "callsign" : "",
+            "frequencyHz" : null,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedExchangeFields" : {
+              "location" : "",
+              "name" : ""
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : false,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "empty"
+          },
+          "reservedSerial" : null,
+          "revision" : 1,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:00:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A required exchange field is missing.",
+              "A required exchange field is missing.",
+              "A bounded ASCII callsign is required.",
+              "Frequency does not match the recorded band.",
+              "Geographic scoring requires an immutable resolved entity snapshot."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:00:00.000Z",
+          "committedRevision" : 1,
+          "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+          "requestID" : "3b1af8a3-be44-40ab-9442-648f151f9d55"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 0,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 1,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:00:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    }
+  },
+  "deletionRecovery" : {
+    "openAfterRestart" : {
+      "id" : "440ede62-019b-4fdb-9644-ee1730490ea9",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "",
+            "state" : "clear"
+          },
+          "fields" : {
+            "band" : "15m",
+            "callsign" : "",
+            "frequencyHz" : 21025000,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedExchangeFields" : {
+              "location" : "",
+              "name" : ""
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "empty"
+          },
+          "reservedSerial" : null,
+          "revision" : 31,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:32:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A bounded ASCII callsign is required.",
+              "Geographic scoring requires an immutable resolved entity snapshot."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 12,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 31,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:32:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "request" : {
+      "expectedRevision" : 30,
+      "operationTimestamp" : "2026-10-18T12:35:00.000Z",
+      "payload" : {
+        "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+        "reason" : "Remove extra alias acceptance contact"
+      },
+      "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+      "requestID" : "ad697964-ce75-4302-b0ea-a25ce49cacd6",
+      "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    },
+    "response" : {
+      "id" : "e5c610d2-33fa-4848-9c49-addad2ea2d5f",
+      "ok" : true,
+      "result" : {
+        "auditReference" : {
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "requestID" : "ad697964-ce75-4302-b0ea-a25ce49cacd6",
+          "revision" : 31,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e"
+        },
+        "currentTarget" : null,
+        "operation" : "deletion",
+        "qsoCount" : 12,
+        "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:35:00.000Z",
+          "committedRevision" : 31,
+          "payloadDigest" : "1111111111111111111111111111111111111111111111111111111111111111",
+          "requestID" : "ad697964-ce75-4302-b0ea-a25ce49cacd6"
+        },
+        "score" : {
+          "claimedScore" : 120,
+          "multipliers" : 10,
+          "points" : 12,
+          "qsos" : 12,
+          "revision" : 31,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sourceVerification" : "provisional",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "qsoCount" : 12,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 31,
+          "ruleIdentity" : {
+            "edition" : "official-rules-and-faq-2026-10-18",
+            "id" : "k1usn-sst",
+            "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "version" : "2.0.0-declarative-archive"
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:35:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    }
+  },
+  "exports" : {
+    "adif" : {
+      "prepareRequest" : {
+        "expectedRevision" : 30,
+        "exportID" : "e5896986-6db9-4ffb-90e8-6206c982cc1e",
+        "format" : "adif",
+        "generatedAtUTC" : "2026-10-18T12:34:00.000Z",
+        "header" : {
+          "addressLines" : [
+
+          ],
+          "callsign" : "K1USN",
+          "categoryAssisted" : "NON-ASSISTED",
+          "categoryBand" : "ALL",
+          "categoryMode" : "CW",
+          "categoryOperator" : "SINGLE-OP",
+          "categoryPower" : "LOW",
+          "categoryTransmitter" : "ONE",
+          "email" : "",
+          "location" : "MA",
+          "name" : "Dave",
+          "operators" : [
+            "K1USN"
+          ]
+        },
+        "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+        "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+      },
+      "prepareResponse" : {
+        "id" : "55071577-ba10-46b6-ab0a-3ab53f309b13",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "e5896986-6db9-4ffb-90e8-6206c982cc1e",
+          "byteLength" : 13517,
+          "chunkLimit" : 65536,
+          "claimedScore" : 143,
+          "declarativePurpose" : "operatorArchive",
+          "expiresAfterSeconds" : 600,
+          "format" : "adif",
+          "formatterVersion" : "sst-archive-1",
+          "generatedAtUTC" : "2026-10-18T12:34:00.000Z",
+          "inputSchemaVersion" : "1",
+          "multiplierCount" : 11,
+          "qsoCount" : 13,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sha256" : "e6c1c947b98ae9527374b16fe0341a870138090a4660ce809d940e2f67fa6706",
+          "totalPoints" : 13,
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      },
+      "readRequest" : {
+        "exportID" : "e5896986-6db9-4ffb-90e8-6206c982cc1e",
+        "length" : 13517,
+        "offset" : 0,
+        "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+        "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+      },
+      "readResponse" : {
+        "id" : "d1825a34-c7e1-4fab-900f-bec15f9c2cbd",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "e5896986-6db9-4ffb-90e8-6206c982cc1e",
+          "byteLength" : 13517,
+          "dataBase64" : "PEFESUZfVkVSOjU+My4xLjc8UFJPR1JBTUlEOjEwPk9NMFJYLXhMb2c8UFJPR1JBTVZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxDUkVBVEVEX1RJTUVTVEFNUDoxNT4yMDI2MTAxOCAxMjM0MDA8QVBQX09NMFJYWExPR19FWFBPUlRfUFVSUE9TRToxNj5PUEVSQVRPUl9BUkNISVZFPEVPSD4NCjxBUFBfT00wUlhYTE9HX0ZPUk1BVFRFUl9WRVJTSU9OOjEzPnNzdC1hcmNoaXZlLTE8QVBQX09NMFJYWExPR19JTlBVVF9TQ0hFTUFfVkVSU0lPTjoxPjE8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX0lERU5USVRZOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX1NPVVJDRToxMz5vcGVyYXRvckVudHJ5PEFQUF9PTTBSWFhMT0dfUVNPX0lEOjM2PjczNTQ3NDI1LTVlZjAtNGEwZS05ZWQwLWUxZGNhNTM5MDg0NTxBUFBfT00wUlhYTE9HX1JFRkVSRU5DRV9EQVRBX1ZFUlNJT046MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1JVTEVfRURJVElPTjozMz5vZmZpY2lhbC1ydWxlcy1hbmQtZmFxLTIwMjYtMTAtMTg8QVBQX09NMFJYWExPR19SVUxFX0lEOjk+azF1c24tc3N0PEFQUF9PTTBSWFhMT0dfUlVMRV9TT1VSQ0VfUkVWSVNJT046NjQ+ZWU0Njg5MDEzNDlkZDk0N2VlYjA1M2IxNWY2ZDBlZGUwMDI3MjRkNzc2MDk4MjI5MWU3ODU4M2ExY2IyOGMyNzxBUFBfT00wUlhYTE9HX1JVTEVfVkVSU0lPTjoyNT4yLjAuMC1kZWNsYXJhdGl2ZS1hcmNoaXZlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9JRDozNj5kNzg5OWIxZS0wOGRhLTRkNTktODcwMy1lMzgwY2YwYWFkMWU8QVBQX09NMFJYWExPR19TRVNTSU9OX1JFVklTSU9OOjI+MzA8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj5lYWZiOGIxNy0wNTUwLTQ1NTgtOWVhMS0wNjEyMTA0NzhiMmU8QkFORDozPjgwbTxDQUxMOjU+SzFWVVQ8Q09OVEVTVF9JRDo4PksxVVNOU1NUPEZSRVE6OD4zLjUyNTAwMDxNT0RFOjI+Q1c8TVlfTkFNRTo0PkRBVkU8TVlfU1RBVEU6Mj5NQTxOQU1FOjQ+REFWRTxPUEVSQVRPUjo1PksxVVNOPFFTT19EQVRFOjg+MjAyNjEwMTg8U1JYX1NUUklORzo3PkRBVkUgTUE8U1RBVEU6Mj5NQTxTVEFUSU9OX0NBTExTSUdOOjU+SzFVU048U1RYX1NUUklORzo3PkRBVkUgTUE8VElNRV9PTjo2PjEyMDMwMDxFT1I+DQo8QVBQX09NMFJYWExPR19GT1JNQVRURVJfVkVSU0lPTjoxMz5zc3QtYXJjaGl2ZS0xPEFQUF9PTTBSWFhMT0dfSU5QVVRfU0NIRU1BX1ZFUlNJT046MT4xPEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9JREVOVElUWTozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9TT1VSQ0U6MTM+b3BlcmF0b3JFbnRyeTxBUFBfT00wUlhYTE9HX1FTT19JRDozNj5iY2JlMjA3NC1kOTMxLTRmZTgtOGMxYy0yMjk2YTgxZWE4ZWU8QVBQX09NMFJYWExPR19SRUZFUkVOQ0VfREFUQV9WRVJTSU9OOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19SVUxFX0VESVRJT046MzM+b2ZmaWNpYWwtcnVsZXMtYW5kLWZhcS0yMDI2LTEwLTE4PEFQUF9PTTBSWFhMT0dfUlVMRV9JRDo5PmsxdXNuLXNzdDxBUFBfT00wUlhYTE9HX1JVTEVfU09VUkNFX1JFVklTSU9OOjY0PmVlNDY4OTAxMzQ5ZGQ5NDdlZWIwNTNiMTVmNmQwZWRlMDAyNzI0ZDc3NjA5ODIyOTFlNzg1ODNhMWNiMjhjMjc8QVBQX09NMFJYWExPR19SVUxFX1ZFUlNJT046MjU+Mi4wLjAtZGVjbGFyYXRpdmUtYXJjaGl2ZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+ZDc4OTliMWUtMDhkYS00ZDU5LTg3MDMtZTM4MGNmMGFhZDFlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoyPjMwPEFQUF9PTTBSWFhMT0dfV09SS1NQQUNFX0dFTkVSQVRJT046MzY+ZWFmYjhiMTctMDU1MC00NTU4LTllYTEtMDYxMjEwNDc4YjJlPEJBTkQ6Mz44MG08Q0FMTDo0Pk4zUUU8Q09OVEVTVF9JRDo4PksxVVNOU1NUPEZSRVE6OD4zLjUyNjAwMDxNT0RFOjI+Q1c8TVlfTkFNRTo0PkRBVkU8TVlfU1RBVEU6Mj5NQTxOQU1FOjM+VElNPE9QRVJBVE9SOjU+SzFVU048UVNPX0RBVEU6OD4yMDI2MTAxODxTUlhfU1RSSU5HOjY+VElNIE1EPFNUQVRFOjI+TUQ8U1RBVElPTl9DQUxMU0lHTjo1PksxVVNOPFNUWF9TVFJJTkc6Nz5EQVZFIE1BPFRJTUVfT046Nj4xMjA1MDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+YzNlZmNlMTQtMTgzZC00ODNjLWEwOWUtYzYzMmUxZGEwNjNkPEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjMzPm9mZmljaWFsLXJ1bGVzLWFuZC1mYXEtMjAyNi0xMC0xODxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6OT5rMXVzbi1zc3Q8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND5lZTQ2ODkwMTM0OWRkOTQ3ZWViMDUzYjE1ZjZkMGVkZTAwMjcyNGQ3NzYwOTgyMjkxZTc4NTgzYTFjYjI4YzI3PEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI1PjIuMC4wLWRlY2xhcmF0aXZlLWFyY2hpdmU8QVBQX09NMFJYWExPR19TRVNTSU9OX0lEOjM2PmQ3ODk5YjFlLTA4ZGEtNGQ1OS04NzAzLWUzODBjZjBhYWQxZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fUkVWSVNJT046Mj4zMDxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PmVhZmI4YjE3LTA1NTAtNDU1OC05ZWExLTA2MTIxMDQ3OGIyZTxCQU5EOjM+ODBtPENBTEw6NT5WRTNLSTxDT05URVNUX0lEOjg+SzFVU05TU1Q8RlJFUTo4PjMuNTI3MDAwPE1PREU6Mj5DVzxNWV9OQU1FOjQ+REFWRTxNWV9TVEFURToyPk1BPE5BTUU6ND5SSUNIPE9QRVJBVE9SOjU+SzFVU048UVNPX0RBVEU6OD4yMDI2MTAxODxTUlhfU1RSSU5HOjc+UklDSCBPTjxTVEFURToyPk9OPFNUQVRJT05fQ0FMTFNJR046NT5LMVVTTjxTVFhfU1RSSU5HOjc+REFWRSBNQTxUSU1FX09OOjY+MTIwNzAwPEVPUj4NCjxBUFBfT00wUlhYTE9HX0ZPUk1BVFRFUl9WRVJTSU9OOjEzPnNzdC1hcmNoaXZlLTE8QVBQX09NMFJYWExPR19JTlBVVF9TQ0hFTUFfVkVSU0lPTjoxPjE8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX0lERU5USVRZOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX1NPVVJDRToxMz5vcGVyYXRvckVudHJ5PEFQUF9PTTBSWFhMT0dfUVNPX0lEOjM2PmE1NGMzNWY4LTI4NDctNGY5My1iOWIwLWM0ZDAwNzA1ODMzYTxBUFBfT00wUlhYTE9HX1JFRkVSRU5DRV9EQVRBX1ZFUlNJT046MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1JVTEVfRURJVElPTjozMz5vZmZpY2lhbC1ydWxlcy1hbmQtZmFxLTIwMjYtMTAtMTg8QVBQX09NMFJYWExPR19SVUxFX0lEOjk+azF1c24tc3N0PEFQUF9PTTBSWFhMT0dfUlVMRV9TT1VSQ0VfUkVWSVNJT046NjQ+ZWU0Njg5MDEzNDlkZDk0N2VlYjA1M2IxNWY2ZDBlZGUwMDI3MjRkNzc2MDk4MjI5MWU3ODU4M2ExY2IyOGMyNzxBUFBfT00wUlhYTE9HX1JVTEVfVkVSU0lPTjoyNT4yLjAuMC1kZWNsYXJhdGl2ZS1hcmNoaXZlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9JRDozNj5kNzg5OWIxZS0wOGRhLTRkNTktODcwMy1lMzgwY2YwYWFkMWU8QVBQX09NMFJYWExPR19TRVNTSU9OX1JFVklTSU9OOjI+MzA8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj5lYWZiOGIxNy0wNTUwLTQ1NTgtOWVhMS0wNjEyMTA0NzhiMmU8QkFORDozPjgwbTxDQUxMOjU+REs5UFk8Q09OVEVTVF9JRDo4PksxVVNOU1NUPEZSRVE6OD4zLjUyODAwMDxNT0RFOjI+Q1c8TVlfTkFNRTo0PkRBVkU8TVlfU1RBVEU6Mj5NQTxOQU1FOjU+QVJNSU48T1BFUkFUT1I6NT5LMVVTTjxRU09fREFURTo4PjIwMjYxMDE4PFNSWF9TVFJJTkc6OD5BUk1JTiBEWDxTVEFUSU9OX0NBTExTSUdOOjU+SzFVU048U1RYX1NUUklORzo3PkRBVkUgTUE8VElNRV9PTjo2PjEyMDkwMDxFT1I+DQo8QVBQX09NMFJYWExPR19GT1JNQVRURVJfVkVSU0lPTjoxMz5zc3QtYXJjaGl2ZS0xPEFQUF9PTTBSWFhMT0dfSU5QVVRfU0NIRU1BX1ZFUlNJT046MT4xPEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9JREVOVElUWTozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9TT1VSQ0U6MTM+b3BlcmF0b3JFbnRyeTxBUFBfT00wUlhYTE9HX1FTT19JRDozNj41NWVhNDY2Ni1hOGQ4LTQ2ZTUtODA3MC03MjRhNjdmYmEzYTU8QVBQX09NMFJYWExPR19SRUZFUkVOQ0VfREFUQV9WRVJTSU9OOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19SVUxFX0VESVRJT046MzM+b2ZmaWNpYWwtcnVsZXMtYW5kLWZhcS0yMDI2LTEwLTE4PEFQUF9PTTBSWFhMT0dfUlVMRV9JRDo5PmsxdXNuLXNzdDxBUFBfT00wUlhYTE9HX1JVTEVfU09VUkNFX1JFVklTSU9OOjY0PmVlNDY4OTAxMzQ5ZGQ5NDdlZWIwNTNiMTVmNmQwZWRlMDAyNzI0ZDc3NjA5ODIyOTFlNzg1ODNhMWNiMjhjMjc8QVBQX09NMFJYWExPR19SVUxFX1ZFUlNJT046MjU+Mi4wLjAtZGVjbGFyYXRpdmUtYXJjaGl2ZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+ZDc4OTliMWUtMDhkYS00ZDU5LTg3MDMtZTM4MGNmMGFhZDFlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoyPjMwPEFQUF9PTTBSWFhMT0dfV09SS1NQQUNFX0dFTkVSQVRJT046MzY+ZWFmYjhiMTctMDU1MC00NTU4LTllYTEtMDYxMjEwNDc4YjJlPEJBTkQ6Mz40MG08Q0FMTDo1Pks0QkFJPENPTlRFU1RfSUQ6OD5LMVVTTlNTVDxGUkVROjg+Ny4wMjUwMDA8TU9ERToyPkNXPE1ZX05BTUU6ND5EQVZFPE1ZX1NUQVRFOjI+TUE8TkFNRTo0PkpPSE48T1BFUkFUT1I6NT5LMVVTTjxRU09fREFURTo4PjIwMjYxMDE4PFNSWF9TVFJJTkc6Nz5KT0hOIEdBPFNUQVRFOjI+R0E8U1RBVElPTl9DQUxMU0lHTjo1PksxVVNOPFNUWF9TVFJJTkc6Nz5EQVZFIE1BPFRJTUVfT046Nj4xMjExMDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+OTY1NzY3OTEtNzNmMy00MGNhLTkwZGQtMjczMzM4MmIyMjE1PEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjMzPm9mZmljaWFsLXJ1bGVzLWFuZC1mYXEtMjAyNi0xMC0xODxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6OT5rMXVzbi1zc3Q8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND5lZTQ2ODkwMTM0OWRkOTQ3ZWViMDUzYjE1ZjZkMGVkZTAwMjcyNGQ3NzYwOTgyMjkxZTc4NTgzYTFjYjI4YzI3PEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI1PjIuMC4wLWRlY2xhcmF0aXZlLWFyY2hpdmU8QVBQX09NMFJYWExPR19TRVNTSU9OX0lEOjM2PmQ3ODk5YjFlLTA4ZGEtNGQ1OS04NzAzLWUzODBjZjBhYWQxZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fUkVWSVNJT046Mj4zMDxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PmVhZmI4YjE3LTA1NTAtNDU1OC05ZWExLTA2MTIxMDQ3OGIyZTxCQU5EOjM+NDBtPENBTEw6ND5LMVJWPENPTlRFU1RfSUQ6OD5LMVVTTlNTVDxGUkVROjg+Ny4wMjYwMDA8TU9ERToyPkNXPE1ZX05BTUU6ND5EQVZFPE1ZX1NUQVRFOjI+TUE8TkFNRToyPlBJPE9QRVJBVE9SOjU+SzFVU048UVNPX0RBVEU6OD4yMDI2MTAxODxTUlhfU1RSSU5HOjU+UEkgTUE8U1RBVEU6Mj5NQTxTVEFUSU9OX0NBTExTSUdOOjU+SzFVU048U1RYX1NUUklORzo3PkRBVkUgTUE8VElNRV9PTjo2PjEyMTMwMDxFT1I+DQo8QVBQX09NMFJYWExPR19GT1JNQVRURVJfVkVSU0lPTjoxMz5zc3QtYXJjaGl2ZS0xPEFQUF9PTTBSWFhMT0dfSU5QVVRfU0NIRU1BX1ZFUlNJT046MT4xPEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9JREVOVElUWTozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUFJPVkVOQU5DRV9TT1VSQ0U6MTM+b3BlcmF0b3JFbnRyeTxBUFBfT00wUlhYTE9HX1FTT19JRDozNj5hMmFiMmRlNC0zMmJjLTQwYzItYTM0Yy1kYjFlY2YwZWY4N2I8QVBQX09NMFJYWExPR19SRUZFUkVOQ0VfREFUQV9WRVJTSU9OOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19SVUxFX0VESVRJT046MzM+b2ZmaWNpYWwtcnVsZXMtYW5kLWZhcS0yMDI2LTEwLTE4PEFQUF9PTTBSWFhMT0dfUlVMRV9JRDo5PmsxdXNuLXNzdDxBUFBfT00wUlhYTE9HX1JVTEVfU09VUkNFX1JFVklTSU9OOjY0PmVlNDY4OTAxMzQ5ZGQ5NDdlZWIwNTNiMTVmNmQwZWRlMDAyNzI0ZDc3NjA5ODIyOTFlNzg1ODNhMWNiMjhjMjc8QVBQX09NMFJYWExPR19SVUxFX1ZFUlNJT046MjU+Mi4wLjAtZGVjbGFyYXRpdmUtYXJjaGl2ZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fSUQ6MzY+ZDc4OTliMWUtMDhkYS00ZDU5LTg3MDMtZTM4MGNmMGFhZDFlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9SRVZJU0lPTjoyPjMwPEFQUF9PTTBSWFhMT0dfV09SS1NQQUNFX0dFTkVSQVRJT046MzY+ZWFmYjhiMTctMDU1MC00NTU4LTllYTEtMDYxMjEwNDc4YjJlPEJBTkQ6Mz40MG08Q0FMTDo0Pk4xVkg8Q09OVEVTVF9JRDo4PksxVVNOU1NUPEZSRVE6OD43LjAyNzAwMDxNT0RFOjI+Q1c8TVlfTkFNRTo0PkRBVkU8TVlfU1RBVEU6Mj5NQTxOQU1FOjU+TUFSVFk8T1BFUkFUT1I6NT5LMVVTTjxRU09fREFURTo4PjIwMjYxMDE4PFNSWF9TVFJJTkc6OD5NQVJUWSBNQTxTVEFURToyPk1BPFNUQVRJT05fQ0FMTFNJR046NT5LMVVTTjxTVFhfU1RSSU5HOjc+REFWRSBNQTxUSU1FX09OOjY+MTIxNTAwPEVPUj4NCjxBUFBfT00wUlhYTE9HX0ZPUk1BVFRFUl9WRVJTSU9OOjEzPnNzdC1hcmNoaXZlLTE8QVBQX09NMFJYWExPR19JTlBVVF9TQ0hFTUFfVkVSU0lPTjoxPjE8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX0lERU5USVRZOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX1NPVVJDRToxMz5vcGVyYXRvckVudHJ5PEFQUF9PTTBSWFhMT0dfUVNPX0lEOjM2PjhhNTVhNjNmLTdhMDItNDc1Yi1iNjlmLTU2M2E4NWVlNDM2MTxBUFBfT00wUlhYTE9HX1JFRkVSRU5DRV9EQVRBX1ZFUlNJT046MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1JVTEVfRURJVElPTjozMz5vZmZpY2lhbC1ydWxlcy1hbmQtZmFxLTIwMjYtMTAtMTg8QVBQX09NMFJYWExPR19SVUxFX0lEOjk+azF1c24tc3N0PEFQUF9PTTBSWFhMT0dfUlVMRV9TT1VSQ0VfUkVWSVNJT046NjQ+ZWU0Njg5MDEzNDlkZDk0N2VlYjA1M2IxNWY2ZDBlZGUwMDI3MjRkNzc2MDk4MjI5MWU3ODU4M2ExY2IyOGMyNzxBUFBfT00wUlhYTE9HX1JVTEVfVkVSU0lPTjoyNT4yLjAuMC1kZWNsYXJhdGl2ZS1hcmNoaXZlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9JRDozNj5kNzg5OWIxZS0wOGRhLTRkNTktODcwMy1lMzgwY2YwYWFkMWU8QVBQX09NMFJYWExPR19TRVNTSU9OX1JFVklTSU9OOjI+MzA8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj5lYWZiOGIxNy0wNTUwLTQ1NTgtOWVhMS0wNjEyMTA0NzhiMmU8QkFORDozPjQwbTxDQUxMOjQ+SzlaTzxDT05URVNUX0lEOjg+SzFVU05TU1Q8RlJFUTo4PjcuMDI4MDAwPE1PREU6Mj5DVzxNWV9OQU1FOjQ+REFWRTxNWV9TVEFURToyPk1BPE5BTUU6Mj5BTDxPUEVSQVRPUjo1PksxVVNOPFFTT19EQVRFOjg+MjAyNjEwMTg8U1JYX1NUUklORzo1PkFMIElMPFNUQVRFOjI+SUw8U1RBVElPTl9DQUxMU0lHTjo1PksxVVNOPFNUWF9TVFJJTkc6Nz5EQVZFIE1BPFRJTUVfT046Nj4xMjE3MDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+MzM5YWNlZGUtZTBlNy00YTUxLWIwNTgtMWNlMTFjYzRkMzZhPEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjMzPm9mZmljaWFsLXJ1bGVzLWFuZC1mYXEtMjAyNi0xMC0xODxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6OT5rMXVzbi1zc3Q8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND5lZTQ2ODkwMTM0OWRkOTQ3ZWViMDUzYjE1ZjZkMGVkZTAwMjcyNGQ3NzYwOTgyMjkxZTc4NTgzYTFjYjI4YzI3PEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI1PjIuMC4wLWRlY2xhcmF0aXZlLWFyY2hpdmU8QVBQX09NMFJYWExPR19TRVNTSU9OX0lEOjM2PmQ3ODk5YjFlLTA4ZGEtNGQ1OS04NzAzLWUzODBjZjBhYWQxZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fUkVWSVNJT046Mj4zMDxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PmVhZmI4YjE3LTA1NTAtNDU1OC05ZWExLTA2MTIxMDQ3OGIyZTxCQU5EOjM+MjBtPENBTEw6ND5LMURKPENPTlRFU1RfSUQ6OD5LMVVTTlNTVDxGUkVROjk+MTQuMDI1MDAwPE1PREU6Mj5DVzxNWV9OQU1FOjQ+REFWRTxNWV9TVEFURToyPk1BPE5BTUU6ND5SSUNIPE9QRVJBVE9SOjU+SzFVU048UVNPX0RBVEU6OD4yMDI2MTAxODxTUlhfU1RSSU5HOjc+UklDSCBNQTxTVEFURToyPk1BPFNUQVRJT05fQ0FMTFNJR046NT5LMVVTTjxTVFhfU1RSSU5HOjc+REFWRSBNQTxUSU1FX09OOjY+MTIxOTAwPEVPUj4NCjxBUFBfT00wUlhYTE9HX0ZPUk1BVFRFUl9WRVJTSU9OOjEzPnNzdC1hcmNoaXZlLTE8QVBQX09NMFJYWExPR19JTlBVVF9TQ0hFTUFfVkVSU0lPTjoxPjE8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX0lERU5USVRZOjM0PmJ1bmRsZWQtY3R5LWZudjY0LWNmOWM0OGE0NGQ0YjVlNjY8QVBQX09NMFJYWExPR19QUk9WRU5BTkNFX1NPVVJDRToxMz5vcGVyYXRvckVudHJ5PEFQUF9PTTBSWFhMT0dfUVNPX0lEOjM2PmZhMmNiNjQ5LTBjZmMtNDlkNC1iYzhlLTIzOGZhYWJiYTFiZTxBUFBfT00wUlhYTE9HX1JFRkVSRU5DRV9EQVRBX1ZFUlNJT046MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1JVTEVfRURJVElPTjozMz5vZmZpY2lhbC1ydWxlcy1hbmQtZmFxLTIwMjYtMTAtMTg8QVBQX09NMFJYWExPR19SVUxFX0lEOjk+azF1c24tc3N0PEFQUF9PTTBSWFhMT0dfUlVMRV9TT1VSQ0VfUkVWSVNJT046NjQ+ZWU0Njg5MDEzNDlkZDk0N2VlYjA1M2IxNWY2ZDBlZGUwMDI3MjRkNzc2MDk4MjI5MWU3ODU4M2ExY2IyOGMyNzxBUFBfT00wUlhYTE9HX1JVTEVfVkVSU0lPTjoyNT4yLjAuMC1kZWNsYXJhdGl2ZS1hcmNoaXZlPEFQUF9PTTBSWFhMT0dfU0VTU0lPTl9JRDozNj5kNzg5OWIxZS0wOGRhLTRkNTktODcwMy1lMzgwY2YwYWFkMWU8QVBQX09NMFJYWExPR19TRVNTSU9OX1JFVklTSU9OOjI+MzA8QVBQX09NMFJYWExPR19XT1JLU1BBQ0VfR0VORVJBVElPTjozNj5lYWZiOGIxNy0wNTUwLTQ1NTgtOWVhMS0wNjEyMTA0NzhiMmU8QkFORDozPjIwbTxDQUxMOjU+REs5UFk8Q09OVEVTVF9JRDo4PksxVVNOU1NUPEZSRVE6OT4xNC4wMjYwMDA8TU9ERToyPkNXPE1ZX05BTUU6ND5EQVZFPE1ZX1NUQVRFOjI+TUE8TkFNRTo1PkFSTUlOPE9QRVJBVE9SOjU+SzFVU048UVNPX0RBVEU6OD4yMDI2MTAxODxTUlhfU1RSSU5HOjg+QVJNSU4gRFg8U1RBVElPTl9DQUxMU0lHTjo1PksxVVNOPFNUWF9TVFJJTkc6Nz5EQVZFIE1BPFRJTUVfT046Nj4xMjIxMDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+NTY3ODgyNTYtMDhiOC00NzE0LWE2NTMtM2VjMjQ0MWU3ZjNkPEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjMzPm9mZmljaWFsLXJ1bGVzLWFuZC1mYXEtMjAyNi0xMC0xODxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6OT5rMXVzbi1zc3Q8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND5lZTQ2ODkwMTM0OWRkOTQ3ZWViMDUzYjE1ZjZkMGVkZTAwMjcyNGQ3NzYwOTgyMjkxZTc4NTgzYTFjYjI4YzI3PEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI1PjIuMC4wLWRlY2xhcmF0aXZlLWFyY2hpdmU8QVBQX09NMFJYWExPR19TRVNTSU9OX0lEOjM2PmQ3ODk5YjFlLTA4ZGEtNGQ1OS04NzAzLWUzODBjZjBhYWQxZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fUkVWSVNJT046Mj4zMDxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PmVhZmI4YjE3LTA1NTAtNDU1OC05ZWExLTA2MTIxMDQ3OGIyZTxCQU5EOjM+MjBtPENBTEw6NT5GNkhLQTxDT05URVNUX0lEOjg+SzFVU05TU1Q8RlJFUTo5PjE0LjAyNzAwMDxNT0RFOjI+Q1c8TVlfTkFNRTo0PkRBVkU8TVlfU1RBVEU6Mj5NQTxOQU1FOjQ+QkVSVDxPUEVSQVRPUjo1PksxVVNOPFFTT19EQVRFOjg+MjAyNjEwMTg8U1JYX1NUUklORzo3PkJFUlQgRFg8U1RBVElPTl9DQUxMU0lHTjo1PksxVVNOPFNUWF9TVFJJTkc6Nz5EQVZFIE1BPFRJTUVfT046Nj4xMjIzMDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+NzUxZjg3ZWEtNTRjNC00MzAzLThmODAtOWU3YzFkZTRlNmUzPEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjMzPm9mZmljaWFsLXJ1bGVzLWFuZC1mYXEtMjAyNi0xMC0xODxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6OT5rMXVzbi1zc3Q8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND5lZTQ2ODkwMTM0OWRkOTQ3ZWViMDUzYjE1ZjZkMGVkZTAwMjcyNGQ3NzYwOTgyMjkxZTc4NTgzYTFjYjI4YzI3PEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI1PjIuMC4wLWRlY2xhcmF0aXZlLWFyY2hpdmU8QVBQX09NMFJYWExPR19TRVNTSU9OX0lEOjM2PmQ3ODk5YjFlLTA4ZGEtNGQ1OS04NzAzLWUzODBjZjBhYWQxZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fUkVWSVNJT046Mj4zMDxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PmVhZmI4YjE3LTA1NTAtNDU1OC05ZWExLTA2MTIxMDQ3OGIyZTxCQU5EOjM+MjBtPENBTEw6ND5LMVJWPENPTlRFU1RfSUQ6OD5LMVVTTlNTVDxGUkVROjk+MTQuMDI4MDAwPE1PREU6Mj5DVzxNWV9OQU1FOjQ+REFWRTxNWV9TVEFURToyPk1BPE5BTUU6Mj5QSTxPUEVSQVRPUjo1PksxVVNOPFFTT19EQVRFOjg+MjAyNjEwMTg8U1JYX1NUUklORzo1PlBJIE1BPFNUQVRFOjI+TUE8U1RBVElPTl9DQUxMU0lHTjo1PksxVVNOPFNUWF9TVFJJTkc6Nz5EQVZFIE1BPFRJTUVfT046Nj4xMjI1MDA8RU9SPg0KPEFQUF9PTTBSWFhMT0dfRk9STUFUVEVSX1ZFUlNJT046MTM+c3N0LWFyY2hpdmUtMTxBUFBfT00wUlhYTE9HX0lOUFVUX1NDSEVNQV9WRVJTSU9OOjE+MTxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfSURFTlRJVFk6MzQ+YnVuZGxlZC1jdHktZm52NjQtY2Y5YzQ4YTQ0ZDRiNWU2NjxBUFBfT00wUlhYTE9HX1BST1ZFTkFOQ0VfU09VUkNFOjEzPm9wZXJhdG9yRW50cnk8QVBQX09NMFJYWExPR19RU09fSUQ6MzY+OTY1YTIwOTgtMjUzZC00ZWJmLTkwNjgtYWYzMmQ3YThlOGY4PEFQUF9PTTBSWFhMT0dfUkVGRVJFTkNFX0RBVEFfVkVSU0lPTjozND5idW5kbGVkLWN0eS1mbnY2NC1jZjljNDhhNDRkNGI1ZTY2PEFQUF9PTTBSWFhMT0dfUlVMRV9FRElUSU9OOjMzPm9mZmljaWFsLXJ1bGVzLWFuZC1mYXEtMjAyNi0xMC0xODxBUFBfT00wUlhYTE9HX1JVTEVfSUQ6OT5rMXVzbi1zc3Q8QVBQX09NMFJYWExPR19SVUxFX1NPVVJDRV9SRVZJU0lPTjo2ND5lZTQ2ODkwMTM0OWRkOTQ3ZWViMDUzYjE1ZjZkMGVkZTAwMjcyNGQ3NzYwOTgyMjkxZTc4NTgzYTFjYjI4YzI3PEFQUF9PTTBSWFhMT0dfUlVMRV9WRVJTSU9OOjI1PjIuMC4wLWRlY2xhcmF0aXZlLWFyY2hpdmU8QVBQX09NMFJYWExPR19TRVNTSU9OX0lEOjM2PmQ3ODk5YjFlLTA4ZGEtNGQ1OS04NzAzLWUzODBjZjBhYWQxZTxBUFBfT00wUlhYTE9HX1NFU1NJT05fUkVWSVNJT046Mj4zMDxBUFBfT00wUlhYTE9HX1dPUktTUEFDRV9HRU5FUkFUSU9OOjM2PmVhZmI4YjE3LTA1NTAtNDU1OC05ZWExLTA2MTIxMDQ3OGIyZTxCQU5EOjM+MTVtPENBTEw6Nj5WTzFBQUE8Q09OVEVTVF9JRDo4PksxVVNOU1NUPEZSRVE6OT4yMS4wMjUwMDA8TU9ERToyPkNXPE1ZX05BTUU6ND5EQVZFPE1ZX1NUQVRFOjI+TUE8TkFNRTo1PkFMTEVOPE9QRVJBVE9SOjU+SzFVU048UVNPX0RBVEU6OD4yMDI2MTAxODxTUlhfU1RSSU5HOjg+QUxMRU4gTkw8U1RBVEU6Mj5OTDxTVEFUSU9OX0NBTExTSUdOOjU+SzFVU048U1RYX1NUUklORzo3PkRBVkUgTUE8VElNRV9PTjo2PjEyMzIwMDxFT1I+DQo=",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sha256" : "e6c1c947b98ae9527374b16fe0341a870138090a4660ce809d940e2f67fa6706",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "cabrillo" : {
+      "prepareRequest" : {
+        "expectedRevision" : 30,
+        "exportID" : "f7e4eab1-918a-4f57-af9e-f297c44b23fd",
+        "format" : "cabrillo",
+        "generatedAtUTC" : "2026-10-18T12:34:00.000Z",
+        "header" : {
+          "addressLines" : [
+
+          ],
+          "callsign" : "K1USN",
+          "categoryAssisted" : "NON-ASSISTED",
+          "categoryBand" : "ALL",
+          "categoryMode" : "CW",
+          "categoryOperator" : "SINGLE-OP",
+          "categoryPower" : "LOW",
+          "categoryTransmitter" : "ONE",
+          "email" : "",
+          "location" : "MA",
+          "name" : "Dave",
+          "operators" : [
+            "K1USN"
+          ]
+        },
+        "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+        "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+      },
+      "prepareResponse" : {
+        "id" : "01256336-77b3-41a1-b4b1-8e064ae882d2",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "f7e4eab1-918a-4f57-af9e-f297c44b23fd",
+          "byteLength" : 1641,
+          "chunkLimit" : 65536,
+          "claimedScore" : 143,
+          "declarativePurpose" : "operatorArchive",
+          "expiresAfterSeconds" : 600,
+          "format" : "cabrillo",
+          "formatterVersion" : "sst-archive-1",
+          "generatedAtUTC" : "2026-10-18T12:34:00.000Z",
+          "inputSchemaVersion" : "1",
+          "multiplierCount" : 11,
+          "qsoCount" : 13,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sha256" : "05530678e5c9db1fe49e6d8963e0807a0a3bbacdd653893a9bec0b9f4d58a3a6",
+          "totalPoints" : 13,
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      },
+      "readRequest" : {
+        "exportID" : "f7e4eab1-918a-4f57-af9e-f297c44b23fd",
+        "length" : 1641,
+        "offset" : 0,
+        "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+        "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+      },
+      "readResponse" : {
+        "id" : "17f3d545-64c8-416a-bca3-086605ed07dc",
+        "ok" : true,
+        "result" : {
+          "artifactID" : "f7e4eab1-918a-4f57-af9e-f297c44b23fd",
+          "byteLength" : 1641,
+          "dataBase64" : "U1RBUlQtT0YtTE9HOiAzLjANCkNSRUFURUQtQlk6IE9NMFJYLXhMb2cNCkNPTlRFU1Q6IEsxVVNOU1NUDQpYLU9NMFJYWExPRy1QVVJQT1NFOiBPUEVSQVRPUi1BUkNISVZFDQpDQUxMU0lHTjogSzFVU04NCkxPQ0FUSU9OOiBNQQ0KQ0FURUdPUlktT1BFUkFUT1I6IFNJTkdMRS1PUA0KQ0FURUdPUlktQVNTSVNURUQ6IE5PTi1BU1NJU1RFRA0KQ0FURUdPUlktQkFORDogQUxMDQpDQVRFR09SWS1NT0RFOiBDVw0KQ0FURUdPUlktVFJBTlNNSVRURVI6IE9ORQ0KQ0FURUdPUlktUE9XRVI6IExPVw0KQ0xBSU1FRC1TQ09SRTogMTQzDQpPUEVSQVRPUlM6IEsxVVNODQpOQU1FOiBEYXZlDQpFTUFJTDogDQpRU086ICAzNTI1IENXIDIwMjYtMTAtMTggMTIwMyBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgSzFWVVQgICAgICAgICBEQVZFICAgICAgIE1BICAgICAgDQpRU086ICAzNTI2IENXIDIwMjYtMTAtMTggMTIwNSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgTjNRRSAgICAgICAgICBUSU0gICAgICAgIE1EICAgICAgDQpRU086ICAzNTI3IENXIDIwMjYtMTAtMTggMTIwNyBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgVkUzS0kgICAgICAgICBSSUNIICAgICAgIE9OICAgICAgDQpRU086ICAzNTI4IENXIDIwMjYtMTAtMTggMTIwOSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgREs5UFkgICAgICAgICBBUk1JTiAgICAgIERYICAgICAgDQpRU086ICA3MDI1IENXIDIwMjYtMTAtMTggMTIxMSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgSzRCQUkgICAgICAgICBKT0hOICAgICAgIEdBICAgICAgDQpRU086ICA3MDI2IENXIDIwMjYtMTAtMTggMTIxMyBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgSzFSViAgICAgICAgICBQSSAgICAgICAgIE1BICAgICAgDQpRU086ICA3MDI3IENXIDIwMjYtMTAtMTggMTIxNSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgTjFWSCAgICAgICAgICBNQVJUWSAgICAgIE1BICAgICAgDQpRU086ICA3MDI4IENXIDIwMjYtMTAtMTggMTIxNyBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgSzlaTyAgICAgICAgICBBTCAgICAgICAgIElMICAgICAgDQpRU086IDE0MDI1IENXIDIwMjYtMTAtMTggMTIxOSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgSzFESiAgICAgICAgICBSSUNIICAgICAgIE1BICAgICAgDQpRU086IDE0MDI2IENXIDIwMjYtMTAtMTggMTIyMSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgREs5UFkgICAgICAgICBBUk1JTiAgICAgIERYICAgICAgDQpRU086IDE0MDI3IENXIDIwMjYtMTAtMTggMTIyMyBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgRjZIS0EgICAgICAgICBCRVJUICAgICAgIERYICAgICAgDQpRU086IDE0MDI4IENXIDIwMjYtMTAtMTggMTIyNSBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgSzFSViAgICAgICAgICBQSSAgICAgICAgIE1BICAgICAgDQpRU086IDIxMDI1IENXIDIwMjYtMTAtMTggMTIzMiBLMVVTTiAgICAgICAgIERBVkUgICAgICAgTUEgICAgICAgVk8xQUFBICAgICAgICBBTExFTiAgICAgIE5MICAgICAgDQpFTkQtT0YtTE9HOg0K",
+          "eof" : true,
+          "offset" : 0,
+          "revision" : 30,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sha256" : "05530678e5c9db1fe49e6d8963e0807a0a3bbacdd653893a9bec0b9f4d58a3a6",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    }
+  },
+  "extraContacts" : {
+    "duplicateApply" : {
+      "id" : "bbe5a8d8-b025-463c-a6d1-09fef9bc3622",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "This callsign and band are already logged in this contest.",
+            "state" : "duplicate"
+          },
+          "fields" : {
+            "band" : "80m",
+            "callsign" : "K1VUT",
+            "frequencyHz" : 3529000,
+            "mode" : "CW",
+            "receivedExchange" : "DAVE MA",
+            "receivedExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "ready",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : false,
+            "canSendDuplicate" : true,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "ready"
+          },
+          "reservedSerial" : null,
+          "revision" : 27,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:30:00.000Z",
+          "validation" : {
+            "errors" : [
+
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:30:00.000Z",
+          "committedRevision" : 27,
+          "payloadDigest" : "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "requestID" : "84741f3c-11ac-4fc2-98a5-20fb5c202aba"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 12,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 27,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:30:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "nlApply" : {
+      "id" : "caaab8fd-0156-4e10-acab-8ba614f56712",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "",
+            "state" : "clear"
+          },
+          "fields" : {
+            "band" : "15m",
+            "callsign" : "VO1AAA",
+            "frequencyHz" : 21025000,
+            "mode" : "CW",
+            "receivedExchange" : "AL NL",
+            "receivedExchangeFields" : {
+              "location" : "NL",
+              "name" : "AL"
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "ready",
+            "canCommit" : true,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : true,
+            "canSendCQ" : false,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "ready"
+          },
+          "reservedSerial" : null,
+          "revision" : 28,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:31:00.000Z",
+          "validation" : {
+            "errors" : [
+
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:31:00.000Z",
+          "committedRevision" : 28,
+          "payloadDigest" : "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "requestID" : "0e57d238-d2d1-4b7d-8512-e521a1d49c0f"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 12,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 28,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:31:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "nlCommit" : {
+      "id" : "9bc987be-08f9-4f50-81f4-a2e49148ec17",
+      "ok" : true,
+      "result" : {
+        "draft" : {
+          "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+          "dupe" : {
+            "reason" : "Reload the contest session to check duplicate state.",
+            "state" : "unchecked"
+          },
+          "fields" : {
+            "band" : "15m",
+            "callsign" : "",
+            "frequencyHz" : 21025000,
+            "mode" : "CW",
+            "receivedExchange" : "",
+            "receivedExchangeFields" : {
+              "location" : "",
+              "name" : ""
+            },
+            "receivedReport" : "",
+            "sentExchange" : "DAVE MA",
+            "sentExchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            },
+            "sentReport" : ""
+          },
+          "operatorReadiness" : {
+            "callsign" : "empty",
+            "canCommit" : false,
+            "canReserveCall" : false,
+            "canReserveCommit" : false,
+            "canSendCall" : false,
+            "canSendCQ" : true,
+            "canSendDuplicate" : false,
+            "capabilityDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+            "exchange" : "empty"
+          },
+          "reservedSerial" : null,
+          "revision" : 29,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "updatedAt" : "2026-10-18T12:32:00.000Z",
+          "validation" : {
+            "errors" : [
+              "A required exchange field is missing.",
+              "A required exchange field is missing.",
+              "A bounded ASCII callsign is required.",
+              "Geographic scoring requires an immutable resolved entity snapshot."
+            ],
+            "warnings" : [
+
+            ]
+          },
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "qso" : {
+          "band" : "15m",
+          "callsign" : "VO1AAA",
+          "isDupe" : false,
+          "mode" : "CW",
+          "multiplier" : "administrativeSubdivision:21:sst-canadian-province34:bundled-cty-fnv64-cf9c48a44d4b5e661:12:NF:15m",
+          "multiplierDisplayLabels" : [
+            "NF subdivision · 15m"
+          ],
+          "points" : 1,
+          "qsoID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8",
+          "receivedExchange" : "AL NL",
+          "sentExchange" : "DAVE MA",
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "workedAt" : "2026-10-18T12:32:00.000Z"
+        },
+        "receipt" : {
+          "committedAt" : "2026-10-18T12:32:00.000Z",
+          "committedRevision" : 29,
+          "payloadDigest" : "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "requestID" : "965a2098-253d-4ebf-9068-af32d7a8e8f8"
+        },
+        "score" : {
+          "claimedScore" : 143,
+          "multipliers" : 11,
+          "points" : 13,
+          "qsos" : 13,
+          "revision" : 29,
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "sourceVerification" : "provisional",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        },
+        "session" : {
+          "name" : "SST Worker Acceptance",
+          "operator" : {
+            "callsign" : "K1USN",
+            "category" : "Single Operator"
+          },
+          "qsoCount" : 13,
+          "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+          "revision" : 29,
+          "rule" : {
+            "declarativeDefinition" : {
+              "definitionDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "exportPurpose" : "operatorArchive",
+              "immutablePerSession" : true,
+              "submissionReady" : false
+            },
+            "displayName" : "K1USN SST Operator Archive Preview",
+            "entry" : {
+              "adifMode" : "CW",
+              "cabrilloFormatterVersion" : "sst-archive-1",
+              "cabrilloProjectionFormatterVersion" : "sst-archive-1",
+              "cabrilloQSOType" : "CW",
+              "exchange" : {
+                "adifFields" : "exchangeStrings",
+                "received" : "structured",
+                "receivedFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ],
+                "sent" : "structured",
+                "sentDefault" : "stationFields",
+                "sentFields" : [
+                  {
+                    "acceptedKinds" : [
+                      "operatorName"
+                    ],
+                    "adifField" : "MY_NAME",
+                    "id" : "name",
+                    "label" : "Name",
+                    "maximumUTF8Bytes" : 32,
+                    "required" : true
+                  },
+                  {
+                    "acceptedKinds" : [
+                      "subdivision"
+                    ],
+                    "adifField" : "MY_STATE",
+                    "id" : "location",
+                    "label" : "State, province, or DX",
+                    "maximumUTF8Bytes" : 8,
+                    "required" : true
+                  }
+                ]
+              },
+              "mode" : "CW",
+              "modeProfiles" : [
+                {
+                  "adifMode" : "CW",
+                  "adifSubmode" : null,
+                  "cabrilloQSOType" : "CW",
+                  "mode" : "CW",
+                  "report" : {
+                    "defaultReceived" : "",
+                    "defaultSent" : "",
+                    "format" : "none",
+                    "maximumUTF8Bytes" : 0
+                  }
+                }
+              ],
+              "report" : {
+                "defaultReceived" : "",
+                "defaultSent" : "",
+                "format" : "none",
+                "maximumUTF8Bytes" : 0
+              },
+              "scorePolicy" : "pointsTimesMultipliers",
+              "serial" : {
+                "allowedScopes" : [
+
+                ],
+                "requirement" : "none"
+              },
+              "version" : 2
+            },
+            "entryDescriptorVersion" : 2,
+            "identity" : {
+              "edition" : "official-rules-and-faq-2026-10-18",
+              "id" : "k1usn-sst",
+              "sourceRevision" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "version" : "2.0.0-declarative-archive"
+            },
+            "mode" : "CW",
+            "operatorCapability" : {
+              "auditDigest" : "ee468901349dd947eeb053b15f6d0ede002724d7760982291e78583a1cb28c27",
+              "macros" : [
+                "CQ",
+                "EXCH",
+                "QRZ",
+                "AGN",
+                "HISCALL",
+                "MYCALL",
+                "QSOB4"
+              ],
+              "output" : "simulation-only",
+              "policy" : "simulated-run-sp-v1",
+              "signalProfiles" : [
+                {
+                  "mode" : "CW",
+                  "signal" : "cw"
+                }
+              ],
+              "styles" : [
+                "run",
+                "search-and-pounce"
+              ],
+              "version" : 1
+            },
+            "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+            "sourceNote" : "K1USN SST rules https:\/\/www.k1usn.com\/sst_rules.html SHA-256 ced93d6c5d5f7db6d99086df2520c7a86116cac7aed616081ce619fbdb173cdf; sponsor FAQ embedded document SHA-256 a967b3c2ce0c96ad7042930d672098df1e90d802d0a1b04fbe2d161117df49cb and Canadian table image SHA-256 36ee41e13cae55ca81e7fbba3f48836b682167a3d859753d1c91553ae8a35920; sponsor-linked N1MM UDC page SHA-256 e2b30e67b3fd8b03a75f9d5b96d33b80105ee9fddf74cc2b62f1436219d7bc76; retrieved 2026-10-18; operator archive only, not sponsor submission; inactive: schedule, pinned DXCC reference, frequency guidance, and results reporting",
+            "sourceVerification" : "provisional",
+            "supportedBands" : [
+              "10m",
+              "15m",
+              "160m",
+              "20m",
+              "40m",
+              "80m"
+            ],
+            "supportedModes" : [
+              "CW"
+            ]
+          },
+          "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+          "station" : {
+            "callsign" : "K1USN",
+            "cqZone" : "5",
+            "dxccEntity" : "UNITED STATES",
+            "exchangeFields" : {
+              "location" : "MA",
+              "name" : "DAVE"
+            }
+          },
+          "updatedAt" : "2026-10-18T12:32:00.000Z",
+          "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+        }
+      }
+    },
+    "note" : "NL alias contact is outside the official 12-contact scoring sample"
+  },
+  "officialSample" : {
+    "actual" : {
+      "claimedScore" : 120,
+      "multipliers" : 10,
+      "points" : 12,
+      "qsos" : 12,
+      "revision" : 26,
+      "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+      "sourceVerification" : "provisional",
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    },
+    "contactCount" : 12,
+    "expected" : {
+      "claimedScore" : 120,
+      "multipliers" : 10,
+      "points" : 12
+    }
+  },
+  "referenceDataVersion" : "bundled-cty-fnv64-cf9c48a44d4b5e66",
+  "schemaVersion" : 1,
+  "scope" : "pre-activation injected immutable definition; SST is not in the built-in catalog",
+  "serialDenied" : {
+    "request" : {
+      "draftID" : "3b1af8a3-be44-40ab-9442-648f151f9d55",
+      "expectedRevision" : 2,
+      "operationTimestamp" : "2026-10-18T12:00:02.000Z",
+      "payload" : {
+
+      },
+      "payloadDigest" : "3333333333333333333333333333333333333333333333333333333333333333",
+      "requestID" : "cdac9af4-751a-4a33-a049-b9e88caa16f1",
+      "sessionID" : "d7899b1e-08da-4d59-8703-e380cf0aad1e",
+      "workspaceGeneration" : "eafb8b17-0550-4558-9ea1-061210478b2e"
+    },
+    "response" : {
+      "error" : {
+        "code" : "serial_not_supported",
+        "message" : "This contest does not allocate serial numbers.",
+        "outcome" : "confirmed"
+      },
+      "id" : "967325ec-ad34-4b57-9a0d-1f072fa83b1f",
+      "ok" : false
+    }
+  }
+}

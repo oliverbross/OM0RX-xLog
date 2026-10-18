@@ -7,9 +7,9 @@ final class ContestDeclarativeActivationTests: XCTestCase {
     private let generation = "d1111111-2222-4333-8444-555555555555"
     private let timestamp = "2026-10-18T03:00:00.000Z"
 
-    func testSevenDefinitionsShareCatalogCreateDupeCorrectionRestartAndExports() async throws {
+    func testEightDefinitionsShareCatalogCreateDupeCorrectionRestartAndExports() async throws {
         let definitions = try ContestBuiltInDeclarativeCatalog.operatorArchiveEntries()
-        XCTAssertEqual(definitions.count, 7)
+        XCTAssertEqual(definitions.count, 8)
         var clientFixtureCases: [[String: Any]] = []
         var operatorProfileFixtures: [[String: Any]] = []
         var nondefaultModeCommitFixture: [String: Any]?
@@ -21,7 +21,7 @@ final class ContestDeclarativeActivationTests: XCTestCase {
             var lane: ContestLane? = try ContestLane(databaseURL: databaseURL) { [generation] in generation }
             let catalog = try await lane!.handle(method: "contest_catalog", params: [:])
             let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
-            XCTAssertEqual(rules.count, 23)
+            XCTAssertEqual(rules.count, 24)
             let rule = try XCTUnwrap(rules.first { identityID($0) == definition.identity.id })
             let definitionWire = try XCTUnwrap(rule["declarativeDefinition"] as? [String: Any])
             XCTAssertEqual(definitionWire["definitionDigest"] as? String, definition.definitionDigest)
@@ -140,7 +140,7 @@ final class ContestDeclarativeActivationTests: XCTestCase {
             let correction = try await reopened.handle(method: "contest_qso_correct", params: correctionParams)
             revision += 1
             XCTAssertEqual(((correction["score"] as? [String: Any])?["claimedScore"] as? NSNumber)?.intValue,
-                           definition.identity.id.hasPrefix("ten-ten-") ? 2 : 4)
+                           definition.identity.id.hasPrefix("ten-ten-") || definition.identity.id == "k1usn-sst" ? 2 : 4)
             if definition.identity.id == "ten-ten-winterPhone" {
                 nondefaultModeCommitFixture?["qsoSession"] = try XCTUnwrap(opened["session"] as? [String: Any])
                 nondefaultModeCommitFixture?["qsoGet"] = got
@@ -163,7 +163,8 @@ final class ContestDeclarativeActivationTests: XCTestCase {
                     "exportID": wireID(exportID), "sessionID": wireID(sessionID),
                     "workspaceGeneration": generation, "expectedRevision": revision,
                     "generatedAtUTC": time(offset * 10 + 9), "format": format,
-                    "header": exportHeader(mode: definition.definition.draft.entry.mode),
+                    "header": exportHeader(mode: definition.definition.draft.entry.mode,
+                                           sst: definition.identity.id == "k1usn-sst"),
                 ]
                 let prepared = try await reopened.handle(method: "contest_export_prepare", params: prepareParams)
                 XCTAssertEqual(prepared["declarativePurpose"] as? String, "operatorArchive")
@@ -199,7 +200,7 @@ final class ContestDeclarativeActivationTests: XCTestCase {
         if let output = ProcessInfo.processInfo.environment["XLOG_DECLARATIVE_ACTIVATION_FIXTURE_OUTPUT"] {
             let fixture: [String: Any] = [
                 "schemaVersion": 2,
-                "generatedBy": "ContestDeclarativeActivationTests.testSevenDefinitionsShareCatalogCreateDupeCorrectionRestartAndExports",
+                "generatedBy": "ContestDeclarativeActivationTests.testEightDefinitionsShareCatalogCreateDupeCorrectionRestartAndExports",
                 "operatorProfiles": operatorProfileFixtures,
                 "cases": clientFixtureCases,
                 "nondefaultModeCommit": try XCTUnwrap(nondefaultModeCommitFixture),
@@ -352,23 +353,27 @@ final class ContestDeclarativeActivationTests: XCTestCase {
 
     private func createPayload(rule: [String: Any], definition: ContestDeclarativeCatalogEntry,
                                sessionID: UUID) -> [String: Any] {
-        [
+        let sst = definition.identity.id == "k1usn-sst"
+        return [
             "sessionID": wireID(sessionID), "name": definition.definition.draft.displayName,
             "ruleIdentity": rule["identity"]!, "referenceDataVersion": rule["referenceDataVersion"]!,
             "definitionDigest": definition.definitionDigest,
-            "station": ["callsign": "OM0RX", "cqZone": "15", "dxccEntity": "SLOVAK REPUBLIC",
+            "station": ["callsign": sst ? "K1USN" : "OM0RX", "cqZone": sst ? "5" : "15",
+                        "dxccEntity": sst ? "UNITED STATES" : "SLOVAK REPUBLIC",
                         "exchangeFields": stationFields(for: definition.identity.id)],
-            "operator": ["callsign": "OM0RX", "category": "Single Operator"],
+            "operator": ["callsign": sst ? "K1USN" : "OM0RX", "category": "Single Operator"],
         ]
     }
 
     private func stationFields(for id: String) -> [String: String] {
+        if id == "k1usn-sst" { return ["name": "DAVE", "location": "MA"] }
         if id.hasPrefix("ten-ten-") { return ["name": "OLIVER", "member-number": "12345", "qth": "SLOVAKIA"] }
         if id == "cwops-cwt" { return ["name": "OLIVER", "member-or-location": "1234"] }
         return ["name": "OLIVER"]
     }
 
     private func receivedFields(for id: String) -> [String: String] {
+        if id == "k1usn-sst" { return ["name": "AL", "location": "CA"] }
         if id == "ten-ten-winterPhone" { return ["name": String(repeating: "C", count: 32), "member-number": "00000000", "qth": String(repeating: "D", count: 32)] }
         if id.hasPrefix("ten-ten-") { return ["name": "AL", "member-number": "0", "qth": "NEW YORK"] }
         if id == "cwops-cwt" { return ["name": "AL", "member-or-location": "CA"] }
@@ -408,10 +413,11 @@ final class ContestDeclarativeActivationTests: XCTestCase {
         return result
     }
 
-    private func exportHeader(mode: String) -> [String: Any] {
-        ["callsign": "OM0RX", "categoryOperator": "SINGLE-OP", "categoryAssisted": "NON-ASSISTED",
+    private func exportHeader(mode: String, sst: Bool = false) -> [String: Any] {
+        let callsign = sst ? "K1USN" : "OM0RX"
+        return ["callsign": callsign, "categoryOperator": "SINGLE-OP", "categoryAssisted": "NON-ASSISTED",
          "categoryBand": "ALL", "categoryMode": mode, "categoryTransmitter": "ONE", "categoryPower": "LOW",
-         "operators": ["OM0RX"], "location": "DX", "name": "Oliver Operator", "addressLines": [], "email": ""]
+         "operators": [callsign], "location": sst ? "MA" : "DX", "name": "Oliver Operator", "addressLines": [], "email": ""]
     }
 
     private func identityID(_ rule: [String: Any]) -> String? {

@@ -69,6 +69,16 @@
         "version": "2.0.0-declarative-archive"
       },
       "sha256": "d9f55f192ebc810ed2f414386df556b97f5b7f98e7edc65ddb37306ccb731d35"
+    },
+    {
+      "file": "k1usn_sst.runtime-draft.json",
+      "identity": {
+        "edition": "official-rules-and-faq-2026-10-18",
+        "id": "k1usn-sst",
+        "sourceRevision": "ba937a88a00fa25c4244c8f774e1cf712fa12e9a568f794021018027faae30b5",
+        "version": "2.0.0-declarative-archive"
+      },
+      "sha256": "8c82a5f389a19df615048e3d8a2c32fa9ca73a75878a5c2fc5ae95c2f8b39691"
     }
   ],
   "schemaVersion": 1
