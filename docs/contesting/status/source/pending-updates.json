@@ -29,7 +29,7 @@
       "repairSource": "c83ec269f14e8a2b536215943f975ba52da3dd93",
       "parents": ["533792c", "68ccf47"],
       "status": "root-reviewed and accepted for integration; full combined validation remains pending",
-      "behavior": "Correction audit recovers immutable operatorStyle after deletion and validates session, QSO, operator, request, revision, and timestamp while retaining the store payload digest.",
+      "behavior": "Correction audit recovers immutable operatorStyle after deletion and validates session, QSO, operation, request, revision, and timestamp while retaining the store payload digest.",
       "validation": "24 lane tests passed before the final audit predicate; the final exact worker-wire replay passed once and the current-catalog regression passed once. Do not sum the overlapping runs.",
       "verifiedLogs": [
         {"path": "/tmp/xlog-contest-correction-replay-rates.log", "sha256": "6997abc4cf8bf182fa7ad20dbb558b6b160a1c54537d995baed8701a5cef5c59"},
