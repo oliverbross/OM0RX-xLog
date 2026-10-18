@@ -125,6 +125,7 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
 
 type EntryIntentKey = "callsign"|"sentReport"|"receivedReport"|"frequency"|`exchange:${string}`;
 type EntryIntent = { value:string; action:(value:string)=>ContestSurfaceAction };
+type EntryFlushResult = { ok:boolean;confirmed:number };
 function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const authoritative=useMemo(()=>Object.fromEntries([
     ["callsign",projection.draft.callsign],["sentReport",projection.draft.sentReport],
@@ -134,20 +135,21 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     projection.draft.frequencyText,projection.draft.receivedFields]);
   const [values,setValues]=useState(authoritative),[unresolved,setUnresolved]=useState<Set<EntryIntentKey>>(new Set());
   const identity=projection.draft.draftID,identityRef=useRef(identity),authoritativeRef=useRef(authoritative),valuesRef=useRef(values),
-    dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),running=useRef<Promise<boolean>|null>(null),generation=useRef(0);
+    dirty=useRef(new Map<EntryIntentKey,EntryIntent>()),inFlight=useRef(new Set<EntryIntentKey>()),running=useRef<Promise<EntryFlushResult>|null>(null),generation=useRef(0);
   authoritativeRef.current=authoritative;valuesRef.current=values;
   useEffect(()=>{if(identityRef.current===identity)return;identityRef.current=identity;generation.current+=1;dirty.current.clear();inFlight.current.clear();running.current=null;
     valuesRef.current=authoritative;setValues(authoritative);setUnresolved(new Set());},[authoritative,identity]);
   useEffect(()=>{setValues(previous=>{let changed=false;const next={...previous};for(const [key,value] of Object.entries(authoritative) as [EntryIntentKey,string][])
       if(!dirty.current.has(key)&&!inFlight.current.has(key)&&next[key]!==value){next[key]=value;changed=true;}return changed?next:previous;});},[authoritative]);
-  const flush=useCallback(async():Promise<boolean>=>{
+  const flush=useCallback(async():Promise<EntryFlushResult>=>{
     if(running.current)return running.current;
-    const runGeneration=generation.current,operation=(async()=>{while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
+    const runGeneration=generation.current,operation=(async()=>{let confirmed=0;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
       dirty.current.delete(key);inFlight.current.add(key);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});
       const ok=await send(intent.action(intent.value),projectionRevision,{safePresentation:true});inFlight.current.delete(key);
-      if(runGeneration!==generation.current)return false;
-      if(!ok){if(!dirty.current.has(key))dirty.current.set(key,intent);setUnresolved(previous=>new Set(previous).add(key));return false;}
-    }return true;})();running.current=operation;try{return await operation;}finally{if(running.current===operation)running.current=null;}} ,
+      if(runGeneration!==generation.current)return {ok:false,confirmed};
+      if(!ok){if(!dirty.current.has(key))dirty.current.set(key,intent);setUnresolved(previous=>new Set(previous).add(key));return {ok:false,confirmed};}
+      confirmed+=1;
+    }return {ok:true,confirmed};})();running.current=operation;try{return await operation;}finally{if(running.current===operation)running.current=null;}} ,
     [projectionRevision,send]);
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{
     valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
@@ -185,9 +187,11 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const operatorKey=(key:string,focusedField:"callsign"|"exchange"|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
-    void (async()=>{if(key!=="Escape"){if(!await intents.flush())return;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
+    void (async()=>{let confirmedLocalEdits=0;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
+      confirmedLocalEdits=flushed.confirmed;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
-      if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||currentProjection.draft.band!==intentContext.band||
+      if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||
+          currentProjection.draft.revision!==projection.draft.revision+confirmedLocalEdits||currentProjection.draft.band!==intentContext.band||
           currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
