@@ -82,10 +82,11 @@ afterEach(cleanup);
 
 function Harness({ mode, serial = false, duplicate = false, invalid = false, unchecked = false, workerBlank = false,
   workerMissingExchange = false, workerMissingSerial = false, invalidCall = "", uncertainCommit = false, reserveReplyGate, simulate,
-  onSurfaceChange, registerSurfaceController }:
+  onCommitStyle, onSurfaceChange, registerSurfaceController }:
   { mode: "CW" | "SSB"; serial?: boolean; duplicate?: boolean; invalid?: boolean; unchecked?: boolean;
     workerBlank?: boolean; workerMissingExchange?: boolean; workerMissingSerial?: boolean; invalidCall?: string;
     uncertainCommit?: boolean; reserveReplyGate?: Promise<void>; simulate?: ContestSimulationAdapter;
+    onCommitStyle?: (style: "run" | "search-and-pounce" | undefined) => void;
     onSurfaceChange?: (surface: ContestOperatorSurfaceState | null) => void;
     registerSurfaceController?: (controller: ContestOperatorSurfaceController | null) => void }) {
   const [active, setActive] = useState(() => session(mode, serial));
@@ -106,7 +107,8 @@ function Harness({ mode, serial = false, duplicate = false, invalid = false, unc
     admittedDraft.current = next; setActive(value => ({ ...value, revision })); setCurrent(next); await reserveReplyGate;
     return draftResult({ ...active, revision }, next);
   };
-  const commit = async () => {
+  const commit = async (operatorStyle?: "run" | "search-and-pounce") => {
+    onCommitStyle?.(operatorStyle);
     setCommitCount(value => value + 1);
     if (uncertainCommit && !uncertainThrown.current) {
       uncertainThrown.current = true;
@@ -462,11 +464,12 @@ describe("ContestOperatorPanel simulated owner integration", () => {
   });
 
   it("auto-reserves WPX S&P with a completed received exchange", async () => {
-    const wpxOutput = vi.fn(); render(<Harness mode="CW" serial workerMissingSerial simulate={wpxOutput}/>);
+    const wpxOutput = vi.fn(), committedStyle = vi.fn(); render(<Harness mode="CW" serial workerMissingSerial simulate={wpxOutput} onCommitStyle={committedStyle}/>);
     await waitFor(() => expect((screen.getByLabelText("Exchange") as HTMLInputElement).value).toBe("123"));
     fireEvent.change(screen.getByLabelText("Operating style"), { target: { value: "search-and-pounce" } });
     fireEvent.click(screen.getByRole("button", { name: "Arm simulation" })); fireEvent.keyDown(screen.getByLabelText("Exchange"), { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("calls").textContent).toBe("1/1"));
+    expect(committedStyle).toHaveBeenCalledWith("search-and-pounce");
     expect(wpxOutput).toHaveBeenCalledWith(expect.objectContaining({ macro: "EXCH", text: expect.stringContaining("007") }));
   });
 

@@ -29,6 +29,22 @@ it("routes a scoped native contest child without mounting the normal surface",as
   expect(await loadWindowSurface(search)).toBe(DetachedContestSurface);
 });
 
+it("renders strict detached Rate and Statistics projections without reading the worker",async()=>{
+  const rate={schemaVersion:1,status:"ready",sessionRevision:7,asOfUTC:"2026-10-18T00:00:00.000Z",fullLogQSOs:2,loggedQSOs:2,
+    acceptedQSOs:1,duplicateQSOs:1,invalidQSOs:0,currentHourQSOs:2,operatorStyles:{total:{run:1,searchAndPounce:0,unknown:1},
+      currentHour:{run:1,searchAndPounce:0,unknown:1}},trailing60Minutes:{qsoCount:2,spanSeconds:60,qsosPerHour:120},latest10:null,latest100:null,busy:false};
+  const band={band:"20m",loggedQSOs:2,acceptedQSOs:1,distinctCallsigns:1,modes:{cw:2,phone:0,digital:0,other:0},distinctWPXPrefixes:1,creditedPoints:3};
+  const score={qsos:2,points:3,multipliers:1,claimedScore:3,multiplierLabels:["K"],multiplierDisplayLabels:["United States"],sourceVerification:"verified"};
+  let current:any={...snapshot,panelID:"monitor",projectionRevision:1,projection:rate};
+  native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return structuredClone(current);throw new Error(command);});
+  window.history.replaceState({},"",search.replace("view=active-qso","view=monitor"));const view=render(<DetachedContestSurface/>);
+  expect(await screen.findByText("120 Q/h")).toBeTruthy();expect(screen.getByText("1 / 0 / 1")).toBeTruthy();
+  view.unmount();current={...current,panelID:"propagation",projectionRevision:2,projection:{schemaVersion:2,status:"ready",score,busy:false,
+    sessionRevision:7,asOfUTC:rate.asOfUTC,fullLogQSOs:2,loggedQSOs:2,acceptedQSOs:1,duplicateQSOs:1,invalidQSOs:0,bands:[band],total:{...band,band:"total"}}};
+  window.history.replaceState({},"",search.replace("view=active-qso","view=propagation"));render(<DetachedContestSurface/>);
+  expect(await screen.findByText("United States")).toBeTruthy();expect(screen.getByRole("row",{name:/Total 2 1 1 2 0 0 0 1 3/})).toBeTruthy();
+});
+
 it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return snapshot;

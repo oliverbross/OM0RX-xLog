@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Database, Download, Pencil, Trash2, Trophy, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Database, Download, Pencil, Trash2, X } from "lucide-react";
 import { ContestMutationUncertain, ContestServerError, normalizedARRLDXPower } from "./client";
 import { ContestExportPanel } from "./ContestExportPanel";
 import { ContestOperatorPanel, type ContestOperatorRecovery, type ContestOperatorSurfaceController,
@@ -8,11 +8,13 @@ import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionS
 import type { SCPImport } from "./contestAssistance";
 import { ContestCallHistoryPanel, type ContestHistoryPanelSurface, type HistoryApplyScope } from "./ContestCallHistoryPanel";
 import { ContestOperatorCanvas } from "./ContestOperatorCanvas";
+import { ContestRatePanel, ContestStatisticsPanel } from "./ContestRateStatisticsPanel";
 import { historyProjectedFields, type HistoryImport, type HistorySelection } from "./contestCallHistory";
 import { isStructuredEntry } from "./types";
 import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
+import { useContestStatistics } from "./useContestStatistics";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
 import type { ContestCabrilloHeader, ContestCommitResult, ContestCreateInput, ContestDraftFields, ContestEntryDescriptor, ContestExportFormat, ContestFullQSO, ContestLogPage, ContestPreparedExport, ContestQSOChangeResult, ContestRequest, ContestResolvedSerial, ContestRuleMetadata, ContestScore, ContestSessionSummary } from "./types";
@@ -144,6 +146,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
   const exportContext = active ? `${active.sessionID}/${active.workspaceGeneration}` : "";
   useEffect(() => { exportTicket.current += 1; setExportOpen(false); }, [exportContext]);
   useEffect(() => () => { exportTicket.current += 1; }, []);
+  const { statistics: currentStatistics, error: statisticsError } = useContestStatistics(client, active, !!active && !manager);
 
   function admissionScope() { const lease = leaseRef.current, admission = owner.beginAdmission(lease); return { lease, admission }; }
   function capturedScope() { const lease = leaseRef.current, admission = owner.captureAdmission(lease); return { lease, admission }; }
@@ -275,12 +278,12 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       return result;
     } catch (cause) { handleFailure(cause, ticket, scope); throw cause; } finally { endAction(ticket, scope); }
   }
-  async function commitQSO() {
+  async function commitQSO(operatorStyle?: "run" | "search-and-pounce") {
     if (!active || !draft || blockingOperation || operatingFrequencyError || draft.validation.errors.length || draft.dupe.state === "duplicate" || !beginAction()) throw new Error("Contest entry is not ready to log.");
     const ticket = contextTicket.current, sessionID = active.sessionID, generation = active.workspaceGeneration, scope = admissionScope();
     let confirmed: ContestCommitResult | null = null;
     try {
-      await owner.flush(); if (!accepts(scope) || owner.pendingOperation) throw new Error("Contest commit admission expired."); const current = owner.session!, result = await client.commitQSO(current, owner.draft!.draftID);
+      await owner.flush(); if (!accepts(scope) || owner.pendingOperation) throw new Error("Contest commit admission expired."); const current = owner.session!, result = await client.commitQSO(current, owner.draft!.draftID, operatorStyle);
       if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation)
         throw new Error("Contest commit response no longer matches the active session.");
       if (!owner.apply(result, scope.lease!, scope.admission!)) throw new Error("Contest commit response was not admitted.");
@@ -503,10 +506,20 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
       history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
       busy: !!scpSurface?.busy || !!historySurface?.busy };
-    liveSurfaceProjections.propagation = { schemaVersion: 1, status: "ready", score: score ? {
+    liveSurfaceProjections.monitor = currentStatistics ? { schemaVersion: 1, status: "ready", sessionRevision: currentStatistics.revision,
+      asOfUTC: currentStatistics.asOfUTC, fullLogQSOs: currentStatistics.fullLogQSOs, loggedQSOs: currentStatistics.loggedQSOs,
+      acceptedQSOs: currentStatistics.acceptedQSOs, duplicateQSOs: currentStatistics.duplicateQSOs, invalidQSOs: currentStatistics.invalidQSOs,
+      currentHourQSOs: currentStatistics.currentHourQSOs, operatorStyles: currentStatistics.operatorStyles,
+      trailing60Minutes: currentStatistics.trailing60Minutes, latest10: currentStatistics.latest10, latest100: currentStatistics.latest100, busy: false } : surfaceUnavailable;
+    liveSurfaceProjections.propagation = currentStatistics ? { schemaVersion: 2, status: "ready", score: score ? {
       qsos: score.qsos, points: score.points, multipliers: score.multipliers, claimedScore: score.claimedScore,
       multiplierLabels: score.multiplierLabels, multiplierDisplayLabels: score.multiplierDisplayLabels ?? score.multiplierLabels,
-      sourceVerification: score.sourceVerification } : null, busy };
+      sourceVerification: score.sourceVerification } : null, busy, sessionRevision: currentStatistics.revision, asOfUTC: currentStatistics.asOfUTC,
+      fullLogQSOs: currentStatistics.fullLogQSOs, loggedQSOs: currentStatistics.loggedQSOs, acceptedQSOs: currentStatistics.acceptedQSOs,
+      duplicateQSOs: currentStatistics.duplicateQSOs, invalidQSOs: currentStatistics.invalidQSOs, bands: currentStatistics.bands, total: currentStatistics.total } :
+      { schemaVersion: 1, status: "ready", score: score ? { qsos: score.qsos, points: score.points, multipliers: score.multipliers,
+        claimedScore: score.claimedScore, multiplierLabels: score.multiplierLabels, multiplierDisplayLabels: score.multiplierDisplayLabels ?? score.multiplierLabels,
+        sourceVerification: score.sourceVerification } : null, busy };
     liveSurfaceProjections.logbook = { schemaVersion: 1, status: "ready", sessionRevision: active.revision,
       page: { offset: page?.offset ?? offset, limit: page?.limit ?? PAGE_SIZE, total: page?.total ?? 0,
         rows: page?.qsos.map(qso => ({ qsoID: qso.qsoID, workedAt: qso.workedAt, callsign: qso.callsign, band: qso.band,
@@ -623,7 +636,8 @@ focusField={field => (field === "callsign" ? callsignInput.current : exchangeInp
 {operatingFrequencyError && <p className="contest-validation is-duplicate">{operatingFrequencyError}</p>}<div className={`contest-validation is-${draft.dupe.state}`}><strong>{draft.dupe.state === "duplicate" ? "Duplicate" : "Dupe check"}</strong><span>{draft.dupe.state === "unchecked" && draft.fields.callsign.trim() === "" ? "Enter a callsign to check duplicate status." : draft.dupe.reason}</span>{[...draft.validation.errors,...draft.validation.warnings].map((item, index) => <span key={`validation-${index}`}>{item}</span>)}</div>
 <footer>{(draft.resolvedSerial?.requirement ?? active.rule.entry.serial.requirement) === "requiredForCommit" && <button type="button" disabled={disabled} onClick={() => void reserveSerial().catch(() => {})}>{draft.reservedSerial ? `Serial ${draft.reservedSerial}` : "Reserve serial"}</button>}<button className="contest-primary" type="submit" disabled={entryDisabled || !!operatingFrequencyError || draft.validation.errors.length > 0 || draft.dupe.state === "duplicate"}>Log QSO</button></footer>
 </form>;
-      const statisticsPanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score & multipliers</h2><dl><div><dt>Claimed score</dt><dd>{score?.claimedScore.toLocaleString() ?? "—"}</dd></div><div><dt>QSOs</dt><dd>{score?.qsos ?? "—"}</dd></div><div><dt>Points</dt><dd>{score?.points ?? "—"}</dd></div><div><dt>Multipliers</dt><dd>{score?.multipliers ?? "—"}</dd></div></dl><div className="contest-multipliers">{score?.multiplierLabels.length ? (score.multiplierDisplayLabels?.length ? score.multiplierDisplayLabels : score.multiplierLabels).map(x => <span key={x}>{x}</span>) : <p>No multipliers recorded.</p>}</div><p className={`contest-source is-${score?.sourceVerification ?? "unverified"}`}>Score source: {score?.sourceVerification ?? "unavailable"}</p></aside>;
+      const statisticsPanel = <ContestStatisticsPanel score={score} statistics={currentStatistics} error={statisticsError}/>;
+      const ratePanel = <ContestRatePanel statistics={currentStatistics} error={statisticsError}/>;
       const assistancePanel = <><ContestAssistancePanel request={request} ownerLeaseID={leaseRef.current?.id??0} sessionID={active.sessionID} workspaceGeneration={active.workspaceGeneration}
 draftID={draft.draftID} callsign={draft.fields.callsign} disabled={entryDisabled} onSelect={applyAssistanceCallsign} importDataset={scpImport} onSurfaceChange={setSCPSurface}/></>;
       const historyPanel = <><ContestCallHistoryPanel request={request} ownerLeaseID={leaseRef.current?.id??0} session={active} draft={draft}
@@ -649,10 +663,11 @@ disabled={entryDisabled} ready={!owner.dirty&&!draftSaveInFlight} onApply={apply
         panels={{
           "active-qso": { title: "Entry", content: entryPanel },
           "callsign-intelligence": { title: "Check Partial", content: <>{assistancePanel}{historyPanel}</> },
+          monitor: { title: "Rate", content: ratePanel },
           propagation: { title: "Statistics", content: statisticsPanel },
           logbook: { title: "Log", content: <>{editorPanel}{logPanel}</> },
         }} traditional={<>
-      <div className="contest-operating-grid">{entryPanel}{statisticsPanel}</div>
+      <div className="contest-operating-grid">{entryPanel}<div>{ratePanel}{statisticsPanel}</div></div>
       {assistancePanel}
       {historyPanel}
       {editorPanel}

@@ -2,7 +2,7 @@ export type ContestMethod =
   | "contest_catalog" | "contest_sessions" | "contest_create" | "contest_open"
   | "contest_draft_get" | "contest_draft_apply" | "contest_serial_reserve"
   | "contest_qso_commit" | "contest_qso_get" | "contest_qso_correct" | "contest_qso_delete"
-  | "contest_operation_receipt" | "contest_log_page" | "contest_score"
+  | "contest_operation_receipt" | "contest_log_page" | "contest_score" | "contest_statistics"
   | "contest_export_prepare" | "contest_export_read" | "contest_export_release"
   | "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel"
   | "contest_history_preview_commit" | "contest_history_query" | "contest_history_query_cancel"
@@ -122,6 +122,17 @@ export type ContestScore = {
   sessionID: string; workspaceGeneration: string; revision: number; qsos: number; points: number;
   multipliers: number; claimedScore: number; multiplierLabels: string[]; multiplierDisplayLabels?: string[];
   sourceVerification: SourceVerificationStatus;
+};
+export type ContestRateMetric = { qsoCount: number; spanSeconds: number | null; qsosPerHour: number | null };
+export type ContestOperatorStyleStatistics = { run: number; searchAndPounce: number; unknown: number };
+export type ContestBandStatistics = { band: string; loggedQSOs: number; acceptedQSOs: number; distinctCallsigns: number;
+  modes: { cw: number; phone: number; digital: number; other: number }; distinctWPXPrefixes: number; creditedPoints: number };
+export type ContestStatistics = {
+  sessionID: string; workspaceGeneration: string; revision: number; asOfUTC: string;
+  fullLogQSOs: number; loggedQSOs: number; acceptedQSOs: number; duplicateQSOs: number; invalidQSOs: number;
+  currentHourQSOs: number; operatorStyles: { total: ContestOperatorStyleStatistics; currentHour: ContestOperatorStyleStatistics };
+  trailing60Minutes: ContestRateMetric; latest10: ContestRateMetric | null; latest100: ContestRateMetric | null;
+  bands: ContestBandStatistics[]; total: ContestBandStatistics;
 };
 export type ContestScoreSummary = Omit<ContestScore, "multiplierLabels" | "multiplierDisplayLabels">;
 export type ContestMutationScope = {

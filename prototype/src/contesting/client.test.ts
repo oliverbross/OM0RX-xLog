@@ -306,6 +306,15 @@ describe("ContestClient", () => {
     expect(request).toHaveBeenLastCalledWith("contest_operation_receipt", expect.objectContaining({ requestID: "request-commit", sessionID: "session-1" }));
   });
 
+  it("captures the audited operator style in the commit payload", async () => {
+    const request = vi.fn(async (_method, params = {}) => ({ id: "frame", ok: true as const, result: result(params) })) as ContestRequest;
+    const client = new ContestClient(request, () => "request-style", async () => "digest");
+    await client.commitQSO(session, "draft-1", "search-and-pounce").catch(() => undefined);
+    expect(request).toHaveBeenCalledWith("contest_qso_commit", expect.objectContaining({
+      payload: { operatorStyle: "search-and-pounce" }, draftID: "draft-1",
+    }));
+  });
+
   it("keeps the preallocated create session and request IDs when its committed reply is malformed", async () => {
     const request = vi.fn()
       .mockResolvedValueOnce({ id: "frame", ok: true, result: { session: { ...session, sessionID: "wrong-session" }, draft: draft(), receipt: { requestID: "request-create", payloadDigest: "digest", committedRevision: 1, committedAt: "2026-10-17T00:00:01Z" } } })

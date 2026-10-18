@@ -39,7 +39,7 @@ type Props = {
   disabled: boolean;
   recovery: ContestOperatorRecovery;
   reserveSerial: () => Promise<ContestDraftResult>;
-  commitQSO: () => Promise<ContestCommitResult>;
+  commitQSO: (operatorStyle?: OperatorStyle) => Promise<ContestCommitResult>;
   admitIntent: (draftIdentity: string, context: OperatorFlowContext) => boolean;
   guardFormSubmit: (guarded: boolean) => void;
   focusField: (field: OperatorField) => void;
@@ -225,7 +225,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
         setReservationContinuation({ intent, result });
         return;
       } else {
-        const result = await commitQSORef.current(); draftRef.current = result.draft;
+        const result = await commitQSORef.current(stateRef.current.style); draftRef.current = result.draft;
         if (!aliveRef.current) return;
         settle(intent.token, "confirmed");
         step({ type: "cues", context: intent.context, cues: cuesFor(sessionRef.current, result.draft, "callsign", false) });

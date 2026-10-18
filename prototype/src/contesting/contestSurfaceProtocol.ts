@@ -64,6 +64,17 @@ export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready";
 export type ContestStatisticsSurfaceProjection = { schemaVersion: 1; status: "ready"; score: null | {
   qsos: number; points: number; multipliers: number; claimedScore: number; multiplierLabels: string[];
   multiplierDisplayLabels: string[]; sourceVerification: "verified" | "provisional" | "unverified" }; busy: boolean };
+export type ContestRateMetricProjection = { qsoCount: number; spanSeconds: number | null; qsosPerHour: number | null };
+export type ContestOperatorStylesProjection = { run: number; searchAndPounce: number; unknown: number };
+export type ContestBandStatisticsProjection = { band: string; loggedQSOs: number; acceptedQSOs: number; distinctCallsigns: number;
+  modes: { cw: number; phone: number; digital: number; other: number }; distinctWPXPrefixes: number; creditedPoints: number };
+export type ContestRateSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number; asOfUTC: string;
+  fullLogQSOs: number; loggedQSOs: number; acceptedQSOs: number; duplicateQSOs: number; invalidQSOs: number; currentHourQSOs: number;
+  operatorStyles: { total: ContestOperatorStylesProjection; currentHour: ContestOperatorStylesProjection };
+  trailing60Minutes: ContestRateMetricProjection; latest10: ContestRateMetricProjection | null; latest100: ContestRateMetricProjection | null; busy: boolean };
+export type ContestStatisticsSurfaceProjectionV2 = { schemaVersion: 2; status: "ready"; score: ContestStatisticsSurfaceProjection["score"];
+  busy: boolean; sessionRevision: number; asOfUTC: string; fullLogQSOs: number; loggedQSOs: number; acceptedQSOs: number;
+  duplicateQSOs: number; invalidQSOs: number; bands: ContestBandStatisticsProjection[]; total: ContestBandStatisticsProjection };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
@@ -71,7 +82,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
-  ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestLogSurfaceProjection;
+  ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestStatisticsSurfaceProjectionV2 | ContestRateSurfaceProjection | ContestLogSurfaceProjection;
 
 export const validContestSurfaceUUID = (value: unknown): value is string => typeof value === "string" &&
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
@@ -183,6 +194,58 @@ function validStatisticsProjection(value: Record<string, unknown>) {
     texts(score.multiplierDisplayLabels, 10_000, 160) &&
     oneOf(score.sourceVerification, ["verified", "provisional", "unverified"]));
 }
+const finiteNonnegative = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+function validRateMetricProjection(value: unknown, expectedCount?: number) {
+  const metric = record(value) ? value : undefined;
+  return !!metric && exact(metric, ["qsoCount", "spanSeconds", "qsosPerHour"]) && uint(metric.qsoCount) &&
+    (expectedCount === undefined || metric.qsoCount === expectedCount) &&
+    (metric.spanSeconds === null || finiteNonnegative(metric.spanSeconds)) && (metric.qsosPerHour === null || finiteNonnegative(metric.qsosPerHour));
+}
+function validOperatorStylesProjection(value: unknown, expected: number) {
+  const styles = record(value) ? value : undefined;
+  return !!styles && exact(styles, ["run", "searchAndPounce", "unknown"]) && uint(styles.run) && uint(styles.searchAndPounce) && uint(styles.unknown) &&
+    Number(styles.run) + Number(styles.searchAndPounce) + Number(styles.unknown) === expected;
+}
+function validSummaryProjection(value: Record<string, unknown>) {
+  return uint(value.sessionRevision) && canonicalISO(value.asOfUTC) && uint(value.fullLogQSOs) && uint(value.loggedQSOs) &&
+    Number(value.fullLogQSOs) >= Number(value.loggedQSOs) && uint(value.acceptedQSOs) && uint(value.duplicateQSOs) && uint(value.invalidQSOs) &&
+    Number(value.acceptedQSOs) + Number(value.duplicateQSOs) + Number(value.invalidQSOs) === Number(value.loggedQSOs);
+}
+function validRateProjection(value: Record<string, unknown>) {
+  const styles = record(value.operatorStyles) ? value.operatorStyles : undefined;
+  return exact(value, ["schemaVersion", "status", "sessionRevision", "asOfUTC", "fullLogQSOs", "loggedQSOs", "acceptedQSOs", "duplicateQSOs", "invalidQSOs", "currentHourQSOs", "operatorStyles", "trailing60Minutes", "latest10", "latest100", "busy"]) &&
+    validSummaryProjection(value) && uint(value.currentHourQSOs) && Number(value.currentHourQSOs) <= Number(value.loggedQSOs) && !!styles &&
+    exact(styles, ["total", "currentHour"]) && validOperatorStylesProjection(styles.total, Number(value.loggedQSOs)) &&
+    validOperatorStylesProjection(styles.currentHour, Number(value.currentHourQSOs)) && validRateMetricProjection(value.trailing60Minutes) &&
+    Number((value.trailing60Minutes as Record<string, unknown>).qsoCount) <= Number(value.loggedQSOs) &&
+    (Number(value.loggedQSOs) >= 10 ? validRateMetricProjection(value.latest10, 10) : value.latest10 === null) &&
+    (Number(value.loggedQSOs) >= 100 ? validRateMetricProjection(value.latest100, 100) : value.latest100 === null) && typeof value.busy === "boolean";
+}
+function validBandStatisticsProjection(value: unknown, total = false) {
+  const band = record(value) ? value : undefined, modes = record(band?.modes) ? band.modes : undefined;
+  return !!band && exact(band, ["band", "loggedQSOs", "acceptedQSOs", "distinctCallsigns", "modes", "distinctWPXPrefixes", "creditedPoints"]) &&
+    (total ? band.band === "total" : text(band.band, 16) && band.band !== "total") && uint(band.loggedQSOs) && uint(band.acceptedQSOs) && Number(band.acceptedQSOs) <= Number(band.loggedQSOs) &&
+    uint(band.distinctCallsigns) && Number(band.distinctCallsigns) <= Number(band.loggedQSOs) && !!modes && exact(modes, ["cw", "phone", "digital", "other"]) &&
+    [modes.cw, modes.phone, modes.digital, modes.other].every(item => uint(item)) &&
+    Number(modes.cw) + Number(modes.phone) + Number(modes.digital) + Number(modes.other) === Number(band.loggedQSOs) &&
+    uint(band.distinctWPXPrefixes) && Number(band.distinctWPXPrefixes) <= Number(band.loggedQSOs) && Number.isSafeInteger(band.creditedPoints);
+}
+function validStatisticsProjectionV2(value: Record<string, unknown>) {
+  if (!exact(value, ["schemaVersion", "status", "score", "busy", "sessionRevision", "asOfUTC", "fullLogQSOs", "loggedQSOs", "acceptedQSOs", "duplicateQSOs", "invalidQSOs", "bands", "total"]) ||
+      !validSummaryProjection(value) || typeof value.busy !== "boolean" || !Array.isArray(value.bands) || value.bands.length > 64 ||
+      !value.bands.every(row => validBandStatisticsProjection(row)) || new Set(value.bands.map(row => (row as Record<string, unknown>).band)).size !== value.bands.length ||
+      !validBandStatisticsProjection(value.total, true)) return false;
+  const scoreOnly = { schemaVersion: 1, status: "ready", score: value.score, busy: value.busy };
+  if (!validStatisticsProjection(scoreOnly)) return false;
+  const total = value.total as Record<string, unknown>, totalModes = total.modes as Record<string, unknown>, sums = value.bands.reduce((sum, row) => { const band = row as Record<string, unknown>, modes = band.modes as Record<string, unknown>;
+    return { logged: sum.logged + Number(band.loggedQSOs), accepted: sum.accepted + Number(band.acceptedQSOs), points: sum.points + Number(band.creditedPoints),
+      cw: sum.cw + Number(modes.cw), phone: sum.phone + Number(modes.phone), digital: sum.digital + Number(modes.digital), other: sum.other + Number(modes.other) }; },
+    { logged: 0, accepted: 0, points: 0, cw: 0, phone: 0, digital: 0, other: 0 });
+  return sums.logged === total.loggedQSOs && sums.accepted === total.acceptedQSOs && sums.points === total.creditedPoints &&
+    sums.cw === totalModes.cw && sums.phone === totalModes.phone && sums.digital === totalModes.digital && sums.other === totalModes.other &&
+    total.loggedQSOs === value.loggedQSOs && total.acceptedQSOs === value.acceptedQSOs &&
+    (value.score === null || (value.score as Record<string, unknown>).qsos === value.fullLogQSOs);
+}
 function validLogProjection(value: Record<string, unknown>) {
   const page = record(value.page) ? value.page : undefined, editing = record(value.editing) ? value.editing : undefined;
   return exact(value, ["schemaVersion", "status", "sessionRevision", "page", "editing", "busy"]) && uint(value.sessionRevision) &&
@@ -202,12 +265,14 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   const projection = record(value) ? value : undefined;
   if (!projection || typeof projection.status !== "string") return false;
   if (panelID === "active-qso" && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
+  if (panelID === "propagation" && projection.schemaVersion === 2 && projection.status === "ready") return validStatisticsProjectionV2(projection);
   if (projection.schemaVersion !== 1) return false;
   if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
   if (projection.status !== "ready") return false;
   if (panelID === "active-qso") return validEntryProjection(projection);
   if (panelID === "callsign-intelligence") return validCheckProjection(projection);
   if (panelID === "propagation") return validStatisticsProjection(projection);
+  if (panelID === "monitor") return validRateProjection(projection);
   if (panelID === "logbook") return validLogProjection(projection);
   return false;
 }

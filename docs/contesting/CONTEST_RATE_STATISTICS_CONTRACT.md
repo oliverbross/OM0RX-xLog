@@ -85,3 +85,16 @@ counts, distinct WPX prefixes, and credited points. The score remains the
 authoritative full-log score, while the added rows are the as-of statistics.
 Band arrays accept up to 64 complete unique rows; publication rejects overflow
 or inconsistent counts instead of truncating them.
+
+The TypeScript client validates the complete atomic worker result before it can
+reach presentation state. The mounted contest owner refreshes the read-only
+clock projection without acquiring mutation ownership and discards delayed
+results from another session, workspace generation, or revision. Refresh
+failure leaves an already validated same-coordinate sample visible with an
+explicit unavailable status.
+
+Native surface revisions advance independently per panel. A Rate-only clock
+refresh publishes only `monitor`; it cannot stale an unchanged Entry action.
+An actual Entry projection change still advances `active-qso` and keeps its
+mutation fence strict. `monitor` carries Rate schema 1, while `propagation`
+carries Statistics schema 2 and retains score-only schema 1 compatibility.

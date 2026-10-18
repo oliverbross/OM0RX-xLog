@@ -34,9 +34,33 @@ it("rejects unavailable and stale actions before the owner side effect, then app
   await waitFor(()=>expect(completed).toHaveLength(1));expect(completed[0]).toMatchObject({outcome:"rejected",message:"The requested contest panel is not available."});
   expect(handle).not.toHaveBeenCalled();
   projections["active-qso"]=entry;view.rerender(<Harness projections={{...projections}} handle={handle}/>);
-  await waitFor(()=>expect(native.invoke.mock.calls.filter(([name])=>name==="contest_surface_publish").length).toBeGreaterThanOrEqual(24));
+  await waitFor(()=>expect(native.invoke.mock.calls.filter(([name])=>name==="contest_surface_publish").length).toBeGreaterThanOrEqual(13));
   queue.push(action(2));await act(async()=>{native.wake!();});
   await waitFor(()=>expect(handle).toHaveBeenCalledOnce());expect(completed.at(-1)).toMatchObject({outcome:"applied",projectionRevision:2});
+});
+
+it("keeps Entry admission stable and publishes only monitor when a rate clock refresh changes",async()=>{
+  const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[],published:Record<string,unknown>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_publish"){published.push(args);return;}
+    if(command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next")return null;
+    if(command==="contest_surface_action_next")return queue.shift()??null;
+    if(command==="contest_surface_action_complete"){completed.push(args);return;}
+    throw new Error(command);
+  });
+  const handle=vi.fn(async()=>{}),projections={...unavailable(),"active-qso":entry},view=render(<Harness projections={projections} handle={handle}/>);
+  await waitFor(()=>expect(published).toHaveLength(contestSurfacePanelIDs.length));
+  const rate:any={schemaVersion:1,status:"ready",sessionRevision:5,asOfUTC:"2026-10-18T00:00:00.000Z",fullLogQSOs:0,loggedQSOs:0,
+    acceptedQSOs:0,duplicateQSOs:0,invalidQSOs:0,currentHourQSOs:0,operatorStyles:{total:{run:0,searchAndPounce:0,unknown:0},
+      currentHour:{run:0,searchAndPounce:0,unknown:0}},trailing60Minutes:{qsoCount:0,spanSeconds:null,qsosPerHour:null},latest10:null,latest100:null,busy:false};
+  view.rerender(<Harness projections={{...projections,monitor:rate}} handle={handle}/>);
+  await waitFor(()=>expect(published).toHaveLength(contestSurfacePanelIDs.length+1));
+  expect(published.at(-1)).toMatchObject({panelID:"monitor",projectionRevision:2});
+  queue.push(action(1));await act(async()=>{native.wake!();});await waitFor(()=>expect(handle).toHaveBeenCalledOnce());
+  expect(completed.at(-1)).toMatchObject({outcome:"applied",projectionRevision:1});
+  view.rerender(<Harness projections={{...projections,monitor:rate,"active-qso":{...entry,dirty:true}}} handle={handle}/>);
+  queue.push(action(1));await act(async()=>{native.wake!();});await waitFor(()=>expect(completed.at(-1)).toMatchObject({outcome:"rejected"}));
 });
 
 it("does not execute a dequeued action after its owner context closes",async()=>{

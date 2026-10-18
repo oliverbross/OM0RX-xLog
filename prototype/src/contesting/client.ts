@@ -2,7 +2,7 @@ import type {
   ContestCommitResult, ContestCreateInput, ContestCreateResult, ContestDraftFields, ContestDraftResult,
   ContestExportChunk, ContestExportPrepareRequest, ContestExportReadRequest, ContestExportReleaseResult,
   ContestFullQSO, ContestLogPage, ContestMethod, ContestMutationScope, ContestOpenResult, ContestOperationReceiptResult, ContestPreparedExport,
-  ContestQSOChangeResult, ContestQSOReadResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary, ContestWorkerError,
+  ContestQSOChangeResult, ContestQSOReadResult, ContestRequest, ContestRuleMetadata, ContestScore, ContestSessionSummary, ContestStatistics, ContestWorkerError,
 } from "./types";
 import { isStructuredEntry } from "./types";
 import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
@@ -557,6 +557,46 @@ function validScore(value: unknown, params: Record<string, unknown>, expectedRev
     v.multiplierLabels.every(x => text(x, 160)) && (v.multiplierDisplayLabels === undefined || Array.isArray(v.multiplierDisplayLabels) &&
       v.multiplierDisplayLabels.length <= 10_000 && v.multiplierDisplayLabels.every(x => text(x, 160)));
 }
+function validRateMetric(value: unknown, expectedCount?: number) {
+  const v = object(value), finite = (item: unknown) => typeof item === "number" && Number.isFinite(item) && item >= 0;
+  return !!v && exact(v, ["qsoCount", "spanSeconds", "qsosPerHour"]) && uint(v.qsoCount) &&
+    (expectedCount === undefined || v.qsoCount === expectedCount) &&
+    (v.spanSeconds === null || finite(v.spanSeconds)) && (v.qsosPerHour === null || finite(v.qsosPerHour));
+}
+function validOperatorStyles(value: unknown, expected: number) {
+  const v = object(value); return !!v && exact(v, ["run", "searchAndPounce", "unknown"]) &&
+    uint(v.run) && uint(v.searchAndPounce) && uint(v.unknown) && v.run + v.searchAndPounce + v.unknown === expected;
+}
+function validBandStatistics(value: unknown, total = false) {
+  const v = object(value), modes = object(v?.modes);
+  return !!v && exact(v, ["band", "loggedQSOs", "acceptedQSOs", "distinctCallsigns", "modes", "distinctWPXPrefixes", "creditedPoints"]) &&
+    (total ? v.band === "total" : text(v.band, 16) && v.band !== "total") && uint(v.loggedQSOs) && uint(v.acceptedQSOs) && v.acceptedQSOs <= v.loggedQSOs &&
+    uint(v.distinctCallsigns) && v.distinctCallsigns <= v.loggedQSOs && !!modes && exact(modes, ["cw", "phone", "digital", "other"]) &&
+    Object.values(modes).every(item => uint(item)) && Number(modes.cw) + Number(modes.phone) + Number(modes.digital) + Number(modes.other) === v.loggedQSOs &&
+    uint(v.distinctWPXPrefixes) && v.distinctWPXPrefixes <= v.loggedQSOs && Number.isSafeInteger(v.creditedPoints);
+}
+function validStatistics(value: unknown, params: Record<string, unknown>) {
+  const v = object(value), styles = object(v?.operatorStyles);
+  if (!v || !exact(v, ["sessionID", "workspaceGeneration", "revision", "asOfUTC", "fullLogQSOs", "loggedQSOs", "acceptedQSOs", "duplicateQSOs", "invalidQSOs", "currentHourQSOs", "operatorStyles", "trailing60Minutes", "latest10", "latest100", "bands", "total"]) ||
+      !sameContext(v, params) || v.revision !== params.expectedRevision || !iso(v.asOfUTC) || new Date(v.asOfUTC as string).toISOString() !== v.asOfUTC || !uint(v.fullLogQSOs) || !uint(v.loggedQSOs) ||
+      v.fullLogQSOs < v.loggedQSOs || !uint(v.acceptedQSOs) || !uint(v.duplicateQSOs) || !uint(v.invalidQSOs) ||
+      v.acceptedQSOs + v.duplicateQSOs + v.invalidQSOs !== v.loggedQSOs || !uint(v.currentHourQSOs) || v.currentHourQSOs > v.loggedQSOs ||
+      !styles || !exact(styles, ["total", "currentHour"]) || !validOperatorStyles(styles.total, v.loggedQSOs as number) ||
+      !validOperatorStyles(styles.currentHour, v.currentHourQSOs as number) || !validRateMetric(v.trailing60Minutes) ||
+      Number(object(v.trailing60Minutes)!.qsoCount) > Number(v.loggedQSOs) || (Number(v.loggedQSOs) >= 10 ? !validRateMetric(v.latest10, 10) : v.latest10 !== null) ||
+      (Number(v.loggedQSOs) >= 100 ? !validRateMetric(v.latest100, 100) : v.latest100 !== null) || !Array.isArray(v.bands) || v.bands.length > 64 ||
+      !v.bands.every(row => validBandStatistics(row)) || new Set(v.bands.map(row => object(row)!.band)).size !== v.bands.length ||
+      !validBandStatistics(v.total, true)) return false;
+  const total = object(v.total)!, sums = v.bands.reduce((sum, row) => { const band = object(row)!; return {
+    logged: sum.logged + Number(band.loggedQSOs), accepted: sum.accepted + Number(band.acceptedQSOs), points: sum.points + Number(band.creditedPoints),
+    cw: sum.cw + Number(object(band.modes)!.cw), phone: sum.phone + Number(object(band.modes)!.phone),
+    digital: sum.digital + Number(object(band.modes)!.digital), other: sum.other + Number(object(band.modes)!.other) }; },
+    { logged: 0, accepted: 0, points: 0, cw: 0, phone: 0, digital: 0, other: 0 });
+  const totalModes = object(total.modes)!;
+  return sums.logged === total.loggedQSOs && sums.accepted === total.acceptedQSOs && sums.points === total.creditedPoints &&
+    sums.cw === totalModes.cw && sums.phone === totalModes.phone && sums.digital === totalModes.digital && sums.other === totalModes.other &&
+    total.loggedQSOs === v.loggedQSOs && total.acceptedQSOs === v.acceptedQSOs;
+}
 
 function validateResult<T>(method: ContestMethod, value: unknown, params: Record<string, unknown>, rule?: ContestRuleMetadata): T {
   const v = object(value); let valid = false;
@@ -578,6 +618,7 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
   } else if (method === "contest_operation_receipt") valid = !!v && (v.status === "not_found" || v.status === "committed" && validReceipt(v.receipt, params));
   else if (method === "contest_log_page") valid = !!v && sameContext(v, params) && v.revision === params.expectedRevision && Array.isArray(v.qsos) && v.qsos.length <= 200 && v.qsos.every(x => validLogQSO(x, params, rule)) && uint(v.total) && v.offset === params.offset && v.limit === params.limit;
   else if (method === "contest_score") valid = validScore(v, params, params.expectedRevision as number);
+  else if (method === "contest_statistics") valid = validStatistics(v, params);
   else if (method === "contest_export_prepare") valid = validPreparedExport(v, params);
   else if (method === "contest_export_read") valid = validExportChunk(v, params);
   else if (method === "contest_export_release") valid = !!v && exact(v, ["artifactID", "released"]) && v.artifactID === params.exportID && typeof v.released === "boolean";
@@ -622,6 +663,7 @@ export class ContestClient {
   draft(session: ContestSessionSummary) { return this.read<ContestOpenResult>("contest_draft_get", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration }); }
   logPage(session: ContestSessionSummary, offset: number, limit: number) { return this.read<ContestLogPage>("contest_log_page", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision, offset, limit }, session.rule); }
   score(session: ContestSessionSummary) { return this.read<ContestScore>("contest_score", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision }); }
+  statistics(session: ContestSessionSummary) { return this.read<ContestStatistics>("contest_statistics", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision }); }
   qso(session: ContestSessionSummary, qsoID: string) { return this.read<ContestQSOReadResult>("contest_qso_get", { sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, expectedRevision: session.revision, qsoID }, session.rule); }
   prepareExport(request: ContestExportPrepareRequest, expectedDeclarativePurpose?: "operatorArchive") {
     if (!validExportPrepareRequest(request)) throw new Error("Contest export preparation request is invalid or oversized.");
@@ -707,7 +749,12 @@ export class ContestClient {
       session.workspaceGeneration, session.revision, payload, draftID));
   }
   async reserveSerial(session: ContestSessionSummary, draftID: string) { return this.mutate<ContestDraftResult>(await this.operation("contest_serial_reserve", session.sessionID, session.workspaceGeneration, session.revision, {}, draftID)); }
-  async commitQSO(session: ContestSessionSummary, draftID: string) { return this.mutate<ContestCommitResult>(await this.operation("contest_qso_commit", session.sessionID, session.workspaceGeneration, session.revision, {}, draftID)); }
+  async commitQSO(session: ContestSessionSummary, draftID: string, operatorStyle?: "run" | "search-and-pounce") {
+    if (operatorStyle !== undefined && operatorStyle !== "run" && operatorStyle !== "search-and-pounce")
+      throw new Error("Contest operator style is invalid.");
+    return this.mutate<ContestCommitResult>(await this.operation("contest_qso_commit", session.sessionID, session.workspaceGeneration,
+      session.revision, operatorStyle === undefined ? {} : { operatorStyle }, draftID));
+  }
   async correctQSO(session: ContestSessionSummary, qso: ContestFullQSO, reason: string) {
     if (!validFullQSO(qso, { sessionID: session.sessionID }, undefined, session.rule) || !(session.rule.supportedModes ?? [session.rule.mode]).includes(qso.mode) || canonicalJSON(qso.ruleIdentity) !== canonicalJSON(session.rule.identity) ||
         qso.referenceDataVersion !== session.referenceDataVersion || !text(reason, 1_024) || !reason.trim()) throw new Error("Contest correction contains an invalid or oversized field.");

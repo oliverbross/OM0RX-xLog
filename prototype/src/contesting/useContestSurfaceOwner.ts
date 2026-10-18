@@ -17,20 +17,31 @@ const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["actio
 /** Keeps the single mounted ContestWorkspace authoritative. Wake events carry no
  * state; every action and projection is reread through the typed native bridge. */
 export function useContestSurfaceOwner({ context, projections, handle, report }: Owner) {
-  const key = JSON.stringify(projections), keyRef = useRef(""), revisionRef = useRef(0);
-  if (keyRef.current !== key) { keyRef.current = key; revisionRef.current += 1; }
+  const keys = Object.fromEntries(contestSurfacePanelIDs.map(panelID => [panelID, JSON.stringify(projections[panelID])])) as Record<ContestSurfacePanelID, string>;
+  const key = contestSurfacePanelIDs.map(panelID => keys[panelID]).join("\u0000");
+  const keyRef = useRef({} as Partial<Record<ContestSurfacePanelID, string>>), revisionRef = useRef({} as Record<ContestSurfacePanelID, number>);
+  for (const panelID of contestSurfacePanelIDs) if (keyRef.current[panelID] !== keys[panelID]) {
+    keyRef.current[panelID] = keys[panelID]; revisionRef.current[panelID] = (revisionRef.current[panelID] ?? 0) + 1;
+  }
   const contextRef = useRef(context), projectionsRef = useRef(projections), handleRef = useRef(handle);
   contextRef.current = context; projectionsRef.current = projections; handleRef.current = handle;
   const publishQueue = useRef(Promise.resolve());
+  const scheduledRef = useRef({ context: "", keys: {} as Partial<Record<ContestSurfacePanelID, string>> });
 
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
-    const revision = revisionRef.current, snapshot = projections;
+    const contextKey = `${context.operatingContext}/${context.sessionID}/${context.workspaceGeneration}`;
+    if (scheduledRef.current.context !== contextKey) scheduledRef.current = { context: contextKey, keys: {} };
+    const changed = contestSurfacePanelIDs.filter(panelID => scheduledRef.current.keys[panelID] !== keys[panelID]);
+    if (changed.length === 0) return;
+    const revisions = { ...revisionRef.current }, snapshot = projections, snapshotKeys = { ...keys };
+    for (const panelID of changed) scheduledRef.current.keys[panelID] = snapshotKeys[panelID];
     publishQueue.current = publishQueue.current.then(async () => {
-      if (contextRef.current?.sessionID !== context.sessionID || contextRef.current.workspaceGeneration !== context.workspaceGeneration) return;
-      await Promise.all(contestSurfacePanelIDs.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
-        projectionRevision: revision, projection: snapshot[panelID] })));
+      if (contextRef.current?.operatingContext !== context.operatingContext || contextRef.current.sessionID !== context.sessionID ||
+          contextRef.current.workspaceGeneration !== context.workspaceGeneration) return;
+      await Promise.all(changed.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
+        projectionRevision: revisions[panelID], projection: snapshot[panelID] })));
     }).catch(cause => report(boundedMessage(cause)));
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, key, report]);
 
@@ -48,7 +59,7 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
           if (!active || action === null) break;
           let admitted = false;
           try {
-            if (action.projectionRevision !== revisionRef.current && !rebasablePresentationActions.has(action.action))
+            if (action.projectionRevision !== revisionRef.current[action.panelID] && !rebasablePresentationActions.has(action.action))
               throw new Error("The contest panel changed before this action reached the owner.");
             if (projectionsRef.current[action.panelID].status !== "ready")
               throw new Error("The requested contest panel is not available.");
@@ -60,11 +71,11 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             // as rejected or replay the action from this owner.
             if (admitted && cause instanceof ContestMutationUncertain) { report(boundedMessage(cause)); continue; }
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
-              message: boundedMessage(cause), projectionRevision: revisionRef.current }).catch(error => report(boundedMessage(error)));
+              message: boundedMessage(cause), projectionRevision: revisionRef.current[action.panelID] }).catch(error => report(boundedMessage(error)));
             continue;
           }
           await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
-            projectionRevision: revisionRef.current }).catch(cause => report(boundedMessage(cause)));
+            projectionRevision: revisionRef.current[action.panelID] }).catch(cause => report(boundedMessage(cause)));
         }
       } catch (cause) { if (active) report(boundedMessage(cause)); }
       finally { draining = false; if (active && dirty) { dirty = false; void drain(); } }
@@ -95,11 +106,11 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             await handleRef.current(action);
           } catch (cause) {
             await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "rejected",
-              message: boundedMessage(cause), projectionRevision: revisionRef.current }).catch(error => report(boundedMessage(error)));
+              message: boundedMessage(cause), projectionRevision: revisionRef.current["active-qso"] }).catch(error => report(boundedMessage(error)));
             continue;
           }
           await completeContestSurfaceAction({ ...context, requestID: action.requestID, outcome: "applied",
-            projectionRevision: revisionRef.current }).catch(cause => report(boundedMessage(cause)));
+            projectionRevision: revisionRef.current["active-qso"] }).catch(cause => report(boundedMessage(cause)));
         }
       } catch (cause) { if (active) report(boundedMessage(cause)); }
       finally { draining = false; if (active && dirty) { dirty = false; void drainEscape(); } }
