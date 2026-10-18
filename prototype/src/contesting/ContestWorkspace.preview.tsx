@@ -43,5 +43,6 @@ const request = (async (method, params = {}) => {
 }) as ContestRequest;
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode><div className="app live"><header className="station-rail">Station</header>
-  <aside className="sidebar">Contesting</aside><ContestWorkspace request={request}
-    createRequestID={() => crypto.randomUUID()} digestPayload={async () => "a".repeat(64)}/></div></React.StrictMode>);
+  <aside className="sidebar">Contesting</aside><main className="qso-feedback-area live-feedback-host" aria-label="Contesting">
+    <ContestWorkspace request={request} createRequestID={() => crypto.randomUUID()} digestPayload={async () => "a".repeat(64)}/>
+  </main></div></React.StrictMode>);
