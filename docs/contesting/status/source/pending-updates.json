@@ -100,8 +100,23 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Latest accepted combined contest product source is 5706ca36e96952a782c3b2374ec12b2465fca5ce. Its focused portable source suite passed, but the full operator rehearsal, packaged-app acceptance, and native application acceptance remain pending. The installed Contesting Test app remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Normal macOS 1.2.25 release work is in progress and is not runtime accepted. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
-  "currentCombinedOperatorCheckpoint": {
+  "currentCombinedIntegration": {
+    "productCommit": "cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd",
+    "branch": "codex/contest-rate-operator-integration",
+    "parents": ["2fa999e", "0503084", "9e1c3dd"],
+    "review": "root-reviewed and accepted; source integration only",
+    "mergeChecks": "Automatic merge with no resolutions; ancestry, diff, and remote push verified.",
+    "validation": "328 tests across 32 files plus TypeScript passed; 5 open-file tests and bounded child deadline/readiness/group/spawn checks passed.",
+    "logs": [
+      {"path": "/tmp/xlog-rate-operator-integration-contesting.log", "sha256": "bc9535370fc9369ca6ab1fe46f09a60c41fdd3a04791037bb918bd404d749511"},
+      {"path": "/tmp/xlog-rate-operator-integration-open-files.log", "sha256": "959ed3bbe91619707c4f542f0c60c156e440eb2f9bd58764bd0cc8834ffac393"},
+      {"path": "/tmp/xlog-rate-operator-integration-bounded-child.log", "sha256": "26f543e5785c06dd1f1e40e8185468216ffa3b85699a8467a4856683b288b6bc"}
+    ],
+    "runtimeBoundary": "Installed normal app remains 1.2.24; Contesting Test remains 5024b2cf. No package/runtime/native application acceptance is claimed. Full-family rehearsal must be rerun against this integrated source.",
+    "ledger": "16 previews / 78 pending / 0 fully ported; published workbook unchanged."
+  },
+  "refreshGate": "Latest accepted combined contest product source is cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd. Combined source tests and bounded child checks passed, but the full-family rehearsal against this source, packaged-app acceptance, and native application acceptance remain pending. Installed Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. The signed main macOS 1.2.25 candidate is awaiting the user-arranged switch and runtime acceptance; installed normal app remains 1.2.24. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "previousCombinedOperatorCheckpoint": {
     "productCommit": "5706ca36e96952a782c3b2374ec12b2465fca5ce",
     "receipt": "docs/contesting/evidence/combined-operator-source-checkpoint-2026-10-18.json",
     "sourceLineage": {
@@ -126,22 +141,26 @@
       "boundary": "Three bounded PID-file checkpoints include contests.sqlite and the workspace database. The metadata actor is unknown; no process-lifetime proof exists."
     },
     "operatorHarness": {
-      "source": "e5ced258b61169ebe0faead7f7d8a7acd7f9f027",
+      "previousSource": "e5ced258b61169ebe0faead7f7d8a7acd7f9f027",
+      "source": "9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164",
       "parent": "7a8477b",
       "review": "root-reviewed and accepted",
       "coverage": "Exactly 28 admitted identity/mode pairs across 16 legacy-compatible and 12 declarative scenarios, including SST and two CQWW country cases; two RTTY Plain Log exclusions are explicit.",
-      "fullIsolatedRehearsal": "authorized; results pending"
+      "readinessAndOrdering": "Readiness-gated 3-second forced stall after 30-second startup, future-root comparison ordering fix, and late-marker ignore were accepted. Preflight failures before the matrix are recorded separately below.",
+      "fullIsolatedRehearsal": "The retry uses Rate/Statistics UI source predating accepted source 2fa999e; rerun against latest combined source cabca0f is required. No rehearsal result is accepted."
     },
     "rateStatsUIFollowup": {
-      "source": "0eff621039d491f26104b880c0e9e63846f0aaca",
-      "status": "pushed; review repairs remain pending; not accepted, integrated, or packaged",
-      "validation": "322 tests across 32 files, TypeScript, and build passed",
-      "testLogSha256": "19420f835718502b437abef3f607fe8ed3ceee9a87f69b4a8542dbd3465678bc",
-      "buildLogSha256": "a085d0b9a43505a6c36f12f6ee91b55aa313f07b20b02f931682911e01f591d8",
-      "repairs": "Detached Rate revision-field mismatch, stale/asOf/current-hour presentation, and failed native publication retry."
+      "previousSource": "0eff621039d491f26104b880c0e9e63846f0aaca",
+      "acceptedSource": "2fa999ef1a7f5948d3eeade164caf2632916de0a",
+      "status": "root-reviewed and accepted source; integrated at cabca0f; no package or runtime acceptance",
+      "validation": "322 tests across 32 files at 0eff; 67 focused at 1b3; 11 owner-regression tests plus TypeScript at 2fa. These runs overlap and must not be summed.",
+      "finalLogSha256": "32e7e6d4a39a1e2ff6ae742082e6add631d7917bb8e63624b09e4d4e4afbcfc6",
+      "repairs": "Previously noted detached Rate revision mismatch, stale/asOf/current-hour presentation, and failed native publication retry were repaired in the accepted source."
     },
-    "nextOperatorWork": "Run the authorized isolated full rehearsal using the 28 admitted profile/mode pairs; results are pending. Rate/Statistics UI remains blocked on its listed review repairs.",
-    "mainRelease": "Main source 5ebc712 legacy cluster filter normalization is root-reviewed and has no overlap. Main macOS 1.2.25 package is a candidate, not accepted or installed. The canonical checkout remains exclusively owned by main release work.",
+    "fullFamilyRehearsal": {"source": "9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164", "job": "shell_6dde91f9c7630740", "pid": 74228, "evidence": "/Users/oliver/.codex/acceptance/contest-family-full-9e1c3dd", "status": "running; results pending", "preflight": "1b43746 (owned PIDs < 2) and 113a5dd (shutdown root ENOENT) occurred before the matrix and are preserved as preflight failures, not passes.", "boundary": "This run predates integrated Rate/Statistics UI source 2fa999e; repeat the full rehearsal against cabca0f. Declarative acceptance remains pending."},
+    "nextOperatorWork": "Run the authorized isolated full rehearsal against latest combined source cabca0f; results are pending. Keep Rate/Statistics package and runtime acceptance open.",
+    "mainRelease": "Main source 5ebc712 produced a signed macOS 1.2.25 candidate awaiting the user-arranged switch and runtime acceptance. Installed normal app remains 1.2.24 and installed Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. The canonical checkout remains exclusively owned by main release work.",
+    "vhfReadOnlyPlan": "Accepted plan, not implemented: atomically move the current rover grid for future contacts; replay each serialized original result exactly, including prior/current grids and operation timestamp; keep prior QSOs immutable. Historical own-grid correction requires separate explicit capability and new definition version. Rust, UI, catalog activation, and implementation remain open.",
     "boundary": "Source tests do not establish serialized-file behavior, packaged-app acceptance, native UI acceptance, or runtime acceptance. Keep the published Markdown/workbook unchanged and the ledger at 16 previews / 78 pending / 0 fully ported."
   },
   "subsequentEvidence": {
