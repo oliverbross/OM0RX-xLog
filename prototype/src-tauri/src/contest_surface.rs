@@ -1,0 +1,1709 @@
+//! Bounded native contest projections and action receipts.
+//! Detached windows are projection clients; the main renderer remains the sole
+//! contest controller and the only consumer of queued actions.
+use crate::contest_window_context::ContestWindowContext;
+use crate::workspace_windows::{WorkspaceWindowIdentity, WorkspaceWindowScope};
+use serde_json::{json, Map, Value};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::{Mutex, OnceLock};
+
+const MAX_ACTIONS: usize = 64;
+const MAX_RECEIPTS_PER_PANEL: usize = 64;
+const MAX_REQUEST_IDS_PER_CONTEXT: usize = 250_000;
+const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+const MAX_ACTION_BYTES: usize = 16 * 1024;
+const MAX_PROJECTION_BYTES: usize = 32 * 1024 * 1024;
+
+#[derive(Clone)]
+struct Receipt {
+    envelope: Value,
+    status: &'static str,
+    message: Option<String>,
+    projection_revision: u64,
+}
+
+#[derive(Default)]
+struct PanelState {
+    projection: Option<(u64, Value)>,
+    receipts: VecDeque<(String, Receipt)>,
+}
+
+struct QueuedAction {
+    panel_id: String,
+    request_id: String,
+    envelope: Value,
+}
+
+#[derive(Default)]
+struct State {
+    context: Option<ContestWindowContext>,
+    panels: BTreeMap<String, PanelState>,
+    actions: VecDeque<QueuedAction>,
+    seen_request_ids: BTreeSet<String>,
+}
+
+fn state() -> &'static Mutex<State> {
+    static STATE: OnceLock<Mutex<State>> = OnceLock::new();
+    STATE.get_or_init(|| Mutex::new(State::default()))
+}
+
+pub fn register_context(context: &ContestWindowContext) {
+    if let Ok(mut state) = state().lock() {
+        register_context_in(&mut state, context);
+    }
+}
+
+fn register_context_in(state: &mut State, context: &ContestWindowContext) {
+    if state.context.as_ref() != Some(context) {
+        *state = State {
+            context: Some(context.clone()),
+            ..State::default()
+        };
+    }
+}
+
+pub fn invalidate_context(context: &ContestWindowContext) {
+    if let Ok(mut state) = state().lock() {
+        invalidate_context_in(&mut state, context);
+    }
+}
+
+fn invalidate_context_in(state: &mut State, context: &ContestWindowContext) {
+    if state.context.as_ref() == Some(context) {
+        *state = State::default();
+    }
+}
+
+pub fn invalidate_all() {
+    if let Ok(mut state) = state().lock() {
+        *state = State::default();
+    }
+}
+
+pub fn submit(label: &str, envelope: Value) -> Result<Value, String> {
+    let panel_id = contest_panel(label)?;
+    let checked = validate_action_envelope(&envelope)?;
+    if checked.panel_id != panel_id {
+        return Err("The contest action does not belong to this native window.".into());
+    }
+    crate::contest_window_context::with_admitted(&checked.context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, &checked.context)?;
+        submit_checked(&mut state, &panel_id, &checked, envelope)
+    })?
+}
+
+fn submit_checked(
+    state: &mut State,
+    panel_id: &str,
+    checked: &CheckedAction,
+    envelope: Value,
+) -> Result<Value, String> {
+    for (existing_panel, panel) in &state.panels {
+        if let Some((_, receipt)) = panel
+            .receipts
+            .iter()
+            .find(|(request_id, _)| request_id == &checked.request_id)
+        {
+            if existing_panel != panel_id || receipt.envelope != envelope {
+                return Err(
+                    "That contest action requestID is already bound to another request.".into(),
+                );
+            }
+            return Ok(submission_value(&checked.request_id, receipt));
+        }
+    }
+    if state.seen_request_ids.contains(&checked.request_id) {
+        return Err("That contest action receipt was retired and will not be replayed.".into());
+    }
+    let projection_revision = state
+        .panels
+        .get(panel_id)
+        .and_then(|panel| panel.projection.as_ref())
+        .filter(|(revision, projection)| {
+            *revision == checked.projection_revision && projection["status"] == "ready"
+        })
+        .ok_or("Refresh this contest surface before sending an action.")?
+        .0;
+    if state.actions.len() >= MAX_ACTIONS {
+        return Err("The contest surface action queue is full; wait for the main desk.".into());
+    }
+    if state.seen_request_ids.len() >= MAX_REQUEST_IDS_PER_CONTEXT {
+        return Err("The contest surface request ledger is full; reopen the contest session before sending more actions.".into());
+    }
+    let panel = state.panels.entry(panel_id.into()).or_default();
+    retire_old_receipts(panel)?;
+    panel.receipts.push_back((
+        checked.request_id.clone(),
+        Receipt {
+            envelope: envelope.clone(),
+            status: "queued",
+            message: None,
+            projection_revision,
+        },
+    ));
+    state.actions.push_back(QueuedAction {
+        panel_id: panel_id.into(),
+        request_id: checked.request_id.clone(),
+        envelope,
+    });
+    state.seen_request_ids.insert(checked.request_id.clone());
+    Ok(json!({"requestID":checked.request_id,"status":"queued"}))
+}
+
+pub fn next(context: &ContestWindowContext) -> Result<Option<Value>, String> {
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        take_next(&mut state)
+    })?
+}
+
+fn take_next(state: &mut State) -> Result<Option<Value>, String> {
+    let Some(action) = state.actions.pop_front() else {
+        return Ok(None);
+    };
+    let receipt = receipt_mut(state, &action.panel_id, &action.request_id)?;
+    if receipt.status != "queued" {
+        return Err("The queued contest action receipt is inconsistent.".into());
+    }
+    receipt.status = "uncertain";
+    Ok(Some(action.envelope))
+}
+
+pub fn complete(
+    context: &ContestWindowContext,
+    request_id: &str,
+    outcome: &str,
+    message: Option<String>,
+    projection_revision: u64,
+) -> Result<Value, String> {
+    canonical_uuid(request_id, "contest action requestID")?;
+    if !matches!(outcome, "applied" | "rejected") {
+        return Err("The contest action outcome is invalid.".into());
+    }
+    if projection_revision > MAX_SAFE_INTEGER {
+        return Err("The contest projection revision is invalid.".into());
+    }
+    if let Some(message) = message.as_ref() {
+        bounded_text(message, 1024, true, "contest action message")?;
+    }
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        complete_after_admission(
+            &mut state,
+            request_id,
+            outcome,
+            message,
+            projection_revision,
+        )
+    })?
+}
+
+fn complete_after_admission(
+    state: &mut State,
+    request_id: &str,
+    outcome: &str,
+    message: Option<String>,
+    projection_revision: u64,
+) -> Result<Value, String> {
+    let (panel_id, receipt) = find_receipt_mut(state, request_id)?;
+    if receipt.status != "uncertain" {
+        return Err("That contest action was not taken by the main controller.".into());
+    }
+    if projection_revision < receipt.projection_revision {
+        return Err("The contest action completion has a stale projection revision.".into());
+    }
+    receipt.status = if outcome == "applied" {
+        "applied"
+    } else {
+        "rejected"
+    };
+    receipt.message = message;
+    receipt.projection_revision = projection_revision;
+    let value = receipt_value(request_id, receipt);
+    debug_assert!(!panel_id.is_empty());
+    Ok(value)
+}
+
+pub fn publish(
+    context: &ContestWindowContext,
+    panel_id: &str,
+    projection_revision: u64,
+    projection: Value,
+) -> Result<(), String> {
+    validate_panel(panel_id)?;
+    if projection_revision > MAX_SAFE_INTEGER {
+        return Err("The contest projection revision is invalid.".into());
+    }
+    validate_projection(panel_id, &projection)?;
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        publish_after_admission(&mut state, panel_id, projection_revision, projection)
+    })?
+}
+
+fn publish_after_admission(
+    state: &mut State,
+    panel_id: &str,
+    projection_revision: u64,
+    projection: Value,
+) -> Result<(), String> {
+    let panel = state.panels.entry(panel_id.into()).or_default();
+    if panel
+        .projection
+        .as_ref()
+        .is_some_and(|(revision, _)| projection_revision <= *revision)
+    {
+        return Err("The contest surface projection revision did not advance.".into());
+    }
+    panel.projection = Some((projection_revision, projection));
+    Ok(())
+}
+
+pub fn snapshot(label: &str, context: &ContestWindowContext) -> Result<Value, String> {
+    let panel_id = contest_panel(label)?;
+    crate::contest_window_context::with_admitted(context, || {
+        let state = state()
+            .lock()
+            .map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        let panel = state.panels.get(&panel_id);
+        let (projection_revision, projection) = panel
+            .and_then(|panel| panel.projection.as_ref())
+            .map(|(revision, projection)| (*revision, projection.clone()))
+            .unwrap_or((0, json!({"schemaVersion":1,"status":"unavailable"})));
+        let receipts = panel
+            .map(|panel| {
+                panel
+                    .receipts
+                    .iter()
+                    .map(|(request_id, receipt)| receipt_value(request_id, receipt))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        Ok(
+            json!({"operatingContext":context.operating_context,"scope":"contesting","sessionID":context.session_id,
+            "workspaceGeneration":context.workspace_generation,"panelID":panel_id,"projectionRevision":projection_revision,
+            "projection":projection,"receipts":receipts}),
+        )
+    })?
+}
+
+fn receipt_mut<'a>(
+    state: &'a mut State,
+    panel_id: &str,
+    request_id: &str,
+) -> Result<&'a mut Receipt, String> {
+    state
+        .panels
+        .get_mut(panel_id)
+        .and_then(|panel| {
+            panel
+                .receipts
+                .iter_mut()
+                .find(|(candidate, _)| candidate == request_id)
+                .map(|(_, receipt)| receipt)
+        })
+        .ok_or_else(|| "The contest action receipt is missing.".into())
+}
+
+fn find_receipt_mut<'a>(
+    state: &'a mut State,
+    request_id: &str,
+) -> Result<(String, &'a mut Receipt), String> {
+    for (panel_id, panel) in &mut state.panels {
+        if let Some((_, receipt)) = panel
+            .receipts
+            .iter_mut()
+            .find(|(candidate, _)| candidate == request_id)
+        {
+            return Ok((panel_id.clone(), receipt));
+        }
+    }
+    Err("That contest action requestID is unknown.".into())
+}
+
+fn retire_old_receipts(panel: &mut PanelState) -> Result<(), String> {
+    while panel.receipts.len() >= MAX_RECEIPTS_PER_PANEL {
+        let terminal = panel
+            .receipts
+            .front()
+            .is_some_and(|(_, receipt)| matches!(receipt.status, "applied" | "rejected"));
+        if !terminal {
+            return Err("This contest surface has too many unresolved action receipts.".into());
+        }
+        panel.receipts.pop_front();
+    }
+    Ok(())
+}
+
+fn receipt_value(request_id: &str, receipt: &Receipt) -> Value {
+    json!({"requestID":request_id,"status":receipt.status,"message":receipt.message,
+        "projectionRevision":receipt.projection_revision})
+}
+
+fn submission_value(request_id: &str, receipt: &Receipt) -> Value {
+    json!({"requestID":request_id,"status":receipt.status})
+}
+
+fn require_context(state: &State, context: &ContestWindowContext) -> Result<(), String> {
+    if state.context.as_ref() == Some(context) {
+        Ok(())
+    } else {
+        Err("That contest surface belongs to an expired context.".into())
+    }
+}
+
+fn contest_panel(label: &str) -> Result<String, String> {
+    let identity = WorkspaceWindowIdentity::parse_native_label(label)?;
+    if identity.scope != WorkspaceWindowScope::Contesting {
+        return Err("Only a contest native window can use contest surfaces.".into());
+    }
+    validate_panel(identity.panel_id)?;
+    Ok(identity.panel_id.into())
+}
+
+fn validate_panel(panel_id: &str) -> Result<(), String> {
+    if crate::workspace_windows::supports_panel(WorkspaceWindowScope::Contesting, panel_id) {
+        Ok(())
+    } else {
+        Err("The contest surface panel is invalid.".into())
+    }
+}
+
+struct CheckedAction {
+    context: ContestWindowContext,
+    panel_id: String,
+    request_id: String,
+    projection_revision: u64,
+}
+
+fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
+    if serde_json::to_vec(value)
+        .map_err(|_| "The contest action envelope is invalid.")?
+        .len()
+        > MAX_ACTION_BYTES
+    {
+        return Err("The contest action envelope is too large.".into());
+    }
+    let envelope = object(value, "contest action envelope")?;
+    exact(
+        envelope,
+        &[
+            "operatingContext",
+            "scope",
+            "sessionID",
+            "workspaceGeneration",
+            "panelID",
+            "projectionRevision",
+            "requestID",
+            "action",
+            "params",
+        ],
+        "contest action envelope",
+    )?;
+    if envelope["scope"] != "contesting" {
+        return Err("The contest action scope is invalid.".into());
+    }
+    let context = ContestWindowContext {
+        operating_context: canonical_uuid_value(
+            &envelope["operatingContext"],
+            "operating context",
+        )?
+        .into(),
+        session_id: canonical_uuid_value(&envelope["sessionID"], "contest session")?.into(),
+        workspace_generation: canonical_uuid_value(
+            &envelope["workspaceGeneration"],
+            "contest workspace",
+        )?
+        .into(),
+    };
+    let panel_id = text_value(&envelope["panelID"], 32, false, "contest panel")?;
+    validate_panel(panel_id)?;
+    let request_id =
+        canonical_uuid_value(&envelope["requestID"], "contest action requestID")?.into();
+    let projection_revision = uint_value(
+        &envelope["projectionRevision"],
+        MAX_SAFE_INTEGER,
+        "contest projection revision",
+    )?;
+    let action = text_value(&envelope["action"], 64, false, "contest action")?;
+    let params = object(&envelope["params"], "contest action params")?;
+    validate_action_params(action, params)?;
+    let matches_panel = action.starts_with("entry_") && panel_id == "active-qso"
+        || action.starts_with("assistance_") && panel_id == "callsign-intelligence"
+        || action.starts_with("log_") && panel_id == "logbook";
+    if !matches_panel {
+        return Err("The contest action is not available on that panel.".into());
+    }
+    Ok(CheckedAction {
+        context,
+        panel_id: panel_id.into(),
+        request_id,
+        projection_revision,
+    })
+}
+
+fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(), String> {
+    match action {
+        "entry_set_text" => {
+            draft(params, &["field", "value"])?;
+            enum_value(
+                &params["field"],
+                &["callsign", "sentReport", "receivedReport"],
+                "entry field",
+            )?;
+            text_value(&params["value"], 160, true, "entry value")?;
+        }
+        "entry_set_exchange" => {
+            draft(params, &["fieldID", "value"])?;
+            text_value(&params["fieldID"], 64, false, "exchange field")?;
+            text_value(&params["value"], 1024, true, "exchange value")?;
+        }
+        "entry_set_frequency_text" => {
+            draft(params, &["value"])?;
+            frequency_text(&params["value"])?;
+        }
+        "entry_set_band" | "entry_set_mode" => {
+            draft(params, &["value"])?;
+            text_value(&params["value"], 16, false, "entry selection")?;
+        }
+        "entry_reserve_serial" | "entry_commit" => draft(params, &[])?,
+        "entry_operator_key" => {
+            draft(params, &["key"])?;
+            enum_value(
+                &params["key"],
+                &[
+                    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+                    "Enter", "Escape",
+                ],
+                "operator key",
+            )?;
+        }
+        "entry_operator_arm" => {
+            draft(params, &["armed"])?;
+            boolean(&params["armed"], "operator armed state")?;
+        }
+        "entry_operator_style" => {
+            draft(params, &["value"])?;
+            enum_value(
+                &params["value"],
+                &["run", "search-and-pounce"],
+                "operator style",
+            )?;
+        }
+        "assistance_query" => {
+            draft(params, &["inputCallsign"])?;
+            text_value(&params["inputCallsign"], 32, true, "assistance callsign")?;
+        }
+        "assistance_select" => {
+            draft(params, &["kind", "candidateID"])?;
+            enum_value(&params["kind"], &["scp", "history"], "assistance kind")?;
+            text_value(&params["candidateID"], 160, false, "assistance candidate")?;
+        }
+        "log_page" => {
+            exact(params, &["offset"], "log page params")?;
+            uint_value(&params["offset"], 1_000_000, "log offset")?;
+        }
+        "log_edit_begin" | "log_edit_cancel" => qso(params, &[])?,
+        "log_edit_set_text" => {
+            qso(params, &["field", "value"])?;
+            enum_value(
+                &params["field"],
+                &[
+                    "callsign",
+                    "sentReport",
+                    "receivedReport",
+                    "correctionReason",
+                    "deletionReason",
+                ],
+                "log edit field",
+            )?;
+            text_value(&params["value"], 1024, true, "log edit value")?;
+        }
+        "log_edit_set_exchange" => {
+            qso(params, &["fieldID", "value"])?;
+            text_value(&params["fieldID"], 64, false, "exchange field")?;
+            text_value(&params["value"], 1024, true, "exchange value")?;
+        }
+        "log_edit_set_frequency_text" => {
+            qso(params, &["value"])?;
+            frequency_text(&params["value"])?;
+        }
+        "log_edit_set_band" => {
+            qso(params, &["value"])?;
+            text_value(&params["value"], 16, false, "log edit band")?;
+        }
+        "log_edit_save" | "log_edit_delete" => {
+            qso(params, &["expectedSessionRevision"])?;
+            uint_value(
+                &params["expectedSessionRevision"],
+                MAX_SAFE_INTEGER,
+                "session revision",
+            )?;
+        }
+        _ => return Err("The contest surface action is invalid.".into()),
+    }
+    Ok(())
+}
+
+fn draft(params: &Map<String, Value>, extras: &[&str]) -> Result<(), String> {
+    let mut keys = vec!["draftID", "expectedDraftRevision"];
+    keys.extend_from_slice(extras);
+    exact(params, &keys, "draft action params")?;
+    text_value(&params["draftID"], 160, false, "draft ID")?;
+    uint_value(
+        &params["expectedDraftRevision"],
+        MAX_SAFE_INTEGER,
+        "draft revision",
+    )?;
+    Ok(())
+}
+
+fn qso(params: &Map<String, Value>, extras: &[&str]) -> Result<(), String> {
+    let mut keys = vec!["qsoID"];
+    keys.extend_from_slice(extras);
+    exact(params, &keys, "log action params")?;
+    text_value(&params["qsoID"], 160, false, "QSO ID")?;
+    Ok(())
+}
+
+fn frequency_text(value: &Value) -> Result<(), String> {
+    text_value(value, 11, true, "frequency text").map(|_| ())
+}
+
+fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
+    if serde_json::to_vec(value)
+        .map_err(|_| "The contest surface projection is invalid.")?
+        .len()
+        > MAX_PROJECTION_BYTES
+    {
+        return Err("The contest surface projection is too large.".into());
+    }
+    let projection = object(value, "contest surface projection")?;
+    let schema_version = projection
+        .get("schemaVersion")
+        .and_then(Value::as_u64)
+        .ok_or("The contest surface projection schema is invalid.")?;
+    if projection.get("status").and_then(Value::as_str) == Some("unavailable") {
+        if schema_version != 1 {
+            return Err("The contest surface projection schema is invalid.".into());
+        }
+        return exact(
+            projection,
+            &["schemaVersion", "status"],
+            "unavailable projection",
+        );
+    }
+    if projection.get("status").and_then(Value::as_str) != Some("ready") {
+        return Err("The contest surface projection status is invalid.".into());
+    }
+    match panel_id {
+        "active-qso" if schema_version == 1 => validate_entry_projection(projection),
+        "active-qso" if schema_version == 2 => validate_entry_projection_v2(projection),
+        "callsign-intelligence" if schema_version == 1 => {
+            validate_assistance_projection(projection)
+        }
+        "propagation" if schema_version == 1 => validate_statistics_projection(projection),
+        "logbook" if schema_version == 1 => validate_logbook_projection(projection),
+        "active-qso" | "callsign-intelligence" | "propagation" | "logbook" => {
+            Err("The contest surface projection schema is invalid.".into())
+        }
+        _ => Err("That contest surface has no ready projection schema.".into()),
+    }
+}
+
+fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "session",
+            "draft",
+            "busy",
+            "dirty",
+            "uncertain",
+        ],
+        "entry projection",
+    )?;
+    validate_entry_projection_body(value)
+}
+
+fn validate_entry_projection_v2(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "session",
+            "draft",
+            "descriptor",
+            "operator",
+            "busy",
+            "dirty",
+            "uncertain",
+        ],
+        "entry projection",
+    )?;
+    validate_entry_projection_body(value)?;
+    let sent_field_ids = validate_entry_descriptor(&value["descriptor"])?;
+    validate_entry_operator(&value["operator"])?;
+    let serial = object(&value["descriptor"]["serial"], "entry serial descriptor")?;
+    if serial["reservedSerial"] != value["draft"]["reservedSerial"] {
+        return Err("The entry serial descriptor does not match the current draft.".into());
+    }
+    if let Some(field_id) = serial["allocatedFieldID"].as_str() {
+        if !sent_field_ids.contains(field_id) {
+            return Err("The allocated serial field is not a sent exchange field.".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), String> {
+    let session = object(&value["session"], "entry session")?;
+    exact(session, &["name", "ruleName", "mode"], "entry session")?;
+    for key in ["name", "ruleName"] {
+        text_value(&session[key], 160, false, "entry session text")?;
+    }
+    text_value(&session["mode"], 16, false, "entry mode")?;
+    let draft = object(&value["draft"], "entry draft")?;
+    exact(
+        draft,
+        &[
+            "draftID",
+            "revision",
+            "callsign",
+            "sentReport",
+            "receivedReport",
+            "receivedFields",
+            "frequencyHz",
+            "frequencyText",
+            "frequencyError",
+            "band",
+            "mode",
+            "dupe",
+            "validation",
+            "reservedSerial",
+        ],
+        "entry draft",
+    )?;
+    text_value(&draft["draftID"], 160, false, "draft ID")?;
+    uint_value(&draft["revision"], MAX_SAFE_INTEGER, "draft revision")?;
+    for key in ["callsign", "sentReport", "receivedReport"] {
+        text_value(&draft[key], 160, true, "entry text")?;
+    }
+    nullable_uint(&draft["frequencyHz"], 100_000_000_000, "entry frequency")?;
+    text_value(&draft["frequencyText"], 11, true, "entry frequency text")?;
+    text_value(&draft["frequencyError"], 512, true, "entry frequency error")?;
+    text_value(&draft["band"], 16, true, "entry band")?;
+    text_value(&draft["mode"], 16, true, "entry mode")?;
+    fields(&draft["receivedFields"], true)?;
+    let dupe = object(&draft["dupe"], "dupe")?;
+    exact(dupe, &["state", "reason"], "dupe")?;
+    enum_value(
+        &dupe["state"],
+        &["unchecked", "clear", "duplicate"],
+        "dupe state",
+    )?;
+    text_value(&dupe["reason"], 1024, true, "dupe reason")?;
+    let validation = object(&draft["validation"], "entry validation")?;
+    exact(validation, &["errors", "warnings"], "entry validation")?;
+    string_array(&validation["errors"], 32, 1024, "entry errors")?;
+    string_array(&validation["warnings"], 32, 1024, "entry warnings")?;
+    nullable_uint(
+        &draft["reservedSerial"],
+        MAX_SAFE_INTEGER,
+        "reserved serial",
+    )?;
+    for key in ["busy", "dirty", "uncertain"] {
+        boolean(&value[key], key)?;
+    }
+    Ok(())
+}
+
+fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> {
+    let descriptor = object(value, "entry descriptor")?;
+    exact(
+        descriptor,
+        &["bands", "modes", "sentFields", "serial"],
+        "entry descriptor",
+    )?;
+    unique_text_array(&descriptor["bands"], 32, 16, None, "entry bands")?;
+    unique_text_array(
+        &descriptor["modes"],
+        5,
+        16,
+        Some(&["CW", "SSB", "RTTY", "AM", "FM"]),
+        "entry modes",
+    )?;
+    let mut field_ids = BTreeSet::new();
+    for field in array(&descriptor["sentFields"], 16, "sent exchange fields")? {
+        let field = object(field, "sent exchange field")?;
+        exact(
+            field,
+            &["id", "label", "value", "required", "maximumUTF8Bytes"],
+            "sent exchange field",
+        )?;
+        let field_id = text_value(&field["id"], 64, false, "sent field ID")?;
+        if !field_ids.insert(field_id.into()) {
+            return Err("The sent exchange field IDs are not unique.".into());
+        }
+        text_value(&field["label"], 160, false, "sent field label")?;
+        boolean(&field["required"], "sent field required")?;
+        let maximum = uint_value(&field["maximumUTF8Bytes"], 1024, "sent field maximum")?;
+        if maximum == 0 {
+            return Err("The sent field maximum is invalid.".into());
+        }
+        text_value(&field["value"], maximum as usize, true, "sent field value")?;
+    }
+    let serial = object(&descriptor["serial"], "entry serial descriptor")?;
+    exact(
+        serial,
+        &["requirement", "allocatedFieldID", "reservedSerial"],
+        "entry serial descriptor",
+    )?;
+    let requirement = enum_value(
+        &serial["requirement"],
+        &["none", "requiredForCommit"],
+        "serial requirement",
+    )?;
+    match requirement {
+        "none" if !serial["allocatedFieldID"].is_null() || !serial["reservedSerial"].is_null() => {
+            return Err("A contest without serial allocation cannot publish a serial field.".into())
+        }
+        "requiredForCommit" => {
+            text_value(
+                &serial["allocatedFieldID"],
+                64,
+                false,
+                "allocated serial field",
+            )?;
+            nullable_uint(
+                &serial["reservedSerial"],
+                MAX_SAFE_INTEGER,
+                "reserved serial",
+            )?;
+        }
+        _ => {}
+    }
+    Ok(field_ids)
+}
+
+fn validate_entry_operator(value: &Value) -> Result<(), String> {
+    if value.is_null() {
+        return Ok(());
+    }
+    let operator = object(value, "entry operator")?;
+    exact(
+        operator,
+        &[
+            "output",
+            "armed",
+            "style",
+            "status",
+            "pending",
+            "functionKeys",
+            "readiness",
+            "trace",
+        ],
+        "entry operator",
+    )?;
+    enum_value(&operator["output"], &["simulation-only"], "operator output")?;
+    boolean(&operator["armed"], "operator armed state")?;
+    enum_value(
+        &operator["style"],
+        &["run", "search-and-pounce"],
+        "operator style",
+    )?;
+    enum_value(
+        &operator["status"],
+        &["disarmed", "armed", "waiting", "uncertain"],
+        "operator status",
+    )?;
+    if !operator["pending"].is_null() {
+        enum_value(
+            &operator["pending"],
+            &["reserve-serial", "send", "commit"],
+            "operator pending state",
+        )?;
+    }
+    let mut keys = BTreeSet::new();
+    for mapping in array(&operator["functionKeys"], 12, "operator function keys")? {
+        let mapping = object(mapping, "operator function key")?;
+        exact(mapping, &["key", "macro"], "operator function key")?;
+        let key = enum_value(
+            &mapping["key"],
+            &[
+                "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+            ],
+            "operator function key",
+        )?;
+        if !keys.insert(key) {
+            return Err("The operator function keys are not unique.".into());
+        }
+        contest_macro(&mapping["macro"])?;
+    }
+    let readiness = object(&operator["readiness"], "operator readiness")?;
+    exact(
+        readiness,
+        &[
+            "canSendCQ",
+            "canSendCall",
+            "canSendDuplicate",
+            "canReserveCall",
+            "canReserveCommit",
+            "canCommit",
+        ],
+        "operator readiness",
+    )?;
+    for key in [
+        "canSendCQ",
+        "canSendCall",
+        "canSendDuplicate",
+        "canReserveCall",
+        "canReserveCommit",
+        "canCommit",
+    ] {
+        boolean(&readiness[key], "operator readiness")?;
+    }
+    for trace in array(&operator["trace"], 24, "operator trace")? {
+        let trace = object(trace, "operator trace")?;
+        exact(
+            trace,
+            &["operationID", "mode", "macro", "text", "status"],
+            "operator trace",
+        )?;
+        text_value(&trace["operationID"], 160, false, "operator operation ID")?;
+        enum_value(
+            &trace["mode"],
+            &["CW", "SSB", "RTTY", "AM", "FM"],
+            "operator mode",
+        )?;
+        contest_macro(&trace["macro"])?;
+        text_value(&trace["text"], 1024, true, "operator trace text")?;
+        enum_value(
+            &trace["status"],
+            &["pending", "confirmed", "failed", "stopped"],
+            "operator trace status",
+        )?;
+    }
+    Ok(())
+}
+
+fn contest_macro(value: &Value) -> Result<(), String> {
+    enum_value(
+        value,
+        &["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"],
+        "contest macro",
+    )
+    .map(|_| ())
+}
+
+fn validate_assistance_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "draftID",
+            "draftRevision",
+            "inputCallsign",
+            "scp",
+            "history",
+            "busy",
+        ],
+        "assistance projection",
+    )?;
+    text_value(&value["draftID"], 160, false, "draft ID")?;
+    uint_value(&value["draftRevision"], MAX_SAFE_INTEGER, "draft revision")?;
+    text_value(&value["inputCallsign"], 32, true, "input callsign")?;
+    boolean(&value["busy"], "assistance busy")?;
+    let scp = object(&value["scp"], "SCP projection")?;
+    exact(scp, &["source", "candidates"], "SCP projection")?;
+    nullable_text(&scp["source"], 160, "SCP source")?;
+    let candidates = array(&scp["candidates"], 200, "SCP candidates")?;
+    for candidate in candidates {
+        let candidate = object(candidate, "SCP candidate")?;
+        exact(candidate, &["candidateID", "callsign"], "SCP candidate")?;
+        text_value(&candidate["candidateID"], 160, false, "SCP candidate ID")?;
+        text_value(&candidate["callsign"], 32, false, "SCP callsign")?;
+    }
+    let history = object(&value["history"], "history projection")?;
+    exact(history, &["source", "rows"], "history projection")?;
+    nullable_text(&history["source"], 160, "history source")?;
+    let rows = array(&history["rows"], 200, "history rows")?;
+    for row in rows {
+        let row = object(row, "history row")?;
+        exact(row, &["candidateID", "callsign", "fields"], "history row")?;
+        text_value(&row["candidateID"], 160, false, "history candidate ID")?;
+        text_value(&row["callsign"], 32, false, "history callsign")?;
+        fields(&row["fields"], false)?;
+    }
+    Ok(())
+}
+
+fn validate_statistics_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &["schemaVersion", "status", "score", "busy"],
+        "statistics projection",
+    )?;
+    boolean(&value["busy"], "statistics busy")?;
+    if value["score"].is_null() {
+        return Ok(());
+    }
+    let score = object(&value["score"], "contest score")?;
+    exact(
+        score,
+        &[
+            "qsos",
+            "points",
+            "multipliers",
+            "claimedScore",
+            "multiplierLabels",
+            "multiplierDisplayLabels",
+            "sourceVerification",
+        ],
+        "contest score",
+    )?;
+    for key in ["qsos", "points", "multipliers", "claimedScore"] {
+        uint_value(&score[key], MAX_SAFE_INTEGER, "contest score value")?;
+    }
+    string_array(&score["multiplierLabels"], 10_000, 160, "multiplier labels")?;
+    string_array(
+        &score["multiplierDisplayLabels"],
+        10_000,
+        160,
+        "multiplier display labels",
+    )?;
+    enum_value(
+        &score["sourceVerification"],
+        &["verified", "provisional", "unverified"],
+        "score source verification",
+    )?;
+    Ok(())
+}
+
+fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "sessionRevision",
+            "page",
+            "editing",
+            "busy",
+        ],
+        "logbook projection",
+    )?;
+    uint_value(
+        &value["sessionRevision"],
+        MAX_SAFE_INTEGER,
+        "session revision",
+    )?;
+    boolean(&value["busy"], "logbook busy")?;
+    let page = object(&value["page"], "log page")?;
+    exact(page, &["offset", "limit", "total", "rows"], "log page")?;
+    uint_value(&page["offset"], 1_000_000, "log offset")?;
+    uint_value(&page["limit"], 20, "log limit")?;
+    uint_value(&page["total"], MAX_SAFE_INTEGER, "log total")?;
+    let rows = array(&page["rows"], 20, "log rows")?;
+    for row in rows {
+        let row = object(row, "log row")?;
+        exact(
+            row,
+            &[
+                "qsoID",
+                "workedAt",
+                "callsign",
+                "band",
+                "mode",
+                "sentExchange",
+                "receivedExchange",
+                "points",
+                "multiplierLabels",
+            ],
+            "log row",
+        )?;
+        for key in ["qsoID", "workedAt"] {
+            text_value(&row[key], 160, false, "log identity")?;
+        }
+        text_value(&row["callsign"], 32, false, "log callsign")?;
+        for key in ["band", "mode"] {
+            text_value(&row[key], 16, false, "log radio value")?;
+        }
+        for key in ["sentExchange", "receivedExchange"] {
+            text_value(&row[key], 1024, true, "log exchange")?;
+        }
+        integer(&row["points"], "log points")?;
+        string_array(&row["multiplierLabels"], 64, 160, "multiplier labels")?;
+    }
+    if !value["editing"].is_null() {
+        let edit = object(&value["editing"], "log edit")?;
+        exact(
+            edit,
+            &[
+                "qsoID",
+                "callsign",
+                "band",
+                "mode",
+                "sentReport",
+                "receivedReport",
+                "receivedFields",
+                "frequencyHz",
+                "editFrequencyText",
+                "frequencyError",
+                "correctionReason",
+                "confirmDelete",
+                "deletionReason",
+            ],
+            "log edit",
+        )?;
+        text_value(&edit["qsoID"], 160, false, "QSO ID")?;
+        text_value(&edit["callsign"], 32, true, "log callsign")?;
+        for key in ["band", "mode"] {
+            text_value(&edit[key], 16, true, "log radio value")?;
+        }
+        for key in [
+            "sentReport",
+            "receivedReport",
+            "correctionReason",
+            "deletionReason",
+        ] {
+            text_value(&edit[key], 1024, true, "log edit text")?;
+        }
+        fields(&edit["receivedFields"], true)?;
+        nullable_uint(&edit["frequencyHz"], 100_000_000_000, "log frequency")?;
+        text_value(&edit["editFrequencyText"], 11, true, "log frequency text")?;
+        text_value(&edit["frequencyError"], 512, true, "log frequency error")?;
+        boolean(&edit["confirmDelete"], "delete confirmation")?;
+    }
+    Ok(())
+}
+
+fn fields(value: &Value, descriptor: bool) -> Result<(), String> {
+    let fields = array(value, 16, "exchange fields")?;
+    for field in fields {
+        let field = object(field, "exchange field")?;
+        let keys: &[&str] = if descriptor {
+            &["id", "label", "value", "required", "maximumUTF8Bytes"]
+        } else {
+            &["id", "label", "value"]
+        };
+        exact(field, keys, "exchange field")?;
+        text_value(&field["id"], 64, false, "field ID")?;
+        text_value(&field["label"], 160, false, "field label")?;
+        text_value(&field["value"], 1024, true, "field value")?;
+        if descriptor {
+            boolean(&field["required"], "field required")?;
+            uint_value(&field["maximumUTF8Bytes"], 1024, "field maximum")?;
+        }
+    }
+    Ok(())
+}
+
+fn exact(object: &Map<String, Value>, keys: &[&str], name: &str) -> Result<(), String> {
+    if object.len() == keys.len() && keys.iter().all(|key| object.contains_key(*key)) {
+        Ok(())
+    } else {
+        Err(format!("The {name} has unknown or missing fields."))
+    }
+}
+fn object<'a>(value: &'a Value, name: &str) -> Result<&'a Map<String, Value>, String> {
+    value
+        .as_object()
+        .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn array<'a>(value: &'a Value, maximum: usize, name: &str) -> Result<&'a Vec<Value>, String> {
+    value
+        .as_array()
+        .filter(|values| values.len() <= maximum)
+        .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn text_value<'a>(
+    value: &'a Value,
+    maximum: usize,
+    allow_empty: bool,
+    name: &str,
+) -> Result<&'a str, String> {
+    let value = value
+        .as_str()
+        .ok_or_else(|| format!("The {name} is invalid."))?;
+    bounded_text(value, maximum, allow_empty, name)?;
+    Ok(value)
+}
+fn bounded_text(value: &str, maximum: usize, allow_empty: bool, name: &str) -> Result<(), String> {
+    if value.len() <= maximum && (allow_empty || !value.trim().is_empty()) {
+        Ok(())
+    } else {
+        Err(format!("The {name} is invalid."))
+    }
+}
+fn nullable_text(value: &Value, maximum: usize, name: &str) -> Result<(), String> {
+    if value.is_null() {
+        Ok(())
+    } else {
+        text_value(value, maximum, true, name).map(|_| ())
+    }
+}
+fn uint_value(value: &Value, maximum: u64, name: &str) -> Result<u64, String> {
+    value
+        .as_u64()
+        .filter(|value| *value <= maximum)
+        .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn nullable_uint(value: &Value, maximum: u64, name: &str) -> Result<(), String> {
+    if value.is_null() {
+        Ok(())
+    } else {
+        uint_value(value, maximum, name).map(|_| ())
+    }
+}
+fn integer(value: &Value, name: &str) -> Result<(), String> {
+    value
+        .as_i64()
+        .filter(|value| value.unsigned_abs() <= MAX_SAFE_INTEGER)
+        .map(|_| ())
+        .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn boolean(value: &Value, name: &str) -> Result<(), String> {
+    value
+        .as_bool()
+        .map(|_| ())
+        .ok_or_else(|| format!("The {name} is invalid."))
+}
+fn string_array(
+    value: &Value,
+    maximum: usize,
+    maximum_text: usize,
+    name: &str,
+) -> Result<(), String> {
+    for value in array(value, maximum, name)? {
+        text_value(value, maximum_text, true, name)?;
+    }
+    Ok(())
+}
+fn unique_text_array(
+    value: &Value,
+    maximum: usize,
+    maximum_text: usize,
+    choices: Option<&[&str]>,
+    name: &str,
+) -> Result<(), String> {
+    let mut seen = BTreeSet::new();
+    for value in array(value, maximum, name)? {
+        let value = text_value(value, maximum_text, false, name)?;
+        if choices.is_some_and(|choices| !choices.contains(&value)) || !seen.insert(value) {
+            return Err(format!("The {name} is invalid."));
+        }
+    }
+    Ok(())
+}
+fn enum_value<'a>(value: &'a Value, choices: &[&str], name: &str) -> Result<&'a str, String> {
+    let value = value
+        .as_str()
+        .filter(|value| choices.contains(value))
+        .ok_or_else(|| format!("The {name} is invalid."))?;
+    Ok(value)
+}
+fn canonical_uuid_value<'a>(value: &'a Value, name: &str) -> Result<&'a str, String> {
+    let value = value
+        .as_str()
+        .ok_or_else(|| format!("The {name} is invalid."))?;
+    canonical_uuid(value, name)
+}
+fn canonical_uuid<'a>(value: &'a str, name: &str) -> Result<&'a str, String> {
+    let parsed = uuid::Uuid::parse_str(value).map_err(|_| format!("The {name} is invalid."))?;
+    if parsed.to_string() != value {
+        return Err(format!("The {name} is invalid."));
+    }
+    Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const OPERATING: &str = "10000000-0000-4000-8000-000000000001";
+    const SESSION: &str = "20000000-0000-4000-8000-000000000001";
+    const WORKSPACE: &str = "30000000-0000-4000-8000-000000000001";
+    const REQUEST: &str = "40000000-0000-4000-8000-000000000001";
+    fn context() -> ContestWindowContext {
+        ContestWindowContext {
+            operating_context: OPERATING.into(),
+            session_id: SESSION.into(),
+            workspace_generation: WORKSPACE.into(),
+        }
+    }
+    fn action(action: &str, panel: &str, params: Value) -> Value {
+        json!({"operatingContext":OPERATING,"scope":"contesting",
+        "sessionID":SESSION,"workspaceGeneration":WORKSPACE,"panelID":panel,"projectionRevision":7,
+        "requestID":REQUEST,"action":action,"params":params})
+    }
+
+    #[test]
+    fn action_schema_rejects_unknown_fields_coercion_wrong_panel_and_old_numeric_frequency() {
+        assert_eq!(contest_panel("contest--active-qso").unwrap(), "active-qso");
+        assert!(contest_panel("active-qso").is_err());
+        assert!(contest_panel("contest--unknown").is_err());
+        let params = json!({"draftID":"draft","expectedDraftRevision":2,"value":""});
+        assert!(validate_action_envelope(&action(
+            "entry_set_frequency_text",
+            "active-qso",
+            params.clone()
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "entry_set_frequency",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"value":14_025_000})
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
+            "entry_set_frequency_text",
+            "logbook",
+            params.clone()
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
+            "entry_set_frequency_text",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"value":14_025_000})
+        ))
+        .is_err());
+        let mut extra = action("entry_set_frequency_text", "active-qso", params);
+        extra["extra"] = json!(true);
+        assert!(validate_action_envelope(&extra).is_err());
+        let mut coerced = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        coerced["requestID"] = json!([REQUEST]);
+        assert!(validate_action_envelope(&coerced).is_err());
+    }
+
+    #[test]
+    fn raw_entry_and_log_frequency_text_keep_bounded_invalid_intermediate_edits() {
+        for value in ["", "1", "14025000", "99999999999"] {
+            assert!(validate_action_envelope(&action(
+                "entry_set_frequency_text",
+                "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":value})
+            ))
+            .is_ok());
+            assert!(validate_action_envelope(&action(
+                "log_edit_set_frequency_text",
+                "logbook",
+                json!({"qsoID":"qso","value":value})
+            ))
+            .is_ok());
+        }
+        for value in ["", "1", "14.025", "bad", "ééééé"] {
+            assert!(validate_action_envelope(&action(
+                "entry_set_frequency_text",
+                "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":value})
+            ))
+            .is_ok());
+        }
+        for value in ["999999999999", "éééééé"] {
+            assert!(validate_action_envelope(&action(
+                "entry_set_frequency_text",
+                "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":value})
+            ))
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn entry_operator_actions_are_typed_and_revision_fenced() {
+        assert!(validate_action_envelope(&action(
+            "entry_operator_arm",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"armed":true})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "entry_operator_style",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"value":"search-and-pounce"})
+        ))
+        .is_ok());
+        for (name, params) in [
+            (
+                "entry_operator_arm",
+                json!({"draftID":"draft","expectedDraftRevision":2,"armed":"true"}),
+            ),
+            (
+                "entry_operator_style",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":"assisted"}),
+            ),
+        ] {
+            assert!(validate_action_envelope(&action(name, "active-qso", params)).is_err());
+        }
+    }
+
+    #[test]
+    fn projection_schemas_are_exact_and_unavailable_roles_have_no_ready_shape() {
+        assert!(validate_projection(
+            "monitor",
+            &json!({"schemaVersion":1,"status":"unavailable"})
+        )
+        .is_ok());
+        assert!(
+            validate_projection("monitor", &json!({"schemaVersion":1,"status":"ready"})).is_err()
+        );
+        assert!(validate_projection(
+            "active-qso",
+            &json!({"schemaVersion":1,"status":"unavailable","extra":true})
+        )
+        .is_err());
+        let entry = json!({"schemaVersion":1,"status":"ready","session":{"name":"CQ WW","ruleName":"CQ WW CW","mode":"CW"},
+            "draft":{"draftID":"draft","revision":2,"callsign":"DL1AAA","sentReport":"599","receivedReport":"599",
+                "receivedFields":[],"frequencyHz":null,"frequencyText":"14.","frequencyError":"Enter a frequency",
+                "band":"20m","mode":"CW","dupe":{"state":"unchecked","reason":""},
+                "validation":{"errors":[],"warnings":[]},"reservedSerial":null},
+            "busy":false,"dirty":true,"uncertain":false});
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        let mut missing_frequency_text = entry;
+        missing_frequency_text["draft"]
+            .as_object_mut()
+            .unwrap()
+            .remove("frequencyText");
+        assert!(validate_projection("active-qso", &missing_frequency_text).is_err());
+        let logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,
+            "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00Z",
+                "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
+                "points":3,"multiplierLabels":["Germany"]}]},
+            "editing":{"qsoID":"qso","callsign":"DL1AAA","band":"20m","mode":"CW","sentReport":"599",
+                "receivedReport":"599","receivedFields":[],"frequencyHz":null,"editFrequencyText":"bad",
+                "frequencyError":"Enter a frequency","correctionReason":"","confirmDelete":false,"deletionReason":""},"busy":false});
+        assert!(validate_projection("logbook", &logbook).is_ok());
+        let statistics = json!({"schemaVersion":1,"status":"ready","score":{"qsos":12,"points":12,"multipliers":10,
+            "claimedScore":120,"multiplierLabels":["country:K"],"multiplierDisplayLabels":["United States"],
+            "sourceVerification":"verified"},"busy":false});
+        assert!(validate_projection("propagation", &statistics).is_ok());
+        let mut missing_display = statistics;
+        missing_display["score"]
+            .as_object_mut()
+            .unwrap()
+            .remove("multiplierDisplayLabels");
+        assert!(validate_projection("propagation", &missing_display).is_err());
+        let too_many = vec![json!("K"); 10_001];
+        missing_display["score"]["multiplierDisplayLabels"] = json!(too_many);
+        assert!(validate_projection("propagation", &missing_display).is_err());
+    }
+
+    #[test]
+    fn entry_v2_projects_resolved_sent_exchange_and_simulation_state_exactly() {
+        let entry = entry_v2();
+        assert!(validate_projection("active-qso", &entry).is_ok());
+        assert!(validate_projection(
+            "active-qso",
+            &json!({"schemaVersion":2,"status":"unavailable"})
+        )
+        .is_err());
+
+        let mut serial_entry = entry.clone();
+        serial_entry["draft"]["reservedSerial"] = json!(1);
+        serial_entry["descriptor"]["sentFields"]
+            .as_array_mut()
+            .unwrap()
+            .push(
+                json!({"id":"serial","label":"Serial","value":"001","required":true,
+                "maximumUTF8Bytes":3}),
+            );
+        serial_entry["descriptor"]["serial"] = json!({
+            "requirement":"requiredForCommit","allocatedFieldID":"serial","reservedSerial":1
+        });
+        assert!(validate_projection("active-qso", &serial_entry).is_ok());
+
+        let mut overlong_value = entry.clone();
+        overlong_value["descriptor"]["sentFields"][0]["value"] = json!("ABCDEF");
+        assert!(validate_projection("active-qso", &overlong_value).is_err());
+
+        let mut wrong_serial_field = entry.clone();
+        wrong_serial_field["draft"]["reservedSerial"] = json!(1);
+        wrong_serial_field["descriptor"]["serial"] = json!({
+            "requirement":"requiredForCommit","allocatedFieldID":"missing","reservedSerial":1
+        });
+        assert!(validate_projection("active-qso", &wrong_serial_field).is_err());
+
+        let mut mismatched_serial = entry.clone();
+        mismatched_serial["descriptor"]["serial"]["reservedSerial"] = json!(1);
+        assert!(validate_projection("active-qso", &mismatched_serial).is_err());
+
+        let mut duplicate_modes = entry.clone();
+        duplicate_modes["descriptor"]["modes"] = json!(["CW", "CW"]);
+        assert!(validate_projection("active-qso", &duplicate_modes).is_err());
+
+        let mut excessive_trace = entry;
+        excessive_trace["operator"]["trace"] = json!((0..25)
+            .map(
+                |index| json!({"operationID":format!("simulation-{index}"),"mode":"CW","macro":"CQ",
+                "text":"CQ TEST","status":"confirmed"})
+            )
+            .collect::<Vec<_>>());
+        assert!(validate_projection("active-qso", &excessive_trace).is_err());
+    }
+
+    #[test]
+    fn assistance_projection_requires_owner_resolvable_candidate_ids() {
+        let projection = json!({"schemaVersion":1,"status":"ready","draftID":"draft","draftRevision":2,
+            "inputCallsign":"K1","scp":{"source":"master.scp","candidates":[{"candidateID":"scp:K1ABC","callsign":"K1ABC"}]},
+            "history":{"source":null,"rows":[{"candidateID":"history:qso-1","callsign":"K1ABC",
+                "fields":[{"id":"state","label":"State","value":"MA"}]}]},"busy":false});
+        assert!(validate_projection("callsign-intelligence", &projection).is_ok());
+        let mut missing_id = projection;
+        missing_id["scp"]["candidates"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("candidateID");
+        assert!(validate_projection("callsign-intelligence", &missing_id).is_err());
+    }
+
+    #[test]
+    fn context_registration_and_invalidation_are_exact() {
+        let current = context();
+        let mut state = State::default();
+        register_context_in(&mut state, &current);
+        state.panels.insert(
+            "active-qso".into(),
+            PanelState {
+                projection: None,
+                receipts: VecDeque::from([(
+                    "receipt".into(),
+                    Receipt {
+                        envelope: json!({}),
+                        status: "uncertain",
+                        message: None,
+                        projection_revision: 7,
+                    },
+                )]),
+            },
+        );
+        register_context_in(&mut state, &current);
+        assert_eq!(state.panels["active-qso"].receipts.len(), 1);
+        let stale = ContestWindowContext {
+            session_id: "20000000-0000-4000-8000-000000000002".into(),
+            ..current.clone()
+        };
+        invalidate_context_in(&mut state, &stale);
+        assert_eq!(state.context, Some(current.clone()));
+        register_context_in(&mut state, &stale);
+        assert!(state.panels.is_empty());
+        invalidate_context_in(&mut state, &current);
+        assert_eq!(state.context, Some(stale.clone()));
+        invalidate_context_in(&mut state, &stale);
+        assert!(state.context.is_none());
+    }
+
+    #[test]
+    fn stale_context_and_capacity_failures_do_not_mutate_admission_state() {
+        let current = context();
+        let stale = ContestWindowContext {
+            session_id: "20000000-0000-4000-8000-000000000002".into(),
+            ..current.clone()
+        };
+        let mut state = State {
+            context: Some(current.clone()),
+            ..State::default()
+        };
+        assert!(require_context(&state, &stale).is_err());
+        assert!(state.actions.is_empty());
+        assert!(state.panels.is_empty());
+
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        for index in 0..MAX_ACTIONS {
+            state.actions.push_back(QueuedAction {
+                panel_id: "active-qso".into(),
+                request_id: format!("queued-{index}"),
+                envelope: json!({}),
+            });
+        }
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        let checked = validate_action_envelope(&envelope).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &checked, envelope).is_err());
+        assert_eq!(state.actions.len(), MAX_ACTIONS);
+        assert!(state.seen_request_ids.is_empty());
+        assert!(state.panels["active-qso"].receipts.is_empty());
+    }
+
+    #[test]
+    fn unresolved_receipts_block_eviction_and_retired_ids_never_replay() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        let panel = state.panels.get_mut("active-qso").unwrap();
+        for index in 0..MAX_RECEIPTS_PER_PANEL {
+            let request_id = format!("00000000-0000-4000-8000-{index:012x}");
+            let envelope = action_with_request(&request_id);
+            panel.receipts.push_back((
+                request_id.clone(),
+                Receipt {
+                    envelope,
+                    status: "uncertain",
+                    message: None,
+                    projection_revision: 7,
+                },
+            ));
+            state.seen_request_ids.insert(request_id);
+        }
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        let checked = validate_action_envelope(&envelope).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &checked, envelope.clone()).is_err());
+        assert_eq!(
+            state.panels["active-qso"].receipts.len(),
+            MAX_RECEIPTS_PER_PANEL
+        );
+        assert!(state.actions.is_empty());
+        assert!(!state.seen_request_ids.contains(REQUEST));
+
+        for (_, receipt) in &mut state.panels.get_mut("active-qso").unwrap().receipts {
+            receipt.status = "applied";
+        }
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &checked, envelope).unwrap()["status"],
+            "queued"
+        );
+        assert_eq!(
+            state.panels["active-qso"].receipts.len(),
+            MAX_RECEIPTS_PER_PANEL
+        );
+        let retired = action_with_request("00000000-0000-4000-8000-000000000000");
+        let retired_checked = validate_action_envelope(&retired).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &retired_checked, retired).is_err());
+        assert_eq!(state.actions.len(), 1);
+    }
+
+    #[test]
+    fn unavailable_projection_cannot_enqueue_actions() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        publish_after_admission(
+            &mut state,
+            "active-qso",
+            7,
+            json!({"schemaVersion":1,"status":"unavailable"}),
+        )
+        .unwrap();
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        let checked = validate_action_envelope(&envelope).unwrap();
+
+        assert!(submit_checked(&mut state, "active-qso", &checked, envelope).is_err());
+        assert!(state.actions.is_empty());
+        assert!(state.seen_request_ids.is_empty());
+        assert!(state.panels["active-qso"].receipts.is_empty());
+    }
+
+    #[test]
+    fn action_queue_marks_taken_work_uncertain_and_never_replays_duplicate_ids() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        let envelope = action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        );
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        assert!(
+            publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"}))
+                .is_err()
+        );
+        let mut stale = envelope.clone();
+        stale["projectionRevision"] = json!(6);
+        let stale_checked = validate_action_envelope(&stale).unwrap();
+        assert!(submit_checked(&mut state, "active-qso", &stale_checked, stale).is_err());
+        let checked = validate_action_envelope(&envelope).unwrap();
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &checked, envelope.clone()).unwrap()["status"],
+            "queued"
+        );
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &checked, envelope.clone()).unwrap()["status"],
+            "queued"
+        );
+        assert_eq!(state.actions.len(), 1);
+        assert_eq!(take_next(&mut state).unwrap(), Some(envelope.clone()));
+        assert_eq!(
+            submit_checked(&mut state, "active-qso", &checked, envelope.clone()).unwrap()["status"],
+            "uncertain"
+        );
+        assert!(state.actions.is_empty());
+        assert_eq!(
+            complete_after_admission(&mut state, REQUEST, "applied", None, 8).unwrap()["status"],
+            "applied"
+        );
+        assert!(complete_after_admission(&mut state, REQUEST, "applied", None, 9).is_err());
+        let mut changed = envelope;
+        changed["params"]["expectedDraftRevision"] = json!(3);
+        assert!(submit_checked(&mut state, "active-qso", &checked, changed).is_err());
+        assert_eq!(state.panels["active-qso"].receipts.len(), 1);
+        state.panels.get_mut("active-qso").unwrap().receipts.clear();
+        assert!(submit_checked(&mut state, "active-qso", &checked, checked_value()).is_err());
+    }
+
+    fn checked_value() -> Value {
+        action(
+            "entry_commit",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}),
+        )
+    }
+
+    fn action_with_request(request_id: &str) -> Value {
+        let mut value = checked_value();
+        value["requestID"] = json!(request_id);
+        value
+    }
+
+    fn entry_v2() -> Value {
+        json!({"schemaVersion":2,"status":"ready","session":{"name":"CQ WW","ruleName":"CQ WW CW","mode":"CW"},
+            "draft":{"draftID":"draft","revision":2,"callsign":"DL1AAA","sentReport":"599","receivedReport":"599",
+                "receivedFields":[],"frequencyHz":14025000,"frequencyText":"14025000","frequencyError":"",
+                "band":"20m","mode":"CW","dupe":{"state":"clear","reason":"Not worked on 20m."},
+                "validation":{"errors":[],"warnings":[]},"reservedSerial":null},
+            "descriptor":{"bands":["20m"],"modes":["CW"],
+                "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
+                "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
+            "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,
+                "functionKeys":[{"key":"F1","macro":"CQ"},{"key":"F2","macro":"EXCH"}],
+                "readiness":{"canSendCQ":true,"canSendCall":true,"canSendDuplicate":true,
+                    "canReserveCall":true,"canReserveCommit":true,"canCommit":true},
+                "trace":[{"operationID":"simulation-1","mode":"CW","macro":"CQ","text":"CQ TEST","status":"confirmed"}]},
+            "busy":false,"dirty":true,"uncertain":false})
+    }
+}
