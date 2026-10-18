@@ -14,7 +14,7 @@ final class ClusterClassificationTests: XCTestCase {
         ])
         let differentMode = index.classify(call: "NF3R", band: "20m", mode: "SSB", adif: 291)
         XCTAssertEqual(differentMode.callStatus, "New Mode")
-        XCTAssertEqual(differentMode.dxccStatus, "Worked")
+        XCTAssertEqual(differentMode.dxccStatus, "Confirmed")
         XCTAssertEqual(differentMode.workedBefore, ft8Date)
         XCTAssertEqual(index.classify(call: "NF3R", band: "40m", mode: "SSB", adif: 291).callStatus, "New Band")
         XCTAssertEqual(index.classify(call: "NF3R", band: "40m", mode: "CW", adif: 291).callStatus, "New Band+Mode")
@@ -24,7 +24,7 @@ final class ClusterClassificationTests: XCTestCase {
         XCTAssertEqual(confirmed.dxccStatus, "Confirmed")
         XCTAssertEqual(confirmed.workedBefore, ssbDate)
         XCTAssertEqual(index.classify(call: "VK4JAZ", band: "40m", mode: "SSB", adif: 150).callStatus, "New Call")
-        XCTAssertEqual(index.classify(call: "VK4JAZ", band: "40m", mode: "SSB", adif: 150).dxccStatus, "Worked")
+        XCTAssertEqual(index.classify(call: "VK4JAZ", band: "40m", mode: "SSB", adif: 150).dxccStatus, "Confirmed")
         XCTAssertEqual(index.classify(call: "VK4JAZ", band: "20m", mode: "FT8", adif: 150).dxccStatus, "Confirmed")
         XCTAssertEqual(index.recordCount, 4)
     }
@@ -57,7 +57,7 @@ final class ClusterClassificationTests: XCTestCase {
         for phoneMode in ["SSB", "USB", "PHONE", "AM", "FM"] {
             let status = index.classify(call: "K1PHONE", band: "40m", mode: phoneMode, adif: 291)
             XCTAssertEqual(status.callStatus, "Worked", phoneMode)
-            XCTAssertEqual(status.dxccStatus, "Worked", phoneMode)
+            XCTAssertEqual(status.dxccStatus, "Confirmed", phoneMode)
             XCTAssertEqual(SpotLogic.classificationMode(phoneMode), "PHONE")
         }
         XCTAssertEqual(index.classify(call: "K1DIGI", band: "20m", mode: "CW", adif: 291).callStatus, "New Mode")
@@ -127,6 +127,7 @@ final class ClusterClassificationTests: XCTestCase {
         XCTAssertEqual(index.classify(call: "K2OLD", band: "10m", mode: "FT8", adif: 291).dxccStatus, "C/New Band+Mode")
         XCTAssertEqual(index.classify(call: "K2OLD", band: "10m", mode: "CW", adif: 291).dxccStatus, "C/New Band")
         XCTAssertEqual(index.classify(call: "K2OLD", band: "40m", mode: "FT8", adif: 291).dxccStatus, "C/New Mode")
+        XCTAssertEqual(index.classify(call: "K2OLD", band: "40m", mode: "SSB", adif: 291).dxccStatus, "Confirmed")
         let differentCall = index.classify(call: "K2OLD", band: "20m", mode: "CW", adif: 291)
         XCTAssertEqual(differentCall.callStatus, "New Band+Mode")
         XCTAssertEqual(differentCall.dxccStatus, "Confirmed")

@@ -128,7 +128,7 @@ public enum SpotLogic {
         if newBand && newMode { return "\(prefix)/New Band+Mode" }
         if newBand { return "\(prefix)/New Band" }
         if newMode { return "\(prefix)/New Mode" }
-        return "Worked"
+        return confirmed ? "Confirmed" : "Worked"
     }
 
     public static func score(callStatus: String, dxccStatus: String, specials: [String], source: String) -> (Int, [String]) {

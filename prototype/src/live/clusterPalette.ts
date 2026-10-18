@@ -8,8 +8,8 @@ export const clusterStatusColors: Record<string, string> = {
 
 export const clusterStatusCode = (status: string): string => ({
   "New Call": "NC", "New Band": "NB", "New Mode": "NM", "New Band+Mode": "NB+M",
-  ATNO: "ATNO", "C/New Band": "C/NB", "C/New Mode": "C/NM", "C/New Band+Mode": "C/NB+M",
-  "W/New Band": "W/NB", "W/New Mode": "W/NM", "W/New Band+Mode": "W/NB+M",
+  ATNO: "ATNO", "C/New Band": "NB/C", "C/New Mode": "NM/C", "C/New Band+Mode": "NB+NM/C",
+  "W/New Band": "NB/W", "W/New Mode": "NM/W", "W/New Band+Mode": "NB+NM/W",
   Worked: "W", Confirmed: "C", Unknown: "?",
 }[status] ?? (status || "—"));
 
