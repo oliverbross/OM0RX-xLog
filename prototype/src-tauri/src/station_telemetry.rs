@@ -295,7 +295,7 @@ impl StationTelemetry {
             state.revision += 1;
             let id = format!("radio-telemetry-{}", state.revision);
             let mut request = if provider == "hamlib" {
-                json!({"id":id,"method":"hamlib_snapshot","params":{"device":"radio"}})
+                json!({"id":id,"method":"hamlib_snapshot","params":{"device":"radio","purpose":"logging"}})
             } else {
                 json!({"id":id,"method":"station_snapshot","params":{"provider":provider}})
             };
@@ -525,7 +525,7 @@ mod tests {
         assert_eq!(reads.len(), 2);
         assert_eq!(reads[0]["method"], "station_snapshot");
         assert_eq!(reads[1]["method"], "hamlib_snapshot");
-        assert_eq!(reads[1]["params"], json!({"device":"radio"}));
+        assert_eq!(reads[1]["params"], json!({"device":"radio","purpose":"logging"}));
         assert_eq!(owner.snapshot().unwrap()["provider"], "hamlib");
     }
     #[test]

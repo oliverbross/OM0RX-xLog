@@ -430,14 +430,17 @@ struct LiveClusterMethodsTests {
         try JSONEncoder().encode(original).write(to: url)
         let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault())
         let result = try await bridge.handle(method: "cluster_radio_spots_configure",
-            params: ["color_policy": "dxcc", "color_policy_expected": "callsign",
+            params: ["tci_enabled": true, "tci_expected": false,
+                     "color_policy": "dxcc", "color_policy_expected": "callsign",
                      "status_colors": ["ATNO": "#123456"],
                      "status_color_expected": ["ATNO": original.palette.status["ATNO"]!]])
         let saved = try #require(result["configuration"] as? [String: Any])
         #expect(saved["forwardSpotsToFlex"] as? Bool == false)
+        #expect(saved["forwardSpotsToTCI"] as? Bool == true)
         #expect(saved["radioSpotColorPolicy"] as? String == "dxcc")
         let disk = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: Data(contentsOf: url))
         #expect(disk.radioSpotColorPolicy == .dxcc)
+        #expect(disk.forwardSpotsToTCI)
         #expect(disk.palette.status["ATNO"] == "#123456")
         #expect(disk.palette.status["New Call"] == "#010203")
         #expect(disk.palette.band["20m"] == "#AABBCC")

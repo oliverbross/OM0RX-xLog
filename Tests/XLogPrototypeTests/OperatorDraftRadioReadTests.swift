@@ -19,10 +19,53 @@ struct OperatorDraftRadioReadTests {
         try #require(service.handle(method: "logbook_operator_draft", params: [:])["draft"] as? [String: Any])
     }
     private func params(_ snapshot: [String: Any], operation: UUID = UUID(), frequency: Int = 7_150_000,
-                        mode: String = "LSB") throws -> [String: Any] {
-        ["operationID": operation.uuidString, "draftID": try #require(snapshot["qso"] as? [String: Any])["id"]!,
+                        receiveFrequency: Int? = nil, mode: String = "LSB") throws -> [String: Any] {
+        var result: [String: Any] = ["operationID": operation.uuidString, "draftID": try #require(snapshot["qso"] as? [String: Any])["id"]!,
          "expectedRevision": snapshot["revision"]!, "generation": snapshot["generation"]!,
          "frequencyHz": frequency, "observedMode": mode]
+        if let receiveFrequency { result["receiveFrequencyHz"] = receiveFrequency }
+        return result
+    }
+
+    @Test("Split Read and Follow store TX as FREQ, RX as FREQ_RX and retain the active callsign",
+          arguments: ["logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow"])
+    func splitProjectionRetainsCall(method: String) throws {
+        let (service, root) = try fixture()
+        defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
+        let initial = try draft(service)
+        var qso = try #require(initial["qso"] as? [String: Any])
+        qso["call"] = "H49A"; qso["comment"] = "Calling up"; qso["mode"] = "SSB"; try replace(service, initial, qso)
+        let before = try draft(service)
+        _ = try service.handle(method: method, params: params(before, frequency: 28_015_000,
+            receiveFrequency: 28_012_000, mode: "CW"))
+        let after = try #require(try draft(service)["qso"] as? [String: Any])
+        #expect(after["call"] as? String == "H49A")
+        #expect(after["frequencyHz"] as? Int == 28_015_000)
+        #expect(after["receiveFrequencyHz"] as? Int == 28_012_000)
+        #expect(after["band"] as? String == "10m" && after["receiveBand"] as? String == "10m")
+        #expect(after["mode"] as? String == "CW")
+        #expect(after["comment"] as? String == "Calling up")
+    }
+
+    @Test("Simplex Read accepts the native null RX field and replaces stale spot mode from radio")
+    func simplexNullReceiveAndMode() throws {
+        let (service, root) = try fixture()
+        defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
+        let initial = try draft(service)
+        var qso = try #require(initial["qso"] as? [String: Any])
+        qso["call"] = "SM0NSJ/P"; qso["mode"] = "SSB"; qso["frequencyHz"] = 7_100_000
+        try replace(service, initial, qso)
+        let before = try draft(service)
+        var request = try params(before, frequency: 7_041_000, mode: "CW")
+        request["receiveFrequencyHz"] = NSNull()
+        let result = try service.handle(method: "logbook_operator_draft_radio_read", params: request)
+        #expect(result["status"] as? String == "applied")
+        let after = try #require(try draft(service)["qso"] as? [String: Any])
+        #expect(after["call"] as? String == "SM0NSJ/P")
+        #expect(after["frequencyHz"] as? Int == 7_041_000)
+        #expect(after["band"] as? String == "40m")
+        #expect(after["mode"] as? String == "CW")
+        #expect(after["receiveFrequencyHz"] == nil || after["receiveFrequencyHz"] is NSNull)
     }
     private func replace(_ service: LiveLogbookMethods, _ snapshot: [String: Any], _ qso: [String: Any], manualPower: String? = nil) throws {
         var request = try params(snapshot)

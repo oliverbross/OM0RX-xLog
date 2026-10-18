@@ -431,6 +431,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
         object.removeValue(forKey: "commandPresets")
         object.removeValue(forKey: "forwardSpotsToFlex")
+        object.removeValue(forKey: "forwardSpotsToTCI")
         object.removeValue(forKey: "radioSpotColorPolicy")
         object.removeValue(forKey: "hideWSPRSpots")
         object.removeValue(forKey: "connectOnStartup")
@@ -441,6 +442,7 @@ final class ClusterSessionServiceTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self,
             from: JSONSerialization.data(withJSONObject: object))
         XCTAssertFalse(decoded.forwardSpotsToFlex)
+        XCTAssertFalse(decoded.forwardSpotsToTCI)
         XCTAssertEqual(decoded.radioSpotColorPolicy, .callsign)
         XCTAssertFalse(decoded.hideWSPRSpots)
         XCTAssertTrue(decoded.connectOnStartup)
@@ -452,9 +454,11 @@ final class ClusterSessionServiceTests: XCTestCase {
 
     func testRadioSpotColorPolicyRoundTrips() throws {
         var config = ClusterSessionConfiguration(servers: [])
+        config.forwardSpotsToTCI = true
         config.radioSpotColorPolicy = .dxcc
         let decoded = try JSONDecoder().decode(ClusterSessionConfiguration.self, from: JSONEncoder().encode(config))
         XCTAssertEqual(decoded.radioSpotColorPolicy, .dxcc)
+        XCTAssertTrue(decoded.forwardSpotsToTCI)
     }
 
     func testCoarseBetaThreeTaxonomyMigratesBackToOpportunityHierarchy() throws {

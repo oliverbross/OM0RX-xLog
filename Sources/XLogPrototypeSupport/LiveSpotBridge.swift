@@ -36,11 +36,11 @@ final class SpotIngressGate: @unchecked Sendable {
     }
 }
 
-/// One dedupe and delivery boundary for RUMlog UDP and xCluster FLEX spots.
+/// One dedupe and delivery boundary for RUMlog UDP and xCluster radio spots.
 /// A reservation is rolled back on rejected or uncertain delivery; success
 /// means a matching Remote Agent ACK, never visual confirmation on the radio.
 actor SpotForwardBroker {
-    static let shared = SpotForwardBroker { spot in
+    static let shared = SpotForwardBroker { spot, provider in
         let payload: [String: Any] = [
             "frequency_hz": spot.frequencyHz, "callsign": spot.callsign,
             "mode": spot.mode, "source": spot.source, "spotter": spot.spotter,
@@ -48,25 +48,36 @@ actor SpotForwardBroker {
             "lifetime_seconds": spot.lifetimeSeconds, "priority": spot.priority,
             "color_hex": spot.colorHex
         ]
-        let result = try await LiveStationMethods.handle("station_add_spot", params: [
-            "provider": "direct_agent", "spot": payload
-        ])
-        guard result["accepted"] as? Bool == true else {
-            throw WorkerFailure("station_rejected", "The Remote Station Agent did not accept the spot.")
+        var lastError: Error?
+        for radioID in ["radio1", "radio2"] {
+            do {
+                let result = try await LiveStationMethods.handle("station_add_spot", params: [
+                    "provider": provider, "radio_id": radioID, "spot": payload
+                ])
+                guard result["accepted"] as? Bool == true else {
+                    throw WorkerFailure("station_rejected", "The selected radio did not accept the spot.")
+                }
+                return
+            } catch { lastError = error }
         }
+        throw lastError ?? WorkerFailure("station_rejected", "No configured radio accepted the spot.")
     }
 
-    private let deliver: @Sendable (FlexSpot) async throws -> Void
+    private let deliver: @Sendable (FlexSpot, String) async throws -> Void
     private var accepted: [String: (at: Date, priority: Int)] = [:]
     private var pending: Set<String> = []
 
-    init(deliver: @escaping @Sendable (FlexSpot) async throws -> Void) {
+    init(deliver: @escaping @Sendable (FlexSpot, String) async throws -> Void) {
         self.deliver = deliver
     }
 
+    init(deliver: @escaping @Sendable (FlexSpot) async throws -> Void) {
+        self.deliver = { spot, _ in try await deliver(spot) }
+    }
+
     /// Returns false for a duplicate or an already-pending matching spot.
-    func forward(_ spot: FlexSpot, now: Date = Date()) async throws -> Bool {
-        let key = "\(spot.callsign)|\(spot.frequencyHz)"
+    func forward(_ spot: FlexSpot, provider: String = "direct_agent", now: Date = Date()) async throws -> Bool {
+        let key = "\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
         accepted = accepted.filter { now.timeIntervalSince($0.value.at) < 180 }
         if accepted.count >= 4_096 {
             for old in accepted.sorted(by: { $0.value.at < $1.value.at }).prefix(1_024) {
@@ -82,7 +93,7 @@ actor SpotForwardBroker {
         // A repeated higher-priority spot after ACK replaces the lower style.
         guard pending.insert(key).inserted else { return false }
         defer { pending.remove(key) }
-        try await deliver(spot)
+        try await deliver(spot, provider)
         accepted[key] = (now, spot.priority)
         if accepted.count > 4_096 {
             for old in accepted.sorted(by: { $0.value.at < $1.value.at }).prefix(1_024) {
