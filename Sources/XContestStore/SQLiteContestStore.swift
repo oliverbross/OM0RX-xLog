@@ -782,7 +782,7 @@ public actor SQLiteContestStore: ContestDurableRepository {
             }
             let statistics = try ContestRateStatisticsCalculator.snapshot(
                 qsos: values, score: score, facts: facts, asOfUTC: asOfUTC,
-                preferredBandOrder: rule.metadata.supportedBands.sorted())
+                preferredBandOrder: Self.statisticsBandOrder(rule.metadata.supportedBands))
             return ContestRateStatisticsReadSnapshot(
                 sessionID: sessionID,
                 workspaceGeneration: stored.session.workspaceGeneration,
@@ -790,6 +790,12 @@ public actor SQLiteContestStore: ContestDurableRepository {
                 statistics: statistics
             )
         }
+    }
+
+    private static func statisticsBandOrder(_ supportedBands: Set<String>) -> [String] {
+        let standard = ContestBandPlan.bands.map(\.id).filter(supportedBands.contains)
+        let known = Set(standard)
+        return standard + supportedBands.filter { !known.contains($0) }.sorted()
     }
 
     private func validateQSOChange(reason: String, operationTimestamp: Date,
