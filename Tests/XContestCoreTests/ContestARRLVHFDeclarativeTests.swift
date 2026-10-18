@@ -33,6 +33,25 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         }
     }
 
+    func testLegacyDefinitionDigestsAndCanonicalStorageMatchAccepted7357645Bytes() throws {
+        let accepted: [ARRLVHFSeason: (definition: String, storage: String)] = [
+            .january: ("df23af6da36cda1ca67d9593ee540710bba3994522ec4ecc7cd741f0b4a15204",
+                       "a1dfb8771d4a433d6641cad5bfdd28657d2da03175ccf5101003db5acfee1059"),
+            .june: ("598ce9ce24c2cfeea6ea900a994e9f4b6a045ba506a39829f8a23f4adf3d7e74",
+                   "4af2c412baffa22b137cb848a94de98c1835785b084ac41bb5a343e548eb5e92"),
+            .september: ("2249970b4bc633eeae240490b2c886af038fd372ce1b82e7a7b2917e63b02ce4",
+                        "594caee565b091f883d255f3309097dfe4e3cbb7990391b6fa70e0a1608ae17d"),
+        ]
+        for season in ARRLVHFSeason.allCases {
+            let definition = try ARRLVHFDeclarativeDefinitions.definition(for: season)
+            XCTAssertEqual(definition.definitionDigest, accepted[season]?.definition)
+            XCTAssertEqual(ContestSCPIndex.sha256(try definition.canonicalStorageData()),
+                           accepted[season]?.storage)
+            XCTAssertEqual(definition.draft.eligibilityPolicy, .unrestricted)
+            XCTAssertFalse(definition.draft.stationEntityRequired)
+        }
+    }
+
     func testIndependentAllBandPointAndGridOraclesForEverySeason() throws {
         let fixture = try fixturePlugins()
         for season in ARRLVHFSeason.allCases {
@@ -278,9 +297,27 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         XCTAssertEqual(rule.validateSession(missingStation).map(\.code), ["unresolvedStationEntity"])
 
         let germany = entity(230, "FEDERAL REPUBLIC OF GERMANY", "DL", "EU", 14)
+        let malformedEntities = [
+            entity(0, "UNITED STATES", "K", "NA", 5),
+            entity(291, "", "K", "NA", 5),
+            entity(291, "UNITED STATES", "", "NA", 5),
+            entity(291, "UNITED STATES", "K", "", 5),
+            entity(291, "UNITED STATES", "K", "NA", 0),
+        ]
+        for malformed in malformedEntities {
+            let invalidSession = makeSession(rule, stationEntity: malformed)
+            XCTAssertEqual(rule.validateSession(invalidSession).map(\.code),
+                           ["unresolvedStationEntity"])
+        }
         let dxSession = makeSession(rule, stationCallsign: "DL1AAA", stationEntity: germany)
         let unresolved = qso(4, dxSession, call: "K1AAA", band: "6m", grid: "FN31", entity: nil)
         XCTAssertEqual(rule.evaluate(unresolved, in: dxSession).validation.map(\.code), ["unresolvedEntity"])
+        for malformed in malformedEntities {
+            let contact = qso(5, dxSession, call: "K1AAA", band: "6m", grid: "FN31",
+                              entity: malformed)
+            XCTAssertEqual(rule.evaluate(contact, in: dxSession).validation.map(\.code),
+                           ["unresolvedEntity"])
+        }
     }
 
     func testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder() throws {
