@@ -179,15 +179,16 @@ describe("map container resizing", () => {
     resize.flush();
     const toolbar = screen.getByLabelText("World map controls");
     const legend = map.element.parentElement!.querySelector(".map-legend") as HTMLElement;
-    vi.spyOn(toolbar, "getBoundingClientRect").mockReturnValue({ height: 112 } as DOMRect);
-    vi.spyOn(legend, "getBoundingClientRect").mockReturnValue({ height: 94 } as DOMRect);
+    vi.spyOn(map.element, "getBoundingClientRect").mockReturnValue({ top: 100, bottom: 520, height: 420 } as DOMRect);
+    vi.spyOn(toolbar, "getBoundingClientRect").mockReturnValue({ top: 112, bottom: 224, height: 112 } as DOMRect);
+    vi.spyOn(legend, "getBoundingClientRect").mockReturnValue({ top: 396, bottom: 490, height: 94 } as DOMRect);
 
     harness.initialSize = { width: 1000, height: 420 };
     resize.notify(map.element); resize.flush();
 
     expect(map.fitCalls).toHaveLength(2);
     expect(map.fitCalls.at(-1).viewport).toEqual({ width: 1000, height: 420 });
-    expect(map.fitCalls.at(-1).options.padding).toEqual({ top: 136, right: 54, bottom: 118, left: 54 });
+    expect(map.fitCalls.at(-1).options.padding).toEqual({ top: 148, right: 54, bottom: 148, left: 54 });
 
     map.fire("movestart", { originalEvent: new Event("pointerdown") });
     harness.initialSize = { width: 1000, height: 360 };
@@ -382,8 +383,8 @@ describe("map spot inspection", () => {
     expect(map.fitCalls).toHaveLength(2);
   });
 
-  it("reserves the measured toolbar and legend height when fitting a route", () => {
-    expect(routeFitPadding(false, 112.2, 94.1)).toEqual({ top: 137, right: 54, bottom: 119, left: 54 });
+  it("reserves the measured toolbar and legend intrusion when fitting a route", () => {
+    expect(routeFitPadding(false, 124.2, 124.1)).toEqual({ top: 149, right: 54, bottom: 149, left: 54 });
     expect(routeFitPadding(false, 20, 20)).toEqual({ top: 74, right: 54, bottom: 100, left: 54 });
     expect(routeFitPadding(true, 200, 200)).toEqual({ top: 28, right: 34, bottom: 34, left: 34 });
   });

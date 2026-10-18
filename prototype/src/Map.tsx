@@ -133,12 +133,12 @@ export function routeFrequencyLabel(frequencyHz?: number): string | null {
   return `${mhz.slice(0, -3)}.${mhz.slice(-3)} MHz`;
 }
 
-export function routeFitPadding(compact: boolean, toolbarHeight = 0, legendHeight = 0) {
+export function routeFitPadding(compact: boolean, topOverlayInset = 0, bottomOverlayInset = 0) {
   if (compact) return { top: 28, right: 34, bottom: 34, left: 34 };
   return {
-    top: Math.max(74, Math.ceil(toolbarHeight) + 24),
+    top: Math.max(74, Math.ceil(topOverlayInset) + 24),
     right: 54,
-    bottom: Math.max(100, Math.ceil(legendHeight) + 24),
+    bottom: Math.max(100, Math.ceil(bottomOverlayInset) + 24),
     left: 54,
   };
 }
@@ -832,14 +832,21 @@ export default function WorldMap({
     if (!bounds) return;
     fittedRouteKey.current = routeKey;
     preserveCamera.current = true;
-    const toolbarHeight = toolbarRef.current?.getBoundingClientRect().height ?? 0;
-    const legendHeight = legendRef.current?.getBoundingClientRect().height ?? 0;
+    const element = container.current;
+    const mapRect = element?.getBoundingClientRect();
+    const toolbarRect = toolbarRef.current?.getBoundingClientRect();
+    const legendRect = legendRef.current?.getBoundingClientRect();
+    const topOverlayInset = mapRect && toolbarRect
+      ? Math.max(0, toolbarRect.bottom - mapRect.top)
+      : toolbarRect?.height ?? 0;
+    const bottomOverlayInset = mapRect && legendRect
+      ? Math.max(0, mapRect.bottom - legendRect.top)
+      : legendRect?.height ?? 0;
     map.fitBounds(bounds, {
-      padding: routeFitPadding(compact, toolbarHeight, legendHeight),
+      padding: routeFitPadding(compact, topOverlayInset, bottomOverlayInset),
       maxZoom: 6,
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 350,
     });
-    const element = container.current;
     automaticRouteFit.current = element
       ? { key: routeKey, width: element.clientWidth, height: element.clientHeight }
       : null;
