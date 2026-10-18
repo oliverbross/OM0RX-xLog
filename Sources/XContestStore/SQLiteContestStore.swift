@@ -662,6 +662,100 @@ public actor SQLiteContestStore: ContestDurableRepository {
         }
     }
 
+    public func moveStationGrid(to grid: String, operationTimestamp: Date,
+                                scope: ContestMutationScope,
+                                committedAt: Date) async throws -> ContestStationGridMoveResult {
+        let canonical = try canonicalPayload(
+            scope: scope,
+            payload: MoveStationGridPayload(grid: grid, operationTimestamp: operationTimestamp))
+        return try database.transaction {
+            if let result: ContestStationGridMoveResult = try replay(scope: scope, canonicalPayload: canonical) {
+                return result
+            }
+            let next = try verify(scope)
+            guard let draftID = scope.draftID,
+                  operationTimestamp.timeIntervalSinceReferenceDate.isFinite,
+                  committedAt.timeIntervalSinceReferenceDate.isFinite,
+                  grid == grid.uppercased(), grid.utf8.count == 4,
+                  grid.range(of: #"^[A-R]{2}[0-9]{2}$"#, options: .regularExpression) != nil else {
+                throw ContestRepositoryError.invalidDraft
+            }
+            let stored = try openSession(id: scope.sessionID)
+            let oldDraft = try draft(sessionID: scope.sessionID, id: draftID)
+            guard oldDraft.revision == stored.revision else { throw ContestRepositoryError.invalidDraft }
+            guard let definitionData = try canonicalDefinitionData(for: stored.session.rule) else {
+                throw ContestStoreError.invalidSession
+            }
+            let definition = try decodeCanonicalDefinition(definitionData, identity: stored.session.rule)
+            guard let policy = definition.draft.stationGridPolicy,
+                  policy.behavior == .rover,
+                  definition.draft.entry.exchange.sentFields.count == 1,
+                  definition.draft.entry.exchange.sentFields.first?.id == policy.sentFieldID,
+                  definition.draft.entry.serial.requirement == .none else {
+                throw ContestStoreError.invalidSession
+            }
+            let previousGrid = stored.session.station.sentExchangeFields[policy.sentFieldID]?.normalized ?? ""
+            guard previousGrid != grid else { throw ContestRepositoryError.invalidDraft }
+
+            var stationFields = stored.session.station.sentExchangeFields
+            stationFields[policy.sentFieldID] = .init(raw: grid, normalized: grid)
+            let station = ContestStationSnapshot(
+                callsign: stored.session.station.callsign, entity: stored.session.station.entity,
+                sentExchange: grid, operatorCallsigns: stored.session.station.operatorCallsigns,
+                location: grid, sentExchangeFields: stationFields)
+            let session = ContestSessionSnapshot(
+                id: stored.session.id, workspaceGeneration: stored.session.workspaceGeneration,
+                rule: stored.session.rule, referenceDataVersion: stored.session.referenceDataVersion,
+                startedAt: stored.session.startedAt, endedAt: stored.session.endedAt, station: station)
+            var draftFields = oldDraft.exchange.sentFields
+            draftFields[policy.sentFieldID] = .init(raw: grid, normalized: grid)
+            let exchange = ContestExchangeSnapshot(
+                rawSent: grid, normalizedSent: grid,
+                rawReceived: oldDraft.exchange.rawReceived,
+                normalizedReceived: oldDraft.exchange.normalizedReceived,
+                sentFields: draftFields, receivedFields: oldDraft.exchange.receivedFields)
+            let movedDraft = ContestDraftSnapshot(
+                id: oldDraft.id, sessionID: oldDraft.sessionID, revision: next,
+                updatedAt: committedAt, callsign: oldDraft.callsign, band: oldDraft.band,
+                mode: oldDraft.mode, frequencyHz: oldDraft.frequencyHz,
+                rstSent: oldDraft.rstSent, rstReceived: oldDraft.rstReceived,
+                exchange: exchange, entity: oldDraft.entity,
+                operatorCallsign: oldDraft.operatorCallsign, stationLocation: grid)
+            guard let rule = try resolvedRule(for: stored.session.rule) else {
+                throw ContestStoreError.unknownRule(stored.session.rule)
+            }
+            try validateSession(session, metadata: stored.metadata, rule: rule)
+            try validateDraft(movedDraft, for: session, rule: rule)
+            let contacts = try qsos(sessionID: scope.sessionID, offset: 0, limit: Int.max)
+            let scored = try ContestEngine.score(contacts, session: session, rule: rule)
+
+            try database.execute("UPDATE sessions SET revision = ?, snapshot = ? WHERE id = ?",
+                                 [.uint(next), .blob(try encode(session)), .text(scope.sessionID.uuidString)])
+            try database.execute(
+                "UPDATE drafts SET revision = ?, snapshot = ?, updated_at = ? WHERE session_id = ? AND id = ?",
+                [.uint(next), .blob(try encode(movedDraft)), .double(committedAt.timeIntervalSince1970),
+                 .text(scope.sessionID.uuidString), .text(draftID.uuidString)])
+            try mutationWriteHookForTesting?("afterGridMove")
+            let receipt = ContestMutationReceipt(
+                requestID: scope.requestID, payloadDigest: scope.payloadDigest,
+                committedRevision: next, committedAt: committedAt, result: .draft(draftID))
+            let movedSession = StoredContestSession(session: session, metadata: stored.metadata,
+                                                    revision: next, createdAt: stored.createdAt)
+            let score = ContestScoreSummarySnapshot(
+                sessionID: scope.sessionID, workspaceGeneration: session.workspaceGeneration,
+                revision: next, qsoCount: contacts.count, totalPoints: scored.totalPoints,
+                multiplierCount: scored.multiplierCount, claimedScore: scored.claimedScore)
+            let projection = try mutationProjection(sessionID: scope.sessionID, draftID: draftID)
+            let result = ContestStationGridMoveResult(
+                session: movedSession, draft: movedDraft, previousGrid: previousGrid,
+                currentGrid: grid, operationTimestamp: operationTimestamp, score: score,
+                receipt: receipt, qsoCount: contacts.count, projection: projection)
+            try saveOperation(scope: scope, canonicalPayload: canonical, receipt: receipt, result: result)
+            try mutationWriteHookForTesting?("beforeCommit")
+            return result
+        }
+    }
+
     public func deleteQSO(id: UUID, reason: String, operationTimestamp: Date,
                           scope: ContestMutationScope,
                           committedAt: Date) throws -> ContestQSOChangeResult {
@@ -1290,6 +1384,11 @@ private struct UpdateDraftPayload: Encodable { let operation = "updateDraft"; le
 private struct ReservePayload: Encodable { let operation = "reserveSerial"; let reservationID: UUID; let serialScope: ContestSerialScope; let scopeValue: String }
 private struct TransitionPayload: Encodable { let operation = "transitionSerial"; let reservationID: UUID; let state: ContestSerialState }
 private struct CommitPayload: Encodable { let operation = "commitQSO"; let qso: ContestQSO; let reservationID: UUID? }
+private struct MoveStationGridPayload: Encodable {
+    let operation = "moveStationGrid"
+    let grid: String
+    let operationTimestamp: Date
+}
 private struct CorrectQSOPayload: Encodable { let operation = "correctQSO"; let qso: ContestQSO; let reason: String; let operationTimestamp: Date }
 private struct DeleteQSOPayload: Encodable { let operation = "deleteQSO"; let qsoID: UUID; let reason: String; let operationTimestamp: Date }
 private struct CanonicalMutation<Payload: Encodable>: Encodable {

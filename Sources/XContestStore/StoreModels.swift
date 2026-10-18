@@ -84,6 +84,33 @@ public struct ContestQSOCommitResult: Codable, Hashable, Sendable {
     public let projection: ContestMutationProjection
 }
 
+public struct ContestStationGridMoveResult: Codable, Hashable, Sendable {
+    public let session: StoredContestSession
+    public let draft: ContestDraftSnapshot
+    public let previousGrid: String
+    public let currentGrid: String
+    public let operationTimestamp: Date
+    public let score: ContestScoreSummarySnapshot
+    public let receipt: ContestMutationReceipt
+    public let qsoCount: Int
+    public let projection: ContestMutationProjection
+
+    public init(session: StoredContestSession, draft: ContestDraftSnapshot,
+                previousGrid: String, currentGrid: String, operationTimestamp: Date,
+                score: ContestScoreSummarySnapshot, receipt: ContestMutationReceipt,
+                qsoCount: Int, projection: ContestMutationProjection) {
+        self.session = session
+        self.draft = draft
+        self.previousGrid = previousGrid
+        self.currentGrid = currentGrid
+        self.operationTimestamp = operationTimestamp
+        self.score = score
+        self.receipt = receipt
+        self.qsoCount = qsoCount
+        self.projection = projection
+    }
+}
+
 public enum ContestQSOChangeOperation: String, Codable, Hashable, Sendable {
     case correction
     case deletion
@@ -310,6 +337,9 @@ public protocol ContestDurableRepository: Sendable {
                           scope: ContestMutationScope, committedAt: Date) async throws -> ContestSerialTransitionResult
     func commitQSO(_ qso: ContestQSO, reservationID: UUID?, scope: ContestMutationScope,
                    committedAt: Date) async throws -> ContestQSOCommitResult
+    func moveStationGrid(to grid: String, operationTimestamp: Date,
+                         scope: ContestMutationScope,
+                         committedAt: Date) async throws -> ContestStationGridMoveResult
     func qso(sessionID: UUID, id: UUID) async throws -> ContestQSO
     func qsoReadSnapshot(sessionID: UUID, id: UUID, expectedWorkspaceGeneration: UUID,
                          expectedRevision: UInt64) async throws -> ContestQSOReadSnapshot
@@ -336,6 +366,12 @@ public extension ContestDurableRepository {
 
     func rateStatisticsSnapshot(sessionID: UUID, asOfUTC: Date) async throws
         -> ContestRateStatisticsReadSnapshot {
+        throw ContestStoreError.invalidSession
+    }
+
+    func moveStationGrid(to grid: String, operationTimestamp: Date,
+                         scope: ContestMutationScope,
+                         committedAt: Date) async throws -> ContestStationGridMoveResult {
         throw ContestStoreError.invalidSession
     }
 }
