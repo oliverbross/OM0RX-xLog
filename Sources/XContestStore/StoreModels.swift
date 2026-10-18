@@ -242,12 +242,18 @@ public enum ContestStoreError: Error, Equatable {
     case qsoDeleted(UUID)
     case invalidCorrectionReason
     case immutableQSOField(String)
+    case invalidDeclarativeDefinition
+    case declarativeDefinitionConflict
 }
 
 public protocol ContestDurableRepository: Sendable {
     func createSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
                        initialDraft: ContestDraftSnapshot,
                        scope: ContestMutationScope, committedAt: Date) async throws -> ContestSessionCreationResult
+    func createDeclarativeSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
+                                  initialDraft: ContestDraftSnapshot, canonicalDefinitionData: Data,
+                                  scope: ContestMutationScope,
+                                  committedAt: Date) async throws -> ContestSessionCreationResult
     func openSession(id: UUID) async throws -> StoredContestSession
     func listStoredSessions() async throws -> [StoredContestSession]
     func sessionReadSnapshot(id: UUID) async throws -> ContestSessionReadSnapshot
@@ -280,4 +286,13 @@ public protocol ContestDurableRepository: Sendable {
     func qsoAuditTrail(sessionID: UUID, qsoID: UUID) async throws -> [ContestQSOAuditRecord]
     func logPage(sessionID: UUID, offset: Int, limit: Int) async throws -> ContestLogPage
     func scoreSnapshot(sessionID: UUID) async throws -> ContestScoreSnapshot
+}
+
+public extension ContestDurableRepository {
+    func createDeclarativeSession(_ session: ContestSessionSnapshot, metadata: ContestSessionMetadata,
+                                  initialDraft: ContestDraftSnapshot, canonicalDefinitionData: Data,
+                                  scope: ContestMutationScope,
+                                  committedAt: Date) async throws -> ContestSessionCreationResult {
+        throw ContestStoreError.invalidDeclarativeDefinition
+    }
 }
