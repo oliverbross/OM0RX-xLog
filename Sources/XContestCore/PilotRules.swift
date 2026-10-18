@@ -218,7 +218,9 @@ private func evaluateCQWW(_ qso: ContestQSO, in session: ContestSessionSnapshot,
     if zone == nil || !(1...40).contains(zone!) {
         issues.append(.init(code: "invalidCQZone", field: "exchange.received", message: "CQ zone must be an integer from 1 through 40."))
     }
-    let mobility = countryReference.map { _ in contestCallsignMobility(qso.callsign) } ?? .land
+    let mobility = countryReference.map { _ in
+        qso.callsign.isEmpty ? .land : contestCallsignMobility(qso.callsign)
+    } ?? .land
     if countryReference != nil, mobility == .invalidMobileMarker {
         issues.append(.init(code: "invalidMaritimeMobileCallsign", field: "callsign",
                             message: "A maritime-mobile marker must be one terminal /MM component."))

@@ -70,6 +70,27 @@ final class ContestCQWWCompleteCountryReferenceTests: XCTestCase {
             CQWWSponsorCountryRule(mode: .cw, countryReference: reference).metadata.identity))
     }
 
+    func testBlankCountryReferenceDraftRemainsCQReady() throws {
+        let reference = try ContestPackagedCountryReferenceLoader.cqww2026()
+        let rule = CQWWSponsorCountryRule(mode: .cw, countryReference: reference)
+        let slovakia = endpoint(adif: 504, name: "SLOVAK REPUBLIC", zone: 15, in: reference)
+        let session = makeSession(rule: rule.metadata.identity, station: slovakia, callsign: "OM0RX")
+        let blank = ContestQSO(
+            id: UUID(uuidString: "92000000-0000-0000-0000-000000000099")!,
+            sessionID: sessionID, timestampUTC: date,
+            callsign: "", band: "20m", mode: "CW", frequencyHz: 14_025_000,
+            rstSent: "599", rstReceived: "599",
+            exchange: .init(rawSent: "15", normalizedSent: "15", rawReceived: "", normalizedReceived: ""),
+            entity: nil, provenance: .init(source: .operatorEntry)
+        )
+        let evaluation = rule.evaluate(blank, in: session)
+        XCTAssertFalse(evaluation.validation.contains { $0.code == "invalidMaritimeMobileCallsign" })
+        let readiness = try rule.operatorReadiness(
+            for: blank, validation: evaluation.validation, duplicate: nil, hasReservation: false)
+        XCTAssertTrue(readiness.canSendCQ)
+        XCTAssertFalse(readiness.canSendCall)
+    }
+
     private func endpoint(adif: Int, name: String, zone: Int,
                           in reference: ContestCountryMultiplierReference) -> ContestCountryMultiplierEndpoint {
         reference.records.first {
