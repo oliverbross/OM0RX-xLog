@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "status": "functional-matrix-passed-protection-gate-unresolved",
+  "date": "2026-10-18",
+  "source": {
+    "head": "798513df3e01d05b41b9d78ec0074d003c716a96",
+    "tree": "d67f5147145e34ad684fd243189c1a77cab006f9",
+    "branch": "codex/contest-declarative-scp-baseline",
+    "testOnlyDirtyPath": "prototype/scripts/accept-contest-family-operator-browser.mjs",
+    "trackedDiffSHA256": "2fd244840a5a1993ed661855a13cc031c35cf60b56ba7442b3325aee7ffe8d88",
+    "driverSHA256": "021fc87ad4bf73034bdbb2239cc78f374af380425de0fc0905bb85e5e34b6f25"
+  },
+  "runtime": {
+    "testHost": "/tmp/xlog-json-composition-loader-build/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "testHostSHA256": "cf6a57139269561ce57703a46139fa0cc8bc6ebcdd7dacfa5ebf473267d95aca",
+    "testRunner": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "testRunnerSHA256": "bb67eef5b58848d18f3422eda610ceae5a84f24ac216b881042f7cc7820be5c7"
+  },
+  "legacy": {
+    "sourceState": "clean 798513df3e01d05b41b9d78ec0074d003c716a96",
+    "result": "passed",
+    "profiles": 14,
+    "commits": 84,
+    "workerFrames": 1523,
+    "exports": 56,
+    "scores": [
+      {"id": "cq-ww-cw", "mode": "CW", "points": 14, "multipliers": 12, "score": 168},
+      {"id": "cq-ww-ssb", "mode": "SSB", "points": 14, "multipliers": 12, "score": 168},
+      {"id": "cq-wpx-cw", "mode": "CW", "points": 21, "multipliers": 3, "score": 63},
+      {"id": "cq-wpx-ssb", "mode": "SSB", "points": 21, "multipliers": 3, "score": 63},
+      {"id": "oceania-cw", "mode": "CW", "points": 18, "multipliers": 6, "score": 108},
+      {"id": "oceania-ssb", "mode": "SSB", "points": 18, "multipliers": 6, "score": 108},
+      {"id": "sac-cw", "mode": "CW", "points": 16, "multipliers": 6, "score": 96},
+      {"id": "sac-ssb", "mode": "SSB", "points": 16, "multipliers": 6, "score": 96},
+      {"id": "naqp-cw", "mode": "CW", "points": 6, "multipliers": 6, "score": 36},
+      {"id": "naqp-ssb", "mode": "SSB", "points": 6, "multipliers": 6, "score": 36},
+      {"id": "jidx-cw", "mode": "CW", "points": 6, "multipliers": 6, "score": 36},
+      {"id": "jidx-ssb", "mode": "SSB", "points": 6, "multipliers": 6, "score": 36},
+      {"id": "arrl-dx-cw", "mode": "CW", "points": 18, "multipliers": 6, "score": 108},
+      {"id": "arrl-dx-ssb", "mode": "SSB", "points": 18, "multipliers": 6, "score": 108}
+    ],
+    "scp": "local fixture imported; each profile queried and selected K1ABC; callsign clear and report/exchange/frequency/band preservation passed",
+    "restart": true,
+    "shutdown": true,
+    "protectedNormalDatabaseMetadataUnchanged": true,
+    "receipt": "/tmp/xlog-full-legacy-798513d/evidence/acceptance.json",
+    "receiptSHA256": "7b0e1a352190eee513cf4afcd85e7989a9d6de6c07824e20f34b3591d5c4faf7",
+    "runnerLog": "/tmp/xlog-full-legacy-798513d-run.log",
+    "runnerLogSHA256": "205cc41d0ea6d11fa280db618558fba7a33eaf8b22403ecbc1759f7d193c2d04"
+  },
+  "declarative": {
+    "sourceState": "798513df3e01d05b41b9d78ec0074d003c716a96 plus the recorded test-only SCP baseline correction",
+    "functionalResult": "all 11 profiles completed; final receipt failed only at protected normal database metadata comparison",
+    "profiles": 11,
+    "commits": 66,
+    "workerFrames": 987,
+    "exports": 44,
+    "scores": [
+      {"id": "cwops-cwt", "mode": "CW", "points": 6, "multipliers": 3, "score": 18},
+      {"id": "cwops-open", "mode": "CW", "points": 6, "multipliers": 3, "score": 18},
+      {"id": "icwc-mst", "mode": "CW", "points": 6, "multipliers": 3, "score": 18},
+      {"id": "ten-ten-fallCW", "mode": "CW", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-springCW", "mode": "CW", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-summerPhone", "mode": "SSB", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-summerPhone", "mode": "AM", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-summerPhone", "mode": "FM", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-winterPhone", "mode": "SSB", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-winterPhone", "mode": "AM", "points": 9, "multipliers": 0, "score": 9},
+      {"id": "ten-ten-winterPhone", "mode": "FM", "points": 9, "multipliers": 0, "score": 9}
+    ],
+    "scp": "local fixture imported with 7 records; each profile queried and selected K1ABC; callsign clear and authoritative post-fill report/exchange/frequency/band preservation passed",
+    "restart": true,
+    "shutdown": true,
+    "protectedNormalDatabaseMetadataUnchanged": false,
+    "protectionFinding": {
+      "status": "unresolved-concurrent-writer-attribution",
+      "changedPaths": [
+        "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+        "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-wal"
+      ],
+      "unchangedObservedPath": "/Users/oliver/Library/Application Support/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite-shm",
+      "absentPrimarySupportPaths": "/Users/oliver/Library/Application Support/OM0RX-xLog/OM0RX-xLog.sqlite{,-wal,-shm}",
+      "interpretation": "A normal application was concurrently active. Metadata proves change but does not attribute it to the headless process. The existing isolated workspace injection is routing evidence, not a kernel access boundary. No additional full run was made and the user application was not closed.",
+      "plannedGate": "Keep metadata observations and add a fail-closed per-process filesystem deny proof before treating the protection gate as passed. Implementation is held pending review."
+    },
+    "failedReceipt": "/tmp/xlog-full-declarative-798513d-scpfix/evidence/acceptance.json",
+    "failedReceiptSHA256": "d1e265412f7c9ff7e78c570136363248f37f625bd333605096fceec38203203a",
+    "runnerLog": "/tmp/xlog-full-declarative-798513d-scpfix-run.log",
+    "runnerLogSHA256": "e5f9e7bffbf42c3e0d0c9a900277945881d2cbbfb91968dfd44d8b85045ff4af"
+  },
+  "preservedDiagnostics": [
+    {
+      "path": "/tmp/xlog-full-declarative-798513d-run.log",
+      "sha256": "55d2208b2b8aba615ccef01f8ae6827673fd6b16c1fd51df80429e56e1c04d17",
+      "failure": "stale pre-SCP baseline expected a blank derived received exchange after intentional structured-field entry"
+    }
+  ],
+  "boundary": "Legacy 14-profile headless acceptance passed. All 11 declarative workflows, scores, exports, SCP flows, restart, and cleanup completed, but their overall acceptance remains failed because concurrent normal-store metadata changed and process attribution is unavailable. This is not packaged or native-window acceptance, RF, audio, PTT, hardware, or sponsor acceptance."
+}
