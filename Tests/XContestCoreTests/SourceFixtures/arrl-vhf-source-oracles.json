@@ -5,31 +5,31 @@
       "season": "january",
       "path": "not1mm/plugins/arrl_vhf_jan.py",
       "sha256": "692e8456947e307c15ae04c8ffe56a38f5f9475c22973a30d80b3879aeecb990",
-      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 8},
-      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 0},
-      "allBandPoints": 22,
-      "allBandMultiplierCount": 7,
-      "allBandScore": 154
+      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 8, "9cm": 8, "6cm": 8, "3cm": 8, "1.25cm": 8, "6mm": 8, "4mm": 8, "2.5mm": 8, "2mm": 8, "1mm": 8, "submm": 8},
+      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 0, "9cm": 0, "6cm": 0, "3cm": 0, "1.25cm": 0, "6mm": 0, "4mm": 0, "2.5mm": 0, "2mm": 0, "1mm": 0, "submm": 0},
+      "allBandPoints": 102,
+      "allBandMultiplierCount": 17,
+      "allBandScore": 1734
     },
     {
       "season": "june",
       "path": "not1mm/plugins/arrl_vhf_jun.py",
       "sha256": "dd7d4183aa106125b3223aca6e2479341a8264995ea5b0261357301325573aff",
-      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4},
-      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 0},
-      "allBandPoints": 16,
-      "allBandMultiplierCount": 7,
-      "allBandScore": 112
+      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4, "9cm": 4, "6cm": 4, "3cm": 4, "1.25cm": 4, "6mm": 4, "4mm": 4, "2.5mm": 4, "2mm": 4, "1mm": 4, "submm": 4},
+      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 0, "9cm": 0, "6cm": 0, "3cm": 0, "1.25cm": 0, "6mm": 0, "4mm": 0, "2.5mm": 0, "2mm": 0, "1mm": 0, "submm": 0},
+      "allBandPoints": 56,
+      "allBandMultiplierCount": 17,
+      "allBandScore": 952
     },
     {
       "season": "september",
       "path": "not1mm/plugins/arrl_vhf_sep.py",
       "sha256": "571558e52d5de8fa886f9b4ce7e49a9a86d045b495d732da43ada9c6f36f3656",
-      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4},
-      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 0},
-      "allBandPoints": 16,
-      "allBandMultiplierCount": 7,
-      "allBandScore": 112
+      "officialPreviewBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4, "9cm": 4, "6cm": 4, "3cm": 4, "1.25cm": 4, "6mm": 4, "4mm": 4, "2.5mm": 4, "2mm": 4, "1mm": 4, "submm": 4},
+      "pinnedExecutableBandPoints": {"6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 0, "9cm": 0, "6cm": 0, "3cm": 0, "1.25cm": 0, "6mm": 0, "4mm": 0, "2.5mm": 0, "2mm": 0, "1mm": 0, "submm": 0},
+      "allBandPoints": 56,
+      "allBandMultiplierCount": 17,
+      "allBandScore": 952
     }
   ],
   "shared": {
@@ -41,8 +41,8 @@
     "pythonModes": ["CW", "PH", "DG"]
   },
   "previewDifferences": [
-    "The pinned plugins test for Band == 2300+ but their shared get_logged_band returns 2300.0 at 13cm; the preview deliberately follows the published point table instead of reproducing that executable zero-point defect.",
-    "Only bands represented by the current xLog band plan through 13cm are admitted.",
+    "The pinned plugins test for Band == 2300+ but their shared get_logged_band returns individual canonical numeric values at 13cm and above; the preview deliberately follows the published point table instead of reproducing that executable zero-point defect.",
+    "The portable contest band plan represents the pinned comparator bands through 1mm and its submm bucket, while normal-log band authority remains a later activation gate.",
     "Only CW and SSB are admitted; upstream digital mode mapping remains pending.",
     "Rover changing-grid scoring, schedules, and categories remain pending.",
     "The archive projection is source-shaped operator evidence, not sponsor submission certification."

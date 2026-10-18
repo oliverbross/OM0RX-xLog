@@ -7,8 +7,8 @@ public enum ARRLVHFSeason: String, CaseIterable, Codable, Sendable {
 }
 
 /// Inactive source-preview definitions for the three ARRL VHF seasonal plugins.
-/// Rover location changes, categories, schedules, digital modes, and bands above
-/// 2.4 GHz remain activation gates and are intentionally not inferred here.
+/// Rover location changes, categories, schedules, and digital modes remain
+/// activation gates and are intentionally not inferred here.
 public enum ARRLVHFDeclarativeDefinitions {
     public static let pinnedComparatorRevision = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 
@@ -41,7 +41,7 @@ public enum ARRLVHFDeclarativeDefinitions {
             serial: .init(requirement: .none, allowedScopes: []),
             scorePolicy: .pointsTimesMultipliers)
         let columns: [ContestDeclarativeExportColumn] = [
-            .init(source: .frequencyKHz, width: 7, minimumWidth: 4, alignment: .right),
+            .init(source: .frequencyKHz, width: 10, minimumWidth: 4, alignment: .right),
             .init(source: .mode, width: 2), .init(source: .date, width: 10),
             .init(source: .time, width: 4), .init(source: .stationCallsign, width: 13),
             .init(source: .sentField("grid"), width: 6),
@@ -61,12 +61,18 @@ public enum ARRLVHFDeclarativeDefinitions {
     }
 
     public static func points(for season: ARRLVHFSeason) -> [String: Int64] {
+        let highBandPoints: Int64 = season == .january ? 8 : 4
+        var points: [String: Int64]
         switch season {
         case .january:
-            return ["6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4, "13cm": 8]
+            points = ["6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 4, "23cm": 4]
         case .june, .september:
-            return ["6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3, "13cm": 4]
+            points = ["6m": 1, "2m": 1, "1.25m": 2, "70cm": 2, "33cm": 3, "23cm": 3]
         }
+        for band in ["13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"] {
+            points[band] = highBandPoints
+        }
+        return points
     }
 
     public static func sourceSHA256(for season: ARRLVHFSeason) -> String {
@@ -94,6 +100,6 @@ public enum ARRLVHFDeclarativeDefinitions {
         case .june: file = "arrl_vhf_jun.py"
         case .september: file = "arrl_vhf_sep.py"
         }
-        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus 2300.0 executable defect; source-preview operator archive; schedule, category, rover, digital, and >2.4GHz coverage pending"
+        return "oliverbross/contest-sw \(pinnedComparatorRevision) not1mm/plugins/\(file) SHA-256 \(sourceSHA256(for: season)); official point table corrects pinned 2300+ versus canonical high-band values executable defect; source-preview operator archive; schedule, category, rover, and digital coverage pending"
     }
 }

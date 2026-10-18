@@ -4,7 +4,8 @@ import XCTest
 
 final class ContestARRLVHFDeclarativeTests: XCTestCase {
     private let timestamp = Date(timeIntervalSince1970: 1_900_500_000)
-    private let bands = ["6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm"]
+    private let bands = ["6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm",
+                         "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"]
 
     func testPinnedSourceManifestAndInactiveDefinitionCoordinates() throws {
         let fixture = try fixturePlugins()
@@ -102,6 +103,8 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
              "QSO: 144200 PH 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
             ("13cm", "CW", 2_304_100_000,
              "QSO: 2304100 CW 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
+            ("submm", "SSB", 300_100_000_000,
+             "QSO: 300100000 PH 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
         ]
         for (band, mode, frequency, line) in expected {
             let contact = qso(0, session, call: "K1ABC", band: band, grid: "FN31",
@@ -200,7 +203,17 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         case "70cm": 432_100_000
         case "33cm": 903_100_000
         case "23cm": 1_296_100_000
-        default: 2_304_100_000
+        case "13cm": 2_304_100_000
+        case "9cm": 3_400_100_000
+        case "6cm": 5_760_100_000
+        case "3cm": 10_100_100_000
+        case "1.25cm": 24_050_100_000
+        case "6mm": 47_100_100_000
+        case "4mm": 76_000_100_000
+        case "2.5mm": 120_000_100_000
+        case "2mm": 134_100_100_000
+        case "1mm": 241_100_100_000
+        default: 300_100_000_000
         }
     }
 
