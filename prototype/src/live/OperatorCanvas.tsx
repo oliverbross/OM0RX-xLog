@@ -10,8 +10,9 @@ type Props = { panels: Partial<Record<WorkspacePanelID, CanvasPanel>>; tradition
   canvasPresetMode?: "custom-only" | "all"; canChangeLayout?: () => boolean; onChangeInFlight?: (active: boolean) => void };
 export default function OperatorCanvas({ panels, traditional, state, session, subscriptionError = "", equipment,
   canvasPresetMode = "custom-only", canChangeLayout, onChangeInFlight }: Props) {
-  const root = useRef<HTMLDivElement>(null), toolbar = useRef<HTMLSelectElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 }), [showPanels, setShowPanels] = useState(false), [currentPanel, setCurrentPanel] = useState<WorkspacePanelID>("active-qso");
+  const desk = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null), toolbar = useRef<HTMLSelectElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 }), [available, setAvailable] = useState({ width: 0, height: 0 });
+  const [showPanels, setShowPanels] = useState(false), [currentPanel, setCurrentPanel] = useState<WorkspacePanelID>("active-qso");
   const [error, setError] = useState(""), [working, setWorking] = useState(false);
   const active = state.snapshot?.document.presets.find(preset => preset.id === state.snapshot?.document.activePresetID);
   const custom = active && active.id !== "windowed" && (canvasPresetMode === "all" || active.id !== "traditional");
@@ -25,10 +26,15 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     finally { performing.current = false; onChangeInFlight?.(false); setWorking(false); }
   };
   useEffect(() => {
-    const measure = () => { const box = root.current?.getBoundingClientRect(); if (box) setSize(current =>
-      current.width === box.width && current.height === box.height ? current : { width: box.width, height: box.height }); };
-    measure(); if (!root.current || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure); observer.observe(root.current); return () => observer.disconnect();
+    const measure = () => {
+      const box = root.current?.getBoundingClientRect(), deskBox = desk.current?.getBoundingClientRect();
+      if (box) setSize(current => current.width === box.width && current.height === box.height ? current : { width: box.width, height: box.height });
+      if (deskBox) setAvailable(current => current.width === deskBox.width && current.height === deskBox.height ? current :
+        { width: deskBox.width, height: deskBox.height });
+    };
+    measure(); if (!root.current || !desk.current || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure); observer.observe(root.current); observer.observe(desk.current);
+    return () => observer.disconnect();
   }, []);
   const selectLayout = (id: string) => void perform(async () => {
     if (id === "custom" && !state.snapshot!.document.presets.some(preset => preset.id === id)) {
@@ -41,7 +47,11 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
   const savePreset = (preset: LayoutPreset) => void perform(() => session.apply({ action: "savePreset", presetID: preset.id, preset }));
   const visible = active?.panels.filter(panel => panel.placement === "canvas" && panels[panel.id]) ?? [];
   // An owned rotor must always keep a Stop path, even if an older layout hid it.
-  const compact = size.width > 0 && (size.width < 1000 || size.height < 580);
+  // Measure the stable desk shell for presentation mode. The canvas work area
+  // changes its own intrinsic height when compact frames become in-flow, so
+  // using that child as the compact-mode authority can lock a large window in
+  // the one-panel layout after its first small measurement.
+  const compact = available.width > 0 && (available.width < 1000 || available.height < 580);
   const selected = visible.some(panel => panel.id === currentPanel) ? currentPanel : visible[0]?.id;
   const required = Object.entries(panels).filter(([id, panel]) => panel?.required && (!visible.some(item => item.id === id) || compact && selected !== id));
   const changeVisibility = (id: WorkspacePanelID, show: boolean) => {
@@ -53,7 +63,7 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
       rect: show ? rect : panel.rect, z: Math.min(10000, Math.max(...active!.panels.map(item => item.z)) + 1) } }));
     if (show) setCurrentPanel(id);
   };
-  return <div className="configurable-desk">
+  return <div ref={desk} className="configurable-desk">
     <div className="canvas-toolbar" aria-label="Workspace layout">
       <label>Layout <select ref={toolbar} aria-label="Desk layout" disabled={blocked} value={active?.id ?? "traditional"} onChange={event => selectLayout(event.target.value)}>
         <option value="traditional">Traditional</option><option value="custom">{state.snapshot?.document.presets.find(preset => preset.id === "custom")?.name ?? "Custom"}</option>
