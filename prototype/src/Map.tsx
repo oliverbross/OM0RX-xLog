@@ -136,9 +136,9 @@ export function routeFrequencyLabel(frequencyHz?: number): string | null {
 export function routeFitPadding(compact: boolean, topOverlayInset = 0, bottomOverlayInset = 0) {
   if (compact) return { top: 28, right: 34, bottom: 34, left: 34 };
   return {
-    top: Math.max(74, Math.ceil(topOverlayInset) + 24),
+    top: Math.max(74, Math.ceil(topOverlayInset) + 40),
     right: 54,
-    bottom: Math.max(100, Math.ceil(bottomOverlayInset) + 24),
+    bottom: Math.max(100, Math.ceil(bottomOverlayInset) + 40),
     left: 54,
   };
 }

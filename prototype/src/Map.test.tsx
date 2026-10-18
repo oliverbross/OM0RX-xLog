@@ -188,7 +188,7 @@ describe("map container resizing", () => {
 
     expect(map.fitCalls).toHaveLength(2);
     expect(map.fitCalls.at(-1).viewport).toEqual({ width: 1000, height: 420 });
-    expect(map.fitCalls.at(-1).options.padding).toEqual({ top: 148, right: 54, bottom: 148, left: 54 });
+    expect(map.fitCalls.at(-1).options.padding).toEqual({ top: 164, right: 54, bottom: 164, left: 54 });
 
     map.fire("movestart", { originalEvent: new Event("pointerdown") });
     harness.initialSize = { width: 1000, height: 360 };
@@ -384,7 +384,7 @@ describe("map spot inspection", () => {
   });
 
   it("reserves the measured toolbar and legend intrusion when fitting a route", () => {
-    expect(routeFitPadding(false, 124.2, 124.1)).toEqual({ top: 149, right: 54, bottom: 149, left: 54 });
+    expect(routeFitPadding(false, 124.2, 124.1)).toEqual({ top: 165, right: 54, bottom: 165, left: 54 });
     expect(routeFitPadding(false, 20, 20)).toEqual({ top: 74, right: 54, bottom: 100, left: 54 });
     expect(routeFitPadding(true, 200, 200)).toEqual({ top: 28, right: 34, bottom: 34, left: 34 });
   });
