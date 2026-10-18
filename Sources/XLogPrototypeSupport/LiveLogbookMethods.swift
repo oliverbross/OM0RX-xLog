@@ -639,7 +639,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             case "logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow":
                 // Native admission supplies observed radio evidence, never a renderer
                 // replacement QSO. Project only onto the canonical revision below.
-                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "generation", "frequencyHz", "observedMode"],
+                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "generation", "frequencyHz", "receiveFrequencyHz", "observedMode"],
                                 required: ["operationID", "draftID", "expectedRevision", "generation", "frequencyHz", "observedMode"])
                 let generation = try editGeneration()
                 if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
@@ -648,6 +648,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                       let observedMode = try string(params, "observedMode", max: 16) else { throw invalid() }
                 let revision = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
                 let frequency = try integer(params, "frequencyHz", default: -1, range: 1...1_000_000_000_000)
+                let receiveFrequency = params["receiveFrequencyHz"] == nil || params["receiveFrequencyHz"] is NSNull
+                    ? nil : try integer(params, "receiveFrequencyHz", default: -1, range: 1...1_000_000_000_000)
                 do {
                     let db = try readyDatabase()
                     if let receipt = try db.operatorDraftReceipt(operationID: operationID) {
@@ -655,6 +657,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                               receipt.mutation.action == .replace, receipt.mutation.powerIntent == nil,
                               let previous = receipt.mutation.qso,
                               try OperatorDraftRadioFollow.applying(to: previous, frequencyHz: Int64(frequency),
+                                  receiveFrequencyHz: receiveFrequency.map(Int64.init),
                                   observedMode: observedMode, enabled: true) == previous else { throw OperatorDraftError.operationReused }
                         return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                     }
@@ -664,6 +667,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     let current = try db.operatorDraft(initial: newOperatorDraft())
                     guard current.qso.id == draftID, current.revision == Int64(revision) else { throw OperatorDraftError.conflict(current) }
                     let projected = try OperatorDraftRadioFollow.applying(to: current.qso, frequencyHz: Int64(frequency),
+                        receiveFrequencyHz: receiveFrequency.map(Int64.init),
                         observedMode: observedMode, enabled: true)
                     if method == "logbook_operator_draft_radio_follow", projected == current.qso {
                         return ["status": "unchanged", "draft": try scopedSnapshot(current, generation: generation)]

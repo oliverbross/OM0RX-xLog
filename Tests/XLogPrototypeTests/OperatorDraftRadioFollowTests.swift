@@ -26,13 +26,29 @@ struct OperatorDraftRadioFollowTests {
             updatedAt: Date(timeIntervalSince1970: 1_800_000_100))
     }
 
-    @Test("Only frequency, band and mode change, including for an enriched or historical-shaped value")
+    @Test("Simplex updates frequency, band and mode and clears stale split receive fields")
     func preservesAllOtherFields() throws {
         let before = fixture()
         let result = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 7_150_000, observedMode: "lsb", enabled: true)
         var expected = before
         expected.frequencyHz = 7_150_000; expected.band = "40m"; expected.mode = "SSB"
+        expected.receiveFrequencyHz = nil; expected.receiveBand = ""
         #expect(result == expected)
+    }
+
+    @Test("Split logs actual transmit frequency, records receive frequency and retains the DX callsign while TX moves")
+    func splitFrequencyRetainsContact() throws {
+        let before = fixture()
+        let first = try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 28_015_000,
+            receiveFrequencyHz: 28_012_000, observedMode: "CW", enabled: true)
+        #expect(first.call == "K1ABC/P")
+        #expect(first.frequencyHz == 28_015_000 && first.band == "10m")
+        #expect(first.receiveFrequencyHz == 28_012_000 && first.receiveBand == "10m")
+        let moved = try OperatorDraftRadioFollow.applying(to: first, frequencyHz: 28_016_500,
+            receiveFrequencyHz: 28_012_000, observedMode: "CW", enabled: true)
+        #expect(moved.call == before.call)
+        #expect(moved.frequencyHz == 28_016_500 && moved.receiveFrequencyHz == 28_012_000)
+        #expect(moved.comment == before.comment && moved.notes == before.notes)
     }
 
     @Test("Follow OFF retains manual frequency, mode and power even with unusable telemetry")
@@ -104,6 +120,10 @@ struct OperatorDraftRadioFollowTests {
             #expect(throws: OperatorDraftError.self) {
                 try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 14_025_000, observedMode: mode, enabled: true)
             }
+        }
+        #expect(throws: OperatorDraftError.self) {
+            try OperatorDraftRadioFollow.applying(to: before, frequencyHz: 28_015_000,
+                receiveFrequencyHz: 0, observedMode: "CW", enabled: true)
         }
         #expect(before.frequencyHz == 14_080_000)
         #expect(before.mode == "FT4")

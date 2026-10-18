@@ -27,6 +27,7 @@ pub struct Canonical {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Evidence {
     pub(crate) frequency_hz: u64,
+    pub(crate) receive_frequency_hz: Option<u64>,
     pub(crate) observed_mode: String,
 }
 
@@ -96,6 +97,7 @@ impl Coordinator {
                 draft: receipt["mutation"]["draftID"].as_str().filter(|id| uuid::Uuid::parse_str(id).is_ok()).ok_or("Recovered draft identity is invalid.")?.into(),
                 revision: receipt["mutation"]["expectedRevision"].as_u64().filter(|revision| *revision < MAX_REVISION).ok_or("Recovered draft revision is invalid.")? };
             let evidence = Evidence { frequency_hz: receipt["draft"]["qso"]["frequencyHz"].as_u64().filter(|value| (1..=1_000_000_000_000).contains(value)).ok_or("Recovered radio frequency is invalid.")?,
+                receive_frequency_hz: receipt["draft"]["qso"]["receiveFrequencyHz"].as_u64(),
                 observed_mode: String::new() };
             verify(operation, &canonical, &evidence, &json!({"status":"applied","receipt":receipt}))
         })();
@@ -180,6 +182,7 @@ pub(crate) fn verify(
         || receipt["draft"]["revision"].as_u64() != canonical.revision.checked_add(1)
         || receipt["draft"]["qso"]["id"].as_str() != Some(&canonical.draft)
         || receipt["draft"]["qso"]["frequencyHz"].as_u64() != Some(evidence.frequency_hz)
+        || receipt["draft"]["qso"]["receiveFrequencyHz"].as_u64() != evidence.receive_frequency_hz
         || !receipt["draft"]["qso"]["mode"]
             .as_str()
             .is_some_and(|mode| !mode.is_empty())
@@ -209,16 +212,28 @@ impl NativeBackend {
         Ok(response["result"].clone())
     }
     fn evidence(provider: &str, value: &Value) -> Result<Evidence, String> {
-        let (frequency, mode) = if provider == "hamlib" {
-            let frequency = value["fields"]["frequency"]["Frequency"]
-                .as_u64()
-                .or_else(|| {
-                    value["fields"]["frequency"]["Frequency"]
-                        .as_str()?
-                        .parse()
-                        .ok()
-                });
-            (frequency, value["fields"]["mode"]["Mode"].as_str())
+        let parse_frequency = |value: &Value| {
+            value.as_u64().or_else(|| value.as_str()?.parse().ok())
+                .filter(|value| (1..=1_000_000_000_000).contains(value))
+        };
+        let parse_split = |value: &Value| match (value.as_bool(), value.as_i64(), value.as_str()) {
+            (Some(value), _, _) => Some(value),
+            (_, Some(0), _) => Some(false),
+            (_, Some(1), _) => Some(true),
+            (_, _, Some("0")) => Some(false),
+            (_, _, Some("1")) => Some(true),
+            _ => None,
+        };
+        let (frequency_hz, receive_frequency_hz, mode) = if provider == "hamlib" {
+            let receive = parse_frequency(&value["fields"]["frequency"]["Frequency"])
+                .ok_or("Radio receive frequency is not currently observed.")?;
+            let split = parse_split(&value["fields"]["split"]["Split"])
+                .ok_or("Radio split state is not currently observed.")?;
+            let frequency = if split {
+                parse_frequency(&value["fields"]["tx_frequency"]["TX Frequency"])
+                    .ok_or("Radio transmit frequency is not currently observed.")?
+            } else { receive };
+            (frequency, split.then_some(receive), value["fields"]["mode"]["Mode"].as_str())
         } else {
             if value["source"].as_str() != Some(provider)
                 || value["radio"]["connected"] != true
@@ -226,14 +241,21 @@ impl NativeBackend {
             {
                 return Err("Radio frequency and mode are not currently observed.".into());
             }
-            (
-                value["radio"]["frequency_hz"].as_u64(),
-                value["radio"]["mode"].as_str(),
-            )
+            let radio = &value["radio"];
+            let split = radio["split"].as_bool()
+                .ok_or("Radio split state is not currently observed.")?;
+            let receive = (if radio["receive_frequency_hz"].is_null() {
+                parse_frequency(&radio["frequency_hz"])
+            } else {
+                parse_frequency(&radio["receive_frequency_hz"])
+            })
+                .ok_or("Radio receive frequency is not currently observed.")?;
+            let frequency = if split {
+                parse_frequency(&radio["transmit_frequency_hz"])
+                    .ok_or("Radio transmit frequency is not currently observed.")?
+            } else { receive };
+            (frequency, split.then_some(receive), radio["mode"].as_str())
         };
-        let frequency_hz = frequency
-            .filter(|value| (1..=1_000_000_000_000).contains(value))
-            .ok_or("Radio frequency is not currently observed.")?;
         let observed_mode = mode
             .map(str::to_uppercase)
             .filter(|mode| {
@@ -246,6 +268,7 @@ impl NativeBackend {
             .ok_or("Radio mode is not currently observed.")?;
         Ok(Evidence {
             frequency_hz,
+            receive_frequency_hz,
             observed_mode,
         })
     }
@@ -321,7 +344,8 @@ impl Backend for NativeBackend {
             return Err("Radio selection or command epoch changed during radio readback.".into());
         }
         let params = json!({"operationID":operation,"draftID":canonical.draft,"expectedRevision":canonical.revision,
-            "generation":canonical.generation,"frequencyHz":evidence.frequency_hz,"observedMode":evidence.observed_mode});
+            "generation":canonical.generation,"frequencyHz":evidence.frequency_hz,
+            "receiveFrequencyHz":evidence.receive_frequency_hz,"observedMode":evidence.observed_mode});
         let response = match Self::call(
             canonical.worker,
             "logbook_operator_draft_radio_read",
@@ -413,7 +437,7 @@ mod tests {
         let backend = Arc::new(Fake { canonical: canonical.clone(), editors: vec![], bad: false, published: Mutex::new(Vec::new()) });
         let owner = Coordinator::new(backend, Arc::new(EditorBarrier::default()));
         let operation = id();
-        let evidence = Evidence { frequency_hz: 14_200_000, observed_mode: "USB".into() };
+        let evidence = Evidence { frequency_hz: 14_200_000, receive_frequency_hz: None, observed_mode: "USB".into() };
         let result = receipt(&operation, &canonical, &evidence);
         assert_eq!(owner.recover(&operation, Some(&canonical.generation), |generation| {
             assert_eq!(generation, canonical.generation); Ok(json!({"receipt":result["receipt"]}))
@@ -459,6 +483,7 @@ mod tests {
         ) -> Result<(Evidence, Value), String> {
             let evidence = Evidence {
                 frequency_hz: 14_200_000,
+                receive_frequency_hz: None,
                 observed_mode: "USB".into(),
             };
             let mut result = receipt(operation, canonical, &evidence);
@@ -583,14 +608,23 @@ mod tests {
         ] {
             assert!(NativeBackend::evidence("direct_agent", &value).is_err());
         }
-        assert_eq!(
-            NativeBackend::evidence(
-                "hamlib",
-                &json!({"fields":{"frequency":{"Frequency":"7100000"},"mode":{"Mode":"LSB"}}})
-            )
-            .unwrap()
-            .frequency_hz,
-            7_100_000
-        );
+        let simplex = NativeBackend::evidence("hamlib", &json!({"fields":{
+            "frequency":{"Frequency":"7100000"},"mode":{"Mode":"LSB"},"split":{"Split":"0"}}})).unwrap();
+        assert_eq!(simplex.frequency_hz, 7_100_000);
+        assert_eq!(simplex.receive_frequency_hz, None);
+        let split = NativeBackend::evidence("direct_agent", &json!({"source":"direct_agent","radio":{
+            "connected":true,"observed":true,"receive_frequency_hz":28_012_000,
+            "transmit_frequency_hz":28_015_000,"frequency_hz":28_012_000,"split":true,"mode":"CW"}})).unwrap();
+        assert_eq!(split.frequency_hz, 28_015_000);
+        assert_eq!(split.receive_frequency_hz, Some(28_012_000));
+        let hamlib_split = NativeBackend::evidence("hamlib", &json!({"fields":{
+            "frequency":{"Frequency":"28012000"},"mode":{"Mode":"CW"},"split":{"Split":"1"},
+            "tx_frequency":{"TX Frequency":"28015000"}}})).unwrap();
+        assert_eq!(hamlib_split.frequency_hz, 28_015_000);
+        assert_eq!(hamlib_split.receive_frequency_hz, Some(28_012_000));
+        for unavailable in [
+            json!({"source":"direct_agent","radio":{"connected":true,"observed":true,"receive_frequency_hz":28_012_000,"mode":"CW"}}),
+            json!({"source":"direct_agent","radio":{"connected":true,"observed":true,"receive_frequency_hz":28_012_000,"split":true,"mode":"CW"}}),
+        ] { assert!(NativeBackend::evidence("direct_agent", &unavailable).is_err()); }
     }
 }
