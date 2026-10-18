@@ -201,6 +201,13 @@ actor LiveOpportunitiesMethods {
             let workedOnlyModes = (modeHistory?.worked ?? []).filter { !confirmedSet.contains($0) }
             let dxccHistory: Any = country.map { ["adif": $0.adif, "entity": $0.name,
                 "worked_modes": workedOnlyModes, "confirmed_modes": confirmedModes] as [String: Any] } ?? NSNull()
+            let callsignHistory = classification?.index.callsignHistory(callsigns: Array(aliases))
+            let callsignHistoryJSON: Any = callsignHistory.map { history in
+                ["worked_count": history.workedCount,
+                 "confirmed_count": history.confirmedCount,
+                 "worked_modes": history.workedModes,
+                 "confirmed_modes": history.confirmedModes] as [String: Any]
+            } ?? NSNull()
             return ["id": item.id, "kind": item.kind, "callsign": callsign,
                     "reference": reference, "reference_kind": referenceKind,
                     "programmes": referenceKind != item.kind ? [item.kind, referenceKind] : [item.kind],
@@ -218,6 +225,7 @@ actor LiveOpportunitiesMethods {
                     "ends_at": calendar ? iso(item.endsAt ?? item.expiresAt) as Any : NSNull(),
                     "latest_spot_at": latestSpot.flatMap { ($0["receivedAt"] as? Double).map { iso(Date(timeIntervalSinceReferenceDate: $0)) } } as Any? ?? NSNull(),
                     "dxcc_history": dxccHistory,
+                    "callsign_history": callsignHistoryJSON,
                     "worked_count": evidence?.workedCount ?? 0,
                     "confirmed_count": evidence?.confirmedCount ?? 0,
                     "band_modes": evidence?.bandModes.map { cell in

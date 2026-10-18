@@ -3,8 +3,25 @@ import Foundation
 /// Pure in-memory extraction of xCluster's LogbookIndex classification rules.
 /// The host owns storage, entity resolution, and all record selection.
 public struct ClusterClassificationIndex: Sendable {
+    public struct CallsignHistory: Equatable, Sendable {
+        public let workedCount: Int
+        public let confirmedCount: Int
+        public let workedModes: [String]
+        public let confirmedModes: [String]
+
+        public init(workedCount: Int, confirmedCount: Int,
+                    workedModes: [String], confirmedModes: [String]) {
+            self.workedCount = workedCount
+            self.confirmedCount = confirmedCount
+            self.workedModes = workedModes
+            self.confirmedModes = confirmedModes
+        }
+    }
+
     public let recordCount: Int
     private let recordsByCall: [String: [ClusterContact]]
+    private let workedCallExactModes: [String: Set<String>]
+    private let confirmedCallExactModes: [String: Set<String>]
     private let callBands: [String: Set<String>]
     private let callModes: [String: Set<String>]
     private let workedCallBandModes: Set<Combination>
@@ -28,6 +45,8 @@ public struct ClusterClassificationIndex: Sendable {
 
     public init(records: [ClusterContact]) {
         var byCall: [String: [ClusterContact]] = [:]
+        var workedCallExactModes: [String: Set<String>] = [:]
+        var confirmedCallExactModes: [String: Set<String>] = [:]
         var callBands: [String: Set<String>] = [:], callModes: [String: Set<String>] = [:]
         var workedCallBandModes = Set<Combination>(), confirmedCallBandModes = Set<Combination>()
         var dxccBands: [Int: Set<String>] = [:], dxccModes: [Int: Set<String>] = [:]
@@ -46,6 +65,8 @@ public struct ClusterClassificationIndex: Sendable {
             record.mode = SpotLogic.classificationMode(record.mode)
             let call = record.callsign
             byCall[call, default: []].append(record)
+            if !exactMode.isEmpty { workedCallExactModes[call, default: []].insert(exactMode) }
+            if record.isConfirmed, !exactMode.isEmpty { confirmedCallExactModes[call, default: []].insert(exactMode) }
             callBands[call, default: []].insert(record.band)
             callModes[call, default: []].insert(record.mode)
             let callKey = Combination(identity: call, band: record.band, mode: record.mode)
@@ -66,6 +87,8 @@ public struct ClusterClassificationIndex: Sendable {
         }
         recordCount = records.count
         recordsByCall = byCall
+        self.workedCallExactModes = workedCallExactModes
+        self.confirmedCallExactModes = confirmedCallExactModes
         self.callBands = callBands
         self.callModes = callModes
         self.workedCallBandModes = workedCallBandModes
@@ -77,6 +100,28 @@ public struct ClusterClassificationIndex: Sendable {
         self.workedDXCC = workedDXCC
         self.confirmedDXCC = confirmedDXCC
         self.confirmedDXCCBandModes = confirmedDXCCBandModes
+    }
+
+    /// Exact retained-logbook history for one operation. Calendar operations
+    /// may publish aliases, so callers can summarize every advertised call as
+    /// one activity without conflating it with the containing DXCC entity.
+    public func callsignHistory(callsigns: [String]) -> CallsignHistory {
+        let calls = Set(callsigns.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            .filter { !$0.isEmpty })
+        let records = calls.flatMap { recordsByCall[$0] ?? [] }
+        func ordered(_ modes: Set<String>) -> [String] {
+            modes.sorted { left, right in
+                let leftRank = SpotLogic.modes.firstIndex(of: left) ?? SpotLogic.modes.count
+                let rightRank = SpotLogic.modes.firstIndex(of: right) ?? SpotLogic.modes.count
+                return leftRank == rightRank ? left < right : leftRank < rightRank
+            }
+        }
+        let workedModes = calls.reduce(into: Set<String>()) { $0.formUnion(workedCallExactModes[$1] ?? []) }
+        let confirmedModes = calls.reduce(into: Set<String>()) { $0.formUnion(confirmedCallExactModes[$1] ?? []) }
+        return CallsignHistory(workedCount: records.count,
+                               confirmedCount: records.filter(\.isConfirmed).count,
+                               workedModes: ordered(workedModes),
+                               confirmedModes: ordered(confirmedModes))
     }
 
     /// Exact local modes worked and confirmed for one DXCC entity. This is a

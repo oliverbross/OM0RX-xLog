@@ -69,6 +69,25 @@ final class ClusterClassificationTests: XCTestCase {
         XCTAssertEqual(history.confirmed, ["FT8"])
     }
 
+    func testCallsignHistoryCombinesAliasesWithoutBorrowingDXCCContacts() {
+        let records = [
+            ClusterContact(callsign: "H49A", band: "20m", mode: "SSB", adif: 185,
+                           date: Date(timeIntervalSince1970: 3), paperQSL: "Y", lotwQSL: ""),
+            ClusterContact(callsign: "H49A", band: "15m", mode: "FT8", adif: 185,
+                           date: Date(timeIntervalSince1970: 2), paperQSL: "", lotwQSL: ""),
+            ClusterContact(callsign: "H49DX", band: "40m", mode: "CW", adif: 185,
+                           date: Date(timeIntervalSince1970: 1), paperQSL: "", lotwQSL: "Y"),
+            ClusterContact(callsign: "H44A", band: "10m", mode: "CW", adif: 185,
+                           date: Date(timeIntervalSince1970: 4), paperQSL: "Y", lotwQSL: "")
+        ]
+        let history = ClusterClassificationIndex(records: records)
+            .callsignHistory(callsigns: [" h49a ", "H49DX", "H49A"])
+        XCTAssertEqual(history.workedCount, 3)
+        XCTAssertEqual(history.confirmedCount, 2)
+        XCTAssertEqual(history.workedModes, ["CW", "SSB", "FT8"])
+        XCTAssertEqual(history.confirmedModes, ["CW", "SSB"])
+    }
+
     func testNewCallAtnoAndUnknownEntityAreIndependent() {
         for entity in [nil, 0, -1] as [Int?] {
             let result = ClusterClassificationIndex.empty.classify(call: "K1NEW", band: "20m", mode: "CW", adif: entity)

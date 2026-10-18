@@ -46,6 +46,9 @@ struct LiveOpportunitiesMethodsTests {
         #expect(dxcc["adif"] as? Int == 291)
         #expect(dxcc["confirmed_modes"] as? [String] == ["SSB"])
         #expect(dxcc["worked_modes"] as? [String] == ["FT8"])
+        let callsign = try #require(k5g["callsign_history"] as? [String: Any])
+        #expect(callsign["worked_count"] as? Int == 0)
+        #expect(callsign["confirmed_count"] as? Int == 0)
         #expect(rows.filter { $0["kind"] as? String == "pota" }.map { $0["reference"] as? String } == ["US-3051"])
         #expect(Set(rows.filter { $0["kind"] as? String == "wwff" }.compactMap { $0["reference"] as? String }) == ["KFF-3017", "KFF-2099"])
         #expect(result["selection_tunes"] as? Bool == false)
@@ -258,6 +261,8 @@ struct LiveOpportunitiesMethodsTests {
 
         var qso = try #require(logbook.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
         qso["call"] = "OM0RX/P"
+        qso["band"] = "20m"
+        qso["mode"] = "FT8"
         qso["potaReference"] = "OM-0001"
         qso["lotwReceived"] = "Y"
         _ = try logbook.handle(method: "logbook_save", params: ["qso": qso])
@@ -282,6 +287,11 @@ struct LiveOpportunitiesMethodsTests {
         #expect(row["reference_status"] as? String == "verified")
         #expect(row["worked_count"] as? Int == 1)
         #expect(row["confirmed_count"] as? Int == 1)
+        let callsign = try #require(row["callsign_history"] as? [String: Any])
+        #expect(callsign["worked_count"] as? Int == 1)
+        #expect(callsign["confirmed_count"] as? Int == 1)
+        #expect(callsign["worked_modes"] as? [String] == ["FT8"])
+        #expect(callsign["confirmed_modes"] as? [String] == ["FT8"])
         let cells = try #require(row["band_modes"] as? [[String: Any]])
         #expect(cells.first?["worked_count"] as? Int == 1)
         #expect(result["selection_tunes"] as? Bool == false)
