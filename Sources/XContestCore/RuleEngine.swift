@@ -98,7 +98,7 @@ public enum ContestExchangeFieldKind: String, Codable, Hashable, Sendable {
     case alphaToken
     case locationText
 
-    fileprivate func accepts(_ value: String) -> Bool {
+    func accepts(_ value: String) -> Bool {
         switch self {
         case .serialNumber:
             return Int(value).map { $0 > 0 } == true

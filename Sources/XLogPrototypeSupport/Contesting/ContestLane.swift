@@ -90,7 +90,8 @@ actor ContestLane {
                 result = try await assistance(method: method, params: params)
             case "contest_history_status", "contest_history_preview_private", "contest_history_preview_page",
                  "contest_history_preview_cancel", "contest_history_preview_commit",
-                 "contest_history_query", "contest_history_query_cancel", "contest_history_select":
+                 "contest_history_query", "contest_history_query_cancel", "contest_history_select",
+                 "contest_history_apply":
                 result = try await callHistory(method: method, params: params, generation: before)
             default: throw ContestLaneError.confirmed("unknown_method", "Unknown contest method.")
             }
@@ -101,6 +102,9 @@ actor ContestLane {
           catch is ContestSCPError { throw ContestLaneError.confirmed("invalid_scp", "The SCP dataset or query is invalid.") }
           catch let error as ContestCallHistoryServiceError { throw Self.map(error) }
           catch let error as ContestCallHistoryError { throw Self.map(error) }
+          catch is ContestCallHistoryProjectionError {
+              throw ContestLaneError.confirmed("invalid_history_projection", "The selected call-history value cannot be applied to this draft.")
+          }
           catch { throw Self.map(error) }
         if Self.isConcurrentMethod(method) { try requireConcurrentRunning(method) }
         let after: String
@@ -310,8 +314,22 @@ actor ContestLane {
             guard try await historyContext(params, generation: generation, selecting: true) == context else {
                 throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed while call history was selected.")
             }
-            return try Self.historySelectionWire(selected, context: context,
+            let snapshot = try await repository().sessionReadSnapshot(id: try Wire.generationID(context.sessionID))
+            guard let draft = snapshot.drafts.first(where: { Wire.uuidString($0.id) == context.draftID }),
+                  let rule = rules.rule(for: snapshot.session.session.rule),
+                  snapshot.session.revision == UInt64(context.sessionRevision),
+                  draft.revision == UInt64(context.draftRevision), draft.callsign == context.inputCallsign,
+                  snapshot.session.session.rule == context.ruleIdentity,
+                  snapshot.session.session.referenceDataVersion == context.referenceDataVersion else {
+                throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed while call history was selected.")
+            }
+            let projections = try ContestCallHistoryProjector.proposals(
+                headers: selected.headers, row: selected.row, rule: rule,
+                session: snapshot.session.session, draft: draft)
+            return try Self.historySelectionWire(selected, context: context, projections: projections,
                                                  valueOffset: valueOffset, valueLimit: valueLimit)
+        case "contest_history_apply":
+            return try await historyApply(params, generation: generation, service: service)
         default:
             throw ContestLaneError.confirmed("unknown_method", "Unknown call-history method.")
         }
@@ -353,6 +371,84 @@ actor ContestLane {
                      draftRevision: Int64(expectedDraftRevision), inputCallsign: callsign,
                      requestID: Wire.uuidString(requestID), ruleIdentity: ruleIdentity,
                      referenceDataVersion: referenceDataVersion)
+    }
+
+    private func historyApply(_ params: [String: Any], generation: String,
+                              service: ContestCallHistoryService) async throws -> [String: Any] {
+        let request = try Wire.mutation(params, payloadKeys: ["selection", "projectionIDs", "fields"],
+                                        requiresDraft: true)
+        try Wire.requireGeneration(request.workspaceGeneration, generation)
+        let selection = try Wire.object(request.payload, "selection")
+        let context = try Wire.historySelectionContext(selection)
+        let recordID = try Wire.text(selection, "recordID", max: 192)
+        guard context.sessionID == Wire.uuidString(request.sessionID),
+              context.workspaceGeneration == generation,
+              context.sessionRevision == Int64(request.expectedRevision),
+              context.draftID == request.draftID.map(Wire.uuidString) else {
+            throw ContestLaneError.confirmed("stale_history_context", "The call-history selection does not match the draft mutation.")
+        }
+        guard let rawIDs = request.payload["projectionIDs"] as? [Any],
+              let projectionIDs = rawIDs as? [String], (1...2).contains(projectionIDs.count),
+              projectionIDs.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 64 }),
+              Set(projectionIDs).count == projectionIDs.count else {
+            throw ContestLaneError.confirmed("invalid_params", "Call-history projection identifiers are invalid.")
+        }
+        let prior = try await preflightReplay(request)
+        let stored = try await checkedSession(request.sessionID, generation: generation,
+                                              revision: prior == nil ? request.expectedRevision : nil)
+        guard let rule = rules.rule(for: stored.session.rule) else {
+            throw ContestLaneError.confirmed("unknown_rule", "The contest rule is unavailable.")
+        }
+        let current = try await repository().draft(sessionID: request.sessionID, id: request.draftID!)
+        let projection = rule as? any ContestRuleExchangeFieldProjection
+        let fields = try Wire.draftFields(Wire.object(request.payload, "fields"), entry: rule.metadata.entry,
+                                          projection: projection.map { policy in { policy.projectExchangeFields($0) } })
+        let provided = ContestDraftSnapshot(
+            id: current.id, sessionID: current.sessionID,
+            revision: prior?.committedRevision ?? (stored.revision + 1), updatedAt: request.timestamp,
+            callsign: fields.callsign, band: fields.band, mode: fields.mode, frequencyHz: fields.frequencyHz,
+            rstSent: fields.sentReport, rstReceived: fields.receivedReport,
+            exchange: .init(rawSent: fields.sentExchange,
+                            normalizedSent: projection != nil
+                                ? Wire.normalizedAggregate(fields.sentExchangeFields, descriptors: rule.metadata.entry.exchange.sentFields)
+                                : fields.sentExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                            rawReceived: fields.receivedExchange,
+                            normalizedReceived: projection != nil
+                                ? Wire.normalizedAggregate(fields.receivedExchangeFields, descriptors: rule.metadata.entry.exchange.receivedFields)
+                                : fields.receivedExchange.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                            sentFields: fields.sentExchangeFields, receivedFields: fields.receivedExchangeFields),
+            entity: current.entity, operatorCallsign: current.operatorCallsign,
+            stationLocation: current.stationLocation)
+        if prior == nil {
+            let live = ContestCallHistorySelectionContext(
+                sessionID: Wire.uuidString(request.sessionID), workspaceGeneration: generation,
+                sessionRevision: Int64(stored.revision), draftID: Wire.uuidString(current.id),
+                draftRevision: Int64(current.revision), inputCallsign: current.callsign,
+                requestID: context.requestID, ruleIdentity: stored.session.rule,
+                referenceDataVersion: stored.session.referenceDataVersion)
+            guard live == context else {
+                throw ContestLaneError.confirmed("stale_history_context", "The contest draft changed before call history was applied.")
+            }
+            let selected = try await service.selectedView(recordID: recordID, expectedContext: context)
+            let proposals = try ContestCallHistoryProjector.proposals(
+                headers: selected.headers, row: selected.row, rule: rule,
+                session: stored.session, draft: current)
+            let expected = try ContestCallHistoryProjector.applying(
+                projectionIDs, from: proposals, to: current, rule: rule, session: stored.session,
+                revision: stored.revision + 1, updatedAt: request.timestamp)
+            guard expected == provided else {
+                throw ContestLaneError.confirmed("invalid_history_projection", "The draft does not exactly match the selected call-history projection.")
+            }
+        }
+        let result = try await repository().updateDraft(
+            provided, scope: request.coreScope(generation: stored.session.workspaceGeneration),
+            committedAt: request.timestamp)
+        _ = await service.cancelQuery(context: context)
+        return try await projectCommitted {
+            try await mutationWire(result.session, draft: result.draft, qsoCount: result.qsoCount,
+                                   generation: generation, receipt: result.receipt,
+                                   projection: result.projection)
+        }
     }
 
     private static let historyRuleIDs: Set<String> = [
@@ -464,13 +560,14 @@ actor ContestLane {
 
     private static func historySelectionWire(_ view: ContestCallHistorySelectedView,
                                              context: ContestCallHistorySelectionContext,
+                                              projections: [ContestCallHistoryProjection],
                                              valueOffset: Int, valueLimit: Int) throws -> [String: Any] {
         let upper = min(view.headers.count, valueOffset + valueLimit)
         var row = historyRowWire(view.row); row["values"] = []
         var response: [String: Any] = [
             "context": historyContextWire(context), "dataset": historyDatasetWire(view.dataset),
             "record": row, "valueOffset": valueOffset, "valueLimit": valueLimit,
-            "nextValueOffset": NSNull(),
+            "nextValueOffset": NSNull(), "projections": projections.map(historyProjectionWire),
         ]
         var cells: [[String: Any]] = []
         if valueOffset < upper {
@@ -508,6 +605,12 @@ actor ContestLane {
         return response
     }
 
+    private static func historyProjectionWire(_ value: ContestCallHistoryProjection) -> [String: Any] {
+        ["id": value.id, "sourceKey": value.sourceKey.rawValue, "target": value.target.rawValue,
+         "fieldID": value.fieldID ?? NSNull(), "label": value.label,
+         "rawValue": value.rawValue, "normalizedValue": value.normalizedValue]
+    }
+
     private static func historyRowWire(_ row: ContestCallHistoryRow) -> [String: Any] {
         ["recordID": row.recordID, "sourceOrdinal": row.sourceOrdinal, "sourceLine": row.sourceLine,
          "normalizedCallsign": row.normalizedCallsign ?? NSNull(),
@@ -527,7 +630,8 @@ actor ContestLane {
     }
 
     private static func isConcurrentMethod(_ method: String) -> Bool {
-        isExportMethod(method) || method.hasPrefix("contest_scp_") || method.hasPrefix("contest_history_")
+        isExportMethod(method) || method.hasPrefix("contest_scp_") ||
+            (method.hasPrefix("contest_history_") && method != "contest_history_apply")
     }
 
     static func isJSONBoolean(_ number: NSNumber) -> Bool {
@@ -1456,6 +1560,26 @@ private struct ContestMutationRequest {
 }
 
 private enum Wire {
+    static func historySelectionContext(_ value: [String: Any]) throws -> ContestCallHistorySelectionContext {
+        try exact(value, ["sessionID", "workspaceGeneration", "sessionRevision", "draftID",
+                          "draftRevision", "inputCallsign", "requestID", "ruleIdentity",
+                          "referenceDataVersion", "recordID"])
+        let sessionRevision = try uint(value, "sessionRevision")
+        let draftRevision = try uint(value, "draftRevision")
+        guard sessionRevision <= UInt64(Int64.max), draftRevision <= UInt64(Int64.max) else {
+            throw ContestLaneError.confirmed("invalid_params", "Call-history revisions exceed the supported range.")
+        }
+        return .init(sessionID: uuidString(try uuid(value, "sessionID")),
+                     workspaceGeneration: try generation(try text(value, "workspaceGeneration", max: 36)),
+                     sessionRevision: Int64(sessionRevision),
+                     draftID: uuidString(try uuid(value, "draftID")),
+                     draftRevision: Int64(draftRevision),
+                     inputCallsign: try callsign(value, "inputCallsign"),
+                     requestID: uuidString(try uuid(value, "requestID")),
+                     ruleIdentity: try ruleIdentity(object(value, "ruleIdentity")),
+                     referenceDataVersion: try text(value, "referenceDataVersion", max: 160))
+    }
+
     static func exact(_ value: [String: Any], _ keys: Set<String>) throws {
         guard Set(value.keys) == keys else { throw ContestLaneError.confirmed("invalid_params", "Contest request fields are invalid.") }
     }

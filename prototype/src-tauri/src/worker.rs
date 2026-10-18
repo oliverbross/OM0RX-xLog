@@ -208,6 +208,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_history_query",
         "contest_history_query_cancel",
         "contest_history_select",
+        "contest_history_apply",
         "workspace_status",
         "workspace_create",
         "workspace_preferences_load",
@@ -1822,7 +1823,7 @@ mod tests {
             "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
             "cluster_resume", "contest_qso_correct", "contest_qso_delete",
             "contest_scp_import_private",
-            "contest_history_preview_private", "contest_history_preview_commit",
+            "contest_history_preview_private", "contest_history_preview_commit", "contest_history_apply",
         ] {
             assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
             assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");
