@@ -1,5 +1,7 @@
 # OM0RX-xLog Contesting — porting and delivery plan
 
+**Latest report checkpoint — 2026-10-18 04:57 UTC:** This checkpoint supersedes the historical snapshots below. Reviewed/pushed definition merge `eecaf500970ca57a3432c500299987b2c485ff15` (parents `ac4116227cf0eefefb5bd88ad90ad937020e80c2` and `aaf8033b8365e89618daa520c554d76ec42ada7b`), with 26 core, 23 portable-lane and 37 Python tests passing; generator CI passed in run `39098802537`, while remaining portability jobs are still running. The isolated pinned checkout verifies 94/16. Python 3.14 corpus verification now passes; the subsequent developer-path test failure is fixed in this merge, with hosted generator confirmation passed in run `39098802537` and remaining portability jobs running. SST remains inactive and the packaged JSON loader is not implemented. CWT operator diagnostic failed its protected WAL-metadata check; no full operator or native-package acceptance. Main `a2b959d` is packaging work; the last accepted receipt remains `f84c4975fccb5ae3c021b2a09bd86b938ddbb053`. Published ledger remains 16 previews, 78 pending, zero complete.
+
 **Date:** 17 October 2026, Australia/Darwin  
 **Status:** IN PROGRESS — sixteen catalog rule previews; full 94-entry, feature, operator, package and sponsor-rule gates remain open
 **Product owner:** Oliver Bross, OM0RX  

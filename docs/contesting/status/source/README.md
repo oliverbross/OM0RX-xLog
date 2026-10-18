@@ -1,5 +1,7 @@
 # Contesting status report source
 
+**Latest report checkpoint — 2026-10-18 04:57 UTC:** This checkpoint supersedes the historical snapshots below. Merge `eecaf500970ca57a3432c500299987b2c485ff15` is root-reviewed/pushed; 26 core, 23 lane and 37 Python tests passed. Hosted generator confirmation passed in run `39098802537`; remaining portability jobs are running. The 94/16 inventory verifies in the isolated pinned checkout. Python 3.14 corpus verification now passes; the subsequent developer-path test failure is fixed in this merge. SST remains inactive, JSON catalog loading is not yet implemented, and the CWT operator diagnostic failed protected WAL-metadata validation; full operator/package acceptance is open. Main `a2b959d` is still in packaging work; accepted receipt `f84c4975fccb5ae3c021b2a09bd86b938ddbb053` remains the recorded baseline. The published ledger remains 16 previews, 78 pending, zero complete.
+
 This folder contains the reproducible source for the 18 October 2026 contesting parity snapshot. The published workbook and status note remain at the parent directory.
 
 ## Rebuild
