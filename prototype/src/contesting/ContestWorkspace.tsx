@@ -264,6 +264,7 @@ export function ContestWorkspace({ request, createRequestID, digestPayload, reco
       if (ticket !== contextTicket.current || !accepts(scope) || owner.session?.sessionID !== sessionID || owner.session.workspaceGeneration !== generation)
         throw new Error("Contest commit response no longer matches the active session.");
       if (!owner.apply(result, scope.lease!, scope.admission!)) throw new Error("Contest commit response was not admitted.");
+      setSessions(items => items.map(item => item.sessionID === result.session.sessionID ? result.session : item));
       setScore(null); setNotice(`Logged ${result.qso.callsign}.`); await projections(result.session, 0, ticket, scope);
       return result;
     } catch (cause) { handleFailure(cause, ticket, scope); throw cause; } finally { endAction(ticket, scope); }
