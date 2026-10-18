@@ -156,6 +156,22 @@ it("submits Escape outside a blocked edit queue without replaying either action"
   expect(actions[1]).toMatchObject({projectionRevision:6,params:{key:"Escape",focusedField:"callsign"}});
 });
 
+it("admits only Escape across benign refresh churn",async()=>{
+  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const base:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  let reads=0;const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot"){reads+=1;return structuredClone(reads>=3?{...base,projectionRevision:7,
+      projection:{...base.projection,draft:{...base.projection.draft,revision:6}}}:base);}
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
+  });
+  const view=render(<DetachedContestSurface/>),callsign=await screen.findByLabelText("Callsign");fireEvent.keyDown(callsign,{key:"Escape"});
+  await waitFor(()=>expect(actions).toHaveLength(1));expect(actions[0]).toMatchObject({projectionRevision:6,action:"entry_operator_key",params:{key:"Escape",expectedDraftRevision:5}});
+  view.unmount();reads=0;actions.length=0;render(<DetachedContestSurface/>);const ordinary=await screen.findByLabelText("Callsign");fireEvent.keyDown(ordinary,{key:"Enter"});
+  expect(await screen.findByText("The shared contest panel changed before this action could be applied.")).toBeTruthy();expect(actions).toHaveLength(0);
+});
+
 it("does not silently rebase a control action after another surface revision wins",async()=>{
   const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
@@ -174,7 +190,7 @@ it("does not silently rebase a control action after another surface revision win
   expect(actions).toHaveLength(1);
 });
 
-it("rejects Enter when a sibling surface changes the authoritative entry before submission",async()=>{
+it("rejects Enter after same-value sibling revision churn",async()=>{
   const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
@@ -184,10 +200,31 @@ it("rejects Enter when a sibling surface changes the authoritative entry before 
     if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
-  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:"K1ZZZ"}}};
+  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6}}};
   fireEvent.keyDown(callsign,{key:"Enter"});
   expect(await screen.findByText("The shared contest entry changed before this operator action. Review it and press the key again.")).toBeTruthy();
   expect(actions).toHaveLength(0);
+});
+
+it("accepts Enter when an already-running flush had partly completed before key capture",async()=>{
+  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});
+  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:"K"}},
+    receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(actions).toHaveLength(2));fireEvent.keyDown(callsign,{key:"Enter"});
+  current={...current,projectionRevision:8,projection:{...current.projection,draft:{...current.projection.draft,revision:7,callsign:"K1ABC"}},
+    receipts:[{requestID:actions[1].requestID,status:"applied",message:null,projectionRevision:8}]};await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(actions).toHaveLength(3));expect(actions[2]).toMatchObject({projectionRevision:8,action:"entry_operator_key",
+    params:{expectedDraftRevision:7,key:"Enter"}});
 });
 
 it("ignores repeated, composing, prevented, and modified detached operator keys",async()=>{
@@ -220,10 +257,10 @@ it("carries delayed multi-field typing through the real owner drain before one E
   function Owner(){const [entry,setEntry]=useState<ContestEntrySurfaceProjection>(initial);const projections=useMemo(()=>
       ({...unavailable(),"active-qso":entry}),[entry]);
     useContestSurfaceOwner({context:{operatingContext,sessionID,workspaceGeneration},projections,report:vi.fn(),handle:async action=>{
-      if(action.action==="entry_set_text"&&action.params.field==="callsign"&&action.params.value==="K"){firstStarted();await firstGate;}
+      if(action.action==="entry_set_text"&&action.params.field==="callsign"&&action.params.value===" k"){firstStarted();await firstGate;}
       if(action.action==="entry_operator_key"){keys.push(action.params.key);return;}
       setEntry(previous=>{if(previous.status!=="ready")return previous;const draft={...previous.draft};
-        if(action.action==="entry_set_text"&&action.params.field==="callsign")draft.callsign=action.params.value;
+        if(action.action==="entry_set_text"&&action.params.field==="callsign")draft.callsign=action.params.value.trim().toUpperCase();
         if(action.action==="entry_set_exchange")draft.receivedFields=draft.receivedFields.map(field=>field.id===action.params.fieldID?{...field,value:action.params.value}:field);
         draft.revision+=1;return {...previous,draft};});await new Promise(resolve=>window.setTimeout(resolve,0));
     }});return null;}
@@ -241,8 +278,8 @@ it("carries delayed multi-field typing through the real owner drain before one E
     if(command==="contest_surface_context_close")return;throw new Error(command);
   });
   render(<><Owner/><DetachedContestSurface/></>);const callsign=await screen.findByLabelText("Callsign"),exchange=screen.getByLabelText("Power");
-  fireEvent.change(callsign,{target:{value:"K"}});await firstStart;
-  fireEvent.change(callsign,{target:{value:"K1"}});fireEvent.change(callsign,{target:{value:"K1ABC"}});exchange.focus();
+  fireEvent.change(callsign,{target:{value:" k"}});await firstStart;
+  fireEvent.change(callsign,{target:{value:" k1"}});fireEvent.change(callsign,{target:{value:" k1abc "}});exchange.focus();
   fireEvent.change(exchange,{target:{value:"14"}});fireEvent.change(exchange,{target:{value:"15"}});fireEvent.keyDown(exchange,{key:"Enter"});
   expect(keys).toEqual([]);releaseFirst();await waitFor(()=>expect(keys).toEqual(["Enter"]),{timeout:5000});
   await waitFor(()=>{expect(bridgeProjection.draft.callsign).toBe("K1ABC");expect(bridgeProjection.draft.receivedFields[0].value).toBe("15");});

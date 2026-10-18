@@ -45,21 +45,25 @@ function Surface({ context }: { context: Context }) {
       try {
         let currentAction=action,projectionRevision=requestedProjectionRevision;
         if(options.safePresentation){const current=await refresh();
-          if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return false;
+          if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return {applied:false,projectionRevision:null};
           const params=action.params as Record<string,unknown>;
           projectionRevision=current.projectionRevision;
           if(typeof params.draftID==="string"){
           const projection=current.projection as any,draftRevision=projection.draft?.draftID===params.draftID?projection.draft.revision:
             projection.draftID===params.draftID?projection.draftRevision:null;
-          if(!Number.isSafeInteger(draftRevision))return false;
+          if(!Number.isSafeInteger(draftRevision))return {applied:false,projectionRevision:null};
           currentAction={...action,params:{...params,expectedDraftRevision:draftRevision}} as ContestSurfaceAction;
-          }else if(typeof params.qsoID==="string"&&(current.projection as any).editing?.qsoID!==params.qsoID)return false;
-        }else{const current=await refresh();if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return false;
-          if(current.projectionRevision!==requestedProjectionRevision){setActionError("The shared contest panel changed before this action could be applied.");return false;}}
+          }else if(typeof params.qsoID==="string"&&(current.projection as any).editing?.qsoID!==params.qsoID)return {applied:false,projectionRevision:null};
+        }else{const current=await refresh();if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return {applied:false,projectionRevision:null};
+          const params=action.params as Record<string,unknown>,escape=action.action==="entry_operator_key"&&params.key==="Escape";
+          if(escape){const draft=(current.projection as any).draft;if(draft?.draftID!==params.draftID||
+              !Number.isSafeInteger(params.expectedDraftRevision)||params.expectedDraftRevision as number>draft.revision||
+              requestedProjectionRevision>current.projectionRevision){setActionError("The shared contest entry no longer owns this Escape action.");return {applied:false,projectionRevision:null};}}
+          else if(current.projectionRevision!==requestedProjectionRevision){setActionError("The shared contest panel changed before this action could be applied.");return {applied:false,projectionRevision:null};}}
         const immediate=await submitContestSurfaceAction({...context,scope:"contesting",projectionRevision,
           requestID,...currentAction} as ContestSurfaceActionEnvelope);
-        if(immediate.status==="applied")return true;
-        if(immediate.status==="rejected")return false;
+        if(immediate.status==="applied"){const current=await refresh();return {applied:true,projectionRevision:current?.projectionRevision??projectionRevision};}
+        if(immediate.status==="rejected")return {applied:false,projectionRevision:null};
         const existing=snapshotRef.current?.receipts.find(item=>item.requestID===requestID&&
           (item.status==="applied"||item.status==="rejected"));
         const terminal=existing??await new Promise<ContestSurfaceTerminalReceipt|null>(resolve=>{
@@ -67,8 +71,8 @@ function Surface({ context }: { context: Context }) {
           receiptWaiters.current.set(requestID,{resolve,timer});
         });
         if(!terminal)setActionError("The action outcome is still unresolved. Refresh before continuing.");
-        return terminal?.status==="applied";
-      }catch(cause){setActionError(message(cause));await refresh();return false;}
+        return {applied:terminal?.status==="applied",projectionRevision:terminal?.status==="applied"?terminal.projectionRevision:null};
+      }catch(cause){setActionError(message(cause));await refresh();return {applied:false,projectionRevision:null};}
       finally{pendingCount.current-=1;if(pendingCount.current===0)setSending(false);}
     };
     if(options.bypassQueue)return execute();
@@ -94,8 +98,9 @@ function Surface({ context }: { context: Context }) {
   </main>;
 }
 
+type SendResult={applied:boolean;projectionRevision:number|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
-  options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<boolean>;
+  options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
 type IntentInputProps = { label:string;value:string;identity:string;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];
   disabled:boolean;maximumUTF8Bytes:number;send:Send;action:(value:string)=>ContestSurfaceAction;operatorField?:"callsign"|"exchange";inputRef?:RefObject<HTMLInputElement|null> };
 function IntentInput({label,value:authoritative,identity,projectionRevision,receipts,disabled,maximumUTF8Bytes,send,action,operatorField,inputRef}:IntentInputProps){
@@ -105,8 +110,8 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
   const pump=useCallback(()=>{if(flight.current||desired.current===authoritative)return;const requestID=crypto.randomUUID(),sentValue=desired.current;
     flight.current={requestID,projectionRevision:latest.current.projectionRevision,value:sentValue};
     setUnresolved(false);void latest.current.send(latest.current.action(sentValue),latest.current.projectionRevision,
-      {requestID,safePresentation:true}).then(submitted=>{
-      if(!submitted&&flight.current?.requestID===requestID)setUnresolved(true);
+      {requestID,safePresentation:true}).then(result=>{
+      if(!result.applied&&flight.current?.requestID===requestID)setUnresolved(true);
     });},[authoritative]);
   useEffect(()=>{desired.current=authoritative;flight.current=null;setUnresolved(false);setValue(authoritative);},[identity]);
   useEffect(()=>{const pending=flight.current;if(!pending){desired.current=authoritative;setValue(authoritative);return;}
@@ -125,7 +130,7 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
 
 type EntryIntentKey = "callsign"|"sentReport"|"receivedReport"|"frequency"|`exchange:${string}`;
 type EntryIntent = { value:string; action:(value:string)=>ContestSurfaceAction };
-type EntryFlushResult = { ok:boolean;confirmed:number };
+type EntryFlushResult = { ok:boolean;lastAppliedProjectionRevision:number|null };
 function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const authoritative=useMemo(()=>Object.fromEntries([
     ["callsign",projection.draft.callsign],["sentReport",projection.draft.sentReport],
@@ -143,13 +148,13 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
       if(!dirty.current.has(key)&&!inFlight.current.has(key)&&next[key]!==value){next[key]=value;changed=true;}return changed?next:previous;});},[authoritative]);
   const flush=useCallback(async():Promise<EntryFlushResult>=>{
     if(running.current)return running.current;
-    const runGeneration=generation.current,operation=(async()=>{let confirmed=0;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
+    const runGeneration=generation.current,operation=(async()=>{let lastAppliedProjectionRevision:number|null=null;while(runGeneration===generation.current&&dirty.current.size){const [key,intent]=dirty.current.entries().next().value as [EntryIntentKey,EntryIntent];
       dirty.current.delete(key);inFlight.current.add(key);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});
-      const ok=await send(intent.action(intent.value),projectionRevision,{safePresentation:true});inFlight.current.delete(key);
-      if(runGeneration!==generation.current)return {ok:false,confirmed};
-      if(!ok){if(!dirty.current.has(key))dirty.current.set(key,intent);setUnresolved(previous=>new Set(previous).add(key));return {ok:false,confirmed};}
-      confirmed+=1;
-    }return {ok:true,confirmed};})();running.current=operation;try{return await operation;}finally{if(running.current===operation)running.current=null;}} ,
+      const result=await send(intent.action(intent.value),projectionRevision,{safePresentation:true});inFlight.current.delete(key);
+      if(runGeneration!==generation.current)return {ok:false,lastAppliedProjectionRevision};
+      if(!result.applied){if(!dirty.current.has(key))dirty.current.set(key,intent);setUnresolved(previous=>new Set(previous).add(key));return {ok:false,lastAppliedProjectionRevision};}
+      lastAppliedProjectionRevision=result.projectionRevision;
+    }return {ok:true,lastAppliedProjectionRevision};})();running.current=operation;try{return await operation;}finally{if(running.current===operation)running.current=null;}} ,
     [projectionRevision,send]);
   const change=useCallback((key:EntryIntentKey,value:string,action:(value:string)=>ContestSurfaceAction)=>{
     valuesRef.current={...valuesRef.current,[key]:value};setValues(valuesRef.current);dirty.current.set(key,{value,action});
@@ -159,7 +164,7 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const retry=useCallback((key:EntryIntentKey)=>{setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});void flush();},[flush]);
   const capture=useCallback(()=>({...valuesRef.current}),[]);
   const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>)=>draft?.draftID===identityRef.current&&
-    draft.callsign===intended.callsign&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
+    draft.callsign.trim().toUpperCase()===intended.callsign.trim().toUpperCase()&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
     draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
     draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value),[projection.draft.receivedFields.length]);
   return {values,unresolved,change,flush,discard,retry,capture,matches};
@@ -187,11 +192,11 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const operatorKey=(key:string,focusedField:"callsign"|"exchange"|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
-    void (async()=>{let confirmedLocalEdits=0;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
-      confirmedLocalEdits=flushed.confirmed;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
+    void (async()=>{let lastLocalProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
+      lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
       if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||
-          currentProjection.draft.revision!==projection.draft.revision+confirmedLocalEdits||currentProjection.draft.band!==intentContext.band||
+          current.projectionRevision!==(lastLocalProjectionRevision??projectionRevision)||currentProjection.draft.band!==intentContext.band||
           currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
