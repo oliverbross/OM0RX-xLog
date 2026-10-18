@@ -4,6 +4,7 @@
 **Status:** IN PROGRESS — sixteen catalog rule previews; full 94-entry, feature, operator, package and sponsor-rule gates remain open
 **Product owner:** Oliver Bross, OM0RX  
 **Delivery owner:** this contesting chat, alongside **OM0RX-xLog main**  
+**Operator desk requirement (18 October):** deliver upstream-familiar working panels in both a flexible canvas and separate native windows, using xLog's existing layout/window engine and colours. Every working panel must be openable, closable, movable and resizable, with saved layouts and one shared contest owner. See [Operator desk parity](contesting/OPERATOR_DESK_PARITY.md) for the reuse map, implementation sequence and acceptance gates. The current fixed-layout Test desk is interim.
 **Source:** [oliverbross/contest-sw](https://github.com/oliverbross/contest-sw), a fork of Not1MM  
 **Goal:** bring the complete audited contest-sw feature set into a separate **Contesting** module inside xLog, retaining xLog's UI, local-first behavior and station ownership, with macOS, Windows and Linux acceptance. The current authorized delivery tranche is macOS-focused; Windows/Linux application builds are deferred by user direction.
 
