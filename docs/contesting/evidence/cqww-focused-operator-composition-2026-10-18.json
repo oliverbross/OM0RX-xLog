@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "status": "passed-headless-development-acceptance",
+  "date": "2026-10-18",
+  "source": {
+    "head": "bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3",
+    "branch": "codex/contest-cqww-harness-sequence",
+    "testOnlyDirtyPath": "prototype/scripts/accept-contest-family-operator-browser.mjs",
+    "trackedDiffSHA256": "2fe7a3a314f5d5f47e9db6da03d2f1b77eec2d3291e3cbae7749fa481f6e0d61",
+    "trackedPatchID": "dab6e8a6bb6e1a35a1ba9daea5d49298b52e82ea",
+    "driverSHA256": "aa5849c10c88d32f6da1d9d4babb1cc036d57f4035e28b870c0e4dbd093af481",
+    "outerRunnerSHA256": "53195dad6017fe389700db04e059d65b5e98c8383bac4630c3bb1995246e9481",
+    "xctestHarnessSHA256": "e74e79f6939e2c5833cff8ac65385c86a58e546ff319a9e935fe1e777caddc74"
+  },
+  "command": "XLOG_FAMILY_ACCEPTANCE_PROFILE_IDS=cq-ww-cw,cq-ww-ssb node prototype/scripts/run-contest-family-operator-browser-acceptance.mjs --expected-head bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3 --output /tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v3 --scratch-path /tmp/xlog-json-composition-loader-build --scenario family",
+  "runtime": {
+    "testHost": "/tmp/xlog-json-composition-loader-build/out/Products/Debug/XLogPrototypeTests.xctest/Contents/MacOS/XLogPrototypeTests",
+    "testHostSHA256": "cf6a57139269561ce57703a46139fa0cc8bc6ebcdd7dacfa5ebf473267d95aca",
+    "testRunner": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+    "testRunnerSHA256": "bb67eef5b58848d18f3422eda610ceae5a84f24ac216b881042f7cc7820be5c7"
+  },
+  "result": {
+    "profiles": [
+      {
+        "id": "cq-ww-cw",
+        "mode": "CW",
+        "contacts": 6,
+        "points": 14,
+        "multipliers": 12,
+        "score": 168
+      },
+      {
+        "id": "cq-ww-ssb",
+        "mode": "SSB",
+        "contacts": 6,
+        "points": 14,
+        "multipliers": 12,
+        "score": 168
+      }
+    ],
+    "workerFrames": 269,
+    "browserActions": 508,
+    "commits": 12,
+    "invalidExchangeBlocks": 4,
+    "duplicateBlocks": 4,
+    "corrections": 2,
+    "exportAssertions": 8,
+    "scp": {
+      "importedRecords": 7,
+      "queryFrames": 16,
+      "selectionFrames": 1,
+      "selectedCallsign": "K1ABC",
+      "preservedFields": [
+        "sentReport",
+        "receivedReport",
+        "sentExchange",
+        "receivedExchange",
+        "frequencyHz",
+        "band",
+        "sentExchangeFields"
+      ],
+      "clearedCallsign": true
+    },
+    "restart": true,
+    "shutdown": true,
+    "responseAndShutdownStallProbesReaped": true,
+    "protectedNormalDatabaseMetadataUnchanged": true
+  },
+  "evidence": {
+    "outerRunner": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v3/evidence/outer-runner.json",
+    "outerRunnerSHA256": "e5435bd3c6c02166d78c55ca03a156dedaa5fc10c4bbe42baea08b837872a5dd",
+    "acceptance": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v3/evidence/acceptance.json",
+    "acceptanceSHA256": "d9b1d6ff2363dc8ae84182e18fa1ab312a6919e369223eaaf3177c774d63c62b",
+    "runnerLog": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v3-run.log",
+    "runnerLogSHA256": "0d0353077d61004f216cabc7069d4ed5f212e755c1868176b7c7ee053a558a88",
+    "buildLog": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v3/evidence/build.stdout.log",
+    "buildLogSHA256": "342282b0641baa8ab90cc37222291c089e8ab9d536e783e0ba92ad5079f6e386",
+    "xctestLog": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v3/evidence/run.stderr.log",
+    "xctestLogSHA256": "948ed7512363263ab20b18940817ccd21005e07b3bd9e83eab6a46782003f37e"
+  },
+  "preservedDiagnostics": [
+    {
+      "path": "/tmp/xlog-cqww-composed-bf2fa2c-run.log",
+      "sha256": "64ef647b005c3f35dd6394089fd6f2208db8c0c08bd196593d836ba4c172e82f",
+      "failure": "stale initial legacy Run macro expectation"
+    },
+    {
+      "path": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-run.log",
+      "sha256": "c782a3a852af96a24795df473b891019a149ca45f43391166d3e5a966201c1c2",
+      "failure": "stale recovery legacy Run macro expectation"
+    },
+    {
+      "path": "/tmp/xlog-cqww-composed-bf2fa2c-harnessfix-v2/evidence/outer-runner.json",
+      "sha256": "d563a57ab8b947b1f9aabc2cae3d86ca9f6e3da277dc81ac1e391a601a3e4f76",
+      "status": "passed before the required legacy SCP gate was added"
+    }
+  ],
+  "boundary": "This proves the two CQ WW profiles through the headless Vite UI and isolated real Swift worker on macOS. It does not prove the full 14-profile or 11-case matrices, a packaged or installed app, a native window, RF, audio, PTT, hardware, or sponsor-submission acceptance."
+}
