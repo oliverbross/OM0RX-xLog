@@ -10,6 +10,7 @@ private actor ContestOperatorAcceptanceBridge {
     private let supportRoot: URL
     private let fixtureRoot: URL
     private let profile: AppRuntimeProfile
+    private let inheritNativePreferences = false
     private let responseFD: Int32
     private let stallMode: String?
     private var worker: LiveWorker?
@@ -23,7 +24,7 @@ private actor ContestOperatorAcceptanceBridge {
     }
 
     private func newWorker() -> LiveWorker {
-        LiveWorker(logbook: LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: false,
+        LiveWorker(logbook: LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: inheritNativePreferences,
                                                runtimeProfile: profile), runtimeProfile: profile)
     }
 
@@ -43,6 +44,10 @@ private actor ContestOperatorAcceptanceBridge {
         }
     }
 
+    private func announceStallReadiness(_ mode: String) {
+        FileHandle.standardError.write(Data("XLOG_ACCEPTANCE_STALL_READY:\(mode)\n".utf8))
+    }
+
     private func forward(id: String, method: String, params: [String: Any]) async throws {
         if worker == nil { worker = newWorker() }
         let request = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": params], options: [.sortedKeys])
@@ -55,14 +60,30 @@ private actor ContestOperatorAcceptanceBridge {
             throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 20,
                           userInfo: [NSLocalizedDescriptionKey: "Malformed test-host request frame."])
         }
-        if stallMode == "response", method == "health" { while true { try? await Task.sleep(for: .seconds(3_600)) } }
+        if stallMode == "response", method == "health" {
+            announceStallReadiness("response")
+            while true { try? await Task.sleep(for: .seconds(3_600)) }
+        }
         switch method {
+        case "__acceptance_isolation":
+            let resolvedSupportRoot = supportRoot.standardizedFileURL.resolvingSymlinksInPath()
+            guard case .contestingTest(let profileRoot) = profile,
+                  profileRoot.standardizedFileURL.resolvingSymlinksInPath() == resolvedSupportRoot else {
+                throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 23,
+                              userInfo: [NSLocalizedDescriptionKey: "Acceptance worker profile does not own its isolated support root."])
+            }
+            try respond(id: id, result: ["runtimeProfile": "contestingTest", "supportRoot": resolvedSupportRoot.path,
+                                         "inheritNativePreferences": inheritNativePreferences,
+                                         "stationIO": profile.externalIOAllowed])
         case "__acceptance_restart":
             if let worker { await worker.shutdown() }
             worker = newWorker()
             try respond(id: id, result: ["lifecycle": "restarted"])
         case "__acceptance_shutdown":
-            if stallMode == "shutdown" { while true { try? await Task.sleep(for: .seconds(3_600)) } }
+            if stallMode == "shutdown" {
+                announceStallReadiness("shutdown")
+                while true { try? await Task.sleep(for: .seconds(3_600)) }
+            }
             if let worker { await worker.shutdown() }
             worker = nil
             try respond(id: id, result: ["lifecycle": "shutdown"])
@@ -201,7 +222,8 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = ["-c", joinHostGroup, String(hostProcessGroup), "node", script.path,
                              "--output", outputURL.path, "--expected-head", sourceHead,
-                             "--test-host-binary", testHost.path, "--test-runner-binary", CommandLine.arguments[0]]
+            "--test-host-binary", testHost.path, "--test-runner-binary", CommandLine.arguments[0],
+            "--test-host-pid", String(Darwin.getpid())]
         process.currentDirectoryURL = repositoryRoot
         var childEnvironment = environment
         childEnvironment["TZ"] = "UTC"

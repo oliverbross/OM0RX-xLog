@@ -4,7 +4,7 @@
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
-  "currentReviewFollowup": {
+  "previousReviewFollowup": {
     "measuredAtUtc": "2026-10-18T09:02:57Z",
     "acceptedProductRoot": "80732f92ce0e285f57404ba560dc5ceab055b0cc",
     "contestEscape": {
@@ -100,7 +100,50 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Latest accepted product root is 80732f92ce0e285f57404ba560dc5ceab055b0cc; the root-reviewed follow-ups below are accepted for integration but do not establish full combined or package acceptance. The installed Contesting Test app remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Normal macOS 1.2.25 release work is in progress and is neither accepted nor installed. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "refreshGate": "Latest accepted combined contest product source is 5706ca36e96952a782c3b2374ec12b2465fca5ce. Its focused portable source suite passed, but the full operator rehearsal, packaged-app acceptance, and native application acceptance remain pending. The installed Contesting Test app remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Normal macOS 1.2.25 release work is in progress and is not runtime accepted. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "currentCombinedOperatorCheckpoint": {
+    "productCommit": "5706ca36e96952a782c3b2374ec12b2465fca5ce",
+    "receipt": "docs/contesting/evidence/combined-operator-source-checkpoint-2026-10-18.json",
+    "sourceLineage": {
+      "base": "82c07e3908c0bab6582c55b9c13cf75eb91505e1",
+      "ratesReplayAndInactiveVHF": "c83ec269f14e8a2b536215943f975ba52da3dd93",
+      "nativeEscapePriority": "8d999a2f973f14a61afa67f94e921e7766403ac1",
+      "detachedOperatorFrontend": "6a3d4785c4bdcec785128581299198f094c703e6",
+      "arrlVHFFT4ADIFCorrection": "4c6bb7568d5382a4bc455dd5574c4380d14fb293"
+    },
+    "validation": [
+      {"source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1", "result": "227 core tests and 83 store tests passed", "log": "/tmp/xlog-combined-operator-swift.log", "sha256": "c180dec7a8951a7c0df615321d381114ffe311e40dbe4bb0fcbe4ebef3f4feb3"},
+      {"source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1", "result": "29 test files and 301 frontend tests passed; TypeScript check passed", "log": "/tmp/xlog-combined-operator-ts.log", "sha256": "7a74de52cb2cc47f8283a5401bc9d56bc987ba1df66a1c89db71548be829cc88"},
+      {"source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1", "result": "50 Rust contest tests passed", "log": "/tmp/xlog-combined-operator-rust.log", "sha256": "cd02ea2643f670a4f398017c279fc5aabce43815452a181aaa1b74a212dbbf0d"},
+      {"source": "5706ca36e96952a782c3b2374ec12b2465fca5ce", "result": "24 lane, 2 CQWW activation, 14 VHF definition, and 1 ContestADIFExport.records test passed", "log": "/tmp/xlog-combined-final-portable.log", "sha256": "77541d0fd733cb6a2740a260328cc5bf731e73ebcd24eca8b91fb37c437c3732"}
+    ],
+    "arrlVhf": {"status": "inactive", "ft4Mapping": "MODE MFSK / SUBMODE FT4; correction source 4c6bb7568d5382a4bc455dd5574c4380d14fb293"},
+    "harnessIsolation": {
+      "source": "659c48f3c7933bf2c30706b138df920f81d4e4b6",
+      "status": "source accepted; not yet integrated or runtime accepted",
+      "nodeTests": {"result": "5 passed", "sha256": "143f6c94aacf1e366fa6ce76da7276655df803a04f5f90c5b04458ed8f704f0e"},
+      "swiftCompileOnly": {"result": "expected skip", "sha256": "66d5b4a9eb1fbfce3e3baad36b993cced18d37f3e1462eb915008d7c55f69573"},
+      "boundary": "Three bounded PID-file checkpoints include contests.sqlite and the workspace database. The metadata actor is unknown; no process-lifetime proof exists."
+    },
+    "operatorHarness": {
+      "source": "e5ced258b61169ebe0faead7f7d8a7acd7f9f027",
+      "parent": "7a8477b",
+      "review": "root-reviewed and accepted",
+      "coverage": "Exactly 28 admitted identity/mode pairs across 16 legacy-compatible and 12 declarative scenarios, including SST and two CQWW country cases; two RTTY Plain Log exclusions are explicit.",
+      "fullIsolatedRehearsal": "authorized; results pending"
+    },
+    "rateStatsUIFollowup": {
+      "source": "0eff621039d491f26104b880c0e9e63846f0aaca",
+      "status": "pushed; review repairs remain pending; not accepted, integrated, or packaged",
+      "validation": "322 tests across 32 files, TypeScript, and build passed",
+      "testLogSha256": "19420f835718502b437abef3f607fe8ed3ceee9a87f69b4a8542dbd3465678bc",
+      "buildLogSha256": "a085d0b9a43505a6c36f12f6ee91b55aa313f07b20b02f931682911e01f591d8",
+      "repairs": "Detached Rate revision-field mismatch, stale/asOf/current-hour presentation, and failed native publication retry."
+    },
+    "nextOperatorWork": "Run the authorized isolated full rehearsal using the 28 admitted profile/mode pairs; results are pending. Rate/Statistics UI remains blocked on its listed review repairs.",
+    "mainRelease": "Main source 5ebc712 legacy cluster filter normalization is root-reviewed and has no overlap. Main macOS 1.2.25 package is a candidate, not accepted or installed. The canonical checkout remains exclusively owned by main release work.",
+    "boundary": "Source tests do not establish serialized-file behavior, packaged-app acceptance, native UI acceptance, or runtime acceptance. Keep the published Markdown/workbook unchanged and the ledger at 16 previews / 78 pending / 0 fully ported."
+  },
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
     "measuredAtUtc": "2026-10-18T06:41:12Z",
@@ -305,7 +348,7 @@
       "ledger": "Published ledger unchanged: 16 previews, 78 pending, 0 complete."
     }
   },
-  "currentSourceRefresh": {
+  "previousSourceRefresh": {
     "measuredAtUtc": "2026-10-18T07:53:19Z",
     "status": "source refresh only; published workbook, Markdown report and generated artifacts unchanged",
     "sourceHead": "5024b2cf1129347a8f0b1f621d2f2e7306121c90",
@@ -323,7 +366,7 @@
     },
     "scope": "Keep the ledger at 16 previews / 78 pending / 0 complete; extra CQWW preview profiles do not increase full-port parity. Current application scope is macOS, RF remains disabled, and the original app remains user-controlled."
   },
-  "latestIntegrationCheckpoint": {
+  "previousIntegrationCheckpoint": {
     "ratesCombinedIntegration": {
       "source": "68ccf470530d3eda470617a66defc2c6ebc15875 over 80732f92ce0e285f57404ba560dc5ceab055b0cc",
       "status": "failed; merge preserved and aborted, repair assigned",

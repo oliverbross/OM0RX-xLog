@@ -19,6 +19,20 @@ try { await runBoundedChild("/definitely/missing/xlog-child", []); }
 catch (error) { assert.equal(error.code, "spawn_failed"); spawnFailure = error.code; }
 assert.equal(spawnFailure, "spawn_failed");
 
+let readinessDeadline;
+const readinessStartedAt = Date.now();
+try {
+  await runBoundedChild(process.execPath,
+    ["-e", "setTimeout(()=>process.stderr.write('READY\\n'),250);process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],
+    { startupTimeoutMs: 1_000, readinessSignal: "READY", timeoutMs: 150, terminateGraceMs: 50 });
+  assert.fail("Ready hung child unexpectedly completed.");
+} catch (error) {
+  assert.equal(error.code, "deadline_exceeded");
+  assert.equal(error.readinessObserved, true);
+  assert.ok(Date.now() - readinessStartedAt >= 350, "Stall deadline started before readiness.");
+  readinessDeadline = { code: error.code, readinessObserved: error.readinessObserved };
+}
+
 let processGroupDeadline;
 const groupProgram = `
   const { spawn } = require("node:child_process");
@@ -38,4 +52,4 @@ try {
   for (const pid of error.ownedPIDs) assert.throws(() => process.kill(pid, 0), value => value?.code === "ESRCH");
   processGroupDeadline = { code: error.code, signal: error.signal, reapedPIDs: error.ownedPIDs };
 }
-process.stdout.write(`${JSON.stringify({ ok: true, deadline, processGroupDeadline, spawnFailure })}\n`);
+process.stdout.write(`${JSON.stringify({ ok: true, deadline, readinessDeadline, processGroupDeadline, spawnFailure })}\n`);
