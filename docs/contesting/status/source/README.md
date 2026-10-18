@@ -2,7 +2,19 @@
 
 This folder contains the reproducible source for the 18 October 2026 contesting parity snapshot. The published workbook and status note remain at the parent directory.
 
-## Latest source-only refresh — 18 October 2026, current integration checkpoint `172992c` / `80732f9`
+## Latest source-only review follow-up — 18 October 2026, 09:01 UTC
+
+The accepted product root remains `80732f92ce0e285f57404ba560dc5ceab055b0cc`. Root review accepted the native Escape queue and stale-refresh admission sources `55471182c43756a2da23f630ff2fdd0b7f09ecc0` and `8d999a2f973f14a61afa67f94e921e7766403ac1`; 16 bridge tests and one caller-denial test passed. The verified log is `/tmp/xlog-contest-escape-stale-revision.log` (SHA-256 `90991222186538f615fdbb1ef755d0e032db890d64da3710085e4d5660cb02a8`).
+
+Detached surface follow-up `6a3d4785c4bdcec785128581299198f094c703e6` is root-reviewed and accepted for integration. Its applied receipt projection, exact-owner Escape refresh rule, strict ordinary-key projection rule, and normalized callsign matching passed 15 detached tests, including a modeled owner drain; TypeScript was agent-reported passing. Log `/tmp/xlog-contest-surface-race-repair.log` SHA-256 is `6e16c2d44691e6496c718d81483f69a13932878f5621c3c09f78cb7f882b2681`. This does not establish packaged controller/worker behavior. Combined integration, package, and native acceptance remain open.
+
+Rates correction-after-deletion repair `c83ec269f14e8a2b536215943f975ba52da3dd93` (parents `533792c` and `68ccf47`) is root-reviewed and accepted for integration. It recovers immutable `operatorStyle` from the correction audit after deletion and validates session, QSO, operator, request, revision, and timestamp while retaining the store payload digest. Twenty-four lane tests passed before the final audit predicate; the final exact worker-wire replay and current-catalog regression each passed once. Full combined validation remains pending. Root-verified logs and SHA-256 values are recorded in `pending-updates.json`.
+
+The prior ARRL VHF eligibility review finding against `471db8b` was incorrect: its provenance function already early-returns the unchanged legacy nil-category string. Root verified `7357645` against `533792c`; no legacy digest repair is needed. `6d8ae93e080abc62f1cc01ad021e6f042797f34b` adds byte-pinning and malformed-snapshot tests; its test log is now root-verified. Finite VHF mode profiles remain inactive after 14 passing checks, and the FT4 ADIF review correction is MODE MFSK / SUBMODE FT4.
+
+The installed Contesting Test app remains `5024b2cf1129347a8f0b1f621d2f2e7306121c90`. Normal macOS 1.2.25 release work is in progress and is not accepted or installed. Preserve the ledger at 16 previews / 78 pending / 0 fully ported. No combined or package acceptance is claimed. The older source-only refresh below is retained as historical evidence.
+
+## Previous source-only refresh — 18 October 2026, integration checkpoint `172992c` / `80732f9`
 
 Subsequent combined rates validation found a correction-after-deletion replay regression in `68ccf47`. The unaccepted merge was preserved and aborted; `80732f9` remains the accepted source. See `pending-updates.json` for the failed Swift receipt and passing native receipt. Main-chat normal release packaging has priority for the next canonical ownership handoff.
 

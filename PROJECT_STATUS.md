@@ -1,14 +1,13 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-10-18
+Last updated: 2026-10-18 09:01 UTC
 
-Latest integration gate: the rates backend merge from `68ccf47` failed the existing correction-after-deletion replay test. The unaccepted merge was preserved and aborted; the accepted source remains `80732f9`. The main chat is taking serialized canonical ownership for its requested normal-app patch release. No new Contesting Test package is accepted.
+Latest integration gate: rates correction-after-deletion repair `c83ec269f14e8a2b536215943f975ba52da3dd93` is root-reviewed and accepted for integration; its focused lane and exact replay checks passed, while full combined validation remains pending. Root review also accepted native Escape queue/admission sources `55471182c43756a2da23f630ff2fdd0b7f09ecc0` and `8d999a2f973f14a61afa67f94e921e7766403ac1` for integration after 16 bridge tests and one caller-denial test passed. Frontend detached surface follow-up `6a3d4785c4bdcec785128581299198f094c703e6` is accepted for integration after 15 detached tests; combined integration, package, and native acceptance remain open. Normal macOS 1.2.25 release work is in progress and is not accepted or installed. No new Contesting Test package is accepted.
 
 Tracked implementation checkpoint: `80732f92ce0e285f57404ba560dc5ceab055b0cc` on `codex/contest-1.2.24-integration`.
-The installed normal macOS application is version **1.2.24**, packaged from
-`fd64a5129c9a629490e0f447bf45fa8157d66e63` with release-acceptance documentation
-`0106c9f`; the current contesting integration is `172992c86e7f0acc40077f2718529512b4ad10b3`,
-including documentation correction `6d15d7b` and native bridge merge.
+The installed Contesting Test application remains source `5024b2cf1129347a8f0b1f621d2f2e7306121c90` (1.2.23). The normal macOS 1.2.25 release is in progress and has not been accepted or installed. The latest accepted contest product root remains `80732f92ce0e285f57404ba560dc5ceab055b0cc`.
+
+Latest review follow-up: the Escape stale-refresh log `/tmp/xlog-contest-escape-stale-revision.log` passed root verification (SHA-256 `90991222186538f615fdbb1ef755d0e032db890d64da3710085e4d5660cb02a8`). Detached surface `6a3d4785c4bdcec785128581299198f094c703e6` passed 15 tests including modeled owner drain; packaged controller/worker proof is still open. Root corrected the ARRL VHF eligibility finding for `471db8b`: provenance already early-returns the unchanged legacy nil-category string, verified against `7357645` and `533792c`; no digest repair is needed. Its byte-pinning/malformed-snapshot checks and 14 finite-mode checks are root-verified; finite VHF profiles remain inactive and FT4 ADIF still needs MODE MFSK / SUBMODE FT4. Preserve the parity ledger at 16 previews / 78 pending / 0 fully ported.
 
 ## Consolidated current checkpoint — 18 October 2026
 

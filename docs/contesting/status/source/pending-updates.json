@@ -4,6 +4,50 @@
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
+  "currentReviewFollowup": {
+    "measuredAtUtc": "2026-10-18T09:02:57Z",
+    "acceptedProductRoot": "80732f92ce0e285f57404ba560dc5ceab055b0cc",
+    "contestEscape": {
+      "nativeSource": "55471182c43756a2da23f630ff2fdd0b7f09ecc0",
+      "admissionSource": "8d999a2f973f14a61afa67f94e921e7766403ac1",
+      "review": "root-reviewed and accepted for integration",
+      "validation": "16 bridge tests and one caller-denial test passed",
+      "verifiedLog": {"path": "/tmp/xlog-contest-escape-stale-revision.log", "sha256": "90991222186538f615fdbb1ef755d0e032db890d64da3710085e4d5660cb02a8"},
+      "boundary": "Source review and tests do not establish a combined integration, packaged app, or native operator acceptance."
+    },
+    "detachedSurface": {
+      "commit": "6a3d4785c4bdcec785128581299198f094c703e6",
+      "parent": "061ab75ab7cfae89a03273bb78aa902fa19578d7",
+      "review": "root-reviewed and accepted for integration",
+      "behavior": "The latest applied receipt projection replaces total-confirmation counting. Escape alone tolerates an older, nonfuture refresh with exact draft ownership; ordinary keys still require an exact projection. Callsign matching normalizes lowercase and spaces.",
+      "validation": "15 detached tests passed, including actual owner drain with a modeled handler; this does not prove the packaged controller or worker.",
+      "verifiedLog": {"path": "/tmp/xlog-contest-surface-race-repair.log", "sha256": "6e16c2d44691e6496c718d81483f69a13932878f5621c3c09f78cb7f882b2681"},
+      "typescript": "agent-reported passed",
+      "boundary": "Combined integration, package, and native acceptance remain open."
+    },
+    "rates": {
+      "repairSource": "c83ec269f14e8a2b536215943f975ba52da3dd93",
+      "parents": ["533792c", "68ccf47"],
+      "status": "root-reviewed and accepted for integration; full combined validation remains pending",
+      "behavior": "Correction audit recovers immutable operatorStyle after deletion and validates session, QSO, operator, request, revision, and timestamp while retaining the store payload digest.",
+      "validation": "24 lane tests passed before the final audit predicate; the final exact worker-wire replay passed once and the current-catalog regression passed once. Do not sum the overlapping runs.",
+      "verifiedLogs": [
+        {"path": "/tmp/xlog-contest-correction-replay-rates.log", "sha256": "6997abc4cf8bf182fa7ad20dbb558b6b160a1c54537d995baed8701a5cef5c59"},
+        {"path": "/tmp/xlog-contest-correction-replay-exact-final-v2.log", "sha256": "01fd5b93f268e7559d9d9b511cbe6abda2e5557f526b0fbc1dc75c33546a4d76"},
+        {"path": "/tmp/xlog-contest-current-catalog-replay-exact-final.log", "sha256": "71fe2088f5947bb13d5e9b635df1bca457c15f7370f5f076f57784e7264a561a"}
+      ]
+    },
+    "arrlVhf": {
+      "eligibilitySource": "471db8b",
+      "correction": "The prior review finding was false: the provenance function already early-returns the unchanged legacy nil-category string.",
+      "rootVerification": "7357645 vs 533792c",
+      "legacyDigestRepair": "not needed",
+      "snapshotCoverage": "6d8ae93e080abc62f1cc01ad021e6f042797f34b adds byte pinning and malformed-snapshot tests. Root-verified log /tmp/xlog-arrl-vhf-eligibility-review-fixes.log SHA-256 e0f7d27179f5ce1a332c7b7754f69d84b49f22d733e2bce7abd2234c1980edbc."
+    },
+    "vhfProfiles": {"source": "533792c", "status": "finite mode profiles remain inactive", "validation": "14 tests passed; log /tmp/xlog-arrl-vhf-finite-modes.log SHA-256 9f20056b6b9e83771914a2a5781f76d3d0d3cc453c15ab604cceda700df6f91f", "pendingReviewCorrection": "FT4 ADIF mapping should use MODE MFSK and SUBMODE FT4."},
+    "releaseBoundary": "Normal macOS 1.2.25 release is in progress and is neither accepted nor installed; Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. No combined or package acceptance is claimed.",
+    "ledger": "16 previews / 78 pending / 0 fully ported; no parity percentage increase."
+  },
   "nextReportSource": {
     "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
     "reviewedCombinedCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
@@ -56,7 +100,7 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Accepted main baseline is 1.2.23 source b9accc7f81453f1f2cab1758a48192322213f590. The separate Contesting Test app package/install/launch receipt is source 3a05c2e6778a1ec86326eb5466eef51d37fca7f3 over reviewed contest source bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3. Bounded native CQ WW smoke and subsequent source-level SST activation are recorded below; neither establishes full contest acceptance. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "refreshGate": "Latest accepted product root is 80732f92ce0e285f57404ba560dc5ceab055b0cc; the root-reviewed follow-ups below are accepted for integration but do not establish full combined or package acceptance. The installed Contesting Test app remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Normal macOS 1.2.25 release work is in progress and is neither accepted nor installed. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
     "measuredAtUtc": "2026-10-18T06:41:12Z",
