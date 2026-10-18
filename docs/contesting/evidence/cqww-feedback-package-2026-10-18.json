@@ -1,0 +1,59 @@
+{
+  "artifact": "/Applications/OM0RX-xLog Contesting Test.app",
+  "sourceReference": "Canonical-only macOS Contesting Test package from reviewed integration commit 3a05c2e; product tree matches reviewed and tested bf2fa2c.",
+  "source": {
+    "buildCommit": "3a05c2e6778a1ec86326eb5466eef51d37fca7f3",
+    "acceptedMainCommit": "b9accc7f81453f1f2cab1758a48192322213f590",
+    "reviewedContestCommit": "bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3",
+    "contestMainMergeBase": "5459ab196dbc7aa580c12677d19ba1b2b2f0420d",
+    "branch": "codex/contest-cqww-feedback-build",
+    "upstreamDivergence": "0 0"
+  },
+  "identity": {
+    "bundleIdentifier": "com.oliverbross.xlog.contesting-test",
+    "displayName": "OM0RX-xLog Contesting Test",
+    "urlSchemes": ["om0rx-xlog-contesting-test"],
+    "signature": "adhoc",
+    "deepStrictVerification": "passed"
+  },
+  "sha256": {
+    "hostExecutable": "e7cf970bee378c6bc615b49ccd632017684d92586898e0b0bb2165cf29a4f7f5",
+    "workerExecutable": "7a53fe0480227786de1b5c3b080939a7339b7612d1908902d26f8cdfe8a32075",
+    "infoPlist": "3e60777b76e1dcfde56220057f50182898f54341a0de72b0622ca9fe6f963453",
+    "xContestCoreResourceManifest": "bb0533d5ccaea65a29a4a005e37d5b2bca42d20f9b9d4f1f7bd744a1160590f0",
+    "xLogCoreResourceManifest": "07ed03cf524016505fb8fc16ec19c934fc0ac37c6408c1a3a7088de7dc77d555",
+    "protectedMetadataBeforeAndAfter": "6ee206fe9d5a435e3ba44b65e5d8d0c57a565760209897818fa6b87062849e8b",
+    "successfulPackageLog": "28b22380905112ae7caa4e2cc1450134ec67ce33b7bce2dd83e477b44cf2ddb4"
+  },
+  "resources": {
+    "xContestCoreBundle": "present",
+    "xLogCoreBundle": "present",
+    "packagedDefinitions": "8 files byte-identical to source",
+    "xContestCoreHashList": "/tmp/xlog-cqww-final-package-evidence/xcontestcore-resource-sha256.txt",
+    "xLogCoreHashList": "/tmp/xlog-cqww-final-package-evidence/xlogcore-resource-sha256.txt"
+  },
+  "installation": {
+    "previousTestApp": "absent",
+    "normalAppExecutableSha256": "44328c7b35451de30253ca220569c43cda47af6dd515cbf58ca6b838b98c8a8c",
+    "normalAppRunning": false,
+    "isolatedSupportRoot": "/Users/oliver/Library/Application Support/OM0RX-xLog Contesting Test",
+    "protectedNormalMetadataUnchangedAfterLaunch": true,
+    "launchHostPid": 13004,
+    "uiOwner": "root"
+  },
+  "nativeAcceptance": {
+    "status": "pending-root-review",
+    "scope": "Installation and launch are proven; final native CQ WW workflow acceptance remains owned by root and is not claimed by this receipt."
+  },
+  "logs": {
+    "successful": "/tmp/xlog-cqww-final-package-evidence/package-3a05c2e-retry.log",
+    "foregroundToolCapInterruption": "/tmp/xlog-cqww-final-package-evidence/package-3a05c2e.log",
+    "foregroundToolCapInterruptionSha256": "ea07de73ae6fd782fac4a5c3940d10668cc7bb25b38a9b838e94e814b1eb21e8"
+  },
+  "diagnosticArtifact": {
+    "sourceCommit": "fa53447b4e7a32461e752e3595cbc298f3ba40be",
+    "path": "/tmp/xlog-cqww-final-package-evidence/diagnostic-fa53447/OM0RX-xLog Contesting Test.app",
+    "hostExecutableSha256": "2bb97be876d130ea76b1d36585d79281eefc04bf1e403f3f03cda8c7b3b2c698",
+    "workerExecutableSha256": "dbc8764eb45537eea14fb4ebbf316431285f6adb9bcf836549055af9e954c916"
+  }
+}

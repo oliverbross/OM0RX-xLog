@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "b9accc7f81453f1f2cab1758a48192322213f590",
+  "sourceReference": "Accepted non-contest canonical main immediately before reviewed contest composition.",
+  "checkoutCleanBeforeAndAfter": true,
+  "results": {
+    "ui": {
+      "files": 22,
+      "testsPassed": 224,
+      "log": "/tmp/xlog-b9accc7-noncontest-ui-prototype-cwd.log",
+      "logSha256": "54f6c1106b9c06773345932e99d72c1828810629515b0c45ca7bcfb05243eca8"
+    },
+    "swiftPortable": {
+      "filters": 10,
+      "testsPassed": 129,
+      "failures": 0,
+      "log": "/tmp/xlog-b9accc7-noncontest-swift-portable.log",
+      "logSha256": "925aa0c576610f734d2eaf3d8326c9c63bf4738cc8c5f96f8c32f74477d4b51b"
+    },
+    "rust": {
+      "moduleGroups": 6,
+      "testsPassed": 53,
+      "failures": 0,
+      "log": "/tmp/xlog-b9accc7-noncontest-rust.log",
+      "logSha256": "94e189ab492f2d23c9fd341fd431de48529fdfc920cfc92c20620ded9dda74fa"
+    },
+    "frontendProductionBuild": {
+      "exitCode": 0,
+      "log": "/tmp/xlog-b9accc7-noncontest-frontend-build.log",
+      "logSha256": "ba2152e8c67aaf736f6fecc2ba067792aef9770acab786ca7d9bd7eb6a8f01a7"
+    }
+  }
+}
