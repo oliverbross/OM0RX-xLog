@@ -1,0 +1,61 @@
+{
+  "measuredDateUTC": "2026-10-18",
+  "method": "Root-operated native macOS accessibility UI through the installed Test app; observations recorded in this task's tool transcript",
+  "artifact": "/Applications/OM0RX-xLog Contesting Test.app",
+  "buildCommit": "3a05c2e6778a1ec86326eb5466eef51d37fca7f3",
+  "packageReceipt": "cqww-feedback-package-2026-10-18.json",
+  "scope": "Bounded ordinary-land-contact CQ WW preview smoke; not all-contest, sponsor-submission, hardware, or full port acceptance",
+  "isolation": {
+    "workspace": "Fresh empty Test workspace; no normal log copied",
+    "operatingModule": "Contesting selected, Normal Logging inactive in Test app",
+    "externalIO": "Disabled by Test runtime; simulated messages only, no radio, CW keying, PTT, voice or audio output",
+    "normalApp": "Preserved; user may use original app independently. Protected-data comparison in package receipt covers build/launch only."
+  },
+  "cw": {
+    "session": "QA CQ WW CW",
+    "station": "OM0RX",
+    "sentZone": 15,
+    "frequencyHz": 14025000,
+    "run": ["DL1AAA / received zone 14", "K1AAA / received zone 5"],
+    "searchAndPounce": ["JA1AAA / received zone 25"],
+    "observedTrace": "Run: HISCALL, EXCH 599 15, QRZ; S&P: MYCALL OM0RX, EXCH 599 15",
+    "qsoCount": 3,
+    "points": 7,
+    "multipliers": 6,
+    "score": 42,
+    "duplicate": "JA1AAA same band blocked; Log QSO disabled; armed Enter produced QSOB4 only, count and score unchanged"
+  },
+  "ssb": {
+    "session": "QA CQ WW SSB",
+    "frequencyHz": 14250000,
+    "sentZone": 15,
+    "run": ["DL1AAA / received zone 14", "K1AAA / received zone 5"],
+    "plainLog": ["JA1AAA / received zone 25"],
+    "searchAndPounce": ["VK2AAA / received zone 30"],
+    "observedTrace": "Run: HISCALL, EXCH 59 15, QRZ; S&P: MYCALL OM0RX, EXCH 59 15",
+    "qsoCount": 4,
+    "points": 10,
+    "multipliers": 8,
+    "score": 80
+  },
+  "nativeExports": {
+    "cabrillo": {
+      "path": "/tmp/xlog-cqww-final-package-evidence/xLog Contestnative-cqww-cw.cbr",
+      "sha256": "cd9720c642d17f1e90c7322f835ede6ac4a325ac0a393ab56a9fa700f185381d",
+      "observed": "Native save completed; inspected three CW QSO rows, CQ-WW-CW identity, claimed score 42, correct calls, frequency and exchanges. Filename contains a UI automation naming artifact."
+    },
+    "adif": {
+      "path": "/tmp/xlog-cqww-final-package-evidence/native-cqww-cw.adi",
+      "sha256": "61dbe894638cce4f9838522fa70d8839ee14e7c488eda42c03731f3438afcefd",
+      "observed": "Native save completed; inspected three records with matching calls, 20m, CW, 14.025 MHz, 599 reports and sent/received zone exchange strings"
+    }
+  },
+  "scp": "Imported synthetic acceptance-valid.scp through native picker: seven records. K1A query displayed K1ABC and K1ABD; selecting K1ABC filled callsign and retained report, frequency and exchange fields.",
+  "restart": "Quit and relaunched only Test app. Manager recovered CW 3 and SSB 4 contacts. Reopened SSB: 4 QSOs, 10 points, 8 multipliers, score 80, frequency 14250000, reports 59, sent zone 15 and seven SCP records retained. Simulation disarmed and trace cleared.",
+  "findings": [
+    "In-session manager card retained zero contacts after commits; restart restored correct count. Source fix c4620a3a0f5614540c494ab9e20f0646c9913238 reviewed and merged as 7d8768d; installed build remains 3a05c2e and does not contain that fix.",
+    "Editing draft fields disarms simulation; tests waited for draft acknowledgement before arming and pressing Enter.",
+    "Test runtime displays disabled-external-services and unavailable-rotor banners; presentation follow-up remains.",
+    "CQ WW WAE/IG9/IH9/maritime-mobile multiplier and category/schedule gaps remain as recorded in PILOT_SPONSOR_RULE_AUDIT.md."
+  ]
+}
