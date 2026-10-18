@@ -729,7 +729,8 @@ actor ContestLane {
             ($0.identity.id, $0.identity.version, $0.identity.edition, $0.identity.sourceRevision) <
             ($1.identity.id, $1.identity.version, $1.identity.edition, $1.identity.sourceRevision)
         }.map {
-            try reference.ruleWire($0.rule.metadata, operatorCapability: nil,
+            try reference.ruleWire($0.rule.metadata,
+                                   operatorCapability: try ContestOperatorProjection.capability(for: $0.rule),
                                    declarativeDefinition: $0.definition)
         }
         return ["workspaceGeneration": generation, "rules": staticRules + definitions]
@@ -1006,7 +1007,8 @@ actor ContestLane {
         return try await projectCommitted {
             var wire = try await mutationWire(result.session, draft: result.draft, qsoCount: result.qsoCount,
                                               generation: generation, receipt: result.receipt, projection: result.projection)
-            wire["qso"] = try qsoWire(result.qso, scored: result.committedEvaluation)
+            wire["qso"] = try qsoWire(result.qso, scored: result.committedEvaluation,
+                                      referenceDataVersion: result.session.session.referenceDataVersion)
             wire["score"] = scoreWire(result.score, generation: generation)
             return wire
         }
@@ -1079,7 +1081,10 @@ actor ContestLane {
         let page = snapshot.log
         let scored = Dictionary(uniqueKeysWithValues: snapshot.score.score.qsos.map { ($0.qsoID, $0) })
         return ["sessionID": Wire.uuidString(id), "workspaceGeneration": generation, "revision": page.revision,
-                "qsos": try page.qsos.map { try qsoWire($0, scored: scored[$0.id]) }, "total": page.total, "offset": page.offset, "limit": page.limit]
+                "qsos": try page.qsos.map {
+                    try qsoWire($0, scored: scored[$0.id],
+                                referenceDataVersion: snapshot.session.session.referenceDataVersion)
+                }, "total": page.total, "offset": page.offset, "limit": page.limit]
     }
 
     private func score(_ params: [String: Any], generation: String) async throws -> [String: Any] {
@@ -1088,7 +1093,8 @@ actor ContestLane {
         let id = try Wire.uuid(params, "sessionID"), revision = try Wire.uint(params, "expectedRevision")
         let snapshot = try await repository().sessionPageSnapshot(id: id, offset: 0, limit: 1)
         try await checked(snapshot.session, generation: generation, revision: revision)
-        return scoreWire(snapshot.score, generation: generation)
+        return scoreWire(snapshot.score, generation: generation,
+                         referenceDataVersion: snapshot.session.session.referenceDataVersion)
     }
 
     private func checkedSession(_ id: UUID, generation: String, revision: UInt64? = nil) async throws -> StoredContestSession {
@@ -1179,7 +1185,7 @@ actor ContestLane {
         var result: [String: Any] = ["sessionID": Wire.uuidString(stored.session.id), "workspaceGeneration": generation, "revision": stored.revision,
             "name": stored.metadata.name,
             "rule": try reference.ruleWire(
-                metadata, operatorCapability: operatorCapability(for: metadata.identity),
+                metadata, operatorCapability: try ContestOperatorProjection.capability(for: rule),
                 declarativeDefinition: (rule as? DeclarativeContestRule)?.definition),
             "referenceDataVersion": stored.session.referenceDataVersion,
             "station": station,
@@ -1247,9 +1253,10 @@ actor ContestLane {
                      "reason": duplicate == true ? "This callsign and band are already logged in this contest."
                         : (duplicate == nil ? "Reload the contest session to check duplicate state." : "")],
             "updatedAt": Wire.iso(draft.updatedAt)]
-        if let operatorRule = rule as? any ContestOperatorCapableRule {
-            result["operatorReadiness"] = Wire.operatorReadinessWire(try operatorRule.operatorReadiness(
-                for: candidate, validation: validation, duplicate: duplicate, hasReservation: serial != nil))
+        if let readiness = try ContestOperatorProjection.readiness(
+            for: rule, qso: candidate, validation: validation,
+            duplicate: duplicate, hasReservation: serial != nil) {
+            result["operatorReadiness"] = Wire.operatorReadinessWire(readiness)
         }
         if rule.metadata.entry.stationResolvedSerial != nil {
             result["resolvedSerial"] = try Wire.resolvedSerialWire(
@@ -1259,17 +1266,20 @@ actor ContestLane {
     }
 
     private func operatorCapability(for identity: ContestRuleIdentity) throws -> ContestOperatorCapability? {
-        guard let operatorRule = currentRule(for: identity) as? any ContestOperatorCapableRule else { return nil }
-        return try operatorRule.operatorCapability()
+        guard let rule = currentRule(for: identity) else { return nil }
+        return try ContestOperatorProjection.capability(for: rule)
     }
 
-    private func qsoWire(_ qso: ContestQSO, scored: ContestScoredQSO?) throws -> [String: Any] {
+    private func qsoWire(_ qso: ContestQSO, scored: ContestScoredQSO?,
+                         referenceDataVersion: String) throws -> [String: Any] {
         guard let scored else { throw ContestLaneError.confirmed("invalid_score", "The committed QSO is missing from the score projection.") }
         let multiplier = scored.newMultipliers.first.map { "\($0.kind):\($0.value):\($0.scope)" }
         return ["qsoID": Wire.uuidString(qso.id), "sessionID": Wire.uuidString(qso.sessionID), "workedAt": Wire.iso(qso.timestampUTC),
             "callsign": qso.callsign, "band": qso.band, "mode": qso.mode, "sentExchange": qso.exchange.rawSent,
             "receivedExchange": qso.exchange.rawReceived, "points": scored.points, "multiplier": multiplier as Any? ?? NSNull(),
-            "multiplierDisplayLabels": scored.newMultipliers.map(reference.displayLabel),
+            "multiplierDisplayLabels": scored.newMultipliers.map {
+                reference.displayLabel($0, referenceDataVersion: referenceDataVersion)
+            },
             "isDupe": scored.disposition == .duplicate]
     }
 
@@ -1420,9 +1430,12 @@ actor ContestLane {
             "receipt": receiptWire(result.receipt)]
     }
 
-    private func scoreWire(_ value: ContestScoreSnapshot, generation: String) -> [String: Any] {
+    private func scoreWire(_ value: ContestScoreSnapshot, generation: String,
+                           referenceDataVersion: String) -> [String: Any] {
         let labels = Set(value.score.qsos.flatMap(\.newMultipliers).map { "\($0.kind):\($0.value):\($0.scope)" }).sorted()
-        let displayLabels = Set(value.score.qsos.flatMap(\.newMultipliers).map(reference.displayLabel)).sorted()
+        let displayLabels = Set(value.score.qsos.flatMap(\.newMultipliers).map {
+            reference.displayLabel($0, referenceDataVersion: referenceDataVersion)
+        }).sorted()
         return ["sessionID": Wire.uuidString(value.sessionID), "workspaceGeneration": generation, "revision": value.revision,
             "qsos": value.score.qsos.count, "points": value.score.totalPoints, "multipliers": value.score.multiplierCount,
             "claimedScore": value.score.claimedScore, "multiplierLabels": labels,
@@ -1601,7 +1614,7 @@ enum ContestDatabaseBoundary {
     }
 }
 
-private struct ContestReferenceData {
+struct ContestReferenceData {
     let resolver: CTYResolver
     let version: String
     let primaryPrefixes: [Int: String]
@@ -1634,9 +1647,24 @@ private struct ContestReferenceData {
         return ContestEntitySnapshot(adif: country.adif, name: country.name, countryPrefix: prefix,
                                      continent: country.continent, cqZone: country.cqZone)
     }
-    func displayLabel(_ key: ContestMultiplierKey) -> String {
+    func displayLabel(_ key: ContestMultiplierKey, referenceDataVersion: String) -> String {
         let scoped = key.scope == "contest" ? "" : " · \(key.scope)"
         switch key.kind {
+        case "administrativeSubdivision", "dxccEntity":
+            guard let identity = ContestGeographicMultiplierKeyDecoder.decode(key),
+                  identity.referenceDataVersion == referenceDataVersion,
+                  referenceDataVersion == version else {
+                return "Unknown geographic multiplier\(scoped)"
+            }
+            switch identity.kind {
+            case .administrativeSubdivision:
+                guard let subdivision = identity.subdivision else {
+                    return "Unknown geographic multiplier\(scoped)"
+                }
+                return "\(subdivision) subdivision\(scoped)"
+            case .dxccEntity:
+                return "\(entityNames[identity.entityADIF] ?? "DXCC \(identity.entityADIF)")\(scoped)"
+            }
         case "cq-zone": return "CQ zone \(key.value)\(scoped)"
         case "wpx-prefix": return "\(key.value) prefix\(scoped)"
         case "country":
@@ -1798,9 +1826,13 @@ private enum Wire {
         ["id": value.id, "version": value.version, "edition": value.edition, "sourceRevision": value.sourceRevision]
     }
     static func operatorCapabilityWire(_ value: ContestOperatorCapability) -> [String: Any] {
-        ["version": value.version, "auditDigest": value.auditDigest, "policy": value.policy,
+        var result: [String: Any] = ["version": value.version, "auditDigest": value.auditDigest, "policy": value.policy,
          "output": value.output, "styles": value.styles.map(\.rawValue),
          "macros": value.macros.map(\.rawValue)]
+        if let profiles = value.signalProfiles {
+            result["signalProfiles"] = profiles.map { ["mode": $0.mode, "signal": $0.signal.rawValue] }
+        }
+        return result
     }
     static func operatorReadinessWire(_ value: ContestOperatorReadiness) -> [String: Any] {
         ["capabilityDigest": value.capabilityDigest, "callsign": value.callsign.rawValue,

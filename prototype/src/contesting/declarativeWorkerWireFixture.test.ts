@@ -5,7 +5,7 @@ import type { ContestFullQSO, ContestRequest, ContestSessionSummary } from "./ty
 
 describe("declarative worker-to-client fixture", () => {
   it("reads and corrects actual nonserial and serial-name worker records", async () => {
-    expect(fixture.schemaVersion).toBe(1);
+    expect(fixture.schemaVersion).toBe(2);
     expect(fixture.cases.map(item => item.definitionID).sort()).toEqual(["cwops-cwt", "cwops-open"]);
     for (const item of fixture.cases) {
       const session = item.session as unknown as ContestSessionSummary;
@@ -26,6 +26,40 @@ describe("declarative worker-to-client fixture", () => {
       expect(corrected.currentTarget?.callsign).toBe("N1NEW");
       expect(Object.keys(corrected.currentTarget?.sentExchangeFields ?? {}).sort())
         .toEqual(Object.keys(read.qso.sentExchangeFields ?? {}).sort());
+    }
+  });
+
+  it("admits all actual stored declarative policies and their eleven exact signal modes", async () => {
+    expect(fixture.operatorProfiles).toHaveLength(7);
+    expect(fixture.operatorProfiles.reduce((count, item) =>
+      count + ((item.catalogRule.operatorCapability?.signalProfiles?.length ?? 0)), 0)).toBe(11);
+    for (const item of fixture.operatorProfiles) {
+      const rule = item.catalogRule as unknown as ContestSessionSummary["rule"];
+      expect(rule.operatorCapability?.auditDigest).toBe(rule.declarativeDefinition?.definitionDigest);
+      for (const profile of rule.operatorCapability?.signalProfiles ?? []) {
+        expect(profile.signal).toBe(profile.mode === "CW" ? "cw" : "phone");
+      }
+      const catalogRequest = vi.fn(async () => ({ id: "fixture", ok: true as const,
+        result: { workspaceGeneration: item.session.workspaceGeneration, rules: [item.catalogRule] } })) as ContestRequest;
+      await expect(new ContestClient(catalogRequest).catalog(), `${item.definitionID} catalog`).resolves.toBeTruthy();
+      const openRequest = vi.fn(async () => ({ id: "fixture", ok: true as const,
+        result: { session: item.session, draft: item.draft } })) as ContestRequest;
+      const opened = await new ContestClient(openRequest).open(item.session.sessionID, item.session.workspaceGeneration)
+        .catch(cause => { throw new Error(`${item.definitionID} open: ${String(cause)}`); });
+      expect(opened.draft.operatorReadiness?.capabilityDigest).toBe(rule.operatorCapability?.auditDigest);
+    }
+
+    const original = fixture.operatorProfiles[0].catalogRule as any;
+    for (const malformed of [
+      { ...structuredClone(original), operatorCapability: { ...original.operatorCapability, auditDigest: "f".repeat(64) } },
+      { ...structuredClone(original), operatorCapability: { ...original.operatorCapability,
+        signalProfiles: [{ ...original.operatorCapability.signalProfiles[0], signal: "phone" }] } },
+      { ...structuredClone(original), operatorCapability: { ...original.operatorCapability,
+        signalProfiles: original.operatorCapability.signalProfiles.map((profile: any) => ({ ...profile, mode: "future" })) } },
+    ]) {
+      const request = vi.fn(async () => ({ id: "fixture", ok: true as const,
+        result: { workspaceGeneration: fixture.operatorProfiles[0].session.workspaceGeneration, rules: [malformed] } })) as ContestRequest;
+      await expect(new ContestClient(request).catalog()).rejects.toThrow("Malformed or stale contest_catalog response.");
     }
   });
 

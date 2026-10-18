@@ -1633,6 +1633,92 @@ mod tests {
         .expect("fixture session")
     }
 
+    #[cfg(any(unix, windows))]
+    #[derive(Clone, Copy)]
+    enum ShutdownFixture {
+        GracefulReply,
+        IgnoreEof,
+        NonzeroExit,
+        UnsolicitedEof,
+        MissingReply,
+        MalformedReply,
+    }
+
+    #[cfg(any(unix, windows))]
+    fn shutdown_fixture_session(fixture: ShutdownFixture) -> Arc<Session> {
+        #[cfg(unix)]
+        let child = {
+            let script = match fixture {
+                ShutdownFixture::GracefulReply => concat!(
+                    "IFS= read -r request; ",
+                    "while IFS= read -r extra; do :; done; ",
+                    "printf '%s\\n' '{\"id\":\"pending\",\"ok\":true,\"result\":{\"released\":true}}'"
+                ),
+                ShutdownFixture::IgnoreEof => {
+                    "IFS= read -r request; while :; do :; done"
+                }
+                ShutdownFixture::NonzeroExit => {
+                    "while IFS= read -r request; do :; done; exit 7"
+                }
+                ShutdownFixture::UnsolicitedEof => "exit 0",
+                ShutdownFixture::MissingReply => {
+                    "IFS= read -r request; while IFS= read -r extra; do :; done; exit 0"
+                }
+                ShutdownFixture::MalformedReply => concat!(
+                    "while IFS= read -r request; do :; done; ",
+                    "printf '%s\\n' 'malformed'; exit 0"
+                ),
+            };
+            Command::new("sh")
+                .arg("-c")
+                .arg(script)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("shutdown fixture worker")
+        };
+        #[cfg(windows)]
+        let child = {
+            let script = match fixture {
+                ShutdownFixture::GracefulReply => concat!(
+                    "set /p request= & set /p extra= & ",
+                    "echo %XLOG_SHUTDOWN_REPLY%"
+                ),
+                // All commands are cmd built-ins. In particular, this bounded
+                // test does not spawn timeout/ping grandchildren that could be
+                // orphaned when the watchdog kills and reaps cmd.exe.
+                ShutdownFixture::IgnoreEof => concat!(
+                    "set /p request= & ",
+                    "for /L %i in (1,1,2147483647) do @ver >nul"
+                ),
+                ShutdownFixture::NonzeroExit => "set /p request= & exit /b 7",
+                ShutdownFixture::UnsolicitedEof => "exit /b 0",
+                ShutdownFixture::MissingReply => {
+                    "set /p request= & set /p extra= & exit /b 0"
+                }
+                ShutdownFixture::MalformedReply => concat!(
+                    "set /p request= & set /p extra= & ",
+                    "echo malformed & exit /b 0"
+                ),
+            };
+            Command::new(
+                std::env::var_os("COMSPEC").unwrap_or_else(|| "cmd.exe".into()),
+            )
+            .args(["/D", "/Q", "/C", script])
+            .env(
+                "XLOG_SHUTDOWN_REPLY",
+                r#"{"id":"pending","ok":true,"result":{"released":true}}"#,
+            )
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("shutdown fixture worker")
+        };
+        Session::from_child(child).expect("shutdown fixture session")
+    }
+
     #[cfg(unix)]
     #[test]
     fn replacement_hook_runs_once_outside_registry_and_addresses_exact_child() {
@@ -1919,16 +2005,12 @@ mod tests {
         assert!(session.register("next").is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_with_active_request_delivers_eof_and_release_before_reap() {
         // The fixture models the worker's owned-control release: it emits the
         // confirmation only after observing stdin EOF, never on the request.
-        let session = scripted_session(concat!(
-            "IFS= read -r request; ",
-            "while IFS= read -r extra; do :; done; ",
-            "printf '%s\\n' '{\"id\":\"pending\",\"ok\":true,\"result\":{\"released\":true}}'"
-        ));
+        let session = shutdown_fixture_session(ShutdownFixture::GracefulReply);
         let active = Arc::clone(&session);
         let requester = std::thread::spawn(move || {
             request_in_session(
@@ -1953,10 +2035,10 @@ mod tests {
         assert!(session.register("later").is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_watchdog_reaps_a_worker_that_ignores_eof() {
-        let session = scripted_session("IFS= read -r request; sleep 2");
+        let session = shutdown_fixture_session(ShutdownFixture::IgnoreEof);
         let active = Arc::clone(&session);
         let requester = std::thread::spawn(move || {
             request_in_session(
@@ -1982,18 +2064,18 @@ mod tests {
         assert!(session.register("later").is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_rejects_nonzero_worker_exit() {
-        let session = scripted_session("while IFS= read -r request; do :; done; exit 7");
+        let session = shutdown_fixture_session(ShutdownFixture::NonzeroExit);
         assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
         assert!(session.child.lock().unwrap().is_none());
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_cannot_relabel_unsolicited_eof_retirement_graceful() {
-        let session = scripted_session("exit 0");
+        let session = shutdown_fixture_session(ShutdownFixture::UnsolicitedEof);
         let deadline = Instant::now() + Duration::from_secs(2);
         while session.alive.load(Ordering::Acquire) {
             assert!(Instant::now() < deadline, "fixture EOF was not observed");
@@ -2002,10 +2084,10 @@ mod tests {
         assert!(!session.shutdown_with_grace(Duration::from_secs(1)));
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_rejects_clean_exit_without_accepted_reply() {
-        let session = scripted_session("IFS= read -r request; while IFS= read -r extra; do :; done; exit 0");
+        let session = shutdown_fixture_session(ShutdownFixture::MissingReply);
         let reply = session.register("pending").unwrap();
         session.input.lock().unwrap().as_mut().unwrap()
             .write_all(b"{\"id\":\"pending\"}\n").unwrap();
@@ -2013,12 +2095,10 @@ mod tests {
         assert!(reply.recv_timeout(Duration::from_secs(1)).unwrap().is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn shutdown_rejects_malformed_final_response_racing_clean_exit() {
-        let session = scripted_session(
-            "while IFS= read -r request; do :; done; printf '%s\\n' 'malformed'; exit 0",
-        );
+        let session = shutdown_fixture_session(ShutdownFixture::MalformedReply);
         assert!(!session.shutdown_with_grace(Duration::from_secs(2)));
         assert!(session.retirement_failed.load(Ordering::Acquire));
         assert!(session.output_finished.load(Ordering::Acquire));

@@ -74,6 +74,9 @@ public enum TenTenDeclarativeDefinitions {
             dupePolicy: base.dupePolicy, multiplierPolicy: base.multiplierPolicy, scoring: base.scoring,
             eligibilityPolicy: base.eligibilityPolicy, exportPolicy: .operatorArchive,
             exportProjection: .init(formatterVersion: formatter, columns: columns),
+            operatorPolicy: .init(signalProfiles: base.supportedModes.sorted().map {
+                .init(mode: $0, signal: $0 == "CW" ? .cw : .phone)
+            }),
             stationEntityRequired: base.stationEntityRequired)
     }
 

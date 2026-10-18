@@ -197,6 +197,10 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ContestDeclarativeDefinition.self,
                                                from: first.canonicalStorageData())
         XCTAssertEqual(decoded, first)
+        let draftObject = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(makeDraft(geographic: dxOnly))) as? [String: Any])
+        let geographicObject = try XCTUnwrap(draftObject["geographicMultiplier"] as? [String: Any])
+        XCTAssertNil(geographicObject["stationLocationFieldID"])
 
         let reversed = geographicPolicy(subdivisions: [
             subdivision(291, "state", ["MA", "CT"]),
@@ -225,6 +229,34 @@ final class ContestGeographicMultiplierTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(ContestDeclarativeDefinition.self,
                                                 from: aliasDefinitionA.canonicalStorageData()),
                        aliasDefinitionA)
+    }
+
+    func testGeographicDisplayKeyDecoderUsesUTF8LengthsAndRejectsMalformedValues() throws {
+        let reference = "cty-révision-1"
+        let components = ["sst-canadian-province", reference, "1", "NF"]
+        let value = components.map { "\($0.utf8.count):\($0)" }.joined()
+        let decoded = try XCTUnwrap(ContestGeographicMultiplierKeyDecoder.decode(
+            .init(kind: "administrativeSubdivision", value: value, scope: "40m")))
+        XCTAssertEqual(decoded.kind, .administrativeSubdivision)
+        XCTAssertEqual(decoded.referenceDataVersion, reference)
+        XCTAssertEqual(decoded.entityADIF, 1)
+        XCTAssertEqual(decoded.subdivision, "NF")
+
+        let malformed = [
+            "0:x",                         // zero length
+            "01:a",                        // non-canonical leading zero
+            "3:abc3:def1:1",               // partial: subdivision component missing
+            "3:abc3:def1:11:Xjunk",         // trailing bytes
+            "513:a",                       // bounded overflow
+            "3:abc3:def1:01:X",             // non-canonical ADIF
+            "3:abc3:def1:11:x",             // bad subdivision token
+        ]
+        for candidate in malformed {
+            XCTAssertNil(ContestGeographicMultiplierKeyDecoder.decode(
+                .init(kind: "administrativeSubdivision", value: candidate, scope: "40m")), candidate)
+        }
+        XCTAssertNil(ContestGeographicMultiplierKeyDecoder.decode(
+            .init(kind: "country", value: "291", scope: "40m")))
     }
 
     func testLegacyNilConfigDigestsRemainUnchanged() throws {

@@ -1,11 +1,17 @@
 const PARTICLES = new Set(["and", "d", "de", "del", "der", "di", "du", "la", "le", "of", "the", "van", "von"]);
 const ABBREVIATIONS: Record<string, string> = { usa: "USA", uk: "UK", uae: "UAE", us: "US" };
+const DISPLAY_ALIASES: Record<string, string> = {
+  "fed. rep. of germany": "Germany",
+  "united states": "USA",
+};
 
 /** Display-only title casing for country/entity labels. Never use for matching or persistence. */
 export function countryDisplay(value: unknown): string {
   if (typeof value !== "string") return "";
   const source = value.trim();
   if (!source) return "";
+  const alias = DISPLAY_ALIASES[source.toLocaleLowerCase()];
+  if (alias) return alias;
   let firstWord = true;
   return source.replace(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu, (word) => {
     const lower = word.toLocaleLowerCase();

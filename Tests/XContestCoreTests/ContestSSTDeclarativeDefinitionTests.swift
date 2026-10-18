@@ -122,13 +122,118 @@ final class ContestSSTDeclarativeDefinitionTests: XCTestCase {
                                                 from: definition.canonicalStorageData()), definition)
     }
 
-    private func makeSession(_ rule: DeclarativeContestRule) -> ContestSessionSnapshot {
+    func testStationGeographyUsesTheSharedPolicyAndAcceptsOnlyCanonicalOrAliasedLocations() throws {
+        let rule = try SSTDeclarativeDefinition.rule()
+        XCTAssertTrue(rule.validateSession(makeSession(rule, entityADIF: 291, location: "MA")).isEmpty)
+        XCTAssertEqual(rule.validateSession(makeSession(rule, entityADIF: 291, location: "DX")).map(\.code),
+                       ["stationLocationClassificationMismatch"])
+        XCTAssertEqual(rule.validateSession(makeSession(rule, entityADIF: 230, location: "MA")).map(\.code),
+                       ["stationLocationClassificationMismatch"])
+        XCTAssertTrue(rule.validateSession(makeSession(rule, entityADIF: 230, location: "DX")).isEmpty)
+        XCTAssertTrue(rule.validateSession(makeSession(rule, entityADIF: 6, location: "DX")).isEmpty)
+        XCTAssertTrue(rule.validateSession(makeSession(rule, entityADIF: 110, location: "DX")).isEmpty)
+        XCTAssertEqual(rule.validateSession(makeSession(rule, entityADIF: 6, location: "AK")).map(\.code),
+                       ["stationLocationClassificationMismatch"])
+        XCTAssertEqual(rule.validateSession(makeSession(rule, entityADIF: 110, location: "HI")).map(\.code),
+                       ["stationLocationClassificationMismatch"])
+        XCTAssertEqual(rule.validateSession(makeSession(rule, entityADIF: nil, location: "MA")).map(\.code),
+                       ["unresolvedStationGeography"])
+
+        let aliased = makeSession(rule, entityADIF: 1, location: "NL")
+        XCTAssertTrue(rule.validateSession(aliased).isEmpty)
+        XCTAssertEqual(aliased.station.sentExchangeFields["location"]?.raw, "NL")
+        XCTAssertEqual(aliased.station.sentExchangeFields["location"]?.normalized, "NL")
+
+        let scored = try ContestEngine.score([
+            qso(30, session: aliased, call: "VO1AAA", band: "40m", name: "AL",
+                location: "NL", entityADIF: 1),
+        ], session: aliased, rule: rule)
+        let key = try XCTUnwrap(scored.qsos.first?.newMultipliers.first)
+        let identity = try XCTUnwrap(ContestGeographicMultiplierKeyDecoder.decode(key))
+        XCTAssertEqual(identity.subdivision, "NF")
+        XCTAssertFalse(key.value.contains(":NL"))
+    }
+
+    func testOperatorArchivePreservesRawNewfoundlandTokenAndExactScore() throws {
+        let rule = try SSTDeclarativeDefinition.rule()
+        let session = makeSession(rule)
+        let archived = qso(40, session: session, call: "VO1AAA", band: "40m", name: "AL",
+                           location: "NL", entityADIF: 1)
+        let score = try ContestEngine.score([archived], session: session, rule: rule)
+        XCTAssertEqual(score.totalPoints, 1)
+        XCTAssertEqual(score.multiplierCount, 1)
+        XCTAssertEqual(score.claimedScore, 1)
+        XCTAssertEqual(archived.exchange.receivedFields["location"]?.raw, "NL")
+        XCTAssertEqual(archived.exchange.receivedFields["location"]?.normalized, "NL")
+
+        let line = try CabrilloExporter.qsoLine(archived, session: session, rule: rule)
+        XCTAssertTrue(line.hasSuffix(" AL         NL      "), line)
+        XCTAssertFalse(line.contains(" NF"), line)
+        XCTAssertEqual(try ContestExportInput(
+            formatterVersion: rule.metadata.entry.cabrilloFormatterVersion,
+            generatedAtUTC: date.addingTimeInterval(100), sessionRevision: 2,
+            session: session, ruleIdentity: rule.metadata.identity,
+            referenceDataVersion: session.referenceDataVersion,
+            metadata: .init(sessionName: "SST archive", operatorCallsign: "OM0RX",
+                            operatorCategory: "SINGLE-OP",
+                            cabrilloHeader: .init(callsign: "OM0RX", categoryOperator: "SINGLE-OP",
+                                                  categoryAssisted: "NON-ASSISTED", categoryBand: "ALL",
+                                                  categoryMode: "CW", categoryTransmitter: "ONE",
+                                                  categoryPower: "LOW", operators: ["OM0RX"], location: "MA")),
+            qsos: [archived]).validatedScore(rule: rule).claimedScore, 1)
+        XCTAssertNotNil(try ContestOperatorProjection.capability(for: rule))
+    }
+
+    func testOperatorPolicySupportsCQCallAndCommitPhasesWithoutWeakeningGeography() throws {
+        let rule = try SSTDeclarativeDefinition.rule()
+        let session = makeSession(rule)
+        let complete = qso(50, session: session, call: "VO1AAA", band: "40m", name: "AL",
+                           location: "NL", entityADIF: 1)
+        let blank = draftPhase(complete, callsign: "", entity: nil, receivedFields: [:])
+        let blankValidation = try ContestEngine.evaluate(
+            blank, session: session, rule: rule, allowIncomplete: false).validation
+        let blankReadiness = try XCTUnwrap(try ContestOperatorProjection.readiness(
+            for: rule, qso: blank, validation: blankValidation,
+            duplicate: nil, hasReservation: false))
+        XCTAssertTrue(blankReadiness.canSendCQ)
+
+        let call = draftPhase(complete, callsign: complete.callsign,
+                              entity: complete.entity, receivedFields: [:])
+        let callValidation = try ContestEngine.evaluate(
+            call, session: session, rule: rule, allowIncomplete: false).validation
+        let callReadiness = try XCTUnwrap(try ContestOperatorProjection.readiness(
+            for: rule, qso: call, validation: callValidation,
+            duplicate: false, hasReservation: false))
+        XCTAssertTrue(callReadiness.canSendCall, "\(callValidation)")
+        XCTAssertFalse(callReadiness.canCommit)
+
+        let completeValidation = try ContestEngine.evaluate(
+            complete, session: session, rule: rule, allowIncomplete: false).validation
+        XCTAssertFalse(completeValidation.contains { $0.severity == .error })
+        let completeReadiness = try XCTUnwrap(try ContestOperatorProjection.readiness(
+            for: rule, qso: complete, validation: completeValidation,
+            duplicate: false, hasReservation: false))
+        XCTAssertTrue(completeReadiness.canCommit)
+
+        let contradictory = replacingLocation(complete, with: "DX")
+        let contradictoryValidation = try ContestEngine.evaluate(
+            contradictory, session: session, rule: rule, allowIncomplete: false).validation
+        let contradictoryReadiness = try XCTUnwrap(try ContestOperatorProjection.readiness(
+            for: rule, qso: contradictory, validation: contradictoryValidation,
+            duplicate: false, hasReservation: false))
+        XCTAssertFalse(contradictoryReadiness.canSendCall)
+        XCTAssertFalse(contradictoryReadiness.canCommit)
+    }
+
+    private func makeSession(_ rule: DeclarativeContestRule, entityADIF: Int? = 291,
+                             location: String = "MA") -> ContestSessionSnapshot {
         .init(id: UUID(uuidString: "EC000000-0000-0000-0000-000000000001")!,
               workspaceGeneration: UUID(uuidString: "EC000000-0000-0000-0000-000000000002")!,
               rule: rule.metadata.identity, referenceDataVersion: referenceVersion, startedAt: date,
-              station: .init(callsign: "OM0RX", entity: nil, sentExchange: "OLIVER DX",
+              station: .init(callsign: "OM0RX", entity: entityADIF.map(entity),
+                             sentExchange: "OLIVER \(location)",
                              operatorCallsigns: ["OM0RX"],
-                             sentExchangeFields: ["name": field("OLIVER"), "location": field("DX")]))
+                             sentExchangeFields: ["name": field("OLIVER"), "location": field(location)]))
     }
 
     private func qso(_ seed: Int, session: ContestSessionSnapshot, call: String, band: String,
@@ -138,7 +243,8 @@ final class ContestSSTDeclarativeDefinitionTests: XCTestCase {
                      sessionID: session.id, timestampUTC: date.addingTimeInterval(TimeInterval(seed)),
                      callsign: call, band: band, mode: "CW", frequencyHz: frequency(band),
                      rstSent: "", rstReceived: "",
-                     exchange: .init(rawSent: "OLIVER DX", normalizedSent: "OLIVER DX",
+                     exchange: .init(rawSent: session.station.sentExchange,
+                                     normalizedSent: session.station.sentExchange,
                                      rawReceived: "\(name) \(location)", normalizedReceived: "\(name) \(location)",
                                      sentFields: session.station.sentExchangeFields, receivedFields: received),
                      entity: entityADIF.map(entity), operatorCallsign: "OM0RX",
@@ -171,6 +277,21 @@ final class ContestSSTDeclarativeDefinitionTests: XCTestCase {
                               receivedFields: contact.exchange.receivedFields),
               entity: contact.entity, operatorCallsign: contact.operatorCallsign,
               stationLocation: contact.stationLocation, provenance: contact.provenance)
+    }
+
+    private func draftPhase(_ contact: ContestQSO, callsign: String,
+                            entity: ContestEntitySnapshot?,
+                            receivedFields: [String: ContestExchangeFieldValue]) -> ContestQSO {
+        let received = ["name", "location"].compactMap { receivedFields[$0]?.normalized }.joined(separator: " ")
+        return .init(id: contact.id, sessionID: contact.sessionID, timestampUTC: contact.timestampUTC,
+                     callsign: callsign, band: contact.band, mode: contact.mode,
+                     frequencyHz: contact.frequencyHz, rstSent: contact.rstSent, rstReceived: contact.rstReceived,
+                     exchange: .init(rawSent: contact.exchange.rawSent,
+                                     normalizedSent: contact.exchange.normalizedSent,
+                                     rawReceived: received, normalizedReceived: received,
+                                     sentFields: contact.exchange.sentFields, receivedFields: receivedFields),
+                     entity: entity, operatorCallsign: contact.operatorCallsign,
+                     stationLocation: contact.stationLocation, provenance: contact.provenance)
     }
 
     private func entity(_ adif: Int) -> ContestEntitySnapshot {

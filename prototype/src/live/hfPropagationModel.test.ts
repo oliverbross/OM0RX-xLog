@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callsignContinent, defaultPropagationSettings, matrixCounts, mergeSpots, ownGrid, parseDXHeat, parseOwnWSPR, parsePSKReporter, parseWSPR, readPropagationSettings } from "./hfPropagationModel";
+import { callsignContinent, defaultPropagationSettings, matrixCounts, mergeSpots, ownGrid, parseDXHeat, parseOwnRBN, parseOwnWSPR, parsePSKReporter, parseWSPR, readPropagationSettings } from "./hfPropagationModel";
 
 describe("HF propagation model", () => {
   it("normalizes live source payloads without accepting arbitrary settings", () => {
@@ -11,6 +11,9 @@ describe("HF propagation model", () => {
     expect(pskr[0]).toMatchObject({ band: "20m", mode: "FT8", txContinent: "AS", rxContinent: "NA" });
     const dx = parseDXHeat([{ Frequency: "14025", DXCall: "G3ABC", Spotter: "K1ABC", Date: "18/10/26", Time: "00:10", Mode: "CW", Continent_dx: "EU", Continent_spotter: "NA" }]);
     expect(dx.cluster).toHaveLength(1); expect(dx.rbn).toHaveLength(1);
+    const rbn = parseOwnRBN({ spots: { "42": ["MM9PSY", "3555.7", "OM0RX", 21, 18, "0229z", 0, 7, 1, 1, 1792290553] },
+      call_info: { MM9PSY: ["GM", "Scotland", "EU", "scotland", "27", "14", "56", "-3", "IO86HA", "skimmer"] } }, "OM0RX");
+    expect(rbn[0]).toMatchObject({ spotter: "MM9PSY", band: "80m", frequencyKHz: 3555.7, mode: "CW", snr: 21, speed: 18, country: "Scotland", continent: "EU", grid: "IO86HA" });
     expect(callsignContinent("EA8/OM0RX")).toBe("AF");
     const unsafe = JSON.stringify({ version: 1, mode: "DX", ownCall: "x';drop", locator: "JN88<script>", bands: ["20m", "bad"], enabledSources: ["wspr", "evil"], matrixModes: ["CW", "SQL"], chartModes: ["SSB"] });
     expect(readPropagationSettings(unsafe)).toMatchObject({ ownCall: "XDROP", locator: "JN88SC", bands: ["20m"], enabledSources: ["wspr"], matrixModes: ["CW"], chartModes: ["SSB"] });

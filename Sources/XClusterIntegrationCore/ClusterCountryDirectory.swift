@@ -47,9 +47,6 @@ public struct ClusterCountryDirectory: Sendable {
 
     public func resolve(_ rawCallsign: String) -> ClusterCountry? {
         let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
-        if call == "PJ6Y" || call.hasPrefix("PJ") {
-            return rules.first(where: { $0.country.adif == 305 })?.country
-        }
         let candidates = [call] + call.split(separator: "/").map(String.init)
             .filter { !ignoredSuffixes.contains($0) }.sorted { $0.count > $1.count }
         for candidate in candidates {

@@ -83,9 +83,10 @@
     "resultsDestination": "3830 score summary",
     "officialSample": {"qsoPoints": 12, "multipliers": 10, "claimedScore": 120},
     "preActivationGates": [
-      "validate the station-side sent location against the station entity and the same versioned SST geography policy",
-      "compose and persist the operator station entity and sent fields before starting a session",
-      "add the operator archive export required for source-product parity; it is not a sponsor submission format"
+      "pin the concrete DXCC entity reference version selected for SST sessions",
+      "prove worker and UI composition persists the operator station entity and sent fields accepted by shared station geography validation",
+      "review the operator archive in the complete product flow; it is not a sponsor submission format",
+      "resolve schedule, mobile and portable endpoint, category, and 3830 reporting behavior"
     ]
   }
 }

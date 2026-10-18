@@ -272,13 +272,15 @@ function validRule(value: unknown) {
   if (declarative) {
     const keys = ["identity", "displayName", "mode", "entryDescriptorVersion", "entry", "supportedBands", "supportedModes", "referenceDataVersion", "sourceVerification", "sourceNote", "declarativeDefinition"];
     const bands = v?.supportedBands, modes = v?.supportedModes;
+    if (v?.operatorCapability !== undefined) keys.push("operatorCapability");
     return !!v && exact(v, keys) && validIdentity(identity) && text(v.displayName, 128) && v.entryDescriptorVersion === 2 &&
       Array.isArray(bands) && bands.length > 0 && bands.length <= 16 && new Set(bands).size === bands.length && bands.every(band => BANDS.has(band)) &&
       Array.isArray(modes) && modes.length > 0 && modes.length <= 5 && v.mode === entry?.mode && modes.includes(v.mode) && validDeclarativeEntry(entry, modes) &&
       exact(declarative, ["definitionDigest", "immutablePerSession", "exportPurpose", "submissionReady"]) &&
       text(declarative.definitionDigest, 64) && SHA256.test(String(declarative.definitionDigest)) && identity?.sourceRevision === declarative.definitionDigest &&
       declarative.immutablePerSession === true && declarative.exportPurpose === "operatorArchive" && declarative.submissionReady === false &&
-      text(v.referenceDataVersion, 160) && text(v.sourceNote, 1_024) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification));
+      text(v.referenceDataVersion, 160) && text(v.sourceNote, 1_024) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification)) &&
+      (v.operatorCapability === undefined || validOperatorCapability(v.operatorCapability, v));
   }
   const names: Record<string, string> = { "cq-ww-cw": "CQ WW CW", "cq-wpx-cw": "CQ WPX CW", "cq-ww-ssb": "CQ WW SSB", "cq-wpx-ssb": "CQ WPX SSB",
     "oceania-dx-cw": "Oceania DX CW", "oceania-dx-ssb": "Oceania DX SSB",
@@ -307,17 +309,29 @@ function validRule(value: unknown) {
     (v.supportedBands === undefined || Array.isArray(v.supportedBands) && v.supportedBands.length > 0 && v.supportedBands.every(band => BANDS.has(band))) &&
     (v.supportedModes === undefined || canonicalJSON(v.supportedModes) === canonicalJSON([expectedMode])) &&
     text(v.referenceDataVersion, 160) && text(v.sourceNote, 1_024) && ["verified", "provisional", "unverified"].includes(String(v.sourceVerification)) &&
-    (operatorCapable ? validOperatorCapability(v.operatorCapability, identity ?? undefined) : v.operatorCapability === undefined);
+    (operatorCapable ? validOperatorCapability(v.operatorCapability, v) : v.operatorCapability === undefined);
 }
-function validOperatorCapability(value: unknown, identity?: Record<string, unknown>) {
-  const v = object(value);
+function validOperatorCapability(value: unknown, rule?: Record<string, unknown>) {
+  const v = object(value), identity = object(rule?.identity), declarative = object(rule?.declarativeDefinition);
+  const common = !!v && v.version === 1 && v.policy === "simulated-run-sp-v1" && v.output === "simulation-only" &&
+    canonicalJSON(v.styles) === '["run","search-and-pounce"]' &&
+    canonicalJSON(v.macros) === '["CQ","EXCH","QRZ","AGN","HISCALL","MYCALL","QSOB4"]';
+  if (!common) return false;
+  if (declarative) {
+    const modes = rule?.supportedModes, profiles = v?.signalProfiles;
+    if (!exact(v, ["version", "auditDigest", "policy", "output", "styles", "macros", "signalProfiles"]) ||
+        v.auditDigest !== declarative.definitionDigest || !Array.isArray(modes) || !Array.isArray(profiles) || profiles.length !== modes.length) return false;
+    const parsed = profiles.map(object);
+    return parsed.every(profile => !!profile && exact(profile, ["mode", "signal"]) && modes.includes(profile.mode) &&
+      profile.signal === (profile.mode === "CW" ? "cw" : ["SSB", "AM", "FM"].includes(String(profile.mode)) ? "phone" : undefined)) &&
+      canonicalJSON(parsed.map(profile => profile?.mode)) === canonicalJSON([...modes].sort()) &&
+      parsed.some(profile => profile?.mode === rule?.mode);
+  }
   const reviewed = identity && typeof identity.id === "string" && typeof identity.version === "string" &&
     typeof identity.edition === "string" && typeof identity.sourceRevision === "string"
     ? reviewedOperatorCapabilityDigest(identity as { id: string; version: string; edition: string; sourceRevision: string }) : undefined;
   return !!v && exact(v, ["version", "auditDigest", "policy", "output", "styles", "macros"]) && v.version === 1 &&
-    typeof reviewed === "string" && v.auditDigest === reviewed && v.policy === "simulated-run-sp-v1" && v.output === "simulation-only" &&
-    canonicalJSON(v.styles) === '["run","search-and-pounce"]' &&
-    canonicalJSON(v.macros) === '["CQ","EXCH","QRZ","AGN","HISCALL","MYCALL","QSOB4"]';
+    typeof reviewed === "string" && v.auditDigest === reviewed;
 }
 function validOperatorReadiness(value: unknown, rule?: ContestRuleMetadata) {
   const v = object(value), capability = rule?.operatorCapability;
@@ -345,7 +359,6 @@ function validSession(value: unknown, params?: Record<string, unknown>) {
   if (arrl) { stationKeys.push("stationFields"); sessionKeys.push("resolvedSerial"); }
   if (arrlDX) stationKeys.push("stationFields");
   if (structuredEntry?.stationFields?.length && !stationKeys.includes("stationFields")) stationKeys.push("stationFields");
-  if (declarativeSerial) sessionKeys.push("resolvedSerial");
   const location = object(station?.exchangeFields)?.location;
   return !!v && exact(v, sessionKeys) && !!station && exact(station, stationKeys) && text(v.sessionID, 128) && text(v.workspaceGeneration, 128) && (!params || sameContext(v, params)) && uint(v.revision) &&
     text(v.name, 128) && validRule(v.rule) && text(v.referenceDataVersion, 160) && !!station && text(station.callsign, 32) && text(station.cqZone, 8) &&
@@ -356,8 +369,6 @@ function validSession(value: unknown, params?: Record<string, unknown>) {
       : station.dxccEntity !== "")) &&
     (!arrl || validFieldMap(station.stationFields, ARRL_STATION_FIELDS) && validResolvedSerial(v.resolvedSerial, location)) &&
     (!arrlDX || validFieldMap(station.stationFields, ARRL_STATION_FIELDS) && validARRLDXFieldMap(station.exchangeFields, false)) &&
-    (!declarativeSerial || !!allocatedField && (() => { const resolved = object(v.resolvedSerial); return !!resolved && exact(resolved, ["requirement", "allowedScopes", "allocatedFieldID"]) &&
-      resolved.requirement === "requiredForCommit" && canonicalJSON(resolved.allowedScopes) === canonicalJSON(structuredEntry?.serial.allowedScopes) && resolved.allocatedFieldID === allocatedField.id; })()) &&
     !!operator && text(operator.callsign, 32) && text(operator.category, 80) && uint(v.qsoCount) && iso(v.updatedAt);
 }
 function validFieldMap(value: unknown, descriptors: {id:string;maximumUTF8Bytes:number;required:boolean}[], requireValues = true) {
@@ -369,6 +380,9 @@ export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata):
   const hasStructuredMembers = !!v && ("sentExchangeFields" in v || "receivedExchangeFields" in v);
   const structurallyStructured = !!object(v?.sentExchangeFields) && !!object(v?.receivedExchangeFields);
   const structuredRule = rule && isStructuredEntry(rule.entry) ? rule.entry : undefined;
+  const structuredSentFields = structuredRule?.serial.requirement === "requiredForCommit"
+    ? structuredRule.exchange.sentFields.map(field => field.acceptedKinds.includes("serialNumber") ? { ...field, required: false } : field)
+    : structuredRule?.exchange.sentFields;
   const sentMaximum = structuredRule ? aggregateMaximum(structuredRule.exchange.sentFields) : rule ? 32 : structurallyStructured ? 64 : 32;
   const receivedMaximum = structuredRule ? aggregateMaximum(structuredRule.exchange.receivedFields) : 64;
   if (!v || !text(v.callsign, 32, true) || !text(v.sentReport, 3, true) || !text(v.sentExchange, sentMaximum, true) ||
@@ -389,6 +403,10 @@ export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata):
     if (!validNAQP && !validARRL && !validJIDX && !validARRLDX)
       throw new Error("Contest draft contains malformed structured fields.");
   }
+  if (rule?.declarativeDefinition && structuredRule &&
+      (!validFieldMap(v?.sentExchangeFields, structuredSentFields!, false) ||
+       !validFieldMap(v?.receivedExchangeFields, structuredRule.exchange.receivedFields, false)))
+    throw new Error("Contest draft contains malformed structured fields.");
   const selectedProfile = rule && isStructuredEntry(rule.entry)
     ? rule.entry.modeProfiles.find(profile => profile.mode === v?.mode) : undefined;
   const selectedReport = selectedProfile?.report ?? rule?.entry.report;
@@ -397,7 +415,7 @@ export function validateDraftFields(value: unknown, rule?: ContestRuleMetadata):
       !selectedReport || !text(v.sentReport, selectedReport.maximumUTF8Bytes, true) ||
       !text(v.receivedReport, selectedReport.maximumUTF8Bytes, true) ||
       (structuredRule ? (!text(v.receivedExchange, aggregateMaximum(structuredRule.exchange.receivedFields), true) ||
-        !validFieldMap(v.sentExchangeFields, structuredRule.exchange.sentFields) || !validFieldMap(v.receivedExchangeFields, structuredRule.exchange.receivedFields, false)) :
+        !validFieldMap(v.sentExchangeFields, structuredSentFields!) || !validFieldMap(v.receivedExchangeFields, structuredRule.exchange.receivedFields, false)) :
         hasStructuredMembers)))
     throw new Error("Contest draft does not match the selected rule entry descriptor.");
   if (rule?.identity.id.startsWith("arrl-dx-") &&
@@ -408,16 +426,15 @@ function validDraft(value: unknown, params: Record<string, unknown>, expectedDra
   authoritativeResolvedSerial?: unknown) {
   const v = object(value), validation = object(v?.validation), dupe = object(v?.dupe);
   try { validateDraftFields(v?.fields, rule); } catch { return false; }
-  const arrl = rule?.identity.id === "arrl-rtty-roundup", declarativeSerial = !!rule?.declarativeDefinition && rule.entry.serial.requirement === "requiredForCommit", operatorCapable = !!rule?.operatorCapability,
+  const arrl = rule?.identity.id === "arrl-rtty-roundup", operatorCapable = !!rule?.operatorCapability,
     keys = ["draftID", "sessionID", "workspaceGeneration", "revision", "fields", "reservedSerial", "validation", "dupe", "updatedAt"];
   if (arrl) keys.push("resolvedSerial");
-  if (declarativeSerial) keys.push("resolvedSerial");
   if (operatorCapable) keys.push("operatorReadiness");
   return !!v && exact(v, keys) && text(v.draftID, 128) && (!expectedDraftID || v.draftID === expectedDraftID) && sameContext(v, params) && uint(v.revision) &&
     (v.reservedSerial === null || uint(v.reservedSerial)) && !!validation && Array.isArray(validation.errors) && validation.errors.length <= 32 &&
     validation.errors.every(x => text(x, 512, true)) && Array.isArray(validation.warnings) && validation.warnings.length <= 32 && validation.warnings.every(x => text(x, 512, true)) &&
     !!dupe && ["clear", "duplicate", "unchecked"].includes(String(dupe.state)) && text(dupe.reason, 512, true) && iso(v.updatedAt) &&
-    (!(arrl || declarativeSerial) || canonicalJSON(v.resolvedSerial) === canonicalJSON(authoritativeResolvedSerial)) &&
+    (!arrl || canonicalJSON(v.resolvedSerial) === canonicalJSON(authoritativeResolvedSerial)) &&
     (operatorCapable ? validOperatorReadiness(v.operatorReadiness, rule) : v.operatorReadiness === undefined);
 }
 function validReceipt(value: unknown, params: Record<string, unknown>) {

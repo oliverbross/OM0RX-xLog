@@ -4,13 +4,13 @@ import { ContestMutationUncertain, type ContestMutation } from "./client";
 import { createOperatorFlow, operatorFlowAdmissionShape, operatorFlowStep, type OperatorField, type OperatorFlowContext,
   type OperatorFlowCues, type OperatorFlowEvent, type OperatorFlowIntent, type OperatorFlowState, type OperatorMacroRole,
   type OperatorOperationToken, type OperatorStyle } from "./operatorFlow";
-import { isStructuredEntry, type ContestCommitResult, type ContestDraftResult, type ContestDraftSnapshot, type ContestSessionSummary } from "./types";
+import { isStructuredEntry, type ContestCommitResult, type ContestDraftResult, type ContestDraftSnapshot, type ContestMode, type ContestSessionSummary } from "./types";
 
 const MAX_TRACE = 24;
 
 export type ContestSimulationEntry = {
   operationID: string;
-  mode: "CW" | "SSB";
+  mode: "CW" | "SSB" | "AM" | "FM";
   macro: OperatorMacroRole;
   text: string;
 };
@@ -39,12 +39,15 @@ const immediateSimulation: ContestSimulationAdapter = async () => {};
 const draftIdentity = (draft: ContestDraftSnapshot) => `${draft.draftID}@${draft.revision}`;
 function supported(session: ContestSessionSummary, draft: ContestDraftSnapshot) {
   const capability = session.rule.operatorCapability, readiness = draft.operatorReadiness;
-  return (session.rule.mode === "CW" || session.rule.mode === "SSB") && !!capability && !!readiness &&
+  const mode = draft.fields.mode, profile = capability?.signalProfiles?.find(item => item.mode === mode);
+  const legacy = !capability?.signalProfiles && (mode === "CW" || mode === "SSB") && mode === session.rule.mode;
+  return (legacy || profile?.signal === (mode === "CW" ? "cw" : "phone")) && !!capability && !!readiness &&
     capability.version === 1 && capability.policy === "simulated-run-sp-v1" && capability.output === "simulation-only" &&
     readiness.capabilityDigest === capability.auditDigest;
 }
-function operatorSignalMode(session: ContestSessionSummary): "CW" | "SSB" {
-  if (session.rule.mode === "CW" || session.rule.mode === "SSB") return session.rule.mode;
+function operatorSignalMode(draft: ContestDraftSnapshot): "CW" | "SSB" | "AM" | "FM" {
+  const mode: ContestMode = draft.fields.mode;
+  if (["CW", "SSB", "AM", "FM"].includes(mode)) return mode as "CW" | "SSB" | "AM" | "FM";
   throw new Error("Operator flow is unavailable for this contest mode.");
 }
 function cuesFor(session: ContestSessionSummary, draft: ContestDraftSnapshot, focus: OperatorField, correctedCall: boolean): OperatorFlowCues {
@@ -56,10 +59,13 @@ function cuesFor(session: ContestSessionSummary, draft: ContestDraftSnapshot, fo
     reservedSerial: draft.reservedSerial };
 }
 function rendered(macro: OperatorMacroRole, session: ContestSessionSummary, draft: ContestDraftSnapshot) {
-  const sentExchange = isStructuredEntry(session.rule.entry) ? session.rule.entry.exchange.sentFields
+  const entry = session.rule.entry;
+  const sentExchange = isStructuredEntry(entry) ? entry.exchange.sentFields
     .map(field => draft.fields.sentExchangeFields?.[field.id]?.trim() ?? "").filter(Boolean).join(" ") : draft.fields.sentExchange;
+  const report = isStructuredEntry(entry) ? entry.modeProfiles.find(profile => profile.mode === draft.fields.mode)?.report ?? entry.report : entry.report;
+  const includesReport = report.format !== "none";
   const templates: Record<OperatorMacroRole, string> = {
-    CQ: "CQ CQ DE {MYCALL} {MYCALL} K", EXCH: isStructuredEntry(session.rule.entry) ? "{SERIAL}" : "{RST} {SERIAL}", QRZ: "TU {MYCALL} QRZ",
+    CQ: "CQ CQ DE {MYCALL} {MYCALL} K", EXCH: includesReport ? "{RST} {SERIAL}" : "{SERIAL}", QRZ: "TU {MYCALL} QRZ",
     AGN: "AGN", HISCALL: "{CALL}", MYCALL: "{MYCALL}", QSOB4: "QSO B4",
   };
   return expandCWMacro(templates[macro], { MYCALL: session.station.callsign, CALL: draft.fields.callsign,
@@ -72,7 +78,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
   // Unsupported profiles never execute an operator intent. This inert context
   // lets RTTY render its explicit Plain Log boundary without claiming a
   // digital-output implementation.
-  const signalMode = audited ? operatorSignalMode(session) : "CW";
+  const signalMode = audited ? operatorSignalMode(draft) : "CW";
   const contextRef = useRef<OperatorFlowContext>({ sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
     contextGeneration: 1, signalMode, serialRequired: session.rule.entry.serial.requirement === "requiredForCommit" });
   const [state, setState] = useState<OperatorFlowState>(() => createOperatorFlow(contextRef.current));
@@ -113,7 +119,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
       current.context.sessionID === intent.context.sessionID && current.context.workspaceGeneration === intent.context.workspaceGeneration &&
       current.context.contextGeneration === intent.context.contextGeneration && current.context.signalMode === intent.context.signalMode &&
       current.context.serialRequired === intent.context.serialRequired && active.sessionID === intent.context.sessionID &&
-      active.workspaceGeneration === intent.context.workspaceGeneration && active.rule.mode === intent.context.signalMode &&
+      active.workspaceGeneration === intent.context.workspaceGeneration && draftRef.current.fields.mode === intent.context.signalMode &&
       (active.rule.entry.serial.requirement === "requiredForCommit") === intent.context.serialRequired &&
       draftIdentity(draftRef.current) === intent.draftIdentity && admitIntentRef.current(intent.draftIdentity, intent.context);
   }
@@ -140,7 +146,7 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     if (intent.kind === "send") {
       if (!admits(intent) || !sendReady(intent.macro)) { settle(intent.token, "failed"); return; }
       const admittedSession = sessionRef.current, admittedDraft = draftRef.current;
-      const entry: ContestSimulationEntry = { operationID: intent.token.operationID, mode: operatorSignalMode(admittedSession), macro: intent.macro,
+      const entry: ContestSimulationEntry = { operationID: intent.token.operationID, mode: operatorSignalMode(admittedDraft), macro: intent.macro,
         text: rendered(intent.macro, admittedSession, admittedDraft) };
       setTrace(items => [...items, { ...entry, status: "pending" as const }].slice(-MAX_TRACE));
       try {
@@ -223,12 +229,14 @@ export function ContestOperatorPanel({ session, draft, entryRoot, editGeneration
     step({ type: "cues", context: stateRef.current.context, cues: cuesFor(session, draft, focusRef.current, corrected) });
   }, [draft.draftID, draft.revision, draft.fields.callsign, draft.fields.receivedExchange, draft.reservedSerial, draft.dupe.state]);
   useLayoutEffect(() => {
-    if (editRef.current === editGeneration) return;
+    const previous = stateRef.current.deferred?.context ?? stateRef.current.context;
+    const nextMode = audited ? operatorSignalMode(draft) : previous.signalMode;
+    if (editRef.current === editGeneration && previous.signalMode === nextMode) return;
     editRef.current = editGeneration;
-    const previous = stateRef.current.context, context = { ...previous, contextGeneration: previous.contextGeneration + 1 };
+    const context = { ...previous, contextGeneration: previous.contextGeneration + 1, signalMode: nextMode };
     contextRef.current = context;
     step({ type: "context-changed", previous, context });
-  }, [editGeneration]);
+  }, [audited, draft.fields.mode, editGeneration]);
   useEffect(() => {
     const continuation = reservationContinuation;
     if (!continuation) return;

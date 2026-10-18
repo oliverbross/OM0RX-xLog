@@ -3,7 +3,8 @@ import { countryDisplay } from "./countryDisplay";
 
 describe("countryDisplay", () => {
   it.each([
-    ["UNITED STATES", "United States"],
+    ["UNITED STATES", "USA"],
+    ["Fed. Rep. of Germany", "Germany"],
     ["RODRIGUES IS.", "Rodrigues Is."],
     ["CANARY ISLANDS", "Canary Islands"],
     ["CÔTE D'IVOIRE", "Côte d'Ivoire"],

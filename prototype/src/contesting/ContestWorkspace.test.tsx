@@ -2,9 +2,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import activationFixtureJSON from "../../../docs/contesting/fixtures/declarative-activation-worker-wire.json";
 import { ContestWorkspace, projectSCPCallsign, type ContestTransitionController } from "./ContestWorkspace";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
-import type { ContestDraftSnapshot, ContestFullQSO, ContestQSOChangeResult, ContestRequest, ContestRuleMetadata, ContestSessionSummary } from "./types";
+import { isStructuredEntry, type ContestDraftSnapshot, type ContestEntryDescriptorV2, type ContestFullQSO, type ContestQSOChangeResult, type ContestRequest, type ContestRuleMetadata, type ContestSessionSummary } from "./types";
 import { reviewedOperatorCapabilityDigest } from "./operatorCapabilities.generated";
 
 const entry = (mode: "CW" | "SSB", serial: boolean, adifFields: "none" | "stxSrx" | "exchangeStrings" = serial ? "stxSrx" : "none"): ContestRuleMetadata["entry"] => ({
@@ -44,6 +45,23 @@ const rules: ContestRuleMetadata[] = rawRules.map(rule => {
     output: "simulation-only", styles: ["run", "search-and-pounce"], macros: ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"] } } : rule;
 });
 const sessions: ContestSessionSummary[] = rules.slice(0, 2).map((rule, index) => ({ sessionID: `session-${index + 1}`, workspaceGeneration: "generation-1", revision: 1, name: index ? "WPX May" : "WW November", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T01:00:00Z" }));
+function mixedModeSession(): ContestSessionSummary {
+  const profile = (mode: "CW" | "SSB") => ({ mode, adifMode: mode, adifSubmode: null, cabrilloQSOType: mode === "CW" ? "CW" as const : "PH" as const,
+    report: { format: mode === "CW" ? "cwRST" as const : "phoneRS" as const, defaultSent: mode === "CW" ? "599" : "59",
+      defaultReceived: mode === "CW" ? "599" : "59", maximumUTF8Bytes: mode === "CW" ? 3 : 2 } });
+  const fixtureSession = (activationFixtureJSON as any).cases[0].session as ContestSessionSummary, base = fixtureSession.rule;
+  if (!isStructuredEntry(base.entry)) throw new Error("The mixed-mode test requires a structured declarative entry.");
+  const mixedEntry: ContestEntryDescriptorV2 = { ...base.entry,
+    mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", report: profile("SSB").report, modeProfiles: [profile("CW"), profile("SSB")] };
+  const rule: ContestRuleMetadata = { ...base, identity: { id: "operator-authored-mixed", version: "1", edition: "test", sourceRevision: "d".repeat(64) },
+    displayName: "Operator-authored mixed mode", mode: "SSB", supportedModes: ["CW", "SSB"], entry: mixedEntry,
+    operatorCapability: { ...base.operatorCapability!, auditDigest: "d".repeat(64), signalProfiles: [
+      { mode: "CW", signal: "cw" }, { mode: "SSB", signal: "phone" },
+    ] },
+    declarativeDefinition: { definitionDigest: "d".repeat(64), immutablePerSession: true, exportPurpose: "operatorArchive", submissionReady: false } };
+  return { ...fixtureSession, sessionID: "session-mixed", workspaceGeneration: "generation-1", name: "Mixed mode", rule,
+    referenceDataVersion: rule.referenceDataVersion };
+}
 const scpDataset={sourceID:"operator-managed-local",version:"tiny.scp",retrievedAtUTC:"2026-10-18T00:00:00.000Z",sha256:"a".repeat(64),byteCount:16,recordCount:1,duplicateCount:0,digestVerification:"computedOnly"};
 function withReadiness(session: ContestSessionSummary, draft: ContestDraftSnapshot): ContestDraftSnapshot {
   const capability = session.rule.operatorCapability;
@@ -57,12 +75,20 @@ function withReadiness(session: ContestSessionSummary, draft: ContestDraftSnapsh
     canReserveCommit: serial && callReady && exchangeReady && !duplicate && draft.reservedSerial === null,
     canCommit: callReady && exchangeReady && !duplicate && (!serial || draft.reservedSerial !== null) } };
 }
-function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent, structured = session.rule.entryDescriptorVersion === 2; const draft: ContestDraftSnapshot = { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange: structured ? "AL CA" : session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001", receivedReport: report, receivedExchange: callsign ? structured ? "SAM ON" : "05" : "", frequencyHz: 14025000, band: "20m", mode: session.rule.mode, ...(structured ? { sentExchangeFields: { name: "AL", location: "CA" }, receivedExchangeFields: { name: callsign ? "SAM" : "", location: callsign ? "ON" : "" } } : {}) }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; return withReadiness(session, draft); }
+function draftFor(session: ContestSessionSummary, callsign = "") : ContestDraftSnapshot { const report = session.rule.entry.report.defaultSent, entry = session.rule.entry, structured = isStructuredEntry(entry);
+  const sentFields = structured ? Object.fromEntries(entry.exchange.sentFields.map(field => [field.id, session.station.exchangeFields?.[field.id] ?? ""])) : undefined;
+  const receivedValue = (id: string) => !callsign ? "" : id === "name" ? "SAM" : id === "location" ? "ON" : id === "number" ? "14" : id === "member-or-location" ? "5678" : "1";
+  const receivedFields = structured ? Object.fromEntries(entry.exchange.receivedFields.map(field => [field.id, receivedValue(field.id)])) : undefined;
+  const sentExchange = structured ? Object.values(sentFields!).filter(Boolean).join(" ") : session.rule.entry.exchange.sentDefault === "stationSnapshot" ? "15" : "001";
+  const receivedExchange = callsign ? structured ? Object.values(receivedFields!).filter(Boolean).join(" ") : "05" : "";
+  const draft: ContestDraftSnapshot = { draftID: `draft-${session.sessionID}`, sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision: session.revision, reservedSerial: null, updatedAt: "2026-10-17T01:00:00Z", fields: { callsign, sentReport: report, sentExchange, receivedReport: report, receivedExchange, frequencyHz: 14025000, band: "20m", mode: session.rule.mode, ...(structured ? { sentExchangeFields: sentFields, receivedExchangeFields: receivedFields } : {}) }, validation: { errors: [], warnings: [] }, dupe: { state: "clear", reason: "Not worked on 20m." } }; return withReadiness(session, draft); }
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
 function fullQSO(session: ContestSessionSummary): ContestFullQSO { const report = session.rule.entry.report.defaultSent; return { qsoID: `qso-${session.sessionID}`, sessionID: session.sessionID, originalUTC: "2026-10-17T02:00:00.000Z", callsign: "K1ABC", band: "20m", mode: session.rule.mode, frequencyHz: 14025000, sentReport: report, receivedReport: report, sentExchange: "001", normalizedSentExchange: "001", allocatedSerial: "001", receivedExchange: "1", normalizedReceivedExchange: "1", entity: { adif: 291, name: "UNITED STATES", countryPrefix: "K", continent: "NA", cqZone: 5 }, operatorCallsign: "OM0RX", stationLocation: "Home", provenance: { source: "operatorEntry", sourceIdentity: "cty-1", importedClaimedScore: null }, ruleIdentity: session.rule.identity, referenceDataVersion: session.referenceDataVersion }; }
-function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean; scp?: boolean; emptyMultiplierDisplay?: boolean } = {}) {
-  const fixtureSessions = options.scp ? sessions.map((item,index) => ({...item,sessionID:`00000000-0000-0000-0000-00000000000${index+1}`,workspaceGeneration:"10000000-0000-0000-0000-000000000001"})) : sessions;
+function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boolean; commit?: Promise<void>; loseCreate?: boolean; staleApply?: boolean; openDelay?: Record<string, Promise<void>>; openGenerationMismatch?: string; qsoSession?: "session-1" | "session-2"; change?: Promise<void>; loseChange?: boolean; rejectChange?: boolean; malformedChange?: boolean; receiptCommitted?: boolean; scp?: boolean; emptyMultiplierDisplay?: boolean; extraSession?: ContestSessionSummary } = {}) {
+  const configuredSessions = options.extraSession ? [...sessions, options.extraSession] : sessions;
+  const fixtureSessions = options.scp ? configuredSessions.map((item,index) => ({...item,sessionID:`00000000-0000-0000-0000-00000000000${index+1}`,workspaceGeneration:"10000000-0000-0000-0000-000000000001"})) : configuredSessions;
+  const fixtureRules = options.extraSession ? [...rules, options.extraSession.rule] : rules;
   const state = new Map(fixtureSessions.map(item => { const session = { ...item, qsoCount: options.qsoSession === item.sessionID ? 1 : item.qsoCount }; const draft = draftFor(session); if (options.qsoSession === "session-2") draft.reservedSerial = 7; return [item.sessionID, { session, draft }]; }));
   const contacts = new Map<string, ContestFullQSO>(); if (options.qsoSession) contacts.set(options.qsoSession, fullQSO(state.get(options.qsoSession)!.session));
   const calls: [string, Record<string, unknown>][] = []; let sequence = 0, applyCount = 0, createLost = false, changeLost = false;
@@ -76,7 +102,7 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
       dataset:scpDataset,evaluatedRecordCount:1,isPartial:false});
     if(options.scp&&method==="contest_scp_select")return ok({callsign:"K1ABC"});
     if(options.scp&&method==="contest_scp_cancel")return ok({cancelled:true});
-    if (method === "contest_catalog") return ok({ workspaceGeneration: fixtureSessions[0].workspaceGeneration, rules });
+    if (method === "contest_catalog") return ok({ workspaceGeneration: fixtureSessions[0].workspaceGeneration, rules: fixtureRules });
     if (method === "contest_sessions") return ok({ sessions: [...state.values()].map(x => x.session) });
     if (method === "contest_open" || method === "contest_draft_get") {
       const id = params.sessionID as string; await options.openDelay?.[id]; const value = state.get(id)!;
@@ -86,7 +112,7 @@ function fixture(options: { firstApply?: Promise<void>; firstApplyReject?: boole
     if (method === "contest_create") {
       if (options.loseCreate && !createLost) { createLost = true; throw new Error("reply lost"); }
       const payload = params.payload as Record<string, unknown>, identity = payload.ruleIdentity as ContestRuleMetadata["identity"];
-      const rule = rules.find(x => x.identity.id === identity.id)!; const sessionID = params.sessionID as string;
+      const rule = fixtureRules.find(x => x.identity.id === identity.id)!; const sessionID = params.sessionID as string;
       const session: ContestSessionSummary = { ...sessions[0], sessionID, name: payload.name as string, rule, referenceDataVersion: payload.referenceDataVersion as string, station: payload.station as ContestSessionSummary["station"], operator: payload.operator as ContestSessionSummary["operator"], revision: 1 };
       const value = { session, draft: draftFor(session), receipt: receipt(params, 1) }; state.set(sessionID, { session, draft: value.draft }); return ok(value);
     }
@@ -143,6 +169,19 @@ async function openWPX(request: ContestRequest, storage = new MemoryContestRecov
   const view = render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={storage}/>);
   await screen.findByText("WPX May"); fireEvent.click(screen.getByRole("button", { name: /WPX May/ })); await screen.findByRole("form", { name: "CW contest entry" }); return view;
 }
+
+it("uses the active structured mode profile for report controls in an operator-authored mixed-mode session", async () => {
+  const mixed = mixedModeSession(), { request } = fixture({ extraSession: mixed });
+  render(<ContestWorkspace request={request} createRequestID={ids()} digestPayload={digest} recoveryStorage={new MemoryContestRecoveryStorage()}/>);
+  fireEvent.click(await screen.findByRole("button", { name: /Mixed mode/ }));
+  await screen.findByRole("form", { name: "SSB contest entry" });
+  const sent = screen.getByLabelText("Sent report") as HTMLInputElement, received = screen.getByLabelText("Received report") as HTMLInputElement;
+  expect(sent.maxLength).toBe(2); expect(received.maxLength).toBe(2); expect(sent.value).toBe("59");
+  fireEvent.change(screen.getByLabelText("Mode"), { target: { value: "CW" } });
+  await waitFor(() => expect((screen.getByLabelText("Sent report") as HTMLInputElement).value).toBe("599"));
+  expect((screen.getByLabelText("Sent report") as HTMLInputElement).maxLength).toBe(3);
+  expect((screen.getByLabelText("Received report") as HTMLInputElement).maxLength).toBe(3);
+});
 
 it("registers an awaited contest retirement controller and removes it on unmount", async () => {
   const { request } = fixture();
@@ -246,9 +285,12 @@ it("labels SAC as a practice scoring preview without claiming submission readine
   fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
   await screen.findByRole("form", { name: "SSB contest entry" });
   expect(screen.getByText(/SAC scoring practice preview/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
-  expect(await screen.findByText(/not sponsor-submission ready/)).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Prepare a practice export" })).toBeTruthy();
+  const exportButton = screen.getByRole("button", { name: "Export…" }) as HTMLButtonElement;
+  await waitFor(() => expect(exportButton.disabled).toBe(false));
+  fireEvent.click(exportButton);
+  const exportDialog = await screen.findByRole("dialog", { name: "Export contest log" });
+  expect(within(exportDialog).getByText(/not sponsor-submission ready/)).toBeTruthy();
+  expect(within(exportDialog).getByRole("heading", { name: "Prepare a practice export" })).toBeTruthy();
 });
 
 it("drains edits made during a delayed save before an immediate Log", async () => {

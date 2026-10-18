@@ -300,7 +300,8 @@ jobs:
             @{ Name = 'export'; Filter = 'contest_export::tests::'; Pattern = '^contest_export::tests::'; Count = 0 },
             @{ Name = 'admission'; Filter = 'contesting_test_native_admission_tests::'; Pattern = '^contesting_test_native_admission_tests::'; Count = 5 },
             @{ Name = 'passive read'; Filter = 'worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy'; Pattern = '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$'; Count = 1 },
-            @{ Name = 'operating module'; Filter = 'operating_module::tests::'; Pattern = '^operating_module::tests::'; Count = 0 }
+            @{ Name = 'operating module'; Filter = 'operating_module::tests::'; Pattern = '^operating_module::tests::'; Count = 0 },
+            @{ Name = 'worker shutdown'; Filter = 'worker::tests::shutdown_'; Pattern = '^worker::tests::shutdown_'; Count = 6 }
           )
           foreach ($entry in $filters) {
             $discovered = & cargo test --locked --jobs 2 --target-dir $target --bin xlog-prototype --features contesting-test $entry.Filter -- --list 2>&1

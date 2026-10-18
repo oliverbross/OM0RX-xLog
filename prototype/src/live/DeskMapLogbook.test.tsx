@@ -46,21 +46,22 @@ it("offers the five exact choices, defaults to Map and lazily retains each pane 
   expect(mounted.mock.calls).toEqual([["Map camera"], ["Logbook search"]]); expect(stored().view).toBe("logbook");
 });
 
-it("keeps previous QSOs and logbook above a half-height map, collapsing only previous QSOs without history", () => {
+it("sizes previous QSOs to their content, gives the balance to Logbook and keeps a half-height map", () => {
   const result = render(<DeskMapLogbook map={<div>Map</div>} logbook={<div>Logbook table</div>}
     previousQSOs={<div>Worked before table</div>} hasPreviousQSOs />);
   view("logbook-previous");
   const panes = result.container.querySelector<HTMLElement>(".desk-map-logbook-panes")!;
   const previous = result.container.querySelector<HTMLElement>(".desk-map-logbook-previous")!;
+  expect(panes.classList.contains("is-previous")).toBe(true);
   const logbook = result.container.querySelector<HTMLElement>(".desk-map-logbook-logbook")!;
-  expect(panes.style.gridTemplateRows).toBe("minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr)");
+  expect(panes.style.gridTemplateRows).toBe("fit-content(50%) minmax(0, 1fr) 50%");
   expect(previous.hidden).toBe(false); expect(previous.style.gridRow).toBe("1");
   expect(logbook.hidden).toBe(false); expect(logbook.style.gridRow).toBe("2");
   const map = result.container.querySelector<HTMLElement>(".desk-map-logbook-map")!;
   expect(map.hidden).toBe(false); expect(map.style.gridRow).toBe("3");
   result.rerender(<DeskMapLogbook map={<div>Map</div>} logbook={<div>Logbook table</div>}
     previousQSOs={<div>Old history must close</div>} hasPreviousQSOs={false} />);
-  expect(panes.style.gridTemplateRows).toBe("minmax(0, 1fr) minmax(0, 1fr)");
+  expect(panes.style.gridTemplateRows).toBe("minmax(0, 1fr) 50%");
   expect(previous.hidden).toBe(true); expect(logbook.style.gridRow).toBe("1");
   expect(map.hidden).toBe(false); expect(map.style.gridRow).toBe("2");
   expect(screen.queryByText("Old history must close")).toBeNull();
