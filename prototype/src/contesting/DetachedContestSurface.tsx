@@ -84,7 +84,7 @@ function Surface({ context }: { context: Context }) {
     {latest?.status === "rejected" && <p className="contest-surface-error" role="status">{latest.message || "The main contest controller rejected this action."}</p>}
     {projection.status === "unavailable" ? <section className="contest-surface-unavailable"><h1>Panel unavailable</h1><p>This shared contest panel is not connected yet.</p></section>
       : snapshot.panelID === "active-qso" ? <Entry projection={projection as Extract<typeof projection, { draft: unknown }>} disabled={projection.busy} sending={sending}
-          projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current}/>
+          projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as Extract<typeof projection, { score: unknown }>}/>
@@ -155,7 +155,12 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
   const discard=useCallback((key:EntryIntentKey)=>{dirty.current.delete(key);valuesRef.current={...valuesRef.current,[key]:authoritativeRef.current[key]};
     setValues(valuesRef.current);setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});},[]);
   const retry=useCallback((key:EntryIntentKey)=>{setUnresolved(previous=>{const next=new Set(previous);next.delete(key);return next;});void flush();},[flush]);
-  return {values,unresolved,change,flush,discard,retry};
+  const capture=useCallback(()=>({...valuesRef.current}),[]);
+  const matches=useCallback((draft:any,intended:Record<EntryIntentKey,string>)=>draft?.draftID===identityRef.current&&
+    draft.callsign===intended.callsign&&draft.sentReport===intended.sentReport&&draft.receivedReport===intended.receivedReport&&
+    draft.frequencyText===intended.frequency&&Array.isArray(draft.receivedFields)&&draft.receivedFields.length===projection.draft.receivedFields.length&&
+    draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value),[projection.draft.receivedFields.length]);
+  return {values,unresolved,change,flush,discard,retry,capture,matches};
 }
 function EntryIntentInput({label,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onChange,unresolved,retry,discard}:{
   label:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:"callsign"|"exchange";
@@ -165,9 +170,9 @@ function EntryIntentInput({label,intentKey,value,maximumUTF8Bytes,disabled,opera
       onChange(intentKey,next);}}/></label>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
       <button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
 }
-function Entry({ projection, disabled, sending, projectionRevision, send, refresh, settle }: { projection: any; disabled: boolean; sending:boolean;
+function Entry({ projection, disabled, sending, projectionRevision, send, refresh, settle, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
   projectionRevision:number;send:Send;refresh:()=>Promise<ContestSurfaceSnapshot|null>;
-  settle:()=>Promise<void> }) {
+  settle:()=>Promise<void>;reportConflict:(message:string)=>void }) {
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
   const callsignRef=useRef<HTMLInputElement>(null),exchangeRef=useRef<HTMLInputElement>(null);
   const operator=projection.schemaVersion===2?projection.operator:null;
@@ -178,11 +183,18 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     :{action:"entry_set_exchange",params:{...base,fieldID:key.slice("exchange:".length),value}};
   useEffect(()=>{if(operator?.focusedField==="callsign")callsignRef.current?.focus();else if(operator?.focusedField==="exchange")exchangeRef.current?.focus();},[operator?.focusedField]);
   const operatorKey=(key:string,focusedField:"callsign"|"exchange"|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
+    const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
+      armed:operator.armed,style:operator.style};
     void (async()=>{if(key!=="Escape"){if(!await intents.flush())return;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
+      if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||currentProjection.draft.band!==intentContext.band||
+          currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
+          currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
+        reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
       await send({action:"entry_operator_key",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,
         key:key as any,focusedField}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
+    if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
     const focusedField=(target?.dataset.contestOperatorField as "callsign"|"exchange"|undefined)??operator?.focusedField??null;
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
   return <section className="contest-surface-entry" onKeyDown={onKeyDown}><header><div><h1>{projection.session.name}</h1><span>{projection.session.ruleName} · {projection.session.mode}</span></div>
