@@ -10,6 +10,7 @@ private actor ContestOperatorAcceptanceBridge {
     private let supportRoot: URL
     private let fixtureRoot: URL
     private let profile: AppRuntimeProfile
+    private let inheritNativePreferences = false
     private let responseFD: Int32
     private let stallMode: String?
     private var worker: LiveWorker?
@@ -23,7 +24,7 @@ private actor ContestOperatorAcceptanceBridge {
     }
 
     private func newWorker() -> LiveWorker {
-        LiveWorker(logbook: LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: false,
+        LiveWorker(logbook: LiveLogbookMethods(supportDirectory: supportRoot, inheritNativePreferences: inheritNativePreferences,
                                                runtimeProfile: profile), runtimeProfile: profile)
     }
 
@@ -65,7 +66,8 @@ private actor ContestOperatorAcceptanceBridge {
                               userInfo: [NSLocalizedDescriptionKey: "Acceptance worker profile does not own its isolated support root."])
             }
             try respond(id: id, result: ["runtimeProfile": "contestingTest", "supportRoot": resolvedSupportRoot.path,
-                                         "inheritNativePreferences": false, "stationIO": false])
+                                         "inheritNativePreferences": inheritNativePreferences,
+                                         "stationIO": profile.externalIOAllowed])
         case "__acceptance_restart":
             if let worker { await worker.shutdown() }
             worker = newWorker()

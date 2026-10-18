@@ -52,10 +52,10 @@ const protectedBefore = Object.fromEntries(protectedPaths.map(path => [path, met
 const frames = [], lifecycle = [], actions = [], simulatedOutput = [], observations = [], exportAssertions = [];
 const openFileAudits = [];
 const isolatedSupportRoot = join(isolatedHome, "Library", "Application Support", "OM0RX-xLog Contesting Test");
-function auditTestHostDatabaseFiles(phase) {
+function auditTestHostDatabaseFiles(phase, requirements) {
   const output = execFileSync("/usr/sbin/lsof", ["-Fn", "-p", String(testHostPID)], { encoding: "utf8", maxBuffer: 4_000_000, timeout: 5_000 });
   const paths = output.split("\n").filter(row => row.startsWith("n/")).map(row => row.slice(1));
-  const audit = admitContestAcceptanceDatabaseFiles(paths, isolatedSupportRoot, protectedPaths);
+  const audit = admitContestAcceptanceDatabaseFiles(paths, isolatedSupportRoot, protectedPaths, requirements);
   openFileAudits.push({ phase, testHostPID, ...audit });
 }
 let pendingExportExpectation = null;
@@ -73,7 +73,7 @@ if (process.env.XLOG_OPERATOR_ACCEPTANCE_STALL === "shutdown") await successful(
 assert.equal((await successful("workspace_status")).workspace_exists, false);
 await successful("workspace_create", { mode: "empty" });
 assert.equal((await successful("workspace_status")).qso_count, 0);
-auditTestHostDatabaseFiles("after-workspace-create");
+auditTestHostDatabaseFiles("after-workspace-create", { requireWorkspace: true, requireContest: false });
 
 async function jsonBody(request) { const chunks = []; for await (const chunk of request) chunks.push(chunk); const bytes = Buffer.concat(chunks); assert.ok(bytes.length <= 1_000_000); return JSON.parse(bytes.toString("utf8")); }
 async function captureExport(prepared) {
@@ -621,7 +621,10 @@ async function openSession(item) {
 let primaryFailure = null;
 try {
   await browser(["open", url]); await waitText("Contest Workspace");
-  for (const item of cases) await createCase(item);
+  for (const item of cases) {
+    await createCase(item);
+    if (item === cases[0]) auditTestHostDatabaseFiles("after-first-contest-session", { requireWorkspace: true, requireContest: true });
+  }
   await successful("__acceptance_restart"); await waitText(cases[0].name);
   for (const item of cases) {
     await openSession(item); await expectText("[aria-label='Contest log']", /6 contacts/);
@@ -669,7 +672,7 @@ try {
       score: correction.response.result.score.claimedScore });
     await click("Contest Manager"); await waitText("Contest sessions");
   }
-  auditTestHostDatabaseFiles("before-owned-shutdown");
+  auditTestHostDatabaseFiles("before-owned-shutdown", { requireWorkspace: true, requireContest: true });
   await browser(["close"], false);
   const status = await successful("workspace_status"); assert.deepEqual({ qso: status.qso_count, pending: status.pending_sync_count, outbox: status.outbox_count }, { qso: 0, pending: 0, outbox: 0 });
   assert.equal(simulatedOutput.some(item => item.macro === "CQ"), true); assert.equal(simulatedOutput.some(item => item.macro === "EXCH"), true);
@@ -684,7 +687,7 @@ finally { try { await browser(["close"], false); } catch {} try { await successf
 const inventory = rootPath => { const rows = []; const visit = (path, relative) => { const value = lstatSync(path); assert.equal(value.isSymbolicLink(), false); if (value.isDirectory()) for (const name of readdirSync(path).sort()) visit(join(path, name), relative ? `${relative}/${name}` : name); else rows.push({ path: relative, size: value.size, sha256: hashFile(path) }); }; visit(rootPath, ""); return rows; };
 const protectedAfter = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
 const protectedDatabaseMetadataUnchanged = JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore);
-const evidence = { schemaVersion: 3, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; open-file audits are bounded checkpoints, not a lifetime filesystem trace; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, pid: testHostPID, sha256: testHostSha256, isolation }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), openFileAudits, protectedDatabaseMetadataUnchanged, protectedDatabaseMetadataObservation: protectedDatabaseMetadataUnchanged ? "unchanged" : "changed by an unattributed concurrent process; the test host open-file checkpoints exclude protected paths", failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
+const evidence = { schemaVersion: 3, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; open-file audits are bounded checkpoints, not a lifetime filesystem trace; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, pid: testHostPID, sha256: testHostSha256, isolation }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), openFileAudits, protectedDatabaseMetadataUnchanged, protectedDatabaseMetadataObservation: protectedDatabaseMetadataUnchanged ? "unchanged" : "changed; process attribution unknown; bounded test-host checks observed no protected paths", failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
 writeFileSync(join(evidenceRoot, "acceptance.json"), `${JSON.stringify(evidence, null, 2)}\n`);
 process.stdin.destroy();
 if (primaryFailure) throw primaryFailure;
