@@ -71,6 +71,39 @@ final class CQWWCountryReferenceMaterializerTests: XCTestCase {
         }
     }
 
+    func testMaterializationRejectsMissingNamedAuthorityException() throws {
+        let csv = try CTYResolver.bundledCSV()
+            .split(whereSeparator: \.isNewline)
+            .filter { !$0.hasPrefix("*4U1V,") }
+            .joined(separator: "\n") + "\n"
+        let resolver = try resolver(csv: csv)
+
+        XCTAssertThrowsError(try CQWWCountryReferenceMaterializer.materialize(
+            resolver: resolver, referenceDataVersion: version
+        )) { error in
+            guard case let CQWWCountryReferenceMaterializationError.missingAuthorityEndpoint(endpoint) = error else {
+                return XCTFail("unexpected error: \(error)")
+            }
+            XCTAssertEqual(endpoint.entityName, "VIENNA INTL CTR")
+            XCTAssertEqual(endpoint.adif, 206)
+        }
+    }
+
+    func testMaterializationRejectsAmbiguousOrdinaryBaseWithinPinnedSnapshot() throws {
+        let extra = "ZZ,Other Austria,206,EU,15,28,48.00,-17.00,-1.0,ZZ;\n"
+        let resolver = try resolver(csv: CTYResolver.bundledCSV() + extra)
+
+        XCTAssertThrowsError(try CQWWCountryReferenceMaterializer.materialize(
+            resolver: resolver, referenceDataVersion: version
+        )) { error in
+            guard case let CQWWCountryReferenceMaterializationError.ambiguousDXCCEntity(adif, names) = error else {
+                return XCTFail("unexpected error: \(error)")
+            }
+            XCTAssertEqual(adif, 206)
+            XCTAssertEqual(names, ["AUSTRIA", "OTHER AUSTRIA"])
+        }
+    }
+
     private func endpoint(_ country: CountryInfo) -> ContestCountryMultiplierEndpoint {
         .init(adif: country.adif, entityName: country.name,
               continent: country.continent, cqZone: country.cqZone)
@@ -79,5 +112,12 @@ final class CQWWCountryReferenceMaterializerTests: XCTestCase {
     private func entity(_ endpoint: ContestCountryMultiplierEndpoint) -> ContestEntitySnapshot {
         .init(adif: endpoint.adif, name: endpoint.entityName, countryPrefix: "FIXTURE",
               continent: endpoint.continent, cqZone: endpoint.cqZone)
+    }
+
+    private func resolver(csv: String) throws -> CTYResolver {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
+        try csv.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        return try CTYResolver(csvURL: url)
     }
 }

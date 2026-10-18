@@ -6,6 +6,7 @@ import FoundationXML
 public final class CTYResolver: @unchecked Sendable {
     fileprivate struct Rule {
         var token: String
+        var endpointToken: String
         var exact: Bool
         var country: CountryInfo
         var endpointCountry: CountryInfo
@@ -14,6 +15,7 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     private let rules: [Rule]
+    private let endpointRules: [Rule]
     private let ignoredSuffixes: Set<String> = ["P", "M", "MM", "AM", "QRP", "QRPP", "A", "B", "QTH"]
 
     public init(csvURL: URL) throws {
@@ -28,17 +30,18 @@ public final class CTYResolver: @unchecked Sendable {
             let tokens = ([columns[0]] + tokenText.split(whereSeparator: { $0 == " " || $0 == ";" }).map(String.init))
             for raw in tokens {
                 let exact = raw.hasPrefix("=")
-                let cleaned = Self.cleanToken(raw)
-                if !cleaned.isEmpty {
-                    parsed.append(Rule(token: cleaned, exact: exact, country: info,
+                let legacyToken = Self.cleanLegacyToken(raw)
+                let endpointToken = Self.cleanEndpointToken(raw)
+                if !legacyToken.isEmpty, !endpointToken.isEmpty {
+                    parsed.append(Rule(token: legacyToken, endpointToken: endpointToken,
+                                       exact: exact, country: info,
                                        endpointCountry: Self.applyingOverrides(in: raw, to: info),
                                        start: nil, end: nil))
                 }
             }
         }
-        rules = parsed.sorted { lhs, rhs in
-            lhs.token.count == rhs.token.count ? (lhs.exact && !rhs.exact) : lhs.token.count > rhs.token.count
-        }
+        rules = Self.sortedRules(parsed, by: \.token)
+        endpointRules = Self.sortedRules(parsed, by: \.endpointToken)
     }
 
     public static func bundled() throws -> CTYResolver {
@@ -59,7 +62,7 @@ public final class CTYResolver: @unchecked Sendable {
     /// CQ-zone, ITU-zone, and continent overrides from the pinned CTY data. This deliberately does
     /// not collapse by ADIF identity.
     public func reachableCountryEndpoints(at date: Date) -> [CountryInfo] {
-        Array(Set(rules.compactMap { rule in
+        Array(Set(endpointRules.compactMap { rule in
             if let start = rule.start, date < start { return nil }
             if let end = rule.end, date > end { return nil }
             return rule.endpointCountry
@@ -76,22 +79,22 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     private init(rules: [Rule]) {
-        self.rules = rules.sorted { lhs, rhs in
-            lhs.token.count == rhs.token.count ? (lhs.exact && !rhs.exact) : lhs.token.count > rhs.token.count
-        }
+        self.rules = Self.sortedRules(rules, by: \.token)
+        endpointRules = Self.sortedRules(rules, by: \.endpointToken)
     }
 
     public func resolve(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
-        matchingRule(rawCallsign, at: date)?.country
+        matchingRule(rawCallsign, at: date, rules: rules, token: \.token)?.country
     }
 
     /// Opt-in resolver endpoint including CTY token-level CQ-zone, ITU-zone, and continent
     /// overrides. The legacy `resolve` result remains unchanged for persisted callers.
     public func resolveCountryEndpoint(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
-        matchingRule(rawCallsign, at: date)?.endpointCountry
+        matchingRule(rawCallsign, at: date, rules: endpointRules, token: \.endpointToken)?.endpointCountry
     }
 
-    private func matchingRule(_ rawCallsign: String, at date: Date) -> Rule? {
+    private func matchingRule(_ rawCallsign: String, at date: Date, rules: [Rule],
+                              token: KeyPath<Rule, String>) -> Rule? {
         let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
         var candidates = [call]
         candidates.append(contentsOf: call.split(separator: "/").map(String.init).filter { !ignoredSuffixes.contains($0) }.sorted { $0.count > $1.count })
@@ -99,8 +102,9 @@ public final class CTYResolver: @unchecked Sendable {
             for rule in rules {
                 if let start = rule.start, date < start { continue }
                 if let end = rule.end, date > end { continue }
-                if rule.exact ? candidate == rule.token : candidate.hasPrefix(rule.token) {
-                    if rule.token == "KG4", candidate.range(of: #"^KG4[A-Z]{3}$"#, options: .regularExpression) != nil,
+                let ruleToken = rule[keyPath: token]
+                if rule.exact ? candidate == ruleToken : candidate.hasPrefix(ruleToken) {
+                    if ruleToken == "KG4", candidate.range(of: #"^KG4[A-Z]{3}$"#, options: .regularExpression) != nil,
                        rule.country.name.contains("GUANTANAMO") { continue }
                     return rule
                 }
@@ -125,11 +129,23 @@ public final class CTYResolver: @unchecked Sendable {
         return unique.values.sorted { lhs, rhs in lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending }
     }
 
-    private static func cleanToken(_ raw: String) -> String {
+    private static func cleanLegacyToken(_ raw: String) -> String {
         var token = raw.uppercased().trimmingCharacters(in: CharacterSet(charactersIn: "*=;"))
-        token = token.replacingOccurrences(of: #"\([^)]*\)|\[[^]]*\]|\{[^}]*\}|<[^>]*>"#,
+        token = token.replacingOccurrences(of: #"\([^)]*\)|\[[^]]*\]|<[^>]*>"#,
                                            with: "", options: .regularExpression)
         return token.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func cleanEndpointToken(_ raw: String) -> String {
+        cleanLegacyToken(raw).replacingOccurrences(of: #"\{[^}]*\}"#, with: "", options: .regularExpression)
+    }
+
+    private static func sortedRules(_ rules: [Rule], by token: KeyPath<Rule, String>) -> [Rule] {
+        rules.sorted { lhs, rhs in
+            let lhsToken = lhs[keyPath: token]
+            let rhsToken = rhs[keyPath: token]
+            return lhsToken.count == rhsToken.count ? (lhs.exact && !rhs.exact) : lhsToken.count > rhsToken.count
+        }
     }
 
     private static func applyingOverrides(in raw: String, to country: CountryInfo) -> CountryInfo {
@@ -230,6 +246,7 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
         )
         rules.append(CTYResolver.Rule(
             token: token,
+            endpointToken: token,
             exact: name == "exception",
             country: info,
             endpointCountry: info,
