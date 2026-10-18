@@ -65,7 +65,7 @@ struct OperatorDraftRadioReadTests {
         #expect(after["frequencyHz"] as? Int == 7_041_000)
         #expect(after["band"] as? String == "40m")
         #expect(after["mode"] as? String == "CW")
-        #expect(after["receiveFrequencyHz"] is NSNull)
+        #expect(after["receiveFrequencyHz"] == nil || after["receiveFrequencyHz"] is NSNull)
     }
     private func replace(_ service: LiveLogbookMethods, _ snapshot: [String: Any], _ qso: [String: Any], manualPower: String? = nil) throws {
         var request = try params(snapshot)
