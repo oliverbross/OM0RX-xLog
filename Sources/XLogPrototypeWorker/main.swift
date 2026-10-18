@@ -12,10 +12,12 @@ let worker = PrototypeWorker()
 let output = FileHandle.standardOutput
 
 let runtimeProfile: AppRuntimeProfile
+let operatingModule: WorkerOperatingModule
 do {
     runtimeProfile = try AppRuntimeProfile.resolve(arguments: Array(CommandLine.arguments.dropFirst()),
         executableURL: URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL)
     try AppRuntimeProfile.configure(runtimeProfile)
+    operatingModule = try WorkerOperatingModule.resolve(environment: ProcessInfo.processInfo.environment)
 } catch {
     FileHandle.standardError.write(Data("Runtime profile validation failed.\n".utf8))
     exit(2)
@@ -84,7 +86,8 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         FileHandle.standardError.write(Data("Could not create isolated local acceptance session.\n".utf8))
         exit(1)
     }
-    let liveWorker = acceptance?.worker ?? LiveWorker.shared
+    let liveWorker = acceptance?.worker ?? LiveWorker.processWorker(
+        operatingModule: operatingModule, runtimeProfile: runtimeProfile)
     await liveWorker.startBackgroundServices()
     var lines = WorkerLineReader()
     #if os(Windows)
@@ -140,8 +143,12 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // EOF is the graceful shutdown signal. Retire station ownership before
     // waiting on unrelated slow service/logbook work so RF releases are not
     // delayed behind a network lookup or database import.
-    if acceptance == nil { await liveWorker.shutdown() }
+    let retiredCleanly = acceptance == nil ? await liveWorker.shutdown() : true
     await group.waitForAll()
+    if !retiredCleanly {
+        FileHandle.standardError.write(Data("Background delivery retirement failed.\n".utf8))
+        exit(1)
+    }
     }
     if let acceptance {
         do { try await acceptance.close() }

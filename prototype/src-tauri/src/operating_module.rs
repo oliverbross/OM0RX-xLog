@@ -14,6 +14,13 @@ impl OperatingModule {
             _ => Err("Choose Normal Logging or Contesting.".into()),
         }
     }
+
+    pub fn worker_value(self) -> &'static str {
+        match self {
+            Self::NormalLogging => "normal_logging",
+            Self::Contesting => "contesting",
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -28,6 +35,14 @@ pub fn install(directory: PathBuf) -> Result<(), String> {
     OWNER.set(Owner::load(directory)).map_err(|_| "Operating module authority was already installed.".into())
 }
 pub fn owner() -> Result<&'static Owner, String> { OWNER.get().ok_or("Operating module authority unavailable".into()) }
+
+pub fn selected_worker_value() -> Result<&'static str, String> {
+    let state = owner()?.state.lock().map_err(|_| "Operating module authority unavailable")?;
+    if state.transitioning {
+        return Err("The operating module is changing. Wait for restart.".into());
+    }
+    Ok(state.selected.worker_value())
+}
 pub fn validate_target(value: &str, contesting_test: bool) -> Result<(), String> {
     let target = OperatingModule::parse(value)?;
     if target == OperatingModule::Contesting && !contesting_test {
@@ -134,6 +149,10 @@ pub fn worker_module(request: &Value) -> Option<OperatingModule> {
             "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" | "contest_history_query" |
             "contest_history_query_cancel" | "contest_history_select")).then_some(OperatingModule::Contesting);
     }
+    if method == "sync_mutation" {
+        return matches!(request["params"]["method"].as_str(), Some("sync_run" | "sync_retry" | "sync_resolve"))
+            .then_some(OperatingModule::NormalLogging);
+    }
     matches!(method,
         "logbook_operator_draft_apply" | "logbook_operator_draft_qsy_clear" | "logbook_operator_draft_radio_read" |
         "logbook_operator_draft_radio_follow" | "spot_draft_apply" | "spot_draft_stage" | "spot_draft_finish" | "spot_draft_abandon" |
@@ -141,7 +160,8 @@ pub fn worker_module(request: &Value) -> Option<OperatingModule> {
         "station_tune" | "station_action" | "station_connect" | "station_disconnect" | "station_configure" | "station_configuration_save" |
         "station_token_save" | "station_reconnect" | "station_forget" | "station_radio_control" | "station_rotor_connect" |
         "station_rotor_disconnect" | "station_rotor_goto" | "rotor_goto" | "rotor_park" |
-        "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect" | "hamlib_control" | "winkeyer_control"
+        "hamlib_connect" | "hamlib_reconnect" | "hamlib_disconnect" | "hamlib_control" | "winkeyer_control" |
+        "wsjtx_configure" | "wsjtx_start" | "sync_run" | "sync_retry" | "sync_resolve"
     ).then_some(OperatingModule::NormalLogging)
 }
 
@@ -151,7 +171,7 @@ pub fn shared_worker_mutation(request: &Value) -> bool {
         "reference_refresh" | "reference_schedule" | "reference_configure" |
         "backup_restore" | "workspace_create" | "workspace_rotor_configuration_save" |
         "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_logbook_filters_apply" |
-        "workspace_layout_apply" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop" |
+        "workspace_layout_apply" | "wsjtx_stop" |
         "spot_bridge_configure" | "cluster_radio_spots_configure"
     ))
 }
@@ -175,6 +195,9 @@ mod tests {
         assert_eq!(worker_module(&request("contest_qso_commit")), Some(OperatingModule::Contesting));
         assert_eq!(worker_module(&request("contest_qso_get")), None);
         assert_eq!(worker_module(&request("logbook_operator_draft_apply")), Some(OperatingModule::NormalLogging));
+        assert_eq!(worker_module(&request("wsjtx_start")), Some(OperatingModule::NormalLogging));
+        assert_eq!(worker_module(&request("wsjtx_snapshot")), None);
+        assert!(shared_worker_mutation(&request("wsjtx_stop")));
         assert_eq!(worker_module(&request("reference_resolve")), None);
         for method in ["rotor_stop", "station_rotor_stop", "winkeyer_stop"] { assert_eq!(worker_module(&request(method)), None); }
         for method in ["settings_save", "workspace_rotor_configuration_save", "workspace_layout_apply"] {
@@ -183,11 +206,42 @@ mod tests {
         for method in ["settings_load", "workspace_rotor_configuration_load", "workspace_layout_load"] {
             assert!(!shared_worker_mutation(&request(method)));
         }
+        for method in ["sync_run", "sync_retry", "sync_resolve"] {
+            assert_eq!(worker_module(&request(method)), Some(OperatingModule::NormalLogging));
+        }
+        let sync = |method: &str| json!({"method":"sync_mutation","params":{"method":method}});
+        for method in ["sync_run", "sync_retry", "sync_resolve"] {
+            assert_eq!(worker_module(&sync(method)), Some(OperatingModule::NormalLogging));
+        }
+        assert_eq!(worker_module(&sync("sync_configure")), None);
+        assert!(shared_worker_mutation(&sync("sync_configure")));
+    }
+    #[test] fn sync_effect_mutations_require_normal_logging_admission() {
+        let owner = Owner::memory(OperatingModule::Contesting);
+        let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+        let sync = |method: &str| json!({"method":"sync_mutation","params":{"method":method}});
+        for method in ["sync_run", "sync_retry", "sync_resolve"] {
+            let required = worker_module(&sync(method)).unwrap();
+            assert_eq!(required, OperatingModule::NormalLogging);
+            assert!(owner.admit(required, Some(&context)).is_err());
+        }
+        assert!(owner.admit_current().is_ok());
+        assert_eq!(worker_module(&sync("sync_configure")), None);
     }
     #[test] fn contest_target_requires_the_compiled_contesting_profile_not_generic_isolation() {
         assert!(validate_target("contesting", false).is_err());
         assert!(validate_target("contesting", true).is_ok());
         assert!(validate_target("normal_logging", false).is_ok());
+    }
+    #[test] fn persisted_selection_binds_the_next_worker_generation_after_restart() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Owner::load(directory.path().to_path_buf());
+        let context = owner.snapshot().unwrap()["context"].as_str().unwrap().to_owned();
+        let target = owner.begin("contesting", &context).unwrap();
+        owner.commit(target).unwrap();
+        let reopened = Owner::load(directory.path().to_path_buf());
+        assert_eq!(reopened.snapshot().unwrap()["selected"], "contesting");
+        assert_eq!(OperatingModule::Contesting.worker_value(), "contesting");
     }
     #[test] fn transition_and_effect_admission_are_atomic() {
         let owner = Owner::memory(OperatingModule::NormalLogging);

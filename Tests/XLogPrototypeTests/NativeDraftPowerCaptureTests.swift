@@ -69,6 +69,38 @@ struct NativeDraftPowerCaptureTests {
         gate.observe(sourceID: source, sample: sample, frequencyHz: frequency, mode: mode)
     }
 
+    @Test("Contesting background ownership cannot arm or mutate the Normal Logging power draft")
+    func contestingOwnership() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("power-contest-owner-\(UUID())")
+        let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let workspace = try IntegrationWorkspaceBootstrap.open(at: service.workspaceDirectoryURL)
+        defer { workspace.makeDefaults()?.removePersistentDomain(forName: workspace.defaultsSuiteName) }
+        var settings = try service.currentSettings(); settings.automaticTransmitPower = true
+        settings.defaultPower = "100"
+        _ = try service.saveSettingsForTest(try object(settings))
+        let gate = NativeDraftPowerGate(), delivery = NativeDraftPowerDelivery()
+        let worker = LiveWorker(logbook: service, powerCapture: gate, powerDelivery: delivery,
+            runtimeProfile: .production, operatingModule: .contesting)
+        let before = try service.powerOwnerSnapshot().draft
+        await worker.startBackgroundServices()
+        let source = UUID(), session = UUID()
+        gate.select(provider: "direct_agent", selectionID: UUID().uuidString)
+        gate.attach(sourceID: source, endpointID: "fixture")
+        gate.connection(sourceID: source, sequence: 1, sessionID: session,
+            startedAt: Date().addingTimeInterval(-1), ready: true)
+        try emit(gate, source: source, session: session, watts: 700)
+        await worker.drainPowerCapture()
+        #expect(try service.powerOwnerSnapshot().draft == before)
+        await worker.shutdown()
+        gate.connection(sourceID: source, sequence: 2, sessionID: UUID(),
+            startedAt: Date(), ready: true)
+        try emit(gate, source: source, session: session, watts: 900)
+        await worker.drainPowerCapture()
+        #expect(try service.powerOwnerSnapshot().draft == before)
+    }
+
     @Test("Native callback burst retains the short peak and Save commits its provenance")
     func peakAndSave() async throws {
         try await fixture { worker, service, gate, source, session, _ in

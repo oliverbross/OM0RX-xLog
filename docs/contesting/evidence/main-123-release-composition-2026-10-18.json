@@ -1,0 +1,107 @@
+{
+  "capturedAt": "2026-10-18T12:54:14+09:30",
+  "branch": "codex/contest-main-123-release-composition",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "firstParent": "227c89351b4d262a1f5b38282f08e6f78b74ba8f",
+  "mergedReleaseReceipt": "27f8d1989e29210f56fb184240ee3d004b07363f",
+  "receiptSourceCommit": "ea382fd14cada07160d99bb26411f54c43fe2e25",
+  "mergeMode": "git merge --no-commit --no-ff",
+  "conflicts": [],
+  "contract": {
+    "source": "This tree composes the accepted 1.2.23 source and its release receipt with the accepted declarative activation and immutable background-owner checkpoints.",
+    "receipt": "The v1.2.23 release document remains evidence for the separately packaged and installed artifact built from ea382fd; this uncommitted composition was not packaged or installed.",
+    "scope": "No canonical checkout, package installation, user data, contest definitions, or contest export policy changed. The later Windows shutdown fixture checkpoint 10674b6 is intentionally deferred."
+  },
+  "tests": [
+    {
+      "command": "cd prototype && npm exec -- vitest run src/Map.test.tsx src/live/DeskMapLogbook.test.tsx src/live/DeskPreviousQSOs.test.tsx src/live/HFPropagationLive.test.tsx src/live/countryDisplay.test.ts src/live/hfPropagationModel.test.ts src/contesting --maxWorkers=2",
+      "result": "Non-acceptance diagnostic run: 260 passed, 4 failed across 27 files while Swift and Rust were compiling concurrently; three failures were 5-second timeouts and one timing-sensitive contest assertion had no callback before its assertion. The failures were rerun serially below.",
+      "logPath": "/tmp/xlog-main123-release-focused-frontend-2026-10-18.log",
+      "logSHA256": "59286a78876f547dbfddbbfd59dbcb0347da2379785f38d2cbdec9c822b40ebf"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run src/contesting/ContestWorkspace.test.tsx src/contesting/ContestOperatorPanel.test.tsx src/live/HFPropagationLive.test.tsx --maxWorkers=1",
+      "result": "Diagnostic rerun: ContestOperatorPanel and HFPropagationLive passed; ContestWorkspace had one different asynchronous export-text lookup failure, then passed completely in the exact isolated rerun below.",
+      "logPath": "/tmp/xlog-main123-release-focused-rerun-2026-10-18.log",
+      "logSHA256": "f7bf9dcd350c82b466bdd9db18880ae9b653f537c04345e712cc2726a48eee8a"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run src/contesting/ContestWorkspace.test.tsx --maxWorkers=1",
+      "result": "1 file, 35 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-workspace-isolated-2026-10-18.log",
+      "logSHA256": "7b07fe1af5fb75b94070fb5fec04476f3edb0860f1c827670271d6ad7a76cb0c"
+    },
+    {
+      "command": "cd prototype && npm exec -- vitest run src/Map.test.tsx src/live/DeskMapLogbook.test.tsx src/live/DeskPreviousQSOs.test.tsx src/live/HFPropagationLive.test.tsx src/live/countryDisplay.test.ts src/live/hfPropagationModel.test.ts --maxWorkers=1",
+      "result": "6 files, 58 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-main-ui-isolated-2026-10-18.log",
+      "logSHA256": "5836dc329813d69e456322ef237376e55951eced59ae7481e81698139b678770"
+    },
+    {
+      "command": "cd prototype && npm run build",
+      "result": "TypeScript, Vite production build and window bundle checks passed",
+      "logPath": "/tmp/xlog-main123-release-build-2026-10-18.log",
+      "logSHA256": "7febfda7be1cac2a6519429471735358247697af5cae717c8586cb61bb873733"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter ClusterCountryDirectoryTests",
+      "result": "1 test, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-country-swift-2026-10-18.log",
+      "logSHA256": "b11d727a65c2eaa28afae23e96bee436e8f1082e5a80f5e7488319942fd5c4a0"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter ContestDeclarativeActivationTests",
+      "result": "4 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-activation-swift-2026-10-18.log",
+      "logSHA256": "e31a02577dc6c72f4af1efda56d03c1524dee3a76615f5599359749df6ad7b35"
+    },
+    {
+      "command": "XLOG_PORTABLE_ONLY=1 swift test --jobs 2 --scratch-path /tmp/xlog-background-combine-swift --filter WorkerStartupTests",
+      "result": "6 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-worker-swift-2026-10-18.log",
+      "logSHA256": "c74410b2373fcc2a61c282a6608f9a1304ab6ff850a815db92efaac967565188"
+    },
+    {
+      "command": "cd prototype/src-tauri && cargo test --locked --jobs 2 --target-dir /tmp/xlog-background-combine-rust --bin xlog-prototype --features contesting-test hf_propagation::tests::",
+      "result": "3 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-rust-propagation-2026-10-18.log",
+      "logSHA256": "44a0a2a2bfb4d968ff716892445e94033f3169924bae1235a8a62a00da017cd0"
+    },
+    {
+      "command": "cd prototype/src-tauri && cargo test --locked --jobs 2 --target-dir /tmp/xlog-background-combine-rust --bin xlog-prototype --features contesting-test operating_module::tests::",
+      "result": "10 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-release-rust-module-2026-10-18.log",
+      "logSHA256": "9a6963f1b7882ac7ad375aa81054beaf9740de2b79750fa56c162ccd9bd6ac7f"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "mergedFiles": {
+    "Sources/XClusterIntegrationCore/ClusterCountryDirectory.swift": "fec2717e1a5153f373a337886549c487f18ebe698938c9cfa090614e3c616fb6",
+    "Tests/XClusterIntegrationTests/ClusterCountryDirectoryTests.swift": "247d1d3957dd41713553f3e5e60e3d16ae2d84735fc9ec40af864662663f493f",
+    "docs/releases/v1.2.23-macos.md": "ac6ccb1a9c69fa6523f8051b086664f229d796fe38d278d9dd1f6596c55fa66d",
+    "prototype/package-lock.json": "468e43f1c58bed871ffb8b609e7ac2c2908fa145ea80bf01d7e47ad52d154826",
+    "prototype/package.json": "eab3e5d24b384487ed9789f041dbf45fe91e6fd34b6940b1317365641910c618",
+    "prototype/src-tauri/Cargo.lock": "dfd5aefbe92438b750e03044d4bc2351bdeab10e5eca399b4865fb072956c2db",
+    "prototype/src-tauri/Cargo.toml": "c94c74b0db95cc236f150ae45a718504fe7fc7e6ef3ed7ceda84d3a92febb795",
+    "prototype/src-tauri/src/hf_propagation.rs": "9dfe7b640637fca44c806eb17cb4ca31fe03aabd542c924871ec937039c32977",
+    "prototype/src-tauri/tauri.conf.json": "cb09e5347ffe1a1cc410966fca259c947e1d61585ea01e5c4b1b8ffca037d570",
+    "prototype/src/Map.test.tsx": "0e4a5146435fd28e094be3c89d64326a0b436331c2e3ffd30cafb3cd93c08a44",
+    "prototype/src/Map.tsx": "06d79e88c3be53daa8e7f8c27f8306646b0319ee39c06f336b95ae041cb6348a",
+    "prototype/src/live/DeskMapLogbook.css": "b415d74dabe65bb256e3ab8177113ae4f34203dfe17e3f689702a7933b7ca032",
+    "prototype/src/live/DeskMapLogbook.test.tsx": "a0b017e59e9e6501a99c8afa5a5f4ac72dcea03872f2927ef055157e89b70092",
+    "prototype/src/live/DeskMapLogbook.tsx": "30e843f91451792d824de82cd4a3b4783469df3f029cfedbb22d94c3ca5d63f3",
+    "prototype/src/live/DeskPreviousQSOs.css": "683fcd3612b5b408607608d06fc268869167eacacdf178a4d60f4ebecdcab6f9",
+    "prototype/src/live/DeskPreviousQSOs.test.tsx": "ca8ef9a6886151884ed174275b6dea156094df285586b066cbe514c2f7e93711",
+    "prototype/src/live/DeskPreviousQSOs.tsx": "0b7d652f2db6f709a4a517f2fa3b11fe6d00f8190eacb7cfe128cec194252e3f",
+    "prototype/src/live/HFPropagationLive.css": "5ae0cfa598a151908f7b1234a2d02333015be25e8bc42268a3328363eb3333e0",
+    "prototype/src/live/HFPropagationLive.test.tsx": "378a3ac83c6c42b7d7826ca0c1652485b535b7207581ea4cf86a5a5ba75ad32b",
+    "prototype/src/live/HFPropagationLive.tsx": "f872d324b73ea6fedfcdd13ed25096b32f6d14c9fdef872336b9caee0c9719d5",
+    "prototype/src/live/countryDisplay.test.ts": "cafc86caf4fb3adaf0b874eea3d88130ada3fdd03a5077b5c10f7e24505cbd10",
+    "prototype/src/live/countryDisplay.ts": "bc5a54b577fde5933cd7bba46f871f2c6231a20514bbe0bcc903c6260a802690",
+    "prototype/src/live/hfPropagationModel.test.ts": "0fa35cf83fc605672d3ff64dcb7899165ae6f0554d7bbc2afb0531b48a0c5f75",
+    "prototype/src/live/hfPropagationModel.ts": "cb24f95567c76dd91c73640b99c14914ace9cef2cd0d865b003a79d9a1fdee52"
+  }
+}

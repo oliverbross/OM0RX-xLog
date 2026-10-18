@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ChevronDown, ExternalLink, RefreshCw, Settings2, Sun, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Activity, ExternalLink, PanelsTopLeft, RefreshCw, RotateCcw, Settings2, Sun, X } from "lucide-react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { bandFromFrequency, callsignContinent, cleanCall, cleanLocator, contestBands, continents, defaultPropagationSettings,
-  hfOutlook, matrixCounts, mergeSpots, modeCounts, normalizedMode, ownGrid, parseDXHeat, parseForecastText, parseOwnWSPR,
+  hfOutlook, matrixCounts, mergeSpots, modeCounts, normalizedMode, ownGrid, parseDXHeat, parseForecastText, parseOwnRBN, parseOwnWSPR,
   parsePSKReporter, parseWSPR, perMinuteSeries, propagationBands, propagationModes, propagationSources, readPropagationSettings,
   xrayClass, type Continent, type OwnWSPRSpot, type PropagationMode, type PropagationSettings, type PropagationSource,
-  type PropagationSpot, type SolarConditions } from "./hfPropagationModel";
+  type OwnRBNSpot, type PropagationSpot, type SolarConditions } from "./hfPropagationModel";
 import "./HFPropagationLive.css";
 
 type SourceState = { state: "idle" | "loading" | "ok" | "error" | "disabled"; count: number; detail: string };
 type Transport = (source: string, parameters?: Record<string, unknown>) => Promise<string>;
 type Props = { initialOwnCall?: string; initialLocator?: string; transport?: Transport; detached?: boolean };
+type DashboardDensity = "compact" | "comfortable" | "large";
+type DashboardLayout = { version: 1; leftPercent: number; density: DashboardDensity };
 const settingsKey = "xlog.hf-propagation.settings.v1", spotsKey = "xlog.hf-propagation.spots.v1", ownKey = "xlog.hf-propagation.own-wspr.v1";
+const layoutKey = "xlog.hf-propagation.layout.v1", defaultLayout: DashboardLayout = { version: 1, leftPercent: 59, density: "comfortable" };
 const sourceNames: Record<PropagationSource | "swpc", string> = { wspr: "wspr.live", pskr: "PSK Reporter", rbn: "Reverse Beacon Network", cluster: "DX Cluster", swpc: "NOAA SWPC" };
 const emptySources = (): Record<PropagationSource | "swpc", SourceState> => Object.fromEntries([...propagationSources, "swpc"].map(source => [source, { state: "idle", count: 0, detail: "Waiting" }])) as Record<PropagationSource | "swpc", SourceState>;
 const emptySolar = (): SolarConditions => ({ sfi: null, ssn: null, aIndex: null, kp: null, xray: "—", solarWind: null, kpSeries: [], forecast: { geomagnetic: "Forecast unavailable.", radiation: "Forecast unavailable.", blackout: "Forecast unavailable." } });
@@ -24,6 +27,20 @@ export async function nativeHFPropagationTransport(source: string, parameters: R
 }
 function storedArray<T>(key: string): T[] { try { const value = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } }
 function saveArray(key: string, value: unknown[]) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Live display remains usable if browser storage is full. */ } }
+function boundLeftPercent(value: number) { return Math.max(38, Math.min(68, Math.round(value))); }
+function readDashboardLayout(): DashboardLayout {
+  try {
+    const saved = JSON.parse(localStorage.getItem(layoutKey) || "null");
+    const density = ["compact", "comfortable", "large"].includes(saved?.density) ? saved.density as DashboardDensity : defaultLayout.density;
+    return { version: 1, leftPercent: boundLeftPercent(Number(saved?.leftPercent) || defaultLayout.leftPercent), density };
+  } catch { return defaultLayout; }
+}
+function mergeOwnSpots(left: OwnWSPRSpot[], right: OwnWSPRSpot[]) {
+  const cutoff = Date.now() - 3_600_000;
+  return [...left, ...right].filter(item => item.time >= cutoff)
+    .filter((item, index, all) => all.findIndex(other => other.time === item.time && other.band === item.band && other.kind === item.kind && other.other === item.other) === index)
+    .slice(0, 12_000);
+}
 function number(value: unknown, field?: string): number | null {
   const raw = field && value && typeof value === "object" ? (value as Record<string, unknown>)[field] : value;
   const result = Number(raw); return Number.isFinite(result) ? result : null;
@@ -40,13 +57,29 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
   });
   const settingsRef = useRef(settings); settingsRef.current = settings;
   const [draft, setDraft] = useState(settings), [settingsOpen, setSettingsOpen] = useState(false);
-  const [spots, setSpots] = useState<PropagationSpot[]>(() => storedArray<PropagationSpot>(spotsKey));
-  const [ownSpots, setOwnSpots] = useState<OwnWSPRSpot[]>(() => storedArray<OwnWSPRSpot>(ownKey));
+  const [layout, setLayout] = useState<DashboardLayout>(readDashboardLayout), [layoutOpen, setLayoutOpen] = useState(false);
+  const [spots, setSpots] = useState<PropagationSpot[]>([]), [ownSpots, setOwnSpots] = useState<OwnWSPRSpot[]>([]);
+  const [rbnPickups, setRbnPickups] = useState<OwnRBNSpot[]>([]), [rbnError, setRbnError] = useState("");
   const [solar, setSolar] = useState<SolarConditions>(emptySolar), [sources, setSources] = useState(emptySources);
-  const [loading, setLoading] = useState(false), [error, setError] = useState(""), [nextFetch, setNextFetch] = useState(0), [now, setNow] = useState(Date.now());
+  const [loading, setLoading] = useState(false), [error, setError] = useState(""), [nextFetch, setNextFetch] = useState(0), [analysisNow, setAnalysisNow] = useState(Date.now());
   const mounted = useRef(true), fetching = useRef(false), initial = useRef(true);
+  const layoutBody = useRef<HTMLDivElement>(null), layoutDrag = useRef<{ id: number; x: number; percent: number; width: number } | null>(null);
   useEffect(() => () => { mounted.current = false; }, []);
   useEffect(() => { try { localStorage.setItem(settingsKey, JSON.stringify(settings)); } catch { /* Keep current session settings. */ } }, [settings]);
+  useEffect(() => { try { localStorage.setItem(layoutKey, JSON.stringify(layout)); } catch { /* Keep the current layout in memory. */ } }, [layout]);
+  useEffect(() => {
+    let cancelled = false;
+    const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    const hydrate = () => {
+      if (cancelled) return;
+      const cachedSpots = storedArray<PropagationSpot>(spotsKey), cachedOwn = storedArray<OwnWSPRSpot>(ownKey);
+      setSpots(current => mergeSpots(cachedSpots, current));
+      setOwnSpots(current => mergeOwnSpots(cachedOwn, current));
+    };
+    const idle = idleWindow.requestIdleCallback?.(hydrate, { timeout: 250 });
+    const timer = idle === undefined ? window.setTimeout(hydrate, 0) : undefined;
+    return () => { cancelled = true; if (timer !== undefined) clearTimeout(timer); if (idle !== undefined) idleWindow.cancelIdleCallback?.(idle); };
+  }, []);
 
   const updateSource = useCallback((source: PropagationSource | "swpc", value: Partial<SourceState>) => {
     if (mounted.current) setSources(current => ({ ...current, [source]: { ...current[source], ...value } }));
@@ -69,7 +102,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
       if (active.ownCall) try {
         const payload = JSON.parse(await transport("own_wspr", { sinceSeconds: initial.current ? 3600 : 180, bands: wsprBands, ownCall: active.ownCall }));
         const incoming = parseOwnWSPR(payload, active.ownCall);
-        if (mounted.current) setOwnSpots(current => { const cutoff = Date.now() - 3_600_000, next = [...incoming, ...current].filter(item => item.time >= cutoff).filter((item, index, all) => all.findIndex(other => other.time === item.time && other.band === item.band && other.kind === item.kind && other.other === item.other) === index).slice(0, 12_000); saveArray(ownKey, next); return next; });
+        if (mounted.current) setOwnSpots(current => { const next = mergeOwnSpots(incoming, current); saveArray(ownKey, next); return next; });
       } catch { /* Main WSPR source reports its own status; own-call is optional. */ }
     })());
     if (enabled.has("pskr")) jobs.push((async () => {
@@ -84,6 +117,12 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
         if (enabled.has("cluster")) updateSource("cluster", { state: "ok", count: parsed.cluster.length, detail: `${parsed.cluster.length.toLocaleString()} spots` });
         if (enabled.has("rbn")) updateSource("rbn", { state: "ok", count: parsed.rbn.length, detail: `${parsed.rbn.length.toLocaleString()} CW/RTTY spots` });
       } catch (cause) { if (enabled.has("cluster")) updateSource("cluster", { state: "error", detail: humanError(cause) }); if (enabled.has("rbn")) updateSource("rbn", { state: "error", detail: humanError(cause) }); }
+    })());
+    if (enabled.has("rbn") && active.ownCall) jobs.push((async () => {
+      try {
+        const incoming = parseOwnRBN(JSON.parse(await transport("own_rbn", { sinceSeconds: 600, ownCall: active.ownCall })), active.ownCall);
+        if (mounted.current) { setRbnPickups(incoming); setRbnError(""); }
+      } catch (cause) { if (mounted.current) setRbnError(humanError(cause)); }
     })());
     jobs.push((async () => {
       const names = ["swpc_sfi", "swpc_kp", "swpc_wind", "swpc_xray", "swpc_ssn", "swpc_kp_forecast", "swpc_forecast"];
@@ -109,38 +148,44 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     initial.current = false; fetching.current = false;
   }, [transport, updateSource]);
   useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => { const timer = window.setInterval(() => { setNow(Date.now()); if (nextFetch && Date.now() >= nextFetch) void refresh(); }, 1000); return () => clearInterval(timer); }, [nextFetch, refresh]);
+  useEffect(() => { const timer = window.setInterval(() => setAnalysisNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
+  useEffect(() => { if (!nextFetch) return; const timer = window.setTimeout(() => void refresh(), Math.max(0, nextFetch - Date.now())); return () => clearTimeout(timer); }, [nextFetch, refresh]);
 
-  const matrix = useMemo(() => matrixCounts(spots, settings, now), [spots, settings, now]);
-  const activity = useMemo(() => perMinuteSeries(spots, settings, now), [spots, settings, now]);
+  const matrix = useMemo(() => matrixCounts(spots, settings, analysisNow), [spots, settings, analysisNow]);
+  const activity = useMemo(() => perMinuteSeries(spots, settings, analysisNow), [spots, settings, analysisNow]);
   const ownActivity = useMemo(() => {
     const converted: PropagationSpot[] = ownSpots.map(item => ({ time: item.time, tx: item.kind === "tx" ? settings.ownCall : item.other, rx: item.kind === "rx" ? settings.ownCall : item.other,
       band: item.band, mode: "WSPR", source: "wspr", txContinent: item.kind === "tx" ? callsignContinent(settings.ownCall) : item.continent,
       rxContinent: item.kind === "rx" ? callsignContinent(settings.ownCall) : item.continent, distance: 0 }));
-    return perMinuteSeries(converted, { ...settings, chartModes: ["WSPR"] }, now);
-  }, [ownSpots, settings, now]);
-  const modes = useMemo(() => modeCounts(spots, settings.bands, now), [spots, settings.bands, now]);
-  const txGrid = useMemo(() => ownGrid(ownSpots, "tx", settings.bands, now), [ownSpots, settings.bands, now]);
-  const rxGrid = useMemo(() => ownGrid(ownSpots, "rx", settings.bands, now), [ownSpots, settings.bands, now]);
-  const outlook = hfOutlook(solar), hourCutoff = now - 3_600_000;
-  const sourceCounts = Object.fromEntries(propagationSources.map(source => [source, spots.filter(spot => spot.source === source && spot.time >= hourCutoff).reduce((sum, spot) => sum + (spot.count || 1), 0)]));
+    return perMinuteSeries(converted, { ...settings, chartModes: ["WSPR"] }, analysisNow);
+  }, [ownSpots, settings, analysisNow]);
+  const modes = useMemo(() => modeCounts(spots, settings.bands, analysisNow), [spots, settings.bands, analysisNow]);
+  const txGrid = useMemo(() => ownGrid(ownSpots, "tx", settings.bands, analysisNow), [ownSpots, settings.bands, analysisNow]);
+  const rxGrid = useMemo(() => ownGrid(ownSpots, "rx", settings.bands, analysisNow), [ownSpots, settings.bands, analysisNow]);
+  const outlook = hfOutlook(solar), sourceCounts = useMemo(() => {
+    const hourCutoff = analysisNow - 3_600_000;
+    return Object.fromEntries(propagationSources.map(source => [source, spots.filter(spot => spot.source === source && spot.time >= hourCutoff).reduce((sum, spot) => sum + (spot.count || 1), 0)]));
+  }, [spots, analysisNow]);
   const recentSpotCount = Object.values(sourceCounts).reduce((sum, count) => sum + count, 0);
-  const countdown = nextFetch ? Math.max(0, Math.ceil((nextFetch - now) / 1000)) : 0;
 
   function applySettings() {
     const next = { ...draft, ownCall: cleanCall(draft.ownCall), locator: cleanLocator(draft.locator), bands: draft.mode === "CONTEST" ? [...contestBands] : draft.bands };
     try { localStorage.setItem(settingsKey, JSON.stringify(next)); } catch { setError("Propagation settings could not be saved; this session will continue with them."); }
     setSettings(next); settingsRef.current = next; setSettingsOpen(false); initial.current = true; setNextFetch(0); void refresh();
   }
-  return <section className={`hf-propagation-live${detached ? " is-detached" : ""}`} aria-label="HF Propagation live">
+  const layoutStyle = { "--hf-left-column": `${layout.leftPercent}%` } as CSSProperties;
+  const resizeLayout = (leftPercent: number) => setLayout(current => ({ ...current, leftPercent: boundLeftPercent(leftPercent) }));
+  return <section className={`hf-propagation-live is-${layout.density}${detached ? " is-detached" : ""}`} aria-label="HF Propagation live">
     <header className="hf-prop-header">
       <div><h1><Activity aria-hidden="true" />HF Propagation live</h1><p>Live worldwide activity and NOAA space-weather outlook · adapted from ConDX Now by OK1M</p></div>
-      <div className="hf-prop-header-status"><span className="hf-prop-clock">{formatUTC(now)} UTC</span><span>{settings.mode}</span><span>{settings.ownCall || "Set own call"}{settings.locator ? ` · ${settings.locator}` : ""}</span><span>{recentSpotCount.toLocaleString()} spots / 1h</span><span>Next {countdown}s</span>
+      <div className="hf-prop-header-status"><LiveClock nextFetch={nextFetch} /><span>{settings.mode}</span><span>{settings.ownCall || "Set own call"}{settings.locator ? ` · ${settings.locator}` : ""}</span><span>{recentSpotCount.toLocaleString()} spots / 1h</span>
         <button type="button" onClick={() => void refresh()} disabled={loading} aria-label="Refresh propagation data"><RefreshCw size={15} className={loading ? "is-spinning" : ""} />Refresh</button>
-        <button type="button" aria-expanded={settingsOpen} aria-controls="hf-prop-settings" onClick={() => { setDraft(settings); setSettingsOpen(value => !value); }}><Settings2 size={15} />Settings</button>
+        <button type="button" aria-expanded={layoutOpen} aria-controls="hf-prop-layout-settings" onClick={() => { setSettingsOpen(false); setLayoutOpen(value => !value); }}><PanelsTopLeft size={15} />Layout</button>
+        <button type="button" aria-expanded={settingsOpen} aria-controls="hf-prop-settings" onClick={() => { setLayoutOpen(false); setDraft(settings); setSettingsOpen(value => !value); }}><Settings2 size={15} />Settings</button>
       </div>
     </header>
     {error && <div className="hf-prop-error" role="alert">{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss"><X size={15} /></button></div>}
+    {layoutOpen && <DashboardLayoutPanel value={layout} onChange={setLayout} onReset={() => setLayout(defaultLayout)} onClose={() => setLayoutOpen(false)} />}
     {settingsOpen && <PropagationSettingsPanel value={draft} onChange={setDraft} onApply={applySettings} onClose={() => setSettingsOpen(false)} />}
     <div className="hf-prop-solar-strip" aria-label="Current solar conditions">
       <SolarMetric label="SFI" value={solar.sfi} hint="Solar flux" /><SolarMetric label="SN" value={solar.ssn} hint="Sunspot number" />
@@ -148,27 +193,40 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
       <SolarMetric label="X-ray" value={solar.xray} hint="Solar flare level" /><SolarMetric label="Wind" value={solar.solarWind === null ? null : `${Math.round(solar.solarWind)} km/s`} hint="Solar-wind speed" />
       <div className={`hf-prop-outlook is-${outlook.tone}`}><strong>{outlook.title}</strong><span>{outlook.detail}</span></div>
     </div>
-    <div className="hf-prop-layout">
-      <div className="hf-prop-column">
-        <Panel title="Band × continent activity" meta="Last completed 10 minutes" controls={<ModeFilter values={settings.matrixModes} onChange={matrixModes => setSettings(current => ({ ...current, matrixModes }))} />}>
-          <ActivityMatrix matrix={matrix} bands={settings.bands} home={callsignContinent(settings.ownCall)} />
-        </Panel>
-        <Panel title={`${settings.ownCall || "Own call"} WSPR activity`} meta="TX + RX · last 60 minutes · 5 minute reporting lag"><BandLineChart data={ownActivity} bands={settings.bands} /></Panel>
-        <Panel title="Band activity" meta="All enabled sources · last 60 minutes · rolling 2 minute count" controls={<ModeFilter values={settings.chartModes} onChange={chartModes => setSettings(current => ({ ...current, chartModes }))} />}>
-          <BandLineChart data={activity} bands={settings.bands} />
-        </Panel>
-      </div>
-      <div className="hf-prop-column">
-        <Panel title="NOAA SWPC outlook" meta="Observed + 3-day forecast" icon={<Sun size={16} />}>
-          <KpChart points={solar.kpSeries} now={now} />
-          <div className="hf-prop-forecast"><p><strong>Geomagnetic</strong>{solar.forecast.geomagnetic}</p><p><strong>Radiation</strong>{solar.forecast.radiation}</p><p><strong>Blackout</strong>{solar.forecast.blackout}</p></div>
-          <details className="hf-prop-guide"><summary>How to read the solar numbers</summary><p><b>SFI/SN</b> indicate ionization support; higher values generally help upper HF bands. <b>Kp/A</b> describe geomagnetic disturbance; lower is quieter. <b>X-ray</b> levels M and X can produce daylight-side absorption. Solar wind above roughly 500 km/s can precede unsettled conditions.</p></details>
-        </Panel>
-        <Panel title={`${settings.ownCall || "Own call"} WSPR paths`} meta="Last 10 minutes · count and average SNR">
-          <div className="hf-prop-own-grids"><OwnGrid title="TX · who hears me" grid={txGrid} bands={settings.bands} /><OwnGrid title="RX · stations heard" grid={rxGrid} bands={settings.bands} /></div>
-        </Panel>
-        <Panel title="Modes per band" meta="Last 60 minutes"><ModeBars values={modes} bands={settings.bands} /></Panel>
-      </div>
+    <div className="hf-prop-layout" ref={layoutBody} style={layoutStyle}>
+      <Panel className="hf-prop-area-matrix" title="Band × continent activity" meta="Last completed 10 minutes" controls={<ModeFilter values={settings.matrixModes} onChange={matrixModes => setSettings(current => ({ ...current, matrixModes }))} />}>
+        <ActivityMatrix matrix={matrix} bands={settings.bands} home={callsignContinent(settings.ownCall)} />
+      </Panel>
+      <Panel className="hf-prop-area-outlook" title="NOAA SWPC outlook" meta="Observed + 3-day forecast" icon={<Sun size={16} />}>
+        <KpChart points={solar.kpSeries} now={analysisNow} />
+        <div className="hf-prop-forecast"><p><strong>Geomagnetic</strong>{solar.forecast.geomagnetic}</p><p><strong>Radiation</strong>{solar.forecast.radiation}</p><p><strong>Blackout</strong>{solar.forecast.blackout}</p></div>
+        <details className="hf-prop-guide"><summary>How to read the solar numbers</summary><p><b>SFI/SN</b> indicate ionization support; higher values generally help upper HF bands. <b>Kp/A</b> describe geomagnetic disturbance; lower is quieter. <b>X-ray</b> levels M and X can produce daylight-side absorption. Solar wind above roughly 500 km/s can precede unsettled conditions.</p></details>
+      </Panel>
+      <Panel className="hf-prop-area-own-activity" title={`${settings.ownCall || "Own call"} WSPR activity`} meta="TX + RX · last 60 minutes · 5 minute reporting lag"><BandLineChart data={ownActivity} bands={settings.bands} /></Panel>
+      <Panel className="hf-prop-area-paths" title={`${settings.ownCall || "Own call"} WSPR paths`} meta="Last 10 minutes · count and average SNR">
+        <div className="hf-prop-own-grids"><OwnGrid title="TX · who hears me" grid={txGrid} bands={settings.bands} /><OwnGrid title="RX · stations heard" grid={rxGrid} bands={settings.bands} /></div>
+      </Panel>
+      <Panel className="hf-prop-area-band" title="Band activity" meta="All enabled sources · last 60 minutes · rolling 2 minute count" controls={<ModeFilter values={settings.chartModes} onChange={chartModes => setSettings(current => ({ ...current, chartModes }))} />}>
+        <BandLineChart data={activity} bands={settings.bands} />
+      </Panel>
+      <div className="hf-prop-column-divider" role="separator" aria-label="Propagation dashboard column width" aria-orientation="vertical" tabIndex={0}
+        aria-valuemin={38} aria-valuemax={68} aria-valuenow={layout.leftPercent} onKeyDown={event => {
+          const step = event.shiftKey ? 10 : 2, next = event.key === "Home" ? 38 : event.key === "End" ? 68
+            : event.key === "ArrowLeft" ? layout.leftPercent - step : event.key === "ArrowRight" ? layout.leftPercent + step : null;
+          if (next !== null) { event.preventDefault(); resizeLayout(next); }
+        }} onPointerDown={event => {
+          if (event.button !== 0) return;
+          const width = layoutBody.current?.getBoundingClientRect().width || 1;
+          event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture?.(event.pointerId);
+          layoutDrag.current = { id: event.pointerId, x: event.clientX, percent: layout.leftPercent, width };
+        }} onPointerMove={event => {
+          const drag = layoutDrag.current; if (!drag || drag.id !== event.pointerId) return;
+          resizeLayout(drag.percent + (event.clientX - drag.x) / drag.width * 100);
+        }} onPointerUp={() => { layoutDrag.current = null; }} onPointerCancel={() => { layoutDrag.current = null; }} onLostPointerCapture={() => { layoutDrag.current = null; }} />
+      <Panel className="hf-prop-area-modes" title="Modes per band" meta="Last 60 minutes"><ModeBars values={modes} bands={settings.bands} /></Panel>
+      <Panel className="hf-prop-area-rbn" title={`${settings.ownCall || "Own call"} RBN pickups`} meta="Who heard me · last 10 minutes">
+        <RBNPickups call={settings.ownCall} spots={rbnPickups} error={rbnError} />
+      </Panel>
     </div>
     <footer className="hf-prop-sources" aria-label="Propagation data sources">
       {[...propagationSources, "swpc" as const].map(source => <div key={source} className={`is-${sources[source].state}`} title={sources[source].detail}><i /><span>{sourceNames[source]}</span><strong>{source === "swpc" ? sources[source].detail : `${sourceCounts[source as PropagationSource]?.toLocaleString() || 0} / 1h`}</strong></div>)}
@@ -178,8 +236,14 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
 }
 
 function nameIsText(value: string) { return !value.trimStart().startsWith("[") && !value.trimStart().startsWith("{"); }
-function Panel({ title, meta, controls, icon, children }: { title: string; meta: string; controls?: React.ReactNode; icon?: React.ReactNode; children: React.ReactNode }) {
-  return <section className="hf-prop-panel"><header><div><h2>{icon}{title}</h2><p>{meta}</p></div>{controls}</header><div className="hf-prop-panel-body">{children}</div></section>;
+function Panel({ title, meta, controls, icon, className = "", children }: { title: string; meta: string; controls?: React.ReactNode; icon?: React.ReactNode; className?: string; children: React.ReactNode }) {
+  return <section className={`hf-prop-panel ${className}`}><header><div><h2>{icon}{title}</h2><p>{meta}</p></div>{controls}</header><div className="hf-prop-panel-body">{children}</div></section>;
+}
+function LiveClock({ nextFetch }: { nextFetch: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  const countdown = nextFetch ? Math.max(0, Math.ceil((nextFetch - now) / 1000)) : 0;
+  return <><span className="hf-prop-clock">{formatUTC(now)} UTC</span><span>Next {countdown}s</span></>;
 }
 function SolarMetric({ label, value, hint }: { label: string; value: string | number | null; hint: string }) { return <div className="hf-prop-solar-metric" title={hint}><span>{label}</span><strong>{value ?? "—"}</strong></div>; }
 function ModeFilter({ values, onChange }: { values: PropagationMode[]; onChange: (value: PropagationMode[]) => void }) {
@@ -203,7 +267,16 @@ function OwnGrid({ title, grid, bands }: { title: string; grid: ReturnType<typeo
   return <div><h3>{title}</h3>{shown.length ? <div className="hf-prop-table-wrap"><table className="hf-prop-own-grid"><thead><tr><th>Band</th>{continents.map(continent => <th key={continent}>{continent}</th>)}</tr></thead><tbody>{shown.map(band => <tr key={band}><th>{bandLabel(band)}</th>{continents.map(continent => { const cell = grid[band][continent]; return <td key={continent}>{cell.count ? <><b>{cell.count}</b><span>{cell.average > 0 ? "+" : ""}{cell.average} dB</span></> : "—"}</td>; })}</tr>)}</tbody></table></div> : <Empty text="No own-call WSPR paths in the last 10 minutes." />}</div>;
 }
 function ModeBars({ values, bands }: { values: ReturnType<typeof modeCounts>; bands: string[] }) {
-  return <div className="hf-prop-mode-bars"><div className="hf-prop-legend">{propagationModes.map(mode => <span key={mode}><i style={{ background: modeColors[mode] }} />{mode}</span>)}</div>{[...bands].reverse().map(band => { const total = propagationModes.reduce((sum, mode) => sum + (values[band]?.[mode] || 0), 0); return <div className="hf-prop-mode-row" key={band}><b>{bandLabel(band)}</b><div>{total ? propagationModes.map(mode => values[band][mode] ? <i key={mode} title={`${mode}: ${values[band][mode]}`} style={{ width: `${values[band][mode] / total * 100}%`, background: modeColors[mode] }} /> : null) : null}</div><span>{total.toLocaleString()}</span></div>; })}</div>;
+  return <div className="hf-prop-mode-bars"><div className="hf-prop-legend">{propagationModes.map(mode => <span key={mode}><i style={{ background: modeColors[mode] }} />{mode}</span>)}</div><div className="hf-prop-mode-grid">{[...bands].reverse().map(band => { const total = propagationModes.reduce((sum, mode) => sum + (values[band]?.[mode] || 0), 0); return <div className="hf-prop-mode-row" key={band}><b>{bandLabel(band)}</b><div>{total ? propagationModes.map(mode => values[band][mode] ? <i key={mode} title={`${mode}: ${values[band][mode]}`} style={{ width: `${values[band][mode] / total * 100}%`, background: modeColors[mode] }} /> : null) : null}</div><span>{total.toLocaleString()}</span></div>; })}</div></div>;
+}
+function RBNPickups({ call, spots, error }: { call: string; spots: OwnRBNSpot[]; error: string }) {
+  if (!call) return <Empty text="Set your own callsign in Settings to see RBN skimmers that hear you." />;
+  if (error && !spots.length) return <Empty text={`RBN pickups are temporarily unavailable: ${error}`} />;
+  if (!spots.length) return <Empty text={`No RBN skimmers heard ${call} in the last 10 minutes.`} />;
+  return <div className="hf-prop-rbn-grid">{spots.map(spot => <article key={spot.id} className="hf-prop-rbn-pickup">
+    <header><strong>{spot.spotter}</strong><span>{spot.country || spot.continent || "RBN skimmer"}</span><time dateTime={new Date(spot.time).toISOString()}>{new Date(spot.time).toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" })} UTC</time></header>
+    <div><b>{bandLabel(spot.band)}</b><span>{(spot.frequencyKHz / 1000).toFixed(4)} MHz</span><span>{spot.mode}</span><span>{spot.snr > 0 ? "+" : ""}{spot.snr} dB</span>{spot.speed > 0 && <span>{spot.speed} {spot.mode === "CW" ? "wpm" : "bps"}</span>}{spot.grid && <span>{spot.grid}</span>}</div>
+  </article>)}</div>;
 }
 function KpChart({ points, now }: { points: SolarConditions["kpSeries"]; now: number }) {
   const start = now - 3 * 86_400_000, end = now + 3 * 86_400_000, shown = points.filter(point => point.time >= start && point.time <= end), x = (time: number) => 28 + (time - start) / (end - start) * 592, y = (kp: number) => 8 + (9 - Math.min(9, Math.max(0, kp))) / 9 * 112;
@@ -217,6 +290,14 @@ function KpChart({ points, now }: { points: SolarConditions["kpSeries"]; now: nu
   </svg> : <Empty text="NOAA Kp history and forecast have not loaded yet." />}</div>;
 }
 function Empty({ text }: { text: string }) { return <div className="hf-prop-empty" role="status">{text}</div>; }
+
+function DashboardLayoutPanel({ value, onChange, onReset, onClose }: { value: DashboardLayout; onChange: (value: DashboardLayout) => void; onReset: () => void; onClose: () => void }) {
+  return <section id="hf-prop-layout-settings" className="hf-prop-settings hf-prop-layout-settings" aria-label="HF propagation dashboard layout"><header><div><h2>Dashboard layout</h2><p>Applies to both the Operator Desk page and the separate window.</p></div><button type="button" onClick={onClose} aria-label="Close layout"><X size={16} /></button></header>
+    <div className="hf-prop-settings-grid"><label>Information size<select value={value.density} onChange={event => onChange({ ...value, density: event.target.value as DashboardDensity })}><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="large">Large</option></select></label>
+      <label>Left column · {value.leftPercent}%<input type="range" min="38" max="68" step="1" value={value.leftPercent} onChange={event => onChange({ ...value, leftPercent: boundLeftPercent(Number(event.target.value)) })} /></label></div>
+    <div className="hf-prop-settings-actions"><button type="button" onClick={onReset}><RotateCcw size={14} />Reset layout</button><button type="button" className="primary" onClick={onClose}>Done</button></div>
+  </section>;
+}
 
 function PropagationSettingsPanel({ value, onChange, onApply, onClose }: { value: PropagationSettings; onChange: (value: PropagationSettings) => void; onApply: () => void; onClose: () => void }) {
   const bands = new Set(value.bands), sources = new Set(value.enabledSources);

@@ -1,0 +1,43 @@
+{
+  "capturedAt": "2026-10-18T12:57:08+09:30",
+  "branch": "codex/contest-main-123-windows-shutdown",
+  "workingDirectory": "/Users/oliver/.codex/worktrees/contest-exports/OM0RX-xLog",
+  "firstParent": "6c3b09cc88891fe5a0c31f246a7e90507262497a",
+  "mergedCheckpoint": "10674b6f0096bc2a4cdd17c183390035c6dca6ee",
+  "checkpointParent": "843c116842f7b76589ed6f3eaa62cb51d0b92abd",
+  "mergeMode": "git merge --no-commit --no-ff",
+  "conflicts": [],
+  "contract": {
+    "fixture": "The same six worker shutdown contracts now use bounded cmd.exe fixtures on Windows while retaining the Unix shell fixtures.",
+    "workflow": "The existing contest, declarative activation, background-owner, operating-module and shutdown workflow union is preserved; Windows now requires discovery and execution of exactly six shutdown tests.",
+    "scope": "Test and workflow portability only. No runtime production path, frontend, Swift source, package, installed application, canonical checkout or user data changed."
+  },
+  "tests": [
+    {
+      "command": "cd prototype/src-tauri && cargo test --locked --jobs 2 --target-dir /tmp/xlog-background-combine-rust --bin xlog-prototype --features contesting-test worker::tests::shutdown_",
+      "result": "6 tests, 0 failures",
+      "logPath": "/tmp/xlog-main123-windows-shutdown-rust-2026-10-18.log",
+      "logSHA256": "7652bb316b8bc3d5a65404706008cf2ed6fd65a0cee97947e5e95ce85f364780"
+    },
+    {
+      "command": "cd prototype/src-tauri && cargo test --locked --jobs 2 --target-dir /tmp/xlog-background-combine-rust --bin xlog-prototype --features contesting-test operating_module::tests::",
+      "result": "10 tests, 0 failures; reused the Rust target",
+      "logPath": "/tmp/xlog-main123-windows-module-rust-2026-10-18.log",
+      "logSHA256": "16a7807307be2bf3ddfcbfe1d5bacea9579d44291ff8134acab2aa7701fe8b54"
+    },
+    {
+      "command": "GitHub Actions Windows native Rust test job 117572842233 at checkpoint 10674b6f0096bc2a4cdd17c183390035c6dca6ee",
+      "result": "The workflow discovered exactly six worker::tests::shutdown_ tests and all six passed; operating-module 10 also passed in the same Windows job.",
+      "logPath": "/tmp/xlog-windows-shutdown-ci-10674b6.log",
+      "logSHA256": "86ea92024005ebca262f2851e41b2c1556a1bb695289ec18102eff7a8f92f2d5"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "mergedFiles": {
+    ".github/workflows/contest-portability.yml": "05bef7a6b5c3a7a5397f7421f97d48fc24bafc265ee7e59baf86090404079f9a",
+    "prototype/src-tauri/src/worker.rs": "d60ea15909c8456dcb76f1ce5906275e1f2bc58d26756fb6e94150594d5f161f"
+  }
+}

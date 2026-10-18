@@ -117,7 +117,7 @@ vi.mock("maplibre-gl", () => {
   }
   return { Map: FakeMap, Marker, Popup, setWorkerUrl: vi.fn(), NavigationControl: class {}, AttributionControl: class {}, ScaleControl: class {} };
 });
-import WorldMap, { routeBounds, routeFrequencyLabel, routeLabelPosition } from "./Map";
+import WorldMap, { routeBounds, routeFitPadding, routeFrequencyLabel, routeLabelPosition } from "./Map";
 
 const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
   id: "feed-1", call: "K1ABC", mhz: 14.074, mode: "FT8", band: "20m", country: "United States",
@@ -169,6 +169,31 @@ describe("map container resizing", () => {
     expect(map.resize).toHaveBeenCalledTimes(1);
     expect(map.fitCalls.at(-1).viewport).toEqual({ width: 1440, height: 260 });
     expect(map.fitCalls.at(-1).bounds).toEqual([[17, 44], [18, 48]]);
+  });
+
+  it("keeps both route endpoints clear of variable-height overlays after the Desk settles", () => {
+    const resize = resizeHarness();
+    render(<WorldMap data={[spot()]} selected="feed-1"
+      home={{ call: "OM0RX", lon: 17, lat: 48 }} target={{ call: "SV4RTG", lon: 23, lat: 39 }} />);
+    const map = harness.maps[0];
+    resize.flush();
+    const toolbar = screen.getByLabelText("World map controls");
+    const legend = map.element.parentElement!.querySelector(".map-legend") as HTMLElement;
+    vi.spyOn(map.element, "getBoundingClientRect").mockReturnValue({ top: 100, bottom: 520, height: 420 } as DOMRect);
+    vi.spyOn(toolbar, "getBoundingClientRect").mockReturnValue({ top: 112, bottom: 224, height: 112 } as DOMRect);
+    vi.spyOn(legend, "getBoundingClientRect").mockReturnValue({ top: 396, bottom: 490, height: 94 } as DOMRect);
+
+    harness.initialSize = { width: 1000, height: 420 };
+    resize.notify(map.element); resize.flush();
+
+    expect(map.fitCalls).toHaveLength(2);
+    expect(map.fitCalls.at(-1).viewport).toEqual({ width: 1000, height: 420 });
+    expect(map.fitCalls.at(-1).options.padding).toEqual({ top: 164, right: 54, bottom: 164, left: 54 });
+
+    map.fire("movestart", { originalEvent: new Event("pointerdown") });
+    harness.initialSize = { width: 1000, height: 360 };
+    resize.notify(map.element); resize.flush();
+    expect(map.fitCalls).toHaveLength(2);
   });
 
   it("resizes once after mount and coalesces observer deliveries using final visible dimensions", () => {
@@ -356,6 +381,12 @@ describe("map spot inspection", () => {
     expect(screen.getByRole("note", { name: /Long path/ }).querySelector(".map-route-frequency")).toBeNull();
     expect(onSpot).not.toHaveBeenCalled();
     expect(map.fitCalls).toHaveLength(2);
+  });
+
+  it("reserves the measured toolbar and legend intrusion when fitting a route", () => {
+    expect(routeFitPadding(false, 124.2, 124.1)).toEqual({ top: 165, right: 54, bottom: 165, left: 54 });
+    expect(routeFitPadding(false, 20, 20)).toEqual({ top: 74, right: 54, bottom: 100, left: 54 });
+    expect(routeFitPadding(true, 200, 200)).toEqual({ top: 28, right: 34, bottom: 34, left: 34 });
   });
 
   it("omits unknown endpoint callsigns and unobserved frequencies without inventing labels", () => {

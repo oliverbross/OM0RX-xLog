@@ -1,10 +1,32 @@
 import Foundation
 
+public enum WorkerOperatingModule: String, Sendable, Equatable {
+    case normalLogging = "normal_logging"
+    case contesting
+
+    public static func resolve(environment: [String: String]) throws -> Self {
+        guard let value = environment["XLOG_OPERATING_MODULE"] else { return .normalLogging }
+        guard let module = Self(rawValue: value) else {
+            throw WorkerFailure("operating_module_invalid", "The native operating module is invalid.")
+        }
+        return module
+    }
+}
+
 /// The persistent desktop boundary. Requests are correlated, bounded and never
 /// echoed into diagnostics. Creating a worker does not connect hardware or open
 /// the original application's database.
 public actor LiveWorker {
-    public static let shared = LiveWorker(ownsProcessSessions: true, runtimeProfile: AppRuntimeProfile.current)
+    public static let shared = LiveWorker(ownsProcessSessions: true,
+        runtimeProfile: AppRuntimeProfile.current,
+        // Invalid native metadata must never enable Normal Logging background work.
+        operatingModule: (try? WorkerOperatingModule.resolve(
+            environment: ProcessInfo.processInfo.environment)) ?? .contesting)
+    public static func processWorker(operatingModule: WorkerOperatingModule,
+                                     runtimeProfile: AppRuntimeProfile) -> LiveWorker {
+        LiveWorker(ownsProcessSessions: true, runtimeProfile: runtimeProfile,
+                   operatingModule: operatingModule)
+    }
     private let diagnostics = PrototypeWorker()
     private var terminalShutdown = false
     // Disk-backed logbook work is synchronous. Run it on its own actor so a
@@ -96,6 +118,7 @@ public actor LiveWorker {
     #endif
     private let localAcceptance: Bool
     private let runtimeProfile: AppRuntimeProfile
+    private let operatingModule: WorkerOperatingModule
     /// Only the process singleton owns hardware/service singletons. Disposable
     /// workers used by acceptance and unit tests must never terminate them.
     private let ownsProcessSessions: Bool
@@ -114,7 +137,8 @@ public actor LiveWorker {
          onlineLogs: LiveOnlineLogDeliveryService? = nil,
           contactRefresher: (@Sendable () async throws -> Void)? = nil,
           ownsProcessSessions: Bool = false,
-          runtimeProfile: AppRuntimeProfile = .production) {
+          runtimeProfile: AppRuntimeProfile = .production,
+          operatingModule: WorkerOperatingModule = .normalLogging) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
@@ -152,7 +176,8 @@ public actor LiveWorker {
             service: backupService, environment: remoteBackupEnvironment, ftp: ftpPresentation)
         self.publicServices = publicServices ?? LivePublicServiceMethods(logbook: logbook)
         services = LiveServiceMethods(logbook: logbook)
-        self.onlineLogs = onlineLogs ?? LiveOnlineLogDeliveryService(logbook: logbook)
+        self.onlineLogs = onlineLogs ?? LiveOnlineLogDeliveryService(logbook: logbook,
+            backgroundOwnershipAllowed: { operatingModule == .normalLogging })
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
         #endif
@@ -164,6 +189,7 @@ public actor LiveWorker {
         operatingGoals = LiveOperatingGoalMethods(logbook: logbook, opportunities: opportunityMethods)
         self.localAcceptance = localAcceptance
         self.runtimeProfile = runtimeProfile
+        self.operatingModule = operatingModule
         self.ownsProcessSessions = ownsProcessSessions
     }
 
@@ -209,11 +235,16 @@ public actor LiveWorker {
 
     public func startBackgroundServices() async {
         guard !localAcceptance, runtimeProfile.externalIOAllowed, !terminalShutdown else { return }
+        // Shared read-only/reference observation remains available to either
+        // operator module. Normal draft mutation owners are gated below.
+        #if os(macOS)
+        await references.startAutomaticChecks()
+        #endif
+        guard operatingModule == .normalLogging else { return }
         await startPowerCapture()
         await services.startAutomaticSync()
         await onlineLogs.startAutomaticDelivery()
         #if os(macOS)
-        await references.startAutomaticChecks()
         if ownsProcessSessions {
             await LiveWSJTXBridge.shared.install { [weak self] in
                 Task { await self?.externalContactChanged() }
@@ -224,12 +255,21 @@ public actor LiveWorker {
     }
 
     private func externalContactChanged() async {
+        guard operatingModule == .normalLogging, !terminalShutdown else { return }
         queueContactRefresh()
         await onlineLogs.requestDelivery()
     }
 
+    private var normalBackgroundEnabled: Bool {
+        operatingModule == .normalLogging && runtimeProfile.externalIOAllowed && !localAcceptance && !terminalShutdown
+    }
+
+    func backgroundServiceStateForTesting() async -> (sync: Bool, delivery: Bool) {
+        (await services.hasScheduledWorkForTesting(), await onlineLogs.hasScheduledWorkForTesting())
+    }
+
     func startPowerCapture(registerStation: Bool = true) async {
-        guard !localAcceptance, !terminalShutdown else { return }
+        guard operatingModule == .normalLogging, !localAcceptance, !terminalShutdown else { return }
         let lane = logbookLane
         let delivery = powerDelivery
         powerCapture.install(changed: { delivery.enqueue { await lane.reconcilePower() } },
@@ -242,9 +282,9 @@ public actor LiveWorker {
 
     func drainPowerCapture() async { await powerDelivery.drain() }
 
-    public func shutdown() async {
+    @discardableResult public func shutdown() async -> Bool {
         await beginTerminalShutdown()
-        await onlineLogs.terminate()
+        let onlineLogsRetired = await onlineLogs.terminate()
         await remoteBackup.terminate()
         await services.beginTermination()
         #if os(macOS)
@@ -258,7 +298,7 @@ public actor LiveWorker {
             // process-wide station singletons remain outside acceptance scope.
             await cluster.terminate()
             await services.terminate()
-            return
+            return onlineLogsRetired
         }
         #if os(macOS)
         if ownsProcessSessions {
@@ -271,6 +311,7 @@ public actor LiveWorker {
         #endif
         await cluster.terminate()
         await services.terminate()
+        return onlineLogsRetired
     }
 
     public func response(to data: Data) async -> Data {
@@ -406,14 +447,18 @@ public actor LiveWorker {
                     if changingWorkspace {
                         #if os(macOS)
                         await references.finishWorkspaceChange()
-                        await LiveWSJTXBridge.shared.finishWorkspaceChange()
+                        if normalBackgroundEnabled {
+                            await LiveWSJTXBridge.shared.finishWorkspaceChange()
+                        }
                         #endif
                         await cluster.finishWorkspaceChange()
                         await onlineLogs.finishOwnershipChange()
                         workspaceTransitionCount -= 1
                         if workspaceTransitionCount == 0 {
                             powerCapture.suspend(false)
-                            await logbookLane.reconcilePower()
+                            if normalBackgroundEnabled {
+                                await logbookLane.reconcilePower()
+                            }
                         }
                         queueContactRefresh()
                     }
@@ -422,14 +467,18 @@ public actor LiveWorker {
                 if changingWorkspace {
                     #if os(macOS)
                     await references.finishWorkspaceChange()
-                    await LiveWSJTXBridge.shared.finishWorkspaceChange()
+                    if normalBackgroundEnabled {
+                        await LiveWSJTXBridge.shared.finishWorkspaceChange()
+                    }
                     #endif
                     await cluster.finishWorkspaceChange()
                     await onlineLogs.finishOwnershipChange()
                     workspaceTransitionCount -= 1
                     if workspaceTransitionCount == 0 {
                         powerCapture.suspend(false)
-                        await logbookLane.reconcilePower()
+                        if normalBackgroundEnabled {
+                            await logbookLane.reconcilePower()
+                        }
                     }
                 }
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
@@ -439,10 +488,10 @@ public actor LiveWorker {
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
                 #endif
                 let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
-                if runtimeProfile.externalIOAllowed && !localAcceptance && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
+                if normalBackgroundEnabled && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
                 }
-                if runtimeProfile.externalIOAllowed && !localAcceptance && (draftLogged || method == "logbook_save") {
+                if normalBackgroundEnabled && (draftLogged || method == "logbook_save") {
                     await onlineLogs.requestDelivery()
                 }
             } else if method == "remote_backup_request" {
@@ -468,7 +517,7 @@ public actor LiveWorker {
                 }
                 if fencesOnlineDelivery {
                     await onlineLogs.finishOwnershipChange()
-                    await onlineLogs.requestDelivery()
+                    if normalBackgroundEnabled { await onlineLogs.requestDelivery() }
                 }
                 #if os(macOS)
                 if method == "secret_save" { await references.resetAutomaticDeadline() }
@@ -484,6 +533,9 @@ public actor LiveWorker {
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
                 } else if method.hasPrefix("wsjtx_") {
+                    if operatingModule != .normalLogging && ["wsjtx_configure", "wsjtx_start"].contains(method) {
+                        throw WorkerFailure("inactive_operating_module", "WSJT-X logging belongs to the inactive Normal Logging module.")
+                    }
                     result = try await LiveWSJTXBridge.shared.handle(method: method, params: params)
                 } else {
                     result = try await services.handle(method: method, params: params)
