@@ -49,6 +49,7 @@ struct ContestExportPreparedArtifact: Hashable, Sendable {
     let totalPoints: Int64
     let multiplierCount: Int64
     let claimedScore: Int64
+    let declarativePurpose: ContestDeclarativeExportPurpose?
     let byteLength: Int
     let sha256: String
     let chunkLimit: Int
@@ -163,7 +164,7 @@ actor ContestExportLane {
     }
 
     private static func wire(_ value: ContestExportPreparedArtifact) -> [String: Any] {
-        ["artifactID": ExportWire.uuid(value.artifactID), "sessionID": ExportWire.uuid(value.sessionID),
+        var result: [String: Any] = ["artifactID": ExportWire.uuid(value.artifactID), "sessionID": ExportWire.uuid(value.sessionID),
          "workspaceGeneration": ExportWire.uuid(value.workspaceGeneration), "revision": value.revision,
          "format": value.format.rawValue, "inputSchemaVersion": value.inputSchemaVersion,
          "formatterVersion": value.formatterVersion, "generatedAtUTC": ExportWire.iso(value.generatedAtUTC),
@@ -171,6 +172,8 @@ actor ContestExportLane {
          "multiplierCount": value.multiplierCount, "claimedScore": value.claimedScore,
          "byteLength": value.byteLength, "sha256": value.sha256, "chunkLimit": value.chunkLimit,
          "expiresAfterSeconds": value.expiresAfterSeconds]
+        if let purpose = value.declarativePurpose { result["declarativePurpose"] = purpose.rawValue }
+        return result
     }
 
     private static func wire(_ value: ContestExportChunk) -> [String: Any] {

@@ -26,6 +26,64 @@ public enum ContestDeclarativeEligibilityPolicy: Codable, Hashable, Sendable {
 
 public enum ContestDeclarativeExportPolicy: String, Codable, Hashable, Sendable {
     case unsupported
+    case operatorArchive
+}
+
+public enum ContestDeclarativeExportPurpose: String, Codable, Hashable, Sendable {
+    case operatorArchive
+}
+
+public enum ContestDeclarativeDuplicateRecords: String, Codable, Hashable, Sendable {
+    case retainAll
+}
+
+public enum ContestDeclarativeColumnAlignment: String, Codable, Hashable, Sendable {
+    case left
+    case right
+}
+
+public enum ContestDeclarativeColumnSource: Codable, Hashable, Sendable {
+    case frequencyKHz
+    case mode
+    case date
+    case time
+    case stationCallsign
+    case contactedCallsign
+    case sentReport
+    case receivedReport
+    case sentField(String)
+    case receivedField(String)
+}
+
+public struct ContestDeclarativeExportColumn: Codable, Hashable, Sendable {
+    public let source: ContestDeclarativeColumnSource
+    public let width: Int
+    public let alignment: ContestDeclarativeColumnAlignment
+    public let required: Bool
+
+    public init(source: ContestDeclarativeColumnSource, width: Int,
+                alignment: ContestDeclarativeColumnAlignment = .left, required: Bool = true) {
+        self.source = source
+        self.width = width
+        self.alignment = alignment
+        self.required = required
+    }
+}
+
+public struct ContestDeclarativeExportProjection: Codable, Hashable, Sendable {
+    public let formatterVersion: String
+    public let purpose: ContestDeclarativeExportPurpose
+    public let duplicateRecords: ContestDeclarativeDuplicateRecords
+    public let columns: [ContestDeclarativeExportColumn]
+
+    public init(formatterVersion: String, purpose: ContestDeclarativeExportPurpose = .operatorArchive,
+                duplicateRecords: ContestDeclarativeDuplicateRecords = .retainAll,
+                columns: [ContestDeclarativeExportColumn]) {
+        self.formatterVersion = formatterVersion
+        self.purpose = purpose
+        self.duplicateRecords = duplicateRecords
+        self.columns = columns
+    }
 }
 
 public enum ContestIntegerComparison: String, Codable, Hashable, Sendable {
@@ -71,6 +129,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
     public let scoring: ContestDeclarativeScoringPolicy
     public let eligibilityPolicy: ContestDeclarativeEligibilityPolicy
     public let exportPolicy: ContestDeclarativeExportPolicy
+    public let exportProjection: ContestDeclarativeExportProjection?
     public let stationEntityRequired: Bool
     public let adapterID: String?
 
@@ -81,6 +140,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
                 scoring: ContestDeclarativeScoringPolicy,
                 eligibilityPolicy: ContestDeclarativeEligibilityPolicy = .unrestricted,
                 exportPolicy: ContestDeclarativeExportPolicy = .unsupported,
+                exportProjection: ContestDeclarativeExportProjection? = nil,
                 stationEntityRequired: Bool,
                 adapterID: String? = nil) {
         self.id = id
@@ -97,6 +157,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         self.scoring = scoring
         self.eligibilityPolicy = eligibilityPolicy
         self.exportPolicy = exportPolicy
+        self.exportProjection = exportProjection
         self.stationEntityRequired = stationEntityRequired
         self.adapterID = adapterID
     }
@@ -104,7 +165,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case id, version, edition, displayName, cabrilloName, supportedBands, supportedModes, entry,
              sourceProvenance, dupePolicy, multiplierPolicy, scoring, eligibilityPolicy, exportPolicy,
-             stationEntityRequired, adapterID
+             exportProjection, stationEntityRequired, adapterID
     }
 
     public init(from decoder: Decoder) throws {
@@ -130,6 +191,8 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         scoring = try values.decode(ContestDeclarativeScoringPolicy.self, forKey: key(.scoring))
         eligibilityPolicy = try values.decode(ContestDeclarativeEligibilityPolicy.self, forKey: key(.eligibilityPolicy))
         exportPolicy = try values.decode(ContestDeclarativeExportPolicy.self, forKey: key(.exportPolicy))
+        exportProjection = try values.decodeIfPresent(ContestDeclarativeExportProjection.self,
+                                                      forKey: key(.exportProjection))
         stationEntityRequired = try values.decode(Bool.self, forKey: key(.stationEntityRequired))
         adapterID = try values.decodeIfPresent(String.self, forKey: key(.adapterID))
     }
@@ -150,6 +213,7 @@ public struct ContestDefinitionDraft: Codable, Hashable, Sendable {
         try values.encode(scoring, forKey: .scoring)
         try values.encode(eligibilityPolicy, forKey: .eligibilityPolicy)
         try values.encode(exportPolicy, forKey: .exportPolicy)
+        try values.encodeIfPresent(exportProjection, forKey: .exportProjection)
         try values.encode(stationEntityRequired, forKey: .stationEntityRequired)
         try values.encodeIfPresent(adapterID, forKey: .adapterID)
     }
@@ -215,6 +279,11 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
         if identityParts.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.utf8.count > 128 }) {
             result.append("identity fields must be nonempty and bounded")
         }
+        let cabrilloBytes = Array(draft.cabrilloName.utf8)
+        if !(1...64).contains(cabrilloBytes.count) ||
+            !cabrilloBytes.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) || $0 == 45 }) {
+            result.append("Cabrillo contest name must be bounded uppercase ASCII letters, digits, or hyphens")
+        }
         if draft.adapterID != nil { result.append("custom adapters are not supported by the declarative engine") }
         if draft.supportedBands.isEmpty || draft.supportedModes.isEmpty { result.append("bands and modes are required") }
         let coherentEntry = draft.entry.isCoherent(supportedModes: draft.supportedModes)
@@ -225,7 +294,7 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
         default:
             result.append("score and multiplier policies are incompatible")
         }
-        if draft.exportPolicy != .unsupported { result.append("pilot export must remain unsupported") }
+        result += exportDiagnostics(for: draft)
         if draft.scoring.defaultPoints < 0 { result.append("default points must be nonnegative") }
         guard coherentEntry else { return result }
         let fields = Dictionary(uniqueKeysWithValues: draft.entry.exchange.receivedFields.map { ($0.id, $0) })
@@ -249,11 +318,81 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
         }
         return result
     }
+
+    private static func exportDiagnostics(for draft: ContestDefinitionDraft) -> [String] {
+        switch (draft.exportPolicy, draft.exportProjection) {
+        case (.unsupported, nil):
+            return []
+        case (.operatorArchive, let projection?):
+            var result: [String] = []
+            if projection.formatterVersion.isEmpty || projection.formatterVersion.utf8.count > 64 ||
+                !projection.formatterVersion.unicodeScalars.allSatisfy({ (33...126).contains($0.value) }) {
+                result.append("export formatter version must be bounded visible ASCII")
+            }
+            if projection.purpose != .operatorArchive || projection.duplicateRecords != .retainAll {
+                result.append("only retain-all operator archives are supported")
+            }
+            if projection.columns.isEmpty || projection.columns.count > 24 {
+                result.append("export columns must contain 1...24 items")
+            }
+            let requiredSources: Set<ContestDeclarativeColumnSource> = [
+                .frequencyKHz, .mode, .date, .time, .stationCallsign, .contactedCallsign,
+            ]
+            if !requiredSources.isSubset(of: Set(projection.columns.map(\.source))) {
+                result.append("export columns are missing required QSO coordinates")
+            }
+            if Set(projection.columns.map(\.source)).count != projection.columns.count {
+                result.append("export column sources must be unique")
+            }
+            let sent = Set(draft.entry.exchange.sentFields.map(\.id))
+            let received = Set(draft.entry.exchange.receivedFields.map(\.id))
+            let projected = Set(projection.columns.map(\.source))
+            let requiredSent = Set(draft.entry.exchange.sentFields.filter(\.required).map {
+                ContestDeclarativeColumnSource.sentField($0.id)
+            })
+            let requiredReceived = Set(draft.entry.exchange.receivedFields.filter(\.required).map {
+                ContestDeclarativeColumnSource.receivedField($0.id)
+            })
+            if !requiredSent.union(requiredReceived).isSubset(of: projected) {
+                result.append("export columns must include every required exchange field")
+            }
+            if draft.entry.modeProfiles.contains(where: { $0.report.format != .none }) &&
+                !Set([ContestDeclarativeColumnSource.sentReport, .receivedReport]).isSubset(of: projected) {
+                result.append("export columns must include both required reports")
+            }
+            for column in projection.columns {
+                if !(1...64).contains(column.width) { result.append("export column widths must be in 1...64") }
+                switch column.source {
+                case let .sentField(id) where !sent.contains(id):
+                    result.append("unknown sent export field \(id)")
+                case let .receivedField(id) where !received.contains(id):
+                    result.append("unknown received export field \(id)")
+                default:
+                    break
+                }
+            }
+            if projection.formatterVersion != draft.entry.cabrilloFormatterVersion ||
+                projection.formatterVersion != draft.entry.cabrilloProjectionFormatterVersion {
+                result.append("export formatter version must match both entry formatter versions")
+            }
+            return result
+        default:
+            return ["export policy and projection must be supplied together"]
+        }
+    }
 }
 
-public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolicy {
+public protocol ContestRuleDeclarativeExportPolicy: Sendable {
+    var declarativeExportProjection: ContestDeclarativeExportProjection? { get }
+}
+
+public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolicy,
+                                      ContestRuleDeclarativeExportPolicy {
     public let definition: ContestDeclarativeDefinition
     public let metadata: ContestRuleMetadata
+    public var declarativeExportProjection: ContestDeclarativeExportProjection? {
+        definition.draft.exportProjection
+    }
 
     public init(definition: ContestDeclarativeDefinition) {
         self.definition = definition
@@ -371,7 +510,9 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
 
     private static func validCallsign(_ value: String) -> Bool {
         let bytes = Array(value.utf8)
-        return (3...32).contains(bytes.count) && bytes.contains(where: { (65...90).contains($0) }) &&
+        let slashComponents = value.split(separator: "/", omittingEmptySubsequences: false)
+        return (3...32).contains(bytes.count) && slashComponents.allSatisfy { !$0.isEmpty } &&
+            bytes.contains(where: { (65...90).contains($0) }) &&
             bytes.contains(where: { (48...57).contains($0) }) &&
             bytes.allSatisfy { (65...90).contains($0) || (48...57).contains($0) || $0 == 47 }
     }
