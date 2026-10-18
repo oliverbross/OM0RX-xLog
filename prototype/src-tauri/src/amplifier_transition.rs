@@ -355,6 +355,9 @@ fn outcome(
             "unknown"
         };
     };
+    if reply["ok"] == false && reply["error"]["outcome"] == "confirmed" {
+        return "rejected";
+    }
     let result = &reply["result"];
     let state = &result["state"];
     if reply["id"] == id
@@ -586,6 +589,26 @@ mod tests {
     }
     fn reply(q: &Value, t: &Target) -> Value {
         json!({"id":q["id"],"ok":true,"result":{"accepted":true,"confirmed":false,"action":q["params"]["action"],"state":{"source":"direct_agent","generation":t.connection_generation}}})
+    }
+    #[test]
+    fn amplifier_confirmed_worker_rejection_is_terminal_and_keeps_its_detail() {
+        let (_dir, session) = fixture();
+        let id = uuid::Uuid::new_v4().to_string();
+        let receipt = session
+            .transition(&id, "operate", target(), |q, _| {
+                Ok(json!({
+                    "id": q["id"],
+                    "ok": false,
+                    "error": {
+                        "code": "station_rejected",
+                        "message": "The Remote Station Agent rejected the action.",
+                        "outcome": "confirmed"
+                    }
+                }))
+            })
+            .unwrap();
+        assert_eq!(receipt["status"], "rejected");
+        assert_eq!(receipt["detail"]["code"], "station_rejected");
     }
     fn fixture() -> (tempfile::TempDir, Session) {
         let d = tempfile::tempdir().unwrap();
