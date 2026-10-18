@@ -725,7 +725,7 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             for column in projection.columns {
                 if !(1...64).contains(column.width) { result.append("export column widths must be in 1...64") }
                 if let minimumWidth = column.minimumWidth,
-                   (column.source != .frequencyKHz || !(1...column.width).contains(minimumWidth)) {
+                   (column.source != .frequencyKHz || minimumWidth < 1 || minimumWidth > column.width) {
                     result.append("only frequency columns may declare a minimum width within their maximum width")
                 }
                 switch column.source {

@@ -127,6 +127,16 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
             columns: [badColumn] + (base.exportProjection?.columns.dropFirst() ?? []))
         let bad = replacing(base, exportProjection: badProjection)
         XCTAssertThrowsError(try bad.materialized())
+
+        for invalidWidth in [0, -1] {
+            let malformedFrequency = ContestDeclarativeExportColumn(
+                source: .frequencyKHz, width: invalidWidth, minimumWidth: 1, alignment: .right)
+            let malformedProjection = ContestDeclarativeExportProjection(
+                formatterVersion: base.entry.cabrilloFormatterVersion,
+                columns: [malformedFrequency] + (base.exportProjection?.columns.dropFirst() ?? []))
+            XCTAssertThrowsError(try replacing(base, exportProjection: malformedProjection).materialized(),
+                                 "width \(invalidWidth) must return diagnostics instead of trapping")
+        }
     }
 
     private struct Fixture: Decodable { let plugins: [Plugin] }
