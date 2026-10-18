@@ -1,4 +1,5 @@
 import Foundation
+import XContestCore
 
 public enum WorkerOperatingModule: String, Sendable, Equatable {
     case normalLogging = "normal_logging"
@@ -138,7 +139,8 @@ public actor LiveWorker {
           contactRefresher: (@Sendable () async throws -> Void)? = nil,
           ownsProcessSessions: Bool = false,
           runtimeProfile: AppRuntimeProfile = .production,
-          operatingModule: WorkerOperatingModule = .normalLogging) {
+          operatingModule: WorkerOperatingModule = .normalLogging,
+          contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
@@ -147,7 +149,10 @@ public actor LiveWorker {
             let contestURL = logbook.workspaceDirectoryURL.deletingLastPathComponent()
                 .appendingPathComponent("Contesting", isDirectory: true).appendingPathComponent("contests.sqlite")
             do {
-                contestLane = try ContestLane(databaseURL: contestURL) { try await createdLogbookLane.workspaceGeneration() }
+                contestLane = try ContestLane(
+                    databaseURL: contestURL,
+                    generationSource: { try await createdLogbookLane.workspaceGeneration() },
+                    declarativeDefinitions: contestDeclarativeDefinitions)
                 contestLaneInitializationError = nil
             } catch let error as ContestLaneError {
                 contestLane = nil
