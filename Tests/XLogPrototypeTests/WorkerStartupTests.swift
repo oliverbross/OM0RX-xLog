@@ -3,6 +3,90 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 final class WorkerStartupTests: XCTestCase {
+    func testOperatingModuleEnvironmentIsStrictAndDefaultsToNormalForDirectTools() throws {
+        XCTAssertEqual(try WorkerOperatingModule.resolve(environment: [:]), .normalLogging)
+        XCTAssertEqual(try WorkerOperatingModule.resolve(
+            environment: ["XLOG_OPERATING_MODULE": "contesting"]), .contesting)
+        XCTAssertThrowsError(try WorkerOperatingModule.resolve(
+            environment: ["XLOG_OPERATING_MODULE": "normal"] ))
+    }
+
+    func testBackgroundServicesStartOnlyForImmutableNormalLoggingGeneration() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-module-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let normal = LiveWorker(logbook: LiveLogbookMethods(
+            supportDirectory: root.appendingPathComponent("normal"), inheritNativePreferences: false),
+            runtimeProfile: .production, operatingModule: .normalLogging)
+        await normal.startBackgroundServices()
+        let normalState = await normal.backgroundServiceStateForTesting()
+        XCTAssertTrue(normalState.sync); XCTAssertTrue(normalState.delivery)
+        await normal.shutdown()
+
+        let contest = LiveWorker(logbook: LiveLogbookMethods(
+            supportDirectory: root.appendingPathComponent("contest"), inheritNativePreferences: false),
+            runtimeProfile: .production, operatingModule: .contesting)
+        await contest.startBackgroundServices()
+        let contestState = await contest.backgroundServiceStateForTesting()
+        XCTAssertFalse(contestState.sync); XCTAssertFalse(contestState.delivery)
+        await contest.shutdown()
+    }
+
+    #if os(macOS)
+    func testContestingWorkerRejectsWSJTXIngressStartupAtWorkerAuthority() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-wsjtx-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root,
+            inheritNativePreferences: false), runtimeProfile: .production,
+            operatingModule: .contesting)
+        let reply = try await response(worker, id: "contest-wsjtx", method: "wsjtx_start")
+        XCTAssertEqual(reply["ok"] as? Bool, false)
+        XCTAssertEqual((reply["error"] as? [String: Any])?["code"] as? String,
+                       "inactive_operating_module")
+        await worker.shutdown()
+    }
+
+    func testContestingSharedOnlineSettingsTransitionCannotResumeBackgroundDelivery() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-online-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: .production,
+            operatingModule: .contesting)
+        let request = try JSONSerialization.data(withJSONObject: [
+            "id": "contest-online-settings", "method": "online_log_configure", "params": [
+                "enabled": NSNumber(value: false),
+                "confirm_new_contacts_only": NSNumber(value: false),
+            ],
+        ] as [String: Any])
+        let response = await worker.response(to: request)
+        let reply = try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        XCTAssertEqual(reply["ok"] as? Bool, true)
+        let state = await worker.backgroundServiceStateForTesting()
+        XCTAssertFalse(state.delivery)
+        await worker.shutdown()
+    }
+
+    func testContestingWorkspaceSuccessAndFailureDoNotResumeNormalBackgroundServices() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-workspace-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root,
+            inheritNativePreferences: false), runtimeProfile: .production,
+            operatingModule: .contesting)
+
+        let created = try await response(worker, id: "contest-workspace-create",
+            method: "workspace_create", params: ["mode": "empty"])
+        XCTAssertEqual(created["ok"] as? Bool, true)
+        var state = await worker.backgroundServiceStateForTesting()
+        XCTAssertFalse(state.sync); XCTAssertFalse(state.delivery)
+
+        let rejected = try await response(worker, id: "contest-workspace-reject",
+            method: "workspace_create", params: ["mode": "invalid"])
+        XCTAssertEqual(rejected["ok"] as? Bool, false)
+        state = await worker.backgroundServiceStateForTesting()
+        XCTAssertFalse(state.sync); XCTAssertFalse(state.delivery)
+        await worker.shutdown()
+    }
+    #endif
     func testConcurrentRealLogbookStartupUsesDisposableWorkspaceAndCorrelatesResponses() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-startup-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -42,8 +126,9 @@ final class WorkerStartupTests: XCTestCase {
         }
     }
 
-    private func response(_ worker: LiveWorker, id: String, method: String) async throws -> [String: Any] {
-        let request = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": [:]] as [String: Any])
+    private func response(_ worker: LiveWorker, id: String, method: String,
+                          params: [String: Any] = [:]) async throws -> [String: Any] {
+        let request = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": params] as [String: Any])
         let data = await worker.response(to: request)
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }

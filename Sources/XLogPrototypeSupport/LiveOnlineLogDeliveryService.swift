@@ -22,16 +22,23 @@ actor LiveOnlineLogDeliveryService {
     private let logbook: LiveLogbookMethods
     private let providers: [Provider]
     private let externalIOAllowed: @Sendable () -> Bool
+    private let backgroundOwnershipAllowed: @Sendable () -> Bool
+    private let retirementRecovery: @Sendable () throws -> Void
     private var automaticTask: Task<Void, Never>?
     private var deliveryTask: Task<Void, Never>?
     private var recoveredGeneration: String?
     private var workspaceTransitions = 0
     private var stopped = false
+    private var backgroundOwnershipStarted = false
 
     init(logbook: LiveLogbookMethods = .shared,
-         externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed }) {
+         externalIOAllowed: @escaping @Sendable () -> Bool = { AppRuntimeProfile.current.externalIOAllowed },
+         backgroundOwnershipAllowed: @escaping @Sendable () -> Bool = { true },
+         retirementRecovery: (@Sendable () throws -> Void)? = nil) {
         self.logbook = logbook
         self.externalIOAllowed = externalIOAllowed
+        self.backgroundOwnershipAllowed = backgroundOwnershipAllowed
+        self.retirementRecovery = retirementRecovery ?? { try Self.recoverInterrupted(logbook: logbook) }
         let qrz = Provider(service: .qrz, credential: {
             let service = try logbook.currentKeychainService()
             guard let key = try WorkspaceCredentialStore(service: service).load(.qrzLogbookKey), Self.valid(accessKey: key) else {
@@ -66,10 +73,14 @@ actor LiveOnlineLogDeliveryService {
     /// QRZ-only injection seam retained for deterministic owner tests.
     init(logbook: LiveLogbookMethods,
          externalIOAllowed: @escaping @Sendable () -> Bool = { true },
+         backgroundOwnershipAllowed: @escaping @Sendable () -> Bool = { true },
+         retirementRecovery: (@Sendable () throws -> Void)? = nil,
          credential: @escaping @Sendable () throws -> String?,
          delivery: @escaping @Sendable (LogbookDatabase, UUID, String, Date) async throws -> OnlineLogDeliveryReceipt) {
         self.logbook = logbook
         self.externalIOAllowed = externalIOAllowed
+        self.backgroundOwnershipAllowed = backgroundOwnershipAllowed
+        self.retirementRecovery = retirementRecovery ?? { try Self.recoverInterrupted(logbook: logbook) }
         providers = [Provider(service: .qrz, credential: {
             guard let key = try credential(), Self.valid(accessKey: key) else { return nil }
             return .qrz(key)
@@ -80,7 +91,8 @@ actor LiveOnlineLogDeliveryService {
     }
 
     func startAutomaticDelivery() {
-        guard externalIOAllowed(), automaticTask == nil, !stopped else { return }
+        guard backgroundOwnershipAllowed(), externalIOAllowed(), automaticTask == nil, !stopped else { return }
+        backgroundOwnershipStarted = true
         requestDelivery()
         automaticTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -92,7 +104,9 @@ actor LiveOnlineLogDeliveryService {
 
     /// Schedules and coalesces a bounded pass; the caller never waits for HTTP.
     func requestDelivery() {
-        guard externalIOAllowed(), !stopped, workspaceTransitions == 0, deliveryTask == nil else { return }
+        guard backgroundOwnershipAllowed(), externalIOAllowed(), !stopped,
+              workspaceTransitions == 0, deliveryTask == nil else { return }
+        backgroundOwnershipStarted = true
         deliveryTask = Task(priority: .utility) { [weak self] in
             await self?.runDue()
             await self?.finishDeliveryTask()
@@ -100,7 +114,7 @@ actor LiveOnlineLogDeliveryService {
     }
 
     func runDue(now: Date = Date()) async {
-        guard externalIOAllowed(), !stopped, workspaceTransitions == 0 else { return }
+        guard backgroundOwnershipAllowed(), externalIOAllowed(), !stopped, workspaceTransitions == 0 else { return }
         do {
             let generation = try logbook.syncOwnerContext()["generation"] as? String
             guard let generation else { return }
@@ -147,7 +161,7 @@ actor LiveOnlineLogDeliveryService {
 
     func finishOwnershipChange() {
         workspaceTransitions = max(0, workspaceTransitions - 1)
-        if workspaceTransitions == 0 { requestDelivery() }
+        if workspaceTransitions == 0, backgroundOwnershipAllowed() { requestDelivery() }
     }
 
     func beginTermination() {
@@ -156,11 +170,21 @@ actor LiveOnlineLogDeliveryService {
         deliveryTask?.cancel()
     }
 
-    func terminate() async {
+    @discardableResult func terminate() async -> Bool {
         beginTermination()
         let running = deliveryTask
         await running?.value
         deliveryTask = nil
+        // A cancelled provider may already have crossed dispatch admission.
+        // Convert that durable state to explicit uncertainty before the worker
+        // can report clean retirement; deferred work remains queued unchanged.
+        guard backgroundOwnershipAllowed(), backgroundOwnershipStarted else { return true }
+        do {
+            try retirementRecovery()
+            return true
+        } catch {
+            return false
+        }
     }
 
     func hasScheduledWorkForTesting() -> Bool {
@@ -168,6 +192,16 @@ actor LiveOnlineLogDeliveryService {
     }
 
     private func finishDeliveryTask() { deliveryTask = nil }
+
+    private static func recoverInterrupted(logbook: LiveLogbookMethods) throws {
+        let status = try logbook.handle(method: "workspace_status", params: [:])
+        guard let workspaceExists = status["workspace_exists"] as? Bool else {
+            throw OnlineLogDeliveryError.invalidPlan
+        }
+        if workspaceExists {
+            _ = try logbook.openedDatabase().recoverInterruptedOnlineLogDeliveries()
+        }
+    }
 
     private static func valid(accessKey: String) -> Bool {
         !accessKey.isEmpty && accessKey.utf8.count <= 256 &&
