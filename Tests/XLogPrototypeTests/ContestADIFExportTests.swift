@@ -90,6 +90,135 @@ final class ContestADIFExportTests: XCTestCase {
         XCTAssertThrowsError(try ContestADIFExport.records(input: makeInput(rule: rule, categoryBand: "40M"), rule: rule))
     }
 
+    func testDeclarativeOperatorArchiveMapsSerialAndNameFields() throws {
+        let rule = try CWUniqueCallDeclarativeDefinitions.archiveRule(for: .cwOpen)
+        let sent = ["serial": field("001"), "name": field("OLIVER")]
+        let received = ["serial": field("007"), "name": field("AL")]
+        let input = declarativeInput(rule: rule, sent: sent, received: received,
+                                     rawSent: "001 OLIVER", rawReceived: "007 AL")
+        _ = try input.validatedScore(rule: rule)
+        let record = try XCTUnwrap(ContestADIFExport.records(input: input, rule: rule).first)
+
+        XCTAssertEqual(record["STX"], "1")
+        XCTAssertEqual(record["SRX"], "7")
+        XCTAssertEqual(record["MY_NAME"], "OLIVER")
+        XCTAssertEqual(record["NAME"], "AL")
+    }
+
+    func testTenTenOperatorArchiveMapsNamesWithoutInventingSerialFields() throws {
+        let rule = try TenTenDeclarativeDefinitions.archiveRule(for: .winterPhone)
+        let sent = tenTenFields(name: "OLIVER", member: "1234", qth: "AUSTRALIA")
+        let received = tenTenFields(name: "MARY-JANE", member: "0", qth: "NEW YORK")
+        let record = try XCTUnwrap(ContestADIFExport.records(
+            input: declarativeInput(rule: rule, sent: sent, received: received,
+                                    rawSent: "OLIVER 1234 AUSTRALIA", rawReceived: "MARY-JANE 0 NEW YORK",
+                                    mode: "SSB", frequency: 28_500_000, sentReport: "59", receivedReport: "59"),
+            rule: rule).first)
+
+        XCTAssertEqual(record["MY_NAME"], "OLIVER")
+        XCTAssertEqual(record["NAME"], "MARY-JANE")
+        XCTAssertNil(record["STX"])
+        XCTAssertNil(record["SRX"])
+    }
+
+    func testDescriptorMappedFieldsRejectsWrongSideDuplicateAndMalformedValues() throws {
+        let name = ContestExchangeFieldDescriptor(id: "name", label: "Name", acceptedKinds: [.operatorName],
+                                                  maximumUTF8Bytes: 32, adifField: .myName)
+        let duplicate = ContestExchangeFieldDescriptor(id: "other-name", label: "Other name",
+                                                       acceptedKinds: [.operatorName], maximumUTF8Bytes: 32,
+                                                       adifField: .myName)
+        let wrongSide = ContestExchangeFieldDescriptor(id: "name", label: "Name",
+                                                       acceptedKinds: [.operatorName], maximumUTF8Bytes: 32,
+                                                       adifField: .name)
+        let serial = ContestExchangeFieldDescriptor(id: "serial", label: "Serial",
+                                                    acceptedKinds: [.serialNumber], maximumUTF8Bytes: 8,
+                                                    adifField: .stx)
+        let grid = ContestExchangeFieldDescriptor(id: "grid", label: "Grid",
+                                                  acceptedKinds: [.maidenheadGrid4], maximumUTF8Bytes: 4,
+                                                  adifField: .myGridSquare)
+
+        XCTAssertThrowsError(try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [wrongSide], receivedDescriptors: [], sentValues: ["name": field("OLIVER")],
+            receivedValues: [:], stationCallsign: "OM0RX", stationEntity: om,
+            workedCallsign: "K1ABC", workedEntity: usa))
+        XCTAssertThrowsError(try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [name, duplicate], receivedDescriptors: [],
+            sentValues: ["name": field("OLIVER"), "other-name": field("AL")], receivedValues: [:],
+            stationCallsign: "OM0RX", stationEntity: om, workedCallsign: "K1ABC", workedEntity: usa))
+        XCTAssertThrowsError(try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [serial], receivedDescriptors: [], sentValues: ["serial": field("ABC")],
+            receivedValues: [:], stationCallsign: "OM0RX", stationEntity: om,
+            workedCallsign: "K1ABC", workedEntity: usa))
+        XCTAssertThrowsError(try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [grid], receivedDescriptors: [], sentValues: ["grid": field("ZZ99")],
+            receivedValues: [:], stationCallsign: "OM0RX", stationEntity: om,
+            workedCallsign: "K1ABC", workedEntity: usa))
+    }
+
+    func testDescriptorMappedStateRequiresApplicableNonmobileEntity() throws {
+        let state = ContestExchangeFieldDescriptor(id: "state", label: "State", acceptedKinds: [.locationText],
+                                                   maximumUTF8Bytes: 32, adifField: .state)
+        let applicable = try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [], receivedDescriptors: [state], sentValues: [:],
+            receivedValues: ["state": field("CA")], stationCallsign: "OM0RX", stationEntity: om,
+            workedCallsign: "K1ABC", workedEntity: usa)
+        let foreign = try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [], receivedDescriptors: [state], sentValues: [:],
+            receivedValues: ["state": field("CA")], stationCallsign: "OM0RX", stationEntity: om,
+            workedCallsign: "DL1ABC", workedEntity: om)
+        let mobile = try ContestADIFExport.descriptorMappedFields(
+            sentDescriptors: [], receivedDescriptors: [state], sentValues: [:],
+            receivedValues: ["state": field("CA")], stationCallsign: "OM0RX", stationEntity: om,
+            workedCallsign: "K1ABC/MM", workedEntity: usa)
+
+        XCTAssertEqual(applicable["STATE"], "CA")
+        XCTAssertNil(foreign["STATE"])
+        XCTAssertNil(mobile["STATE"])
+    }
+
+    private func declarativeInput(rule: DeclarativeContestRule,
+                                  sent: [String: ContestExchangeFieldValue],
+                                  received: [String: ContestExchangeFieldValue],
+                                  rawSent: String, rawReceived: String,
+                                  mode: String = "CW", frequency: Int64 = 14_030_000,
+                                  sentReport: String = "", receivedReport: String = "") -> ContestExportInput {
+        let stationFields = sent.filter { $0.key != "serial" }
+        let stationExchange = rule.metadata.entry.exchange.sentFields.compactMap {
+            stationFields[$0.id]?.raw
+        }.joined(separator: " ")
+        let session = ContestSessionSnapshot(
+            id: sessionID, workspaceGeneration: generation, rule: rule.metadata.identity,
+            referenceDataVersion: "fixture-cty-1", startedAt: date,
+            station: .init(callsign: "OM0RX", entity: nil, sentExchange: stationExchange,
+                           operatorCallsigns: ["OM0RX"], location: "DX", sentExchangeFields: stationFields))
+        let qso = ContestQSO(
+            id: UUID(uuidString: "40000000-0000-0000-0000-000000000006")!, sessionID: sessionID,
+            timestampUTC: date, callsign: "K1ABC", band: mode == "CW" ? "20m" : "10m", mode: mode,
+            frequencyHz: frequency, rstSent: sentReport, rstReceived: receivedReport,
+            exchange: .init(rawSent: rawSent, normalizedSent: rawSent,
+                            rawReceived: rawReceived, normalizedReceived: rawReceived,
+                            sentFields: sent, receivedFields: received), entity: nil,
+            operatorCallsign: "OM0RX", stationLocation: "DX", provenance: .init(source: .operatorEntry))
+        let header = CabrilloHeader(callsign: "OM0RX", categoryOperator: "SINGLE-OP",
+                                    categoryAssisted: "NON-ASSISTED", categoryBand: "ALL",
+                                    categoryMode: mode == "CW" ? "CW" : "SSB", categoryTransmitter: "ONE",
+                                    categoryPower: "LOW", operators: ["OM0RX"], location: "DX")
+        return ContestExportInput(
+            formatterVersion: rule.metadata.entry.cabrilloFormatterVersion,
+            generatedAtUTC: date.addingTimeInterval(60), sessionRevision: 9,
+            session: session, ruleIdentity: rule.metadata.identity, referenceDataVersion: "fixture-cty-1",
+            metadata: .init(sessionName: "Operator archive", operatorCallsign: "OM0RX",
+                            operatorCategory: "SINGLE-OP", cabrilloHeader: header), qsos: [qso])
+    }
+
+    private func field(_ value: String) -> ContestExchangeFieldValue {
+        .init(raw: value, normalized: value)
+    }
+
+    private func tenTenFields(name: String, member: String, qth: String) -> [String: ContestExchangeFieldValue] {
+        ["name": field(name), "member-number": field(member), "qth": field(qth)]
+    }
+
     private func makeInput(rule: any ContestRule, qsos: [ContestQSO]? = nil,
                            referenceDataVersion: String = "fixture-cty-1", sentExchange: String = "001",
                            categoryMode: String = "CW", categoryBand: String = "ALL") -> ContestExportInput {
