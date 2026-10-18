@@ -5,8 +5,9 @@
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
   "nextReportSource": {
-    "integrationCommit": "cb41607e0919fd0946788fc9f42e9cb29c9db104",
+    "integrationCommit": "223f395a817409cb7de678870c42c8f31c4cbd9e",
     "reviewedCombinedCommit": "22857aa98a6dce1f4684937443f017866cdc8cd8",
+    "reviewedCombinedScope": "F18 history UI combined revision; retained as history-specific provenance, while integrationCommit identifies the current accepted exclusive-module composition.",
     "boundary": "F18 phase 2b is integrated as a bounded explicit draft projection: status/private preview/diagnostics, exact-call query and explicit record selection, paged retained values, blank-only projections and user-triggered draft apply. Automatic prefill, QSO commit/correction/deletion, history generation/export, native OS picker and radio remain outside scope; do not claim full call-history parity."
   },
   "validationEvidence": [
@@ -56,7 +57,7 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Source integration cb41607e0919fd0946788fc9f42e9cb29c9db104 is accepted and pushed over verified tree d145e4afeacb07b3c65dc167a74ce0bf68d14895; source validation/build passed, but its own hosted CI was not verified. Parent commits 3c7a618 and f734158 each passed all six native CI jobs (39087782113 and 39088234545). Full module acceptance still requires production background-ingress fencing and packaged restart; generic seven-definition activation remains unaccepted. Main 1.2.22 at 6c4dd993fd42f78d030a0e674f830ff339380842 remains the latest accepted installed baseline. The 1.2.23 map labels are visually accepted, but a history-panel startup issue is under investigation and runtime/source SHA and final release acceptance remain pending. Preserve the published snapshot and locked workbook; update claims only after the remaining acceptance and release gates are resolved.",
+  "refreshGate": "Exclusive operating-module integration 223f395a817409cb7de678870c42c8f31c4cbd9e is accepted, committed and pushed from verified tree 096160d7493c7ef9c0d41d63e2e50d38c98f0e1d; its parents are harness checkpoint 1ab9debbfdfa3d64c31928c06af94692ad580452 and module/main-1.2.22 integration cb41607e0919fd0946788fc9f42e9cb29c9db104. Root verified the merged frontend/build checks and that cb41607 passed all six native jobs in 39089798983 plus regular CI 39089798991. Full module acceptance still requires production background-ingress fencing and packaged restart; generic definition activation remains unaccepted. Main 1.2.22 at 6c4dd993fd42f78d030a0e674f830ff339380842 remains the latest accepted installed baseline. Main 1.2.23 is still under installed HF/RBN UI refinement, including scrolling and sizing, and has no final runtime acceptance. Preserve the published snapshot and locked workbook until remaining acceptance and release gates are resolved.",
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
     "measuredAtUtc": "2026-10-18T01:58:02Z",
@@ -290,12 +291,33 @@
         },
         "remaining": "Production background-ingress fencing and packaged restart acceptance remain open."
       },
+      "operatorModuleAcceptance": {
+        "commit": "223f395a817409cb7de678870c42c8f31c4cbd9e",
+        "parents": ["1ab9debbfdfa3d64c31928c06af94692ad580452", "cb41607e0919fd0946788fc9f42e9cb29c9db104"],
+        "verifiedTree": "096160d7493c7ef9c0d41d63e2e50d38c98f0e1d",
+        "merge": "Conflict-free automatic merge; root reviewed, committed and pushed.",
+        "validation": {
+          "frontend": "200 tests passed across 20 Vitest files",
+          "typecheck": "passed with empty log",
+          "build": {"status": "passed", "log": "/tmp/contest-operator-module-build.log", "sha256": "7430122e9c480230cf306308323d724b7a7e405e90b3797526153480d1222a8d"},
+          "frontendLog": {"path": "/tmp/contest-operator-module-frontend.log", "sha256": "0dbccc072b73f4a4567731b4704b05fd13099845690ce38e792158a8d0f98805"},
+          "swiftDiscovery": {
+            "result": "Test list compiled in 450.85 seconds and discovered 880 tests; this was discovery only, not 880 executed tests.",
+            "archive": "/Users/oliver/.local/share/lean-ctx/archives/c1/c15f4498b37277f5.txt",
+            "sha256": "51122a30d7e81ccb7607386ac4a9c268786a1173064ebb74dfb217ff8a735b9d"
+          },
+          "harnessSyntax": "passed"
+        },
+        "nativeAndRegularCIForParent": {"commit": "cb41607e0919fd0946788fc9f42e9cb29c9db104", "nativeWorkflow": "39089798983 passed all six jobs", "regularCI": "39089798991 passed"},
+        "scopeBoundary": "No new full runtime, package, install or RF acceptance. Production background ingress ownership and packaged restart remain open."
+      },
       "operatorEvidence": {
         "diag7": "Root verified successful scoped diagnostic: 85 frames, six commits, four exports; protected database metadata unchanged; forced-stall probes left no process IDs. This is not full acceptance.",
         "dev30": "Root verified failed run: 1,018 frames, 84 commits, 42 reservations, 56 exports and 14 corrections. Integrated Preview SQLite shared-memory file metadata changed during the run; writer is unattributed and no user-data mutation is claimed. Do not count as acceptance.",
         "harness": "Four-file harness source is frozen; root committed and pushed harness milestone 1ab9debbfdfa3d64c31928c06af94692ad580452. Full 94-entry and F01-F33 acceptance remains incomplete."
       },
-      "main123": "Main chat reports map labels visually accepted at candidate 7a5059; a history-panel startup issue is under investigation. Source SHA/runtime acceptance and final release acceptance remain pending. Latest accepted installed baseline remains 1.2.22 at 6c4dd993fd42f78d030a0e674f830ff339380842.",
+      "main123": "Main 1.2.23 remains under installed HF/RBN UI refinement, including scrolling and sizing. This source does not establish final runtime acceptance or resolve startup behavior. Latest accepted installed baseline remains 1.2.22 at 6c4dd993fd42f78d030a0e674f830ff339380842.",
+      "activationOpenFindings": "Generic definition activation remains unaccepted: supported nondefault modes, legacy camel-case identity handling and 74-byte aggregate exchanges are still being repaired and verified.",
       "aggregateParity": "16 previews, 78 pending, zero complete; seven declarative definitions remain inactive and unaccepted."
     }
   }
