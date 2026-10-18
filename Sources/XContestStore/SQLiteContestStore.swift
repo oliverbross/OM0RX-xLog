@@ -195,8 +195,10 @@ public actor SQLiteContestStore: ContestDurableRepository {
             [.text(id.uuidString)]
         ) { row in reservations.append(try self.decode(ContestSerialReservation.self, from: row.blob(0))) }
         let contacts = try qsos(sessionID: id, offset: 0, limit: Int.max)
+        let definitionData = try canonicalDefinitionData(for: session.session.rule)
         return ContestSessionReadSnapshot(session: session, drafts: sessionDrafts,
-                                          activeReservations: reservations, qsos: contacts)
+                                          activeReservations: reservations, qsos: contacts,
+                                          canonicalDefinitionData: definitionData)
     }
 
     private func mutationProjection(sessionID: UUID, draftID: UUID) throws -> ContestMutationProjection {
@@ -1000,18 +1002,32 @@ public actor SQLiteContestStore: ContestDurableRepository {
     }
 
     private func resolvedRule(for identity: ContestRuleIdentity) throws -> (any ContestRule)? {
+        let storedData = try canonicalDefinitionData(for: identity)
+        guard let storedData else { return rules.rule(for: identity) }
+        let definition = try decodeCanonicalDefinition(storedData, identity: identity)
+        return DeclarativeContestRule(definition: definition)
+    }
+
+    private func canonicalDefinitionData(for identity: ContestRuleIdentity) throws -> Data? {
         var storedData: Data?
         try database.query(
             "SELECT canonical_definition FROM declarative_definitions " +
             "WHERE rule_id = ? AND rule_version = ? AND rule_edition = ? AND source_revision = ?",
             definitionIdentityValues(identity)
         ) { row in storedData = row.blob(0) }
-        guard let storedData else { return rules.rule(for: identity) }
+        guard let storedData else { return nil }
+        _ = try decodeCanonicalDefinition(storedData, identity: identity)
+        return storedData
+    }
+
+    private func decodeCanonicalDefinition(
+        _ storedData: Data, identity: ContestRuleIdentity
+    ) throws -> ContestDeclarativeDefinition {
         do {
             let definition = try JSONDecoder().decode(ContestDeclarativeDefinition.self, from: storedData)
             guard definition.identity == identity,
                   try definition.canonicalStorageData() == storedData else { throw ContestStoreError.corruptRecord }
-            return DeclarativeContestRule(definition: definition)
+            return definition
         } catch {
             throw ContestStoreError.corruptRecord
         }

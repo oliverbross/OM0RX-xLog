@@ -147,7 +147,13 @@ public enum CabrilloExporter {
         }
         let call = try token(header.callsign, field: "callsign")
         var lines = ["START-OF-LOG: 3.0", "CREATED-BY: \(try safe(createdBy, field: "createdBy", required: true))",
-                     "CONTEST: \(rule.metadata.cabrilloName)"]
+                     "CONTEST: \(try token(rule.metadata.cabrilloName, field: "contest"))"]
+        if let projection = (rule as? any ContestRuleDeclarativeExportPolicy)?.declarativeExportProjection {
+            guard projection.purpose == .operatorArchive else {
+                throw CabrilloExportError.invalidHeader("exportPurpose")
+            }
+            lines.append("X-OM0RXXLOG-PURPOSE: OPERATOR-ARCHIVE")
+        }
         if let club = header.club, !club.isEmpty { lines.append("CLUB: \(try safe(club, field: "club"))") }
         lines += [
             "CALLSIGN: \(call)",
@@ -178,6 +184,9 @@ public enum CabrilloExporter {
 
     public static func qsoLine(_ qso: ContestQSO, session: ContestSessionSnapshot,
                                rule: any ContestRule) throws -> String {
+        if let projection = (rule as? any ContestRuleDeclarativeExportPolicy)?.declarativeExportProjection {
+            return try declarativeArchiveQsoLine(qso, session: session, rule: rule, projection: projection)
+        }
         if rule.metadata.entry.cabrilloFormatterVersion == ContestExportInput.naqpPreviewFormatterVersion {
             return try naqpQsoLine(qso, session: session, rule: rule)
         }
@@ -192,6 +201,52 @@ public enum CabrilloExporter {
             return try arrlDXQsoLine(qso, session: session, rule: rule)
         }
         return try standardQsoLine(qso, session: session, rule: rule)
+    }
+
+    private static func declarativeArchiveQsoLine(
+        _ qso: ContestQSO, session: ContestSessionSnapshot, rule: any ContestRule,
+        projection: ContestDeclarativeExportProjection
+    ) throws -> String {
+        guard qso.sessionID == session.id, session.rule == rule.metadata.identity,
+              projection.purpose == .operatorArchive, projection.duplicateRecords == .retainAll,
+              qso.timestampUTC.timeIntervalSinceReferenceDate.isFinite else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "rule")
+        }
+        if let issue = rule.evaluate(qso, in: session).validation.first(where: { $0.severity == .error }) {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: issue.field)
+        }
+        guard qso.frequencyHz > 0, let profile = rule.metadata.entry.modeProfile(for: qso.mode) else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz")
+        }
+        let wholeKHz = qso.frequencyHz / 1_000
+        let remainder = qso.frequencyHz % 1_000
+        let frequency = remainder < 500 ? wholeKHz : remainder > 500 ? wholeKHz + 1 :
+            (wholeKHz.isMultiple(of: 2) ? wholeKHz : wholeKHz + 1)
+        guard frequency > 0 && frequency <= 99_999 else {
+            throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "frequencyHz")
+        }
+        let rendered = try projection.columns.map { column -> String in
+            let value: String
+            switch column.source {
+            case .frequencyKHz: value = String(frequency)
+            case .mode: value = profile.cabrilloQSOType
+            case .date: value = date(qso.timestampUTC)
+            case .time: value = time(qso.timestampUTC)
+            case .stationCallsign: value = session.station.callsign
+            case .contactedCallsign: value = qso.callsign
+            case .sentReport: value = qso.rstSent
+            case .receivedReport: value = qso.rstReceived
+            case let .sentField(id): value = qso.exchange.sentFields[id]?.normalized ?? ""
+            case let .receivedField(id): value = qso.exchange.receivedFields[id]?.normalized ?? ""
+            }
+            let bytes = Array(value.utf8)
+            guard bytes.count <= column.width, (!column.required || !bytes.isEmpty),
+                  bytes.allSatisfy({ (32...126).contains($0) }) else {
+                throw CabrilloExportError.invalidQSO(qsoID: qso.id, field: "archiveColumn")
+            }
+            return column.alignment == .right ? leftPad(value, column.width) : rightPad(value, column.width)
+        }
+        return "QSO: " + rendered.joined(separator: " ")
     }
 
     private static func jidxDocument(header: CabrilloHeader, score: ContestScore,

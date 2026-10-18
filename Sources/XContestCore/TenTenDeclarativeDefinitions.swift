@@ -8,6 +8,14 @@ public enum TenTenSeasonalVariant: String, CaseIterable, Codable, Sendable {
 }
 
 public enum TenTenDeclarativeDefinitions {
+    public static func archiveDefinition(for variant: TenTenSeasonalVariant) throws -> ContestDeclarativeDefinition {
+        try archiveDraft(for: variant).materialized()
+    }
+
+    public static func archiveRule(for variant: TenTenSeasonalVariant) throws -> DeclarativeContestRule {
+        DeclarativeContestRule(definition: try archiveDefinition(for: variant))
+    }
+
     public static func definition(for variant: TenTenSeasonalVariant) throws -> ContestDeclarativeDefinition {
         try draft(for: variant).materialized()
     }
@@ -36,6 +44,37 @@ public enum TenTenDeclarativeDefinitions {
                 .init(fieldID: "member-number", comparison: .greaterThan, threshold: 0, points: 2),
             ]), eligibilityPolicy: .unrestricted,
             exportPolicy: .unsupported, stationEntityRequired: false)
+    }
+
+    public static func archiveDraft(for variant: TenTenSeasonalVariant) -> ContestDefinitionDraft {
+        let base = draft(for: variant)
+        let formatter = "ten-ten-archive-1"
+        let entry = ContestEntryDescriptor(
+            cabrilloFormatterVersion: formatter, cabrilloProjectionFormatterVersion: formatter,
+            modeProfiles: base.entry.modeProfiles, exchange: base.entry.exchange, serial: base.entry.serial,
+            stationResolvedSerial: base.entry.stationResolvedSerial, stationFields: base.entry.stationFields,
+            scorePolicy: base.entry.scorePolicy)
+        let columns: [ContestDeclarativeExportColumn] = [
+            .init(source: .frequencyKHz, width: 5, alignment: .right),
+            .init(source: .mode, width: 2), .init(source: .date, width: 10),
+            .init(source: .time, width: 4), .init(source: .stationCallsign, width: 13),
+            .init(source: .sentReport, width: 3), .init(source: .sentField("name"), width: 10),
+            .init(source: .sentField("member-number"), width: 8, alignment: .right),
+            .init(source: .sentField("qth"), width: 20),
+            .init(source: .contactedCallsign, width: 13), .init(source: .receivedReport, width: 3),
+            .init(source: .receivedField("name"), width: 10),
+            .init(source: .receivedField("member-number"), width: 8, alignment: .right),
+            .init(source: .receivedField("qth"), width: 20),
+        ]
+        return ContestDefinitionDraft(
+            id: base.id, version: "2.0.0-declarative-archive", edition: base.edition,
+            displayName: base.displayName + " Operator Archive", cabrilloName: base.cabrilloName,
+            supportedBands: base.supportedBands, supportedModes: base.supportedModes, entry: entry,
+            sourceProvenance: base.sourceProvenance + "; operator archive only, not sponsor submission",
+            dupePolicy: base.dupePolicy, multiplierPolicy: base.multiplierPolicy, scoring: base.scoring,
+            eligibilityPolicy: base.eligibilityPolicy, exportPolicy: .operatorArchive,
+            exportProjection: .init(formatterVersion: formatter, columns: columns),
+            stationEntityRequired: base.stationEntityRequired)
     }
 
     private static func entry(phone: Bool) -> ContestEntryDescriptor {

@@ -178,6 +178,17 @@ public struct ContestSessionReadSnapshot: Codable, Hashable, Sendable {
     public let drafts: [ContestDraftSnapshot]
     public let activeReservations: [ContestSerialReservation]
     public let qsos: [ContestQSO]
+    public let canonicalDefinitionData: Data?
+
+    public init(session: StoredContestSession, drafts: [ContestDraftSnapshot],
+                activeReservations: [ContestSerialReservation], qsos: [ContestQSO],
+                canonicalDefinitionData: Data? = nil) {
+        self.session = session
+        self.drafts = drafts
+        self.activeReservations = activeReservations
+        self.qsos = qsos
+        self.canonicalDefinitionData = canonicalDefinitionData
+    }
 
     public var qsoCount: Int { qsos.count }
 }

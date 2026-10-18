@@ -9,6 +9,14 @@ public enum CWUniqueCallContestVariant: String, CaseIterable, Codable, Sendable 
 /// Inactive declarative definitions for the shared per-band-dupe, unique-call multiplier family.
 /// Event windows, categories, frequency constraints, and export remain activation gates.
 public enum CWUniqueCallDeclarativeDefinitions {
+    public static func archiveDefinition(for variant: CWUniqueCallContestVariant) throws -> ContestDeclarativeDefinition {
+        try archiveDraft(for: variant).materialized()
+    }
+
+    public static func archiveRule(for variant: CWUniqueCallContestVariant) throws -> DeclarativeContestRule {
+        DeclarativeContestRule(definition: try archiveDefinition(for: variant))
+    }
+
     public static func definition(for variant: CWUniqueCallContestVariant) throws -> ContestDeclarativeDefinition {
         try draft(for: variant).materialized()
     }
@@ -26,6 +34,28 @@ public enum CWUniqueCallDeclarativeDefinitions {
             dupePolicy: .perBand, multiplierPolicy: .uniqueCallsign,
             scoring: .init(defaultPoints: 1, clauses: []), eligibilityPolicy: .unrestricted,
             exportPolicy: .unsupported, stationEntityRequired: false)
+    }
+
+    public static func archiveDraft(for variant: CWUniqueCallContestVariant) -> ContestDefinitionDraft {
+        let base = draft(for: variant)
+        let formatter = "cw-unique-call-archive-1"
+        let baseEntry = base.entry
+        let archiveEntry = ContestEntryDescriptor(
+            cabrilloFormatterVersion: formatter, cabrilloProjectionFormatterVersion: formatter,
+            modeProfiles: baseEntry.modeProfiles, exchange: baseEntry.exchange, serial: baseEntry.serial,
+            stationResolvedSerial: baseEntry.stationResolvedSerial, stationFields: baseEntry.stationFields,
+            scorePolicy: baseEntry.scorePolicy)
+        return ContestDefinitionDraft(
+            id: base.id, version: "2.0.0-declarative-archive", edition: base.edition,
+            displayName: base.displayName.replacingOccurrences(of: " Preview", with: " Archive Preview"),
+            cabrilloName: base.cabrilloName, supportedBands: base.supportedBands,
+            supportedModes: base.supportedModes, entry: archiveEntry,
+            sourceProvenance: base.sourceProvenance + "; operator archive only, not sponsor submission",
+            dupePolicy: base.dupePolicy, multiplierPolicy: base.multiplierPolicy,
+            scoring: base.scoring, eligibilityPolicy: base.eligibilityPolicy,
+            exportPolicy: .operatorArchive,
+            exportProjection: .init(formatterVersion: formatter, columns: archiveColumns(for: variant)),
+            stationEntityRequired: base.stationEntityRequired)
     }
 
     private static func entry(for variant: CWUniqueCallContestVariant) -> ContestEntryDescriptor {
@@ -86,6 +116,38 @@ public enum CWUniqueCallDeclarativeDefinitions {
         variant == .cwt
             ? .init(requirement: .none, allowedScopes: [])
             : .init(requirement: .requiredForCommit, allowedScopes: [.session])
+    }
+
+    private static func archiveColumns(for variant: CWUniqueCallContestVariant) -> [ContestDeclarativeExportColumn] {
+        let leading: [ContestDeclarativeExportColumn] = [
+            .init(source: .frequencyKHz, width: 5, alignment: .right),
+            .init(source: .mode, width: 2), .init(source: .date, width: 10),
+            .init(source: .time, width: 4), .init(source: .stationCallsign, width: 13),
+        ]
+        let contact = ContestDeclarativeExportColumn(source: .contactedCallsign, width: 13)
+        switch variant {
+        case .cwt:
+            return leading + [
+                .init(source: .sentField("name"), width: 10),
+                .init(source: .sentField("member-or-location"), width: 20), contact,
+                .init(source: .receivedField("name"), width: 10),
+                .init(source: .receivedField("member-or-location"), width: 20),
+            ]
+        case .cwOpen:
+            return leading + [
+                .init(source: .sentField("serial"), width: 4, alignment: .right),
+                .init(source: .sentField("name"), width: 10), contact,
+                .init(source: .receivedField("serial"), width: 4, alignment: .right),
+                .init(source: .receivedField("name"), width: 10),
+            ]
+        case .icwcMST:
+            return leading + [
+                .init(source: .sentField("name"), width: 10),
+                .init(source: .sentField("serial"), width: 4, alignment: .right), contact,
+                .init(source: .receivedField("name"), width: 10),
+                .init(source: .receivedField("serial"), width: 4, alignment: .right),
+            ]
+        }
     }
 
     private static func id(for variant: CWUniqueCallContestVariant) -> String {
