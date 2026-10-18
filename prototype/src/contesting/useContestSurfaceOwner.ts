@@ -26,22 +26,39 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
   const contextRef = useRef(context), projectionsRef = useRef(projections), handleRef = useRef(handle);
   contextRef.current = context; projectionsRef.current = projections; handleRef.current = handle;
   const publishQueue = useRef(Promise.resolve());
-  const scheduledRef = useRef({ context: "", keys: {} as Partial<Record<ContestSurfacePanelID, string>> });
+  const publicationRef = useRef({ context: "", published: {} as Partial<Record<ContestSurfacePanelID, string>>,
+    pending: {} as Partial<Record<ContestSurfacePanelID, string>> });
 
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
     const contextKey = `${context.operatingContext}/${context.sessionID}/${context.workspaceGeneration}`;
-    if (scheduledRef.current.context !== contextKey) scheduledRef.current = { context: contextKey, keys: {} };
-    const changed = contestSurfacePanelIDs.filter(panelID => scheduledRef.current.keys[panelID] !== keys[panelID]);
+    if (publicationRef.current.context !== contextKey) publicationRef.current = { context: contextKey, published: {}, pending: {} };
+    const changed = contestSurfacePanelIDs.filter(panelID => publicationRef.current.published[panelID] !== keys[panelID] &&
+      publicationRef.current.pending[panelID] !== keys[panelID]);
     if (changed.length === 0) return;
     const revisions = { ...revisionRef.current }, snapshot = projections, snapshotKeys = { ...keys };
-    for (const panelID of changed) scheduledRef.current.keys[panelID] = snapshotKeys[panelID];
+    for (const panelID of changed) publicationRef.current.pending[panelID] = snapshotKeys[panelID];
     publishQueue.current = publishQueue.current.then(async () => {
       if (contextRef.current?.operatingContext !== context.operatingContext || contextRef.current.sessionID !== context.sessionID ||
           contextRef.current.workspaceGeneration !== context.workspaceGeneration) return;
-      await Promise.all(changed.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
-        projectionRevision: revisions[panelID], projection: snapshot[panelID] })));
+      await Promise.all(changed.map(async panelID => {
+        try {
+          await publishContestSurface({ ...context, scope: "contesting", panelID,
+            projectionRevision: revisions[panelID], projection: snapshot[panelID] });
+          if (publicationRef.current.context === contextKey && publicationRef.current.pending[panelID] === snapshotKeys[panelID]) {
+            publicationRef.current.published[panelID] = snapshotKeys[panelID]; delete publicationRef.current.pending[panelID];
+          }
+        } catch (cause) {
+          if (publicationRef.current.context === contextKey && publicationRef.current.pending[panelID] === snapshotKeys[panelID]) {
+            delete publicationRef.current.pending[panelID];
+            // A lost reply may still mean native accepted this revision. Retry
+            // only on a later projection refresh, and always with a higher one.
+            revisionRef.current[panelID] = Math.max(revisionRef.current[panelID], revisions[panelID]) + 1;
+          }
+          report(boundedMessage(cause));
+        }
+      }));
     }).catch(cause => report(boundedMessage(cause)));
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, key, report]);
 

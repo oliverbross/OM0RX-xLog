@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
-import type { ContestSurfaceAction, ContestSurfaceActionEnvelope } from "./contestSurfaceProtocol";
+import type { ContestRateSurfaceProjection, ContestStatisticsSurfaceProjection, ContestStatisticsSurfaceProjectionV2,
+  ContestSurfaceAction, ContestSurfaceActionEnvelope } from "./contestSurfaceProtocol";
 import { ContestRatePanel, ContestStatisticsPanel } from "./ContestRateStatisticsPanel";
 import "./DetachedContestSurface.css";
 
@@ -92,8 +93,8 @@ function Surface({ context }: { context: Context }) {
           projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
-      : snapshot.panelID === "monitor" ? <Rate projection={projection as any}/>
-      : snapshot.panelID === "propagation" ? <Statistics projection={projection as Extract<typeof projection, { score: unknown }>}/>
+      : snapshot.panelID === "monitor" ? <Rate projection={projection as ContestRateSurfaceProjection} error={error}/>
+      : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection | ContestStatisticsSurfaceProjectionV2} error={error}/>
       : snapshot.panelID === "logbook" ? <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : null}
@@ -254,9 +255,13 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
       onClick={()=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID:row.candidateID}},projectionRevision)}><strong>{row.callsign}</strong>
       <span>{row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}</span></button>)}</section>;
 }
-function Rate({projection}:{projection:any}) { return <ContestRatePanel statistics={projection}/>; }
-function Statistics({projection}:{projection:any}) { return <ContestStatisticsPanel score={projection.score}
-  statistics={projection.schemaVersion === 2 ? projection : null}/>; }
+function Rate({projection,error}:{projection:ContestRateSurfaceProjection;error?:string}) { return <ContestRatePanel error={error} statistics={{
+  revision:projection.sessionRevision,asOfUTC:projection.asOfUTC,currentHourQSOs:projection.currentHourQSOs,
+  operatorStyles:projection.operatorStyles,trailing60Minutes:projection.trailing60Minutes,latest10:projection.latest10,latest100:projection.latest100 }}/>; }
+function Statistics({projection,error}:{projection:ContestStatisticsSurfaceProjection|ContestStatisticsSurfaceProjectionV2;error?:string}) {
+  return <ContestStatisticsPanel score={projection.score} error={error} statistics={projection.schemaVersion===2?{
+    revision:projection.sessionRevision,asOfUTC:projection.asOfUTC,fullLogQSOs:projection.fullLogQSOs,loggedQSOs:projection.loggedQSOs,
+    duplicateQSOs:projection.duplicateQSOs,invalidQSOs:projection.invalidQSOs,bands:projection.bands,total:projection.total}:null}/>; }
 function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section><h1>Contest log</h1>
   {editing&&<div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <div className="contest-surface-row"><IntentInput label="Sent report" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>

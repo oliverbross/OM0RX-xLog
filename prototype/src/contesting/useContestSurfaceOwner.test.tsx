@@ -63,6 +63,27 @@ it("keeps Entry admission stable and publishes only monitor when a rate clock re
   queue.push(action(1));await act(async()=>{native.wake!();});await waitFor(()=>expect(completed.at(-1)).toMatchObject({outcome:"rejected"}));
 });
 
+it("recovers one failed Entry publication on the next rate refresh without republishing successful siblings",async()=>{
+  const published:Record<string,any>[]=[],report=vi.fn();let failEntry=true;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_publish"){published.push(args);if(args.panelID==="active-qso"&&failEntry){failEntry=false;throw new Error("entry publish lost");}return;}
+    if(command==="contest_surface_context_close")return;if(command==="contest_surface_escape_next"||command==="contest_surface_action_next")return null;
+    throw new Error(command);
+  });
+  const projections={...unavailable(),"active-qso":entry},view=render(<Harness projections={projections} handle={vi.fn()} report={report}/>);
+  await waitFor(()=>expect(report).toHaveBeenCalledWith("entry publish lost"));
+  expect(published).toHaveLength(contestSurfacePanelIDs.length);
+  const rate:any={schemaVersion:1,status:"ready",sessionRevision:5,asOfUTC:"2026-10-18T00:01:00.000Z",fullLogQSOs:0,loggedQSOs:0,
+    acceptedQSOs:0,duplicateQSOs:0,invalidQSOs:0,currentHourQSOs:0,operatorStyles:{total:{run:0,searchAndPounce:0,unknown:0},
+      currentHour:{run:0,searchAndPounce:0,unknown:0}},trailing60Minutes:{qsoCount:0,spanSeconds:null,qsosPerHour:null},latest10:null,latest100:null,busy:false};
+  view.rerender(<Harness projections={{...projections,monitor:rate}} handle={vi.fn()} report={report}/>);
+  await waitFor(()=>expect(published.filter(item=>item.panelID==="active-qso")).toHaveLength(2));
+  expect(published.filter(item=>item.panelID==="active-qso").at(-1)).toMatchObject({projectionRevision:2});
+  expect(published.filter(item=>item.panelID==="monitor")).toHaveLength(2);
+  for(const panelID of contestSurfacePanelIDs.filter(id=>id!=="active-qso"&&id!=="monitor"))
+    expect(published.filter(item=>item.panelID===panelID)).toHaveLength(1);
+});
+
 it("does not execute a dequeued action after its owner context closes",async()=>{
   let release!:(value:ContestSurfaceActionEnvelope)=>void;const pending=new Promise<ContestSurfaceActionEnvelope>(resolve=>{release=resolve;});
   native.invoke.mockImplementation((command:string)=>command==="contest_surface_action_next"?pending:

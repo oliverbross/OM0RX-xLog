@@ -506,12 +506,12 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
       history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
       busy: !!scpSurface?.busy || !!historySurface?.busy };
-    liveSurfaceProjections.monitor = currentStatistics ? { schemaVersion: 1, status: "ready", sessionRevision: currentStatistics.revision,
+    liveSurfaceProjections.monitor = currentStatistics && !statisticsError ? { schemaVersion: 1, status: "ready", sessionRevision: currentStatistics.revision,
       asOfUTC: currentStatistics.asOfUTC, fullLogQSOs: currentStatistics.fullLogQSOs, loggedQSOs: currentStatistics.loggedQSOs,
       acceptedQSOs: currentStatistics.acceptedQSOs, duplicateQSOs: currentStatistics.duplicateQSOs, invalidQSOs: currentStatistics.invalidQSOs,
       currentHourQSOs: currentStatistics.currentHourQSOs, operatorStyles: currentStatistics.operatorStyles,
       trailing60Minutes: currentStatistics.trailing60Minutes, latest10: currentStatistics.latest10, latest100: currentStatistics.latest100, busy: false } : surfaceUnavailable;
-    liveSurfaceProjections.propagation = currentStatistics ? { schemaVersion: 2, status: "ready", score: score ? {
+    liveSurfaceProjections.propagation = statisticsError ? surfaceUnavailable : currentStatistics ? { schemaVersion: 2, status: "ready", score: score ? {
       qsos: score.qsos, points: score.points, multipliers: score.multipliers, claimedScore: score.claimedScore,
       multiplierLabels: score.multiplierLabels, multiplierDisplayLabels: score.multiplierDisplayLabels ?? score.multiplierLabels,
       sourceVerification: score.sourceVerification } : null, busy, sessionRevision: currentStatistics.revision, asOfUTC: currentStatistics.asOfUTC,

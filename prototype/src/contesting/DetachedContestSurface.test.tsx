@@ -39,10 +39,29 @@ it("renders strict detached Rate and Statistics projections without reading the 
   native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return structuredClone(current);throw new Error(command);});
   window.history.replaceState({},"",search.replace("view=active-qso","view=monitor"));const view=render(<DetachedContestSurface/>);
   expect(await screen.findByText("120 Q/h")).toBeTruthy();expect(screen.getByText("1 / 0 / 1")).toBeTruthy();
+  expect(screen.getByText("Current hour Run / S&P / unknown: 1 / 0 / 1")).toBeTruthy();
+  expect(screen.getByText(/revision 7/)).toBeTruthy();
   view.unmount();current={...current,panelID:"propagation",projectionRevision:2,projection:{schemaVersion:2,status:"ready",score,busy:false,
     sessionRevision:7,asOfUTC:rate.asOfUTC,fullLogQSOs:2,loggedQSOs:2,acceptedQSOs:1,duplicateQSOs:1,invalidQSOs:0,bands:[band],total:{...band,band:"total"}}};
   window.history.replaceState({},"",search.replace("view=active-qso","view=propagation"));render(<DetachedContestSurface/>);
   expect(await screen.findByText("United States")).toBeTruthy();expect(screen.getByRole("row",{name:/Total 2 1 1 2 0 0 0 1 3/})).toBeTruthy();
+  expect(screen.getByText(/revision 7/)).toBeTruthy();
+});
+
+it.each(["monitor","propagation"] as const)("keeps the last %s sample visible and marks it stale after refresh failure",async panelID=>{
+  const rate={schemaVersion:1,status:"ready",sessionRevision:7,asOfUTC:"2026-10-18T00:00:00.000Z",fullLogQSOs:2,loggedQSOs:2,
+    acceptedQSOs:2,duplicateQSOs:0,invalidQSOs:0,currentHourQSOs:2,operatorStyles:{total:{run:1,searchAndPounce:1,unknown:0},
+      currentHour:{run:1,searchAndPounce:1,unknown:0}},trailing60Minutes:{qsoCount:2,spanSeconds:60,qsosPerHour:120},latest10:null,latest100:null,busy:false};
+  const band={band:"20m",loggedQSOs:2,acceptedQSOs:2,distinctCallsigns:2,modes:{cw:2,phone:0,digital:0,other:0},distinctWPXPrefixes:2,creditedPoints:6};
+  const score={qsos:2,points:6,multipliers:2,claimedScore:12,multiplierLabels:["K","VE"],multiplierDisplayLabels:["K","VE"],sourceVerification:"verified"};
+  const projectionValue:any=panelID==="monitor"?rate:{schemaVersion:2,status:"ready",score,busy:false,sessionRevision:7,asOfUTC:rate.asOfUTC,
+    fullLogQSOs:2,loggedQSOs:2,acceptedQSOs:2,duplicateQSOs:0,invalidQSOs:0,bands:[band],total:{...band,band:"total"}};
+  let fail=false;native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot"){if(fail)throw new Error("refresh failed");
+    return {...snapshot,panelID,projectionRevision:1,projection:projectionValue};}throw new Error(command);});
+  window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));render(<DetachedContestSurface/>);
+  expect(await screen.findByText(/revision 7/)).toBeTruthy();fail=true;await act(async()=>{native.wake!();});
+  expect(await screen.findAllByText("refresh failed")).not.toHaveLength(0);
+  expect(screen.getByText(/Refresh unavailable · showing/)).toBeTruthy();expect(screen.getByText(/revision 7/)).toBeTruthy();
 });
 
 it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
