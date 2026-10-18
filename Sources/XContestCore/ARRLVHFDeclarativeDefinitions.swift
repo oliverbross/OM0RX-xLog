@@ -27,7 +27,7 @@ public enum ARRLVHFDeclarativeDefinitions {
     }
 
     public static func rule(for season: ARRLVHFSeason) throws -> DeclarativeContestRule {
-        try rule(for: season, category: .fixed)
+        DeclarativeContestRule(definition: try definition(for: season))
     }
 
     public static func rule(for season: ARRLVHFSeason,

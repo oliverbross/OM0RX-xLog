@@ -186,6 +186,24 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         let score = try ContestEngine.score([mismatched], session: session, rule: rule)
         XCTAssertEqual(score.qsos.map(\.disposition), [.invalid])
         XCTAssertEqual(score.totalPoints, 0)
+
+        for location in ["", "JN99"] {
+            let incoherent = makeSession(rule, stationLocation: location)
+            XCTAssertEqual(rule.validateSession(incoherent).map(\.code), ["invalidStationGrid"])
+        }
+
+        let base = ARRLVHFDeclarativeDefinitions.draft(for: .june, category: .rover)
+        let extra = ContestExchangeFieldDescriptor(
+            id: "name", label: "Name", acceptedKinds: [.operatorName], maximumUTF8Bytes: 16)
+        let extraExchange = ContestExchangeDescriptor(
+            sent: base.entry.exchange.sent, received: base.entry.exchange.received,
+            sentDefault: base.entry.exchange.sentDefault, adifFields: base.entry.exchange.adifFields,
+            sentFields: base.entry.exchange.sentFields + [extra],
+            receivedFields: base.entry.exchange.receivedFields)
+        XCTAssertThrowsError(try replacing(base, entry: replacing(base.entry, exchange: extraExchange)).materialized())
+
+        let serial = ContestSerialDescriptor(requirement: .requiredForCommit, allowedScopes: [.session])
+        XCTAssertThrowsError(try replacing(base, entry: replacing(base.entry, serial: serial)).materialized())
     }
 
     func testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder() throws {
@@ -253,13 +271,14 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
         return Dictionary(uniqueKeysWithValues: rows.map { ($0.season, $0) })
     }
 
-    private func makeSession(_ rule: DeclarativeContestRule) -> ContestSessionSnapshot {
+    private func makeSession(_ rule: DeclarativeContestRule,
+                             stationLocation: String = "JN98") -> ContestSessionSnapshot {
         .init(id: UUID(uuidString: "EA100000-0000-0000-0000-000000000001")!,
               workspaceGeneration: UUID(uuidString: "EA100000-0000-0000-0000-000000000002")!,
               rule: rule.metadata.identity, referenceDataVersion: "arrl-vhf-source-preview",
               startedAt: timestamp,
               station: .init(callsign: "OM0RX", entity: nil, sentExchange: "JN98",
-                             operatorCallsigns: ["OM0RX"], location: "JN98",
+                             operatorCallsigns: ["OM0RX"], location: stationLocation,
                              sentExchangeFields: ["grid": field("JN98")]))
     }
 
@@ -325,6 +344,30 @@ final class ContestARRLVHFDeclarativeTests: XCTestCase {
               scoring: base.scoring, eligibilityPolicy: base.eligibilityPolicy,
               exportPolicy: base.exportPolicy, exportProjection: exportProjection,
               stationEntityRequired: base.stationEntityRequired, adapterID: base.adapterID)
+    }
+
+    private func replacing(_ base: ContestDefinitionDraft,
+                           entry: ContestEntryDescriptor) -> ContestDefinitionDraft {
+        .init(id: base.id, version: base.version, edition: base.edition, displayName: base.displayName,
+              cabrilloName: base.cabrilloName, supportedBands: base.supportedBands,
+              supportedModes: base.supportedModes, entry: entry,
+              sourceProvenance: base.sourceProvenance, dupePolicy: base.dupePolicy,
+              multiplierPolicy: base.multiplierPolicy,
+              geographicMultiplier: base.geographicMultiplier, gridMultiplier: base.gridMultiplier,
+              stationGridPolicy: base.stationGridPolicy, scoring: base.scoring,
+              eligibilityPolicy: base.eligibilityPolicy, exportPolicy: base.exportPolicy,
+              exportProjection: base.exportProjection, operatorPolicy: base.operatorPolicy,
+              stationEntityRequired: base.stationEntityRequired, adapterID: base.adapterID)
+    }
+
+    private func replacing(_ base: ContestEntryDescriptor,
+                           exchange: ContestExchangeDescriptor? = nil,
+                           serial: ContestSerialDescriptor? = nil) -> ContestEntryDescriptor {
+        .init(cabrilloFormatterVersion: base.cabrilloFormatterVersion,
+              cabrilloProjectionFormatterVersion: base.cabrilloProjectionFormatterVersion,
+              modeProfiles: base.modeProfiles, exchange: exchange ?? base.exchange,
+              serial: serial ?? base.serial, stationResolvedSerial: base.stationResolvedSerial,
+              stationFields: base.stationFields, scorePolicy: base.scorePolicy)
     }
 
     private func frequency(_ band: String) -> Int64 {

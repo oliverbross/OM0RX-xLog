@@ -611,6 +611,11 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
             if sent?.required != true || sent?.acceptedKinds != [.maidenheadGrid4] {
                 result.append("station grid policy field must be a required sent Maidenhead grid")
             }
+            if draft.entry.exchange.sentFields.count != 1 ||
+                draft.entry.serial.requirement != .none || !draft.entry.serial.allowedScopes.isEmpty ||
+                draft.entry.stationResolvedSerial != nil {
+                result.append("station grid policy currently requires a sole sent grid and no serial allocation")
+            }
             if draft.dupePolicy != .perBandStationGridPair || draft.multiplierPolicy != .maidenheadGrid {
                 result.append("station grid policy requires paired-grid duplicate and grid multiplier policies")
             }
@@ -868,9 +873,10 @@ public struct DeclarativeContestRule: ContestRule, ContestRuleStationEntityPolic
         }
         if let stationGrid = definition.draft.stationGridPolicy {
             guard let value = session.station.sentExchangeFields[stationGrid.sentFieldID]?.normalized,
-                  ContestExchangeFieldKind.maidenheadGrid4.accepts(value) else {
+                  ContestExchangeFieldKind.maidenheadGrid4.accepts(value),
+                  session.station.location == value else {
                 result.append(.init(code: "invalidStationGrid", field: "station.sentExchangeFields.\(stationGrid.sentFieldID)",
-                                    message: "An explicit four-character station grid is required."))
+                                    message: "Station location must match the explicit four-character sent grid."))
                 return result
             }
         }
