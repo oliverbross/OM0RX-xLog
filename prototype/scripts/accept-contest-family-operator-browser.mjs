@@ -2,13 +2,14 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { createServer as createHTTPServer } from "node:http";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer as createViteServer } from "vite";
 import { runBoundedChild } from "./bounded-child-process.mjs";
+import { admitContestAcceptanceDatabaseFiles } from "./contest-acceptance-open-files.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const prototype = join(root, "prototype");
@@ -17,6 +18,9 @@ const outputRoot = resolve(option("--output"));
 const expectedHead = option("--expected-head");
 const testHostBinary = resolve(option("--test-host-binary"));
 const testRunnerBinary = resolve(option("--test-runner-binary"));
+const testHostPID = Number(option("--test-host-pid"));
+assert.ok(Number.isSafeInteger(testHostPID) && testHostPID > 1, "Test-host PID must be a positive integer.");
+assert.equal(testHostPID, process.ppid, "Acceptance driver is not attached directly to the declared test host.");
 assert.equal(existsSync(outputRoot), false, "Acceptance output must be new.");
 
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -46,6 +50,14 @@ writeFileSync(join(fixtureRoot, "acceptance-invalid.scp"), "!!Order,1,1\nK1ABC\n
 const protectedPaths = [join(homedir(), "Library", "Application Support", "OM0RX-xLog", "OM0RX-xLog.sqlite"), join(homedir(), "Library", "Application Support", "OM0RX-xLog-Integrated Preview", "OM0RX-xLog.sqlite")].flatMap(path => [path, `${path}-wal`, `${path}-shm`]);
 const protectedBefore = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
 const frames = [], lifecycle = [], actions = [], simulatedOutput = [], observations = [], exportAssertions = [];
+const openFileAudits = [];
+const isolatedSupportRoot = join(isolatedHome, "Library", "Application Support", "OM0RX-xLog Contesting Test");
+function auditTestHostDatabaseFiles(phase) {
+  const output = execFileSync("/usr/sbin/lsof", ["-Fn", "-p", String(testHostPID)], { encoding: "utf8", maxBuffer: 4_000_000, timeout: 5_000 });
+  const paths = output.split("\n").filter(row => row.startsWith("n/")).map(row => row.slice(1));
+  const audit = admitContestAcceptanceDatabaseFiles(paths, isolatedSupportRoot, protectedPaths);
+  openFileAudits.push({ phase, testHostPID, ...audit });
+}
 let pendingExportExpectation = null;
 let hostBuffer = "", sequence = 0;
 const pendingHost = new Map();
@@ -54,10 +66,14 @@ process.stdin.on("data", value => { hostBuffer += value; let nl; while ((nl = ho
 function hostRequest(method, params = {}) { const request = { id: `browser-${String(++sequence).padStart(4, "0")}`, method, params }; return new Promise((resolveRequest, reject) => { const timer = setTimeout(() => { pendingHost.delete(request.id); reject(new Error(`Test-host timeout: ${method}`)); }, 20_000); pendingHost.set(request.id, response => { clearTimeout(timer); (method.startsWith("__acceptance_") ? lifecycle : frames).push({ request, response }); resolveRequest(response); }); process.stdout.write(`${JSON.stringify(request)}\n`); }); }
 const successful = async (method, params = {}) => { const frame = await hostRequest(method, params); assert.equal(frame.ok, true, JSON.stringify(frame)); return frame.result; };
 const health = await successful("health"); assert.deepEqual({ mode: health.mode, isolated: health.isolated_workspace, network: health.network_contact, credentials: health.credentials_accessed, station: health.station_io }, { mode: "contesting_test", isolated: true, network: false, credentials: false, station: false });
+const isolation = await successful("__acceptance_isolation");
+assert.deepEqual(isolation, { runtimeProfile: "contestingTest", supportRoot: realpathSync(isolatedSupportRoot),
+  inheritNativePreferences: false, stationIO: false });
 if (process.env.XLOG_OPERATOR_ACCEPTANCE_STALL === "shutdown") await successful("__acceptance_shutdown");
 assert.equal((await successful("workspace_status")).workspace_exists, false);
 await successful("workspace_create", { mode: "empty" });
 assert.equal((await successful("workspace_status")).qso_count, 0);
+auditTestHostDatabaseFiles("after-workspace-create");
 
 async function jsonBody(request) { const chunks = []; for await (const chunk of request) chunks.push(chunk); const bytes = Buffer.concat(chunks); assert.ok(bytes.length <= 1_000_000); return JSON.parse(bytes.toString("utf8")); }
 async function captureExport(prepared) {
@@ -653,6 +669,7 @@ try {
       score: correction.response.result.score.claimedScore });
     await click("Contest Manager"); await waitText("Contest sessions");
   }
+  auditTestHostDatabaseFiles("before-owned-shutdown");
   await browser(["close"], false);
   const status = await successful("workspace_status"); assert.deepEqual({ qso: status.qso_count, pending: status.pending_sync_count, outbox: status.outbox_count }, { qso: 0, pending: 0, outbox: 0 });
   assert.equal(simulatedOutput.some(item => item.macro === "CQ"), true); assert.equal(simulatedOutput.some(item => item.macro === "EXCH"), true);
@@ -666,8 +683,8 @@ finally { try { await browser(["close"], false); } catch {} try { await successf
 
 const inventory = rootPath => { const rows = []; const visit = (path, relative) => { const value = lstatSync(path); assert.equal(value.isSymbolicLink(), false); if (value.isDirectory()) for (const name of readdirSync(path).sort()) visit(join(path, name), relative ? `${relative}/${name}` : name); else rows.push({ path: relative, size: value.size, sha256: hashFile(path) }); }; visit(rootPath, ""); return rows; };
 const protectedAfter = Object.fromEntries(protectedPaths.map(path => [path, metadata(path)]));
-if (primaryFailure === null) { try { assert.deepEqual(protectedAfter, protectedBefore, "Protected production database metadata changed."); } catch (error) { primaryFailure = error; } }
-const evidence = { schemaVersion: 2, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, sha256: testHostSha256 }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), protectedDatabaseMetadataUnchanged: JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore), failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
+const protectedDatabaseMetadataUnchanged = JSON.stringify(protectedAfter) === JSON.stringify(protectedBefore);
+const evidence = { schemaVersion: 3, ok: primaryFailure === null, scope: harnessScope, requestedProfileIDs, boundary: "Headless Vite UI driving a SwiftPM test host around the real isolated LiveWorker; open-file audits are bounded checkpoints, not a lifetime filesystem trace; not a packaged worker/app, native window, RF, audio, PTT, hardware, or sponsor-submission acceptance.", source: { expectedHead, actualHead, dirty: gitStatus.length > 0, status: gitStatus, trackedDiffBytes: trackedDiff.length, trackedDiffSha256: sha256(trackedDiff), untrackedSourceDigests }, testHost: { path: testHostBinary, pid: testHostPID, sha256: testHostSha256, isolation }, testRunner: { path: testRunnerBinary, sha256: testRunnerSha256 }, processRecoveryProbe, runID, url, cases, actions, observations, simulatedOutput, lifecycle, frameCount: frames.length, frames, exportAssertions, exports: inventory(exportRoot), syntheticInventory: inventory(isolatedHome), openFileAudits, protectedDatabaseMetadataUnchanged, protectedDatabaseMetadataObservation: protectedDatabaseMetadataUnchanged ? "unchanged" : "changed by an unattributed concurrent process; the test host open-file checkpoints exclude protected paths", failure: primaryFailure ? String(primaryFailure.stack || primaryFailure) : null };
 writeFileSync(join(evidenceRoot, "acceptance.json"), `${JSON.stringify(evidence, null, 2)}\n`);
 process.stdin.destroy();
 if (primaryFailure) throw primaryFailure;

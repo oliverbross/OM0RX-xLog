@@ -57,6 +57,15 @@ private actor ContestOperatorAcceptanceBridge {
         }
         if stallMode == "response", method == "health" { while true { try? await Task.sleep(for: .seconds(3_600)) } }
         switch method {
+        case "__acceptance_isolation":
+            let resolvedSupportRoot = supportRoot.standardizedFileURL.resolvingSymlinksInPath()
+            guard case .contestingTest(let profileRoot) = profile,
+                  profileRoot.standardizedFileURL.resolvingSymlinksInPath() == resolvedSupportRoot else {
+                throw NSError(domain: "ContestOperatorBrowserAcceptance", code: 23,
+                              userInfo: [NSLocalizedDescriptionKey: "Acceptance worker profile does not own its isolated support root."])
+            }
+            try respond(id: id, result: ["runtimeProfile": "contestingTest", "supportRoot": resolvedSupportRoot.path,
+                                         "inheritNativePreferences": false, "stationIO": false])
         case "__acceptance_restart":
             if let worker { await worker.shutdown() }
             worker = newWorker()
@@ -201,7 +210,8 @@ final class ContestOperatorBrowserAcceptanceTests: XCTestCase {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = ["-c", joinHostGroup, String(hostProcessGroup), "node", script.path,
                              "--output", outputURL.path, "--expected-head", sourceHead,
-                             "--test-host-binary", testHost.path, "--test-runner-binary", CommandLine.arguments[0]]
+            "--test-host-binary", testHost.path, "--test-runner-binary", CommandLine.arguments[0],
+            "--test-host-pid", String(Darwin.getpid())]
         process.currentDirectoryURL = repositoryRoot
         var childEnvironment = environment
         childEnvironment["TZ"] = "UTC"
