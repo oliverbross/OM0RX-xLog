@@ -12,8 +12,8 @@ function useContestSurface(context: Context) {
   const mounted = useRef(true), ticket = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++ticket.current;
-    try { const value = await readContestSurfaceSnapshot(context); if (mounted.current && current === ticket.current) { setSnapshot(value); setError(""); } }
-    catch (cause) { if (mounted.current && current === ticket.current) setError(message(cause)); }
+    try { const value = await readContestSurfaceSnapshot(context); if (mounted.current && current === ticket.current) { setSnapshot(value); setError(""); } return value; }
+    catch (cause) { if (mounted.current && current === ticket.current) setError(message(cause)); return null; }
   }, [context]);
   useEffect(() => { mounted.current = true; void refresh(); let stop: undefined | (() => void);
     void onContestSurfaceWake(() => void refresh()).then(value => { if (mounted.current) stop = value; else value(); })
@@ -29,18 +29,42 @@ function useContestSurface(context: Context) {
 function Surface({ context }: { context: Context }) {
   const { snapshot, error, refresh } = useContestSurface(context), [sending, setSending] = useState(false),
     [actionError, setActionError] = useState("");
+  const snapshotRef=useRef(snapshot),queueRef=useRef<Promise<void>>(Promise.resolve()),pendingCount=useRef(0);
+  const receiptWaiters=useRef(new Map<string,{resolve:(receipt:ContestSurfaceTerminalReceipt|null)=>void;timer:number}>());
+  snapshotRef.current=snapshot;
+  useEffect(()=>{for(const receipt of snapshot?.receipts??[]){const waiter=receiptWaiters.current.get(receipt.requestID);if(!waiter)continue;
+    window.clearTimeout(waiter.timer);receiptWaiters.current.delete(receipt.requestID);waiter.resolve(receipt);}},[snapshot]);
+  useEffect(()=>()=>{for(const waiter of receiptWaiters.current.values()){window.clearTimeout(waiter.timer);waiter.resolve(null);}receiptWaiters.current.clear();},[]);
   const latest = snapshot?.receipts.at(-1);
-  const send = useCallback(async (action: ContestSurfaceAction, requestID: string = crypto.randomUUID()) => {
-    if (!snapshot || snapshot.panelID !== context.panelID || snapshot.projection.status !== "ready") return false;
-    setSending(true); setActionError("");
-    try {
-      const receipt = await submitContestSurfaceAction({ ...context, scope: "contesting", projectionRevision: snapshot.projectionRevision,
-        requestID, ...action } as ContestSurfaceActionEnvelope);
-      await refresh(); return receipt.status === "queued" || receipt.status === "applied";
-    } catch (cause) { /* Snapshot refresh is the only authority after a lost reply. */
-      setActionError(message(cause)); await refresh().catch(() => {}); return false;
-    } finally { setSending(false); }
-  }, [context, refresh, snapshot]);
+  const send = useCallback((action: ContestSurfaceAction, requestID: string = crypto.randomUUID()) => {
+    const operation=queueRef.current.then(async()=>{
+      pendingCount.current+=1;setSending(true);setActionError("");
+      try {
+        const current=await refresh();
+        if(!current||current.panelID!==context.panelID||current.projection.status!=="ready")return false;
+        let currentAction=action;const params=action.params as Record<string,unknown>;
+        if(typeof params.draftID==="string"){
+          const projection=current.projection as any,draftRevision=projection.draft?.draftID===params.draftID?projection.draft.revision:
+            projection.draftID===params.draftID?projection.draftRevision:null;
+          if(!Number.isSafeInteger(draftRevision))return false;
+          currentAction={...action,params:{...params,expectedDraftRevision:draftRevision}} as ContestSurfaceAction;
+        }else if((action.action==="log_edit_save"||action.action==="log_edit_delete")&&(current.projection as any).editing?.qsoID===params.qsoID)
+          currentAction={...action,params:{...params,expectedSessionRevision:(current.projection as any).sessionRevision}} as ContestSurfaceAction;
+        const immediate=await submitContestSurfaceAction({...context,scope:"contesting",projectionRevision:current.projectionRevision,
+          requestID,...currentAction} as ContestSurfaceActionEnvelope);
+        if(immediate.status==="applied")return true;
+        if(immediate.status!=="queued")return false;
+        const existing=snapshotRef.current?.receipts.find(item=>item.requestID===requestID);
+        const terminal=existing??await new Promise<ContestSurfaceTerminalReceipt|null>(resolve=>{
+          const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
+          receiptWaiters.current.set(requestID,{resolve,timer});
+        });
+        return terminal?.status==="applied";
+      }catch(cause){setActionError(message(cause));await refresh();return false;}
+      finally{pendingCount.current-=1;if(pendingCount.current===0)setSending(false);}
+    });
+    queueRef.current=operation.then(()=>{},()=>{});return operation;
+  },[context,refresh]);
   if (!snapshot) return <main aria-label="Contest panel"><p role="status">Loading shared contest panel…</p>{error && <p role="alert">{error}</p>}</main>;
   const projection = snapshot.projection;
   return <main aria-label={`Contest ${context.panelID}`}>

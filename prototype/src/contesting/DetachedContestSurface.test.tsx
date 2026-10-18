@@ -59,6 +59,33 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
 });
 
+it("orders delayed callsign and exchange intents before detached Enter without replaying the key",async()=>{
+  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",
+    functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const call=await screen.findByLabelText("Callsign"),exchange=screen.getByLabelText("Power");
+  fireEvent.change(call,{target:{value:"K1ABC"}});await waitFor(()=>expect(actions).toHaveLength(1));
+  exchange.focus();fireEvent.change(exchange,{target:{value:"200"}});fireEvent.keyDown(exchange,{key:"Enter"});
+  expect(actions).toHaveLength(1);
+  current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,callsign:"K1ABC"}},
+    receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(actions).toHaveLength(2));expect(actions[1]).toMatchObject({projectionRevision:7,action:"entry_set_exchange",
+    params:{draftID:"draft-1",expectedDraftRevision:5,fieldID:"power",value:"200"}});
+  current={...current,projectionRevision:8,projection:{...current.projection,draft:{...current.projection.draft,
+    receivedFields:[{...current.projection.draft.receivedFields[0],value:"200"}]}},
+    receipts:[{requestID:actions[1].requestID,status:"applied",message:null,projectionRevision:8}]};await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(actions).toHaveLength(3));expect(actions[2]).toMatchObject({projectionRevision:8,action:"entry_operator_key",
+    params:{draftID:"draft-1",expectedDraftRevision:5,key:"Enter",focusedField:"exchange"}});
+  expect(actions.filter(item=>item.action==="entry_operator_key")).toHaveLength(1);
+});
+
 it("does not replay an action when its reply is lost",async()=>{
   let snapshots=0,actions=0;
   native.invoke.mockImplementation(async(command:string)=>{
@@ -70,6 +97,21 @@ it("does not replay an action when its reply is lost",async()=>{
   fireEvent.click(screen.getByRole("button",{name:"Reserve serial"}));
   expect(await screen.findByText("IPC reply lost")).toBeTruthy();
   expect(actions).toBe(1); expect(snapshots).toBeGreaterThanOrEqual(2);
+});
+
+it("keeps a failed presentation edit explicit until the operator retries or discards it",async()=>{
+  let actions=0;native.invoke.mockImplementation(async(command:string)=>{
+    if(command==="contest_surface_snapshot")return snapshot;
+    if(command==="contest_surface_action"){actions+=1;throw new Error("pre-submit IPC failure");}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const input=await screen.findByLabelText("Callsign");
+  fireEvent.change(input,{target:{value:"K1ABC"}});await screen.findByText("This edit is not confirmed.");
+  expect((input as HTMLInputElement).value).toBe("K1ABC");expect(actions).toBe(1);
+  await act(async()=>{native.wake!();});expect(actions).toBe(1);
+  fireEvent.click(screen.getByRole("button",{name:"Apply edit again"}));await waitFor(()=>expect(actions).toBe(2));
+  fireEvent.click(screen.getByRole("button",{name:"Use shared value"}));
+  await waitFor(()=>expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("OM0RX"));
 });
 
 it("coalesces rapid Entry typing and forwards the latest text after the authoritative receipt",async()=>{
