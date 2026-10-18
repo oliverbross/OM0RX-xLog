@@ -8,6 +8,7 @@ function fixture(): LayoutSnapshot {
   return { revision: 0, generation: "12345678-1234-1234-1234-123456789abc", document: { version: 2, activePresetID: "traditional",
     presets: ["traditional", "windowed"].map(id => ({ id, name: id, width: 1920, height: 1080, locked: true, snap: true, panels: structuredClone(panels) })) } };
 }
+function contestFixture(): LayoutSnapshot { return { ...fixture(), scope: "contesting" }; }
 const change: LayoutChange = { action: "activatePreset", presetID: "windowed" };
 function legacyFixture(activePresetID = "operator-custom"): any {
   const snapshot: any = fixture(); snapshot.revision = 47; snapshot.document.version = 1;
@@ -50,6 +51,20 @@ it("validates all 21 roles, bounded geometry, unique IDs, names and generations"
   ]) { const invalid = fixture(); corrupt(invalid); expect(() => checkedLayout(invalid)).toThrow(); }
   expect(() => changedLayout(base.document, null as any)).toThrow("Invalid workspace");
   expect(readLayoutJournal("broken")).toBeNull();
+  expect(() => checkedLayout({ ...base, scope: "contesting" })).toThrow("scope");
+  expect(() => checkedLayout(base, "contesting")).toThrow("scope");
+  expect(() => checkedLayout({ ...base, scope: "normal_logging" }, "contesting")).toThrow("scope");
+  expect(checkedLayout(contestFixture(), "contesting").scope).toBe("contesting");
+});
+it("binds recovery journals to their exact workspace scope", () => {
+  const normal = JSON.stringify({ base: fixture(), change });
+  const contest = JSON.stringify({ scope: "contesting", base: contestFixture(), change });
+  expect(readLayoutJournal(normal)).not.toBeNull();
+  expect(readLayoutJournal(normal, "contesting")).toBeNull();
+  expect(readLayoutJournal(contest)).toBeNull();
+  expect(readLayoutJournal(contest, "contesting")).toMatchObject({ scope: "contesting" });
+  expect(readLayoutJournal(JSON.stringify({ base: contestFixture(), change }), "contesting")).toBeNull();
+  expect(readLayoutJournal(JSON.stringify({ scope: "normal_logging", base: fixture(), change }), "contesting")).toBeNull();
 });
 it.each(["traditional", "windowed", "operator-custom"])("upgrades old %s layouts without changing any existing role or preset", activeID => {
   const old = legacyFixture(activeID), original = structuredClone(old), upgraded = checkedLayout(old);
@@ -273,5 +288,57 @@ it("retains intent after a mismatched applied response or failed transport", asy
     if (response instanceof Error) request.mockRejectedValueOnce(response); else request.mockResolvedValueOnce(response);
     const session = new WorkspaceLayoutSession(request); await session.refresh(); await session.apply(change);
     expect(session.getSnapshot().pending).not.toBeNull(); expect(session.getSnapshot().error).not.toBe("");
+  }
+});
+it("qualifies contest layout reads and writes without changing legacy Normal request bytes", async () => {
+  const normalRequest = vi.fn().mockResolvedValueOnce({ layout: fixture() });
+  const normal = new WorkspaceLayoutSession(normalRequest); await normal.refresh();
+  expect(normalRequest).toHaveBeenCalledWith("workspace_layout_load");
+
+  const base = contestFixture();
+  const contestRequest = vi.fn().mockResolvedValueOnce({ layout: base })
+    .mockResolvedValueOnce({ status: "applied", layout: applied(base) });
+  const journal = vi.fn(), contest = new WorkspaceLayoutSession(contestRequest, journal, null, "contesting");
+  await contest.refresh(); await contest.apply(change);
+  expect(contestRequest.mock.calls[0]).toEqual(["workspace_layout_load", { scope: "contesting" }]);
+  expect(contestRequest.mock.calls[1][1]).toMatchObject({ scope: "contesting", action: "activatePreset", presetID: "windowed" });
+  expect(journal.mock.calls[0][0]).toMatchObject({ scope: "contesting", base: { scope: "contesting" } });
+});
+it.each([undefined, "normal_logging", "future_scope"])("rejects %s scope on contest load, apply and recovery reads", async scope => {
+  const tagged = { ...fixture(), ...(scope === undefined ? {} : { scope }) };
+  const request = vi.fn().mockResolvedValueOnce({ layout: tagged });
+  const session = new WorkspaceLayoutSession(request, () => {}, null, "contesting");
+  await session.refresh(); expect(session.getSnapshot().snapshot).toBeNull(); expect(session.getSnapshot().error).toContain("scope");
+
+  const base = contestFixture(), applyRequest = vi.fn().mockResolvedValueOnce({ layout: base })
+    .mockResolvedValueOnce({ status: "applied", layout: { ...applied(base), ...(scope === undefined ? { scope: undefined } : { scope }) } });
+  const applying = new WorkspaceLayoutSession(applyRequest, () => {}, null, "contesting");
+  await applying.refresh(); await applying.apply(change);
+  expect(applying.getSnapshot().pending).not.toBeNull(); expect(applying.getSnapshot().error).toContain("scope");
+
+  const retryRequest = vi.fn().mockResolvedValue({ layout: tagged });
+  const pending = readLayoutJournal(JSON.stringify({ scope: "contesting", base, change }), "contesting")!;
+  const recovering = new WorkspaceLayoutSession(retryRequest, () => {}, pending, "contesting");
+  await expect(recovering.retry()).rejects.toThrow("scope");
+  await expect(recovering.discard()).rejects.toThrow("scope");
+  expect(recovering.getSnapshot().pending).not.toBeNull();
+});
+it.each([undefined, "normal_logging", "future_scope"])("rejects %s scope on contest workspace-changed replies", async scope => {
+  const base = contestFixture(), request = vi.fn().mockResolvedValueOnce({ layout: base }).mockResolvedValueOnce({
+    status: "workspace_changed", generation: "87654321-1234-1234-1234-123456789abc", ...(scope === undefined ? {} : { scope }),
+  });
+  const session = new WorkspaceLayoutSession(request, () => {}, null, "contesting");
+  await session.refresh(); await session.apply(change);
+  expect(session.getSnapshot().workspaceChanged).toBe(false); expect(session.getSnapshot().pending).not.toBeNull();
+  expect(session.getSnapshot().error).toContain("scope");
+});
+it("accepts only the tagged contest workspace-changed outcome while Normal keeps the legacy envelope", async () => {
+  for (const [scope, response] of [["normal_logging", { status: "workspace_changed", generation: "87654321-1234-1234-1234-123456789abc" }],
+    ["contesting", { status: "workspace_changed", generation: "87654321-1234-1234-1234-123456789abc", scope: "contesting" }]] as const) {
+    const base = scope === "contesting" ? contestFixture() : fixture();
+    const request = vi.fn().mockResolvedValueOnce({ layout: base }).mockResolvedValueOnce(response);
+    const session = new WorkspaceLayoutSession(request, () => {}, null, scope);
+    await session.refresh(); await session.apply(change);
+    expect(session.getSnapshot().workspaceChanged).toBe(true); expect(session.getSnapshot().error).toContain("restored or replaced");
   }
 });

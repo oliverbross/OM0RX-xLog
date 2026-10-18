@@ -1,5 +1,10 @@
 import Foundation
 
+public enum WorkspaceLayoutScope: String, Codable, CaseIterable, Sendable {
+    case normalLogging = "normal_logging"
+    case contesting
+}
+
 /// Stable identities are shared by portable layouts, canvas widgets and native
 /// windows. Geometry is in logical points, never physical monitor pixels.
 public enum WorkspacePanelID: String, Codable, CaseIterable, Sendable {
@@ -113,17 +118,28 @@ public struct WorkspaceLayoutDocument: Codable, Equatable, Sendable {
         try result.validate()
         return result
     }
-    public static var defaults: Self {
+    public static var defaults: Self { defaults(for: .normalLogging) }
+
+    public static func defaults(for scope: WorkspaceLayoutScope) -> Self {
         let panels = WorkspacePanelID.allCases.enumerated().map { index, id in
             WorkspacePanelLayout(id: id, placement: .hidden,
                 rect: WorkspaceRect(x: 0, y: 0, width: max(640, id.minimumSize.width), height: max(480, id.minimumSize.height)), z: index)
         }
         var docked = WorkspaceLayoutPreset(id: "traditional", name: "Traditional", width: 1920, height: 1080,
                                           locked: true, snap: true, panels: panels)
-        for (id, rect) in [(WorkspacePanelID.activeQSO, WorkspaceRect(x: 0, y: 0, width: 1140, height: 300)),
-                           (.intelligence, WorkspaceRect(x: 1152, y: 0, width: 768, height: 300)),
-                           (.worldMap, WorkspaceRect(x: 0, y: 312, width: 1100, height: 768)),
-                           (.bandMaps, WorkspaceRect(x: 1112, y: 312, width: 808, height: 768))] {
+        let normal = [(WorkspacePanelID.activeQSO, WorkspaceRect(x: 0, y: 0, width: 1140, height: 300)),
+                      (.intelligence, WorkspaceRect(x: 1152, y: 0, width: 768, height: 300)),
+                      (.worldMap, WorkspaceRect(x: 0, y: 312, width: 1100, height: 768)),
+                      (.bandMaps, WorkspaceRect(x: 1112, y: 312, width: 808, height: 768))]
+        let contest = [(WorkspacePanelID.bandMaps, WorkspaceRect(x: 0, y: 0, width: 300, height: 1080)),
+                       (.intelligence, WorkspaceRect(x: 312, y: 0, width: 600, height: 240)),
+                       (.cluster, WorkspaceRect(x: 924, y: 0, width: 344, height: 240)),
+                       (.logbook, WorkspaceRect(x: 312, y: 252, width: 956, height: 480)),
+                       (.activeQSO, WorkspaceRect(x: 312, y: 744, width: 956, height: 336)),
+                       (.propagation, WorkspaceRect(x: 1280, y: 0, width: 640, height: 240)),
+                       (.monitor, WorkspaceRect(x: 1280, y: 252, width: 640, height: 480)),
+                       (.rotor, WorkspaceRect(x: 1280, y: 744, width: 640, height: 336))]
+        for (id, rect) in scope == .contesting ? contest : normal {
             let index = docked.panels.firstIndex { $0.id == id }!
             docked.panels[index].placement = .canvas; docked.panels[index].rect = rect
         }

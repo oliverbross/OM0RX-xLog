@@ -1023,8 +1023,8 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     /// Lives in the database so backups include portable layouts atomically.
     /// Physical display placement remains machine-local in the native shell.
-    public func workspaceLayout() throws -> WorkspaceLayoutSnapshot {
-        try withDatabaseLock { try readWorkspaceLayout() }
+    public func workspaceLayout(scope: WorkspaceLayoutScope = .normalLogging) throws -> WorkspaceLayoutSnapshot {
+        try withDatabaseLock { try readWorkspaceLayout(scope: scope) }
     }
 
     /// Native synchronization admission journal. Opaque to portable contact data;
@@ -1342,28 +1342,42 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Restore coordinator only: retain current preferences when an operator
     /// restores contacts without opting into workspace-preference restoration.
     /// The caller rotates the workspace generation before replacing the DB.
-    public func preserveWorkspaceLayoutAfterRestore(_ snapshot: WorkspaceLayoutSnapshot) throws {
+    public func preserveWorkspaceLayoutAfterRestore(_ snapshot: WorkspaceLayoutSnapshot,
+                                                    scope: WorkspaceLayoutScope = .normalLogging) throws {
         try withDatabaseLock {
             guard (0...9_007_199_254_740_991).contains(snapshot.revision) else { throw WorkspaceLayoutError.invalid }
             try snapshot.document.validate()
             let payload = try encoder.encode(snapshot)
             guard payload.count <= 262_144 else { throw WorkspaceLayoutError.invalid }
-            try withStatement("INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
-                _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+            let sql = scope == .normalLogging
+                ? "INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;"
+                : "INSERT INTO xlog_scoped_workspace_layout(scope,payload) VALUES(?,?) ON CONFLICT(scope) DO UPDATE SET payload=excluded.payload;"
+            try withStatement(sql) { statement in
+                let payloadIndex: Int32
+                if scope == .normalLogging { payloadIndex = 1 }
+                else { sqlite3_bind_text(statement, 1, scope.rawValue, -1, Self.transient); payloadIndex = 2 }
+                _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, payloadIndex, $0.baseAddress, Int32($0.count), Self.transient) }
                 try stepDone(statement)
             }
         }
     }
 
-    public func applyWorkspaceLayout(_ mutation: WorkspaceLayoutMutation) throws -> WorkspaceLayoutSnapshot {
+    public func applyWorkspaceLayout(_ mutation: WorkspaceLayoutMutation,
+                                     scope: WorkspaceLayoutScope = .normalLogging) throws -> WorkspaceLayoutSnapshot {
         try withDatabaseLock {
             try execute("BEGIN IMMEDIATE;")
             do {
-                let next = try mutation.applying(to: readWorkspaceLayout())
+                let next = try mutation.applying(to: readWorkspaceLayout(scope: scope))
                 let payload = try encoder.encode(next)
                 guard payload.count <= 262_144 else { throw WorkspaceLayoutError.invalid }
-                try withStatement("INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;") { statement in
-                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32($0.count), Self.transient) }
+                let sql = scope == .normalLogging
+                    ? "INSERT INTO xlog_workspace_layout(singleton,payload) VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload;"
+                    : "INSERT INTO xlog_scoped_workspace_layout(scope,payload) VALUES(?,?) ON CONFLICT(scope) DO UPDATE SET payload=excluded.payload;"
+                try withStatement(sql) { statement in
+                    let payloadIndex: Int32
+                    if scope == .normalLogging { payloadIndex = 1 }
+                    else { sqlite3_bind_text(statement, 1, scope.rawValue, -1, Self.transient); payloadIndex = 2 }
+                    _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, payloadIndex, $0.baseAddress, Int32($0.count), Self.transient) }
                     try stepDone(statement)
                 }
                 try execute("COMMIT;")
@@ -1372,10 +1386,13 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    private func readWorkspaceLayout() throws -> WorkspaceLayoutSnapshot {
-        try withStatement("SELECT payload FROM xlog_workspace_layout WHERE singleton=1;") { statement in
+    private func readWorkspaceLayout(scope: WorkspaceLayoutScope = .normalLogging) throws -> WorkspaceLayoutSnapshot {
+        let sql = scope == .normalLogging ? "SELECT payload FROM xlog_workspace_layout WHERE singleton=1;"
+            : "SELECT payload FROM xlog_scoped_workspace_layout WHERE scope=?;"
+        return try withStatement(sql) { statement in
+            if scope != .normalLogging { sqlite3_bind_text(statement, 1, scope.rawValue, -1, Self.transient) }
             let step = sqlite3_step(statement)
-            if step == SQLITE_DONE { return WorkspaceLayoutSnapshot(revision: 0, document: .defaults) }
+            if step == SQLITE_DONE { return WorkspaceLayoutSnapshot(revision: 0, document: .defaults(for: scope)) }
             guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0),
                   (1...262_144).contains(Int(sqlite3_column_bytes(statement, 0))) else { throw LogbookDatabaseError.corruptRecord }
             let value = try decoder.decode(WorkspaceLayoutSnapshot.self, from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
@@ -3207,6 +3224,10 @@ public final class LogbookDatabase: @unchecked Sendable {
         CREATE INDEX IF NOT EXISTS idx_conflicts_detected ON sync_conflicts(detected_at DESC);
         CREATE TABLE IF NOT EXISTS xlog_workspace_layout(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+          payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_scoped_workspace_layout(
+          scope TEXT PRIMARY KEY CHECK(scope = 'contesting'),
           payload BLOB NOT NULL
         );
         CREATE TABLE IF NOT EXISTS xlog_integration_settings(
