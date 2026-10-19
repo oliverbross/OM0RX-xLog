@@ -148,7 +148,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   </div>;
   else if (view === "New Contest" || view === "Edit Current Contest") content = <div className="contest-parameters">
     <p>Select Contest Type for {view === "New Contest" ? "New" : "Current"} Log</p>
-    <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => setDraft(current => ({ ...current, pluginID: event.target.value }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
+    <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => setDraft(current => ({ ...current, pluginID: event.target.value,
+      settings: { ...current.settings, SentExchange: event.target.value === "cq_ww_cw" ? String(current.station.CQZone || "15") : "" } }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
     <hr/>
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}
@@ -159,7 +160,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     {choice("settings", "StationCategory", "Station", ["FIXED", "MOBILE", "PORTABLE", "ROVER", "EXPEDITION", "HQ", "SCHOOL"])}
     {choice("settings", "AssistedCategory", "Assisted", ["ASSISTED", "NON-ASSISTED"])}
     {choice("settings", "TransmitterCategory", "Transmitter", ["ONE", "TWO", "LIMITED", "UNLIMITED", "SWL"])}
-    <div className="contest-exchange-row">{field("settings", "SentExchange", "Sent Exchange")}<span>Exclude RST</span></div>
+    <div className="contest-exchange-row">{field("settings", "SentExchange", draft.pluginID === "icwc_mst" ? "Name" : "Sent Exchange")}<span>Exclude RST</span></div>
     <label><span>Operators</span><input value={draft.operator} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>
     {textArea("settings", "Soapbox", "Soapbox")}
   </div>;

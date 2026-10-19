@@ -140,7 +140,7 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
   await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
   fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:"icwc_mst"}});
-  fireEvent.change(screen.getByLabelText("Sent Exchange"),{target:{value:"OLIVER"}});
+  fireEvent.change(screen.getByLabelText("Name"),{target:{value:"OLIVER"}});
   await userEvent.click(screen.getByRole("button",{name:"OK"}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
   const entry=surfaceOwner.current.projections["active-qso"];

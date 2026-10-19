@@ -58,6 +58,15 @@ it("uses separate new and edit forms in original order, including UTC start and 
   await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ name: "CQ WW CW", settings: expect.objectContaining({ StartDate: "2026-10-24 00:00:00", StationCategory: "PORTABLE" }) })));
   open("Edit Current Contest"); expect((screen.getByLabelText("Log Type") as HTMLSelectElement).disabled).toBe(true);
 });
+it("clears the CQ WW exchange and asks for the operator name when ICWC is selected", async () => {
+  const p = props(); p.catalog.push({ id: "icwc_mst", name: "ICWC Medium Speed Test" });
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  fireEvent.change(screen.getByLabelText("Log Type"), { target: { value: "icwc_mst" } });
+  expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("");
+  expect(screen.queryByLabelText("Sent Exchange")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "OLIVER" } }); open("OK");
+  await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ pluginID: "icwc_mst", name: "ICWC Medium Speed Test", settings: expect.objectContaining({ SentExchange: "OLIVER" }) })));
+});
 it("selects an existing contest using a name/start table and commits only with OK", async () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Choose a Contest");
   expect(screen.getByRole("columnheader", { name: "Contest Start" })).toBeTruthy();
