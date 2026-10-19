@@ -551,6 +551,14 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             text_value(&params["value"], 16, false, "entry selection")?;
         }
         "entry_reserve_serial" | "entry_commit" => draft(params, &[])?,
+        "entry_focus" => {
+            draft(params, &["fieldID"])?;
+            enum_value(
+                &params["fieldID"],
+                &["callsign", "sent", "receive", "other_1", "other_2"],
+                "operator focused field",
+            )?;
+        }
         "entry_operator_key" => {
             draft(params, &["key", "focusedField"])?;
             enum_value(
@@ -564,7 +572,7 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             if !params["focusedField"].is_null() {
                 enum_value(
                     &params["focusedField"],
-                    &["callsign", "exchange"],
+                    &["callsign", "sent", "receive", "other_1", "other_2"],
                     "operator focused field",
                 )?;
             }
@@ -963,6 +971,8 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
             "status",
             "pending",
             "focusedField",
+            "tabNext",
+            "tabPrevious",
             "functionKeys",
             "readiness",
             "trace",
@@ -995,10 +1005,12 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
     if !operator["focusedField"].is_null() {
         enum_value(
             &operator["focusedField"],
-            &["callsign", "exchange"],
+            &["callsign", "sent", "receive", "other_1", "other_2"],
             "operator focused field",
         )?;
     }
+    validate_tab_map(&operator["tabNext"])?;
+    validate_tab_map(&operator["tabPrevious"])?;
     let mut keys = BTreeSet::new();
     for mapping in array(&operator["functionKeys"], 12, "operator function keys")? {
         let mapping = object(mapping, "operator function key")?;
@@ -1058,6 +1070,21 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
             &["pending", "confirmed", "failed", "stopped"],
             "operator trace status",
         )?;
+    }
+    Ok(())
+}
+
+fn validate_tab_map(value: &Value) -> Result<(), String> {
+    let mapping = object(value, "operator tab map")?;
+    if mapping.len() > 5 {
+        return Err("The operator tab map is invalid.".into());
+    }
+    const FIELDS: &[&str] = &["callsign", "sent", "receive", "other_1", "other_2"];
+    for (from, to) in mapping {
+        if !FIELDS.contains(&from.as_str()) {
+            return Err("The operator tab map is invalid.".into());
+        }
+        enum_value(to, FIELDS, "operator tab destination")?;
     }
     Ok(())
 }
@@ -1956,9 +1983,15 @@ mod tests {
         ))
         .is_ok());
         assert!(validate_action_envelope(&action(
+            "entry_focus",
+            "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"fieldID":"receive"})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
             "entry_operator_key",
             "active-qso",
-            json!({"draftID":"draft","expectedDraftRevision":2,"key":"Enter","focusedField":"callsign"})
+            json!({"draftID":"draft","expectedDraftRevision":2,"key":"Enter","focusedField":"other_2"})
         ))
         .is_ok());
         assert!(validate_action_envelope(&action(
@@ -1979,6 +2012,10 @@ mod tests {
             (
                 "entry_operator_key",
                 json!({"draftID":"draft","expectedDraftRevision":2,"key":"Enter","focusedField":"band"}),
+            ),
+            (
+                "entry_focus",
+                json!({"draftID":"draft","expectedDraftRevision":2,"fieldID":"band"}),
             ),
         ] {
             assert!(validate_action_envelope(&action(name, "active-qso", params)).is_err());
@@ -2692,7 +2729,9 @@ mod tests {
                 "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
                 "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
             "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,
-                "focusedField":"exchange",
+                "focusedField":"other_2",
+                "tabNext":{"callsign":"sent","sent":"receive","receive":"other_1","other_1":"other_2","other_2":"callsign"},
+                "tabPrevious":{"callsign":"other_2","sent":"callsign","receive":"sent","other_1":"receive","other_2":"other_1"},
                 "functionKeys":[{"key":"F1","macro":"CQ"},{"key":"F2","macro":"EXCH"}],
                 "readiness":{"canSendCQ":true,"canSendCall":true,"canSendDuplicate":true,
                     "canReserveCall":true,"canReserveCommit":true,"canCommit":true},

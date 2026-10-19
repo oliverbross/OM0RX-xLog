@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
-import type { ContestSurfaceAction, ContestSurfaceActionEnvelope, ContestRatesSurfaceProjection, ContestMatrixSurfaceProjection } from "./contestSurfaceProtocol";
+import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
+  type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary, ContestLogTable } from "./ContestPresentation";
 import "./DetachedContestSurface.css";
 
@@ -105,7 +106,7 @@ type SendResult={applied:boolean;projectionRevision:number|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
 type IntentInputProps = { label:string;value:string;identity:string;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];
-  disabled:boolean;maximumUTF8Bytes:number;send:Send;action:(value:string)=>ContestSurfaceAction;operatorField?:"callsign"|"exchange";inputRef?:RefObject<HTMLInputElement|null> };
+  disabled:boolean;maximumUTF8Bytes:number;send:Send;action:(value:string)=>ContestSurfaceAction;operatorField?:ContestInputFieldID;inputRef?:Ref<HTMLInputElement> };
 function IntentInput({label,value:authoritative,identity,projectionRevision,receipts,disabled,maximumUTF8Bytes,send,action,operatorField,inputRef}:IntentInputProps){
   const [value,setValue]=useState(authoritative),[unresolved,setUnresolved]=useState(false),desired=useRef(authoritative),
     flight=useRef<null|{requestID:string;projectionRevision:number;value:string}>(null);
@@ -172,10 +173,10 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value),[projection.draft.receivedFields.length]);
   return {values,unresolved,change,flush,discard,retry,capture,matches};
 }
-function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onChange,unresolved,retry,discard}:{
-  label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:"callsign"|"exchange";
-  inputRef?:RefObject<HTMLInputElement|null>;onChange:(key:EntryIntentKey,value:string)=>void;unresolved:boolean;retry:()=>void;discard:()=>void}){
-  return <div className="contest-surface-intent"><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-operator-field={operatorField}
+function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onFocus,onChange,unresolved,retry,discard}:{
+  label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:ContestInputFieldID;
+  inputRef?:Ref<HTMLInputElement>;onFocus?:()=>void;onChange:(key:EntryIntentKey,value:string)=>void;unresolved:boolean;retry:()=>void;discard:()=>void}){
+  return <div className="contest-surface-intent"><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-field-id={operatorField} onFocus={onFocus}
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
       onChange(intentKey,next);}}/>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
       <button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
@@ -184,7 +185,9 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   projectionRevision:number;send:Send;refresh:()=>Promise<ContestSurfaceSnapshot|null>;
   settle:()=>Promise<void>;reportConflict:(message:string)=>void }) {
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
-  const callsignRef=useRef<HTMLInputElement>(null),exchangeRef=useRef<HTMLInputElement>(null);
+  const fieldRefs=useRef<Partial<Record<ContestInputFieldID,HTMLInputElement|null>>>({});
+  const focusPending=useRef<Promise<number|null>>(Promise.resolve(null)),desiredFocus=useRef<ContestInputFieldID|null>(null),
+    focusDraft=useRef(base.draftID);
   const operator=projection.schemaVersion===2?projection.operator:null;
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
   const intents=useEntryIntents(projection,projectionRevision,send);
@@ -192,23 +195,44 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     ?{action:"entry_set_text",params:{...base,field:key,value}}
     :key==="frequency"?{action:"entry_set_frequency_text",params:{...base,value}}
     :{action:"entry_set_exchange",params:{...base,fieldID:key.slice("exchange:".length),value}};
-  useEffect(()=>{if(operator?.focusedField==="callsign")callsignRef.current?.focus();else if(operator?.focusedField==="exchange")exchangeRef.current?.focus();},[operator?.focusedField]);
-  const operatorKey=(key:string,focusedField:"callsign"|"exchange"|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
+  useEffect(()=>{const field=operator?.focusedField as ContestInputFieldID|undefined;
+    if(focusDraft.current!==projection.draft.draftID){focusDraft.current=projection.draft.draftID;desiredFocus.current=null;
+      focusPending.current=Promise.resolve(null);}
+    if(field&&(!desiredFocus.current||desiredFocus.current===field))fieldRefs.current[field]?.focus();},[operator?.focusedField,projection.draft.draftID]);
+  const focusField=(fieldID:ContestInputFieldID)=>{if(!operator||operator.focusedField===fieldID)return;
+    desiredFocus.current=fieldID;
+    const operation=focusPending.current.catch(()=>null).then(async()=>{const flushed=await intents.flush();if(!flushed.ok)return null;await settle();const current=await refresh(),currentProjection=current?.projection as any;
+      if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return null;
+      if(currentProjection.operator?.focusedField===fieldID)return current.projectionRevision;
+      const result=await send({action:"entry_focus",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,fieldID}},current.projectionRevision);
+      return result.projectionRevision;});
+    focusPending.current=operation;void operation;};
+  const setFieldRef=(fieldID:ContestInputFieldID)=>(node:HTMLInputElement|null)=>{fieldRefs.current[fieldID]=node;};
+  const nextFocusable=(from:ContestInputFieldID,direction:"tabNext"|"tabPrevious")=>{let candidate:ContestInputFieldID|undefined=from;
+    for(let index=0;index<contestInputFieldIDs.length;index+=1){candidate=operator?.[direction]?.[candidate];if(!candidate)return null;
+      const element=fieldRefs.current[candidate];if(element&&!element.disabled&&!element.readOnly)return candidate;if(candidate===from)return null;}return null;};
+  const operatorKey=(key:string,focusedField:ContestInputFieldID|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
-    void (async()=>{let lastLocalProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
-      lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
+    void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
+      lastLocalProjectionRevision=flushed.lastAppliedProjectionRevision;focusProjectionRevision=await focusPending.current;await settle();}const current=await refresh();const currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
       if(key!=="Escape"&&(!intents.matches(currentProjection.draft,intended)||
-          current.projectionRevision!==(lastLocalProjectionRevision??projectionRevision)||currentProjection.draft.band!==intentContext.band||
+          current.projectionRevision!==Math.max(projectionRevision,lastLocalProjectionRevision??0,focusProjectionRevision??0)||currentProjection.draft.band!==intentContext.band||
           currentProjection.draft.mode!==intentContext.mode||currentProjection.draft.reservedSerial!==intentContext.reservedSerial||
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
       await send({action:"entry_operator_key",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,
         key:key as any,focusedField}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
-    if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
-    const focusedField=(target?.dataset.contestOperatorField as "callsign"|"exchange"|undefined)??operator?.focusedField??null;
+    if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey)return;
+    const dataField=target?.dataset.contestFieldId,focusedField=contestInputFieldIDs.includes(dataField as ContestInputFieldID)
+      ? dataField as ContestInputFieldID : operator?.focusedField??null;
+    if(event.key==="Tab"&&focusedField){const next=nextFocusable(focusedField,event.shiftKey?"tabPrevious":"tabNext");
+      if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
+    if(!event.shiftKey&&event.key===" "&&focusedField==="callsign"){const next=nextFocusable(focusedField,"tabNext");
+      if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
+    if(event.shiftKey)return;
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
@@ -217,16 +241,18 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields">
     <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
-      operatorField="callsign" inputRef={callsignRef} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
+      operatorField="callsign" inputRef={setFieldRef("callsign")} onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
       unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>
     {projection.descriptor?.reportsVisible!==false&&(["sentReport","receivedReport"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
       label={["SNT","RCV"][index]} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={160}
-      disabled={disabled} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
+      disabled={disabled} operatorField={index===0?"sent":"receive"} inputRef={setFieldRef(index===0?"sent":"receive")} onFocus={()=>focusField(index===0?"sent":"receive")}
+      onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
       retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}
     <div className="contest-surface-sent-number"><span>SentNR</span><output aria-label="Sent exchange">{projection.schemaVersion===2 ? projection.descriptor.sentFields.map((field:any)=>field.value||"—").join(" ")||"—" : "—"}</output></div>
-    {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey;return <EntryIntentInput key={field.id}
+    {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey,
+      fieldID=contestInputFieldIDs.includes(field.id as ContestInputFieldID)?field.id as ContestInputFieldID:index===0?"other_2":undefined;return <EntryIntentInput key={field.id}
       label={projection.descriptor?.reportsVisible===false?field.label:projection.draft.receivedFields.length===1?"RcvNR":field.label} accessibleLabel={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
-      operatorField="exchange" inputRef={index===0?exchangeRef:undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
+      operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
       unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
     </div>
     <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable"><span>●</span><span>●</span></span>

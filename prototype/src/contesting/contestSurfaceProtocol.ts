@@ -1,6 +1,8 @@
 export const contestSurfacePanelIDs = ["active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation",
   "alerts", "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
+export const contestInputFieldIDs = ["callsign", "sent", "receive", "other_1", "other_2"] as const;
+export type ContestInputFieldID = typeof contestInputFieldIDs[number];
 
 type Revision = number;
 type DraftRevision = { draftID: string; expectedDraftRevision: Revision };
@@ -13,8 +15,9 @@ export type ContestSurfaceAction =
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
   | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
+  | { action: "entry_focus"; params: DraftRevision & { fieldID: ContestInputFieldID } }
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
-      "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: "callsign" | "exchange" | null } }
+      "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
   | { action: "log_export_cabrillo"; params: Record<string, never> }
@@ -56,7 +59,9 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
   operator: null | { output: "simulation-only" | "xlog-native"; armed: boolean; style: "run" | "search-and-pounce";
     status: "disarmed" | "armed" | "waiting" | "uncertain"; pending: "reserve-serial" | "send" | "commit" | null;
-    focusedField: "callsign" | "exchange" | null;
+    focusedField: ContestInputFieldID | null;
+    tabNext: Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
+    tabPrevious: Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
     functionKeys: { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
       macro: string }[];
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
@@ -102,6 +107,8 @@ const uint = (value: unknown, maximum = Number.MAX_SAFE_INTEGER) => Number.isSaf
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const oneOf = <T extends string>(value: unknown, choices: readonly T[]): value is T =>
   typeof value === "string" && choices.includes(value as T);
+const validTabMap = (value: unknown) => record(value) && Object.keys(value).length <= contestInputFieldIDs.length &&
+  Object.entries(value).every(([from, to]) => oneOf(from, contestInputFieldIDs) && oneOf(to, contestInputFieldIDs));
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => {
   const actual = Object.keys(value); return actual.length === keys.length && keys.every(key => actual.includes(key));
 };
@@ -165,11 +172,12 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     (serial.requirement === "none" ? serial.allocatedFieldID === null : text(serial.allocatedFieldID, 64) && sentFieldIDs.has(serial.allocatedFieldID as string)) &&
     (serial.reservedSerial === null || uint(serial.reservedSerial)) && serial.reservedSerial === draftValue?.reservedSerial;
   const operatorValid = value.operator === null || !!operator &&
-    exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "functionKeys", "readiness", "trace"]) &&
+    exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"]) &&
     oneOf(operator.output, ["simulation-only", "xlog-native"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
     oneOf(operator.status, ["disarmed", "armed", "waiting", "uncertain"]) &&
     (operator.pending === null || oneOf(operator.pending, ["reserve-serial", "send", "commit"])) &&
-    (operator.focusedField === null || oneOf(operator.focusedField, ["callsign", "exchange"])) &&
+    (operator.focusedField === null || oneOf(operator.focusedField, contestInputFieldIDs)) &&
+    validTabMap(operator.tabNext) && validTabMap(operator.tabPrevious) &&
     Array.isArray(operator.functionKeys) && operator.functionKeys.length <= 12 && new Set(operator.functionKeys.map(item => {
       const key = record(item) ? item : undefined; return key?.key;
     })).size === operator.functionKeys.length &&
@@ -288,9 +296,10 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
   if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;
+  if (action === "entry_focus") return draft(params, ["fieldID"]) && oneOf(params.fieldID, contestInputFieldIDs);
   if (action === "entry_operator_key") return draft(params, ["key", "focusedField"]) &&
     typeof params.key === "string" && /^(?:F(?:[1-9]|1[0-2])|Enter|Escape)$/.test(params.key) &&
-    (params.focusedField === null || oneOf(params.focusedField, ["callsign", "exchange"]));
+    (params.focusedField === null || oneOf(params.focusedField, contestInputFieldIDs));
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);

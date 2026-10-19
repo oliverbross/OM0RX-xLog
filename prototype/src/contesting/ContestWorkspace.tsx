@@ -490,7 +490,10 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       descriptor: { bands: active.rule.supportedBands ?? [draft.fields.band], modes, sentFields: sentSurfaceFields,
         serial: { requirement: serialRequirement, allocatedFieldID, reservedSerial: draft.reservedSerial } },
       operator: operatorSurface ? { output: "simulation-only", armed: operatorSurface.armed, style: operatorSurface.style,
-        status: operatorSurface.status, pending: operatorSurface.pending, focusedField: operatorSurface.focusedField,
+        status: operatorSurface.status, pending: operatorSurface.pending,
+        focusedField: operatorSurface.focusedField === "exchange" ? "other_2" : operatorSurface.focusedField,
+        tabNext: { callsign:"sent", sent:"receive", receive:"other_1", other_1:"other_2", other_2:"callsign" },
+        tabPrevious: { callsign:"other_2", sent:"callsign", receive:"sent", other_1:"receive", other_2:"other_1" },
         functionKeys: Object.entries(operatorSurface.functionKeys).map(([key, macro]) => ({ key: key as "F1", macro: macro! })),
         readiness: { canSendCQ: operatorSurface.readiness?.canSendCQ ?? false,
           canSendCall: operatorSurface.readiness?.canSendCall ?? false,
@@ -551,9 +554,11 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       case "entry_operator_style":
         if (operatorSurfaceController.current?.context !== operatorPanelContext) throw new Error("The operator simulation is unavailable.");
         operatorSurfaceController.current.value.setStyle(action.params.value); return;
+      case "entry_focus": return;
       case "entry_operator_key": {
         if (operatorSurfaceController.current?.context !== operatorPanelContext) throw new Error("The operator simulation is unavailable.");
-        operatorSurfaceController.current.value.pressKey(action.params.key, action.params.focusedField); return;
+        operatorSurfaceController.current.value.pressKey(action.params.key, action.params.focusedField === "callsign" ? "callsign" :
+          action.params.focusedField ? "exchange" : null); return;
       }
       case "assistance_query": changeField("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select": {

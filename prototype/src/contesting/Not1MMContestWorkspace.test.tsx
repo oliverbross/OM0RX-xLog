@@ -308,13 +308,18 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_set_exchange",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2",value:"5"}}));
   entry = surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_focus",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2"}}));
+  entry = surfaceOwner.current.projections["active-qso"];
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_commit",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
   await waitFor(() => expect(logged).not.toBeNull());
   expect(logged).toMatchObject({ sessionID: current.sessionID, fields: { callsign: "K1ABC", other_2: "5" }, frequencyHz: 14025000 });
   expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({ workspaceGeneration });
   expect(surfaceOwner.current.context).toEqual({ operatingContext, sessionID: current.sessionID, workspaceGeneration });
-  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({ schemaVersion: 2, status: "ready", operator: { output:"xlog-native" } });
+  expect(request.mock.calls.find(([method])=>method==="contest_focus")?.[1]).toMatchObject({field:"other_2"});
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({ schemaVersion: 2, status: "ready", operator: {
+    output:"xlog-native",focusedField:"callsign",tabNext:{callsign:"sent",receive:"other_2"},tabPrevious:{other_2:"receive"} } });
   expect(surfaceOwner.current.projections.logbook.page.limit).toBe(20);
   expect(validContestSurfaceProjection("active-qso", surfaceOwner.current.projections["active-qso"])).toBe(true);
   expect(validContestSurfaceProjection("logbook", surfaceOwner.current.projections.logbook)).toBe(true);
@@ -361,10 +366,10 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2",value:"5"}}));
   entry=surfaceOwner.current.projections["active-qso"];
   const esm=act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
-    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"exchange"}}));
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}));
   await waitFor(()=>expect(nativeCW.execute).toHaveBeenCalledTimes(1));
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
-    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"exchange"}}));
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"other_2"}}));
   expect(nativeCW.stop).toHaveBeenCalledTimes(1);
   settle(); await esm;
   expect(nativeCW.execute).toHaveBeenCalledTimes(1);
@@ -484,6 +489,30 @@ it("keeps an uncertain detached commit receipt uncertain", async () => {
   await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_commit",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}})).rejects.toBeInstanceOf(ContestMutationUncertain);
+});
+
+it("keeps a lost focus reply uncertain and never reports a following failed ESM as applied", async()=>{
+  const current=projection();
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    if(method==="contest_catalog")return{id:crypto.randomUUID(),ok:true,result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}};
+    if(method==="contest_sessions")return{id:crypto.randomUUID(),ok:true,result:{sessions:[]}};
+    if(method==="contest_create")return{id:crypto.randomUUID(),ok:true,result:{projection:current}};
+    if(method==="contest_log_page")return{id:crypto.randomUUID(),ok:true,result:{rows:[],offset:0,limit:20,total:0}};
+    if(method==="contest_score")return{id:crypto.randomUUID(),ok:true,result:{score:current.score,matrices:{countries:[],zones:[]}}};
+    if(method==="contest_focus")return{id:crypto.randomUUID(),ok:false,
+      error:{code:"contest_host_timeout",message:"Focus confirmation timed out.",outcome:"uncertain"}};
+    throw new Error(`Unexpected ${method}`);
+  });
+  nativeCW.execute.mockResolvedValue({error:"Session changed; refresh before editing"});
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const entry=surfaceOwner.current.projections["active-qso"],envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+  await expect(surfaceOwner.current.handle({...envelope,action:"entry_focus",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2"}})).rejects.toBeInstanceOf(ContestMutationUncertain);
+  await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}})).rejects.toThrow("Session changed");
 });
 
 it("pages, edits, and deletes through the detached Log owner actions", async () => {

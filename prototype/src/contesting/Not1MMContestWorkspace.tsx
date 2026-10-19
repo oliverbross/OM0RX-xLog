@@ -10,7 +10,7 @@ import { canonicalJSON, ContestMutationUncertain, ContestServerError, type Conte
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
 import type { ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
-import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
+import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
@@ -55,6 +55,10 @@ const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
 const setupBandChoices = [...contestBands, "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
+const contestInputFieldID = (value: unknown): value is ContestInputFieldID =>
+  typeof value === "string" && contestInputFieldIDs.includes(value as ContestInputFieldID);
+const contestTabMap = (value: Record<string, string>) => Object.fromEntries(Object.entries(value)
+  .filter(([from, to]) => contestInputFieldID(from) && contestInputFieldID(to))) as Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
 const cqwwFrequency = (value: unknown): number | null => {
@@ -280,7 +284,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const payload = { sessionID: base.sessionID, operationID, expectedRevision: base.revision, draftID: base.draftID, ...extra };
     try { return await result<MutationResult>(method, payload); }
     catch (cause) {
-      const durableMethods = new Set<ContestMutation["method"]>(["contest_draft_apply", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete"]);
+      const durableMethods = new Set<ContestMutation["method"]>(["contest_draft_apply", "contest_focus", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete"]);
       const uncertain = !(cause instanceof ContestServerError) || cause.outcome === "uncertain";
       if (uncertain && durableMethods.has(method as ContestMutation["method"])) {
         const operation: ContestMutation = { method: method as ContestMutation["method"], payload,
@@ -324,7 +328,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; return null; }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const hostAction = (method: string, extra: Record<string, unknown> = {}) => runMutation(async base => {
+  const hostAction = (method: string, extra: Record<string, unknown> = {}, throwFailures = false) => runMutation(async base => {
     if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before using ESM.");
     const operationID = crypto.randomUUID();
     const native = await cw.controller.executeContest({ operation: method === "contest_esm" ? "esm" : "function_key",
@@ -333,7 +337,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
-  }, true, false);
+  }, true, false, false, throwFailures);
 
   useEffect(() => {
     if (!projection || editing) return;
@@ -541,7 +545,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         output: "xlog-native", armed: cw.state.armed, style: projection.run ? "run" : "search-and-pounce",
         status: cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
         pending: cw.state.pending ? "send" : null,
-        focusedField: projection.focus === "callsign" ? "callsign" : projection.focus === "other_2" ? "exchange" : null,
+        focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
+        tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
         functionKeys: projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })),
         readiness: { canSendCQ: cw.state.armed, canSendCall: cw.state.armed, canSendDuplicate: cw.state.armed,
           canReserveCall: false, canReserveCommit: false, canCommit: true },
@@ -661,11 +666,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         const saved = await mutate("contest_setup_save", active, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
         acceptProjection(saved.projection); setSetup(saved.setup); return;
       }
+      case "entry_focus":
+        if (!active.fields.some(field => field.id === action.params.fieldID && field.visible && field.enabled))
+          throw new Error("This contest field is not available for focus.");
+        await runMutation(base => mutate("contest_focus", base, { field: action.params.fieldID }), false,
+          true, true, true);
+        return;
       case "entry_operator_key":
         if (action.params.key === "Enter") {
-          await hostAction("contest_esm", { field: action.params.focusedField === "exchange" ? "other_2" : "callsign" }); return;
+          await hostAction("contest_esm", { field: action.params.focusedField ?? active.focus }, true); return;
         }
-        await hostAction("contest_function_key", { key: action.params.key }); return;
+        await hostAction("contest_function_key", { key: action.params.key }, true); return;
       case "assistance_query": await persistFields("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select":
         if (action.params.kind === "log" || action.params.kind === "cluster") {
