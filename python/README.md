@@ -98,9 +98,15 @@ allow 128 bytes; plugin ID must match this host. Up to 24 unique macros contain
 exactly mode R/S, key F1–F12, label (128 bytes), template (1024 bytes). The entire
 document is bounded to 16 KiB. It is stored in the existing session JSON using
 the same atomic revision fence and operation receipts as other mutations.
-Saving this configuration document does not apply station/rule changes or
-configure external services. Active function-key projections continue to carry
-the actual pinned macro label and template selected by Run/S&P.
+Saving applies the name, operator, station and settings atomically with the
+document. Station calls require an already pinned country resolution; sent CQ
+zone must be 1–40 and the plugin/mode remain CQ WW CW. Changing station call
+rescores existing rows while retaining their historical operator, station call,
+exchange and Run metadata. The active draft's sent zone follows the new setting.
+Saved R/S F1–F12 macros replace matching pinned defaults; omitted entries retain
+their defaults. Both projections and output intents use these effective macros.
+Preferences and network remain durable configuration data only: saving does not
+configure external services or enable unsupported preference behavior.
 
 `export` returns actual upstream Cabrillo text with CRLF and a suggested filename,
 limited to 512 KiB. The production path uses `export_prepare`, bounded 64-KiB

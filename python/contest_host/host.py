@@ -100,6 +100,8 @@ class Desk:
         self.database, self.state, self._commit = store, state, commit
         self.contest = load_cqww()
         self.cw_macros = load_cw_macros()
+        for macro in state.get("setup", {}).get("macros", []):
+            self.cw_macros[(macro["mode"], macro["key"])] = {"label": macro["label"], "template": macro["template"]}
         self.station, self.contest_settings = state["station"], state["settings"]
         self.pref = {"contest": 1, "run_state": state["run"], "esm_send_corrected_call": True}
         self.actions, self.messages, self.highlights = [], [], set()
@@ -427,7 +429,27 @@ class Host:
                 require(type(params.get("run")) is bool, "Run state must be boolean")
                 desk.pref["run_state"] = state["run"] = params["run"]
             elif method == "setup_save":
-                state["setup"] = self.validate_setup(params.get("setup"))
+                setup = self.validate_setup(params.get("setup"))
+                call = text(setup["station"].get("Call", ""), 32).upper()
+                require(re.fullmatch(r"[A-Z0-9/]{3,32}", call) is not None, "Invalid station call")
+                require(call in state["reference"]["countries"], "Resolve the station country before changing setup", "station_country_unresolved")
+                require(bool(setup["name"].strip()), "Contest name is required")
+                operator = text(setup["operator"], 32)
+                require(bool(operator.strip()), "Operator is required")
+                zone = str(setup["settings"].get("SentExchange", ""))
+                require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
+                require(setup["settings"].get("ModeCategory", "CW") == "CW", "CQ WW CW requires CW mode")
+                setup["station"]["Call"] = call
+                setup["settings"].setdefault("ModeCategory", "CW")
+                state.update({"setup": setup, "name": setup["name"], "operator": operator,
+                              "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
+                # Recreate the adapter with effective settings/macros before returning
+                # the projection, and rescore if the station country changed.
+                previous_station = desk.station
+                desk = Desk(store, state, self.commit)
+                desk.other_1.setText(zone)
+                if previous_station["Call"] != call:
+                    self.rebuild(desk)
             elif method == "esm":
                 if "fields" in params:
                     self.apply_fields(desk, params)

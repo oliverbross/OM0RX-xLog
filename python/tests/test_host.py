@@ -166,6 +166,57 @@ class HostTests(unittest.TestCase):
         self.mutate("setup_save", setup={**setup, "name": "Unique setup"})
         self.assertEqual(self.call("setup_get", {"sessionID": other["sessionID"]})["setup"]["name"], "CQ WW CW")
 
+    def test_setup_applies_contest_configuration_and_effective_macros_after_reopen(self):
+        qso = self.log()
+        before = self.host.database(self.session).exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso,))
+        setup = self.read("setup_get")["setup"]
+        setup.update(name="Operator contest", operator="OM0RX/P", station={**setup["station"], "Call": "OM1ABC", "Name": "Contest operator"},
+                     settings={**setup["settings"], "SentExchange": "16", "PowerCategory": "HIGH"},
+                     macros=[{"mode": "R", "key": "F1", "label": "My CQ", "template": "cq test {MYCALL}"},
+                             {"mode": "S", "key": "F1", "label": "My S&P", "template": "de {MYCALL}"}])
+        params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision, "setup": setup}
+        saved = self.call("setup_save", params)
+        self.assertEqual(saved["projection"]["functionKeys"][0]["label"], "My S&P")
+        self.assertEqual(next(field["value"] for field in saved["projection"]["fields"] if field["id"] == "other_1"), "16")
+        self.assertEqual(self.call("sessions", {})["sessions"][0]["name"], "Operator contest")
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("setup_get")["setup"], setup)
+        action = self.mutate("function_key", key="F1")["actions"][0]
+        self.assertEqual((action["label"], action["template"], action["stationCall"], action["sentExchange"]),
+                         ("My S&P", "de {MYCALL}", "OM1ABC", "16"))
+        self.mutate("run_state", run=True)
+        action = self.mutate("function_key", key="F1")["actions"][0]
+        self.assertEqual((action["label"], action["template"]), ("My CQ", "cq test {MYCALL}"))
+        self.assertEqual(self.mutate("function_key", key="F3")["actions"][0]["template"], "{RST} {EXCHANGE}")
+        self.assertTrue(self.call("setup_save", params)["replayed"])
+        self.assertEqual(self.read("setup_get")["setup"], setup)
+        new_qso = self.log("DL1ABC", "14", 1)
+        rows = {row["ID"]: row for row in self.read("log")["rows"]}
+        self.assertEqual(rows[qso], before)
+        self.assertEqual((rows[new_qso]["Operator"], rows[new_qso]["StationPrefix"], rows[new_qso]["SentNr"]),
+                         ("OM0RX/P", "OM1ABC", 16))
+        self.assertEqual((rows[qso]["IsRunQSO"], rows[qso]["Run1Run2"]), (0, 1))
+
+    def test_setup_rejects_invalid_contest_configuration_atomically(self):
+        setup = self.read("setup_get")["setup"]
+        for update in ({"station": {"Call": "XX1UNKNOWN"}}, {"settings": {"SentExchange": "41"}},
+                       {"settings": {"SentExchange": "15", "ModeCategory": "SSB"}},
+                       {"operator": ""}, {"name": ""}):
+            with self.subTest(update=update), self.assertRaises(HostError):
+                self.mutate("setup_save", setup={**setup, **update})
+            self.assertEqual(self.read("setup_get")["setup"], setup)
+
+    def test_setup_station_change_rescores_without_rewriting_historical_metadata(self):
+        qso = self.log()
+        setup = self.read("setup_get")["setup"]
+        before = self.host.database(self.session).exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso,))
+        self.mutate("setup_save", setup={**setup, "station": {**setup["station"], "Call": "K1ABC"}})
+        after = self.host.database(self.session).exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso,))
+        self.assertEqual(after["Points"], 0)
+        for key in ("Operator", "StationPrefix", "SentNr", "IsRunQSO", "Run1Run2"):
+            self.assertEqual(after[key], before[key])
+
     def test_country_additions_require_the_session_reference_identity(self):
         country = {"VK1ABC": {"entity": "Australia", "continent": "OC", "cq": 30,
                               "itu": 59, "primary_pfx": "VK"}}
