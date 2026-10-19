@@ -68,7 +68,11 @@ public enum IntegrationWorkspaceBootstrap {
               metadata.keychainService.hasPrefix(expectedIdentityPrefix) else {
             throw IntegrationWorkspaceError.unsafePath
         }
-        let counts = try inspect(databaseURL)
+        // A clean shutdown can remove the WAL/SHM sidecars while leaving the
+        // database in WAL mode. Open the app-owned workspace read/write long
+        // enough for SQLite to recreate those internal files, then fence every
+        // statement below with query_only before validating its contents.
+        let counts = try inspect(databaseURL, flags: SQLITE_OPEN_READWRITE)
         return IntegrationWorkspace(
             directoryURL: directory,
             databaseURL: databaseURL,
@@ -206,9 +210,12 @@ public enum IntegrationWorkspaceBootstrap {
         }
     }
 
-    private static func inspect(_ url: URL) throws -> Counts {
-        let handle = try open(url, flags: SQLITE_OPEN_READONLY)
+    private static func inspect(_ url: URL, flags: Int32 = SQLITE_OPEN_READONLY) throws -> Counts {
+        let handle = try open(url, flags: flags)
         defer { sqlite3_close(handle) }
+        guard sqlite3_exec(handle, "PRAGMA query_only=ON", nil, nil, nil) == SQLITE_OK else {
+            throw IntegrationWorkspaceError.sqlite(String(cString: sqlite3_errmsg(handle)))
+        }
         guard try scalarText("PRAGMA integrity_check", on: handle) == "ok" else {
             throw IntegrationWorkspaceError.invalidSnapshot("SQLite integrity_check did not return ok")
         }

@@ -58,6 +58,30 @@ struct IntegrationWorkspaceTests {
         #expect(try IntegrationWorkspaceBootstrap.open(at: workspace.directoryURL).qsoCount == 0)
     }
 
+    @Test("Reopen materializes missing WAL sidecars without changing contacts")
+    func reopenAfterWALSidecarsWereRemoved() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let workspace = try IntegrationWorkspaceBootstrap.createEmpty(at: root.appendingPathComponent("preview"))
+        let database = try LogbookDatabase(url: workspace.databaseURL)
+        try database.save(QSO(call: "VK4JAZ", start: Date(timeIntervalSince1970: 1_700_000_000),
+                              band: "20m", mode: "CW"))
+        database.close()
+        for suffix in ["-wal", "-shm"] {
+            let sidecar = URL(fileURLWithPath: workspace.databaseURL.path + suffix)
+            if FileManager.default.fileExists(atPath: sidecar.path) {
+                try FileManager.default.removeItem(at: sidecar)
+            }
+            #expect(!FileManager.default.fileExists(atPath: sidecar.path))
+        }
+
+        let reopened = try IntegrationWorkspaceBootstrap.open(at: workspace.directoryURL)
+        #expect(reopened.qsoCount == 1)
+        let retained = try LogbookDatabase(url: workspace.databaseURL)
+        defer { retained.close() }
+        #expect(try retained.fetch().map(\.call) == ["VK4JAZ"])
+    }
+
     @Test("Import is atomic and preserves full fields while skipping semantic duplicates")
     func importTransaction() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
