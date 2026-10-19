@@ -50,6 +50,14 @@ The implementation is split into logical, pushed commits on
   xLog-owned services.
 - `e9388e8` connects the CQ WW manager/desk, entry, log, Check Partial, score,
   multiplier matrices, Bandmap, Cluster and CW controls to the Python contract.
+- `a46e2e5` makes the bundled Python runtime relocatable, recursively internalizes
+  its dylib closure and rejects runtimes newer than the app deployment target.
+- `63fd847` moves one-key ESM/CW into native admission with durable, at-most-once
+  output consumption and Stop/replay fencing.
+- `2cafc59` pins new country resolutions to the session CTY version and uses the
+  endpoint resolver's token-level zone and continent overrides.
+- `0141cfb` executes the pinned Not1MM Run/S&P CW macro set through xLog's
+  native validation, arming, output and Stop owner.
 
 The desktop follows the Not1MM projection for visible fields, tab order,
 Run/S&P, Enter/ESM and F1–F12 actions. Duplicate QSOs remain loggable so the
@@ -81,8 +89,8 @@ run reproduced CQ WW CW score 16, CQ WPX CW score 8, ARRL Sweepstakes CW score
 
 That feasibility run did not establish real RF/audio, installed application
 relocation, migration, all 94 plugins or organizer certification. Repository
-acceptance now adds 15 Python host tests, 2 Swift bridge tests, 32 focused Rust
-service tests and 321 Contesting frontend tests. The production frontend bundle
+acceptance now adds 19 Python host tests, 2 Swift bridge tests, focused Rust
+service tests and more than 320 Contesting frontend tests. The production frontend bundle
 also builds successfully. These establish source-level CQ WW integration,
 framing, replay, rollback, correction/deletion, restart and export behavior;
 they do not establish installed-app or physical-station operation.
@@ -91,8 +99,8 @@ they do not establish installed-app or physical-station operation.
 
 1. Complete installed CQ WW correction/export/restart acceptance, including a
    deliberate RF-safe CW test and radio/cluster evidence from the real station.
-2. Freeze the exact xLog CTY reference version per Python session and provide
-   default CQ WW F-key bindings without overwriting operator macros.
+2. Preserve the complete CTY resolver snapshot for explicit session migration;
+   mixed-version additions are now rejected.
 3. Add explicit normal-log transfer and a lossless legacy-session migration
    path; keep both opt-in and auditable.
 4. Exercise WPX serial reservation and Sweepstakes packed exchange, then carry
