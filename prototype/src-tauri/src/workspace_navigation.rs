@@ -135,6 +135,27 @@ mod tests {
         }
     }
     #[test]
+    fn contest_owned_windows_receive_the_default_tauri_capability() {
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let windows = capability["windows"].as_array().unwrap();
+        for label in [
+            "contest-setup",
+            "contest--active-qso",
+            "contest--propagation",
+            "contest--logbook",
+            "contest--callsign-intelligence",
+            "contest--monitor",
+            "contest--awards",
+            "contest--chaser-dx",
+        ] {
+            assert!(
+                windows.iter().any(|candidate| candidate == label),
+                "Missing Tauri capability for {label}"
+            );
+        }
+    }
+    #[test]
     fn workspace_mode_choices_use_the_retained_main_navigation_channel() {
         let state = WorkspaceNavigation::default();
         for (id, route) in [("workspace_mode_canvas", "workspace-mode-canvas"), ("workspace_mode_windows", "workspace-mode-windows")] {
