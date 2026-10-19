@@ -48,6 +48,7 @@ final class PythonContestLaneTests: XCTestCase {
             "operationID": UUID().uuidString.lowercased(),
             "expectedRevision": 0,
             "pluginID": "cq_ww_cw",
+            "frequencyHz": 14_025_000,
             "station": ["Call": "OM0RX", "CQZone": "15"],
             "settings": ["SentExchange": "15"],
         ])

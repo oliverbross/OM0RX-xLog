@@ -41,11 +41,17 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
     else if (method === "contest_create") result = { sessionID: current.sessionID, revision: 1, projection: current, actions: [], messages: [] };
     else if (method === "contest_log_page") result = { rows: [], total: 0, revision: current.revision };
     else if (method === "contest_score") result = { score: current.score, matrices: { countries: [], zones: [] }, revision: current.revision };
+    else if (method === "contest_draft_apply" || method === "contest_focus") {
+      const values = method === "contest_draft_apply" ? params.fields as Record<string, string> :
+        Object.fromEntries(current.fields.map(field => [field.id, field.value]));
+      current = { ...projection(current.revision + 1, values), focus: method === "contest_focus" ? String(params.field) : current.focus };
+      result = { projection: current, actions: [], messages: [] };
+    }
     else if (method === "contest_qso_commit") { logged = params; current = projection(current.revision + 1); result = { projection: current, actions: [], messages: [] }; }
     else throw new Error(`Unexpected ${method}`);
     return { id: crypto.randomUUID(), ok: true, result };
   });
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} stationCall="OM0RX" spots={[]} cluster={null}/>);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} stationCall="OM0RX" radioFrequencyHz={14_025_000} spots={[]} cluster={null}/>);
   await screen.findByRole("heading", { name: "New contest" });
   await userEvent.click(screen.getByRole("button", { name: "Create and open" }));
   const call = await screen.findByLabelText("Call"), zone = screen.getByLabelText("CQ Zone");
@@ -59,13 +65,19 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
 
 it("sends one native ESM operation with buffered fields and accepts its confirmed log even when CW fails", async () => {
   let current = projection();
-  const request = vi.fn(async (method: string) => {
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     let result: any;
     if (method === "contest_catalog") result = { plugins: [{ id:"cq_ww_cw", name:"CQ WW CW" }] };
     else if (method === "contest_sessions") result = { sessions:[] };
     else if (method === "contest_create") result = { sessionID:current.sessionID, projection:current };
     else if (method === "contest_log_page") result = { rows:[], total:0 };
     else if (method === "contest_score") result = { score:current.score, matrices:{countries:[],zones:[]} };
+    else if (method === "contest_draft_apply" || method === "contest_focus") {
+      const values = method === "contest_draft_apply" ? params.fields as Record<string, string> :
+        Object.fromEntries(current.fields.map(field => [field.id, field.value]));
+      current = { ...projection(current.revision + 1, values), focus: method === "contest_focus" ? String(params.field) : current.focus };
+      result = { projection:current, actions:[], messages:[] };
+    }
     else throw new Error(`Unexpected renderer request ${method}`);
     return { id:crypto.randomUUID(), ok:true, result };
   });
@@ -77,10 +89,11 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
     return { error:"CW acknowledgement was lost; use Stop.", contestResult:{ operationID:params.operationID,
       projection:current, actions:[{kind:"function_key",key:"F2",fields:{callsign:"K1ABC"}}] } };
   });
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} stationCall="OM0RX" spots={[]} cluster={null}/>);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} stationCall="OM0RX" radioFrequencyHz={14_025_000} spots={[]} cluster={null}/>);
   await userEvent.click(await screen.findByRole("button", {name:"Create and open"}));
   const call = await screen.findByLabelText("Call"), zone = screen.getByLabelText("CQ Zone");
   fireEvent.change(call,{target:{value:"k1abc"}}); fireEvent.focus(zone); fireEvent.change(zone,{target:{value:"5"}});
+  await waitFor(()=>expect(request.mock.calls.some(([method])=>method === "contest_focus")).toBe(true));
   fireEvent.keyDown(zone,{key:"Enter"});
   await waitFor(()=>expect(nativeCW.execute).toHaveBeenCalledTimes(1));
   fireEvent.keyDown(screen.getByRole("form",{name:"CQ WW CW entry"}),{key:"Escape"});
@@ -89,7 +102,7 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
   await screen.findByText("CW acknowledgement was lost; use Stop.");
   expect(nativeCW.execute).toHaveBeenCalledTimes(1);
   expect(nativeCW.execute.mock.calls[0][0]).toMatchObject({operation:"esm",sessionID:current.sessionID,
-    expectedContestRevision:1,draftID:current.draftID,fields:{callsign:"K1ABC",other_2:"5"},field:"other_2"});
+    draftID:current.draftID,fields:{callsign:"K1ABC",other_2:"5"},field:"other_2"});
   expect((screen.getByLabelText("Call") as HTMLInputElement).value).toBe("");
-  expect(request.mock.calls.some(([method])=>method === "contest_esm" || method === "contest_draft_apply")).toBe(false);
+  expect(request.mock.calls.some(([method])=>method === "contest_esm")).toBe(false);
 });

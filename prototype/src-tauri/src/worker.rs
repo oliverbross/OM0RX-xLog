@@ -185,6 +185,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_open",
         "contest_draft_get",
         "contest_draft_apply",
+        "contest_focus",
         "contest_run_state",
         "contest_cw_context",
         "contest_esm",
@@ -1557,7 +1558,7 @@ mod tests {
     fn contest_lane_methods_are_explicitly_admitted_only_on_main_surface() {
         for method in [
             "contest_catalog", "contest_sessions", "contest_create", "contest_session_create", "contest_open",
-            "contest_draft_get", "contest_draft_apply", "contest_run_state", "contest_cw_context",
+            "contest_draft_get", "contest_draft_apply", "contest_focus", "contest_run_state", "contest_cw_context",
             "contest_esm", "contest_function_key", "contest_output_claim", "contest_serial_reserve",
             "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
             "contest_operation_receipt", "contest_log_page", "contest_score", "contest_statistics",

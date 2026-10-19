@@ -189,6 +189,9 @@ class Desk:
         raise HostError("invalid_frequency", "Frequency is outside CQ WW bands")
 
     def projection(self):
+        # Rebuild Not1MM's non-transmitting ESM presentation on every read so
+        # highlights survive reopen/refresh without emitting an output intent.
+        self.contest.process_esm(self, getattr(self, self.current_widget), False)
         fields = []
         containers = [self.field0, self.field1, self.field2, self.field3, self.field4]
         labels = ["Call", self.snt_label.text() or "SNT", self.rcv_label.text() or "RCV", self.other_label.text(), self.exch_label.text()]
@@ -456,6 +459,9 @@ class Host:
     def new_state(self, session_id, params):
         require(params.get("pluginID", PLUGIN_ID) == PLUGIN_ID, "Only CQ WW CW is supported")
         workspace = identifier(params.get("workspaceGeneration"))
+        frequency = params.get("frequencyHz")
+        require(type(frequency) is int, "A confirmed or manual frequency is required")
+        Desk.band(frequency)
         station, reference = deepcopy(params.get("station")), deepcopy(params.get("reference"))
         require(isinstance(station, dict) and isinstance(reference, dict), "Station and reference are required")
         call = text(station.get("Call", ""), 32).upper()
@@ -477,7 +483,7 @@ class Host:
                 "revision": 0, "engine": "not1mm-python", "pluginID": PLUGIN_ID,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
-                "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": 14025000,
+                "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
                 "fields": dict(zip(INPUTS, ("", "599", "599", str(settings["SentExchange"]), "")))}}
 
     @staticmethod
