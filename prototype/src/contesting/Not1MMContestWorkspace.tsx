@@ -186,6 +186,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
         sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
       });
       const setupResult = await result<{ setup: ContestSetupDocument }>("contest_setup_get", { sessionID: session.sessionID });
+      setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
       acceptProjection(opened.projection); setSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
       localStorage.setItem(activeSessionKey, session.sessionID); setManager(false); setEditing(null);
       await cw.controller.refresh();
@@ -292,8 +293,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
 
   const createSession = async (document: ContestSetupDocument) => {
     const contestCall = String(document.station.Call || stationCall).trim().toUpperCase();
-    if (!contestCall) { setError("Configure the xLog station callsign before creating a contest."); return; }
-    if (operationFrequencyHz === null) { setError("Connect the selected radio or enter a valid CQ WW frequency before creating a contest."); return; }
+    if (!contestCall) throw new Error("Configure the xLog station callsign before creating a contest.");
+    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid CQ WW frequency before creating a contest.");
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
@@ -310,7 +311,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       acceptProjection(saved.projection); setSetup(saved.setup); await refresh(sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
       localStorage.setItem(activeSessionKey, sessionID); setManager(false);
-    } catch (cause) { setError(errorMessage(cause)); }
+    } catch (cause) { setError(errorMessage(cause)); throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
   const saveSetup = async (document: ContestSetupDocument) => {
@@ -727,6 +728,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
+    {manager && observedFrequencyHz === null && <div className="contest-entry-context">
+      <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
+        value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
+    </div>}
     {manager ? <ContestSetupPanel value={setup} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)}

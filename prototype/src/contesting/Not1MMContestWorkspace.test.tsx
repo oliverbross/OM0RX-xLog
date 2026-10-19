@@ -84,6 +84,58 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it.each(["", "10.1", "invalid"])("admits an offline contest only after the operator enters a valid manual frequency (initial %j)", async initial => {
+  let current = projection();
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    let result: any;
+    if (method === "contest_catalog") result = { plugins: [{ id:"cq_ww_cw", name:"CQ WW CW" }] };
+    else if (method === "contest_sessions") result = { sessions:[] };
+    else if (method === "contest_create") {
+      current = { ...current, frequencyHz: Number(params.frequencyHz), band: 7 };
+      result = { projection:current };
+    } else if (method === "contest_log_page") result = { rows:[], total:0 };
+    else if (method === "contest_score") result = { score:current.score };
+    else throw new Error(`Unexpected ${method}`);
+    return { id:crypto.randomUUID(), ok:true, result };
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}/>);
+  fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:initial}});
+  await createContestThroughSetup();
+  expect(await screen.findByText("Connect the selected radio or enter a valid CQ WW frequency before creating a contest.")).toBeTruthy();
+  expect(screen.queryByText("Contest created.")).toBeNull();
+  expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(false);
+  expect(screen.getByRole("button", {name:"OK"})).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:"7.025125"}});
+  await userEvent.click(screen.getByRole("button", {name:"OK"}));
+  await screen.findByText("Contest windows are ready");
+  expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz:7_025_125});
+  expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready");
+});
+
+it("restores the saved manual frequency when reopening a session without CAT", async () => {
+  const current = projection();
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", current.sessionID);
+  let transition: any;
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? {plugins:[]} : method === "contest_sessions"
+      ? {sessions:[{...current,name:"Saved contest"}]} : method === "contest_open" ? {projection:current}
+      : method === "contest_log_page" ? {rows:[],total:0} : method === "contest_score" ? {score:current.score} : null;
+    if (!result) throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}
+    registerTransition={value => {transition = value;}}/>);
+  await screen.findByText("Contest windows are ready");
+  await act(async () => { await expect(transition.prepare()).resolves.toBeUndefined(); });
+  expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
+});
+
 it("creates a Python CQ WW session and logs through the actual-host wire", async () => {
   let current = projection(), logged: Record<string, unknown> | null = null;
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
