@@ -2,19 +2,20 @@
 
 Last updated: 2026-10-18
 
-Latest integration gate: the rates backend merge from `68ccf47` failed the existing correction-after-deletion replay test. The unaccepted merge was preserved and aborted; the accepted source remains `80732f9`. The main chat is taking serialized canonical ownership for its requested normal-app patch release. No new Contesting Test package is accepted.
+Latest main runtime and contest evidence: normal 1.2.26 from `966a57ad5097816377c2e5d92a89a5a5a94b7408`, documented at `a38fbf2`, is installed; installed host SHA-256 `e1a447d577a6a3c3aa5a908e1fd8c35da51b0c75bab4b2e45467bb47d215253d`, worker SHA-256 `c21cbaaa594136f08765c8fd7628acbd8527e87cb7803080ab912bc48be522db`, strict deep signature passed. Main task reported launch; live amplifier behavior and RF are not verified. Contesting Test `5024b2cf1129347a8f0b1f621d2f2e7306121c90` is unchanged. CQWW blank-call fix `485ea2c` is root-accepted with four verified core tests. Bounded agent diagnostic covered CQWW-country CW/SSB only (6 QSOs each, scores 6/16/42/80/110/168, 12 commits, Run/S&P duplicates, SCP 7, restart, two corrections, eight Cabrillo/ADIF assertions); receipts: outer SHA-256 `899c0cfbdffa9a7c87684ce24ebb16d46be78dff1f72eb77254977468e775666`, inner SHA-256 `10c11026031292cf440a3296b1bb1ad76113490fa7d73a5ded86d9a1720dc233`. Full 16+12 matrix remains pending, and three bounded PID audits do not provide process-lifetime attribution; metadata actor is unknown. VHF store candidate `51e96ab` is pushed but not accepted pending compound correction/deletion/reopen replay, numeric scoring/activation and additional invalid-grid, context/timestamp conflict and rollback coverage; object equality does not prove serialized QSO byte equality.
 
-Tracked implementation checkpoint: `80732f92ce0e285f57404ba560dc5ceab055b0cc` on `codex/contest-1.2.24-integration`.
-The installed normal macOS application is version **1.2.24**, packaged from
-`fd64a5129c9a629490e0f447bf45fa8157d66e63` with release-acceptance documentation
-`0106c9f`; the current contesting integration is `172992c86e7f0acc40077f2718529512b4ad10b3`,
-including documentation correction `6d15d7b` and native bridge merge.
+Latest combined contest product source: `cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd`, root-reviewed and accepted as source integration. It passed 328 tests across 32 files plus TypeScript, five open-file tests, and bounded child deadline/readiness/group/spawn checks. The full-family rehearsal on `9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164b` failed during the CQ WW CW Country Reference Preview CW family operator acceptance matrix after regular CQWW CW/SSB cases progressed; response and shutdown preflight passed, and diagnosis is ongoing. Earlier preflight failures remain separate failures, not passes. Rate/Statistics source `2fa999ef1a7f5948d3eeade164caf2632916de0a` is root-reviewed and accepted, with 11 owner-regression tests plus TypeScript; overlapping test runs are not additive. Contest package/runtime acceptance remains open. The accepted VHF read-only plan is not implemented; store work is assigned in isolated branch `codex/contest-vhf-grid-move` from cabca0f but is not validated or accepted; worker/Rust/UI/catalog activation remain open. Main 1.2.25 from `5ebc71272914ce8dbc568301d10c564d59839c28` is installed and runtime-accepted, documented at `15f3392281424c72d68caf9bd4abe65f52fe5d11`; host SHA-256 `5782551bcb3a12573348fef7da8d1d67788c92e42c4573cbbf1f615d2d896d3b`, worker SHA-256 `4d28ad8b255fe2ad994304ab0d1d52a8590f536337248c3b9592efdf11ab1af8`, strict deep signature passed. Contesting Test remains `5024b2cf1129347a8f0b1f621d2f2e7306121c90`. The canonical checkout is reserved for an emergency amplifier operator-verification hotfix; replacement is pending without an acceptance receipt. Keep the ledger at 16 previews / 78 pending / 0 fully ported and leave the published report/workbook unchanged.
 
-## Consolidated current checkpoint — 18 October 2026
+Tracked previous core checkpoint: `5706ca36e96952a782c3b2374ec12b2465fca5ce`; latest accepted combined product is `cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd` on `codex/contest-rate-operator-integration`.
+The installed normal macOS application is version **1.2.25**, from source `5ebc71272914ce8dbc568301d10c564d59839c28`, runtime-accepted and documented by `15f3392281424c72d68caf9bd4abe65f52fe5d11`. Installed host and worker SHA-256 values are `5782551bcb3a12573348fef7da8d1d67788c92e42c4573cbbf1f615d2d896d3b` and `4d28ad8b255fe2ad994304ab0d1d52a8590f536337248c3b9592efdf11ab1af8`; strict deep signature passed. Contesting Test remains source `5024b2cf1129347a8f0b1f621d2f2e7306121c90` (1.2.23). The canonical checkout is re-reserved for an emergency amplifier operator-verification hotfix; its replacement remains pending without an acceptance receipt.
 
-This section is the current management view. The detailed implementation ledger
-below is retained for traceability, but its alpha.31-era release statements are
-historical unless repeated here or in a later release-acceptance report.
+Previous review follow-up: the Escape stale-refresh log `/tmp/xlog-contest-escape-stale-revision.log` passed root verification. Detached surface `6a3d4785c4bdcec785128581299198f094c703e6` passed 15 tests including modeled owner drain; packaged controller/worker proof is still open. Root corrected the ARRL VHF eligibility finding for `471db8b`: provenance already early-returns the unchanged legacy nil-category string, verified against `7357645` and `533792c`; no digest repair is needed. Its byte-pinning/malformed-snapshot checks and 14 finite-mode checks are root-verified; finite VHF profiles remain inactive. FT4 ADIF mapping was corrected to MODE MFSK / SUBMODE FT4 in `4c6bb7568d5382a4bc455dd5574c4380d14fb293`. Preserve the parity ledger at 16 previews / 78 pending / 0 fully ported.
+
+## Previous consolidated checkpoint — 18 October 2026
+
+This section is a historical management snapshot. The detailed implementation
+ledger below is retained for traceability; current release status is stated in
+the dated checkpoint above.
 
 ### Repository and release state
 

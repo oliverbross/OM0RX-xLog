@@ -1,0 +1,587 @@
+import Foundation
+import XCTest
+@testable import XContestCore
+
+final class ContestARRLVHFDeclarativeTests: XCTestCase {
+    private let timestamp = Date(timeIntervalSince1970: 1_900_500_000)
+    private let bands = ["6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm",
+                         "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"]
+
+    func testPinnedSourceManifestAndInactiveDefinitionCoordinates() throws {
+        let fixture = try fixturePlugins()
+        XCTAssertEqual(Set(fixture.keys), Set(ARRLVHFSeason.allCases.map(\.rawValue)))
+        for season in ARRLVHFSeason.allCases {
+            let row = try XCTUnwrap(fixture[season.rawValue])
+            let draft = ARRLVHFDeclarativeDefinitions.draft(for: season)
+            XCTAssertEqual(row.sha256, ARRLVHFDeclarativeDefinitions.sourceSHA256(for: season))
+            XCTAssertEqual(row.officialPreviewBandPoints, ARRLVHFDeclarativeDefinitions.points(for: season))
+            XCTAssertEqual(row.pinnedExecutableBandPoints["13cm"], 0)
+            XCTAssertNotEqual(row.pinnedExecutableBandPoints, row.officialPreviewBandPoints)
+            XCTAssertEqual(draft.id, "arrl-vhf-\(season.rawValue)")
+            XCTAssertEqual(draft.version, "1.0.0-source-preview")
+            XCTAssertEqual(draft.edition, "contest-sw-26.10.11")
+            XCTAssertEqual(draft.cabrilloName, "ARRL-VHF")
+            XCTAssertEqual(draft.supportedBands, Set(bands))
+            XCTAssertEqual(draft.supportedModes, ["CW", "SSB"])
+            XCTAssertNil(draft.operatorPolicy)
+            XCTAssertNil(draft.stationGridPolicy)
+            XCTAssertEqual(draft.dupePolicy, .perBand)
+            XCTAssertFalse(String(decoding: try JSONEncoder().encode(draft), as: UTF8.self)
+                .contains("stationGridPolicy"))
+            XCTAssertTrue(draft.sourceProvenance.contains(row.path))
+            XCTAssertTrue(draft.sourceProvenance.contains(row.sha256))
+        }
+    }
+
+    func testLegacyDefinitionDigestsAndCanonicalStorageMatchAccepted7357645Bytes() throws {
+        let accepted: [ARRLVHFSeason: (definition: String, storage: String)] = [
+            .january: ("df23af6da36cda1ca67d9593ee540710bba3994522ec4ecc7cd741f0b4a15204",
+                       "a1dfb8771d4a433d6641cad5bfdd28657d2da03175ccf5101003db5acfee1059"),
+            .june: ("598ce9ce24c2cfeea6ea900a994e9f4b6a045ba506a39829f8a23f4adf3d7e74",
+                   "4af2c412baffa22b137cb848a94de98c1835785b084ac41bb5a343e548eb5e92"),
+            .september: ("2249970b4bc633eeae240490b2c886af038fd372ce1b82e7a7b2917e63b02ce4",
+                        "594caee565b091f883d255f3309097dfe4e3cbb7990391b6fa70e0a1608ae17d"),
+        ]
+        for season in ARRLVHFSeason.allCases {
+            let definition = try ARRLVHFDeclarativeDefinitions.definition(for: season)
+            XCTAssertEqual(definition.definitionDigest, accepted[season]?.definition)
+            XCTAssertEqual(ContestSCPIndex.sha256(try definition.canonicalStorageData()),
+                           accepted[season]?.storage)
+            XCTAssertEqual(definition.draft.eligibilityPolicy, .unrestricted)
+            XCTAssertFalse(definition.draft.stationEntityRequired)
+        }
+    }
+
+    func testIndependentAllBandPointAndGridOraclesForEverySeason() throws {
+        let fixture = try fixturePlugins()
+        for season in ARRLVHFSeason.allCases {
+            let rule = try ARRLVHFDeclarativeDefinitions.rule(for: season)
+            let session = makeSession(rule)
+            let contacts = bands.enumerated().map { index, band in
+                qso(index + 1, session, call: "K1AAA", band: band,
+                    grid: String(format: "FN%02d", 20 + index))
+            }
+            let score = try ContestEngine.score(contacts, session: session, rule: rule)
+            let row = try XCTUnwrap(fixture[season.rawValue])
+            XCTAssertEqual(score.qsos.map(\.points), bands.map { row.officialPreviewBandPoints[$0]! },
+                           season.rawValue)
+            XCTAssertEqual(score.totalPoints, row.allBandPoints, season.rawValue)
+            XCTAssertEqual(score.multiplierCount, row.allBandMultiplierCount, season.rawValue)
+            XCTAssertEqual(score.claimedScore, row.allBandScore, season.rawValue)
+        }
+    }
+
+    func testPerBandDuplicateCorrectionDeletionAndCanonicalReopen() throws {
+        let original = try ARRLVHFDeclarativeDefinitions.rule(for: .january)
+        let encoded = try JSONEncoder().encode(original.definition)
+        let reopened = DeclarativeContestRule(definition: try JSONDecoder().decode(
+            ContestDeclarativeDefinition.self, from: encoded))
+        XCTAssertEqual(original.metadata.identity, reopened.metadata.identity)
+        let session = makeSession(reopened)
+        let first = qso(1, session, call: "K1AAA", band: "6m", grid: "FN31")
+        let duplicate = qso(2, session, call: "K1AAA", band: "6m", grid: "FN31")
+        let crossBand = qso(3, session, call: "K1AAA", band: "2m", grid: "FN31")
+        let other = qso(4, session, call: "K2BBB", band: "6m", grid: "FN32")
+
+        let initial = try ContestEngine.score([first, duplicate, crossBand, other], session: session, rule: reopened)
+        XCTAssertEqual(initial.qsos.map(\.disposition), [.accepted, .duplicate, .accepted, .accepted])
+        XCTAssertEqual(initial.totalPoints, 3)
+        XCTAssertEqual(initial.multiplierCount, 3)
+        XCTAssertEqual(initial.claimedScore, 9)
+
+        let corrected = replacingGrid(other, "FN31")
+        let afterCorrection = try ContestEngine.score(
+            [first, duplicate, crossBand, corrected], session: session, rule: reopened)
+        XCTAssertEqual(afterCorrection.totalPoints, 3)
+        XCTAssertEqual(afterCorrection.multiplierCount, 2)
+        XCTAssertEqual(afterCorrection.claimedScore, 6)
+
+        let afterDeletion = try ContestEngine.score([first, duplicate, corrected], session: session, rule: reopened)
+        XCTAssertEqual(afterDeletion.totalPoints, 2)
+        XCTAssertEqual(afterDeletion.multiplierCount, 1)
+        XCTAssertEqual(afterDeletion.claimedScore, 2)
+    }
+
+    func testInvalidGridNeverOccupiesDuplicateOrMultiplierState() throws {
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june)
+        let session = makeSession(rule)
+        for invalidGrid in ["ZZ99", "FN311", "fn31"] {
+            let invalid = qso(1, session, call: "K1AAA", band: "6m", grid: invalidGrid)
+            let valid = qso(2, session, call: "K1AAA", band: "6m", grid: "FN31")
+            let score = try ContestEngine.score([invalid, valid], session: session, rule: rule)
+            XCTAssertEqual(score.qsos.map(\.disposition), [.invalid, .accepted], invalidGrid)
+            XCTAssertEqual(score.totalPoints, 1)
+            XCTAssertEqual(score.multiplierCount, 1)
+            XCTAssertEqual(score.claimedScore, 1)
+        }
+    }
+
+    func testFixedStationCanWorkRemoteRoverFromMultipleGridsButNotRepeatEitherPair() throws {
+        let draft = ARRLVHFDeclarativeDefinitions.draft(for: .january, category: .fixed)
+        XCTAssertEqual(draft.id, "arrl-vhf-january-fixed-official-grid-preview")
+        XCTAssertEqual(draft.stationGridPolicy?.behavior, .fixed)
+        let rule = DeclarativeContestRule(definition: try draft.materialized())
+        let session = makeSession(rule)
+        let contacts = [
+            qso(1, session, call: "K1ABC/R", band: "6m", grid: "FN31"),
+            qso(2, session, call: "K1ABC/R", band: "6m", grid: "FN32", mode: "SSB"),
+            qso(3, session, call: "K1ABC/R", band: "6m", grid: "FN31", mode: "SSB"),
+        ]
+        let score = try ContestEngine.score(contacts, session: session, rule: rule)
+        XCTAssertEqual(score.qsos.map(\.disposition), [.accepted, .accepted, .duplicate])
+        XCTAssertEqual(score.totalPoints, 2)
+        XCTAssertEqual(score.multiplierCount, 2)
+        XCTAssertEqual(score.claimedScore, 4)
+
+        let wrongOwnGrid = qso(4, session, call: "K2ABC", band: "6m", grid: "FN33",
+                               stationGrid: "JN99")
+        XCTAssertEqual(try ContestEngine.score([wrongOwnGrid], session: session, rule: rule)
+            .qsos.map(\.disposition), [.invalid])
+    }
+
+    func testRoverOwnMovesAndBothRoverGridsUseFourCoordinateDupeAndGlobalActivatedGrids() throws {
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june, category: .rover)
+        let session = makeSession(rule)
+        let contacts = [
+            qso(1, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN98"),
+            qso(2, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN99", mode: "SSB"),
+            qso(3, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN99"),
+            qso(4, session, call: "K2ROV/R", band: "6m", grid: "FN32", stationGrid: "JN98"),
+            qso(5, session, call: "K2ROV/R", band: "6m", grid: "FN33", stationGrid: "JN99", mode: "SSB"),
+        ]
+        let score = try ContestEngine.score(contacts, session: session, rule: rule)
+        XCTAssertEqual(score.qsos.map(\.disposition),
+                       [.accepted, .accepted, .duplicate, .accepted, .accepted])
+        XCTAssertEqual(score.totalPoints, 4)
+        XCTAssertEqual(score.multiplierCount, 5)
+        XCTAssertEqual(score.claimedScore, 20)
+        XCTAssertEqual(Set(score.qsos.flatMap(\.newMultipliers).filter {
+            $0.kind == "activatedMaidenheadGrid4"
+        }), [
+            .init(kind: "activatedMaidenheadGrid4", value: "JN98", scope: "session"),
+            .init(kind: "activatedMaidenheadGrid4", value: "JN99", scope: "session"),
+        ])
+    }
+
+    func testRoverCorrectionAndDeletionReclassifyFourCoordinateDuplicates() throws {
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .september, category: .rover)
+        let session = makeSession(rule)
+        let first = qso(1, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN98")
+        let duplicate = qso(2, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN98")
+        let moved = qso(3, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN99")
+
+        let remoteCorrection = replacingGrid(first, "FN32")
+        let correctedRemote = try ContestEngine.score(
+            [remoteCorrection, duplicate, moved], session: session, rule: rule)
+        XCTAssertEqual(correctedRemote.qsos.map(\.disposition), [.accepted, .accepted, .accepted])
+        XCTAssertEqual(correctedRemote.totalPoints, 3)
+        XCTAssertEqual(correctedRemote.multiplierCount, 4)
+        XCTAssertEqual(correctedRemote.claimedScore, 12)
+
+        let ownCorrection = replacingStationGrid(moved, "JN98")
+        let correctedOwn = try ContestEngine.score(
+            [first, duplicate, ownCorrection], session: session, rule: rule)
+        XCTAssertEqual(correctedOwn.qsos.map(\.disposition), [.accepted, .duplicate, .duplicate])
+        XCTAssertEqual(correctedOwn.totalPoints, 1)
+        XCTAssertEqual(correctedOwn.multiplierCount, 2)
+        XCTAssertEqual(correctedOwn.claimedScore, 2)
+
+        let afterDeletion = try ContestEngine.score([duplicate, moved], session: session, rule: rule)
+        XCTAssertEqual(afterDeletion.qsos.map(\.disposition), [.accepted, .accepted])
+        XCTAssertEqual(afterDeletion.totalPoints, 2)
+        XCTAssertEqual(afterDeletion.multiplierCount, 3)
+        XCTAssertEqual(afterDeletion.claimedScore, 6)
+    }
+
+    func testStationGridPolicyIsStrictAndRoverSentGridMustMatchQSOCoordinate() throws {
+        let unknownKey = Data(#"{"behavior":"rover","sentFieldID":"grid","future":true}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(ContestDeclarativeStationGridPolicy.self,
+                                                      from: unknownKey))
+
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june, category: .rover)
+        let session = makeSession(rule)
+        let contact = qso(1, session, call: "K1FIX", band: "6m", grid: "FN31", stationGrid: "JN98")
+        let mismatched = replacingSentGridOnly(contact, "JN99")
+        let score = try ContestEngine.score([mismatched], session: session, rule: rule)
+        XCTAssertEqual(score.qsos.map(\.disposition), [.invalid])
+        XCTAssertEqual(score.totalPoints, 0)
+
+        for location in ["", "JN99"] {
+            let incoherent = makeSession(rule, stationLocation: location)
+            XCTAssertEqual(rule.validateSession(incoherent).map(\.code), ["invalidStationGrid"])
+        }
+
+        let base = ARRLVHFDeclarativeDefinitions.draft(for: .june, category: .rover)
+        let extra = ContestExchangeFieldDescriptor(
+            id: "name", label: "Name", acceptedKinds: [.operatorName], maximumUTF8Bytes: 16)
+        let extraExchange = ContestExchangeDescriptor(
+            sent: base.entry.exchange.sent, received: base.entry.exchange.received,
+            sentDefault: base.entry.exchange.sentDefault, adifFields: base.entry.exchange.adifFields,
+            sentFields: base.entry.exchange.sentFields + [extra],
+            receivedFields: base.entry.exchange.receivedFields)
+        XCTAssertThrowsError(try replacing(base, entry: replacing(base.entry, exchange: extraExchange)).materialized())
+
+        let serial = ContestSerialDescriptor(requirement: .requiredForCommit, allowedScopes: [.session])
+        XCTAssertThrowsError(try replacing(base, entry: replacing(base.entry, serial: serial)).materialized())
+    }
+
+    func testOfficialWVEEntitySetAndDirectionalEligibilityUseImmutableSnapshots() throws {
+        let fixture = try sourceFixture().officialWVEEligibility
+        XCTAssertEqual(Set(fixture.entityADIFs), ARRLVHFDeclarativeDefinitions.officialWVEEntityADIFs)
+        XCTAssertEqual(fixture.bundledCTYSHA256, ARRLVHFDeclarativeDefinitions.bundledCTYSHA256)
+        XCTAssertEqual(fixture.sourceClause, "2.3")
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june, category: .fixed)
+        guard case let .outsideEntitySetContactsOnlyEntitySet(policy) =
+                rule.definition.draft.eligibilityPolicy else {
+            return XCTFail("Official-grid identities must carry directional entity eligibility")
+        }
+        XCTAssertEqual(policy.privilegedEntityADIFs,
+                       ARRLVHFDeclarativeDefinitions.officialWVEEntityADIFs)
+        XCTAssertEqual(policy.authority, "ARRL-VHF-Rules-1.2-rule-2.3")
+        XCTAssertTrue(rule.definition.draft.sourceProvenance.contains(
+            ARRLVHFDeclarativeDefinitions.bundledCTYSHA256))
+
+        let unitedStates = entity(291, "UNITED STATES", "K", "NA", 5)
+        let canada = entity(1, "CANADA", "VE", "NA", 4)
+        let alaska = entity(6, "ALASKA", "KL", "NA", 1)
+        let hawaii = entity(110, "HAWAII", "KH6", "OC", 31)
+        let sable = entity(211, "SABLE ISLAND", "CY0", "NA", 5)
+        let swains = entity(515, "SWAINS ISLAND", "KH8S", "OC", 32)
+        let germany = entity(230, "FEDERAL REPUBLIC OF GERMANY", "DL", "EU", 14)
+        let france = entity(227, "FRANCE", "F", "EU", 14)
+
+        for stationEntity in [unitedStates, canada, alaska, hawaii, sable, swains] {
+            let session = makeSession(rule, stationEntity: stationEntity)
+            let score = try ContestEngine.score([
+                qso(1, session, call: "DL1AAA", band: "6m", grid: "FN31", entity: germany),
+            ], session: session, rule: rule)
+            XCTAssertEqual(score.qsos.map(\.disposition), [.accepted], String(stationEntity.adif))
+        }
+
+        let dxSession = makeSession(rule, stationCallsign: "DL1AAA", stationEntity: germany)
+        let admittedBySnapshot = qso(2, dxSession, call: "DL2AAA", band: "6m", grid: "FN31",
+                                     entity: unitedStates)
+        let rejectedBySnapshot = qso(3, dxSession, call: "K1AAA", band: "6m", grid: "FN32",
+                                     entity: france)
+        let result = try ContestEngine.score([admittedBySnapshot, rejectedBySnapshot],
+                                             session: dxSession, rule: rule)
+        XCTAssertEqual(result.qsos.map(\.disposition), [.accepted, .invalid])
+        XCTAssertEqual(rule.evaluate(rejectedBySnapshot, in: dxSession).validation.map(\.code),
+                       ["ineligibleContact"])
+    }
+
+    func testDirectionalEligibilityFailsClosedForMissingOrMalformedEntitiesAndPolicy() throws {
+        let unknownKey = Data(#"{"authority":"ARRL","privilegedEntityADIFs":[1],"future":true}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(
+            ContestDeclarativeDirectionalEntityEligibility.self, from: unknownKey))
+        let duplicate = Data(#"{"authority":"ARRL","privilegedEntityADIFs":[1,1]}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(
+            ContestDeclarativeDirectionalEntityEligibility.self, from: duplicate))
+
+        let base = ARRLVHFDeclarativeDefinitions.draft(for: .june, category: .fixed)
+        for policy in [
+            ContestDeclarativeDirectionalEntityEligibility(authority: "", privilegedEntityADIFs: [1]),
+            .init(authority: "ARRL", privilegedEntityADIFs: []),
+            .init(authority: "ARRL", privilegedEntityADIFs: [0]),
+        ] {
+            XCTAssertThrowsError(try replacing(
+                base, eligibilityPolicy: .outsideEntitySetContactsOnlyEntitySet(policy),
+                stationEntityRequired: true).materialized())
+        }
+        XCTAssertThrowsError(try replacing(
+            base, eligibilityPolicy: base.eligibilityPolicy,
+            stationEntityRequired: false).materialized())
+
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .june, category: .fixed)
+        let missingStation = makeSession(rule, stationEntity: nil)
+        XCTAssertEqual(rule.validateSession(missingStation).map(\.code), ["unresolvedStationEntity"])
+
+        let germany = entity(230, "FEDERAL REPUBLIC OF GERMANY", "DL", "EU", 14)
+        let malformedEntities = [
+            entity(0, "UNITED STATES", "K", "NA", 5),
+            entity(291, "", "K", "NA", 5),
+            entity(291, "UNITED STATES", "", "NA", 5),
+            entity(291, "UNITED STATES", "K", "", 5),
+            entity(291, "UNITED STATES", "K", "NA", 0),
+        ]
+        for malformed in malformedEntities {
+            let invalidSession = makeSession(rule, stationEntity: malformed)
+            XCTAssertEqual(rule.validateSession(invalidSession).map(\.code),
+                           ["unresolvedStationEntity"])
+        }
+        let dxSession = makeSession(rule, stationCallsign: "DL1AAA", stationEntity: germany)
+        let unresolved = qso(4, dxSession, call: "K1AAA", band: "6m", grid: "FN31", entity: nil)
+        XCTAssertEqual(rule.evaluate(unresolved, in: dxSession).validation.map(\.code), ["unresolvedEntity"])
+        for malformed in malformedEntities {
+            let contact = qso(5, dxSession, call: "K1AAA", band: "6m", grid: "FN31",
+                              entity: malformed)
+            XCTAssertEqual(rule.evaluate(contact, in: dxSession).validation.map(\.code),
+                           ["unresolvedEntity"])
+        }
+    }
+
+    func testOfficialModeProfilesPreserveActualModeAndMapOnlyCabrilloClass() throws {
+        let expected: [(mode: String, adif: String, cabrillo: String)] = [
+            ("AM", "AM", "PH"), ("CW", "CW", "CW"), ("FM", "FM", "FM"),
+            ("FT4", "MFSK", "DG"), ("FT8", "FT8", "DG"),
+            ("MSK144", "MSK144", "DG"), ("RTTY", "RTTY", "DG"),
+            ("SSB", "SSB", "PH"),
+        ]
+        XCTAssertEqual(ARRLVHFDeclarativeDefinitions.officialPreviewModeProfiles.map(\.mode),
+                       expected.map(\.mode))
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .january, category: .fixed)
+        XCTAssertEqual(rule.metadata.supportedModes, Set(expected.map(\.mode)))
+        XCTAssertNil(rule.definition.draft.operatorPolicy,
+                     "Mode admission must not invent a transmit or digital-output adapter")
+        let session = makeSession(rule)
+        for (index, row) in expected.enumerated() {
+            let profile = try XCTUnwrap(rule.metadata.entry.modeProfiles.first { $0.mode == row.mode })
+            XCTAssertEqual(profile.adifMode, row.adif)
+            XCTAssertEqual(profile.adifSubmode, row.mode == "FT4" ? "FT4" : nil)
+            XCTAssertEqual(profile.cabrilloQSOType, row.cabrillo)
+            let contact = qso(index + 20, session, call: "K1AAA", band: "6m", grid: "FN31",
+                              mode: row.mode)
+            XCTAssertEqual(rule.evaluate(contact, in: session).validation, [])
+            XCTAssertTrue(try CabrilloExporter.qsoLine(contact, session: session, rule: rule)
+                .hasPrefix("QSO: 50125 \(row.cabrillo) "))
+        }
+        let unsupported = qso(40, session, call: "K1AAA", band: "6m", grid: "FN31", mode: "MFSK")
+        XCTAssertEqual(rule.evaluate(unsupported, in: session).validation.map(\.code),
+                       ["unsupportedMode"])
+
+        for season in ARRLVHFSeason.allCases {
+            let legacy = try ARRLVHFDeclarativeDefinitions.definition(for: season)
+            XCTAssertEqual(legacy.draft.supportedModes, ["CW", "SSB"])
+            XCTAssertEqual(legacy.draft.entry.modeProfiles.map(\.mode), ["CW", "SSB"])
+        }
+    }
+
+    func testSourceShapedArchiveUsesMinimumWidthFrequencyAndExactFieldOrder() throws {
+        let rule = try ARRLVHFDeclarativeDefinitions.rule(for: .september)
+        let session = makeSession(rule)
+        let expected: [(String, String, Int64, String)] = [
+            ("6m", "CW", 50_125_000,
+             "QSO: 50125 CW 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
+            ("2m", "SSB", 144_200_000,
+             "QSO: 144200 PH 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
+            ("13cm", "CW", 2_304_100_000,
+             "QSO: 2304100 CW 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
+            ("submm", "SSB", 300_100_000_000,
+             "QSO: 300100000 PH 2030-03-23 1240 OM0RX         JN98   K1ABC         FN31  "),
+        ]
+        for (band, mode, frequency, line) in expected {
+            let contact = qso(0, session, call: "K1ABC", band: band, grid: "FN31",
+                              mode: mode, frequencyHz: frequency)
+            XCTAssertEqual(try CabrilloExporter.qsoLine(contact, session: session, rule: rule), line)
+        }
+    }
+
+    func testMinimumWidthIsFrequencyOnlyAndLegacyArchiveBytesRemainStable() throws {
+        let legacy = TenTenDeclarativeDefinitions.draft(for: .winterPhone)
+        let encoded = try JSONEncoder().encode(legacy)
+        XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains("minimumWidth"))
+        XCTAssertEqual(try legacy.materialized().definitionDigest,
+                       "0d05cff62ae87dca57224fbdc49222e346e5008235a37b493c80a04e6959ebd7")
+
+        let base = ARRLVHFDeclarativeDefinitions.draft(for: .january)
+        let badColumn = ContestDeclarativeExportColumn(source: .mode, width: 2, minimumWidth: 1)
+        let badProjection = ContestDeclarativeExportProjection(
+            formatterVersion: base.entry.cabrilloFormatterVersion,
+            columns: [badColumn] + (base.exportProjection?.columns.dropFirst() ?? []))
+        let bad = replacing(base, exportProjection: badProjection)
+        XCTAssertThrowsError(try bad.materialized())
+
+        for invalidWidth in [0, -1] {
+            let malformedFrequency = ContestDeclarativeExportColumn(
+                source: .frequencyKHz, width: invalidWidth, minimumWidth: 1, alignment: .right)
+            let malformedProjection = ContestDeclarativeExportProjection(
+                formatterVersion: base.entry.cabrilloFormatterVersion,
+                columns: [malformedFrequency] + (base.exportProjection?.columns.dropFirst() ?? []))
+            XCTAssertThrowsError(try replacing(base, exportProjection: malformedProjection).materialized(),
+                                 "width \(invalidWidth) must return diagnostics instead of trapping")
+        }
+    }
+
+    private struct Fixture: Decodable {
+        let plugins: [Plugin]
+        let officialWVEEligibility: OfficialWVEEligibility
+    }
+    private struct OfficialWVEEligibility: Decodable {
+        let sourceClause: String
+        let bundledCTYSHA256: String
+        let entityADIFs: [Int]
+    }
+    private struct Plugin: Decodable {
+        let season: String
+        let path: String
+        let sha256: String
+        let officialPreviewBandPoints: [String: Int64]
+        let pinnedExecutableBandPoints: [String: Int64]
+        let allBandPoints: Int64
+        let allBandMultiplierCount: Int64
+        let allBandScore: Int64
+    }
+
+    private func fixturePlugins() throws -> [String: Plugin] {
+        let rows = try sourceFixture().plugins
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0.season, $0) })
+    }
+
+    private func sourceFixture() throws -> Fixture {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("SourceFixtures/arrl-vhf-source-oracles.json")
+        return try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url))
+    }
+
+    private func makeSession(_ rule: DeclarativeContestRule,
+                             stationLocation: String = "JN98",
+                             stationCallsign: String = "OM0RX",
+                             stationEntity: ContestEntitySnapshot? = .init(
+                                adif: 291, name: "UNITED STATES", countryPrefix: "K",
+                                continent: "NA", cqZone: 5)) -> ContestSessionSnapshot {
+        .init(id: UUID(uuidString: "EA100000-0000-0000-0000-000000000001")!,
+              workspaceGeneration: UUID(uuidString: "EA100000-0000-0000-0000-000000000002")!,
+              rule: rule.metadata.identity, referenceDataVersion: "arrl-vhf-source-preview",
+              startedAt: timestamp,
+              station: .init(callsign: stationCallsign, entity: stationEntity, sentExchange: "JN98",
+                             operatorCallsigns: [stationCallsign], location: stationLocation,
+                             sentExchangeFields: ["grid": field("JN98")]))
+    }
+
+    private func qso(_ seed: Int, _ session: ContestSessionSnapshot, call: String, band: String,
+                     grid: String, stationGrid: String = "JN98", mode: String = "CW",
+                     frequencyHz: Int64? = nil,
+                     entity: ContestEntitySnapshot? = .init(
+                        adif: 291, name: "UNITED STATES", countryPrefix: "K",
+                        continent: "NA", cqZone: 5)) -> ContestQSO {
+        .init(id: UUID(uuidString: String(format: "EB100000-0000-0000-0000-%012d", seed + 1))!,
+              sessionID: session.id, timestampUTC: timestamp,
+              callsign: call, band: band, mode: mode, frequencyHz: frequencyHz ?? frequency(band),
+              rstSent: "", rstReceived: "",
+              exchange: .init(rawSent: stationGrid, normalizedSent: stationGrid,
+                              rawReceived: grid, normalizedReceived: grid,
+                              sentFields: ["grid": field(stationGrid)],
+                              receivedFields: ["grid": field(grid)]),
+              entity: entity, operatorCallsign: session.station.callsign, stationLocation: stationGrid,
+              provenance: .init(source: .operatorEntry))
+    }
+
+    private func replacingGrid(_ qso: ContestQSO, _ grid: String) -> ContestQSO {
+        .init(id: qso.id, sessionID: qso.sessionID, timestampUTC: qso.timestampUTC,
+              callsign: qso.callsign, band: qso.band, mode: qso.mode, frequencyHz: qso.frequencyHz,
+              rstSent: qso.rstSent, rstReceived: qso.rstReceived,
+              exchange: .init(rawSent: qso.exchange.rawSent, normalizedSent: qso.exchange.normalizedSent,
+                              rawReceived: grid, normalizedReceived: grid,
+                              sentFields: qso.exchange.sentFields, receivedFields: ["grid": field(grid)]),
+              entity: qso.entity, operatorCallsign: qso.operatorCallsign,
+              stationLocation: qso.stationLocation, provenance: qso.provenance)
+    }
+
+    private func replacingStationGrid(_ qso: ContestQSO, _ grid: String) -> ContestQSO {
+        .init(id: qso.id, sessionID: qso.sessionID, timestampUTC: qso.timestampUTC,
+              callsign: qso.callsign, band: qso.band, mode: qso.mode, frequencyHz: qso.frequencyHz,
+              rstSent: qso.rstSent, rstReceived: qso.rstReceived,
+              exchange: .init(rawSent: grid, normalizedSent: grid,
+                              rawReceived: qso.exchange.rawReceived,
+                              normalizedReceived: qso.exchange.normalizedReceived,
+                              sentFields: ["grid": field(grid)],
+                              receivedFields: qso.exchange.receivedFields),
+              entity: qso.entity, operatorCallsign: qso.operatorCallsign,
+              stationLocation: grid, provenance: qso.provenance)
+    }
+
+    private func replacingSentGridOnly(_ qso: ContestQSO, _ grid: String) -> ContestQSO {
+        .init(id: qso.id, sessionID: qso.sessionID, timestampUTC: qso.timestampUTC,
+              callsign: qso.callsign, band: qso.band, mode: qso.mode, frequencyHz: qso.frequencyHz,
+              rstSent: qso.rstSent, rstReceived: qso.rstReceived,
+              exchange: .init(rawSent: grid, normalizedSent: grid,
+                              rawReceived: qso.exchange.rawReceived,
+                              normalizedReceived: qso.exchange.normalizedReceived,
+                              sentFields: ["grid": field(grid)],
+                              receivedFields: qso.exchange.receivedFields),
+              entity: qso.entity, operatorCallsign: qso.operatorCallsign,
+              stationLocation: qso.stationLocation, provenance: qso.provenance)
+    }
+
+    private func replacing(_ base: ContestDefinitionDraft,
+                           exportProjection: ContestDeclarativeExportProjection) -> ContestDefinitionDraft {
+        .init(id: base.id, version: base.version, edition: base.edition, displayName: base.displayName,
+              cabrilloName: base.cabrilloName, supportedBands: base.supportedBands,
+              supportedModes: base.supportedModes, entry: base.entry,
+              sourceProvenance: base.sourceProvenance, dupePolicy: base.dupePolicy,
+              multiplierPolicy: base.multiplierPolicy, gridMultiplier: base.gridMultiplier,
+              scoring: base.scoring, eligibilityPolicy: base.eligibilityPolicy,
+              exportPolicy: base.exportPolicy, exportProjection: exportProjection,
+              stationEntityRequired: base.stationEntityRequired, adapterID: base.adapterID)
+    }
+
+    private func replacing(_ base: ContestDefinitionDraft,
+                           entry: ContestEntryDescriptor) -> ContestDefinitionDraft {
+        .init(id: base.id, version: base.version, edition: base.edition, displayName: base.displayName,
+              cabrilloName: base.cabrilloName, supportedBands: base.supportedBands,
+              supportedModes: base.supportedModes, entry: entry,
+              sourceProvenance: base.sourceProvenance, dupePolicy: base.dupePolicy,
+              multiplierPolicy: base.multiplierPolicy,
+              geographicMultiplier: base.geographicMultiplier, gridMultiplier: base.gridMultiplier,
+              stationGridPolicy: base.stationGridPolicy, scoring: base.scoring,
+              eligibilityPolicy: base.eligibilityPolicy, exportPolicy: base.exportPolicy,
+              exportProjection: base.exportProjection, operatorPolicy: base.operatorPolicy,
+              stationEntityRequired: base.stationEntityRequired, adapterID: base.adapterID)
+    }
+
+    private func replacing(
+        _ base: ContestDefinitionDraft,
+        eligibilityPolicy: ContestDeclarativeEligibilityPolicy,
+        stationEntityRequired: Bool
+    ) -> ContestDefinitionDraft {
+        .init(id: base.id, version: base.version, edition: base.edition, displayName: base.displayName,
+              cabrilloName: base.cabrilloName, supportedBands: base.supportedBands,
+              supportedModes: base.supportedModes, entry: base.entry,
+              sourceProvenance: base.sourceProvenance, dupePolicy: base.dupePolicy,
+              multiplierPolicy: base.multiplierPolicy,
+              geographicMultiplier: base.geographicMultiplier, gridMultiplier: base.gridMultiplier,
+              stationGridPolicy: base.stationGridPolicy, scoring: base.scoring,
+              eligibilityPolicy: eligibilityPolicy, exportPolicy: base.exportPolicy,
+              exportProjection: base.exportProjection, operatorPolicy: base.operatorPolicy,
+              stationEntityRequired: stationEntityRequired, adapterID: base.adapterID)
+    }
+
+    private func replacing(_ base: ContestEntryDescriptor,
+                           exchange: ContestExchangeDescriptor? = nil,
+                           serial: ContestSerialDescriptor? = nil) -> ContestEntryDescriptor {
+        .init(cabrilloFormatterVersion: base.cabrilloFormatterVersion,
+              cabrilloProjectionFormatterVersion: base.cabrilloProjectionFormatterVersion,
+              modeProfiles: base.modeProfiles, exchange: exchange ?? base.exchange,
+              serial: serial ?? base.serial, stationResolvedSerial: base.stationResolvedSerial,
+              stationFields: base.stationFields, scorePolicy: base.scorePolicy)
+    }
+
+    private func frequency(_ band: String) -> Int64 {
+        switch band {
+        case "6m": 50_125_000
+        case "2m": 144_200_000
+        case "1.25m": 222_100_000
+        case "70cm": 432_100_000
+        case "33cm": 903_100_000
+        case "23cm": 1_296_100_000
+        case "13cm": 2_304_100_000
+        case "9cm": 3_400_100_000
+        case "6cm": 5_760_100_000
+        case "3cm": 10_100_100_000
+        case "1.25cm": 24_050_100_000
+        case "6mm": 47_100_100_000
+        case "4mm": 76_000_100_000
+        case "2.5mm": 120_000_100_000
+        case "2mm": 134_100_100_000
+        case "1mm": 241_100_100_000
+        default: 300_100_000_000
+        }
+    }
+
+    private func field(_ value: String) -> ContestExchangeFieldValue { .init(raw: value, normalized: value) }
+
+    private func entity(_ adif: Int, _ name: String, _ prefix: String,
+                        _ continent: String, _ zone: Int) -> ContestEntitySnapshot {
+        .init(adif: adif, name: name, countryPrefix: prefix, continent: continent, cqZone: zone)
+    }
+}

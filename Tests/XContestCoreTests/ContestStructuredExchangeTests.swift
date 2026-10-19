@@ -108,6 +108,11 @@ final class ContestStructuredExchangeTests: XCTestCase {
         XCTAssertEqual(ContestBandPlan.band(for: 50_000_000), "6m")
         XCTAssertEqual(ContestBandPlan.band(for: 144_000_000), "2m")
         XCTAssertEqual(ContestBandPlan.band(for: 432_100_000), "70cm")
+        XCTAssertEqual(ContestBandPlan.band(for: 3_400_100_000), "9cm")
+        XCTAssertEqual(ContestBandPlan.band(for: 10_100_100_000), "3cm")
+        XCTAssertEqual(ContestBandPlan.band(for: 300_100_000_000), "submm")
+        XCTAssertEqual(ContestBandPlan.band(for: 7_499_999_999_999), "submm")
+        XCTAssertNil(ContestBandPlan.band(for: 7_500_000_000_000))
         XCTAssertNil(ContestBandPlan.band(for: 100_000_000))
     }
 

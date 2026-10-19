@@ -31,6 +31,17 @@ public enum ContestBandPlan {
         .init(id: "33cm", lowerFrequencyHz: 902_000_000, upperFrequencyHzExclusive: 928_000_000),
         .init(id: "23cm", lowerFrequencyHz: 1_240_000_000, upperFrequencyHzExclusive: 1_300_000_000),
         .init(id: "13cm", lowerFrequencyHz: 2_300_000_000, upperFrequencyHzExclusive: 2_450_000_000),
+        .init(id: "9cm", lowerFrequencyHz: 3_300_000_000, upperFrequencyHzExclusive: 3_500_000_000),
+        .init(id: "6cm", lowerFrequencyHz: 5_650_000_000, upperFrequencyHzExclusive: 5_925_000_000),
+        .init(id: "3cm", lowerFrequencyHz: 10_000_000_000, upperFrequencyHzExclusive: 10_500_000_000),
+        .init(id: "1.25cm", lowerFrequencyHz: 24_000_000_000, upperFrequencyHzExclusive: 24_250_000_000),
+        .init(id: "6mm", lowerFrequencyHz: 47_000_000_000, upperFrequencyHzExclusive: 47_200_000_000),
+        .init(id: "4mm", lowerFrequencyHz: 75_500_000_000, upperFrequencyHzExclusive: 81_000_000_000),
+        .init(id: "2.5mm", lowerFrequencyHz: 119_980_000_000, upperFrequencyHzExclusive: 123_000_000_000),
+        .init(id: "2mm", lowerFrequencyHz: 134_000_000_000, upperFrequencyHzExclusive: 149_000_000_000),
+        .init(id: "1mm", lowerFrequencyHz: 241_000_000_000, upperFrequencyHzExclusive: 250_000_000_000),
+        .init(id: "submm", lowerFrequencyHz: 300_000_000_000,
+              upperFrequencyHzExclusive: 7_500_000_000_000),
     ]
 
     public static func band(for frequencyHz: Int64) -> String? {

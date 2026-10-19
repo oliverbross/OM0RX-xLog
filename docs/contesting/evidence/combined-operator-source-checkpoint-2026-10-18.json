@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-18",
+  "scope": "combined contest operator source checkpoint",
+  "branch": "codex/contest-combined-operator-review",
+  "source": {
+    "base": "82c07e3908c0bab6582c55b9c13cf75eb91505e1",
+    "ratesReplayAndInactiveVHF": "c83ec269f14e8a2b536215943f975ba52da3dd93",
+    "nativeEscapePriority": "8d999a2f973f14a61afa67f94e921e7766403ac1",
+    "detachedOperatorFrontend": "6a3d4785c4bdcec785128581299198f094c703e6",
+    "arrlVHFFT4ADIFCorrection": "4c6bb7568d5382a4bc455dd5574c4380d14fb293",
+    "combinedHead": "5706ca36e96952a782c3b2374ec12b2465fca5ce"
+  },
+  "validation": [
+    {
+      "source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1",
+      "commandScope": "XContestCoreTests and XContestStoreTests",
+      "result": "227 core tests and 83 store tests passed",
+      "log": "/tmp/xlog-combined-operator-swift.log",
+      "sha256": "c180dec7a8951a7c0df615321d381114ffe311e40dbe4bb0fcbe4ebef3f4feb3"
+    },
+    {
+      "source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1",
+      "commandScope": "prototype/src/contesting Vitest suite and TypeScript no-emit check",
+      "result": "29 test files and 301 tests passed; tsc passed",
+      "log": "/tmp/xlog-combined-operator-ts.log",
+      "sha256": "7a74de52cb2cc47f8283a5401bc9d56bc987ba1df66a1c89db71548be829cc88"
+    },
+    {
+      "source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1",
+      "commandScope": "Rust contest_ filtered tests",
+      "result": "50 tests passed",
+      "log": "/tmp/xlog-combined-operator-rust.log",
+      "sha256": "cd02ea2643f670a4f398017c279fc5aabce43815452a181aaa1b74a212dbbf0d"
+    },
+    {
+      "source": "5706ca36e96952a782c3b2374ec12b2465fca5ce",
+      "commandScope": "XLOG_PORTABLE_ONLY=1 ContestingLaneTests, ContestCQWWCountryActivationTests, ContestARRLVHFDeclarativeTests, and ContestARRLVHFADIFExportTests",
+      "result": "24 lane, 2 CQ WW activation, 14 VHF definition, and 1 actual ContestADIFExport.records test passed",
+      "log": "/tmp/xlog-combined-final-portable.log",
+      "sha256": "77541d0fd733cb6a2740a260328cc5bf731e73ebcd24eca8b91fb37c437c3732"
+    }
+  ],
+  "boundaries": {
+    "arrlVHFDefinitions": "inactive",
+    "adifEvidence": "The FT4 check covers actual ContestADIFExport.records output, not serialized-file or native-UI acceptance.",
+    "packageAcceptance": "pending",
+    "nativeApplicationAcceptance": "pending",
+    "main125Composition": "pending; no main or canonical checkout mutation was performed",
+    "rateStatisticsUIFollowup": "not included"
+  }
+}

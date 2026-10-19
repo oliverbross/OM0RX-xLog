@@ -1366,7 +1366,7 @@ function MainLiveApp() {
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
       {!operatingModule ? <section className="live-panel" aria-label="Operating module loading"><h2>Opening operating module…</h2></section>
         : contestView ? contestCapability === "available" && workspace?.workspace_exists === true
-        ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} registerTransition={registerContestTransition} /></Suspense>
+        ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} operatingContext={operatingModule.context} registerTransition={registerContestTransition} /></Suspense>
         : <section className="live-panel" aria-label="Contesting unavailable"><h2>Contesting</h2><p>Reconnect the isolated contest workspace before operating. Normal Logging remains inactive.</p></section> : <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">

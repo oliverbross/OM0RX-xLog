@@ -191,7 +191,8 @@ final class ContestingLaneTests: XCTestCase {
     }
 
     private func commitContact(_ lane: ContestLane, sessionID: UUID, draftID: UUID,
-                               revision: Int, callsign: String, minute: Int) async throws -> (UUID, Int, [String: Any]) {
+                               revision: Int, callsign: String, minute: Int,
+                               operatorStyle: String? = nil) async throws -> (UUID, Int, [String: Any]) {
         let reserveID = UUID(), applyID = UUID(), qsoID = UUID()
         let reserved = try await lane.handle(method: "contest_serial_reserve", params: mutation(
             sessionID: sessionID, requestID: reserveID, revision: revision,
@@ -204,10 +205,50 @@ final class ContestingLaneTests: XCTestCase {
             sessionID: sessionID, requestID: applyID, revision: revision + 1,
             timestamp: String(format: "2026-10-17T03:%02d:10.000Z", minute),
             payload: ["fields": fields], draftID: draftID))
+        var commitPayload: [String: Any] = [:]
+        if let operatorStyle { commitPayload["operatorStyle"] = operatorStyle }
         let committed = try await lane.handle(method: "contest_qso_commit", params: mutation(
             sessionID: sessionID, requestID: qsoID, revision: revision + 2,
-            timestamp: String(format: "2026-10-17T03:%02d:20.000Z", minute), payload: [:], draftID: draftID))
+            timestamp: String(format: "2026-10-17T03:%02d:20.000Z", minute),
+            payload: commitPayload, draftID: draftID))
         return (qsoID, revision + 3, committed)
+    }
+
+    func testStatisticsUsesLoggedContactsPersistedStylesAndStableInjectedClockAcrossRestart() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-contest-statistics-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let databaseURL = root.appendingPathComponent("Contesting/contests.sqlite")
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-17T03:30:00Z"))
+        let lane = try ContestLane(databaseURL: databaseURL, generationSource: { [generation] in generation },
+                                   clock: { now })
+        let (sessionID, draftID, _) = try await makeSession(lane)
+        let (_, revision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
+                                                        revision: 1, callsign: "K1ABC", minute: 1,
+                                                        operatorStyle: "run")
+        let (_, finalRevision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
+                                                             revision: revision, callsign: "K1ABC", minute: 2,
+                                                             operatorStyle: "search-and-pounce")
+        let params: [String: Any] = ["sessionID": wireID(sessionID), "workspaceGeneration": generation,
+                                     "expectedRevision": finalRevision]
+        let statistics = try await lane.handle(method: "contest_statistics", params: params)
+        XCTAssertEqual((statistics["loggedQSOs"] as? NSNumber)?.intValue, 2)
+        XCTAssertEqual((statistics["acceptedQSOs"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((statistics["duplicateQSOs"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((statistics["currentHourQSOs"] as? NSNumber)?.intValue, 2)
+        let styles = try XCTUnwrap((statistics["operatorStyles"] as? [String: Any])?["total"] as? [String: Any])
+        XCTAssertEqual((styles["run"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((styles["searchAndPounce"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((styles["unknown"] as? NSNumber)?.intValue, 0)
+        let total = try XCTUnwrap(statistics["total"] as? [String: Any])
+        XCTAssertEqual((total["distinctWPXPrefixes"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual((total["creditedPoints"] as? NSNumber)?.int64Value, 3)
+        XCTAssertEqual(statistics["asOfUTC"] as? String, "2026-10-17T03:30:00.000Z")
+
+        let reopened = try ContestLane(databaseURL: databaseURL,
+                                       generationSource: { [generation] in generation }, clock: { now })
+        let replayed = try await reopened.handle(method: "contest_statistics", params: params)
+        XCTAssertEqual(try canonicalJSON(replayed), try canonicalJSON(statistics))
     }
 
     private func qsoGet(_ lane: ContestLane, sessionID: UUID, qsoID: UUID, revision: Int) async throws -> [String: Any] {
@@ -602,7 +643,8 @@ final class ContestingLaneTests: XCTestCase {
         let (root, lane) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let (sessionID, draftID, _) = try await makeSession(lane)
         let (qsoID, revision, _) = try await commitContact(lane, sessionID: sessionID, draftID: draftID,
-                                                           revision: 1, callsign: "K1ABC", minute: 10)
+                                                           revision: 1, callsign: "K1ABC", minute: 10,
+                                                           operatorStyle: "run")
         let read = try await qsoGet(lane, sessionID: sessionID, qsoID: qsoID, revision: revision)
         var full = try XCTUnwrap(read["qso"] as? [String: Any])
         XCTAssertEqual(full["qsoID"] as? String, wireID(qsoID))

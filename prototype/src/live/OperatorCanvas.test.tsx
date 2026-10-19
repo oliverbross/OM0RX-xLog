@@ -132,6 +132,16 @@ it("compact selection never hides an owned rotor Stop and forbids hiding that de
   fireEvent.click(screen.getByRole("button", { name: "Panels" }));
   expect((screen.getByRole("checkbox", { name: "Rotor · active device" }) as HTMLInputElement).disabled).toBe(true);
 });
+it("uses the stable desk shell instead of a transient short canvas measurement for compact mode", async () => {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const height = this.matches(".canvas-work-area") ? 360 : 800;
+    return { x: 0, y: 0, left: 0, top: 0, bottom: height, right: 1280, width: 1280, height, toJSON() {} };
+  });
+  const { session, Harness } = setup(true); await session.refresh(); render(<Harness />);
+  expect(screen.queryByLabelText("Visible desk panel")).toBeNull();
+  expect(screen.getByRole("button", { name: "Move Active QSO" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Resize Active QSO bottom right corner" })).toBeTruthy();
+});
 it("retains traditional operating controls when the layout service fails", async () => {
   const { session, request, Harness } = setup(); request.mockRejectedValueOnce(new Error("Layout unavailable")); await session.refresh(); render(<Harness />);
   expect(screen.getByText("Traditional controls")).toBeTruthy(); expect(screen.getByRole("alert").textContent).toContain("Layout unavailable");

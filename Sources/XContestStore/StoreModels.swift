@@ -249,6 +249,21 @@ public struct ContestScoreSnapshot: Codable, Hashable, Sendable {
     }
 }
 
+public struct ContestRateStatisticsReadSnapshot: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let workspaceGeneration: UUID
+    public let revision: UInt64
+    public let statistics: ContestRateStatisticsSnapshot
+
+    public init(sessionID: UUID, workspaceGeneration: UUID, revision: UInt64,
+                statistics: ContestRateStatisticsSnapshot) {
+        self.sessionID = sessionID
+        self.workspaceGeneration = workspaceGeneration
+        self.revision = revision
+        self.statistics = statistics
+    }
+}
+
 public enum ContestStoreError: Error, Equatable {
     case invalidDatabaseURL
     case database(String)
@@ -307,6 +322,8 @@ public protocol ContestDurableRepository: Sendable {
     func qsoAuditTrail(sessionID: UUID, qsoID: UUID) async throws -> [ContestQSOAuditRecord]
     func logPage(sessionID: UUID, offset: Int, limit: Int) async throws -> ContestLogPage
     func scoreSnapshot(sessionID: UUID) async throws -> ContestScoreSnapshot
+    func rateStatisticsSnapshot(sessionID: UUID, asOfUTC: Date) async throws
+        -> ContestRateStatisticsReadSnapshot
 }
 
 public extension ContestDurableRepository {
@@ -315,5 +332,10 @@ public extension ContestDurableRepository {
                                   scope: ContestMutationScope,
                                   committedAt: Date) async throws -> ContestSessionCreationResult {
         throw ContestStoreError.invalidDeclarativeDefinition
+    }
+
+    func rateStatisticsSnapshot(sessionID: UUID, asOfUTC: Date) async throws
+        -> ContestRateStatisticsReadSnapshot {
+        throw ContestStoreError.invalidSession
     }
 }

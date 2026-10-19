@@ -4,6 +4,50 @@
   "publishedSnapshot": "CONTESTING_STATUS_2026-10-18.md",
   "publishedWorkbook": "CONTESTING_PARITY_MATRIX_2026-10-18.xlsx",
   "applyToPublishedFiles": false,
+  "previousReviewFollowup": {
+    "measuredAtUtc": "2026-10-18T09:02:57Z",
+    "acceptedProductRoot": "80732f92ce0e285f57404ba560dc5ceab055b0cc",
+    "contestEscape": {
+      "nativeSource": "55471182c43756a2da23f630ff2fdd0b7f09ecc0",
+      "admissionSource": "8d999a2f973f14a61afa67f94e921e7766403ac1",
+      "review": "root-reviewed and accepted for integration",
+      "validation": "16 bridge tests and one caller-denial test passed",
+      "verifiedLog": {"path": "/tmp/xlog-contest-escape-stale-revision.log", "sha256": "90991222186538f615fdbb1ef755d0e032db890d64da3710085e4d5660cb02a8"},
+      "boundary": "Source review and tests do not establish a combined integration, packaged app, or native operator acceptance."
+    },
+    "detachedSurface": {
+      "commit": "6a3d4785c4bdcec785128581299198f094c703e6",
+      "parent": "061ab75ab7cfae89a03273bb78aa902fa19578d7",
+      "review": "root-reviewed and accepted for integration",
+      "behavior": "The latest applied receipt projection replaces total-confirmation counting. Escape alone tolerates an older, nonfuture refresh with exact draft ownership; ordinary keys still require an exact projection. Callsign matching normalizes lowercase and spaces.",
+      "validation": "15 detached tests passed, including actual owner drain with a modeled handler; this does not prove the packaged controller or worker.",
+      "verifiedLog": {"path": "/tmp/xlog-contest-surface-race-repair.log", "sha256": "6e16c2d44691e6496c718d81483f69a13932878f5621c3c09f78cb7f882b2681"},
+      "typescript": "agent-reported passed",
+      "boundary": "Combined integration, package, and native acceptance remain open."
+    },
+    "rates": {
+      "repairSource": "c83ec269f14e8a2b536215943f975ba52da3dd93",
+      "parents": ["533792c", "68ccf47"],
+      "status": "root-reviewed and accepted for integration; full combined validation remains pending",
+      "behavior": "Correction audit recovers immutable operatorStyle after deletion and validates session, QSO, operation, request, revision, and timestamp while retaining the store payload digest.",
+      "validation": "24 lane tests passed before the final audit predicate; the final exact worker-wire replay passed once and the current-catalog regression passed once. Do not sum the overlapping runs.",
+      "verifiedLogs": [
+        {"path": "/tmp/xlog-contest-correction-replay-rates.log", "sha256": "6997abc4cf8bf182fa7ad20dbb558b6b160a1c54537d995baed8701a5cef5c59"},
+        {"path": "/tmp/xlog-contest-correction-replay-exact-final-v2.log", "sha256": "01fd5b93f268e7559d9d9b511cbe6abda2e5557f526b0fbc1dc75c33546a4d76"},
+        {"path": "/tmp/xlog-contest-current-catalog-replay-exact-final.log", "sha256": "71fe2088f5947bb13d5e9b635df1bca457c15f7370f5f076f57784e7264a561a"}
+      ]
+    },
+    "arrlVhf": {
+      "eligibilitySource": "471db8b",
+      "correction": "The prior review finding was false: the provenance function already early-returns the unchanged legacy nil-category string.",
+      "rootVerification": "7357645 vs 533792c",
+      "legacyDigestRepair": "not needed",
+      "snapshotCoverage": "6d8ae93e080abc62f1cc01ad021e6f042797f34b adds byte pinning and malformed-snapshot tests. Root-verified log /tmp/xlog-arrl-vhf-eligibility-review-fixes.log SHA-256 e0f7d27179f5ce1a332c7b7754f69d84b49f22d733e2bce7abd2234c1980edbc."
+    },
+    "vhfProfiles": {"source": "533792c", "status": "finite mode profiles remain inactive", "validation": "14 tests passed; log /tmp/xlog-arrl-vhf-finite-modes.log SHA-256 9f20056b6b9e83771914a2a5781f76d3d0d3cc453c15ab604cceda700df6f91f", "pendingReviewCorrection": "FT4 ADIF mapping should use MODE MFSK and SUBMODE FT4."},
+    "releaseBoundary": "Normal macOS 1.2.25 release is in progress and is neither accepted nor installed; Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. No combined or package acceptance is claimed.",
+    "ledger": "16 previews / 78 pending / 0 fully ported; no parity percentage increase."
+  },
   "nextReportSource": {
     "integrationCommit": "6f09668f61b374d5577b67b46103115795ddd480",
     "reviewedCombinedCommit": "dc323465f6565d891f43626da80dc08aad70e6e7",
@@ -56,7 +100,96 @@
     "subsequentStatus": "The combined-foundation source fix was committed as 054cfc5; its native portability and regular CI passed, and the clean operator checkpoint is recorded at 1cfcfd0.",
     "acceptance": "The combined 054cfc5 source has passing native CI and a clean synthetic operator checkpoint. Latest combined-source operator runner returned exit 0, but detailed receipt review is pending; neither result establishes RF transmission or packaged application acceptance."
   },
-  "refreshGate": "Accepted main baseline is 1.2.23 source b9accc7f81453f1f2cab1758a48192322213f590. The separate Contesting Test app package/install/launch receipt is source 3a05c2e6778a1ec86326eb5466eef51d37fca7f3 over reviewed contest source bf2fa2cefe038fc6e7b7c6df228f7be7b7ffa5f3. Bounded native CQ WW smoke and subsequent source-level SST activation are recorded below; neither establishes full contest acceptance. Preserve the published 2026-10-18 snapshot and generated files. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "currentCombinedIntegration": {
+    "productCommit": "cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd",
+    "branch": "codex/contest-rate-operator-integration",
+    "parents": ["2fa999e", "0503084", "9e1c3dd"],
+    "review": "root-reviewed and accepted; source integration only",
+    "mergeChecks": "Automatic merge with no resolutions; ancestry, diff, and remote push verified.",
+    "validation": "328 tests across 32 files plus TypeScript passed; 5 open-file tests and bounded child deadline/readiness/group/spawn checks passed.",
+    "logs": [
+      {"path": "/tmp/xlog-rate-operator-integration-contesting.log", "sha256": "bc9535370fc9369ca6ab1fe46f09a60c41fdd3a04791037bb918bd404d749511"},
+      {"path": "/tmp/xlog-rate-operator-integration-open-files.log", "sha256": "959ed3bbe91619707c4f542f0c60c156e440eb2f9bd58764bd0cc8834ffac393"},
+      {"path": "/tmp/xlog-rate-operator-integration-bounded-child.log", "sha256": "26f543e5785c06dd1f1e40e8185468216ffa3b85699a8467a4856683b288b6bc"}
+    ],
+    "fullFamilyRehearsal": {"source": "9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164b", "status": "failed; exit 1 after 51.477 seconds", "failure": "Blank CQ did not settle for CQ WW CW Country Reference Preview CW family operator acceptance at driver line 525, after regular CQWW CW/SSB cases progressed.", "preflight": "Response and shutdown preflight passed; earlier 1b43746 and 113a5dd preflight failures remain distinct and are not passes.", "next": "Diagnose and rerun against cabca0f; no full pass is claimed."},
+    "runtimeBoundary": "Main normal 1.2.25 from 5ebc71272914ce8dbc568301d10c564d59839c28 is installed and runtime-accepted; this is separate from contest package/runtime/native UI acceptance, which remains open. Contesting Test remains 5024b2cf. The canonical checkout is re-reserved for the emergency amplifier operator-verification hotfix; replacement is pending without an acceptance receipt.",
+    "vhfImplementation": "Store implementation is assigned in isolated branch codex/contest-vhf-grid-move from cabca0f but is not validated or accepted. Worker/Rust/UI/catalog activation remain open.",
+    "ledger": "16 previews / 78 pending / 0 fully ported; published workbook unchanged."
+  },
+  "latestRuntimeAndContestEvidence": {
+    "mainRuntime": {
+      "version": "1.2.26",
+      "source": "966a57ad5097816377c2e5d92a89a5a5a94b7408",
+      "releaseDocs": "a38fbf2",
+      "hostSha256": "e1a447d577a6a3c3aa5a908e1fd8c35da51b0c75bab4b2e45467bb47d215253d",
+      "workerSha256": "c21cbaaa594136f08765c8fd7628acbd8527e87cb7803080ab912bc48be522db",
+      "verification": "strict deep signature passed; main task reported launch, but no live amplifier behavior or RF proof",
+      "contestingTest": "5024b2cf1129347a8f0b1f621d2f2e7306121c90 unchanged"
+    },
+    "cqwwBlankCallFix": {
+      "source": "485ea2c",
+      "review": "root-accepted; 4/4 core tests verified",
+      "diagnostic": "Agent-reported bounded CQWW-country CW/SSB only: 6 QSOs each, scores 6/16/42/80/110/168, 12 commits, Run/S&P duplicates, SCP 7, restart, two corrections, eight Cabrillo/ADIF assertions. Full 16+12 matrix remains pending.",
+      "outerReceipt": {"path": "/Users/oliver/.codex/acceptance/cqww-country-diagnostic-485ea2c/evidence/outer-runner.json", "sha256": "899c0cfbdffa9a7c87684ce24ebb16d46be78dff1f72eb77254977468e775666"},
+      "innerAcceptanceSha256": "10c11026031292cf440a3296b1bb1ad76113490fa7d73a5ded86d9a1720dc233",
+      "boundary": "Metadata actor is unknown; three bounded PID audits do not prove process-lifetime attribution."
+    },
+    "vhfCandidate": {
+      "source": "51e96ab",
+      "status": "pushed dormant store-only candidate; not root-accepted",
+      "pending": "Compound correction/deletion/reopen replay; numeric scoring and activation; invalid-grid, context/timestamp-conflict and full-rollback coverage.",
+      "boundary": "QSO object equality does not prove serialized QSO byte equality."
+    }
+  },
+  "refreshGate": "Latest accepted combined contest product source is cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd. Combined source tests and bounded child checks passed, but the full-family rehearsal failed on the earlier 9e1c3dd run; a bounded agent diagnostic of CQWW-country CW/SSB passed at 485ea2c, while the full 16+12 matrix remains pending. Contest packaged-app and native application acceptance remain pending. Installed Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. Main macOS 1.2.26 from 966a57ad5097816377c2e5d92a89a5a5a94b7408 is installed and strictly signed; no live amplifier/RF proof. VHF 51e96ab remains an unaccepted dormant store candidate. Preserve the published 2026-10-18 snapshot and generated files; keep the ledger at 16 previews / 78 pending / 0 fully ported. Current app build scope is macOS only; Windows/Linux app builds are deferred at user direction.",
+  "previousCombinedOperatorCheckpoint": {
+    "productCommit": "5706ca36e96952a782c3b2374ec12b2465fca5ce",
+    "receipt": "docs/contesting/evidence/combined-operator-source-checkpoint-2026-10-18.json",
+    "sourceLineage": {
+      "base": "82c07e3908c0bab6582c55b9c13cf75eb91505e1",
+      "ratesReplayAndInactiveVHF": "c83ec269f14e8a2b536215943f975ba52da3dd93",
+      "nativeEscapePriority": "8d999a2f973f14a61afa67f94e921e7766403ac1",
+      "detachedOperatorFrontend": "6a3d4785c4bdcec785128581299198f094c703e6",
+      "arrlVHFFT4ADIFCorrection": "4c6bb7568d5382a4bc455dd5574c4380d14fb293"
+    },
+    "validation": [
+      {"source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1", "result": "227 core tests and 83 store tests passed", "log": "/tmp/xlog-combined-operator-swift.log", "sha256": "c180dec7a8951a7c0df615321d381114ffe311e40dbe4bb0fcbe4ebef3f4feb3"},
+      {"source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1", "result": "29 test files and 301 frontend tests passed; TypeScript check passed", "log": "/tmp/xlog-combined-operator-ts.log", "sha256": "7a74de52cb2cc47f8283a5401bc9d56bc987ba1df66a1c89db71548be829cc88"},
+      {"source": "fca1ee8c03086188de19cbc6d63dc3d95c78d4d1", "result": "50 Rust contest tests passed", "log": "/tmp/xlog-combined-operator-rust.log", "sha256": "cd02ea2643f670a4f398017c279fc5aabce43815452a181aaa1b74a212dbbf0d"},
+      {"source": "5706ca36e96952a782c3b2374ec12b2465fca5ce", "result": "24 lane, 2 CQWW activation, 14 VHF definition, and 1 ContestADIFExport.records test passed", "log": "/tmp/xlog-combined-final-portable.log", "sha256": "77541d0fd733cb6a2740a260328cc5bf731e73ebcd24eca8b91fb37c437c3732"}
+    ],
+    "arrlVhf": {"status": "inactive", "ft4Mapping": "MODE MFSK / SUBMODE FT4; correction source 4c6bb7568d5382a4bc455dd5574c4380d14fb293"},
+    "harnessIsolation": {
+      "source": "659c48f3c7933bf2c30706b138df920f81d4e4b6",
+      "status": "source accepted; not yet integrated or runtime accepted",
+      "nodeTests": {"result": "5 passed", "sha256": "143f6c94aacf1e366fa6ce76da7276655df803a04f5f90c5b04458ed8f704f0e"},
+      "swiftCompileOnly": {"result": "expected skip", "sha256": "66d5b4a9eb1fbfce3e3baad36b993cced18d37f3e1462eb915008d7c55f69573"},
+      "boundary": "Three bounded PID-file checkpoints include contests.sqlite and the workspace database. The metadata actor is unknown; no process-lifetime proof exists."
+    },
+    "operatorHarness": {
+      "previousSource": "e5ced258b61169ebe0faead7f7d8a7acd7f9f027",
+      "source": "9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164b",
+      "parent": "7a8477b",
+      "review": "root-reviewed and accepted",
+      "coverage": "Exactly 28 admitted identity/mode pairs across 16 legacy-compatible and 12 declarative scenarios, including SST and two CQWW country cases; two RTTY Plain Log exclusions are explicit.",
+      "readinessAndOrdering": "Readiness-gated 3-second forced stall after 30-second startup, future-root comparison ordering fix, and late-marker ignore were accepted. Preflight failures before the matrix are recorded separately below.",
+      "fullIsolatedRehearsal": "The retry uses Rate/Statistics UI source predating accepted source 2fa999e; rerun against latest combined source cabca0f is required. No rehearsal result is accepted."
+    },
+    "rateStatsUIFollowup": {
+      "previousSource": "0eff621039d491f26104b880c0e9e63846f0aaca",
+      "acceptedSource": "2fa999ef1a7f5948d3eeade164caf2632916de0a",
+      "status": "root-reviewed and accepted source; integrated at cabca0f; no package or runtime acceptance",
+      "validation": "322 tests across 32 files at 0eff; 67 focused at 1b3; 11 owner-regression tests plus TypeScript at 2fa. These runs overlap and must not be summed.",
+      "finalLogSha256": "32e7e6d4a39a1e2ff6ae742082e6add631d7917bb8e63624b09e4d4e4afbcfc6",
+      "repairs": "Previously noted detached Rate revision mismatch, stale/asOf/current-hour presentation, and failed native publication retry were repaired in the accepted source."
+    },
+    "fullFamilyRehearsal": {"source": "9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164b", "job": "shell_6dde91f9c7630740", "pid": 74228, "evidence": "/Users/oliver/.codex/acceptance/contest-family-full-9e1c3dd", "status": "failed; exit 1 after 51.477 seconds", "preflight": "Response and shutdown preflight passed (readiness true; no lingering process). Earlier 1b43746 (owned PIDs < 2) and 113a5dd (shutdown root ENOENT) occurred before the matrix and are preserved as preflight failures, not passes.", "matrixFailure": "Blank CQ did not settle for CQ WW CW Country Reference Preview CW family operator acceptance at driver line 525, after regular CQWW CW/SSB cases progressed. Diagnosis is ongoing; this is not a full pass.", "boundary": "This run predates integrated Rate/Statistics UI source 2fa999e; repeat the full rehearsal against cabca0f. Declarative acceptance remains pending."},
+    "nextOperatorWork": "Diagnose the Blank CQ family-matrix failure and rerun the authorized isolated full rehearsal against latest combined source cabca0f. Keep Rate/Statistics package and runtime acceptance open.",
+    "mainRelease": "Main source 5ebc71272914ce8dbc568301d10c564d59839c28 is installed and runtime-accepted, documented at 15f3392281424c72d68caf9bd4abe65f52fe5d11. Installed host SHA-256 5782551bcb3a12573348fef7da8d1d67788c92e42c4573cbbf1f615d2d896d3b and worker SHA-256 4d28ad8b255fe2ad994304ab0d1d52a8590f536337248c3b9592efdf11ab1af8; strict deep signature passed. Contesting Test remains 5024b2cf1129347a8f0b1f621d2f2e7306121c90. The canonical checkout is re-reserved for the emergency amplifier operator-verification hotfix; replacement is pending without a new acceptance receipt.",
+    "vhfReadOnlyPlan": "Accepted plan, not yet implemented: atomically move the current rover grid for future contacts; replay each serialized original result exactly, including prior/current grids and operation timestamp; keep prior QSOs immutable. Store implementation is assigned in isolated branch codex/contest-vhf-grid-move from cabca0f but is not validated or accepted. Historical own-grid correction requires separate explicit capability and new definition version. Worker/Rust/UI/catalog activation remain open.",
+    "boundary": "Source tests do not establish serialized-file behavior, packaged-app acceptance, native UI acceptance, or runtime acceptance. Keep the published Markdown/workbook unchanged and the ledger at 16 previews / 78 pending / 0 fully ported."
+  },
   "subsequentEvidence": {
     "measuredAtLocalDate": "2026-10-18",
     "measuredAtUtc": "2026-10-18T06:41:12Z",
@@ -261,7 +394,7 @@
       "ledger": "Published ledger unchanged: 16 previews, 78 pending, 0 complete."
     }
   },
-  "currentSourceRefresh": {
+  "previousSourceRefresh": {
     "measuredAtUtc": "2026-10-18T07:53:19Z",
     "status": "source refresh only; published workbook, Markdown report and generated artifacts unchanged",
     "sourceHead": "5024b2cf1129347a8f0b1f621d2f2e7306121c90",
@@ -279,7 +412,7 @@
     },
     "scope": "Keep the ledger at 16 previews / 78 pending / 0 complete; extra CQWW preview profiles do not increase full-port parity. Current application scope is macOS, RF remains disabled, and the original app remains user-controlled."
   },
-  "latestIntegrationCheckpoint": {
+  "previousIntegrationCheckpoint": {
     "ratesCombinedIntegration": {
       "source": "68ccf470530d3eda470617a66defc2c6ebc15875 over 80732f92ce0e285f57404ba560dc5ceab055b0cc",
       "status": "failed; merge preserved and aborted, repair assigned",
