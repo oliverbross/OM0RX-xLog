@@ -95,6 +95,28 @@ also builds successfully. These establish source-level CQ WW integration,
 framing, replay, rollback, correction/deletion, restart and export behavior;
 they do not establish installed-app or physical-station operation.
 
+### Clean package acceptance
+
+A clean canonical package build from
+`15b5969645aa87981fda06c7ffac9bcd32ebc2bb` completed successfully. Its embedded
+runtime manifest records no source changes, Python 3.12.4, macOS 14.0 minimum,
+13 internalized dependencies and 92 signed Mach-O files. An independent scan
+found no `/opt/local`, `/opt/homebrew` or `/usr/local` linkage in that runtime.
+The relocated interpreter imported `sqlite3`, `ssl`, `lzma` and `decimal`, then
+loaded the pinned `CQ WW CW` plugin and all 24 pinned Run/S&P macro entries.
+
+`codesign --verify --deep --strict` accepts the resulting application with the
+Developer ID identity for team `4WCMQ4U946`. Acceptance hashes are:
+
+- application executable: `77022cdd680a87ec666ceee456cea25af7b806e9ae5cc10aeb92f9b90582119a`
+- Swift worker: `c2074933fae27ca113c54bb8772b62ad04bd84ef8fc418e4271c2a382903520d`
+- packaged Python: `b9deaa05090afad02ab063ae9a4909b2d4424296dbfac581b6cc03e8a19cc3f4`
+- runtime manifest: `dfd6e626f0152151e07082b49706713fb0a23bd48af0545d6cf28ec1e9336e25`
+
+This bundle remains version 1.2.28. It is therefore an engineering acceptance
+candidate, not a replacement release for the already accepted 1.2.28
+installation. The installed application was not changed.
+
 ## Remaining ordered work
 
 1. Complete installed CQ WW correction/export/restart acceptance, including a
