@@ -211,12 +211,14 @@ final class PythonContestLaneTests: XCTestCase {
         try data.write(to: source)
         let preview = try await lane.handleCallHistory(method: "contest_history_preview_private", params: [
             "path": source.path, "sourceName": source.lastPathComponent,
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
         ])
         let commit = Task {
             try await lane.handleCallHistory(method: "contest_history_preview_commit", params: [
                 "previewID": try XCTUnwrap(preview["previewID"] as? String),
                 "sha256": try XCTUnwrap(preview["sha256"] as? String),
-                "workspaceGeneration": workspaceGeneration, "confirmAdvisories": false,
+                "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+                "confirmAdvisories": false,
             ])
         }
         await Task.yield()
@@ -238,6 +240,27 @@ final class PythonContestLaneTests: XCTestCase {
         ])
         let projection = try XCTUnwrap(applied["projection"] as? [String: Any])
         XCTAssertEqual(projection["history"] as? String, "K1ABC, 4, normalized lookup")
+
+        // Native admission can occur while A is active even when an already
+        // queued open of B executes first. The serialized lane must retain A's
+        // expected identity instead of silently retargeting the request to B.
+        let nextSessionID = UUID().uuidString.lowercased()
+        _ = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": nextSessionID, "workspaceGeneration": workspaceGeneration,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_cw", "frequencyHz": 14_025_000,
+            "station": ["Call": "OM0RX", "CQZone": "15"],
+            "settings": ["SentExchange": "15"],
+        ])
+        do {
+            _ = try await lane.handleCallHistory(method: "contest_history_status", params: [
+                "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+            ])
+            XCTFail("A history request admitted for the prior session must not run in the new session.")
+        } catch let error as ContestLaneError {
+            XCTAssertEqual(error.code, "stale_history_context")
+            XCTAssertEqual(error.outcome, "confirmed")
+        }
         await lane.shutdown()
     }
 

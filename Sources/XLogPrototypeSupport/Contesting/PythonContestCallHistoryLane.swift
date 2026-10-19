@@ -56,9 +56,8 @@ actor PythonContestCallHistoryLane {
         do {
             switch method {
             case "contest_history_status":
-                try Self.exact(params, [])
-                let scope = try await activeScope()
-                try Self.validate(scope)
+                try Self.exact(params, ["sessionID", "workspaceGeneration"])
+                let scope = try await checkedScope(params)
                 let status = await service.status()
                 let activation = await activationWire(scope: scope)
                 try await requireUnchanged(scope)
@@ -67,8 +66,8 @@ actor PythonContestCallHistoryLane {
                         "unavailableReason": status.unavailableReason ?? NSNull(),
                         "activation": activation]
             case "contest_history_preview_private":
-                try Self.exact(params, ["path", "sourceName"])
-                let scope = try await checkedScope()
+                try Self.exact(params, ["path", "sourceName", "sessionID", "workspaceGeneration"])
+                let scope = try await checkedScope(params)
                 let preview = try await service.previewFile(
                     path: try Self.text(params, "path", maximum: 4_096),
                     sourceName: try Self.text(params, "sourceName", maximum: 256),
@@ -82,7 +81,7 @@ actor PythonContestCallHistoryLane {
                 }
                 return Self.previewWire(preview)
             case "contest_history_preview_page":
-                try Self.exact(params, ["previewID", "sha256", "workspaceGeneration", "offset", "limit"])
+                try Self.exact(params, ["previewID", "sha256", "sessionID", "workspaceGeneration", "offset", "limit"])
                 let scope = try await checkedScope(params)
                 let page = try await service.diagnosticPage(
                     previewID: try Self.uuid(params, "previewID"),
@@ -93,7 +92,7 @@ actor PythonContestCallHistoryLane {
                 try await requireUnchanged(scope)
                 return Self.diagnosticPageWire(page)
             case "contest_history_preview_cancel":
-                try Self.exact(params, ["previewID", "sha256", "workspaceGeneration"])
+                try Self.exact(params, ["previewID", "sha256", "sessionID", "workspaceGeneration"])
                 let scope = try await checkedScope(params)
                 let cancelled = try await service.cancelImport(
                     previewID: try Self.uuid(params, "previewID"),
@@ -102,7 +101,7 @@ actor PythonContestCallHistoryLane {
                 try await requireUnchanged(scope)
                 return ["cancelled": cancelled]
             case "contest_history_preview_commit":
-                try Self.exact(params, ["previewID", "sha256", "workspaceGeneration", "confirmAdvisories"])
+                try Self.exact(params, ["previewID", "sha256", "sessionID", "workspaceGeneration", "confirmAdvisories"])
                 let scope = try await checkedScope(params)
                 let dataset = try await service.commitImport(
                     previewID: try Self.uuid(params, "previewID"),
@@ -113,7 +112,7 @@ actor PythonContestCallHistoryLane {
                 return ["dataset": Self.datasetWire(dataset),
                         "activation": await activationWire(scope: scope)]
             case "contest_history_activate":
-                try Self.exact(params, ["workspaceGeneration"])
+                try Self.exact(params, ["sessionID", "workspaceGeneration"])
                 let scope = try await checkedScope(params)
                 let activation = await activationWire(scope: scope)
                 try await requireUnchanged(scope)
@@ -289,7 +288,8 @@ actor PythonContestCallHistoryLane {
         let scope = try await activeScope()
         try Self.validate(scope)
         if let params {
-            guard try Self.uuid(params, "workspaceGeneration") == scope.workspaceGeneration else {
+            guard try Self.uuid(params, "sessionID") == scope.sessionID,
+                  try Self.uuid(params, "workspaceGeneration") == scope.workspaceGeneration else {
                 throw Self.stale()
             }
         }

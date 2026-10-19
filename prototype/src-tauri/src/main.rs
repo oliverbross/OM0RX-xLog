@@ -1104,8 +1104,9 @@ async fn contest_history_preview(window: tauri::WebviewWindow, operating_context
             .filter(|value| !value.is_empty() && value.len() <= 256)
             .ok_or("The selected call-history filename is invalid.")?.to_string();
         let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
-            "method":"contest_history_preview_private","params":{
-                "path":path.to_string_lossy(),"sourceName":source_name}});
+            "method":"contest_history_preview_private",
+            "params":contest_history_preview_worker_params(
+                &context, path.to_string_lossy().into_owned(), source_name)});
         dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
             app.get_webview_window(CONTEST_CALL_HISTORY_WINDOW).is_some(),|| {
                 contest_window_context::admit(&context)?;
@@ -1135,6 +1136,41 @@ fn contest_history_manager_method(method: &str) -> bool {
         "contest_history_preview_cancel" | "contest_history_preview_commit" | "contest_history_activate")
 }
 
+fn contest_history_preview_worker_params(context: &contest_window_context::ContestWindowContext,
+    path: String, source_name: String) -> serde_json::Value {
+    serde_json::json!({
+        "path": path,
+        "sourceName": source_name,
+        "sessionID": context.session_id,
+        "workspaceGeneration": context.workspace_generation,
+    })
+}
+
+fn contest_history_manager_worker_params(method: &str,
+    context: &contest_window_context::ContestWindowContext,
+    params: serde_json::Value) -> Result<serde_json::Value, String> {
+    if !contest_history_manager_method(method) {
+        return Err("That Call History operation is unavailable in this window.".into());
+    }
+    let mut object = params.as_object()
+        .ok_or("Call History parameters must be an object.")?.clone();
+    if method == "contest_history_status" {
+        if !object.is_empty() {
+            return Err("Call History status does not accept parameters.".into());
+        }
+    } else if object.get("workspaceGeneration").and_then(serde_json::Value::as_str)
+        != Some(context.workspace_generation.as_str()) {
+        return Err("That Call History operation belongs to another contest workspace.".into());
+    }
+    // Native window admission happens before worker enqueue. Keep the expected
+    // session on the serialized request too, so an open of another contest
+    // cannot retarget an already-admitted history operation.
+    object.insert("sessionID".into(), serde_json::Value::String(context.session_id.clone()));
+    object.insert("workspaceGeneration".into(),
+        serde_json::Value::String(context.workspace_generation.clone()));
+    Ok(serde_json::Value::Object(object))
+}
+
 #[tauri::command]
 async fn contest_history_manager_request(window: tauri::WebviewWindow, operating_context: String,
     session_i_d: String, workspace_generation: String, method: String,
@@ -1143,18 +1179,9 @@ async fn contest_history_manager_request(window: tauri::WebviewWindow, operating
     if APP_EXITING.load(Ordering::Acquire) {
         return Err("Call history is unavailable while the application is closing.".into());
     }
-    if !contest_history_manager_method(&method) {
-        return Err("That Call History operation is unavailable in this window.".into());
-    }
-    let object = params.as_object().ok_or("Call History parameters must be an object.")?;
-    if method == "contest_history_status" {
-        if !object.is_empty() { return Err("Call History status does not accept parameters.".into()); }
-    } else if object.get("workspaceGeneration").and_then(serde_json::Value::as_str)
-        != Some(context.workspace_generation.as_str()) {
-        return Err("That Call History operation belongs to another contest workspace.".into());
-    }
+    let worker_params = contest_history_manager_worker_params(&method, &context, params)?;
     let generation = worker::existing_generation()?;
-    let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),"method":method,"params":params});
+    let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),"method":method,"params":worker_params});
     tauri::async_runtime::spawn_blocking(move || {
         contest_window_context::admit(&context)?;
         let response = worker::request_existing_generation(request, generation)?;
@@ -2588,7 +2615,7 @@ fn main() {
 #[cfg(test)]
 mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
-    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
+    use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
     #[test]
@@ -2602,6 +2629,41 @@ mod workspace_layout_tests {
         for panel in ["alerts", "cw", "settings", "contest--logbook", ""] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_err());
         }
+    }
+
+    #[test]
+    fn call_history_worker_requests_retain_the_admitted_session_identity() {
+        let context = crate::contest_window_context::ContestWindowContext {
+            operating_context: "10000000-0000-4000-8000-000000000001".into(),
+            session_id: "20000000-0000-4000-8000-000000000002".into(),
+            workspace_generation: "30000000-0000-4000-8000-000000000003".into(),
+        };
+        let status = contest_history_manager_worker_params(
+            "contest_history_status", &context, json!({})).unwrap();
+        assert_eq!(status, json!({
+            "sessionID": context.session_id.clone(),
+            "workspaceGeneration": context.workspace_generation.clone(),
+        }));
+        let commit = contest_history_manager_worker_params(
+            "contest_history_preview_commit", &context, json!({
+                "previewID": "40000000-0000-4000-8000-000000000004",
+                "sha256": "a".repeat(64),
+                "workspaceGeneration": context.workspace_generation.clone(),
+                "confirmAdvisories": false,
+            })).unwrap();
+        assert_eq!(commit["sessionID"], context.session_id.as_str());
+        assert!(contest_history_manager_worker_params(
+            "contest_history_preview_commit", &context,
+            json!({"workspaceGeneration":"50000000-0000-4000-8000-000000000005"})).is_err());
+        assert!(contest_history_manager_worker_params(
+            "contest_history_query", &context, json!({})).is_err());
+        assert_eq!(contest_history_preview_worker_params(
+            &context, "/private/history.txt".into(), "history.txt".into()), json!({
+                "path": "/private/history.txt",
+                "sourceName": "history.txt",
+                "sessionID": context.session_id,
+                "workspaceGeneration": context.workspace_generation,
+            }));
     }
 
     #[test]

@@ -16,11 +16,12 @@ final class PythonContestCallHistoryLaneTests: XCTestCase {
         let source = root.deletingLastPathComponent().appendingPathComponent("operator-history.txt")
         try Data("!!Order!!,Call,Name,CqZone\nK1ABC,Sam,04\nK1ABC,Pat,05\n".utf8).write(to: source)
 
-        let emptyStatus = try await lane.handle(method: "contest_history_status", params: [:])
+        let emptyStatus = try await lane.handle(method: "contest_history_status", params: managerParams(scope))
         XCTAssertEqual(emptyStatus["unavailableReason"] as? String, "not_imported")
 
         let preview = try await lane.handle(method: "contest_history_preview_private", params: [
             "path": source.path, "sourceName": source.lastPathComponent,
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
         ])
         XCTAssertEqual(preview["workspaceGeneration"] as? String, scope.workspaceGeneration)
         XCTAssertNil(preview["sourceBytes"])
@@ -29,7 +30,8 @@ final class PythonContestCallHistoryLaneTests: XCTestCase {
         let committed = try await lane.handle(method: "contest_history_preview_commit", params: [
             "previewID": try XCTUnwrap(preview["previewID"] as? String),
             "sha256": try XCTUnwrap(preview["sha256"] as? String),
-            "workspaceGeneration": scope.workspaceGeneration, "confirmAdvisories": false,
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
+            "confirmAdvisories": false,
         ])
         XCTAssertEqual((committed["dataset"] as? [String: Any])?["recordCount"] as? Int, 2)
 
@@ -106,11 +108,13 @@ final class PythonContestCallHistoryLaneTests: XCTestCase {
         try data.write(to: source)
         let preview = try await lane.handle(method: "contest_history_preview_private", params: [
             "path": source.path, "sourceName": source.lastPathComponent,
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
         ])
         let committed = try await lane.handle(method: "contest_history_preview_commit", params: [
             "previewID": try XCTUnwrap(preview["previewID"] as? String),
             "sha256": try XCTUnwrap(preview["sha256"] as? String),
-            "workspaceGeneration": scope.workspaceGeneration, "confirmAdvisories": false,
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
+            "confirmAdvisories": false,
         ])
         XCTAssertEqual((committed["dataset"] as? [String: Any])?["recordCount"] as? Int, 100_000)
         XCTAssertEqual((committed["activation"] as? [String: Any])?["state"] as? String, "active")
@@ -126,6 +130,10 @@ final class PythonContestCallHistoryLaneTests: XCTestCase {
         baseParams(scope, requestID: requestID).merging([
             "recordOffset": 0, "recordLimit": 20, "valueOffset": 0, "valueLimit": 128,
         ]) { _, new in new }
+    }
+
+    private func managerParams(_ scope: PythonContestCallHistoryScope) -> [String: Any] {
+        ["sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration]
     }
 
     private func selectParams(_ scope: PythonContestCallHistoryScope, requestID: String,
