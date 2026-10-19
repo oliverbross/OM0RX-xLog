@@ -119,6 +119,24 @@ pub fn band_map_band(label: &str) -> Option<&str> {
 pub fn surface_role(label: &str) -> &str { if band_map_band(label).is_some() { "band-maps" } else { label } }
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == surface_role(label)) }
 pub fn native_minimum(label: &str) -> (f64, f64) {
+    // Contest identities reuse normal panel roles, but have compact tools of
+    // their own. Match the canvas minimum for the four connected panels;
+    // auxiliary tools must not inherit the normal 640x480 fallback.
+    if let Ok(identity) = WorkspaceWindowIdentity::parse_native_label(label) {
+        if identity.scope == WorkspaceWindowScope::Contesting {
+            return match identity.panel_id {
+                "active-qso" => (520.0, 240.0),
+                "callsign-intelligence" => (360.0, 240.0),
+                "logbook" => (640.0, 480.0),
+                "propagation" | "alerts" => (240.0, 80.0),
+                "band-maps" | "dx-cluster" => (280.0, 200.0),
+                "rotor" => (240.0, 240.0),
+                "monitor" | "station-control" => (320.0, 180.0),
+                "awards" | "chaser-dx" => (420.0, 280.0),
+                _ => unreachable!("validated contest window identity"),
+            };
+        }
+    }
     match surface_role(label) {
         "band-maps" => (280.0, 480.0),
         "propagation" => (480.0, 190.0),
@@ -426,6 +444,27 @@ mod tests {
         assert_eq!(native_minimum("propagation"), (480.0, 190.0));
         assert_eq!(native_minimum("band-map-20m"), (280.0, 480.0));
         assert_eq!(native_minimum("logbook"), (640.0, 480.0));
+    }
+    #[test]
+    fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
+        let expected = [
+            ("active-qso", (520.0, 240.0)), ("callsign-intelligence", (360.0, 240.0)),
+            ("logbook", (640.0, 480.0)), ("propagation", (240.0, 80.0)),
+            ("alerts", (240.0, 80.0)), ("band-maps", (280.0, 200.0)),
+            ("dx-cluster", (280.0, 200.0)), ("rotor", (240.0, 240.0)),
+            ("monitor", (320.0, 180.0)), ("station-control", (320.0, 180.0)),
+            ("awards", (420.0, 280.0)), ("chaser-dx", (420.0, 280.0)),
+        ];
+        assert_eq!(expected.len(), CONTEST_WINDOWS.len());
+        for (panel, minimum) in expected {
+            let identity = WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, panel).unwrap();
+            assert_eq!(native_minimum(&identity.native_label()), minimum);
+            let spec = scoped_spec(identity).unwrap();
+            assert!(spec.width >= minimum.0 && spec.height >= minimum.1);
+        }
+        assert_eq!(native_minimum("monitor"), (640.0, 480.0));
+        assert_eq!(native_minimum("rotor"), (640.0, 480.0));
+        assert_eq!(native_minimum("contest--unknown"), (640.0, 480.0));
     }
     #[test]
     fn separate_mode_resolves_legacy_qso_and_never_requires_main() {

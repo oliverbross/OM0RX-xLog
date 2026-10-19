@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import type { ContestSurfaceAction, ContestSurfaceActionEnvelope } from "./contestSurfaceProtocol";
+import { ContestTextField, ContestEntryFields, ContestCandidates, ContestScoreSummary, ContestLogTable } from "./ContestPresentation";
 import "./DetachedContestSurface.css";
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
@@ -123,8 +124,8 @@ function IntentInput({label,value:authoritative,identity,projectionRevision,rece
   },[authoritative,projectionRevision,receipts,pump]);
   const discard=()=>{flight.current=null;desired.current=authoritative;setUnresolved(false);setValue(authoritative);};
   const retry=()=>{flight.current=null;setUnresolved(false);queueMicrotask(pump);};
-  return <div className="contest-surface-intent"><label>{label}<input ref={inputRef} data-contest-operator-field={operatorField} value={value} disabled={disabled} onChange={event=>{const next=event.target.value;
-    if(new TextEncoder().encode(next).length>maximumUTF8Bytes)return;desired.current=next;setValue(next);pump();}}/></label>
+  return <div className="contest-surface-intent"><ContestTextField label={label} inputRef={inputRef} data-contest-operator-field={operatorField} value={value} disabled={disabled} onChange={event=>{const next=event.target.value;
+    if(new TextEncoder().encode(next).length>maximumUTF8Bytes)return;desired.current=next;setValue(next);pump();}}/>
     {unresolved&&<div role="status"><span>This edit is not confirmed.</span><button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
 }
 
@@ -172,9 +173,9 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
 function EntryIntentInput({label,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onChange,unresolved,retry,discard}:{
   label:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:"callsign"|"exchange";
   inputRef?:RefObject<HTMLInputElement|null>;onChange:(key:EntryIntentKey,value:string)=>void;unresolved:boolean;retry:()=>void;discard:()=>void}){
-  return <div className="contest-surface-intent"><label>{label}<input ref={inputRef} data-contest-operator-field={operatorField}
+  return <div className="contest-surface-intent"><ContestTextField label={label} inputRef={inputRef} data-contest-operator-field={operatorField}
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
-      onChange(intentKey,next);}}/></label>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
+      onChange(intentKey,next);}}/>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
       <button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
 }
 function Entry({ projection, disabled, sending, projectionRevision, send, refresh, settle, reportConflict }: { projection: any; disabled: boolean; sending:boolean;
@@ -208,17 +209,15 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
   return <section className="contest-surface-entry" onKeyDown={onKeyDown}><header><div><h1>{projection.session.name}</h1><span>{projection.session.ruleName} · {projection.session.mode}</span></div>
     <strong>{projection.draft.band} · {projection.draft.mode}</strong></header>
-    <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
+    <ContestEntryFields detached callsign={<EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
       operatorField="callsign" inputRef={callsignRef} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
-      unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>
-    <div className="contest-surface-row">{(["sentReport","receivedReport","frequency"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
+      unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>} reports={(["sentReport","receivedReport","frequency"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
       label={["Sent","Received","Frequency Hz"][index]} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={key==="frequency"?11:160}
       disabled={disabled} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
-      retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}</div>
-    {projection.draft.receivedFields.map((field: any,index:number) => {const key=`exchange:${field.id}` as EntryIntentKey;return <EntryIntentInput key={field.id}
+      retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)} exchange={projection.draft.receivedFields.map((field: any,index:number) => {const key=`exchange:${field.id}` as EntryIntentKey;return <EntryIntentInput key={field.id}
       label={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
       operatorField="exchange" inputRef={index===0?exchangeRef:undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
-      unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;})}
+      unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;})}/>
     {projection.schemaVersion===2&&<><div className="contest-surface-row"><label>Band<select value={projection.draft.band} disabled={disabled}
       onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
       <label>Mode<select value={projection.draft.mode} disabled={disabled}
@@ -246,17 +245,15 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
   return <section><h1>Check Partial & history</h1><IntentInput label="Callsign query" value={projection.inputCallsign}
     identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
     maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
-    <h2>SCP</h2><div className="contest-surface-results">{projection.scp.candidates.map((item:any)=><button key={item.candidateID} disabled={disabled}
-      onClick={()=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID:item.candidateID}},projectionRevision)}>{item.callsign}</button>)}</div>
-    <h2>History</h2>{projection.history.rows.map((row:any)=><button className="contest-surface-history" key={row.candidateID} disabled={disabled}
-      onClick={()=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID:row.candidateID}},projectionRevision)}><strong>{row.callsign}</strong>
-      <span>{row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}</span></button>)}</section>;
+    <h2>SCP</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
+      candidates={projection.scp.candidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/>
+    <h2>History</h2><ContestCandidates disabled={disabled}
+      candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
+        detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></section>;
 }
-function Statistics({projection}:{projection:any}) { const score=projection.score; return <section><h1>Statistics</h1>{!score?<p>No score available.</p>:<><dl>
-  <div><dt>Claimed score</dt><dd>{score.claimedScore.toLocaleString()}</dd></div><div><dt>QSOs</dt><dd>{score.qsos}</dd></div>
-  <div><dt>Points</dt><dd>{score.points}</dd></div><div><dt>Multipliers</dt><dd>{score.multipliers}</dd></div></dl>
-  <div className="contest-surface-results">{score.multiplierDisplayLabels.map((item:string,index:number)=><span key={`${score.multiplierLabels[index] ?? item}-${index}`}>{item}</span>)}</div>
-  <p>Score source: {score.sourceVerification}</p></>}</section>; }
+function Statistics({projection}:{projection:any}) { return <section><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
 function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section><h1>Contest log</h1>
   {editing&&<div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <div className="contest-surface-row"><IntentInput label="Sent report" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>
@@ -270,9 +267,7 @@ function Log({projection,disabled,sending,projectionRevision,receipts,send}:{pro
     <button disabled={disabled||sending} aria-pressed={editing.confirmDelete} onClick={()=>void send({action:"log_edit_confirm_delete",params:{qsoID:editing.qsoID,confirmed:!editing.confirmDelete}},projectionRevision)}>{editing.confirmDelete?"Keep contact":"Delete…"}</button></div>
     {editing.confirmDelete&&<div className="contest-surface-delete"><IntentInput label="Deletion reason" value={editing.deletionReason} identity={`${editing.qsoID}/deletionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"deletionReason",value}})}/>
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void send({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Delete contact</button></div>}</div>}
-  <table><thead><tr><th>UTC</th><th>Call</th><th>Band</th><th>Mode</th><th>Exchange</th><th>Pts</th></tr></thead><tbody>{projection.page.rows.map((row:any)=><tr key={row.qsoID}>
-    <td>{new Date(row.workedAt).toLocaleTimeString("en-GB",{timeZone:"UTC"})}</td><td><button disabled={disabled} onClick={()=>void send({action:"log_edit_begin",params:{qsoID:row.qsoID}},projectionRevision)}>{row.callsign}</button></td>
-    <td>{row.band}</td><td>{row.mode}</td><td>{row.receivedExchange}</td><td>{row.points}</td></tr>)}</tbody></table>
+  <ContestLogTable rows={projection.page.rows} disabled={disabled} detached onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }

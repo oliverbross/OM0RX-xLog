@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ContestCandidates } from "./ContestPresentation";
 import { nativeSCPImport, scpCancel, scpQuery, scpSelect, scpStatus, validateSCPImportResponse,
   type AssistanceRequest, type SCPContext, type SCPDataset, type SCPImport, type SCPMatch, type SCPResult } from "./contestAssistance";
 import "./ContestAssistancePanel.css";
@@ -86,7 +87,7 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
       if(!match)throw new Error("The SCP candidate no longer matches the current query.");await select(match);}};
     onSurfaceChange(current);return()=>onSurfaceChange(null);},[onSurfaceChange,dataset?.version,result,busy]);
   return <section className="contest-scp" aria-label="Super Check Partial"><header><strong>Super Check Partial</strong><button type="button" disabled={disabled||importing||selecting} onClick={()=>void (recoveryRequired?recover():choose())}>{recoveryRequired?"Check local status":dataset?"Replace local file":"Import local file"}</button></header>
-    {!dataset?<p>{recoveryRequired?"Local SCP status must be checked before another import.":unavailable==="invalid_cache"?"The saved local SCP index is invalid. Import the source file again.":"No local MASTER.SCP file imported."}</p>:<><small>{dataset.version} · {dataset.recordCount.toLocaleString()} calls · local computed digest</small>{busy&&<p>Checking…</p>}<div className="contest-scp-matches">{result?.matches.map(match=><button type="button" key={match.matchID} disabled={disabled||selecting||importing} onClick={()=>void select(match)}><strong>{match.callsign}</strong><span>{Math.round(match.score)}</span></button>)}</div>{result?.isPartial&&<small>Results cover the bounded catalog prefix.</small>}</>}{error&&<p role="alert">{error}</p>}
+    {!dataset?<p>{recoveryRequired?"Local SCP status must be checked before another import.":unavailable==="invalid_cache"?"The saved local SCP index is invalid. Import the source file again.":"No local MASTER.SCP file imported."}</p>:<><small>{dataset.version} · {dataset.recordCount.toLocaleString()} calls · local computed digest</small>{busy&&<p>Checking…</p>}<ContestCandidates className="contest-scp-matches" disabled={disabled||selecting||importing} candidates={result?.matches.map(match=>({id:match.matchID,label:match.callsign,detail:Math.round(match.score)}))??[]} onSelect={candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);if(match)void select(match);}}/>{result?.isPartial&&<small>Results cover the bounded catalog prefix.</small>}</>}{error&&<p role="alert">{error}</p>}
   </section>;
 }
 

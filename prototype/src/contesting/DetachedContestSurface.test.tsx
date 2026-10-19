@@ -29,6 +29,20 @@ it("routes a scoped native contest child without mounting the normal surface",as
   expect(await loadWindowSurface(search)).toBe(DetachedContestSurface);
 });
 
+it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "station-control", "dx-cluster"])(
+  "keeps disconnected contest %s explicitly unavailable and passive", async panelID => {
+    window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
+    native.invoke.mockImplementation(async (command:string) => {
+      if (command === "contest_surface_snapshot") return { ...snapshot, panelID, projection: { schemaVersion:1, status:"unavailable" } };
+      throw new Error(`unexpected ${command}`);
+    });
+    render(<DetachedContestSurface/>);
+    expect(await screen.findByRole("heading", { name:"Panel unavailable" })).toBeTruthy();
+    expect(screen.getByText("This shared contest panel is not connected yet.")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+  });
+
 it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return snapshot;
