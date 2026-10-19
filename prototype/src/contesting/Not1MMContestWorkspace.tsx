@@ -755,7 +755,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
   const showSetup = setupOnly || manager;
   return <main className="contest-workspace">
-    <header className="contest-header"><div><h1>{setupOnly ? "Contest Setup" : "Contest Manager / Desk"}</h1><p>CQ WW CW · actual Not1MM Python plugin · xLog station services</p></div><div className="contest-header-actions">{!setupOnly && projection && <button type="button" disabled={busy} onClick={() => {
+    <header className="contest-header"><div><h1>{setupOnly ? "Contest Setup" : "Contest Manager / Desk"}</h1><p>{projection
+      ? `${sessions.find(session => session.sessionID === projection.sessionID)?.name ?? projection.pluginID} · actual Not1MM Python plugin · xLog station services`
+      : "Actual Not1MM Python plugins · xLog station services"}</p></div><div className="contest-header-actions">{!setupOnly && projection && <button type="button" disabled={busy} onClick={() => {
       if (manager) { setManager(false); return; }
       busyRef.current = true; setBusy(true); setError("");
       void flushDraftRef.current().then(() => setManager(true)).catch(cause => setError(errorMessage(cause)))
