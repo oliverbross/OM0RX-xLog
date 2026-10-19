@@ -15,6 +15,8 @@ import uuid
 
 from contest_host.__main__ import MAX_REQUEST, run
 from contest_host.host import Host, HostError, Field
+from contest_host.rates import calculate_rates, timestamp
+from unittest.mock import patch
 
 
 def uid():
@@ -81,6 +83,88 @@ class HostTests(unittest.TestCase):
         self.assertEqual(partial["fields"][0]["value"], "K")
         with self.assertRaises(AttributeError):
             Field("callsign").silentlyIgnoreMissingQtMethod()
+
+    def test_function_key_projection_uses_actual_active_macros(self):
+        sandp = {row["id"]: row for row in self.read("projection")["projection"]["functionKeys"]}
+        self.assertEqual((sandp["F3"]["label"], sandp["F3"]["template"]), ("Exch", "{RST} {EXCHANGE}"))
+        run = self.mutate("run_state", run=True)["projection"]["functionKeys"]
+        self.assertEqual((run[3]["label"], run[3]["template"]), ("Run TU", "tu {MYCALL} qrz"))
+
+    def test_rates_read_full_log_with_historical_styles_and_no_mutation(self):
+        qso = self.log()
+        store = self.host.database(self.session)
+        base = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso,))
+        store.conn.execute("DELETE FROM DXLOG")
+        start = datetime(2026, 10, 19, 8, 0)
+        for index in range(150):
+            row = {**base, "ID": uid(), "TS": (start + timedelta(seconds=index * 10)).isoformat(" "),
+                   "IsRunQSO": index % 2, "Run1Run2": 2}
+            store.log_contact(row)
+        store.conn.commit()
+        revision = self.revision
+        with patch("contest_host.host.datetime") as clock:
+            clock.now.return_value = timestamp("2026-10-19T08:30:00Z")
+            rates = self.read("contest_rates")
+        self.assertAlmostEqual(rates["lastHourQsoPerHour"], 150 * 3600 / 1490)
+        self.assertAlmostEqual(rates["last10QsoPerHour"], 400)
+        self.assertAlmostEqual(rates["last100QsoPerHour"], 100 * 3600 / 990)
+        self.assertEqual(rates["sinceMinuteQsoPerHour"], 298)
+        self.assertEqual((rates["runQso"], rates["searchAndPounceQso"]), (75, 75))
+        self.assertEqual((rates["hourRunQso"], rates["hourSearchAndPounceQso"]), (75, 74))
+        self.assertEqual(rates["revision"], revision)
+        self.assertEqual(store.exec_sql("SELECT count(*) AS n FROM xlog_operation")["n"], revision)
+
+    def test_rates_boundaries_iso_timestamps_future_and_malformed_rows(self):
+        at = timestamp("2026-10-19T09:30:00Z")
+        rows = [{"ID": str(i), "TS": stamp, "IsRunQSO": run} for i, (stamp, run) in enumerate([
+            ("2026-10-19 08:30:00", 1), ("2026-10-19T09:00:00Z", 1),
+            ("2026-10-19T11:30:00.000+02:00", 0), ("2026-10-19 09:30:01", 1)])]
+        rates = calculate_rates(rows, at)
+        self.assertEqual(rates, {"lastHourQsoPerHour": 4, "last10QsoPerHour": None,
+            "last100QsoPerHour": None, "sinceMinuteQsoPerHour": 2,
+            "runQso": 2, "searchAndPounceQso": 1, "hourRunQso": 0, "hourSearchAndPounceQso": 1})
+        self.assertIsNone(calculate_rates(rows, at.replace(minute=0))["sinceMinuteQsoPerHour"])
+        same = [{"ID": str(i), "TS": "2026-10-19 09:15:00", "IsRunQSO": 0} for i in range(100)]
+        self.assertIsNone(calculate_rates(same, at)["last100QsoPerHour"])
+        self.assertIsNone(calculate_rates(same, at)["last10QsoPerHour"])
+        rows.append({"ID": "bad", "TS": "invalid", "IsRunQSO": 0})
+        self.assertIsNone(calculate_rates(rows, at)["lastHourQsoPerHour"])
+        self.assertIsNone(timestamp(None))
+
+    def test_setup_save_is_durable_revision_fenced_and_idempotent(self):
+        setup = self.read("contest_setup_get")["setup"]
+        setup.update({"name": "Saved contest", "preferences": {"useESM": True, "bands": ["20m"], "speed": 25},
+                      "network": {"enabled": False, "port": 12060},
+                      "macros": [{"mode": "R", "key": "F1", "label": "CQ", "template": "cq {MYCALL}"}]})
+        params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision, "setup": setup}
+        saved = self.call("contest_setup_save", params)
+        self.assertEqual(saved["setup"], setup)
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("contest_setup_get"), {"sessionID": self.session, "revision": saved["revision"], "setup": setup})
+        self.assertTrue(self.call("contest_setup_save", params)["replayed"])
+        with self.assertRaises(HostError) as error:
+            self.call("contest_setup_save", {**params, "operationID": uid()})
+        self.assertEqual(error.exception.code, "stale_revision")
+        with self.assertRaises(HostError) as error:
+            self.call("contest_setup_save", {**params, "setup": {**setup, "name": "Conflict"}})
+        self.assertEqual(error.exception.code, "payload_conflict")
+
+    def test_invalid_setup_rolls_back_and_is_scoped_to_session(self):
+        setup = self.read("setup_get")["setup"]
+        for update in ({"station": {"Call": True}}, {"preferences": {"nested": {}}},
+                       {"network": {"port": float("inf")}}, {"pluginID": "other"},
+                       {"macros": [{"mode": [], "key": "F1", "label": "", "template": ""}]},
+                       {"name": "x" * 129}):
+            with self.subTest(update=update), self.assertRaises((HostError, ValueError)):
+                self.mutate("setup_save", setup={**setup, **update})
+        self.assertEqual(self.read("setup_get")["revision"], self.revision)
+        self.assertEqual(self.read("setup_get")["setup"], setup)
+        other = deepcopy(self.create)
+        other.update(sessionID=uid(), operationID=uid(), workspaceGeneration=uid())
+        self.call("session_create", other)
+        self.mutate("setup_save", setup={**setup, "name": "Unique setup"})
+        self.assertEqual(self.call("setup_get", {"sessionID": other["sessionID"]})["setup"]["name"], "CQ WW CW")
 
     def test_country_additions_require_the_session_reference_identity(self):
         country = {"VK1ABC": {"entity": "Australia", "continent": "OC", "cq": 30,

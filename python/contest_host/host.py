@@ -4,6 +4,7 @@ from datetime import datetime, UTC
 import base64
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import sqlite3
@@ -11,6 +12,7 @@ from tempfile import TemporaryDirectory
 import uuid
 
 from .store import Store, canonical
+from .rates import calculate_rates
 from .upstream import load_cqww, load_cw_macros
 
 PLUGIN_ID = "cq_ww_cw"
@@ -212,7 +214,8 @@ class Desk:
                 "focus": self.current_widget, "nextField": self.next_field.name,
                 "tabNext": {a.name: b.name for a, b in self.tab_next.items()},
                 "tabPrevious": {a.name: b.name for a, b in self.tab_prev.items()},
-                "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights} for i in range(1, 13)],
+                "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights,
+                    **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
                 "dupe": bool(call and self.database.check_dupe_on_band(call, band).get("isdupe")),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "columns": self.contest.columns, "score": self.score()}
@@ -224,7 +227,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete"}
+    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -297,6 +300,20 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        if method == "rates":
+            # Capture the revision, log and clock in one SQLite read snapshot.
+            store.conn.execute("BEGIN")
+            try:
+                state = store.state(session_id)
+                self.verify_engine(state)
+                rows = store.exec_sql_mult("SELECT ID,TS,IsRunQSO FROM DXLOG")
+                return {"sessionID": session_id, "revision": state["revision"],
+                        **calculate_rates(rows, datetime.now(UTC))}
+            finally:
+                store.conn.rollback()
+        if method == "setup_get":
+            return {"sessionID": session_id, "revision": state["revision"],
+                    "setup": deepcopy(state.get("setup", self.default_setup(state)))}
         desk = Desk(store, state, self.commit)
         if method in {"session_open", "projection"}:
             return {"projection": desk.projection()}
@@ -409,6 +426,8 @@ class Host:
             elif method == "run_state":
                 require(type(params.get("run")) is bool, "Run state must be boolean")
                 desk.pref["run_state"] = state["run"] = params["run"]
+            elif method == "setup_save":
+                state["setup"] = self.validate_setup(params.get("setup"))
             elif method == "esm":
                 if "fields" in params:
                     self.apply_fields(desk, params)
@@ -434,6 +453,8 @@ class Host:
             store.save_state(state)
             result = {"operationID": operation, "sessionID": session_id, "revision": state["revision"],
                       "projection": desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
+            if method == "setup_save":
+                result["setup"] = deepcopy(state["setup"])
             for index, action in enumerate(result["actions"]):
                 action["actionID"] = f"{operation}:{index}"
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
@@ -444,6 +465,49 @@ class Host:
             raise
         finally:
             self._operation = None
+
+    @staticmethod
+    def default_setup(state):
+        return {"name": state.get("name", "CQ WW CW"), "operator": state["operator"],
+                "pluginID": state["pluginID"], "station": deepcopy(state["station"]),
+                "settings": deepcopy(state["settings"]), "preferences": {}, "network": {}, "macros": []}
+
+    @staticmethod
+    def validate_setup(value):
+        keys = {"name", "operator", "pluginID", "station", "settings", "preferences", "network", "macros"}
+        require(isinstance(value, dict) and set(value) == keys, "Complete setup document required")
+        for key in ("name", "operator", "pluginID"):
+            text(value[key], 128)
+        require(value["pluginID"] == PLUGIN_ID, "Only CQ WW CW is supported")
+        for key in ("station", "settings", "preferences", "network"):
+            mapping = value[key]
+            require(isinstance(mapping, dict) and len(mapping) <= 128, "Setup map exceeds bound")
+            for name, item in mapping.items():
+                text(name, 128)
+                if key == "preferences" and isinstance(item, list):
+                    require(len(item) <= 64, "Preference list exceeds bound")
+                    for entry in item:
+                        text(entry, 512)
+                elif isinstance(item, str):
+                    text(item, 512)
+                else:
+                    require(type(item) in ({int, float, bool} if key in {"preferences", "network"} else {int, float}),
+                            "Setup values must be supported scalars")
+                    require(type(item) is not float or math.isfinite(item), "Setup numbers must be finite")
+        macros = value["macros"]
+        require(isinstance(macros, list) and len(macros) <= 24, "At most 24 macros are supported")
+        seen = set()
+        for macro in macros:
+            require(isinstance(macro, dict) and set(macro) == {"mode", "key", "label", "template"}, "Invalid macro")
+            require(isinstance(macro["mode"], str) and isinstance(macro["key"], str)
+                    and macro["mode"] in {"R", "S"} and macro["key"] in {f"F{i}" for i in range(1, 13)}, "Invalid macro key/mode")
+            identity = (macro["mode"], macro["key"])
+            require(identity not in seen, "Duplicate macro key/mode")
+            seen.add(identity)
+            text(macro["label"], 128)
+            text(macro["template"], 1024)
+        require(len(canonical(value).encode("utf-8")) <= 16384, "Setup exceeds field bound")
+        return deepcopy(value)
 
     @staticmethod
     def replay_result(result):

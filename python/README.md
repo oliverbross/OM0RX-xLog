@@ -32,7 +32,8 @@ Methods (an optional `contest_` prefix is accepted): `catalog`, `sessions`, `ses
 (`create`), `session_open` (`open`), `projection` (`draft_get`), `draft_apply`,
 `focus`, `run_state`, `esm`, `function_key`, `qso_commit`, `qso_correct`,
 `qso_delete`, `receipt` (`operation_receipt`), `log` (`log_page`), `score`,
-`cw_context`, `export`, `export_prepare`, `export_read`, `export_release`.
+`cw_context`, `rates`, `setup_get`, `setup_save`, `export`, `export_prepare`,
+`export_read`, `export_release`.
 
 Except catalog and sessions, requests contain canonical UUID `sessionID`. All mutations also
 contain stable UUID `operationID` and `expectedRevision`. Creation expects zero;
@@ -67,6 +68,39 @@ tab maps, focus, Run/S&P, F-key highlights, score and dupe. `score` adds band
 country/zone matrices. An output action contains `actionID`, session/draft IDs,
 F-key and captured exchange context. Native code must resolve macros and apply
 existing explicit operator/transmit controls; no physical action is executed here.
+
+`rates` reads all retained `DXLOG` rows in one read snapshot, returning session ID,
+revision and `lastHourQsoPerHour`, `last10QsoPerHour`, `last100QsoPerHour`,
+`sinceMinuteQsoPerHour`, `runQso`, `searchAndPounceQso`, `hourRunQso`,
+`hourSearchAndPounceQso`. Rates are finite nonnegative numbers or null; counts are
+nonnegative integers. The trailing hour and latest samples use count times 3600
+divided by newest-minus-oldest seconds. The trailing hour uses `(now-3600,now]`,
+reports 1 for one QSO and null for empty/zero-span samples; latest-10/100 require
+the complete sample. `sinceMinuteQsoPerHour` follows Not1MM's Since HH00 display:
+current UTC-hour count times 3600 divided by elapsed seconds since hour start,
+null at exact hour start. Hour style counts use `(UTC hour start,now]`.
+Future rows are excluded. Naive Not1MM timestamps are UTC; ISO offsets, Z and
+fractional seconds are accepted. A malformed timestamp makes rates null and is
+excluded from time-scoped counts. Historical `IsRunQSO=1` means Run; other values
+mean S&P, independently of today's Run toggle. Corrections preserve `IsRunQSO`
+and `Run1Run2`. Reads create no receipts or writes.
+
+`setup_get` returns `{sessionID,revision,setup}`; a legacy session synthesizes its
+current name, operator, plugin ID, station and settings plus empty preferences,
+network and macros. `setup_save` accepts the normal mutation envelope plus one
+complete `setup` object, and returns the normal mutation result plus `setup`.
+The object has exactly `name`, `operator`, `pluginID`, `station`, `settings`,
+`preferences`, `network`, `macros`. Station/settings values are strings or finite
+numbers; network additionally accepts booleans; preferences additionally accepts
+booleans and string arrays. Maps contain at most 128 fields, string arrays at
+most 64 entries, text values at most 512 UTF-8 bytes. Name/operator/plugin ID
+allow 128 bytes; plugin ID must match this host. Up to 24 unique macros contain
+exactly mode R/S, key F1–F12, label (128 bytes), template (1024 bytes). The entire
+document is bounded to 16 KiB. It is stored in the existing session JSON using
+the same atomic revision fence and operation receipts as other mutations.
+Saving this configuration document does not apply station/rule changes or
+configure external services. Active function-key projections continue to carry
+the actual pinned macro label and template selected by Run/S&P.
 
 `export` returns actual upstream Cabrillo text with CRLF and a suggested filename,
 limited to 512 KiB. The production path uses `export_prepare`, bounded 64-KiB
