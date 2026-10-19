@@ -118,8 +118,7 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect(screen.getByLabelText("CW speed unavailable").textContent).toBe("—");
   expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("—/— —");
-  expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F1: Run CQ");
-  expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F12: Sect?");
+    expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F1: CQ");
   expect((screen.getByRole("button",{name:"F12 Unassigned"}) as HTMLButtonElement).disabled).toBe(true);
   expect(document.querySelector("canvas")).toBeNull();
   fireEvent.change(screen.getByLabelText("Operating style"),{target:{value:"search-and-pounce"}});

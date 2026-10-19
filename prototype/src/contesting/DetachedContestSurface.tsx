@@ -232,8 +232,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
       <div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label="CW speed unavailable">—</output><button disabled aria-label="Decrease CW speed">−</button><button disabled aria-label="Increase CW speed">+</button></div></div>
-    <div className="contest-surface-macros" role="group" aria-label="Function key macros">{["Run CQ","HisCall","Run Exch","Run TU","MyCall","MyClass","MySect","Roger","AGN","Call?","Class?","Sect?"].map((label,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key);return <button type="button" key={key}
-      disabled={disabled||!item} aria-label={`${key} ${item?label:"Unassigned"}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
+    <div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
+      disabled={disabled||!item} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
     </div></div>
     <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">—° Hdg · LP —° / distance — km<br/><span aria-label="Country and zones">— cq:— itu:—</span></div><output aria-label="QSOs, multipliers and score">—/— <span>—</span></output></div>
     <details className="contest-surface-entry-options"><summary>Entry controls</summary>
@@ -280,7 +280,7 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
 function Statistics({projection}:{projection:any}) { return <section><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
 function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
   const rates = [["Last hour", projection.lastHourQsoPerHour], ["10 Last QSO", projection.last10QsoPerHour],
-    ["100 Last QSO", projection.last100QsoPerHour], ["Since —z", null]] as const;
+    ["100 Last QSO", projection.last100QsoPerHour], ["Since 0000z", projection.sinceMinuteQsoPerHour]] as const;
   return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
     <p className="contest-surface-rate-scope">All bands · All modes</p><dl>{rates.map(([label, value]) => <div key={label}><dt>{label}:</dt><dd>{value === null ? <span aria-label={label.startsWith("Since")?"Rate start time unavailable":"Not enough contacts"}>—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}</dl>
     <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
