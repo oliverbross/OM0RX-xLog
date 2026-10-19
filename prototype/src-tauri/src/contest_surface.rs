@@ -594,6 +594,7 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             )?;
             text_value(&params["candidateID"], 160, false, "assistance candidate")?;
         }
+        "log_export_cabrillo" => exact(params, &[], "Cabrillo export params")?,
         "log_page" => {
             exact(params, &["offset"], "log page params")?;
             uint_value(&params["offset"], 1_000_000, "log offset")?;
@@ -1520,6 +1521,7 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
             "schemaVersion",
             "status",
             "sessionRevision",
+            "canExportCabrillo",
             "page",
             "editing",
             "busy",
@@ -1531,6 +1533,7 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         MAX_SAFE_INTEGER,
         "session revision",
     )?;
+    boolean(&value["canExportCabrillo"], "Cabrillo export availability")?;
     boolean(&value["busy"], "logbook busy")?;
     let page = object(&value["page"], "log page")?;
     exact(page, &["offset", "limit", "total", "rows"], "log page")?;
@@ -1869,6 +1872,18 @@ mod tests {
         ))
         .is_err());
         assert!(validate_action_envelope(&action(
+            "log_export_cabrillo",
+            "logbook",
+            json!({})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "log_export_cabrillo",
+            "logbook",
+            json!({"extra":true})
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
             "entry_set_frequency_text",
             "logbook",
             params.clone()
@@ -2014,7 +2029,7 @@ mod tests {
             .unwrap()
             .remove("frequencyText");
         assert!(validate_projection("active-qso", &missing_frequency_text).is_err());
-        let logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,
+        let logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"canExportCabrillo":false,
             "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00Z",
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
@@ -2022,7 +2037,7 @@ mod tests {
                 "receivedReport":"599","receivedFields":[],"frequencyHz":null,"editFrequencyText":"bad",
                 "frequencyError":"Enter a frequency","correctionReason":"","confirmDelete":false,"deletionReason":""},"busy":false});
         assert!(validate_projection("logbook", &logbook).is_ok());
-        let not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"exchangeLayout":"plugin",
+        let not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"canExportCabrillo":true,"exchangeLayout":"plugin",
             "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00.000Z",
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
