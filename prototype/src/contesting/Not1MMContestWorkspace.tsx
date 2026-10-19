@@ -169,6 +169,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [rates, setRates] = useState<Data | null>(null);
   const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
+  const [startupPending, setStartupPending] = useState(true);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
@@ -254,15 +255,24 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
 
   useEffect(() => {
     let active = true;
-    void Promise.all([result<Data>("contest_catalog"), result<{ sessions: Session[] }>("contest_sessions")]).then(([available, list]) => {
-      if (!active) return;
-      setCatalog(Array.isArray(available.plugins) ? available.plugins : []); setSessions(list.sessions);
-      const stored = localStorage.getItem(activeSessionKey);
-      const saved = stored ? list.sessions.find(session => session.sessionID === stored)
-        ?? (list.sessions.length === 1 ? list.sessions[0] : undefined) : undefined;
-      if (stored && !saved) localStorage.removeItem(activeSessionKey);
-      if (saved) void openSession(saved);
-    }).catch(cause => { if (active) setError(errorMessage(cause)); });
+    void (async () => {
+      try {
+        const [available, list] = await Promise.all([
+          result<Data>("contest_catalog"), result<{ sessions: Session[] }>("contest_sessions"),
+        ]);
+        if (!active) return;
+        setCatalog(Array.isArray(available.plugins) ? available.plugins : []); setSessions(list.sessions);
+        const stored = localStorage.getItem(activeSessionKey);
+        const saved = stored ? list.sessions.find(session => session.sessionID === stored)
+          ?? (list.sessions.length === 1 ? list.sessions[0] : undefined) : undefined;
+        if (stored && !saved) localStorage.removeItem(activeSessionKey);
+        if (saved) await openSession(saved);
+      } catch (cause) {
+        if (active) setError(errorMessage(cause));
+      } finally {
+        if (active) setStartupPending(false);
+      }
+    })();
     return () => { active = false; };
   }, []);
 
@@ -747,6 +757,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;
       if (!panelID || !contestSurfacePanelIDs.includes(panelID)) return false;
+      if (startupPending) return false;
       const active = projectionRef.current;
       if (!active || !detachedAvailable || !surfaceContext) {
         setManager(true);
@@ -760,7 +771,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     registerMenuRoute(handle);
     return () => registerMenuRoute(null);
   }, [registerMenuRoute, detachedAvailable, surfaceContext?.operatingContext, surfaceContext?.sessionID,
-    surfaceContext?.workspaceGeneration]);
+    surfaceContext?.workspaceGeneration, startupPending]);
 
   const applyAssistanceCallsign = (callsign: string, selection: SCPSelectionScope) => {
     const active = projectionRef.current;

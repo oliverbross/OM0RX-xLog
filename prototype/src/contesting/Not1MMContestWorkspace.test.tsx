@@ -8,8 +8,10 @@ import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contest
 import { newContestSetup } from "./ContestSetupPanel";
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any }));
+const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}) }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => { surfaceOwner.current = owner; } }));
+vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWindow.open }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
@@ -273,6 +275,56 @@ it("restores the saved manual frequency when reopening a session without CAT", a
   await screen.findByText("Contest windows are ready");
   await act(async () => { await expect(transition.prepare()).resolves.toBeUndefined(); });
   expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
+});
+
+it("defers a native contest window command until the saved session is fully restored", async () => {
+  const current = projection();
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", current.sessionID);
+  let finishOpen: ((value: unknown) => void) | undefined;
+  const delayedOpen = new Promise(resolve => { finishOpen = resolve; });
+  let finishLog: ((value: unknown) => void) | undefined;
+  const delayedLog = new Promise(resolve => { finishLog = resolve; });
+  let route: ((value: string) => boolean | Promise<boolean>) | null = null;
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    if (method === "contest_catalog") return {id:crypto.randomUUID(),ok:true,result:{plugins:[]}};
+    if (method === "contest_sessions") return {id:crypto.randomUUID(),ok:true,
+      result:{sessions:[{...current,name:"Saved contest"}]}};
+    if (method === "contest_open") return delayedOpen;
+    if (method === "contest_log_page") return delayedLog;
+    if (method === "contest_score") return {id:crypto.randomUUID(),ok:true,result:{score:current.score,matrices:{countries:[],zones:[]}}};
+    throw new Error(`Unexpected ${method}`);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    registerMenuRoute={handler => { route = handler; }}/>);
+  await waitFor(() => expect(route).not.toBeNull());
+  await expect(route!("contest-window-active-qso")).resolves.toBe(false);
+  expect(surfaceWindow.open).not.toHaveBeenCalled();
+  await act(async () => finishOpen?.({id:crypto.randomUUID(),ok:true,result:{projection:current}}));
+  await waitFor(() => expect(surfaceOwner.current.context).toMatchObject({sessionID:current.sessionID}));
+  await expect(route!("contest-window-active-qso")).resolves.toBe(false);
+  expect(surfaceWindow.open).not.toHaveBeenCalled();
+  await act(async () => finishLog?.({id:crypto.randomUUID(),ok:true,result:{rows:[],offset:0,limit:20,total:0}}));
+  await waitFor(async () => expect(await route!("contest-window-active-qso")).toBe(true));
+  expect(surfaceWindow.open).toHaveBeenCalledTimes(1);
+  expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
+});
+
+it("acknowledges a native contest window command with Setup after startup finds no session", async () => {
+  let route: ((value: string) => boolean | Promise<boolean>) | null = null;
+  const request = vi.fn(async (method: string) => {
+    if (method === "contest_catalog") return {id:crypto.randomUUID(),ok:true,result:{plugins:[]}};
+    if (method === "contest_sessions") return {id:crypto.randomUUID(),ok:true,result:{sessions:[]}};
+    throw new Error(`Unexpected ${method}`);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    registerMenuRoute={handler => { route = handler; }}/>);
+  await waitFor(() => expect(route).not.toBeNull());
+  await waitFor(async () => expect(await route!("contest-window-active-qso")).toBe(true));
+  expect((await screen.findByRole("alert")).textContent).toContain("Open a contest session before opening its windows.");
+  expect(surfaceWindow.open).not.toHaveBeenCalled();
 });
 
 it("creates a Python CQ WW session and logs through the actual-host wire", async () => {
