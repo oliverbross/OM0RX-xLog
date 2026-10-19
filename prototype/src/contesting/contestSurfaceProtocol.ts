@@ -12,6 +12,7 @@ export type ContestSurfaceAction =
   | { action: "entry_reserve_serial" | "entry_commit"; params: DraftRevision }
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
+  | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: "callsign" | "exchange" | null } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
@@ -267,6 +268,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_reserve_serial" || action === "entry_commit") return draft(params, []);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
+  if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;
   if (action === "entry_operator_key") return draft(params, ["key", "focusedField"]) &&
     typeof params.key === "string" && /^(?:F(?:[1-9]|1[0-2])|Enter|Escape)$/.test(params.key) &&
     (params.focusedField === null || oneOf(params.focusedField, ["callsign", "exchange"]));

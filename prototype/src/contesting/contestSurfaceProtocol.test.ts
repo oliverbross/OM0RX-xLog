@@ -16,6 +16,7 @@ const valid = [
   { panelID: "active-qso", action: "entry_commit", params: draft },
   { panelID: "active-qso", action: "entry_operator_arm", params: { ...draft, armed: true } },
   { panelID: "active-qso", action: "entry_operator_style", params: { ...draft, value: "search-and-pounce" } },
+  { panelID: "active-qso", action: "entry_set_cw_speed", params: { ...draft, value: 27 } },
   { panelID: "active-qso", action: "entry_operator_key", params: { ...draft, key: "F12", focusedField: null } },
   { panelID: "callsign-intelligence", action: "assistance_query", params: { ...draft, inputCallsign: "OM0" } },
   { panelID: "callsign-intelligence", action: "assistance_select", params: { ...draft, kind: "history", candidateID: "history-1" } },
@@ -47,14 +48,15 @@ describe("contest native surface action v1", () => {
     { ...base, ...valid[0], params: null },
     { ...base, panelID: "active-qso", action: "entry_unknown", params: draft },
     { ...base, ...valid[0], params: { ...valid[0].params, field: ["callsign"] } },
-    { ...base, ...valid[9], params: { ...valid[9].params, key: ["F12"] } },
-    { ...base, ...valid[11], params: { ...valid[11].params, kind: ["history"] } },
+    { ...base, ...valid[10], params: { ...valid[10].params, key: ["F12"] } },
+    { ...base, ...valid[12], params: { ...valid[12].params, kind: ["history"] } },
+    { ...base, ...valid[9], params: { ...valid[9].params, value: 101 } },
     { ...base, ...valid[1], params: { ...valid[1].params, fieldID: "x".repeat(65) } },
     { ...base, ...valid[1], params: { ...valid[1].params, fieldID: "   " } },
     { ...base, ...valid[1], params: { ...valid[1].params, value: "😀".repeat(257) } },
     { ...base, ...valid[2], params: { ...valid[2].params, value: "1".repeat(12) } },
-    { ...base, ...valid[17], params: { ...valid[17].params, value: "😀".repeat(3) } },
-    { ...base, ...valid[12], params: { offset: 1_000_001 } },
+    { ...base, ...valid[18], params: { ...valid[18].params, value: "😀".repeat(3) } },
+    { ...base, ...valid[13], params: { offset: 1_000_001 } },
   ])("rejects malformed, cross-panel or over-bound envelopes %#", envelope => {
     expect(() => validateContestSurfaceActionEnvelope(envelope)).toThrow("could not be verified");
   });

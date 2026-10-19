@@ -28,12 +28,17 @@ const unavailableSCP = () => ({ id: "scp-status", ok: true,
   result: { dataset: null, unavailableReason: "not_imported" } });
 const unavailableHistory = () => ({ id: "history-status", ok: true,
   result: { dataset: null, pendingPreview: null, unavailableReason: "not_imported" } });
+async function createContestThroughSetup() {
+  await userEvent.click(await screen.findByRole("button", { name: "New Contest" }));
+  await userEvent.click(await screen.findByRole("button", { name: "OK" }));
+}
 const workspaceSupport = (method: string, params: Record<string, unknown>, current: ReturnType<typeof projection>) => {
   const id = crypto.randomUUID();
   if (method === "contest_rates") return { id, ok:true, result:{ sessionID:current.sessionID, revision:current.revision,
     lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,sinceMinuteQsoPerHour:null,
     runQso:0,searchAndPounceQso:0,hourRunQso:0,hourSearchAndPounceQso:0 } };
-  if (method === "contest_setup_save") return { id, ok:true, result:{ projection:current, setup:params.setup, actions:[], messages:[] } };
+  if (method === "contest_setup_save") return { id, ok:true, result:{ projection:{...current,
+    cwSpeedWpm:(params.setup as any)?.preferences?.cwSpeed ?? (current as any).cwSpeedWpm}, setup:params.setup, actions:[], messages:[] } };
   if (method === "contest_setup_get") return { id, ok:true, result:{ sessionID:current.sessionID, revision:current.revision,
     setup:{...newContestSetup("OM0RX"),name:"Preserved session"} } };
   return null;
@@ -53,14 +58,13 @@ it("queries the full contest log for partials and retains raw rows beyond the di
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
-  await screen.findByRole("heading",{name:"New / Select / Edit Contest"});
-  await userEvent.click(screen.getByRole("button",{name:"Create and open new contest"}));
+  await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].loggedCalls).toEqual(["DL1ABC"]));
   expect(request.mock.calls.find(([method])=>method==="contest_check_partial")?.[1]).toEqual({sessionID:current.sessionID,expectedRevision:9,query:"DL1",limit:500});
   expect(surfaceOwner.current.projections["callsign-intelligence"].clusterCalls).toEqual(["DL1XYZ"]);
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
   expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"}]);
-  expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:27,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
+  expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
   for(const panel of ["active-qso","callsign-intelligence","logbook"] as const)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
 
@@ -103,8 +107,7 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
     return { id: crypto.randomUUID(), ok: true, result };
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await screen.findByRole("heading", { name: "New / Select / Edit Contest" });
-  await userEvent.click(screen.getByRole("button", { name: "Create and open new contest" }));
+  await createContestThroughSetup();
   let entry = surfaceOwner.current.projections["active-qso"];
   const envelope = { operatingContext, scope:"contesting", sessionID:current.sessionID, workspaceGeneration,
     panelID:"active-qso", projectionRevision:1, requestID:crypto.randomUUID() } as const;
@@ -156,7 +159,7 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
       projection:current, actions:[{kind:"function_key",key:"F2",fields:{callsign:"K1ABC"}}] } };
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await userEvent.click(await screen.findByRole("button", {name:"Create and open new contest"}));
+  await createContestThroughSetup();
   let entry=surfaceOwner.current.projections["active-qso"];
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID()} as const;
@@ -202,7 +205,7 @@ it("pages past QSO 100 and sends the complete correction contract", async () => 
     return { id:crypto.randomUUID(), ok:true, result };
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await userEvent.click(await screen.findByRole("button", {name:"Create and open new contest"}));
+  await createContestThroughSetup();
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:100}}));
@@ -224,6 +227,7 @@ it("applies detached Entry mutations and commit through the Python session owner
   let current = projection(), committed: Record<string, unknown> | null = null;
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
     const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "station_radio_control") return {};
     if (method === "contest_scp_status") return unavailableSCP();
     if (method === "contest_history_status") return unavailableHistory();
     let result: any;
@@ -241,9 +245,15 @@ it("applies detached Entry mutations and commit through the Python session owner
     return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await userEvent.click(await screen.findByRole("button",{name:"Create and open new contest"}));
+  await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
   let entry = surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_cw_speed",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:26}}));
+  expect(request).toHaveBeenCalledWith("station_radio_control",{control:"set_cw_speed",words_per_minute:26});
+  expect(surfaceOwner.current.projections["active-qso"].manual.cwSpeedWpm).toBe(26);
+  entry = surfaceOwner.current.projections["active-qso"];
   await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"callsign-intelligence",projectionRevision:1,requestID:crypto.randomUUID(),action:"assistance_query",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision-1,inputCallsign:"STALE"}})).rejects.toThrow(/changed/);
@@ -276,7 +286,7 @@ it("keeps an uncertain detached commit receipt uncertain", async () => {
     throw new Error(`Unexpected ${method}`);
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await userEvent.click(await screen.findByRole("button",{name:"Create and open new contest"}));
+  await createContestThroughSetup();
   const entry=surfaceOwner.current.projections["active-qso"];
   await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_commit",
@@ -302,7 +312,7 @@ it("pages, edits, and deletes through the detached Log owner actions", async () 
     return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await userEvent.click(await screen.findByRole("button",{name:"Create and open new contest"}));
+  await createContestThroughSetup();
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()};
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:20}}));
@@ -346,7 +356,7 @@ it("applies retained SCP selection through the active Python draft owner", async
     return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await userEvent.click(await screen.findByRole("button",{name:"Create and open new contest"}));
+  await createContestThroughSetup();
   let entry=surfaceOwner.current.projections["active-qso"];
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"callsign-intelligence",projectionRevision:1,requestID:crypto.randomUUID()} as const;

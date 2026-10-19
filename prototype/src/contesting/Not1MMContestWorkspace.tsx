@@ -581,6 +581,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
         await runMutation(base => mutate("contest_run_state", base, { run: action.params.value === "run" }), false,
           true, false, true);
         return;
+      case "entry_set_cw_speed": {
+        await serviceRequest("station_radio_control", { control: "set_cw_speed", words_per_minute: action.params.value });
+        const document = { ...setup, preferences: { ...setup.preferences, cwSpeed: action.params.value } };
+        const saved = await mutate("contest_setup_save", active, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
+        acceptProjection(saved.projection); setSetup(saved.setup); return;
+      }
       case "entry_operator_key":
         if (action.params.key === "Enter") {
           await hostAction("contest_esm", { field: action.params.focusedField === "exchange" ? "other_2" : "callsign" }); return;
