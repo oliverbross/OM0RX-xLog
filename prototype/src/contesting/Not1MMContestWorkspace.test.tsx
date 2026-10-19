@@ -39,6 +39,31 @@ const workspaceSupport = (method: string, params: Record<string, unknown>, curre
   return null;
 };
 
+it("queries the full contest log for partials and retains raw rows beyond the displayed page",async()=>{
+  const current={...projection(9,{callsign:"DL1"}),operator:"OM0RX/P",cwSpeedWpm:27,
+    callContext:{callsign:"DL1",country:"Germany",cqZone:14,ituZone:28,headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null},
+    score:{qsos:25,points:50,countries:4,zones:3,multipliers:7,total:350}};
+  const raw={ID:"off-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:14025.125,SNT:"579",RCV:"589",ZN:14,SentNr:15,WPXPrefix:"DL1",CountryPrefix:"DL",Points:3,Band:14,Mode:"CW"};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:25}:
+      method==="contest_score"?{score:current.score}:method==="contest_check_partial"?{query:"DL1",rows:[raw],total:1}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
+  await screen.findByRole("heading",{name:"New / Select / Edit Contest"});
+  await userEvent.click(screen.getByRole("button",{name:"Create and open new contest"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].loggedCalls).toEqual(["DL1ABC"]));
+  expect(request.mock.calls.find(([method])=>method==="contest_check_partial")?.[1]).toEqual({sessionID:current.sessionID,expectedRevision:9,query:"DL1",limit:500});
+  expect(surfaceOwner.current.projections["callsign-intelligence"].clusterCalls).toEqual(["DL1XYZ"]);
+  expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
+  expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"}]);
+  expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:27,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
+  for(const panel of ["active-qso","callsign-intelligence","logbook"] as const)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
+});
+
 const projection = (revision = 1, values: Record<string, string> = {}) => ({
   sessionID: "11111111-1111-4111-8111-111111111111", engine: "not1mm-python", pluginID: "cq_ww_cw",
   workspaceGeneration: "33333333-3333-4333-8333-333333333333",

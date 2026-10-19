@@ -11,7 +11,7 @@ import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextFi
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
 import type { ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
 import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
-  type ContestSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestSurfaceWindow } from "./contestSurfaceNative";
@@ -21,13 +21,13 @@ type Data = Record<string, any>;
 type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
-type Score = { qsos: number; points: number; countries: number; zones: number; total: number };
+type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; total: number };
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; run: boolean;
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; countryResolved: boolean;
-  history: string; score: Score;
+  history: string; score: Score; operator?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string };
@@ -96,6 +96,11 @@ function logRows(rows: Data[]): ContestLogRow[] {
     points: Number(row.Points ?? 0), multiplierLabels: [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));
 }
+function manualRows(rows: Data[]): ContestManualRow[] {
+  return rows.map(row => ({ qsoID: String(row.ID ?? ""), TS: String(row.TS ?? ""), Call: String(row.Call ?? ""),
+    Freq: String(row.Freq ?? ""), SNT: String(row.SNT ?? ""), RCV: String(row.RCV ?? ""), ZN: String(row.ZN ?? ""),
+    SentNr: String(row.SentNr ?? ""), prefix: String(row.WPXPrefix || row.CountryPrefix || ""), Points: String(row.Points ?? "") }));
+}
 
 function multiplierMatrix(title: string, values: Data[], busy: boolean) {
   const rows = new Map<string, Record<string, number>>();
@@ -118,6 +123,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
   const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({ countries: [], zones: [] });
   const [rates, setRates] = useState<Data | null>(null);
+  const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
@@ -143,6 +149,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
 
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
+  const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
+  useEffect(() => {
+    let cancelled = false;
+    if (!projection || !/^[A-Z0-9/]{1,32}$/.test(partialQuery)) { setPartial(null); return; }
+    const {sessionID, revision} = projection;
+    void result<Data>("contest_check_partial", {sessionID, expectedRevision:revision, query:partialQuery, limit:500})
+      .then(value => { if (!cancelled) setPartial({sessionID, revision, query:partialQuery, rows:Array.isArray(value.rows)?value.rows:[]}); })
+      .catch(() => { if (!cancelled) setPartial(null); });
+    return () => { cancelled = true; };
+  }, [projection?.sessionID, projection?.revision, partialQuery, request]);
   const acceptProjection = (next: Projection, inputVersion?: number) => {
     projectionRef.current = next; focusRef.current = next.focus; setProjection(next);
     const values = inputVersion !== undefined && editVersionRef.current !== inputVersion
@@ -344,8 +360,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   };
 
   const beginEdit = async (qsoID: string, throwFailures = false) => {
-    const row = rows.find(item => item.ID === qsoID);
-    if (!row) { if (throwFailures) throw new Error("The selected contact is no longer on this log page."); return; }
+    const active = projectionRef.current;
+    const partialRows = partial?.sessionID===active?.sessionID && partial?.revision===active?.revision && partial?.query===(fieldsRef.current.callsign??"").trim().toUpperCase()?partial?.rows:[];
+    const row = [...rows,...(partialRows??[])].find(item => String(item.ID) === qsoID);
+    if (!row) { if (throwFailures) throw new Error("The selected contact is no longer in this log or its partial matches."); return; }
     if (busyRef.current || retiring) { if (throwFailures) throw new Error("The contest owner is busy."); return; }
     busyRef.current = true; setBusy(true); setError("");
     try {
@@ -423,8 +441,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     const receivedZone = projection.fields.find(field => field.id === "other_2");
     const sentZone = projection.fields.find(field => field.id === "other_1");
     const editedFrequencyHz = editing ? manualFrequency(editFrequencyMHz) : null;
+    const callContext = projection.callContext?.callsign === partialQuery ? projection.callContext : undefined;
     unavailable["active-qso"] = {
       schemaVersion: 2, status: "ready",
+      manual: {operator:projection.operator ?? "", cwSpeedWpm:projection.cwSpeedWpm ?? null,
+        country:callContext?.country ?? null, cqZone:callContext?.cqZone ?? null, ituZone:callContext?.ituZone ?? null,
+        headingDegrees:callContext?.headingDegrees ?? null, longPathHeadingDegrees:callContext?.longPathHeadingDegrees ?? null,
+        distanceKm:callContext?.distanceKm ?? null, qsos:projection.score.qsos, multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
       session: { name: activeSessionName, ruleName: "CQ WW CW", mode: "CW" },
       draft: {
         draftID: projection.draftID, revision: projection.revision, callsign: currentFields.callsign ?? "",
@@ -461,6 +484,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows) },
+      manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall,
         band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),
@@ -478,6 +502,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     unavailable["callsign-intelligence"] = {
       schemaVersion: 1, status: "ready", draftID: projection.draftID, draftRevision: projection.revision,
       inputCallsign: currentFields.callsign ?? "",
+      loggedCalls:[...new Set((partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]).map(row=>String(row.Call??"")).filter(Boolean))],
+      clusterCalls:partialQuery ? [...new Set(spots.map(spot=>String(spot.callsign??"").trim().toUpperCase()).filter(call=>call.includes(partialQuery)))].slice(0,500) : [],
       scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
       history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
       busy: !!scpSurface?.busy || !!historySurface?.busy,
@@ -493,7 +519,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, historySurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices]);
+    busy, retiring, scpSurface, historySurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,

@@ -37,7 +37,11 @@ export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
 };
 export type ContestSurfaceUnavailableProjection = { schemaVersion: 1; status: "unavailable" };
 export type ContestSurfaceReceivedField = { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number };
+export type ContestManualRow = { qsoID: string; TS: string; Call: string; Freq: string; SNT: string; RCV: string; ZN: string; SentNr: string; prefix: string; Points: string };
+export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; country: string | null; cqZone: number | null; ituZone: number | null;
+  headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
+  manual?: ContestManualContext;
   session: { name: string; ruleName: string; mode: string };
   draft: { draftID: string; revision: number; callsign: string; sentReport: string; receivedReport: string;
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; frequencyText: string; frequencyError: string;
@@ -58,6 +62,7 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: "CQ" | "EXCH" | "QRZ" | "AGN" |
       "HISCALL" | "MYCALL" | "QSOB4"; text: string; status: "pending" | "confirmed" | "failed" | "stopped" }[] } };
 export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
+  loggedCalls?: string[]; clusterCalls?: string[];
   inputCallsign: string; scp: { source: string | null; candidates: { candidateID: string; callsign: string }[] };
   history: { source: string | null; rows: { candidateID: string; callsign: string;
     fields: { id: string; label: string; value: string }[] }[] }; busy: boolean };
@@ -72,6 +77,7 @@ export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
 export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
+  manualRows?: ContestManualRow[]; partialRows?: ContestManualRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
   editing: null | { qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
@@ -93,6 +99,14 @@ const oneOf = <T extends string>(value: unknown, choices: readonly T[]): value i
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => {
   const actual = Object.keys(value); return actual.length === keys.length && keys.every(key => actual.includes(key));
 };
+const optionalKeys = (value: Record<string, unknown>, keys: readonly string[], optional: readonly string[]) =>
+  exact(value, [...keys, ...optional.filter(key => key in value)]);
+const manualRowsValid = (value: unknown) => Array.isArray(value) && value.length <= 500 && value.every(row => record(row) &&
+  exact(row, ["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "ZN", "SentNr", "prefix", "Points"]) && Object.values(row).every(item => text(item, 160, true)));
+const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
+  text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
+  ["cwSpeedWpm", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm"].every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
+  ["qsos", "multipliers", "total"].every(key => uint(value[key]));
 const draft = (value: Record<string, unknown>, extras: string[]) => exact(value, ["draftID", "expectedDraftRevision", ...extras]) &&
   text(value.draftID, 160) && uint(value.expectedDraftRevision);
 const qso = (value: Record<string, unknown>, extras: string[]) => exact(value, ["qsoID", ...extras]) && text(value.qsoID, 160);
@@ -111,7 +125,8 @@ const validReceivedFields = (value: unknown) => Array.isArray(value) && value.le
 function validEntryProjection(value: Record<string, unknown>) {
   const session = record(value.session) ? value.session : undefined, draftValue = record(value.draft) ? value.draft : undefined;
   const dupe = record(draftValue?.dupe) ? draftValue.dupe : undefined, validation = record(draftValue?.validation) ? draftValue.validation : undefined;
-  return exact(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain"], ["manual"]) &&
+    (!("manual" in value) || manualContextValid(value.manual)) &&
     !!session && exact(session, ["name", "ruleName", "mode"]) && text(session.name, 128) && text(session.ruleName, 128) && text(session.mode, 16) &&
     !!draftValue && exact(draftValue, ["draftID", "revision", "callsign", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "frequencyText", "frequencyError", "band", "mode", "dupe", "validation", "reservedSerial"]) &&
     text(draftValue.draftID, 160) && uint(draftValue.revision) && text(draftValue.callsign, 32, true) && text(draftValue.sentReport, 160, true) &&
@@ -160,7 +175,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       exact(trace, ["operationID", "mode", "macro", "text", "status"]) && text(trace.operationID, 160) &&
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && oneOf(trace.macro, ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"]) &&
       text(trace.text, 1024, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
-  return exact(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
     validEntryProjection(base) && !!descriptor && exact(descriptor, ["bands", "modes", "sentFields", "serial"]) &&
     texts(descriptor.bands, 32, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
@@ -169,7 +184,8 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
 }
 function validCheckProjection(value: Record<string, unknown>) {
   const scp = record(value.scp) ? value.scp : undefined, history = record(value.history) ? value.history : undefined;
-  return exact(value, ["schemaVersion", "status", "draftID", "draftRevision", "inputCallsign", "scp", "history", "busy"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", "draftID", "draftRevision", "inputCallsign", "scp", "history", "busy"], ["loggedCalls", "clusterCalls"]) &&
+    ["loggedCalls", "clusterCalls"].every(key => !(key in value) || texts(value[key], 500, 32)) &&
     text(value.draftID, 160) && uint(value.draftRevision) && text(value.inputCallsign, 32, true) && !!scp &&
     exact(scp, ["source", "candidates"]) && (scp.source === null || text(scp.source, 160)) && Array.isArray(scp.candidates) &&
     scp.candidates.length <= 64 && scp.candidates.every(item => { const candidate = record(item) ? item : undefined; return !!candidate &&
@@ -191,7 +207,8 @@ function validStatisticsProjection(value: Record<string, unknown>) {
 }
 function validLogProjection(value: Record<string, unknown>) {
   const page = record(value.page) ? value.page : undefined, editing = record(value.editing) ? value.editing : undefined;
-  return exact(value, ["schemaVersion", "status", "sessionRevision", "page", "editing", "busy"]) && uint(value.sessionRevision) &&
+  return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "page", "editing", "busy"], ["manualRows", "partialRows"]) &&
+    ["manualRows", "partialRows"].every(key => !(key in value) || manualRowsValid(value[key])) && uint(value.sessionRevision) &&
     !!page && exact(page, ["offset", "limit", "total", "rows"]) && uint(page.offset, 1_000_000) && uint(page.limit, 20) &&
     uint(page.total, 1_000_000) && Array.isArray(page.rows) && page.rows.length <= 20 && page.rows.every(item => { const row = record(item) ? item : undefined;
       return !!row && exact(row, ["qsoID", "workedAt", "callsign", "band", "mode", "sentExchange", "receivedExchange", "points", "multiplierLabels"]) &&

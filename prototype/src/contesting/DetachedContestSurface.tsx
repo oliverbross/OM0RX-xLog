@@ -211,7 +211,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
-      <strong>{projection.draft.mode}</strong></div><span aria-label="Current operator unavailable">OP —</span><h1>{projection.session.name}</h1></header>
+      <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
     <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{["160m","80m","40m","20m","15m","10m"].map(band=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields">
@@ -231,11 +231,11 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable">● ●</span>
       <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
-      <div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label="CW speed unavailable">—</output><button disabled aria-label="Decrease CW speed">−</button><button disabled aria-label="Increase CW speed">+</button></div></div>
+      <div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output><button disabled aria-label="Decrease CW speed">−</button><button disabled aria-label="Increase CW speed">+</button></div></div>
     <div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
       disabled={disabled||!item} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
     </div></div>
-    <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">—° Hdg · LP —° / distance — km<br/><span aria-label="Country and zones">— cq:— itu:—</span></div><output aria-label="QSOs, multipliers and score">—/— <span>—</span></output></div>
+    <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
     <details className="contest-surface-entry-options"><summary>Entry controls</summary>
     {operator&&<label>Operating style<select value={operator.style} disabled={disabled||operator.pending!==null}
         onChange={event=>void send({action:"entry_operator_style",params:{...base,value:event.target.value as "run"|"search-and-pounce"}},projectionRevision)}><option value="run">Run</option><option value="search-and-pounce">S&amp;P</option></select></label>}
@@ -269,9 +269,9 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
   return <section className="contest-surface-check"><h1>Check Partial</h1><IntentInput label="Callsign query" value={projection.inputCallsign}
     identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
     maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
-    <div className="contest-surface-check-columns"><div><h2>Log</h2><p aria-label="Matching logged calls unavailable">—</p></div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
+    <div className="contest-surface-check-columns"><div><h2>Log</h2>{projection.loggedCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.loggedCalls&&<p aria-label="Matching logged calls unavailable">—</p>}</div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
       candidates={projection.scp.candidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2><p aria-label="Matching cluster calls unavailable">—</p></div></div>
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2>{projection.clusterCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.clusterCalls&&<p aria-label="Matching cluster calls unavailable">—</p>}</div></div>
     <details><summary>Call history</summary><ContestCandidates disabled={disabled}
       candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
         detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
@@ -299,9 +299,9 @@ function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) 
 }
 function ManualLogTable({rows,disabled,onEdit,label}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string}) {
   return <div className="contest-surface-log-scroll"><table aria-label={label}><thead><tr>{["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"].map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.qsoID}>
-    <td>{new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{row.callsign}</button></td>
-    <td aria-label="Frequency unavailable">—</td><td aria-label="Sent report unavailable">—</td><td aria-label="Received report unavailable">—</td>
-    <td aria-label="Zone unavailable">—</td><td aria-label="Serial unavailable">—</td><td aria-label="Prefix unavailable">—</td><td>{row.points}</td></tr>)}</tbody></table></div>;
+    <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
+    <td>{row.Freq??"—"}</td><td>{row.SNT??"—"}</td><td>{row.RCV??"—"}</td>
+    <td>{row.ZN??"—"}</td><td>{row.SentNr??"—"}</td><td>{row.prefix??"—"}</td><td>{row.Points??row.points}</td></tr>)}</tbody></table></div>;
 }
 function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section className="contest-surface-log"><h1>Log Display</h1>
   {editing&&<div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
@@ -318,8 +318,8 @@ function Log({projection,disabled,sending,projectionRevision,receipts,send}:{pro
     <button disabled={disabled||sending} aria-pressed={editing.confirmDelete} onClick={()=>void send({action:"log_edit_confirm_delete",params:{qsoID:editing.qsoID,confirmed:!editing.confirmDelete}},projectionRevision)}>{editing.confirmDelete?"Keep contact":"Delete…"}</button></div>
     {editing.confirmDelete&&<div className="contest-surface-delete"><IntentInput label="Deletion reason" value={editing.deletionReason} identity={`${editing.qsoID}/deletionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"deletionReason",value}})}/>
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void send({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Delete contact</button></div>}</div>}
-  <ManualLogTable rows={projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
-  <ManualLogTable rows={[]} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
+  <ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
+  <ManualLogTable rows={projection.partialRows??[]} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
