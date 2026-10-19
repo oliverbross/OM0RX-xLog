@@ -1,8 +1,9 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw"],
+  "registeredPlugins": ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst"],
   "sha256": {
+    "not1mm/plugins/icwc_mst.py": "4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca",
     "not1mm/plugins/cq_ww_cw.py": "08f383e8ddb6f02fede9149f5490a1042b71a5cd5e2591ac76b0cf1ba460c3e2",
     "not1mm/plugins/cq_wpx_cw.py": "27551aab291943acc03b53c74773b8da8ad3c5cbeb96dc6e483870408eadbc86",
     "not1mm/plugins/arrl_ss_cw.py": "ae6306cbe34df212371989d9c324693b8f88da8e29701f17d8aeb5a32f5b3ce4",

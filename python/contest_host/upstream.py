@@ -68,6 +68,10 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # The pinned plugin's SOAPBOX_HINT gives its exchange macro explicitly.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{CALL} {SENTNR} {EXCHANGE}"
+    elif plugin_id == "icwc_mst":
+        # Original plugin stores configured name and the reserved serial separately.
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{EXCHANGE} {SENTNR}"
     if len(result) != 24:
         raise RuntimeError("Pinned Not1MM CW macro set is incomplete")
     return result

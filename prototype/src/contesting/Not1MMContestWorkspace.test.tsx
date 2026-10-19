@@ -98,6 +98,7 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].loggedCalls).toEqual(["DL1ABC"]));
+  expect(request.mock.calls.some(([method])=>method==="contest_history_status")).toBe(true);
   expect(request.mock.calls.find(([method])=>method==="contest_check_partial")?.[1]).toEqual({sessionID:current.sessionID,expectedRevision:9,query:"DL1",limit:500});
   expect(surfaceOwner.current.projections["callsign-intelligence"].clusterCalls).toEqual(["DL1XYZ"]);
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
@@ -120,6 +121,39 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
     ["callsign", "Call", true, ""], ["sent", "SNT", true, "599"], ["receive", "RCV", true, "599"],
     ["other_1", "", false, "15"], ["other_2", "CQ Zone", true, ""],
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
+});
+
+it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
+  const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3,
+    score:{qsos:2,points:2,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:2} };
+  current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
+    readOnly:field.id==="other_1", label:field.id==="other_1"?"Sent S/N":field.id==="other_2"?"Name + S/N":field.label}));
+  const row = {ID:"mst-qso",TS:"2026-10-20 08:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,Name:"BOB",NR:12,ZN:5,Points:1};
+  const request = vi.fn(async (method:string,params:Record<string,unknown>={}) => {
+    const support=workspaceSupport(method,params,current); if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP(); if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"icwc_mst",name:"ICWC Medium Speed Test"}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method); return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:"icwc_mst"}});
+  fireEvent.change(screen.getByLabelText("Sent Exchange"),{target:{value:"OLIVER"}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.session.ruleName).toBe("ICWC Medium Speed Test");
+  expect(entry.descriptor).toMatchObject({reportsVisible:false,serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:3}});
+  expect(entry.draft).toMatchObject({reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]});
+  expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 unique calls"]});
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",page:{rows:[{receivedExchange:"BOB 12",sentExchange:"1"}]}});
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:row.ID}}));
+  expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({reportsVisible:false,
+    receivedFields:[{id:"other_1",label:"Sent S/N",value:"1"},{id:"other_2",label:"Name + S/N",value:"BOB 12"}]});
+  for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
 
 it("projects only configured bands into detached Main Logging", async () => {
@@ -209,7 +243,7 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}/>);
   fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:initial}});
   await createContestThroughSetup();
-  expect(await screen.findByText("Connect the selected radio or enter a valid CQ WW frequency before creating a contest.")).toBeTruthy();
+  expect(await screen.findByText("Connect the selected radio or enter a valid HF contest frequency before creating a contest.")).toBeTruthy();
   expect(screen.queryByText("Contest created.")).toBeNull();
   expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(false);
   expect(screen.getByRole("button", {name:"OK"})).toBeTruthy();

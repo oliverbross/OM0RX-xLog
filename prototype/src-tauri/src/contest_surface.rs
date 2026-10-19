@@ -877,11 +877,16 @@ fn validate_entry_projection_body(value: &Map<String, Value>) -> Result<(), Stri
 
 fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> {
     let descriptor = object(value, "entry descriptor")?;
+    let mut required = descriptor.clone();
+    let reports_visible = required.remove("reportsVisible");
     exact(
-        descriptor,
+        &required,
         &["bands", "modes", "sentFields", "serial"],
         "entry descriptor",
     )?;
+    if let Some(reports_visible) = reports_visible {
+        boolean(&reports_visible, "entry report visibility")?;
+    }
     unique_text_array(&descriptor["bands"], 32, 16, None, "entry bands")?;
     unique_text_array(
         &descriptor["modes"],
@@ -1506,6 +1511,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
             validate_manual_rows(&rows)?;
         }
     }
+    if let Some(layout) = required.remove("exchangeLayout") {
+        enum_value(&layout, &["plugin"], "log exchange layout")?;
+    }
     exact(
         &required,
         &[
@@ -1565,6 +1573,7 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         let mut required_edit = edit.clone();
         let worked_at = required_edit.remove("workedAt");
         let operator = required_edit.remove("operator");
+        let reports_visible = required_edit.remove("reportsVisible");
         exact(
             &required_edit,
             &[
@@ -1589,6 +1598,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         }
         if let Some(operator) = operator {
             text_value(&operator, 32, true, "log edit operator")?;
+        }
+        if let Some(reports_visible) = reports_visible {
+            boolean(&reports_visible, "log edit report visibility")?;
         }
         text_value(&edit["qsoID"], 160, false, "QSO ID")?;
         text_value(&edit["callsign"], 32, true, "log callsign")?;
@@ -2010,13 +2022,13 @@ mod tests {
                 "receivedReport":"599","receivedFields":[],"frequencyHz":null,"editFrequencyText":"bad",
                 "frequencyError":"Enter a frequency","correctionReason":"","confirmDelete":false,"deletionReason":""},"busy":false});
         assert!(validate_projection("logbook", &logbook).is_ok());
-        let not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,
+        let not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"exchangeLayout":"plugin",
             "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00.000Z",
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
             "manualRows":[{"qsoID":"qso","TS":"2026-10-18 00:00:00","Call":"DL1AAA","Freq":"14025.0",
                 "SNT":"599","RCV":"599","ZN":"14","SentNr":"15","prefix":"DL","Points":"3"}],"partialRows":[],
-            "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA",
+            "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA","reportsVisible":false,
                 "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
                 "frequencyHz":14025000,"editFrequencyText":"14025000","frequencyError":"","correctionReason":"Operator correction",
                 "confirmDelete":false,"deletionReason":"Operator deletion"},"busy":false});
@@ -2661,7 +2673,7 @@ mod tests {
                 "receivedFields":[],"frequencyHz":14025000,"frequencyText":"14025000","frequencyError":"",
                 "band":"20m","mode":"CW","dupe":{"state":"clear","reason":"Not worked on 20m."},
                 "validation":{"errors":[],"warnings":[]},"reservedSerial":null},
-            "descriptor":{"bands":["20m"],"modes":["CW"],
+            "descriptor":{"bands":["20m"],"modes":["CW"],"reportsVisible":false,
                 "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
                 "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
             "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,

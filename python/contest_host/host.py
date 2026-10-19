@@ -234,6 +234,8 @@ class Desk:
         raise HostError("invalid_frequency", "Frequency is outside CQ WW bands")
 
     def projection(self):
+        if hasattr(self.contest, "populate_history_info_line"):
+            self.contest.populate_history_info_line(self)
         # Rebuild Not1MM's non-transmitting ESM presentation on every read so
         # highlights survive reopen/refresh without emitting an output intent.
         if self.use_esm:
@@ -253,7 +255,9 @@ class Desk:
         if type(speed) not in {int, float} or not 1 <= speed <= 100:
             speed = None
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
-                "pluginID": self.state["pluginID"], "sourceRevision": SOURCE_REVISION,
+                "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
+                "reservedSerial": self.current_sn if self.state["pluginID"] in SERIAL_PLUGINS else None,
+                "sourceRevision": SOURCE_REVISION,
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
@@ -273,6 +277,11 @@ class Desk:
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] == "icwc_mst":
+            calls = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": 0, "uniqueCalls": calls,
+                    "multipliers": calls, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] == "arrl_ss_cw":
             sections = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -531,6 +540,8 @@ class Host:
                 zone = str(setup["settings"].get("SentExchange", ""))
                 if state["pluginID"] == "cq_ww_cw":
                     require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
+                if state["pluginID"] == "icwc_mst":
+                    require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "ICWC sent exchange must be one name")
                 require(setup["settings"].get("ModeCategory", "CW") == "CW", "Selected plugin requires CW mode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
@@ -688,6 +699,10 @@ class Host:
         settings.setdefault("SentExchange", str(countries[call]["cq"]) if plugin_id == "cq_ww_cw" else "")
         if plugin_id == "cq_ww_cw":
             require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
+        if plugin_id == "icwc_mst":
+            require(isinstance(settings["SentExchange"], str)
+                    and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", settings["SentExchange"]) is not None,
+                    "ICWC sent exchange must be one name")
         settings.setdefault("ModeCategory", "CW")
         require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
         return {"sessionID": session_id, "workspaceGeneration": workspace,
@@ -767,6 +782,10 @@ class Host:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
                     "Sent serial must be a positive SQLite integer")
+            if desk.state["pluginID"] == "icwc_mst":
+                exchange = re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31} ([0-9]+)", fields["other_2"])
+                require(exchange is not None and 0 < int(exchange[1]) <= 9223372036854775807,
+                        "ICWC received exchange must be NAME SERIAL with one space and a positive SQLite serial")
 
     def commit(self, desk, qso_id=None, timestamp=None):
         fields = desk.values()

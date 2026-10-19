@@ -3,6 +3,37 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testICWCMSTOriginalPluginSerialAndScoreThroughNativeBridge() async throws {
+        let root = repositoryRoot()
+        let temporary = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/"))
+            .appendingPathComponent("xlog-mst-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python")))
+        let session = UUID().uuidString.lowercased()
+        let created = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": session, "workspaceGeneration": UUID().uuidString.lowercased(),
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0, "pluginID": "icwc_mst",
+            "frequencyHz": 14_025_000, "station": ["Call": "OM0RX"], "settings": ["SentExchange": "OLIVER"],
+        ])
+        let projection = try XCTUnwrap(created["projection"] as? [String: Any])
+        XCTAssertEqual(projection["pluginName"] as? String, "ICWC Medium Speed Test")
+        XCTAssertEqual(projection["reservedSerial"] as? Int, 1)
+        let committed = try await lane.handle(method: "contest_qso_commit", params: [
+            "sessionID": session, "operationID": UUID().uuidString.lowercased(), "expectedRevision": 1,
+            "fields": ["callsign": "K1ABC", "other_2": "BOB 12"],
+        ])
+        let next = try XCTUnwrap(committed["projection"] as? [String: Any])
+        let score = try XCTUnwrap(next["score"] as? [String: Any])
+        XCTAssertEqual(next["reservedSerial"] as? Int, 2)
+        XCTAssertEqual(score["uniqueCalls"] as? Int, 1)
+        XCTAssertEqual(score["total"] as? Int, 1)
+        await lane.shutdown()
+    }
+
     private func python312() throws -> URL {
         let fileManager = FileManager.default
         let candidates = [
@@ -37,7 +68,7 @@ final class PythonContestLaneTests: XCTestCase {
         let catalog = try await lane.handle(method: "contest_catalog", params: [:])
         let plugins = try XCTUnwrap(catalog["plugins"] as? [[String: Any]])
         XCTAssertEqual(Set(plugins.compactMap { $0["id"] as? String }),
-                       Set(["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw"]))
+                       Set(["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst"]))
         let cqww = try XCTUnwrap(plugins.first { $0["id"] as? String == "cq_ww_cw" })
         XCTAssertEqual(cqww["engine"] as? String, "not1mm-python")
 

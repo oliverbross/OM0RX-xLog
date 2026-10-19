@@ -39,6 +39,19 @@ it("renders validated manual main context without manufacturing headings or dist
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("42/17 2142");
 });
 
+it("renders ICWC original name/serial input while omitting hidden report fields", async()=>{
+  const view={...projection,schemaVersion:2,session:{name:"ICWC MST",ruleName:"ICWC Medium Speed Test",mode:"CW"},
+    draft:{...projection.draft,reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]},
+    descriptor:{reportsVisible:false,bands:["20m"],modes:["CW"],sentFields:[{id:"other_1",label:"Sent S/N",value:"003",required:true,maximumUTF8Bytes:32}],
+      serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:3}},operator:null};
+  expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
+  expect(validContestSurfaceProjection("active-qso",{...view,descriptor:{...view.descriptor,reportsVisible:"false"}})).toBe(false);
+  native.invoke.mockResolvedValue({...snapshot,projection:view}); render(<DetachedContestSurface/>);
+  expect(await screen.findByLabelText("Name + S/N")).toHaveProperty("value","BOB 12");
+  expect(screen.queryByLabelText("SNT")).toBeNull(); expect(screen.queryByLabelText("RCV")).toBeNull();
+  expect(screen.getByLabelText("Sent exchange").textContent).toBe("003");
+});
+
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"outside-current-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"};
