@@ -136,6 +136,18 @@ class Store(DataBase):
         if not meta or meta["generation"] != generation or meta["digest"] != digest:
             raise ValueError("Call-history stage is stale")
         actual = self.exec_sql("SELECT count(*) AS value FROM xlog_callhistory_stage")["value"]
+        if actual == offset + len(rows):
+            columns = ",".join(CALLHISTORY_COLUMNS)
+            existing = self.exec_sql_mult(
+                f"SELECT {columns} FROM xlog_callhistory_stage WHERE ordinal>=? AND ordinal<? ORDER BY ordinal",
+                (offset, offset + len(rows)),
+            )
+            if len(existing) == len(rows) and all(
+                all(str(candidate[key] if candidate[key] is not None else "") == row[key]
+                    for key in CALLHISTORY_COLUMNS)
+                for candidate, row in zip(existing, rows)
+            ):
+                return
         if actual != offset or offset + len(rows) > meta["expected_count"]:
             raise ValueError("Call-history stage offset is invalid")
         placeholders = ",".join("?" for _ in range(len(CALLHISTORY_COLUMNS) + 1))
@@ -146,6 +158,9 @@ class Store(DataBase):
             self.conn.execute(sql, (index, *(row[key] for key in CALLHISTORY_COLUMNS)))
 
     def activate_callhistory_stage(self, generation, digest, expected_count):
+        active = self.callhistory_status()
+        if active == {"generation": generation, "digest": digest, "rowCount": expected_count}:
+            return
         meta = self.exec_sql(
             "SELECT generation,digest,expected_count FROM xlog_callhistory_stage_meta WHERE singleton=1"
         )

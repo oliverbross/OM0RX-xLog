@@ -11,7 +11,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import uuid
 
-from .store import Store, canonical
+from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
 from .plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
@@ -268,8 +268,11 @@ class Desk:
         raise HostError("invalid_frequency", "Frequency is outside CQ WW bands")
 
     def projection(self):
-        if hasattr(self.contest, "populate_history_info_line"):
+        if (self.state.get("setup", {}).get("preferences", {}).get("callHistory") is True
+                and hasattr(self.contest, "populate_history_info_line")):
             self.contest.populate_history_info_line(self)
+        else:
+            self.history_info.setText("")
         # Rebuild Not1MM's non-transmitting ESM presentation on every read so
         # highlights survive reopen/refresh without emitting an output intent.
         if self.use_esm:
@@ -435,6 +438,8 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        if method.startswith("history_"):
+            return self.callhistory(store, state, method, params)
         if method == "rates":
             # Capture the revision, log and clock in one SQLite read snapshot.
             store.conn.execute("BEGIN")
@@ -552,6 +557,58 @@ class Host:
             del self.exports[artifact_id]
             return {"released": True, "artifactID": artifact_id, "sessionID": session_id}
         raise HostError("unknown_method", "Unsupported contest host method")
+
+    @staticmethod
+    def callhistory(store, state, method, params):
+        generation = params.get("generation")
+        digest = params.get("digest")
+        expected_scope = {"sessionID", "workspaceGeneration"}
+        require(params.get("workspaceGeneration") == workspace_generation(state),
+                "Call-history workspace changed", "stale_context")
+        if method == "history_status":
+            require(set(params) == expected_scope, "Unexpected call-history status fields")
+            return {"sessionID": state["sessionID"], "workspaceGeneration": workspace_generation(state),
+                    "activation": store.callhistory_status()}
+        identifier(generation)
+        require(isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest) is not None,
+                "Invalid call-history digest")
+        common = expected_scope | {"generation", "digest"}
+        row_count = params.get("rowCount")
+        if method in {"history_stage_begin", "history_stage_commit"}:
+            require(set(params) == common | {"rowCount"}, "Unexpected call-history stage fields")
+            require(type(row_count) is int and 0 <= row_count <= 100_000, "Invalid call-history row count")
+        elif method == "history_stage_chunk":
+            require(set(params) == common | {"offset", "rows"}, "Unexpected call-history chunk fields")
+            offset, rows = params.get("offset"), params.get("rows")
+            require(type(offset) is int and 0 <= offset <= 100_000, "Invalid call-history chunk offset")
+            require(isinstance(rows, list) and 0 < len(rows) <= 256, "Invalid call-history chunk")
+            for row in rows:
+                require(isinstance(row, dict) and set(row) == set(CALLHISTORY_COLUMNS),
+                        "Invalid call-history row")
+                for name, value in row.items():
+                    maximum = 32 if name == "Call" else 4_096
+                    text(value, maximum)
+        elif method == "history_stage_cancel":
+            require(set(params) == common, "Unexpected call-history cancellation fields")
+        else:
+            raise HostError("unknown_method", "Unsupported call-history host method")
+        store.begin()
+        try:
+            if method == "history_stage_begin":
+                store.begin_callhistory_stage(generation, digest, row_count)
+            elif method == "history_stage_chunk":
+                store.append_callhistory_stage(generation, digest, offset, rows)
+            elif method == "history_stage_commit":
+                store.activate_callhistory_stage(generation, digest, row_count)
+            else:
+                store.cancel_callhistory_stage()
+            store.finish(True)
+        except (ValueError, sqlite3.Error) as error:
+            store.finish(False)
+            raise HostError("history_activation_failed", str(error)) from error
+        return {"sessionID": state["sessionID"], "workspaceGeneration": workspace_generation(state),
+                "generation": generation, "digest": digest,
+                "activation": store.callhistory_status()}
 
     def mutate(self, store, session_id, method, params):
         operation = identifier(params.get("operationID"))
@@ -874,7 +931,8 @@ class Host:
         if desk.state["pluginID"] == "trans_tasman":
             desk.contact["Band"] = desk.contest_band(desk.state["draft"]["frequencyHz"])
         desk.contest.prefill(desk)
-        if hasattr(desk.contest, "check_call_history"):
+        if (desk.state.get("setup", {}).get("preferences", {}).get("callHistory") is True
+                and hasattr(desk.contest, "check_call_history")):
             desk.contest.check_call_history(desk)
 
     @staticmethod

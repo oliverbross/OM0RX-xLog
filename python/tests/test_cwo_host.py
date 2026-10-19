@@ -80,6 +80,9 @@ class CWOHostTests(unittest.TestCase):
             self.assertEqual((action["template"], action["sentSerial"], action["sentExchange"]),
                              ("{SENTNR} {EXCHANGE}", "001", "OLIVER"))
 
+        setup = self.read("setup_get")["setup"]
+        setup["preferences"]["callHistory"] = True
+        self.mutate("setup_save", setup=setup)
         store = self.host.database(self.session)
         store.conn.execute(
             "INSERT INTO callhistory(Call,Name,UserText) VALUES(?,?,?)",
