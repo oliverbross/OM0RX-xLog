@@ -141,7 +141,12 @@ class HostTests(unittest.TestCase):
         self.assertEqual(saved["setup"], setup)
         self.host.close()
         self.host = Host(self.root)
-        self.assertEqual(self.read("contest_setup_get"), {"sessionID": self.session, "revision": saved["revision"], "setup": setup})
+        reopened = self.read("contest_setup_get")
+        self.assertEqual({key: reopened[key] for key in ("sessionID", "revision", "setup")},
+                         {"sessionID": self.session, "revision": saved["revision"], "setup": setup})
+        self.assertEqual(len(reopened["effectiveMacros"]), 24)
+        self.assertEqual(next(item for item in reopened["effectiveMacros"]
+                              if item["mode"] == "R" and item["key"] == "F1"), setup["macros"][0])
         self.assertTrue(self.call("contest_setup_save", params)["replayed"])
         with self.assertRaises(HostError) as error:
             self.call("contest_setup_save", {**params, "operationID": uid()})

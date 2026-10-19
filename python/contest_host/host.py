@@ -332,7 +332,8 @@ class Host:
                 store.conn.rollback()
         if method == "setup_get":
             return {"sessionID": session_id, "revision": state["revision"],
-                    "setup": deepcopy(state.get("setup", self.default_setup(state)))}
+                    "setup": deepcopy(state.get("setup", self.default_setup(state))),
+                    "effectiveMacros": self.effective_macros(state)}
         if method == "check_partial":
             query = text(params.get("query", ""), 32).upper()
             require(re.fullmatch(r"[A-Z0-9/]{1,32}", query) is not None, "Partial callsign must contain letters, digits or slash")
@@ -523,6 +524,7 @@ class Host:
                       "projection": desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
             if method == "setup_save":
                 result["setup"] = deepcopy(state["setup"])
+                result["effectiveMacros"] = self.effective_macros(state)
             for index, action in enumerate(result["actions"]):
                 action["actionID"] = f"{operation}:{index}"
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
@@ -539,6 +541,14 @@ class Host:
         return {"name": state.get("name", "CQ WW CW"), "operator": state["operator"],
                 "pluginID": state["pluginID"], "station": deepcopy(state["station"]),
                 "settings": deepcopy(state["settings"]), "preferences": {}, "network": {}, "macros": []}
+
+    @staticmethod
+    def effective_macros(state):
+        macros = load_cw_macros(state["pluginID"])
+        for macro in state.get("setup", {}).get("macros", []):
+            macros[(macro["mode"], macro["key"])] = {"label": macro["label"], "template": macro["template"]}
+        return [{"mode": mode, "key": f"F{number}", **deepcopy(macros[(mode, f"F{number}")])}
+                for mode in ("R", "S") for number in range(1, 13)]
 
     @staticmethod
     def validate_setup(value):
