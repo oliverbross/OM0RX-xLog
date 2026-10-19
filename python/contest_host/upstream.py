@@ -1,7 +1,7 @@
 """Load original pinned modules with a finite, inspectable import overlay.
 
 Original bytes remain in vendor. No contest expressions or SQL are converted.
-The two overlaid modules have only imports/output destination adjusted.
+The overlaid modules have only imports/output destination adjusted.
 """
 from importlib import import_module, util
 from hashlib import sha256
@@ -25,11 +25,11 @@ def verify_source():
     _verified = True
 
 
-def load_cw_macros():
+def load_cw_macros(plugin_id="cq_ww_cw"):
     """Return the pinned Not1MM Run/S&P macro text through a finite token adapter."""
     verify_source()
     result = {}
-    replacements = {"HISCALL": "CALL", "SNT": "RST", "EXCH": "EXCHANGE", "SENTNR": "EXCHANGE"}
+    replacements = {"HISCALL": "CALL", "SNT": "RST", "EXCH": "EXCHANGE"}
     source = VENDOR / "not1mm/data/cwmacros.txt"
     for line in source.read_text(encoding="utf-8").splitlines():
         parts = line.split("|", 3)
@@ -39,10 +39,15 @@ def load_cw_macros():
         for upstream, native in replacements.items():
             template = template.replace("{" + upstream + "}", "{" + native + "}")
         if re.findall(r"\{([^}]+)\}", template) and any(
-                token not in {"MYCALL", "CALL", "RST", "EXCHANGE"}
+                token not in {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
                 for token in re.findall(r"\{([^}]+)\}", template)):
             raise RuntimeError("Pinned Not1MM CW macro uses an unsupported token")
         result[(parts[0], parts[1])] = {"label": parts[2], "template": template}
+    if plugin_id == "cq_wpx_cw":
+        # The shipped macros target a configured exchange. WPX sends the
+        # host-reserved draft serial, independently of that configured text.
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{RST} {SENTNR}"
     if len(result) != 24:
         raise RuntimeError("Pinned Not1MM CW macro set is incomplete")
     return result
@@ -66,7 +71,9 @@ def overlay(name, replacements):
     return module
 
 
-def load_cqww():
+def load_plugin(plugin_id="cq_ww_cw"):
+    if plugin_id not in {"cq_ww_cw", "cq_wpx_cw"}:
+        raise ValueError("Unsupported pinned plugin")
     verify_source()
     if str(VENDOR) not in sys.path:
         sys.path.insert(0, str(VENDOR))
@@ -78,10 +85,15 @@ def load_cqww():
             ("from PyQt6.QtWidgets import QApplication, QDialog, QProgressDialog, QPushButton", "from contest_host.qt_compat import QApplication, QDialog, QProgressDialog, QPushButton"),
             ("def imp_adif(self):", "def imp_adif(self):\n    import adif_io  # real optional dependency; never a stand-in"),
         ])
-    if "not1mm.plugins.cq_ww_cw" not in sys.modules:
+    module_name = f"not1mm.plugins.{plugin_id}"
+    if module_name not in sys.modules:
         import_module("not1mm.plugins")
-        overlay("not1mm.plugins.cq_ww_cw", [
+        overlay(module_name, [
             ("from PyQt6 import QtWidgets", "from contest_host.qt_compat import QtWidgets"),
             ("str(Path.home())", "str(self.export_directory)"),
         ])
-    return sys.modules["not1mm.plugins.cq_ww_cw"]
+    return sys.modules[module_name]
+
+
+def load_cqww():
+    return load_plugin("cq_ww_cw")

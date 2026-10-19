@@ -1,4 +1,4 @@
-"""CQ WW application adapter: plugin code owns rules, xLog owns output."""
+"""Bounded application adapter: pinned plugins own rules, xLog owns output."""
 from copy import deepcopy
 from datetime import datetime, UTC
 import base64
@@ -13,9 +13,10 @@ import uuid
 
 from .store import Store, canonical
 from .rates import calculate_rates
-from .upstream import load_cqww, load_cw_macros
+from .upstream import load_plugin, load_cw_macros
 
 PLUGIN_ID = "cq_ww_cw"
+PLUGINS = {"cq_ww_cw": "CQ WW CW", "cq_wpx_cw": "CQ WPX CW"}
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
@@ -98,8 +99,8 @@ class Field:
 class Desk:
     def __init__(self, store, state, commit):
         self.database, self.state, self._commit = store, state, commit
-        self.contest = load_cqww()
-        self.cw_macros = load_cw_macros()
+        self.contest = load_plugin(state["pluginID"])
+        self.cw_macros = load_cw_macros(state["pluginID"])
         for macro in state.get("setup", {}).get("macros", []):
             self.cw_macros[(macro["mode"], macro["key"])] = {"label": macro["label"], "template": macro["template"]}
         self.station, self.contest_settings = state["station"], state["settings"]
@@ -120,7 +121,7 @@ class Desk:
         }
         self.current_widget = state["focus"]
         self.esm_call_sent = state.get("esmCallSent", "")
-        self.current_sn, self.contact_is_dupe = 0, 0
+        self.current_sn, self.contact_is_dupe = state["draft"].get("serial", 0), 0
         self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": "CW"}
         self.contact = self.database.get_empty().copy()
         self.contest.init_contest(self)
@@ -149,7 +150,8 @@ class Desk:
                              "label": macro["label"], "template": macro["template"],
                              "sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                              "fields": self.values(), "stationCall": self.station["Call"],
-                             "sentExchange": self.contest_settings["SentExchange"]})
+                             "sentExchange": str(self.contest_settings["SentExchange"]),
+                             "sentSerial": self.other_1.text() if self.state["pluginID"] == "cq_wpx_cw" else ""})
 
     def save_contact(self):
         self._commit(self)
@@ -212,7 +214,7 @@ class Desk:
         if type(speed) not in {int, float} or not 1 <= speed <= 100:
             speed = None
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
-                "pluginID": PLUGIN_ID, "sourceRevision": SOURCE_REVISION,
+                "pluginID": self.state["pluginID"], "sourceRevision": SOURCE_REVISION,
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
@@ -232,6 +234,11 @@ class Desk:
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] == "cq_wpx_cw":
+            prefixes = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": 0, "prefixes": prefixes,
+                    "multipliers": prefixes, "total": self.contest.calc_score(self)}
         country, zone = self.contest.show_mults(self, rtc=True)
         return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                 "countries": country, "zones": zone, "multipliers": country + zone, "total": self.contest.calc_score(self)}
@@ -285,7 +292,8 @@ class Host:
         aliases = {"create": "session_create", "open": "session_open", "operation_receipt": "receipt", "draft_get": "projection", "log_page": "log"}
         method = aliases.get(method, method)
         if method == "catalog":
-            return {"plugins": [{"id": PLUGIN_ID, "name": "CQ WW CW", "engine": "not1mm-python", "sourceRevision": SOURCE_REVISION}], "protocolVersion": 1}
+            return {"plugins": [{"id": key, "name": name, "engine": "not1mm-python", "sourceRevision": SOURCE_REVISION}
+                                for key, name in PLUGINS.items()], "protocolVersion": 1}
         if method == "sessions":
             sessions = []
             for directory in sorted(self.root.iterdir()):
@@ -352,7 +360,9 @@ class Host:
         if method == "cw_context":
             return {"sessionID": session_id, "revision": state["revision"],
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
-                    "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"]}
+                    "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
+                    "sentExchange": str(state["settings"]["SentExchange"]),
+                    "sentSerial": desk.other_1.text() if state["pluginID"] == "cq_wpx_cw" else ""}
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"])) if row else None}
@@ -447,6 +457,8 @@ class Host:
                 self.verify_engine(state)
                 require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
             self._operation = operation
+            if method == "session_create":
+                self.reserve_serial(store, state)
             desk = Desk(store, state, self.commit)
             if method == "draft_apply":
                 self.apply_fields(desk, params)
@@ -460,6 +472,7 @@ class Host:
                 desk.pref["run_state"] = state["run"] = params["run"]
             elif method == "setup_save":
                 setup = self.validate_setup(params.get("setup"))
+                require(setup["pluginID"] == state["pluginID"], "A session's plugin cannot be changed")
                 call = text(setup["station"].get("Call", ""), 32).upper()
                 require(re.fullmatch(r"[A-Z0-9/]{3,32}", call) is not None, "Invalid station call")
                 require(call in state["reference"]["countries"], "Resolve the station country before changing setup", "station_country_unresolved")
@@ -467,9 +480,11 @@ class Host:
                 operator = text(setup["operator"], 32)
                 require(bool(operator.strip()), "Operator is required")
                 zone = str(setup["settings"].get("SentExchange", ""))
-                require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
-                require(setup["settings"].get("ModeCategory", "CW") == "CW", "CQ WW CW requires CW mode")
+                if state["pluginID"] == "cq_ww_cw":
+                    require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
+                require(setup["settings"].get("ModeCategory", "CW") == "CW", "Selected plugin requires CW mode")
                 setup["station"]["Call"] = call
+                setup["settings"].setdefault("SentExchange", "")
                 setup["settings"].setdefault("ModeCategory", "CW")
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
@@ -477,7 +492,8 @@ class Host:
                 # the projection, and rescore if the station country changed.
                 previous_station = desk.station
                 desk = Desk(store, state, self.commit)
-                desk.other_1.setText(zone)
+                if state["pluginID"] == "cq_ww_cw":
+                    desk.other_1.setText(zone)
                 if previous_station["Call"] != call:
                     self.rebuild(desk)
             elif method == "esm":
@@ -530,7 +546,7 @@ class Host:
         require(isinstance(value, dict) and set(value) == keys, "Complete setup document required")
         for key in ("name", "operator", "pluginID"):
             text(value[key], 128)
-        require(value["pluginID"] == PLUGIN_ID, "Only CQ WW CW is supported")
+        require(value["pluginID"] in PLUGINS, "Unsupported pinned plugin")
         for key in ("station", "settings", "preferences", "network"):
             mapping = value[key]
             require(isinstance(mapping, dict) and len(mapping) <= 128, "Setup map exceeds bound")
@@ -571,12 +587,13 @@ class Host:
 
     @staticmethod
     def verify_engine(state):
-        require(state.get("engine") == "not1mm-python" and state.get("pluginID") == PLUGIN_ID
+        require(state.get("engine") == "not1mm-python" and state.get("pluginID") in PLUGINS
                 and state.get("sourceRevision") == SOURCE_REVISION,
                 "This session belongs to a different contest engine/source", "engine_mismatch")
 
     def new_state(self, session_id, params):
-        require(params.get("pluginID", PLUGIN_ID) == PLUGIN_ID, "Only CQ WW CW is supported")
+        plugin_id = params.get("pluginID", PLUGIN_ID)
+        require(plugin_id in PLUGINS, "Unsupported pinned plugin")
         workspace = identifier(params.get("workspaceGeneration"))
         frequency = params.get("frequencyHz")
         require(type(frequency) is int, "A confirmed or manual frequency is required")
@@ -594,16 +611,26 @@ class Host:
         for value in [*station.values(), *settings.values()]:
             require(isinstance(value, (str, int)) and not isinstance(value, bool), "Station/settings values must be text or integer")
             text(str(value), 512)
-        settings.setdefault("SentExchange", str(countries[call]["cq"]))
-        require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
+        settings.setdefault("SentExchange", str(countries[call]["cq"]) if plugin_id == "cq_ww_cw" else "")
+        if plugin_id == "cq_ww_cw":
+            require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
         settings.setdefault("ModeCategory", "CW")
+        require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
         return {"sessionID": session_id, "workspaceGeneration": workspace,
-                "name": text(params.get("name", "CQ WW CW"), 128),
-                "revision": 0, "engine": "not1mm-python", "pluginID": PLUGIN_ID,
+                "name": text(params.get("name", PLUGINS[plugin_id]), 128),
+                "revision": 0, "engine": "not1mm-python", "pluginID": plugin_id,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
-                "fields": dict(zip(INPUTS, ("", "599", "599", str(settings["SentExchange"]), "")))}}
+                "fields": dict(zip(INPUTS, ("", "599", "599", str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" else "", "")))}}
+
+    def reserve_serial(self, store, state):
+        if state["pluginID"] != "cq_wpx_cw":
+            return
+        serial = store.exec_sql("SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial")["serial"]
+        store.conn.execute("INSERT INTO xlog_serial VALUES(?,?,?)", (state["draft"]["id"], serial, self._operation))
+        state["draft"]["serial"] = serial
+        state["draft"]["fields"]["other_1"] = str(serial).zfill(3)
 
     @staticmethod
     def countries(countries):
@@ -646,12 +673,23 @@ class Host:
         country = desk.cty_lookup(desk.callsign.text())
         desk.contact["ZN"] = next(iter(country.values()))["cq"] if country else ""
         desk.contest.prefill(desk)
-        desk.contest.check_call_history(desk)
+        if hasattr(desk.contest, "check_call_history"):
+            desk.contest.check_call_history(desk)
+
+    @staticmethod
+    def validate_exchange(desk, fields):
+        if desk.state["pluginID"] == "cq_ww_cw":
+            require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
+            require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
+        else:
+            for name in ("other_1", "other_2"):
+                require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
+                        "WPX sent and received serials must be positive SQLite integers")
 
     def commit(self, desk, qso_id=None, timestamp=None):
         fields = desk.values()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", fields["callsign"]) is not None, "Complete callsign required")
-        require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
+        self.validate_exchange(desk, fields)
         qso_id = identifier(qso_id) if qso_id else str(uuid.uuid4())
         timestamp = timestamp or now()
         try:
@@ -669,6 +707,10 @@ class Host:
         desk.state["draft"]["id"] = str(uuid.uuid4())
         for name in ("callsign", "other_2"):
             getattr(desk, name).setText("")
+        if desk.state["pluginID"] == "cq_wpx_cw":
+            self.reserve_serial(desk.database, desk.state)
+            desk.current_sn = desk.state["draft"]["serial"]
+            desk.other_1.setText(desk.state["draft"]["fields"]["other_1"])
         desk.current_widget = "callsign"
 
     def change(self, desk, method, params):
@@ -692,7 +734,7 @@ class Host:
             self.apply_fields(desk, changes)
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", updated["callsign"]) is not None, "Complete callsign required")
-            require(updated["other_2"].isdigit() and 1 <= int(updated["other_2"]) <= 40, "CQ zone must be 1 to 40")
+            self.validate_exchange(desk, updated)
             timestamp = params.get("timestamp", before["TS"])
             try:
                 require(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == timestamp,
@@ -704,8 +746,6 @@ class Host:
             desk.band(frequency)
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
-            require(updated["other_1"].isdigit() and 1 <= int(updated["other_1"]) <= 40,
-                    "Sent CQ zone must be 1 to 40")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
             after["SentNr"] = int(updated["other_1"])
             try:
@@ -723,13 +763,19 @@ class Host:
     @staticmethod
     def rebuild(desk):
         rows = desk.database.fetch_all_contacts_asc()
+        points = {}
         desk.database.conn.execute("DELETE FROM DXLOG")
         for row in rows:
             desk.contact = row
             desk.contact_is_dupe = int(bool(desk.database.check_dupe_on_band(row["Call"], row["Band"]).get("isdupe")))
             row["Points"] = desk.contest.points(desk)
+            points[row["ID"]] = row["Points"]
             desk.database.log_contact(row)
         desk.contest.recalculate_mults(desk)
+        # Upstream recalculate_mults calls points with one shared dupe flag.
+        # Restore each contact's plugin-calculated score from the ordered replay.
+        for qso_id, value in points.items():
+            desk.database.conn.execute("UPDATE DXLOG SET Points=? WHERE ID=?", (value, qso_id))
 
     def audit(self, store, qso_id, kind, before, after, reason=""):
         store.conn.execute("INSERT INTO xlog_qso_audit(operation_id,qso_id,kind,before_json,after_json,reason) VALUES(?,?,?,?,?,?)", (self._operation, qso_id, kind, canonical(before), canonical(after), reason))
