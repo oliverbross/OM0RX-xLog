@@ -110,9 +110,17 @@ type Request = (method: string, params?: Data) => Promise<any>;
 const contestTitle = "Contest Manager / Desk";
 const contestRequest: ContestRequest = (method, params = {}) => framedWorkerRequest(method, params);
 const ContestWorkspace = lazy(() => import("./contesting/ContestWorkspace"));
+const Not1MMContestWorkspace = lazy(() => import("./contesting/Not1MMContestWorkspace"));
+export function contestingRuntimeKind(value: unknown): "legacy" | "python" | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const health = value as Data;
+  if (health.isolated_workspace === false && health.contesting_engine === "not1mm-python" &&
+      health.contesting_available === true) return "python";
+  if (health.mode === "contesting_test" && health.isolated_workspace === true) return "legacy";
+  return null;
+}
 export function contestingRuntimeAvailable(value: unknown): boolean {
-  return !!value && typeof value === "object" && !Array.isArray(value) &&
-    (value as Data).mode === "contesting_test" && (value as Data).isolated_workspace === true;
+  return contestingRuntimeKind(value) !== null;
 }
 
 const callsignLookups = new WeakMap<Request, Map<string, Promise<any>>>();
@@ -225,6 +233,7 @@ function MainLiveApp() {
   const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
   const [contestCapability, setContestCapability] = useState<"checking" | "available" | "unavailable">("checking");
+  const [contestRuntime, setContestRuntime] = useState<"legacy" | "python" | null>(null);
   const [operatingModule, setOperatingModule] = useState<OperatingModuleStatus | null>(null);
   const [moduleChanging, setModuleChanging] = useState(false);
   const moduleTransitioning = useRef(false);
@@ -235,9 +244,12 @@ function MainLiveApp() {
   const refreshContestCapability = useCallback(async () => {
     try {
       const response = await framedWorkerRequest("health");
-      if (mounted.current) setContestCapability(response.ok === true && contestingRuntimeAvailable(response.result) ? "available" : "unavailable");
+      if (mounted.current) {
+        const runtime = response.ok === true ? contestingRuntimeKind(response.result) : null;
+        setContestRuntime(runtime); setContestCapability(runtime ? "available" : "unavailable");
+      }
     } catch {
-      if (mounted.current) setContestCapability("unavailable");
+      if (mounted.current) { setContestRuntime(null); setContestCapability("unavailable"); }
     }
   }, []);
   useEffect(() => { let active = true; void operatingModuleStatus(true).then(value => { if (active) setOperatingModule(value); })
@@ -638,7 +650,8 @@ function MainLiveApp() {
           }
         }
       }
-      const isStation = method.startsWith("station_");
+      const contestStationTune = method === "contest_station_tune";
+      const isStation = method.startsWith("station_") || contestStationTune;
       const radioId = activeRadio;
       if ((!radioId || !providerReadyRef.current) && (isStation || method.startsWith("hamlib_") && params.device === "radio"))
         throw new Error("Wait for the shared radio selection to load before using the radio.");
@@ -652,9 +665,10 @@ function MainLiveApp() {
         if(requestedProvider!=="direct_agent")throw new Error("Amplifier controls require the Agent.");
         return amplifierTransitionSession().transition(params.action as "operate"|"standby");
       }
-      if (method === "station_tune" && nativeStationSelection()) return manualTuneSession(radioId!).tune(requestedProvider, params.frequency_hz as number, params.mode as string);
+      if ((method === "station_tune" || contestStationTune) && nativeStationSelection()) return manualTuneSession(radioId!).tune(requestedProvider, params.frequency_hz as number, params.mode as string);
+      const stationMethod = contestStationTune ? "station_tune" : method;
       const result = isStation && requestedProvider === "hamlib"
-        ? await hamlibStationRequest(method, params, async (name, args) => (await workerRequest(name, { radio_id: radioId, ...args })).result as Data)
+        ? await hamlibStationRequest(stationMethod, params, async (name, args) => (await workerRequest(name, { radio_id: radioId, ...args })).result as Data)
         : (await workerRequest(method, isStation ? { radio_id: radioId, provider: provider.current, ...params } : params)).result as Data;
       if (method.startsWith("cluster_") && result?.snapshot && clusterEpoch === clusterMutationEpoch.current) {
         setCluster(result);
@@ -1366,7 +1380,12 @@ function MainLiveApp() {
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
       {!operatingModule ? <section className="live-panel" aria-label="Operating module loading"><h2>Opening operating module…</h2></section>
         : contestView ? contestCapability === "available" && workspace?.workspace_exists === true
-        ? <Suspense fallback={null}><ContestWorkspace request={contestRequest} operatingContext={operatingModule.context} registerTransition={registerContestTransition} /></Suspense>
+        ? <Suspense fallback={null}>{contestRuntime === "python"
+          ? <Not1MMContestWorkspace request={(method, params = {}) => framedWorkerRequest(method, params)} serviceRequest={request}
+              stationCall={settings?.stationCall || ""} radioFrequencyHz={station?.radio?.frequency_hz}
+              spots={liveSpots} cluster={cluster} selectedSpotId={selected} onSelectedSpot={setSelected}
+              registerTransition={registerContestTransition}/>
+          : <ContestWorkspace request={contestRequest} operatingContext={operatingModule.context} registerTransition={registerContestTransition}/>}</Suspense>
         : <section className="live-panel" aria-label="Contesting unavailable"><h2>Contesting</h2><p>Reconnect the isolated contest workspace before operating. Normal Logging remains inactive.</p></section> : <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
