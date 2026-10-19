@@ -126,6 +126,8 @@ class Desk:
         self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": "CW"}
         self.contact = self.database.get_empty().copy()
         self.contest.init_contest(self)
+        if state["pluginID"] in SERIAL_PLUGINS:
+            self.other_1.setReadOnly(True)
 
     def cty_lookup(self, call):
         result = self.state["reference"]["countries"].get(call.upper())
@@ -674,7 +676,7 @@ class Host:
             require(type(item["cq"]) is int and 1 <= item["cq"] <= 40 and type(item["itu"]) is int and 1 <= item["itu"] <= 90, "Invalid country zones")
         return countries
 
-    def apply_fields(self, desk, params):
+    def apply_fields(self, desk, params, allow_reserved_serial_change=False):
         require(params.get("draftID", desk.state["draft"]["id"]) == desk.state["draft"]["id"], "Draft changed", "stale_draft")
         if "countries" in params:
             require(params.get("referenceID") == desk.state["reference"]["id"],
@@ -687,6 +689,10 @@ class Host:
             current.update(additions)
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
+        if not allow_reserved_serial_change and desk.state["pluginID"] in SERIAL_PLUGINS and "other_1" in fields:
+            expected = str(desk.state["draft"].get("serial", "")).zfill(3)
+            require(fields["other_1"] == expected,
+                    "The sent serial is reserved by the contest host and cannot be changed", "serial_conflict")
         for name, value in fields.items():
             getattr(desk, name).setText(text(value, 128))
         desk.callsign.setText(desk.callsign.text().upper())
@@ -763,7 +769,7 @@ class Host:
             changes = {"fields": params.get("fields", {})}
             if "countries" in params:
                 changes.update({"countries": params["countries"], "referenceID": params.get("referenceID")})
-            self.apply_fields(desk, changes)
+            self.apply_fields(desk, changes, allow_reserved_serial_change=True)
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
             self.validate_exchange(desk, updated)

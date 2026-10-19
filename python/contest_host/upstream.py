@@ -38,6 +38,10 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         template = parts[3]
         for upstream, native in replacements.items():
             template = template.replace("{" + upstream + "}", "{" + native + "}")
+        if plugin_id == "cq_ww_cw":
+            # CQ WW's configured zone is the number meant by the pinned
+            # MyNR macro; serial contests retain SENTNR as a separate token.
+            template = template.replace("{SENTNR}", "{EXCHANGE}")
         if re.findall(r"\{([^}]+)\}", template) and any(
                 token not in {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
                 for token in re.findall(r"\{([^}]+)\}", template)):

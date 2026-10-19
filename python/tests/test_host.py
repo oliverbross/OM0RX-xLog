@@ -89,6 +89,7 @@ class HostTests(unittest.TestCase):
         self.assertEqual((sandp["F3"]["label"], sandp["F3"]["template"]), ("Exch", "{RST} {EXCHANGE}"))
         run = self.mutate("run_state", run=True)["projection"]["functionKeys"]
         self.assertEqual((run[3]["label"], run[3]["template"]), ("Run TU", "tu {MYCALL} qrz"))
+        self.assertEqual({row["id"]: row for row in run}["F6"]["template"], "{EXCHANGE}")
 
     def test_rates_read_full_log_with_historical_styles_and_no_mutation(self):
         qso = self.log()

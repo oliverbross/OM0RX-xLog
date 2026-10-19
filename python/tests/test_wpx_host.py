@@ -80,6 +80,12 @@ class WPXHostTests(unittest.TestCase):
         intent = self.mutate("function_key", key="F3")["actions"][0]
         self.assertEqual((intent["template"], intent["sentSerial"], intent["sentExchange"]),
                          ("{RST} {SENTNR}", "001", "CONFIGURED"))
+        sent_serial = next(field for field in self.read("projection")["projection"]["fields"]
+                           if field["id"] == "other_1")
+        self.assertTrue(sent_serial["readOnly"])
+        with self.assertRaisesRegex(HostError, "reserved by the contest host") as changed:
+            self.mutate("draft_apply", fields={"other_1": "002"})
+        self.assertEqual(changed.exception.code, "serial_conflict")
         params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision,
                   "qsoID": uid(), "timestamp": "2026-10-19 08:00:00"}
         saved = self.call("qso_commit", params)
