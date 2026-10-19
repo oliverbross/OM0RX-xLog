@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { connectWorkspaceNavigation, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens, workspaceMenuScreensFor } from "./workspaceNavigation";
+import { connectWorkspaceNavigation, contestMenuPanelIDs, isContestMenuRoute, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens, workspaceMenuScreensFor } from "./workspaceNavigation";
 import { OperatorDraftSession } from "./operatorDraftSession";
 import { SpotActivationEditor } from "./spotActivation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
@@ -31,6 +31,27 @@ it("subscribes before reading a menu click retained before the renderer started"
   expect(f.api.listen.mock.invocationCallOrder[0]).toBeLessThan(f.api.read.mock.invocationCallOrder[0]);
   expect(f.navigate).toHaveBeenCalledWith("Logbook"); expect(f.api.ack).toHaveBeenCalledWith(1);
   disconnect(); expect(f.stop).toHaveBeenCalledOnce();
+});
+it("accepts only known contest setup and window intents", () => {
+  for (const screen of ["contest-setup", ...contestMenuPanelIDs.map(id => `contest-window-${id}`)]) {
+    expect(isContestMenuRoute(screen)).toBe(true);
+    expect(validWorkspaceNavigation({ revision: 1, screen })).toBe(true);
+  }
+  for (const screen of ["contest-window-unknown", "contest-window-awards", "contest-window-alerts", "contest-window-chaser-dx", "contest-window-station-control", "contest-window-", "contest-window-active-qso&scope=normal", "Contest Setup", null, {}]) {
+    expect(isContestMenuRoute(screen)).toBe(false);
+    expect(validWorkspaceNavigation({ revision: 1, screen })).toBeFalsy();
+  }
+});
+it("retains a contest menu intent until its owner registers and finishes opening the window", async () => {
+  const f = fixture(); f.api.read.mockResolvedValue({ revision: 3, screen: "contest-window-callsign-intelligence" });
+  let ready = false, retry!: () => void, opened!: () => void;
+  const navigate = vi.fn((_route: string) => ready ? new Promise<boolean>(resolve => { opened = () => resolve(true); }) : false);
+  const disconnect = connectWorkspaceNavigation(navigate, f.failed, f.api, notify => { retry = notify; return () => {}; });
+  await tick(); expect(f.api.ack).not.toHaveBeenCalled();
+  expect(navigate).toHaveBeenCalledWith("contest-window-callsign-intelligence");
+  ready = true; retry(); await tick(); expect(f.api.ack).not.toHaveBeenCalled();
+  opened(); await tick(); expect(f.api.ack).toHaveBeenCalledExactlyOnceWith(3);
+  expect(f.failed).not.toHaveBeenCalled(); disconnect();
 });
 it("delivers the retained native workspace mode command and awaits persistence before acknowledgement", async () => {
   const f = fixture(); f.api.read.mockResolvedValue({ revision: 1, screen: "workspace-mode-windows" });

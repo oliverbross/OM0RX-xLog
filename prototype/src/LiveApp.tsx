@@ -87,7 +87,7 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
-import { connectWorkspaceNavigation, workspaceMenuScreensFor } from "./live/workspaceNavigation";
+import { connectWorkspaceNavigation, isContestMenuRoute, workspaceMenuScreensFor } from "./live/workspaceNavigation";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
@@ -364,14 +364,22 @@ function MainLiveApp() {
     setSettingsTabRequest(previous => ({ tab, revision: previous.revision + 1 }));
     return true;
   }, [setView]);
+  const contestMenuRoute = useRef<((route: string) => boolean | Promise<boolean>) | null>(null);
+  const contestMenuReadiness = useRef(new Set<() => void>());
+  const registerContestMenuRoute = useCallback((handler: ((route: string) => boolean | Promise<boolean>) | null) => {
+    contestMenuRoute.current = handler;
+    if (handler) for (const retry of contestMenuReadiness.current) retry();
+  }, []);
   useEffect(() => connectWorkspaceNavigation(title => {
+    if (isContestMenuRoute(title)) return contestMenuRoute.current?.(title) ?? false;
     if (title.startsWith("Workspace Mode: ")) return modeAction.current(title);
     const onlineTab = ({ "Wavelog Settings": "Wavelog", "QRZ Settings": "QRZ", "Online Log Settings": "Online logs",
       "Reference Data Settings": "Reference data" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Online Log Settings" | "Reference Data Settings"];
     return title === "Sync" ? showSyncSettings() : onlineTab ? showOnlineSettings(onlineTab) : setView(title);
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);
-    return () => { draft(); contact(); layout(); };
+    contestMenuReadiness.current.add(retry);
+    return () => { draft(); contact(); layout(); contestMenuReadiness.current.delete(retry); };
   }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking, contestCapability, workspace?.workspace_exists]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
@@ -1386,7 +1394,7 @@ function MainLiveApp() {
               workspaceGeneration={typeof workspace.generation === "string" ? workspace.generation : ""}
               stationCall={settings?.stationCall || ""} radioFrequencyHz={station?.radio?.frequency_hz}
               spots={liveSpots} cluster={cluster} selectedSpotId={selected} onSelectedSpot={setSelected}
-              registerTransition={registerContestTransition}/>
+              registerTransition={registerContestTransition} registerMenuRoute={registerContestMenuRoute}/>
           : <ContestWorkspace request={contestRequest} operatingContext={operatingModule.context} registerTransition={registerContestTransition}/>}</Suspense>
         : <section className="live-panel" aria-label="Contesting unavailable"><h2>Contesting</h2><p>Reconnect the isolated contest workspace before operating. Normal Logging remains inactive.</p></section> : <>
       {!workspace?.workspace_exists && <>
