@@ -13,11 +13,10 @@ import uuid
 
 from .store import Store, canonical
 from .rates import calculate_rates
-from .upstream import adapt_cw_template, load_plugin, load_cw_macros
+from .plugins import PLUGINS, SERIAL_PLUGINS
+from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
 PLUGIN_ID = "cq_ww_cw"
-PLUGINS = {"cq_ww_cw": "CQ WW CW", "cq_wpx_cw": "CQ WPX CW", "arrl_ss_cw": "ARRL Sweepstakes CW"}
-SERIAL_PLUGINS = {"cq_wpx_cw", "arrl_ss_cw"}
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
@@ -321,6 +320,7 @@ class Host:
         aliases = {"create": "session_create", "open": "session_open", "operation_receipt": "receipt", "draft_get": "projection", "log_page": "log"}
         method = aliases.get(method, method)
         if method == "catalog":
+            verify_source()
             return {"plugins": [{"id": key, "name": name, "engine": "not1mm-python", "sourceRevision": SOURCE_REVISION}
                                 for key, name in PLUGINS.items()], "protocolVersion": 1}
         if method == "sessions":

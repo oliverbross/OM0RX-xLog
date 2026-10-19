@@ -10,6 +10,8 @@ from pathlib import Path
 import re
 import sys
 
+from .plugins import PLUGIN_REGISTRY
+
 VENDOR = Path(__file__).resolve().parents[1] / "vendor/not1mm/upstream"
 _verified = False
 
@@ -19,6 +21,11 @@ def verify_source():
     if _verified:
         return
     manifest = json.loads((VENDOR.parent / "source-manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("registeredPlugins") != list(PLUGIN_REGISTRY):
+        raise RuntimeError("Pinned Not1MM registered plugins differ from the supported registry")
+    for plugin_id in PLUGIN_REGISTRY:
+        if f"not1mm/plugins/{plugin_id}.py" not in manifest["sha256"]:
+            raise RuntimeError(f"Pinned Not1MM plugin source hash is missing: {plugin_id}")
     for relative, expected in manifest["sha256"].items():
         if sha256((VENDOR / relative).read_bytes()).hexdigest() != expected:
             raise RuntimeError(f"Pinned Not1MM source hash differs: {relative}")
@@ -85,7 +92,7 @@ def overlay(name, replacements):
 
 
 def load_plugin(plugin_id="cq_ww_cw"):
-    if plugin_id not in {"cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw"}:
+    if plugin_id not in PLUGIN_REGISTRY:
         raise ValueError("Unsupported pinned plugin")
     verify_source()
     if str(VENDOR) not in sys.path:
