@@ -108,6 +108,7 @@ public actor LiveWorker {
     private let contestLaneInitializationError: ContestLaneError?
     private let pythonContestLane: PythonContestLane?
     private let pythonContestLaneInitializationError: ContestLaneError?
+    private let pythonContestAvailable: Bool
     let remoteBackup: LiveRemoteBackupService
     private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
@@ -168,24 +169,29 @@ public actor LiveWorker {
             contestLane = nil
             contestLaneInitializationError = nil
         }
-        if runtimeProfile == .production, operatingModule == .contesting {
+        if runtimeProfile == .production {
             do {
                 let configuration = try pythonContestConfiguration
                     ?? PythonContestHostConfiguration.bundled(
                         applicationSupport: logbook.workspaceDirectoryURL.deletingLastPathComponent())
-                pythonContestLane = try PythonContestLane(configuration: configuration)
+                pythonContestLane = operatingModule == .contesting
+                    ? try PythonContestLane(configuration: configuration) : nil
                 pythonContestLaneInitializationError = nil
+                pythonContestAvailable = true
             } catch let error as ContestLaneError {
                 pythonContestLane = nil
                 pythonContestLaneInitializationError = error
+                pythonContestAvailable = false
             } catch {
                 pythonContestLane = nil
                 pythonContestLaneInitializationError = .confirmed(
                     "contest_host_unavailable", "The bundled contest host could not be initialized.")
+                pythonContestAvailable = false
             }
         } else {
             pythonContestLane = nil
             pythonContestLaneInitializationError = nil
+            pythonContestAvailable = false
         }
         let backupVerifier = remoteBackupEnvironment.map {
             LiveDropboxBackupAccountVerifier(vault: $0.vault, http: $0.http)
@@ -396,14 +402,26 @@ public actor LiveWorker {
                 } else if operatingModule == .contesting {
                     health["mode"] = "contesting"
                     health["isolated_workspace"] = false
+                }
+                if runtimeProfile == .production {
                     health["contesting_engine"] = "not1mm-python"
-                    health["contesting_available"] = pythonContestLane != nil
+                    health["contesting_available"] = pythonContestAvailable
+                    health["isolated_workspace"] = false
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
             if ["parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(method) {
                 return diagnostics.response(to: data)
             }
+            #if os(macOS)
+            if method == "contest_station_tune" {
+                guard runtimeProfile == .production, operatingModule == .contesting else {
+                    throw WorkerFailure("inactive_operating_module", "Contest tuning belongs to the inactive operating module.")
+                }
+                let tuned = try await LiveStationMethods.handle("station_tune", params: params)
+                return encode(["id": id, "ok": true, "result": tuned])
+            }
+            #endif
             let result: [String: Any]
             if method.hasPrefix("contest_") {
                 if runtimeProfile == .production, operatingModule == .contesting {

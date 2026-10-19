@@ -1,6 +1,8 @@
 from copy import deepcopy
 from io import BytesIO
 import json
+import base64
+import hashlib
 import os
 from pathlib import Path
 import sqlite3
@@ -75,6 +77,16 @@ class HostTests(unittest.TestCase):
         self.assertEqual(partial["fields"][0]["value"], "K")
         with self.assertRaises(AttributeError):
             Field("callsign").silentlyIgnoreMissingQtMethod()
+
+    def test_session_catalog_reopens_owned_python_sessions(self):
+        sessions = self.call("sessions", {})["sessions"]
+        self.assertEqual(sessions, [{"sessionID": self.session, "name": "CQ WW CW",
+                                    "pluginID": "cq_ww_cw",
+                                    "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+                                    "revision": self.revision}])
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.call("contest_sessions", {})["sessions"][0]["sessionID"], self.session)
 
     def test_actual_score_dupe_and_band_semantics(self):
         self.log()
@@ -220,6 +232,14 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.call("esm", params)["actions"], [])
         self.assertEqual(self.read("session_open")["projection"]["fields"][0]["value"], "")
 
+    def test_cw_context_is_host_owned_and_tracks_the_active_draft(self):
+        self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": "5"})
+        context = self.read("cw_context")
+        self.assertEqual(context["stationCall"], "OM0RX")
+        self.assertEqual(context["fields"]["callsign"], "K1ABC")
+        self.assertEqual(context["fields"]["other_1"], "15")
+        self.assertEqual(context["fields"]["other_2"], "5")
+
     def test_export_actual_plugin_and_no_home_write(self):
         self.log()
         self.log("DL1ABC", "14", 1)
@@ -231,6 +251,22 @@ class HostTests(unittest.TestCase):
         self.assertEqual(lines[0].split()[1], "14025")
         self.assertTrue(export["content"].endswith("END-OF-LOG:\r\n"))
         self.assertEqual(list((self.root / self.session).glob("export-*")), [])
+
+    def test_prepared_export_is_chunked_verified_and_explicitly_released(self):
+        self.log()
+        prepared = self.read("export_prepare")
+        self.assertEqual(prepared["workspaceGeneration"], self.session)
+        chunk = self.read("export_read", exportID=prepared["artifactID"],
+                          workspaceGeneration=self.session, offset=0, length=prepared["byteLength"])
+        payload = base64.b64decode(chunk["dataBase64"])
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), prepared["sha256"])
+        self.assertTrue(chunk["eof"])
+        self.assertTrue(self.read("export_release", exportID=prepared["artifactID"],
+                                  workspaceGeneration=self.session)["released"])
+        with self.assertRaises(HostError) as error:
+            self.read("export_read", exportID=prepared["artifactID"],
+                      workspaceGeneration=self.session, offset=0, length=prepared["byteLength"])
+        self.assertEqual(error.exception.code, "not_found")
 
     def test_bounded_serial_jsonl_and_real_process(self):
         requests = b'{bad json}\n' + json.dumps({"id": "r1", "method": "contest_catalog", "params": {}}).encode() + b"\n"

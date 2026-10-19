@@ -55,6 +55,9 @@ final class PythonContestLaneTests: XCTestCase {
         XCTAssertEqual(projection["engine"] as? String, "not1mm-python")
         XCTAssertEqual(projection["pluginID"] as? String, "cq_ww_cw")
         XCTAssertEqual(projection["referenceID"] as? String, try ContestReferenceData.bundled().version)
+        let cw = try await lane.handle(method: "contest_cw_context", params: [:])
+        XCTAssertEqual(cw["sessionID"] as? String, sessionID)
+        XCTAssertEqual(cw["stationCall"] as? String, "OM0RX")
 
         await lane.shutdown()
         do {
@@ -64,5 +67,34 @@ final class PythonContestLaneTests: XCTestCase {
             XCTAssertEqual(error.code, "worker_stopping")
             XCTAssertEqual(error.outcome, "confirmed")
         }
+    }
+
+    func testNormalLoggingHealthAdvertisesBundledPythonContestingWithoutLaunchingIt() async throws {
+        let root = repositoryRoot()
+        let basePath = FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
+        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
+            .appendingPathComponent("xlog-python-health-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let configuration = PythonContestHostConfiguration(
+            executableURL: try python312(),
+            launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("contest", isDirectory: true))
+        let worker = LiveWorker(logbook: LiveLogbookMethods(
+            supportDirectory: temporary.appendingPathComponent("workspace", isDirectory: true),
+            inheritNativePreferences: false), runtimeProfile: .production,
+            operatingModule: .normalLogging, pythonContestConfiguration: configuration)
+        let request = try JSONSerialization.data(withJSONObject: [
+            "id": "health", "method": "health", "params": [:],
+        ])
+        let responseData = await worker.response(to: request)
+        let response = try XCTUnwrap(try JSONSerialization.jsonObject(with: responseData) as? [String: Any])
+        let health = try XCTUnwrap(response["result"] as? [String: Any])
+        XCTAssertEqual(health["mode"] as? String, "integrated")
+        XCTAssertEqual(health["contesting_engine"] as? String, "not1mm-python")
+        XCTAssertEqual(health["contesting_available"] as? Bool, true)
+        XCTAssertEqual(health["isolated_workspace"] as? Bool, false)
+        await worker.beginTerminalShutdown()
     }
 }

@@ -71,22 +71,38 @@ impl Backend for Native {
     fn canonical(&self) -> Result<Value, String> {
         let worker = crate::worker::generation(); if worker == 0 { return Err("Open a workspace before using CW.".into()); }
         let settings = call(worker, "settings_load", json!({}))?;
-        let draft = call(worker, "logbook_operator_draft", json!({}))?["draft"].clone();
-        if settings["generation"] != draft["generation"] || !settings["generation"].is_string() || !settings["revision"].is_u64() || !draft["revision"].is_u64() || !draft["qso"]["id"].is_string() {
-            return Err("CW canonical settings/new-QSO revisions are unavailable.".into());
-        }
         let saved = &settings["settings"];
         // The Swift settings decoder validates every saved macro, including
         // duplicate shortcuts, labels, placeholders and WinKeyer preferences.
         let profile = saved["cwProfile"].clone();
         if !profile.is_object() || profile["version"] != 1 { return Err("Save valid CW preferences before arming.".into()); }
         let (provider, selection) = output_selection(&profile, || crate::station_selection::owner(&self.app)?.snapshot())?;
+        if crate::operating_module::selected_worker_value()? == "contesting" {
+            let contest = call(worker, "contest_cw_context", json!({}))?;
+            let fields = &contest["fields"];
+            if !settings["generation"].is_string() || !settings["revision"].is_u64()
+                || !contest["revision"].is_u64() || !contest["draftID"].is_string()
+                || !contest["sessionID"].is_string() || !contest["stationCall"].is_string()
+                || !fields["callsign"].is_string() || !fields["sent"].is_string()
+                || !fields["other_1"].is_string() {
+                return Err("CW canonical contest revisions are unavailable.".into());
+            }
+            return Ok(json!({"worker":worker,"generation":settings["generation"],"settingsRevision":settings["revision"],
+                "draftRevision":contest["revision"],"draftID":contest["draftID"],"contestSessionID":contest["sessionID"],
+                "provider":provider,"selection":selection,"profile":profile,
+                "context":{"MYCALL":contest["stationCall"],"CALL":fields["callsign"],"RST":fields["sent"],
+                    "NAME":"","GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":"","EXCHANGE":fields["other_1"]}}));
+        }
+        let draft = call(worker, "logbook_operator_draft", json!({}))?["draft"].clone();
+        if settings["generation"] != draft["generation"] || !settings["generation"].is_string() || !settings["revision"].is_u64() || !draft["revision"].is_u64() || !draft["qso"]["id"].is_string() {
+            return Err("CW canonical settings/new-QSO revisions are unavailable.".into());
+        }
         let qso = &draft["qso"];
         let mycall = saved["stationCall"].as_str().filter(|value| !value.is_empty()).or_else(|| saved["operatorCall"].as_str()).unwrap_or("");
         let serial = qso["extraFields"]["STX"].as_str().map(str::to_owned).unwrap_or_else(|| if qso["extraFields"]["STX"].is_number() { qso["extraFields"]["STX"].to_string() } else { String::new() });
         Ok(json!({"worker":worker,"generation":settings["generation"],"settingsRevision":settings["revision"],"draftRevision":draft["revision"],"draftID":qso["id"],
             "provider":provider,"selection":selection,"profile":profile,
-            "context":{"MYCALL":mycall,"CALL":qso["call"].as_str().unwrap_or(""),"RST":qso["rstSent"].as_str().unwrap_or(""),"NAME":qso["name"].as_str().unwrap_or(""),"GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":serial}}))
+            "context":{"MYCALL":mycall,"CALL":qso["call"].as_str().unwrap_or(""),"RST":qso["rstSent"].as_str().unwrap_or(""),"NAME":qso["name"].as_str().unwrap_or(""),"GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":serial,"EXCHANGE":""}}))
     }
     fn inspect(&self, canonical: &Value, capabilities: bool) -> Result<Value, String> {
         let provider = canonical["provider"].as_str().ok_or("CW radio selection unavailable")?;

@@ -43,6 +43,7 @@ actor PythonContestLane {
     private var pending: Pending?
     private var tail: Task<Void, Never>?
     private var terminalShutdown = false
+    private var activeSessionID: String?
 
     init(configuration: PythonContestHostConfiguration, fileManager: FileManager = .default,
          reference: ContestReferenceData? = nil) throws {
@@ -60,7 +61,20 @@ actor PythonContestLane {
         let previous = tail
         let operation = Task { [self] in
             await previous?.value
-            return try await perform(method: method, params: params)
+            var effectiveParams = params
+            if method == "contest_cw_context" {
+                guard let activeSessionID else {
+                    throw ContestLaneError.confirmed("contest_session_inactive", "Open a contest before using CW.")
+                }
+                effectiveParams["sessionID"] = activeSessionID
+            }
+            let result = try await perform(method: method, params: effectiveParams)
+            if method == "contest_session_create" || method == "contest_create" {
+                activeSessionID = result["sessionID"] as? String
+            } else if method == "contest_session_open" || method == "contest_open" {
+                activeSessionID = (result["projection"] as? [String: Any])?["sessionID"] as? String
+            }
+            return result
         }
         tail = Task { _ = try? await operation.value }
         return try await operation.value

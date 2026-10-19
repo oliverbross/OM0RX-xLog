@@ -14,9 +14,9 @@ That entry point explicitly adds only its application-relative module directory;
 isolated mode ignores ambient `PYTHONPATH` and user site configuration. Package
 source files and exclude `__pycache__`/`.pyc` files from vendor resources.
 
-The release still needs a bundled interpreter and native/UI integration. This
-module does not open radios, keyers, rotors, cluster connections or network
-services. Its Qt adapter is an explicit finite translation/field boundary,
+The macOS package stages a private Python 3.12 framework and this host under the
+application bundle. This module does not open radios, keyers, rotors, cluster
+connections or network services. Its Qt adapter is an explicit finite field boundary,
 not a Qt implementation. Unsupported Qt methods fail. ADIF import is unexposed;
 its lazy import requires the real `adif_io` package if that callback is added.
 
@@ -28,12 +28,13 @@ Oversized/incomplete frames terminate the process without attempting resync.
 stdout contains protocol only. Replies use `{id,ok,result}` or
 `{id,ok:false,error:{code,message,outcome}}`.
 
-Methods (an optional `contest_` prefix is accepted): `catalog`, `session_create`
+Methods (an optional `contest_` prefix is accepted): `catalog`, `sessions`, `session_create`
 (`create`), `session_open` (`open`), `projection` (`draft_get`), `draft_apply`,
 `focus`, `run_state`, `esm`, `function_key`, `qso_commit`, `qso_correct`,
-`qso_delete`, `receipt` (`operation_receipt`), `log` (`log_page`), `score`, `export`.
+`qso_delete`, `receipt` (`operation_receipt`), `log` (`log_page`), `score`,
+`cw_context`, `export`, `export_prepare`, `export_read`, `export_release`.
 
-Except catalog, requests contain canonical UUID `sessionID`. All mutations also
+Except catalog and sessions, requests contain canonical UUID `sessionID`. All mutations also
 contain stable UUID `operationID` and `expectedRevision`. Creation expects zero;
 subsequent mutations expect the current revision. Repeat the exact original
 mutation after a lost reply. Receipts are checked before revision validation;
@@ -68,8 +69,10 @@ F-key and captured exchange context. Native code must resolve macros and apply
 existing explicit operator/transmit controls; no physical action is executed here.
 
 `export` returns actual upstream Cabrillo text with CRLF and a suggested filename,
-limited to 512 KiB. Export goes through a temporary private directory that is
-removed immediately. The native layer chooses and writes the destination.
+limited to 512 KiB. The production path uses `export_prepare`, bounded 64-KiB
+`export_read` chunks, and `export_release`; xLog verifies the digest and format,
+opens its native Save panel, and publishes without overwriting an existing file.
+Plugin export staging stays inside the session directory and is removed immediately.
 
 ## Storage and current limits
 
@@ -80,8 +83,9 @@ commit together under `BEGIN IMMEDIATE`/`synchronous=FULL`. Timestamp/call
 collisions reject atomically instead of being silently ignored.
 
 Only CQ WW CW is exposed. No serial allocator, migration, normal-log transfer,
-chunked export, ADIF import, macro editor or native output acknowledgements are
-implemented here. Unknown worked countries can be retained with zero points;
+ADIF import, Not1MM macro editor or full plugin catalog is implemented here.
+CW actions are intents: the app resolves an F-key against saved xLog macros and
+the shared, explicitly armed output owner. Unknown worked countries can be retained with zero points;
 the original plugin's blank-country multiplier query behavior is retained and
 must remain visible as unresolved data. The app should reconcile uncertain
 output separately: opening/replaying a session never sends an old action.

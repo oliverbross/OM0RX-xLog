@@ -19,6 +19,7 @@ describe("CW macro configuration and preview (no device output)", () => {
   });
   it("previews substitutions exactly and never silently removes unsafe characters", () => {
     expect(expandCWMacro("{CALL} de {MYCALL} {RST}  K", { CALL: "k1abc", MYCALL: "om0rx", RST: "599" })).toBe("K1ABC DE OM0RX 599 K");
+    expect(expandCWMacro("{CALL} {RST} {EXCHANGE}", { CALL: "k1abc", RST: "599", EXCHANGE: "15" })).toBe("K1ABC 599 15");
     for (const text of ["CQ\nCQ", "CQ\x00", "{PTT}", "{MYCALL", "CQ <SK>"]) expect(() => expandCWMacro(text, {})).toThrow();
     expect(() => expandCWMacro("{CALL}", {})).toThrow(/Fill CALL/);
     expect(() => expandCWMacro("{CALL}", { CALL: "K1ABC\nTX" })).toThrow(/cannot send/);

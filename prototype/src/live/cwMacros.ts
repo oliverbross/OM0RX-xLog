@@ -1,7 +1,7 @@
 /** Pure CW configuration and preview rules. This module never keys a device. */
 export const cwColors = ["cyan", "green", "amber", "orange", "pink", "neutral"] as const;
 export const cwShortcuts = Array.from({ length: 24 }, (_, index) => `${index >= 12 ? "Shift+" : ""}F${index % 12 + 1}`);
-export const cwTokens = ["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL"] as const;
+export const cwTokens = ["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL", "EXCHANGE"] as const;
 export type CWToken = typeof cwTokens[number];
 export type CWContext = Partial<Record<CWToken, string>>;
 export type CWMacro = { id: number; label: string; text: string; color: typeof cwColors[number]; shortcut: string; enabled: boolean; onDesk: boolean };

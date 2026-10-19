@@ -1,6 +1,8 @@
 """CQ WW application adapter: plugin code owns rules, xLog owns output."""
 from copy import deepcopy
 from datetime import datetime, UTC
+import base64
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -207,6 +209,7 @@ class Host:
         supplied.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root = supplied.resolve()
         self.stores = {}
+        self.exports = {}
         self._operation = None
 
     def close(self):
@@ -246,6 +249,23 @@ class Host:
         method = aliases.get(method, method)
         if method == "catalog":
             return {"plugins": [{"id": PLUGIN_ID, "name": "CQ WW CW", "engine": "not1mm-python", "sourceRevision": SOURCE_REVISION}], "protocolVersion": 1}
+        if method == "sessions":
+            sessions = []
+            for directory in sorted(self.root.iterdir()):
+                if not directory.is_dir() or directory.is_symlink():
+                    continue
+                try:
+                    session_id = identifier(directory.name)
+                except HostError:
+                    continue
+                store = self.database(session_id)
+                state = store.state(session_id)
+                require(state is not None, "Session does not exist", "not_found")
+                self.verify_engine(state)
+                sessions.append({"sessionID": session_id, "name": state.get("name", "CQ WW CW"),
+                                 "pluginID": state["pluginID"], "sourceRevision": state["sourceRevision"],
+                                 "revision": state["revision"]})
+            return {"sessions": sessions}
         session_id = identifier(params.get("sessionID"))
         store = self.database(session_id, method == "session_create")
         if method in self.MUTATIONS:
@@ -256,6 +276,10 @@ class Host:
         desk = Desk(store, state, self.commit)
         if method in {"session_open", "projection"}:
             return {"projection": desk.projection()}
+        if method == "cw_context":
+            return {"sessionID": session_id, "revision": state["revision"],
+                    "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
+                    "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"]}
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"])) if row else None}
@@ -268,6 +292,40 @@ class Host:
                     "rows": store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY TS,ID LIMIT ? OFFSET ?", (limit, offset))}
         if method == "export":
             return self.export(desk)
+        if method == "export_prepare":
+            exported = self.export(desk)
+            payload = exported["content"].encode("utf-8")
+            require(bool(payload), "Plugin export was empty", "export_failed")
+            require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
+            artifact_id = str(uuid.uuid4())
+            prepared = {"artifactID": artifact_id, "sessionID": session_id,
+                        "workspaceGeneration": session_id, "revision": state["revision"],
+                        "byteLength": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
+                        "format": "cabrillo", "filename": exported["filename"]}
+            self.exports[artifact_id] = {"prepared": prepared, "bytes": payload}
+            return prepared
+        if method == "export_read":
+            artifact_id = identifier(params.get("exportID"))
+            artifact = self.exports.get(artifact_id)
+            require(artifact is not None, "Prepared export is unavailable", "not_found")
+            prepared, payload = artifact["prepared"], artifact["bytes"]
+            require(params.get("workspaceGeneration") == session_id == prepared["sessionID"],
+                    "Prepared export scope changed", "export_scope_changed")
+            offset, length = params.get("offset"), params.get("length")
+            require(type(offset) is int and type(length) is int and offset >= 0 and 0 < length <= 65536
+                    and offset + length <= len(payload), "Invalid export chunk")
+            return {**{key: prepared[key] for key in ("artifactID", "sessionID", "workspaceGeneration",
+                                                      "revision", "byteLength", "sha256")},
+                    "offset": offset, "dataBase64": base64.b64encode(payload[offset:offset + length]).decode("ascii"),
+                    "eof": offset + length == len(payload)}
+        if method == "export_release":
+            artifact_id = identifier(params.get("exportID"))
+            artifact = self.exports.get(artifact_id)
+            require(artifact is not None, "Prepared export is unavailable", "not_found")
+            require(params.get("workspaceGeneration") == session_id == artifact["prepared"]["sessionID"],
+                    "Prepared export scope changed", "export_scope_changed")
+            del self.exports[artifact_id]
+            return {"released": True, "artifactID": artifact_id, "sessionID": session_id}
         raise HostError("unknown_method", "Unsupported contest host method")
 
     def mutate(self, store, session_id, method, params):
@@ -366,7 +424,8 @@ class Host:
         settings.setdefault("SentExchange", str(countries[call]["cq"]))
         require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
         settings.setdefault("ModeCategory", "CW")
-        return {"sessionID": session_id, "revision": 0, "engine": "not1mm-python", "pluginID": PLUGIN_ID,
+        return {"sessionID": session_id, "name": text(params.get("name", "CQ WW CW"), 128),
+                "revision": 0, "engine": "not1mm-python", "pluginID": PLUGIN_ID,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": 14025000,

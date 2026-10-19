@@ -43,12 +43,8 @@ pub fn selected_worker_value() -> Result<&'static str, String> {
     }
     Ok(state.selected.worker_value())
 }
-pub fn validate_target(value: &str, contesting_test: bool) -> Result<(), String> {
-    let target = OperatingModule::parse(value)?;
-    if target == OperatingModule::Contesting && !contesting_test {
-        return Err("Contesting is available only in the isolated Contesting Test runtime.".into());
-    }
-    Ok(())
+pub fn validate_target(value: &str, _contesting_test: bool) -> Result<(), String> {
+    OperatingModule::parse(value).map(|_| ())
 }
 pub struct Admission<'a> { owner: &'a Owner }
 impl Drop for Admission<'_> {
@@ -229,10 +225,11 @@ mod tests {
         assert!(owner.admit_current().is_ok());
         assert_eq!(worker_module(&sync("sync_configure")), None);
     }
-    #[test] fn contest_target_requires_the_compiled_contesting_profile_not_generic_isolation() {
-        assert!(validate_target("contesting", false).is_err());
+    #[test] fn production_and_practice_profiles_accept_the_supported_contesting_target() {
+        assert!(validate_target("contesting", false).is_ok());
         assert!(validate_target("contesting", true).is_ok());
         assert!(validate_target("normal_logging", false).is_ok());
+        assert!(validate_target("unknown", false).is_err());
     }
     #[test] fn persisted_selection_binds_the_next_worker_generation_after_restart() {
         let directory = tempfile::tempdir().unwrap();

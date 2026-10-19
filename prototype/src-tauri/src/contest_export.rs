@@ -100,11 +100,15 @@ struct NativeAdmission {
 }
 impl Admission for NativeAdmission {
     fn check(&self) -> Result<(), String> {
+        let production_contesting = !crate::runtime_profile::CONTESTING_TEST
+            && !self.isolated
+            && crate::operating_module::selected_worker_value().ok() == Some("contesting");
         validate_admission(
             &self.label,
             crate::runtime_profile::CONTESTING_TEST,
             self.isolated,
             crate::APP_EXITING.load(Ordering::Acquire),
+            production_contesting,
         )
     }
 }
@@ -179,9 +183,10 @@ fn validate_admission(
     compiled_test: bool,
     isolated: bool,
     exiting: bool,
+    production_contesting: bool,
 ) -> Result<(), String> {
-    if label != "main" || !compiled_test || !isolated || exiting {
-        Err("Contest export saving is available only in the main Contesting Test window.".into())
+    if label != "main" || exiting || !(compiled_test && isolated || production_contesting && !isolated) {
+        Err("Contest export saving requires the active main Contesting window.".into())
     } else {
         Ok(())
     }
@@ -842,14 +847,15 @@ mod tests {
 
     #[test]
     fn admission_requires_main_compiled_test_profile_and_nonexiting_state() {
-        assert!(validate_admission("main", true, true, false).is_ok());
+        assert!(validate_admission("main", true, true, false, false).is_ok());
+        assert!(validate_admission("main", false, false, false, true).is_ok());
         for value in [
             ("other", true, true, false),
             ("main", false, true, false),
             ("main", true, false, false),
             ("main", true, true, true),
         ] {
-            assert!(validate_admission(value.0, value.1, value.2, value.3).is_err());
+            assert!(validate_admission(value.0, value.1, value.2, value.3, false).is_err());
         }
     }
 
