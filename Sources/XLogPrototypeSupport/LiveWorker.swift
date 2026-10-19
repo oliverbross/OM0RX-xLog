@@ -429,7 +429,18 @@ public actor LiveWorker {
                     guard let pythonContestLane else {
                         throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")
                     }
-                    result = try await pythonContestLane.handle(method: method, params: params)
+                    if ["contest_scp_status", "contest_scp_query", "contest_scp_cancel",
+                        "contest_scp_select", "contest_scp_import_private"].contains(method) {
+                        result = try await pythonContestLane.handleAssistance(method: method, params: params)
+                    } else if ["contest_history_status", "contest_history_preview_private",
+                               "contest_history_preview_page", "contest_history_preview_cancel",
+                               "contest_history_preview_commit", "contest_history_query",
+                               "contest_history_query_cancel", "contest_history_select",
+                               "contest_history_apply"].contains(method) {
+                        result = try await pythonContestLane.handleCallHistory(method: method, params: params)
+                    } else {
+                        result = try await pythonContestLane.handle(method: method, params: params)
+                    }
                 } else if case .contestingTest = runtimeProfile {
                     if let contestLaneInitializationError { throw contestLaneInitializationError }
                     guard let contestLane else {

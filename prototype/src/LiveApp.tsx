@@ -1382,6 +1382,8 @@ function MainLiveApp() {
         : contestView ? contestCapability === "available" && workspace?.workspace_exists === true
         ? <Suspense fallback={null}>{contestRuntime === "python"
           ? <Not1MMContestWorkspace request={(method, params = {}) => framedWorkerRequest(method, params)} serviceRequest={request}
+              operatingContext={operatingModule.context}
+              workspaceGeneration={typeof workspace.generation === "string" ? workspace.generation : ""}
               stationCall={settings?.stationCall || ""} radioFrequencyHz={station?.radio?.frequency_hz}
               spots={liveSpots} cluster={cluster} selectedSpotId={selected} onSelectedSpot={setSelected}
               registerTransition={registerContestTransition}/>

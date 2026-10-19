@@ -32,7 +32,7 @@ final class PythonContestLaneTests: XCTestCase {
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(),
             launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
-            dataRootURL: temporary))
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python", isDirectory: true)))
 
         let catalog = try await lane.handle(method: "contest_catalog", params: [:])
         let plugins = try XCTUnwrap(catalog["plugins"] as? [[String: Any]])
@@ -62,6 +62,31 @@ final class PythonContestLaneTests: XCTestCase {
         let cw = try await lane.handle(method: "contest_cw_context", params: [:])
         XCTAssertEqual(cw["sessionID"] as? String, sessionID)
         XCTAssertEqual(cw["stationCall"] as? String, "OM0RX")
+
+        let scpSource = temporary.appendingPathComponent("MASTER.SCP")
+        try Data("K1ABC\nK1ABD\nDL1ABC\n".utf8).write(to: scpSource)
+        _ = try await lane.handleAssistance(method: "contest_scp_import_private", params: [
+            "path": scpSource.path, "sourceName": "MASTER.SCP",
+        ])
+        let assistanceRequest = UUID().uuidString.lowercased()
+        let assistance = try await lane.handleAssistance(method: "contest_scp_query", params: [
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+            "requestID": assistanceRequest, "query": "K1AB",
+        ])
+        let matches = try XCTUnwrap(assistance["matches"] as? [[String: Any]])
+        let firstMatch = try XCTUnwrap(matches.first)
+        let selected = try await lane.handleAssistance(method: "contest_scp_select", params: [
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+            "requestID": assistanceRequest, "matchID": try XCTUnwrap(firstMatch["matchID"] as? String),
+        ])
+        XCTAssertEqual(selected["callsign"] as? String, firstMatch["callsign"] as? String)
+        do {
+            _ = try await lane.handleAssistance(method: "contest_scp_query", params: [
+                "sessionID": sessionID, "workspaceGeneration": UUID().uuidString.lowercased(),
+                "requestID": UUID().uuidString.lowercased(), "query": "K1AB",
+            ])
+            XCTFail("SCP queries must remain fenced to the active Python session.")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_context") }
 
         let outputOperation = UUID().uuidString.lowercased()
         let function = try await lane.handle(method: "contest_function_key", params: [

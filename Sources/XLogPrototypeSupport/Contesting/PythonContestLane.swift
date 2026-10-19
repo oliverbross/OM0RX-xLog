@@ -1,4 +1,5 @@
 import Foundation
+import XContestCore
 
 /// Application-relative launch information for the bundled Not1MM host.
 /// Production never searches PATH or a user Python installation.
@@ -44,6 +45,10 @@ actor PythonContestLane {
     private var tail: Task<Void, Never>?
     private var terminalShutdown = false
     private var activeSessionID: String?
+    private var activeWorkspaceGeneration: String?
+    private var activeProjection: [String: Any]?
+    private var assistanceLane: PythonContestAssistanceLane?
+    private var callHistoryLane: PythonContestCallHistoryLane?
 
     init(configuration: PythonContestHostConfiguration, fileManager: FileManager = .default,
          reference: ContestReferenceData? = nil) throws {
@@ -74,10 +79,17 @@ actor PythonContestLane {
                 }
             }
             let result = try await perform(method: method, params: effectiveParams)
+            if let projection = result["projection"] as? [String: Any] {
+                activeProjection = projection
+            }
             if method == "contest_session_create" || method == "contest_create" {
-                activeSessionID = result["sessionID"] as? String
+                let projection = activeProjection
+                activeSessionID = projection?["sessionID"] as? String ?? result["sessionID"] as? String
+                activeWorkspaceGeneration = projection?["workspaceGeneration"] as? String
             } else if method == "contest_session_open" || method == "contest_open" {
-                activeSessionID = (result["projection"] as? [String: Any])?["sessionID"] as? String
+                let projection = activeProjection
+                activeSessionID = projection?["sessionID"] as? String
+                activeWorkspaceGeneration = projection?["workspaceGeneration"] as? String
             }
             return result
         }
@@ -85,10 +97,78 @@ actor PythonContestLane {
         return try await operation.value
     }
 
-    func shutdown() {
+    func shutdown() async {
         terminalShutdown = true
+        await assistanceLane?.shutdown()
+        assistanceLane = nil
+        callHistoryLane = nil
         failPending(.uncertain("contest_host_stopped", "The contest host stopped before its reply was confirmed."))
         stopProcess()
+    }
+
+    func handleAssistance(method: String, params: [String: Any]) async throws -> [String: Any] {
+        guard !terminalShutdown else {
+            throw ContestLaneError.confirmed("worker_stopping", "The contest host is shutting down.")
+        }
+        let lane: PythonContestAssistanceLane
+        if let assistanceLane { lane = assistanceLane }
+        else {
+            let created = try PythonContestAssistanceLane(
+                contestingRoot: configuration.dataRootURL.standardizedFileURL.deletingLastPathComponent()) { [weak self] context in
+                    guard let self else {
+                        throw ContestLaneError.confirmed("stale_context", "The callsign suggestion belongs to another contest context.")
+                    }
+                    try await self.validateAssistance(context)
+                }
+            assistanceLane = created
+            lane = created
+        }
+        return try await lane.handle(method: method, params: params)
+    }
+
+    func handleCallHistory(method: String, params: [String: Any]) async throws -> [String: Any] {
+        guard !terminalShutdown else {
+            throw ContestLaneError.confirmed("worker_stopping", "The contest host is shutting down.")
+        }
+        let lane: PythonContestCallHistoryLane
+        if let callHistoryLane { lane = callHistoryLane }
+        else {
+            let created = try PythonContestCallHistoryLane(
+                contestingRoot: configuration.dataRootURL.standardizedFileURL.deletingLastPathComponent()) { [weak self] in
+                    guard let self else {
+                        throw ContestLaneError.confirmed("stale_history_context", "The call-history request belongs to another contest context.")
+                    }
+                    return try await self.callHistoryScope()
+                }
+            callHistoryLane = created
+            lane = created
+        }
+        return try await lane.handle(method: method, params: params)
+    }
+
+    private func callHistoryScope() throws -> PythonContestCallHistoryScope {
+        guard let projection = activeProjection,
+              let sessionID = projection["sessionID"] as? String,
+              let workspaceGeneration = projection["workspaceGeneration"] as? String,
+              let revision = (projection["revision"] as? NSNumber)?.int64Value,
+              let draftID = projection["draftID"] as? String,
+              let referenceID = projection["referenceID"] as? String,
+              sessionID == activeSessionID, workspaceGeneration == activeWorkspaceGeneration else {
+            throw ContestLaneError.confirmed("stale_history_context", "Open an active Python contest before using call history.")
+        }
+        let fields = projection["fields"] as? [[String: Any]] ?? []
+        let callsign = fields.first { $0["id"] as? String == "callsign" }?["value"] as? String ?? ""
+        return .init(sessionID: sessionID, workspaceGeneration: workspaceGeneration,
+                     revision: revision, draftID: draftID, callsign: callsign,
+                     ruleIdentity: CQWWCWRule.identity,
+                     referenceDataVersion: referenceID)
+    }
+
+    private func validateAssistance(_ scope: ContestAssistanceScope) throws {
+        guard scope.sessionID == activeSessionID,
+              scope.workspaceGeneration == activeWorkspaceGeneration else {
+            throw ContestLaneError.confirmed("stale_context", "The callsign suggestion belongs to another contest context.")
+        }
     }
 
     private func perform(method: String, params: [String: Any]) async throws -> [String: Any] {
