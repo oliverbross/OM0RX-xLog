@@ -395,7 +395,7 @@ class Host:
                     "sentSerial": desk.other_1.text() if state["pluginID"] in SERIAL_PLUGINS else ""}
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
-            return {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), state) if row else None}
+            return {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), store) if row else None}
         if method == "output_claim":
             operation = identifier(params.get("operationID"))
             store.begin()
@@ -472,7 +472,7 @@ class Host:
             previous = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (operation,))
             if previous:
                 require(previous["payload"] == payload, "Operation ID was already used with another payload", "payload_conflict")
-                result = self.replay_result(json.loads(previous["result"]), store.state(session_id))
+                result = self.replay_result(json.loads(previous["result"]), store)
                 store.finish(True)
                 return result
             state = store.state(session_id)
@@ -620,14 +620,17 @@ class Host:
         return deepcopy(value)
 
     @staticmethod
-    def replay_result(result, state=None):
+    def replay_result(result, store=None):
         # Durable database replay never re-emits a physical output intent.
         result = deepcopy(result)
-        if state and state.get("pluginID") in SERIAL_PLUGINS and isinstance(result.get("projection"), dict):
-            expected = str(state["draft"]["serial"]).zfill(3)
-            for field in result["projection"].get("fields", []):
-                if field.get("id") == "other_1":
-                    field["value"], field["readOnly"] = expected, True
+        projection = result.get("projection")
+        if store and isinstance(projection, dict) and projection.get("pluginID") in SERIAL_PLUGINS:
+            reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=?", (projection.get("draftID"),))
+            if reservation:
+                expected = str(reservation["serial"]).zfill(3)
+                for field in projection.get("fields", []):
+                    if field.get("id") == "other_1":
+                        field["value"], field["readOnly"] = expected, True
         result["actions"] = []
         result["replayed"] = True
         return result

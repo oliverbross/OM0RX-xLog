@@ -136,6 +136,9 @@ class WPXHostTests(unittest.TestCase):
         store.conn.execute("UPDATE xlog_operation SET result=? WHERE operation_id=?", (json.dumps(stale), operation))
         store.conn.commit()
 
+        self.mutate("qso_commit", qsoID=uid(), timestamp="2026-10-19 08:00:00")
+        self.assertEqual(self.fields()["other_1"], "002")
+
         receipt = self.read("receipt", operationID=operation)["result"]
         replay = self.call("draft_apply", params)
         for result in (receipt, replay):
