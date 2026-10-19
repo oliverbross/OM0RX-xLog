@@ -113,6 +113,7 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   sessionID: "11111111-1111-4111-8111-111111111111", engine: "not1mm-python", pluginID: "cq_ww_cw",
   workspaceGeneration: "33333333-3333-4333-8333-333333333333",
   sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f", referenceID: "cty-test", revision,
+  ruleIdentity:{id:"cq-ww-cw",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"},
   draftID: "22222222-2222-4222-8222-222222222222", frequencyHz: 14025000, mode: "CW", band: 14,
   focus: "callsign", tabNext: { callsign: "sent", sent: "receive", receive: "other_2", other_2: "callsign" },
   tabPrevious: { callsign: "other_2", sent: "callsign", receive: "sent", other_2: "receive" }, run: false,
@@ -156,6 +157,41 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
   expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({reportsVisible:false,
     receivedFields:[{id:"other_1",label:"Sent S/N",value:"1"},{id:"other_2",label:"Name + S/N",value:"BOB 12"}]});
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
+});
+
+it("projects Trans Tasman low bands, serial exchange, plugin dupe period and retained duplicate logging", async () => {
+  const current = { ...projection(5, {other_1:"001",other_2:"012"}), pluginID:"trans_tasman", pluginName:"Trans Tasman CW",
+    frequencyHz:7_025_000,band:7,reservedSerial:1,supportedBands:["160m","80m","40m"],supportedModes:["CW"],
+    allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14).",
+    ruleIdentity:{id:"trans-tasman",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"},
+    score:{qsos:1,points:1,countries:0,zones:0,multipliers:1,prefixes:1,total:1} };
+  current.fields = current.fields.map(field => ({...field,readOnly:field.id==="other_1",
+    label:field.id==="other_1"?"SentNR":field.id==="other_2"?"RcvNR":field.label}));
+  const row={ID:"tt-qso",TS:"2026-10-20 08:10:00",Call:"ZL1ABC",Freq:7025,Band:7,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:12,WPXPrefix:"ZL1",Points:1};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"trans_tasman",name:"Trans Tasman CW"}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={7_025_000}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:"trans_tasman"}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.descriptor).toMatchObject({bands:["160m","80m","40m"],modes:["CW"],allowDuplicateCommit:true,
+    serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:1}});
+  expect(entry.draft).toMatchObject({band:"40m",dupe:{state:"duplicate",reason:current.dupeExplanation},
+    receivedFields:[{id:"other_2",label:"RcvNR",value:"012"}]});
+  expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 prefixes"]});
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",page:{rows:[{
+    receivedExchange:"12",sentExchange:"1",multiplierLabels:["ZL1"]}]}});
+  expect(surfaceOwner.current.projections.awards.status).toBe("unavailable");
+  expect(surfaceOwner.current.projections["chaser-dx"].status).toBe("unavailable");
+  expect(validContestSurfaceProjection("active-qso",entry)).toBe(true);
 });
 
 it("projects only configured bands into detached Main Logging", async () => {

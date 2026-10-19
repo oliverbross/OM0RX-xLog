@@ -7,6 +7,9 @@ from types import MappingProxyType
 class Plugin:
     name: str
     serial: bool = False
+    bands: tuple[str, ...] = ("160m", "80m", "40m", "20m", "15m", "10m")
+    modes: tuple[str, ...] = ("CW",)
+    allow_duplicate_commit: bool = False
 
 
 PLUGIN_REGISTRY = MappingProxyType({
@@ -16,6 +19,8 @@ PLUGIN_REGISTRY = MappingProxyType({
     "icwc_mst": Plugin("ICWC Medium Speed Test", serial=True),
     "cwt": Plugin("CWT"),
     "k1usn_sst": Plugin("K1USN SLOW SPEED TEST"),
+    "trans_tasman": Plugin("Trans Tasman CW", serial=True, bands=("160m", "80m", "40m"),
+                            allow_duplicate_commit=True),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)

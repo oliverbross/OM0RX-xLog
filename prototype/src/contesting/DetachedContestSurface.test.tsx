@@ -48,14 +48,42 @@ it("renders validated manual main context without manufacturing headings or dist
 it("renders ICWC original name/serial input while omitting hidden report fields", async()=>{
   const view={...projection,schemaVersion:2,session:{name:"ICWC MST",ruleName:"ICWC Medium Speed Test",mode:"CW"},
     draft:{...projection.draft,reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]},
-    descriptor:{reportsVisible:false,bands:["20m"],modes:["CW"],sentFields:[{id:"other_1",label:"Sent S/N",value:"003",required:true,maximumUTF8Bytes:32}],
+    descriptor:{reportsVisible:false,bands:["20m"],modes:["CW"],automaticSerial:true,sentFields:[{id:"other_1",label:"Sent S/N",value:"003",required:true,maximumUTF8Bytes:32}],
       serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:3}},operator:null};
   expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
   expect(validContestSurfaceProjection("active-qso",{...view,descriptor:{...view.descriptor,reportsVisible:"false"}})).toBe(false);
   native.invoke.mockResolvedValue({...snapshot,projection:view}); render(<DetachedContestSurface/>);
   expect(await screen.findByLabelText("Name + S/N")).toHaveProperty("value","BOB 12");
   expect(screen.queryByLabelText("SNT")).toBeNull(); expect(screen.queryByLabelText("RCV")).toBeNull();
-  expect(screen.getByLabelText("Sent exchange").textContent).toBe("003");
+  expect(screen.getByLabelText("Sent exchange")).toHaveProperty("value","003");
+});
+
+it("retains manual Reserve serial for legacy detached entries",async()=>{
+  const view={...projection,schemaVersion:2,draft:{...projection.draft,reservedSerial:3},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"serial",label:"Serial",value:"003",required:true,maximumUTF8Bytes:32}],
+      serial:{requirement:"requiredForCommit",allocatedFieldID:"serial",reservedSerial:3}},operator:null};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"
+    ? {...snapshot,projection:view}:{requestID:args.requestID,status:"queued"});
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Reserve serial",hidden:true}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID:"active-qso",action:"entry_reserve_serial",params:{draftID:"draft-1",expectedDraftRevision:5}}));
+});
+
+it("keeps Trans Tasman duplicates loggable and presents the original period explanation",async()=>{
+  const reason="Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14).";
+  const view={...projection,schemaVersion:2,session:{name:"Trans Tasman",ruleName:"Trans Tasman CW",mode:"CW"},
+    draft:{...projection.draft,frequencyHz:7_025_000,frequencyText:"7025000",frequencyError:"",band:"40m",reservedSerial:1,
+      dupe:{state:"duplicate",reason},receivedFields:[{id:"other_2",label:"RcvNR",value:"012",required:true,maximumUTF8Bytes:128}]},
+    descriptor:{bands:["160m","80m","40m"],modes:["CW"],allowDuplicateCommit:true,automaticSerial:true,
+      sentFields:[{id:"other_1",label:"SentNR",value:"001",required:true,maximumUTF8Bytes:32}],
+      serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:1}},operator:null};
+  expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
+  native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
+  expect(await screen.findByLabelText("Sent exchange")).toHaveProperty("value","001");
+  expect(screen.getByText(`Duplicate: ${reason}`)).toBeTruthy();
+  expect((screen.getByRole("button",{name:"Log QSO",hidden:true}) as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.queryByRole("button",{name:"Reserve serial",hidden:true})).toBeNull();
+  expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040");
 });
 
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
@@ -194,18 +222,17 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     if(command==="contest_surface_action")return {requestID:args.requestID,status:"queued"};
     throw new Error(command);
   });
-  render(<DetachedContestSurface/>);expect(await screen.findByText("CQ OM0RX")).toBeTruthy();expect(screen.getByText("100")).toBeTruthy();
+  render(<DetachedContestSurface/>);expect(await screen.findByText("CQ OM0RX")).toBeTruthy();
   expect(screen.getByRole("region",{name:"Main Logging"})).toBeTruthy();
   expect(screen.getByLabelText("Current frequency").textContent).toBe("14,025.00 kHz");
   expect(screen.getByRole("group",{name:"Function key macros"}).querySelectorAll("button")).toHaveLength(12);
   expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW2040");
-  expect(screen.getByLabelText("Sent exchange").textContent).toBe("100");
+  expect(screen.getByLabelText("Sent exchange")).toHaveProperty("value","100");
   expect(screen.getByLabelText("CW speed unavailable").textContent).toBe("—");
   expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("—/— —");
   expect(Array.from(document.querySelectorAll(".contest-surface-main-fields > *")).map(field=>field.querySelector("label")?.firstChild?.textContent??field.firstChild?.textContent))
-    .toEqual(["Callsign","SNT","RCV","SentNR","RcvNR"]);
-  expect(screen.getByLabelText("Power")).toHaveProperty("value","100");
+    .toEqual(["Callsign","SNT","RCV","Power","RcvNR"]);
   expect(screen.getAllByRole("radio").map(input=>input.parentElement?.textContent)).toEqual(["Run","S&P"]);
   expect(screen.queryByLabelText("Operating style")).toBeNull();
   expect(document.querySelector(".contest-surface-entry > footer")).toBeNull();

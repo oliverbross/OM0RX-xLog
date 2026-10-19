@@ -55,6 +55,7 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
+    allowDuplicateCommit?: boolean; automaticSerial?: boolean;
     sentFields: { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number }[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
   operator: null | { output: "simulation-only" | "xlog-native"; armed: boolean; style: "run" | "search-and-pounce";
@@ -190,8 +191,10 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && oneOf(trace.macro, ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"]) &&
       text(trace.text, 1024, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
-    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible"]) &&
+    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial"]) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
+    (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
+    (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
     texts(descriptor.bands, 32, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&

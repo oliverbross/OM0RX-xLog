@@ -57,7 +57,7 @@
 .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child { grid-column:auto; }
 .contest-surface-entry .contest-surface-main-fields input, .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child input { min-height:34px; height:34px; font-size:21px; letter-spacing:0; }
 .contest-surface-sent-number { display:flex; flex-direction:column; gap:4px; min-width:0; color:var(--secondary); font-size:12px; }
-.contest-surface-sent-number output { padding:4px 8px; min-height:34px; border:1px solid var(--border); border-radius:var(--radius-sm,4px); color:var(--text); background:var(--bg); font:21px ui-monospace,monospace; }
+.contest-surface-sent-number output,.contest-surface-sent-number input { box-sizing:border-box; width:100%; padding:4px 8px; min-height:34px; border:1px solid var(--border); border-radius:var(--radius-sm,4px); color:var(--text); background:var(--bg); font:21px ui-monospace,monospace; }
 .contest-surface-run-strip { display:flex; align-items:center; gap:8px; }
 .contest-surface-run-strip label { flex-direction:row; align-items:center; font-size:12px; }
 .contest-surface-run-strip [role="group"] { display:flex; gap:8px; }

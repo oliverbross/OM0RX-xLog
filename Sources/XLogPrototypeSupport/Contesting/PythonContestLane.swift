@@ -153,6 +153,11 @@ actor PythonContestLane {
               let revision = (projection["revision"] as? NSNumber)?.int64Value,
               let draftID = projection["draftID"] as? String,
               let referenceID = projection["referenceID"] as? String,
+              let identity = projection["ruleIdentity"] as? [String: Any],
+              let ruleID = identity["id"] as? String,
+              let ruleVersion = identity["version"] as? String,
+              let ruleEdition = identity["edition"] as? String,
+              let ruleSourceRevision = identity["sourceRevision"] as? String,
               sessionID == activeSessionID, workspaceGeneration == activeWorkspaceGeneration else {
             throw ContestLaneError.confirmed("stale_history_context", "Open an active Python contest before using call history.")
         }
@@ -160,7 +165,8 @@ actor PythonContestLane {
         let callsign = fields.first { $0["id"] as? String == "callsign" }?["value"] as? String ?? ""
         return .init(sessionID: sessionID, workspaceGeneration: workspaceGeneration,
                      revision: revision, draftID: draftID, callsign: callsign,
-                     ruleIdentity: CQWWCWRule.identity,
+                     ruleIdentity: .init(id: ruleID, version: ruleVersion, edition: ruleEdition,
+                                         sourceRevision: ruleSourceRevision),
                      referenceDataVersion: referenceID)
     }
 

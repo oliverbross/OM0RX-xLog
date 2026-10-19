@@ -189,6 +189,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const focusPending=useRef<Promise<number|null>>(Promise.resolve(null)),desiredFocus=useRef<ContestInputFieldID|null>(null),
     focusDraft=useRef(base.draftID);
   const operator=projection.schemaVersion===2?projection.operator:null;
+  const sentOperatorField=projection.schemaVersion===2&&contestInputFieldIDs.includes(projection.descriptor.sentFields[0]?.id as ContestInputFieldID)
+    ? projection.descriptor.sentFields[0].id as ContestInputFieldID:null;
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
   const intents=useEntryIntents(projection,projectionRevision,send);
   const actionFor=(key:EntryIntentKey)=>(value:string):ContestSurfaceAction=>key==="callsign"||key==="sentReport"||key==="receivedReport"
@@ -210,7 +212,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const setFieldRef=(fieldID:ContestInputFieldID)=>(node:HTMLInputElement|null)=>{fieldRefs.current[fieldID]=node;};
   const nextFocusable=(from:ContestInputFieldID,direction:"tabNext"|"tabPrevious")=>{let candidate:ContestInputFieldID|undefined=from;
     for(let index=0;index<contestInputFieldIDs.length;index+=1){candidate=operator?.[direction]?.[candidate];if(!candidate)return null;
-      const element=fieldRefs.current[candidate];if(element&&!element.disabled&&!element.readOnly)return candidate;if(candidate===from)return null;}return null;};
+      const element=fieldRefs.current[candidate];if(element&&!element.disabled&&(!element.readOnly||candidate==="other_1"))return candidate;if(candidate===from)return null;}return null;};
   const operatorKey=(key:string,focusedField:ContestInputFieldID|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
@@ -248,7 +250,10 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       disabled={disabled} operatorField={index===0?"sent":"receive"} inputRef={setFieldRef(index===0?"sent":"receive")} onFocus={()=>focusField(index===0?"sent":"receive")}
       onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
       retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}
-    <div className="contest-surface-sent-number"><span>SentNR</span><output aria-label="Sent exchange">{projection.schemaVersion===2 ? projection.descriptor.sentFields.map((field:any)=>field.value||"—").join(" ")||"—" : "—"}</output></div>
+    <label className="contest-surface-sent-number"><span>{projection.schemaVersion===2 ? projection.descriptor.sentFields[0]?.label||"SentNR" : "SentNR"}</span><input
+      aria-label="Sent exchange" readOnly data-contest-field-id={sentOperatorField??undefined} ref={sentOperatorField?setFieldRef(sentOperatorField):undefined}
+      onFocus={sentOperatorField?()=>focusField(sentOperatorField):undefined}
+      value={projection.schemaVersion===2 ? projection.descriptor.sentFields.map((field:any)=>field.value||"—").join(" ")||"—" : "—"}/></label>
     {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey,
       fieldID=contestInputFieldIDs.includes(field.id as ContestInputFieldID)?field.id as ContestInputFieldID:index===0?"other_2":undefined;return <EntryIntentInput key={field.id}
       label={projection.descriptor?.reportsVisible===false?field.label:projection.draft.receivedFields.length===1?"RcvNR":field.label} accessibleLabel={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
@@ -284,11 +289,14 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
         <span role="status">{operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
         {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
       </section>}</>}
-      <footer>{projection.schemaVersion===2&&projection.descriptor.serial.requirement!=="none"&&<button disabled={disabled||sending} onClick={() => void send({action:"entry_reserve_serial",params:base},projectionRevision)}>Reserve serial</button>}
-        <button disabled={disabled||sending || projection.draft.validation.errors.length > 0 || projection.draft.dupe.state === "duplicate"}
+      <footer>{projection.schemaVersion===2&&projection.descriptor.serial.requirement!=="none"&&!projection.descriptor.automaticSerial&&
+        <button disabled={disabled||sending} onClick={() => void send({action:"entry_reserve_serial",params:base},projectionRevision)}>Reserve serial</button>}
+        <button disabled={disabled||sending || projection.draft.validation.errors.length > 0 ||
+          projection.draft.dupe.state === "duplicate" && !(projection.schemaVersion===2&&projection.descriptor.allowDuplicateCommit)}
           onClick={() => void send({action:"entry_commit",params:base},projectionRevision)}>Log QSO</button></footer>
     </details>
     {projection.draft.frequencyError && <p role="alert">{projection.draft.frequencyError}</p>}
+    {projection.draft.dupe.state === "duplicate" && <p role="status">Duplicate: {projection.draft.dupe.reason}</p>}
     {[...projection.draft.validation.errors,...projection.draft.validation.warnings].map((item:string) => <p key={item}>{item}</p>)}
     </section>;
 }

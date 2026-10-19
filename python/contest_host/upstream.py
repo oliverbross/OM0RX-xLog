@@ -59,8 +59,8 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
             raise RuntimeError("Pinned Not1MM CW macro source is invalid")
         template = adapt_cw_template(plugin_id, parts[3])
         result[(parts[0], parts[1])] = {"label": parts[2], "template": template}
-    if plugin_id == "cq_wpx_cw":
-        # The shipped macros target a configured exchange. WPX sends the
+    if plugin_id in {"cq_wpx_cw", "trans_tasman"}:
+        # The shipped macros target a configured exchange. Serial contests send the
         # host-reserved draft serial, independently of that configured text.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{RST} {SENTNR}"
@@ -112,10 +112,29 @@ def load_plugin(plugin_id="cq_ww_cw"):
     module_name = f"not1mm.plugins.{plugin_id}"
     if module_name not in sys.modules:
         import_module("not1mm.plugins")
-        overlay(module_name, [
+        replacements = [
             ("from PyQt6 import QtWidgets", "from contest_host.qt_compat import QtWidgets"),
             ("str(Path.home())", "str(self.export_directory)"),
-        ])
+        ]
+        if plugin_id == "trans_tasman":
+            # Explicit compatibility fixes; original pinned bytes stay intact.
+            replacements.extend([
+                ('float(contact.get("Freq", "0")) * 1000', 'float(contact.get("Freq", "0"))'),
+                ('now = datetime.datetime.now(datetime.UTC)',
+                 'now = datetime.datetime.fromisoformat(self.dupe_timestamp).replace(tzinfo=datetime.UTC)'),
+                ('if not _is_vk_zl_prefix(wpx):\n            continue',
+                 'if not _is_vk_zl_prefix(wpx) or not contact.get("Points", 0):\n            continue'),
+            ])
+            # Both score-display SQL queries need the same eligibility filter.
+            original = 'and {_vk_zl_wpx_filter()};'
+            replacement = 'and {_vk_zl_wpx_filter()} and Points > 0;'
+            source = (VENDOR / "not1mm/plugins/trans_tasman.py").read_text(encoding="utf-8")
+            for fragment in ("as mults", "as qsos"):
+                start = source.index(fragment)
+                end = source.index(original, start) + len(original)
+                chunk = source[start:end]
+                replacements.append((chunk, chunk.replace(original, replacement)))
+        overlay(module_name, replacements)
     return sys.modules[module_name]
 
 

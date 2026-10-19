@@ -26,6 +26,19 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_qso_identity(id TEXT PRIMARY KEY, raw_fields TEXT NOT NULL, country TEXT, deleted INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL, before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
         """)
+        # Retain every issued reservation when introducing per-band scopes.
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(xlog_serial)")}
+        if "scope" not in columns:
+            self.conn.executescript("""
+                BEGIN IMMEDIATE;
+                ALTER TABLE xlog_serial RENAME TO xlog_serial_legacy;
+                CREATE TABLE xlog_serial(draft_id TEXT NOT NULL, serial INTEGER NOT NULL,
+                    operation_id TEXT NOT NULL, scope TEXT NOT NULL,
+                    PRIMARY KEY(draft_id,scope), UNIQUE(scope,serial));
+                INSERT INTO xlog_serial SELECT draft_id,serial,operation_id,'contest' FROM xlog_serial_legacy;
+                DROP TABLE xlog_serial_legacy;
+                COMMIT;
+            """)
         self.conn.commit()
 
     def connect(self, database):

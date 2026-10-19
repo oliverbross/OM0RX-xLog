@@ -27,7 +27,9 @@ type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; run: boolean;
-  functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; countryResolved: boolean;
+  functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
+  ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
+  supportedBands?: string[]; supportedModes?: Array<"CW" | "SSB" | "RTTY" | "AM" | "FM">; allowDuplicateCommit?: boolean;
   history: string; score: Score; operator?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
@@ -123,14 +125,16 @@ function canonicalWorkedAt(value: unknown) {
 function receivedExchange(row: Data, pluginID?: string): string {
   if (pluginID === "icwc_mst") return `${row.Name ?? ""} ${row.NR ?? ""}`.trim();
   if (pluginID === "arrl_ss_cw") return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
-  return String(pluginID === "cq_wpx_cw" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
+  return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
 }
 function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
   return rows.map(row => ({
     qsoID: String(row.ID ?? ""), workedAt: canonicalWorkedAt(row.TS), callsign: String(row.Call ?? ""),
     band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
-    points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" ? [] : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
+    points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" ? []
+      : pluginID === "trans_tasman" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
+      : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));
 }
 function manualRows(rows: Data[]): ContestManualRow[] {
@@ -175,8 +179,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
   const configuredBands = useMemo(() => {
     const selected = Array.isArray(setup.preferences.bands) ? setup.preferences.bands : contestBands;
-    return setupBandChoices.filter(band => selected.includes(band));
-  }, [setup.preferences.bands]);
+    const supported = projection?.supportedBands?.length ? projection.supportedBands : setupBandChoices;
+    return setupBandChoices.filter(band => selected.includes(band) && supported.includes(band));
+  }, [setup.preferences.bands, projection?.supportedBands]);
   const [effectiveMacros, setEffectiveMacros] = useState<ContestSetupMacro[] | undefined>();
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
@@ -531,7 +536,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         country:callContext?.country ?? null, cqZone:callContext?.cqZone ?? null, ituZone:callContext?.ituZone ?? null,
         headingDegrees:callContext?.headingDegrees ?? null, longPathHeadingDegrees:callContext?.longPathHeadingDegrees ?? null,
         distanceKm:callContext?.distanceKm ?? null, qsos:projection.score.qsos, multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
-      session: { name: activeSessionName, ruleName: projection.pluginName ?? projection.pluginID, mode: "CW" },
+      session: { name: activeSessionName, ruleName: projection.pluginName ?? projection.pluginID, mode: projection.mode },
       draft: {
         draftID: projection.draftID, revision: projection.revision, callsign: currentFields.callsign ?? "",
         sentReport: currentFields.sent ?? "", receivedReport: currentFields.receive ?? "",
@@ -540,12 +545,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         frequencyHz, frequencyText: frequencyHz === null ? "" : String(frequencyHz),
         frequencyError: frequencyHz === null ? "Enter a valid HF contest frequency." : "",
         band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode,
-        dupe: { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe ? "Worked on this band." : "Clear on this band." },
+        dupe: { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe
+          ? projection.dupeExplanation ?? "Worked on this band." : "Clear for this contest." },
         validation: { errors: [], warnings: projection.countryResolved ? [] : ["Country is unresolved; scoring credit may be zero."] },
         reservedSerial,
       },
       descriptor: {
-        bands: configuredBands, modes: ["CW"], reportsVisible,
+        bands: configuredBands, modes: projection.supportedModes?.length ? projection.supportedModes : ["CW"], reportsVisible,
+        allowDuplicateCommit: projection.allowDuplicateCommit ?? false, automaticSerial: reservedSerial !== null,
         sentFields: [{ id: "other_1", label: sentZone?.label || "Sent CQ zone", value: currentFields.other_1 ?? "",
           required: true, maximumUTF8Bytes: 32 }],
         serial: reservedSerial === null ? { requirement: "none", allocatedFieldID: null, reservedSerial: null }
@@ -570,7 +577,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: true,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID) },
-      ...(projection.pluginID === "icwc_mst" ? { exchangeLayout: "plugin" as const } : { manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]) }),
+      ...(["icwc_mst", "trans_tasman"].includes(projection.pluginID) ? { exchangeLayout: "plugin" as const } : { manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]) }),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall, reportsVisible,
         band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),
@@ -601,8 +608,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       last100QsoPerHour: rates?.last100QsoPerHour ?? null, sinceMinuteQsoPerHour: rates?.sinceMinuteQsoPerHour ?? null,
       runQso: Number(rates?.runQso ?? 0), searchAndPounceQso: Number(rates?.searchAndPounceQso ?? 0),
       hourRunQso: Number(rates?.hourRunQso ?? 0), hourSearchAndPounceQso: Number(rates?.hourSearchAndPounceQso ?? 0), busy: busy || retiring };
-    if (projection.pluginID !== "icwc_mst") {
+    if (Array.isArray(matrices.countries) && matrices.countries.length) {
       unavailable.awards = multiplierMatrix("DXCC", Array.isArray(matrices.countries) ? matrices.countries : [], busy || retiring);
+    }
+    if (Array.isArray(matrices.zones) && matrices.zones.length) {
       unavailable["chaser-dx"] = multiplierMatrix("CQ Zones", Array.isArray(matrices.zones) ? matrices.zones : [], busy || retiring);
     }
     return unavailable;
@@ -642,7 +651,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await persistFields(fieldID, action.params.field === "callsign" ? action.params.value.toUpperCase() : action.params.value); return;
       }
       case "entry_set_exchange":
-        if (action.params.fieldID !== "other_2") throw new Error("This CQ WW entry field is not editable here.");
+        if (action.params.fieldID !== "other_2") throw new Error("This contest entry field is not editable here.");
         await persistFields("other_2", action.params.value.toUpperCase()); return;
       case "entry_set_frequency_text": {
         if (observedFrequencyHz !== null) throw new Error("Frequency follows the selected xLog radio and cannot be edited here.");
@@ -657,9 +666,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           throw new Error("Band follows the admitted contest frequency.");
         return;
       case "entry_set_mode":
-        if (action.params.value !== active.mode) throw new Error("CQ WW CW mode cannot be changed in this session.");
+        if (action.params.value !== active.mode) throw new Error("This Python contest session does not support changing mode.");
         return;
-      case "entry_reserve_serial": throw new Error("CQ WW CW does not allocate a serial number.");
+      case "entry_reserve_serial": throw new Error("Serial numbers are allocated automatically by the contest host.");
       case "entry_commit":
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
           true, true, false, true); return;
@@ -717,7 +726,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         requireEditing(action.params.qsoID);
         if (action.params.fieldID === "other_1") setEditSentExchange(action.params.value);
         else if (action.params.fieldID === "other_2") setEditZone(action.params.value);
-        else throw new Error("This CQ WW log field is not editable here.");
+        else throw new Error("This contest log field is not editable here.");
         return;
       case "log_edit_set_frequency_text": {
         requireEditing(action.params.qsoID);
@@ -801,10 +810,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     <footer><button type="button" disabled={busy || retiring} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
   </form>;
   const scorePanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score</h2><ContestScoreSummary score={scoreView}/></aside>;
-  const historySession = projection ? { sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
+  const historySession = projection?.ruleIdentity ? { sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
     revision: projection.revision, referenceDataVersion: projection.referenceID,
-    rule: { identity: { id: projection.pluginID.replaceAll("_", "-"), version: "1.0.0-source-spike", edition: "source-26.10.11",
-      sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f" } } } as unknown as ContestSessionSummary : null;
+    rule: { identity: projection.ruleIdentity } } as unknown as ContestSessionSummary : null;
   const historyDraft = projection ? { draftID: projection.draftID, revision: projection.revision,
     fields: { callsign: fields.callsign ?? "" } } as unknown as ContestDraftSnapshot : null;
   const checkPanel = <section className="contest-score" aria-label="Check Partial"><h2>Check Partial</h2>{projection && <ContestAssistancePanel
@@ -816,7 +824,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     onApply={async (_selection, projectionIDs) => {
       if (projectionIDs.length) throw new Error("Applying xLog call-history fields to a Not1MM draft is not available yet.");
       setNotice("Call-history row selected for review; no Not1MM exchange field was changed.");
-    }}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe ? "Worked on this band" : projection?.countryResolved ? "Country resolved · not a duplicate" : "No country match yet"}</p></section>;
+    }}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe
+      ? projection.dupeExplanation ?? "Worked in this contest" : projection?.countryResolved ? "Country resolved · not a duplicate" : "No country match yet"}</p></section>;
   const matrixPanel = <section className="contest-score" aria-label="Country and zone matrices"><h2>Countries / zones</h2><div className="contest-multipliers">{[...(matrices.countries ?? []), ...(matrices.zones ?? [])].map((item: Data, index: number) => <span key={`${item.value}-${item.band}-${index}`}>{item.value || "Unknown"} · {bandLabels[String(item.band)] ?? item.band} · {item.qsos}</span>)}</div></section>;
   const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><button type="button" disabled={busy} onClick={() => void exportCabrillo()}><Download size={14}/>Export Cabrillo</button></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;

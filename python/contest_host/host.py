@@ -13,7 +13,7 @@ import uuid
 
 from .store import Store, canonical
 from .rates import calculate_rates
-from .plugins import PLUGINS, SERIAL_PLUGINS
+from .plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
 PLUGIN_ID = "cq_ww_cw"
@@ -210,7 +210,7 @@ class Desk:
             self.contact.update({"QSXFreq": frequency / 1000, "Mode": "CW", "ContestNR": 1,
                 "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
                 "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
-        self.contact_is_dupe = int(self.is_dupe(call, band))
+        self.contact_is_dupe = int(self.is_dupe(call, band, timestamp, self.contact["Mode"]))
         self.contest.set_contact_vars(self)
         self.contact["Points"] = self.contest.points(self)
         return deepcopy(self.contact)
@@ -222,10 +222,27 @@ class Desk:
             return self.contest.parse_exchange(self)[4]
         return self.callsign.text().upper()
 
-    def is_dupe(self, call, band):
+    def is_dupe(self, call, band, timestamp=None, mode="CW"):
+        if self.contest.dupe_type == 5:
+            previous = self.contact
+            previous_mode = self.radio_state["mode"]
+            self.contact = {"Band": band}
+            self.radio_state["mode"] = mode
+            self.dupe_timestamp = timestamp or now()
+            try:
+                return bool(self.contest.specific_contest_check_dupe(self, call).get("isdupe"))
+            finally:
+                self.contact = previous
+                self.radio_state["mode"] = previous_mode
         if self.contest.dupe_type == 1:
             return bool(self.database.check_dupe(call).get("isdupe"))
         return bool(self.database.check_dupe_on_band(call, band).get("isdupe"))
+
+    def contest_band(self, frequency):
+        band = self.band(frequency)
+        require(self.state["pluginID"] != "trans_tasman" or band in {1.8, 3.5, 7.0},
+                "Trans Tasman supports only 160, 80 and 40 metres", "invalid_frequency")
+        return band
 
     @staticmethod
     def band(frequency):
@@ -257,10 +274,15 @@ class Desk:
         speed = self.state.get("setup", {}).get("preferences", {}).get("cwSpeed")
         if type(speed) not in {int, float} or not 1 <= speed <= 100:
             speed = None
+        plugin = PLUGIN_REGISTRY[self.state["pluginID"]]
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
                 "reservedSerial": self.current_sn if self.state["pluginID"] in SERIAL_PLUGINS else None,
                 "sourceRevision": SOURCE_REVISION,
+                "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"), "version": "26.10.11",
+                                 "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
+                "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
+                "allowDuplicateCommit": plugin.allow_duplicate_commit,
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
@@ -276,10 +298,18 @@ class Desk:
                 "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights,
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
                 "dupe": bool(call and self.is_dupe(call, band)),
+                "dupeExplanation": ("Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."
+                                    if self.contest.dupe_type == 5 else
+                                    "Worked in this contest." if self.contest.dupe_type == 1 else "Worked on this band."),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] == "trans_tasman":
+            prefixes = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": 0, "prefixes": prefixes,
+                    "multipliers": prefixes, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] in {"icwc_mst", "cwt"}:
             calls = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -468,7 +498,7 @@ class Host:
             expected = params.get("expectedRevision")
             require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
             return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
-                    "total": desk.score()["qsos"],
+                    "total": store.exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],
                     "rows": store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY TS DESC,rowid DESC LIMIT ? OFFSET ?", (limit, offset))}
         if method == "export":
             return self.export(desk)
@@ -566,6 +596,7 @@ class Host:
                 setup["settings"].setdefault("ModeCategory", "CW")
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
+                self.reserve_serial(store, state)
                 # Recreate the adapter with effective settings/macros before returning
                 # the projection, and rescore if the station country changed.
                 previous_station = desk.station
@@ -678,7 +709,8 @@ class Host:
         result = deepcopy(result)
         projection = result.get("projection")
         if store and isinstance(projection, dict) and projection.get("pluginID") in SERIAL_PLUGINS:
-            reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=?", (projection.get("draftID"),))
+            reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=? AND serial=?",
+                                         (projection.get("draftID"), projection.get("reservedSerial")))
             if reservation:
                 expected = str(reservation["serial"]).zfill(3)
                 for field in projection.get("fields", []):
@@ -718,6 +750,8 @@ class Host:
         frequency = params.get("frequencyHz")
         require(type(frequency) is int, "A confirmed or manual frequency is required")
         Desk.band(frequency)
+        require(plugin_id != "trans_tasman" or Desk.band(frequency) in {1.8, 3.5, 7.0},
+                "Trans Tasman supports only 160, 80 and 40 metres", "invalid_frequency")
         station, reference = deepcopy(params.get("station")), deepcopy(params.get("reference"))
         require(isinstance(station, dict) and isinstance(reference, dict), "Station and reference are required")
         call = text(station.get("Call", ""), 32).upper()
@@ -756,8 +790,17 @@ class Host:
     def reserve_serial(self, store, state):
         if state["pluginID"] not in SERIAL_PLUGINS:
             return
-        serial = store.exec_sql("SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial")["serial"]
-        store.conn.execute("INSERT INTO xlog_serial VALUES(?,?,?)", (state["draft"]["id"], serial, self._operation))
+        scope = "contest"
+        if state["pluginID"] == "trans_tasman" and state["settings"].get("OperatorCategory", "") != "SINGLE-OP":
+            scope = f'band:{Desk.band(state["draft"]["frequencyHz"])}'
+        reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=? AND scope=?",
+                                     (state["draft"]["id"], scope))
+        if reservation:
+            serial = reservation["serial"]
+        else:
+            serial = store.exec_sql("SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial WHERE scope=?", (scope,))["serial"]
+            store.conn.execute("INSERT INTO xlog_serial(draft_id,serial,operation_id,scope) VALUES(?,?,?,?)",
+                               (state["draft"]["id"], serial, self._operation, scope))
         state["draft"]["serial"] = serial
         state["draft"]["fields"]["other_1"] = str(serial).zfill(3)
 
@@ -798,13 +841,20 @@ class Host:
         if "frequencyHz" in params:
             frequency = params["frequencyHz"]
             require(type(frequency) is int, "Frequency must be integer Hz")
-            desk.band(frequency)
+            desk.contest_band(frequency)
             desk.state["draft"]["frequencyHz"] = frequency
+            if not allow_reserved_serial_change:
+                self.reserve_serial(desk.database, desk.state)
+                if desk.state["pluginID"] in SERIAL_PLUGINS:
+                    desk.current_sn = desk.state["draft"]["serial"]
+                    desk.other_1.setText(str(desk.current_sn).zfill(3))
 
     @staticmethod
     def prefill(desk):
         country = desk.cty_lookup(desk.callsign.text())
         desk.contact["ZN"] = next(iter(country.values()))["cq"] if country else ""
+        if desk.state["pluginID"] == "trans_tasman":
+            desk.contact["Band"] = desk.contest_band(desk.state["draft"]["frequencyHz"])
         desk.contest.prefill(desk)
         if hasattr(desk.contest, "check_call_history"):
             desk.contest.check_call_history(desk)
@@ -814,10 +864,10 @@ class Host:
         if desk.state["pluginID"] == "cq_ww_cw":
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
-        elif desk.state["pluginID"] == "cq_wpx_cw":
+        elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman"}:
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
-                        "WPX sent and received serials must be positive SQLite integers")
+                        "Sent and received serials must be positive SQLite integers")
         elif desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
             require(all(value and value == value.strip() for value in (fields["other_1"], fields["other_2"])),
                     "Received name and exchange must be non-empty without surrounding whitespace")
@@ -847,6 +897,9 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
+        if desk.state["pluginID"] == "trans_tasman":
+            self.rebuild(desk)
+            contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
         desk.state["draft"]["id"] = str(uuid.uuid4())
         for name in ("callsign", "other_2"):
@@ -887,7 +940,7 @@ class Host:
                 raise HostError("invalid_request", "Invalid UTC timestamp") from error
             frequency = params.get("frequencyHz", round(before["Freq"] * 1000))
             require(type(frequency) is int, "Frequency must be integer Hz")
-            desk.band(frequency)
+            desk.contest_band(frequency)
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
@@ -914,7 +967,7 @@ class Host:
         desk.database.conn.execute("DELETE FROM DXLOG")
         for row in rows:
             desk.contact = row
-            desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"]))
+            desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
             row["Points"] = desk.contest.points(desk)
             points[row["ID"]] = row["Points"]
             desk.database.log_contact(row)
