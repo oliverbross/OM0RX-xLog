@@ -85,9 +85,48 @@ it("retains draft edits on failed save and prevents concurrent submissions", asy
   expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Retained");
   open("Cancel"); expect(p.onSave).toHaveBeenCalledOnce();
 });
-it("uses the original Edit Keys table and leaves macro-file editing explicit when no editor is connected", () => {
+it("uses the original Edit Keys table and saves key changes", async () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Edit Keys");
   expect(screen.getAllByRole("columnheader").map(item => item.textContent)).toEqual(["Context", "Key", "Action", "Description"]);
   open("Add"); expect(screen.getByLabelText("key 7")).toBeTruthy(); open("Remove"); expect(screen.queryByLabelText("key 7")).toBeNull();
-  open("Cancel"); open("Edit Macros"); expect(screen.getByText(/macro file editor is not connected/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+R" } }); open("OK");
+  await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0].key).toBe("Alt+R");
+});
+
+it("edits Run and S&P F1–F12 macros in the durable setup document without sending output", async () => {
+  const p = props(); p.value.macros = [{ mode: "R", key: "F1", label: "CQ", template: "CQ {MYCALL}" }, { mode: "S", key: "F12", label: "TU", template: "TU" }];
+  render(<ContestSetupPanel {...p}/>); open("Edit Macros");
+  for (const mode of ["Run", "S&P"]) for (let key = 1; key <= 12; key++) expect(screen.getByLabelText(`${mode} F${key} template`)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Run F1 label"), { target: { value: "CQ TEST" } });
+  fireEvent.change(screen.getByLabelText("S&P F12 template"), { target: { value: "TU {MYCALL}" } });
+  expect(p.onSave).not.toHaveBeenCalled(); open("OK");
+  await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(p.onSave.mock.calls[0][0].macros).toEqual(expect.arrayContaining([{ mode: "R", key: "F1", label: "CQ TEST", template: "CQ {MYCALL}" }, { mode: "S", key: "F12", label: "TU", template: "TU {MYCALL}" }]));
+  expect(p.value.macros[0].label).toBe("CQ");
+});
+
+it("uses effective contest defaults for a label-only edit while preserving the source overrides", async () => {
+  const p = props();
+  render(<ContestSetupPanel {...p} effectiveMacros={[{ mode: "R", key: "F1", label: "CQ", template: "CQ {MYCALL}" }]}/>);
+  open("Edit Macros"); fireEvent.change(screen.getByLabelText("Run F1 label"), { target: { value: "CQ TEST" } }); open("OK");
+  await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(p.onSave.mock.calls[0][0].macros).toEqual([{ mode: "R", key: "F1", label: "CQ TEST", template: "CQ {MYCALL}" }]);
+  expect(p.value.macros).toEqual([]);
+});
+
+it("routes every shared service and reports native opening errors without saving draft settings", async () => {
+  const p = props(); render(<ContestSetupPanel {...p}/>); open("Station Settings"); open("Open xLog Station settings");
+  await waitFor(() => expect(p.onOpenSettings).toHaveBeenCalledWith("Station"));
+  await waitFor(() => expect(screen.getByLabelText("City").closest("fieldset")?.disabled).toBe(false));
+  open("Cancel"); open("Configuration Settings");
+  for (const [tab, service] of [["Lookup", "QRZ"], ["Sound", "Integrations"], ["CAT", "Radio"], ["CW", "CW"], ["Cluster", "Cluster"], ["Rotator", "Rotator"]]) {
+    fireEvent.click(screen.getByRole("tab", { name: tab })); open(`Open xLog ${service} settings`);
+    await waitFor(() => expect(p.onOpenSettings).toHaveBeenCalledWith(service));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false));
+  }
+  p.onOpenSettings.mockImplementationOnce(() => { throw new Error("Rotor window is unavailable"); });
+  open("Open xLog Rotator settings");
+  await screen.findByText("Rotor window is unavailable");
+  expect(p.onSave).not.toHaveBeenCalled();
 });

@@ -219,7 +219,7 @@ function MainLiveApp() {
   const logbookWorkingRef = useRef(false);
   const [logbookWorking, setLogbookWorking] = useState(false);
   const logbookWorkingChanged = useCallback((value: boolean) => { logbookWorkingRef.current = value; setLogbookWorking(value); }, []);
-  type MenuSettingsTab = "Station" | "Radio" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data";
+  type MenuSettingsTab = "Station" | "Radio" | "Logbook" | "Wavelog" | "Sync" | "QRZ" | "Online logs" | "Reference data" | "CW" | "Cluster" | "Integrations";
   const [settingsTabRequest, setSettingsTabRequest] = useState<{ tab: MenuSettingsTab; revision: number }>({ tab: "Station", revision: 0 });
   const [radioSettingsRequest, setRadioSettingsRequest] = useState<{ radioId: RadioID; revision: number }>({ radioId: "radio1", revision: 0 });
   const [workspace, setWorkspace] = useState<Data | null>(null);
@@ -338,7 +338,7 @@ function MainLiveApp() {
     if (isContestMenuRoute(title)) return false;
     if (title.startsWith("Workspace Mode: ")) return modeAction.current(title);
     const onlineTab = ({ "Wavelog Settings": "Wavelog", "QRZ Settings": "QRZ", "Online Log Settings": "Online logs",
-      "Reference Data Settings": "Reference data" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Online Log Settings" | "Reference Data Settings"];
+      "Reference Data Settings": "Reference data", "Station Settings": "Station", "CW Settings": "CW", "Cluster Settings": "Cluster", "Integrations Settings": "Integrations" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Online Log Settings" | "Reference Data Settings" | "Station Settings" | "CW Settings" | "Cluster Settings" | "Integrations Settings"];
     return title === "Sync" ? showSyncSettings() : onlineTab ? showOnlineSettings(onlineTab) : setView(title);
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);

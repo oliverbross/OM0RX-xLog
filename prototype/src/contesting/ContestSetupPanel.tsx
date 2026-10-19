@@ -11,7 +11,7 @@ export type ContestSetupDocument = {
   macros: ContestSetupMacro[];
 };
 export type ContestSetupSession = { sessionID: string; name: string; pluginID: string; workspaceGeneration: string; revision: number; startUTC?: string };
-export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Cluster" | "Integrations";
+export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Cluster" | "Integrations" | "Rotator";
 export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
 type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Edit Macros" | "Edit Keys";
@@ -27,16 +27,16 @@ const defaultBindings: KeyBinding[] = [
 ];
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
+  effectiveMacros?: ContestSetupMacro[];
   catalog: Array<{ id: string; name: string }>;
   busy?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
   onOpen: (session: ContestSetupSession) => Promise<void>;
-  onOpenSettings?: (tab: ContestSetupServiceTab) => void;
+  onOpenSettings?: (tab: ContestSetupServiceTab) => void | Promise<void>;
   servicePanels?: Partial<Record<ContestSetupServiceTab, ReactNode>>;
   callHistoryPanel?: ReactNode;
   onOpenCallHistory?: () => void;
-  onEditMacros?: () => void;
 };
 
 export function newContestSetup(stationCall = ""): ContestSetupDocument {
@@ -66,15 +66,16 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
-  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, onEditMacros }: Props) {
-  const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
+  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros }: Props) {
+  const macroDraft = () => ({ ...setupDraft(value), macros: structuredClone(effectiveMacros ?? value.macros) });
+  const [draft, setDraft] = useState<ContestSetupDocument>(() => initialTab === "Macros" ? macroDraft() : setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
   const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
   const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
   const [selectedBinding, setSelectedBinding] = useState(0);
   const [pending, setPending] = useState(false), pendingRef = useRef(false);
   const id = useId();
-  useEffect(() => { setDraft(setupDraft(value)); }, [value]);
+  useEffect(() => { setDraft(view === "Edit Macros" ? macroDraft() : setupDraft(value)); }, [value, effectiveMacros]);
   useEffect(() => {
     if (contestSetupTabs.includes(initialTab as ContestSetupTab)) { setTab(initialTab as ContestSetupTab); setView("Configuration Settings"); }
   }, [initialTab]);
@@ -88,7 +89,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
         onChange={event => update(section, key, type === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)}/> }</label>;
   };
   const check = (section: "preferences" | "network", key: string, label: string) => <label key={key} className="contest-setup-check"><input type="checkbox" checked={draft[section][key] === true} onChange={event => update(section, key, event.target.checked)}/><span>{label}</span></label>;
-  const shared = (service: ContestSetupServiceTab) => servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => onOpenSettings(service)}>Open xLog {service} settings</button> : null);
+  const shared = (service: ContestSetupServiceTab) => servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => void run(async () => { await onOpenSettings(service); }, "")}>Open xLog {service} settings</button> : null);
   async function run(operation: () => Promise<void>, success: string) {
     if (disabled || pendingRef.current) return;
     pendingRef.current = true; setPending(true); setMessage("");
@@ -97,7 +98,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     finally { pendingRef.current = false; setPending(false); }
   }
   function close() { setDraft(setupDraft(value)); setMessage(""); setView(null); }
-  function open(next: SetupView) { setDraft(setupDraft(value)); setMessage(""); setView(next); setSelectedSession(activeSessionID ?? ""); }
+  function open(next: SetupView) { setDraft(next === "Edit Macros" ? macroDraft() : setupDraft(value)); setMessage(""); setView(next); setSelectedSession(activeSessionID ?? ""); }
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
@@ -161,14 +162,22 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       case "Sound": content = <div className="contest-manual-stack">{choice("preferences", "soundDevice", "Sound output device", ["default"])}{shared("Integrations")}</div>; break;
       case "CAT": content = <><div className="contest-manual-stack">{row(field("preferences", "rigControlHost", "Rig Control IP"), field("preferences", "rigControlPort", "Port", "number"))}<div className="contest-radio-options">{["rigctld", "flrig", "None"].map(provider => <label key={provider}><input type="radio" name="cat-provider" checked={draft.preferences.catProvider === provider} onChange={() => update("preferences", "catProvider", provider)}/>{provider}</label>)}</div></div>{shared("Radio")}</>; break;
       case "CW": content = <div className="contest-manual-stack">{choice("preferences", "cwProvider", "CW interface", ["cwdaemon", "pywinkeyer", "CAT"])}{row(field("preferences", "cwHost", "IP"), field("preferences", "cwPort", "Port", "number"))}{choice("preferences", "cwSpeedIncrement", "Speed Increment for PgUp/PgDown", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])}{choice("preferences", "cwSendRST", "Send 599 RST as", ["5NN", "599", "ENN"])}{choice("preferences", "cwPaddingCharacter", "Serial Number Padding Character", ["0", "O", "T"])}{field("preferences", "cwPaddingLength", "Padding Length", "number")}{row(choice("preferences", "cwCut1", "Send 1 as", ["1", "A"]), choice("preferences", "cwCut9", "Send 9 as", ["9", "N"]), choice("preferences", "cwCut0", "Send 0 as", ["0", "T"]))}{shared("CW")}</div>; break;
-      case "Rotator": content = <p>The manual shows a Rotator tab but does not document its controls. Use the station rotator window for the available service.</p>; break;
+      case "Rotator": content = shared("Rotator"); break;
       case "Cluster": content = <div className="contest-manual-stack">{field("preferences", "clusterServer", "Server")}{field("preferences", "clusterPort", "Port", "number")}{field("preferences", "clusterPassword", "Password", "password")}{field("preferences", "clusterFilter", "Filter")}{choice("preferences", "clusterMode", "Mode", ["OPEN", "FILTER"])}{shared("Cluster")}</div>; break;
       case "Group": content = <div className="contest-manual-stack">{check("network", "multiEnabled", "Connect to server")}{check("network", "multiMaster", "Be the master")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}</div>; break;
       case "N1MM": content = <div className="contest-manual-stack">{check("network", "n1mmEnabled", "Send N1MM packets")}{row(field("network", "stationName", "Station Name"), field("network", "n1mmOperatorName", "Operator Name"))}{(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}</div>; break;
       case "Bands": content = <div className="contest-manual-bands">{[["160m", "80m", "40m", "20m", "15m", "10m"], ["6m", "2m", "1.25m", "70cm", "33cm", "23cm"]].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
       case "Options": content = <><div className="contest-options-columns"><div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div><div className="contest-manual-stack">{check("preferences", "callHistory", "Use Call History")}<hr/>{check("preferences", "rtcEnabled", "Use RTC score reporting")}{choice("preferences", "rtcURL", "Score reporting URL", ["https://hamscore.com/postxml/", "https://contestsonlinescore.com/postscore.jsp", "https://contest.run/postscore"])}{field("preferences", "rtcUsername", "Score reporting username")}{field("preferences", "rtcPassword", "Score reporting password", "password")}{field("preferences", "rtcIntervalMinutes", "Score posting interval (minutes)", "number")}</div></div>{check("preferences", "clearOnVFOChange", "Clear input fields in S&P when the VFO frequency changes")}{callHistoryPanel ?? (onOpenCallHistory ? <button type="button" onClick={onOpenCallHistory}>Open Call History</button> : null)}</>; break;
     }
-  } else if (view === "Edit Macros") content = <><p>File → Edit Macros opens the system text editor for the active contest and operating mode. Each contest and mode has its own macro file.</p>{onEditMacros ? <button type="button" onClick={onEditMacros}>Open macro file in text editor</button> : <p>The macro file editor is not connected in this window yet.</p>}</>;
+  } else if (view === "Edit Macros") content = <><p>Edit function key labels and CW templates for this contest. Unchanged empty rows use the contest default; clearing an edited template disables that macro. Saving does not send CW.</p>{(["R", "S"] as const).map(mode => <section key={mode} aria-label={mode === "R" ? "Run macros" : "S&P macros"}><h3>{mode === "R" ? "Run" : "S&P"}</h3><div className="contest-key-scroll"><table className="contest-key-table"><thead><tr><th>Key</th><th>Label</th><th>Template</th></tr></thead><tbody>{Array.from({ length: 12 }, (_, index) => {
+    const key = `F${index + 1}`, macro = draft.macros.find(item => item.mode === mode && item.key === key);
+    const edit = (property: "label" | "template", text: string) => setDraft(current => {
+      const existing = current.macros.find(item => item.mode === mode && item.key === key);
+      const next = { mode, key, label: "", template: "", ...existing, [property]: text };
+      return { ...current, macros: [...current.macros.filter(item => item.mode !== mode || item.key !== key), next] };
+    });
+    return <tr key={key}><th scope="row">{key}</th><td><input aria-label={`${mode === "R" ? "Run" : "S&P"} ${key} label`} value={macro?.label ?? ""} placeholder={macro ? "" : "Contest default"} maxLength={128} onChange={event => edit("label", event.target.value)}/></td><td><input aria-label={`${mode === "R" ? "Run" : "S&P"} ${key} template`} value={macro?.template ?? ""} placeholder={macro ? "" : "Contest default"} maxLength={1024} onChange={event => edit("template", event.target.value)}/></td></tr>;
+  })}</tbody></table></div></section>)}</>;
   else if (view === "Edit Keys") content = <><div className="contest-key-scroll"><table className="contest-key-table"><thead><tr>{["Context", "Key", "Action", "Description"].map(name => <th key={name}>{name}</th>)}</tr></thead><tbody>{bindingValue.map((binding, index) => <tr key={index} aria-selected={selectedBinding === index} onClick={() => setSelectedBinding(index)}>{(["context", "key", "action", "description"] as const).map(property => <td key={property}>{property === "context" || property === "action" ? <select aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}>{selectValues(property === "context" ? ["*", "Callsign", "Report", "Exchange"] : defaultBindings.map(item => item.action), binding[property]).map(option => <option key={option}>{option}</option>)}</select> : <input aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}/>}</td>)}</tr>)}</tbody></table></div><div className="contest-key-actions"><button type="button" onClick={() => { setBindings([...bindingValue, { context: "*", key: "", action: "LOG_NOW", description: "" }]); setSelectedBinding(bindingValue.length); }}>Add</button><button type="button" disabled={!bindingValue.length} onClick={() => { setBindings(bindingValue.filter((_, i) => i !== selectedBinding)); setSelectedBinding(0); }}>Remove</button><button type="button" onClick={() => setBindings(structuredClone(defaultBindings))}>Reset all</button></div></>;
   const configuration = view === "Configuration Settings";
   return <section className="contest-setup" aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>

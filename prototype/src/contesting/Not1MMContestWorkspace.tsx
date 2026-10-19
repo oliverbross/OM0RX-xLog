@@ -5,7 +5,7 @@ import ClusterPanel from "../live/ClusterPanel";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
 import { ContestCallHistoryPanel, type ContestHistoryPanelSurface } from "./ContestCallHistoryPanel";
-import { ContestSetupPanel, newContestSetup, type ContestSetupDocument } from "./ContestSetupPanel";
+import { ContestSetupPanel, newContestSetup, type ContestSetupDocument, type ContestSetupMacro } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
@@ -15,6 +15,7 @@ import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type Contest
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestSurfaceWindow } from "./contestSurfaceNative";
+import { openContestSetupService } from "./contestSetupServices";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
@@ -30,7 +31,7 @@ type Projection = {
   history: string; score: Score; operator?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
-type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string };
+type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
 type Props = {
   request: Request;
   serviceRequest: Request;
@@ -148,6 +149,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
+  const [effectiveMacros, setEffectiveMacros] = useState<ContestSetupMacro[] | undefined>();
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
@@ -209,7 +211,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const opened = await result<{ projection: Projection }>("contest_open", {
         sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
       });
-      const setupResult = await result<{ setup: ContestSetupDocument }>("contest_setup_get", { sessionID: session.sessionID });
+      const setupResult = await result<{ setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] }>("contest_setup_get", { sessionID: session.sessionID });
+      setEffectiveMacros(setupResult.effectiveMacros);
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
       acceptProjection(opened.projection); rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
       localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
@@ -331,7 +334,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         pluginID: document.pluginID, name: document.name.trim() || "CQ WW CW", station: { ...document.station, Call: contestCall },
         operator: document.operator.trim().toUpperCase() || contestCall, frequencyHz: operationFrequencyHz,
         settings: document.settings });
-      const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
+      const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] };
+      setEffectiveMacros(saved.effectiveMacros);
       acceptProjection(saved.projection); rememberSetup(saved.setup); await refresh(sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
       localStorage.setItem(activeSessionKey, sessionID); if (!setupOnly) setManager(false);
@@ -340,9 +344,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   };
   const saveSetup = async (document: ContestSetupDocument) => {
     if (!projectionRef.current) { rememberSetup(document); return; }
-    const saved = await runMutation(base => mutate("contest_setup_save", base, { setup: document }) as Promise<MutationResult & { setup: ContestSetupDocument }>,
+    let savedMacros: ContestSetupMacro[] | undefined;
+    const saved = await runMutation(async base => {
+      const response = await mutate("contest_setup_save", base, { setup: document });
+      savedMacros = response.effectiveMacros;
+      return response;
+    },
       false, true, false, true);
-    if (saved) rememberSetup(document);
+    if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
@@ -758,9 +767,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}
-    {showSetup ? <ContestSetupPanel value={setup} sessions={sessions} activeSessionID={projection?.sessionID}
+    {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
-      onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)}
+      onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestSurfaceWindow(surfaceContext, "callsign-intelligence"); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable

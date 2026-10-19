@@ -52,6 +52,7 @@ mod canvas_close;
 mod operating_module;
 mod contest_window_context;
 mod contest_surface;
+mod contest_setup_services;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -1854,6 +1855,13 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
 }
 
 #[tauri::command]
+async fn contest_setup_service_open(window: tauri::WebviewWindow, app: tauri::AppHandle, service: String) -> Result<(), String> {
+    let destination = contest_setup_services::destination(window.label(), &service)?;
+    if destination == "rotor" { open_detached_workspace(app, destination.into()).await }
+    else { navigate_workspace(app, destination.into()).await }
+}
+
+#[tauri::command]
 async fn hf_propagation_fetch(window: tauri::WebviewWindow, request: hf_propagation::FetchRequest) -> Result<String, String> {
     validate_hf_propagation_fetch_profile()?;
     hf_propagation::fetch(window.label(), request).await
@@ -2459,7 +2467,7 @@ fn main() {
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close,
+            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close, contest_setup_service_open,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,

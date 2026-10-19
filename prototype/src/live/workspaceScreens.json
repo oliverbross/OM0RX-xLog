@@ -17,5 +17,9 @@
   {"id":"qrz-settings","title":"QRZ Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"online-log-settings","title":"Online Log Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"reference-data-settings","title":"Reference Data Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"station-settings","title":"Station Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"cw-settings","title":"CW Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"cluster-settings","title":"Cluster Settings","group":"Station","shortcut":null,"hidden":true},
+  {"id":"integrations-settings","title":"Integrations Settings","group":"Station","shortcut":null,"hidden":true},
   {"id":"settings","title":"Settings","group":"Station","shortcut":"CmdOrCtrl+,"}
 ]

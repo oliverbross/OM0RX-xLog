@@ -149,7 +149,10 @@ mod tests {
     #[test]
     fn inventory_has_all_existing_screens_unique_ids_titles_and_shortcuts() {
         let expected = ["operator-desk", "log-qso", "logbook", "dx-cluster", "spot-history", "world-map", "band-maps", "chaser-dx", "hf-propagation-live", "awards", "station-control", "radio1-settings", "radio2-settings", "sync", "wavelog-settings", "qrz-settings", "online-log-settings", "reference-data-settings", "settings"];
-        assert_eq!(screens().len(), expected.len());
+        assert_eq!(screens().len(), expected.len() + 4);
+        for id in ["station-settings", "cw-settings", "cluster-settings", "integrations-settings"] {
+            assert!(screen(id).unwrap().hidden);
+        }
         for id in expected { assert!(screen(id).is_some(), "Missing {id}"); }
         let mut ids = std::collections::HashSet::new();
         let mut titles = std::collections::HashSet::new();
