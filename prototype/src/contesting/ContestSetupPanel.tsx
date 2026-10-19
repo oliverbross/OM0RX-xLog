@@ -10,14 +10,25 @@ export type ContestSetupDocument = {
   network: Record<string, string | number | boolean>;
   macros: ContestSetupMacro[];
 };
-export type ContestSetupSession = { sessionID: string; name: string; pluginID: string; workspaceGeneration: string; revision: number };
+export type ContestSetupSession = { sessionID: string; name: string; pluginID: string; workspaceGeneration: string; revision: number; startUTC?: string };
 export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Cluster" | "Integrations";
-export const contestSetupTabs = ["Station", "Contest", "Lookup", "Sound", "CAT", "CW", "Cluster", "Group", "N1MM+", "Bands", "Options", "Call History", "Macros", "Key bindings", "Digital", "Multi-Multi"] as const;
+export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
+type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Edit Macros" | "Edit Keys";
+const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Edit Macros", "Edit Keys"];
+type KeyBinding = { context: string; key: string; action: string; description: string };
+const defaultBindings: KeyBinding[] = [
+  { context: "*", key: "Ctrl+R", action: "TOGGLE_RUN", description: "Toggle between RUN and S&P" },
+  { context: "*", key: "Ctrl+=", action: "LOG_NOW", description: "Log the current contact" },
+  { context: "*", key: "Ctrl+W", action: "WIPE", description: "Clear all input fields" },
+  { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT", description: "Toggle CW text entry field" },
+  { context: "Callsign", key: "Up", action: "PREV_SPOT", description: "Jump to the previous spot" },
+  { context: "Callsign", key: "Down", action: "NEXT_SPOT", description: "Jump to the next spot" },
+];
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
   catalog: Array<{ id: string; name: string }>;
-  busy?: boolean; error?: string; initialTab?: ContestSetupTab;
+  busy?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
   onOpen: (session: ContestSetupSession) => Promise<void>;
@@ -25,30 +36,48 @@ type Props = {
   servicePanels?: Partial<Record<ContestSetupServiceTab, ReactNode>>;
   callHistoryPanel?: ReactNode;
   onOpenCallHistory?: () => void;
+  onEditMacros?: () => void;
 };
 
 export function newContestSetup(stationCall = ""): ContestSetupDocument {
   return { name: "CQ WW CW", operator: stationCall, pluginID: "cq_ww_cw",
-    station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "" },
-    settings: { SentExchange: "15", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "", Soapbox: "" },
-    preferences: { lookup: "xlog", soundDevice: "default", phonetic: "NATO", cwSpeed: 25, cwWeight: 50, cwLeadMs: 0, cwTailMs: 0,
+    station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "", LicenseClass: "", Latitude: "", Longitude: "", STXeq: "", SPowe: "", SAnte: "", SAntH1: "", SAntH2: "", ARRLSection: "", RoverQTH: "", Club: "" },
+    settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "15", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "", Soapbox: "" },
+    preferences: { lookup: "QRZ.com", lookupUsername: "", lookupPassword: "", soundDevice: "default", phonetic: "NATO", cwSpeed: 25, cwWeight: 50, cwLeadMs: 0, cwTailMs: 0,
+      catProvider: "rigctld", rigControlHost: "127.0.0.1", rigControlPort: 4532, cwProvider: "cwdaemon", cwHost: "127.0.0.1", cwPort: 6789,
+      cwSpeedIncrement: "1", cwSendRST: "5NN", cwPaddingCharacter: "0", cwPaddingLength: 1, cwCut1: "1", cwCut9: "9", cwCut0: "0",
+      clusterServer: "", clusterPort: 7373, clusterPassword: "", clusterFilter: "", clusterMode: "OPEN", rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: true, sendCorrectedCall: true, autoCQ: false, autoCQDelay: 15,
       spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
       n1mmHost: "127.0.0.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062, n1mmRadio: false, n1mmContact: false,
-      n1mmLookup: false, multicastGroup: "239.1.1.1", multicastPort: 2239, interface: "", multiEnabled: false }, macros: [] };
+      n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmOperatorName: "", multicastGroup: "224.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
+}
+
+function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
+  const defaults = newContestSetup(String(value.station.Call ?? ""));
+  const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...value.preferences }, network: { ...defaults.network, ...value.network } });
+  for (const kind of ["Radio", "Contact", "Lookup", "Score"]) {
+    const key = "n1mm" + kind + "Destinations";
+    if (result.network[key] === undefined) result.network[key] = String(value.network.n1mmHost ?? "127.0.0.1") + ":" + String(value.network["n1mm" + kind + "Port"] ?? 12060);
+  }
+  return result;
 }
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
-  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory }: Props) {
-  const [draft, setDraft] = useState<ContestSetupDocument>(() => structuredClone(value));
-  const [tab, setTab] = useState<ContestSetupTab>(initialTab), [message, setMessage] = useState("");
+  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, onEditMacros }: Props) {
+  const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
+  const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
+  const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
+  const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
+  const [selectedBinding, setSelectedBinding] = useState(0);
   const [pending, setPending] = useState(false), pendingRef = useRef(false);
-  const [macroMode, setMacroMode] = useState<"R" | "S">("R");
   const id = useId();
-  useEffect(() => { setDraft(structuredClone(value)); }, [value]);
-  useEffect(() => { setTab(initialTab); }, [initialTab]);
+  useEffect(() => { setDraft(setupDraft(value)); }, [value]);
+  useEffect(() => {
+    if (contestSetupTabs.includes(initialTab as ContestSetupTab)) { setTab(initialTab as ContestSetupTab); setView("Configuration Settings"); }
+  }, [initialTab]);
   const disabled = busy || pending;
   const update = (section: "station" | "settings" | "preferences" | "network", key: string, next: string | number | boolean | string[]) =>
     setDraft(current => ({ ...current, [section]: { ...current[section], [key]: next } }));
@@ -59,7 +88,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
         onChange={event => update(section, key, type === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)}/> }</label>;
   };
   const check = (section: "preferences" | "network", key: string, label: string) => <label key={key} className="contest-setup-check"><input type="checkbox" checked={draft[section][key] === true} onChange={event => update(section, key, event.target.checked)}/><span>{label}</span></label>;
-  const shared = (service: ContestSetupServiceTab, description: string) => <><p>{description}</p>{servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => onOpenSettings(service)}>Open xLog {service} settings</button> : <p className="contest-source">Open Settings → {service} to configure this shared service.</p>)}</>;
+  const shared = (service: ContestSetupServiceTab) => servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => onOpenSettings(service)}>Open xLog {service} settings</button> : null);
   async function run(operation: () => Promise<void>, success: string) {
     if (disabled || pendingRef.current) return;
     pendingRef.current = true; setPending(true); setMessage("");
@@ -67,35 +96,87 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Setup could not be saved."); }
     finally { pendingRef.current = false; setPending(false); }
   }
+  function close() { setDraft(setupDraft(value)); setMessage(""); setView(null); }
+  function open(next: SetupView) { setDraft(setupDraft(value)); setMessage(""); setView(next); setSelectedSession(activeSessionID ?? ""); }
   function submit(event: FormEvent) {
     event.preventDefault();
-    void run(() => onSave(structuredClone(draft)), "Contest setup saved.");
+    void run(async () => {
+      if (view === "Choose a Contest") {
+        const session = sessions.find(item => item.sessionID === selectedSession);
+        if (!session) throw new Error("Select a contest.");
+        await onOpen(session);
+      } else if (view === "New Contest") await onCreate({ ...structuredClone(draft), name: catalog.find(item => item.id === draft.pluginID)?.name ?? draft.name });
+      else await onSave(structuredClone(draft));
+      setView(null);
+    }, view === "Choose a Contest" ? "Contest opened." : view === "New Contest" ? "Contest created." : "Settings saved.");
   }
-  function macroField(key: string, property: "label" | "template", next: string) {
-    setDraft(current => {
-      const existing = current.macros.find(macro => macro.mode === macroMode && macro.key === key);
-      const updated = { mode: macroMode, key, label: existing?.label ?? key, template: existing?.template ?? "", [property]: next };
-      return { ...current, macros: [...current.macros.filter(macro => macro.mode !== macroMode || macro.key !== key), updated] };
-    });
-  }
-  let content: ReactNode;
-  switch (tab) {
-    case "Station": content = <><h3>Station Settings</h3>{shared("Station", "xLog owns the station identity and equipment. Contest address and exchange fields below are saved with this contest.")}<div className="contest-setup-fields">{[["Call", "Station callsign"], ["Name", "Name"], ["Email", "Email"], ["Street1", "Address line 1"], ["Street2", "Address line 2"], ["City", "City"], ["State", "State / province"], ["Zip", "Postal code"], ["Country", "Country"], ["GridSquare", "Grid square"], ["CQZone", "CQ zone"], ["IARUZone", "ITU zone"]].map(([key, label]) => field("station", key, label))}</div></>; break;
-    case "Contest": content = <><h3>New / Select / Edit Contest</h3><div className="contest-setup-sessions" aria-label="Saved contests">{sessions.length ? sessions.map(session => <button key={session.sessionID} type="button" disabled={disabled} aria-current={session.sessionID === activeSessionID ? "true" : undefined} onClick={() => void run(() => onOpen(session), "Contest opened.")}>{session.name}<small>{session.pluginID}</small></button>) : <p>No saved contests yet.</p>}</div><div className="contest-setup-fields"><label><span>Contest name</span><input required maxLength={128} value={draft.name} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))}/></label><label><span>Contest plugin</span><select value={draft.pluginID} disabled={!!activeSessionID} onChange={event => setDraft(current => ({ ...current, pluginID: event.target.value }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label><label><span>Operator callsign</span><input required value={draft.operator} maxLength={32} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>{field("settings", "SentExchange", "Sent exchange")}{field("settings", "OperatorCategory", "Operator category", "text", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}{field("settings", "AssistedCategory", "Assistance", "text", ["NON-ASSISTED", "ASSISTED"])}{field("settings", "BandCategory", "Band category", "text", ["ALL", "160M", "80M", "40M", "20M", "15M", "10M"])}{field("settings", "PowerCategory", "Power category", "text", ["HIGH", "LOW", "QRP"])}{field("settings", "ModeCategory", "Mode category", "text", ["CW"])}{field("settings", "TransmitterCategory", "Transmitters", "text", ["ONE", "TWO", "UNLIMITED"])}{field("settings", "OverlayCategory", "Overlay", "text", ["", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"])}</div><label><span>Soapbox</span><textarea maxLength={512} rows={3} value={String(draft.settings.Soapbox ?? "")} onChange={event => update("settings", "Soapbox", event.target.value)}/></label><button type="button" disabled={disabled} onClick={() => void run(() => onCreate(structuredClone(draft)), "Contest created.")}>Create and open new contest</button></>; break;
-    case "Lookup": content = <><h3>Lookup</h3>{shared("QRZ", "Callsign lookup and secure account credentials use the shared xLog lookup service.")}{check("preferences", "callHistory", "Use call history")}{check("preferences", "scp", "Use Super Check Partial")}{check("preferences", "prefillExchange", "Prefill exchange from history")}</>; break;
-    case "Sound": content = <><h3>Sound</h3><p>Voice messages and audio output use the selected system sound device.</p><div className="contest-setup-fields">{field("preferences", "soundDevice", "Sound device")}{field("preferences", "phonetic", "Phonetic alphabet", "text", ["NATO", "DX"])}</div></>; break;
-    case "CAT": content = <><h3>CAT / Radio</h3>{shared("Radio", "Use xLog’s connected radio, CAT provider and station session. Frequency and mode are shared with the contest desk.")}</>; break;
-    case "CW": content = <><h3>CW</h3>{shared("CW", "Keyer output, radio CW, arming and Stop use the shared xLog CW service. Contest F-key messages are edited in Macros.")}<div className="contest-setup-fields">{field("preferences", "cwSpeed", "Contest speed WPM", "number")}{field("preferences", "cwWeight", "Weight", "number")}{field("preferences", "cwLeadMs", "PTT lead ms", "number")}{field("preferences", "cwTailMs", "PTT tail ms", "number")}</div></>; break;
-    case "Cluster": content = <><h3>Cluster</h3>{shared("Cluster", "Server connections, callsign login and commands use the shared xLog DX Cluster. Spots feed the contest bandmap.")}</>; break;
-    case "Group": content = <><h3>Group</h3><p>Station identity and group endpoint for coordinated contest operation.</p><div className="contest-setup-fields">{field("network", "stationName", "Station name")}{field("network", "groupHost", "Group server")}{field("network", "groupPort", "Group port", "number")}</div></>; break;
-    case "N1MM+": content = <><h3>N1MM+ UDP</h3><p>Configure destinations for N1MM-compatible radio, contact and lookup packets.</p><div className="contest-setup-fields">{field("network", "n1mmHost", "Destination host")}{field("network", "n1mmRadioPort", "Radio port", "number")}{field("network", "n1mmContactPort", "Contact port", "number")}{field("network", "n1mmLookupPort", "Lookup port", "number")}</div>{check("network", "n1mmRadio", "Send radio packets")}{check("network", "n1mmContact", "Send contact packets")}{check("network", "n1mmLookup", "Send lookup packets")}</>; break;
-    case "Bands": content = <><h3>Bands</h3><p>Choose the bands shown on the contest desk.</p><div className="contest-setup-bands">{["160m", "80m", "40m", "20m", "15m", "10m"].map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const bands = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...bands, band] : bands.filter(value => value !== band)); }}/><span>{band}</span></label>)}</div></>; break;
-    case "Options": content = <><h3>Operating options</h3>{check("preferences", "useESM", "Enable Enter Sends Message")}{check("preferences", "sendCorrectedCall", "Send corrected callsign")}{check("preferences", "spaceTabs", "Space advances entry field")}{check("preferences", "autoCQ", "Enable Auto CQ")}{field("preferences", "autoCQDelay", "Auto CQ delay seconds", "number")}</>; break;
-    case "Call History": content = <><h3>Call History</h3>{check("preferences", "callHistory", "Use call history")}{check("preferences", "prefillExchange", "Prefill exchange from history")}{callHistoryPanel ?? <><p>Import, review and select the history dataset in the contest Call History window.</p>{onOpenCallHistory && <button type="button" onClick={onOpenCallHistory}>Open Call History</button>}</>}</>; break;
-    case "Key bindings": content = <><h3>Key bindings</h3><p>Function keys F1–F12 use the Run or Search &amp; Pounce macro set. Escape always stops CW.</p><div className="contest-setup-fields">{[["keyESM", "Enter Sends Message key"], ["keyLog", "Log contact key"], ["keyWipe", "Clear entry key"], ["keyRun", "Run mode key"], ["keySearch", "Search & Pounce key"]].map(([key, label]) => field("preferences", key, label))}<label><span>Stop CW key</span><input readOnly value="Escape"/></label></div></>; break;
-    case "Digital": content = <><h3>Digital contacts</h3>{shared("Integrations", "WSJT-X / JTDX UDP contact admission and duplicate handling use xLog’s shared integration service. Contest rules remain owned by the selected plugin.")}</>; break;
-    case "Macros": content = <><h3>Function key macros</h3><p>Messages use {'{MYCALL}'}, {'{CALL}'}, {'{RST}'} and {'{EXCHANGE}'}. Saving does not transmit.</p><label><span>Macro operating mode</span><select value={macroMode} onChange={event => setMacroMode(event.target.value as "R" | "S")}><option value="R">Run</option><option value="S">Search &amp; Pounce</option></select></label><div className="contest-setup-macros">{Array.from({ length: 12 }, (_, index) => `F${index + 1}`).map(key => { const macro = draft.macros.find(item => item.mode === macroMode && item.key === key); return <div key={key}><strong>{key}</strong><label><span>{key} label</span><input value={macro?.label ?? key} maxLength={64} onChange={event => macroField(key, "label", event.target.value)}/></label><label><span>{key} message</span><input value={macro?.template ?? ""} maxLength={512} spellCheck={false} onChange={event => macroField(key, "template", event.target.value)}/></label></div>; })}</div></>; break;
-    case "Multi-Multi": content = <><h3>Multi-Multi / Network</h3><p>Configure the station’s multicast group and interface for multi-station operation.</p>{check("network", "multiEnabled", "Enable Multi-Multi networking")}<div className="contest-setup-fields">{field("network", "stationName", "Network station name")}{field("network", "multicastGroup", "Multicast group")}{field("network", "multicastPort", "Multicast port", "number")}{field("network", "interface", "Network interface address")}</div></>; break;
-  }
-  return <section className="contest-setup" aria-label="Contest Setup" aria-busy={disabled}><header><h2>Contest Setup</h2><p>Station, contest and configuration</p></header><nav role="tablist" aria-label="Contest setup sections">{contestSetupTabs.map((name, index) => <button key={name} id={`${id}-tab-${index}`} type="button" role="tab" aria-selected={tab === name} aria-controls={`${id}-panel`} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); setTab(contestSetupTabs[next]); document.getElementById(`${id}-tab-${next}`)?.focus(); } }}>{name}</button>)}</nav><form onSubmit={submit}><fieldset disabled={disabled}><div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${contestSetupTabs.indexOf(tab)}`}>{content}</div></fieldset>{(error || message) && <p role={error ? "alert" : "status"}>{error || message}</p>}<footer><button type="submit" className="contest-primary" disabled={disabled || !activeSessionID}>{pending ? "Saving…" : "Save contest setup"}</button><button type="button" disabled={disabled} onClick={() => { setDraft(structuredClone(value)); setMessage(""); }}>Discard changes</button>{!activeSessionID && <small>Create or open a contest to save configuration.</small>}</footer></form></section>;
+const row = (...items: ReactNode[]) => <div className="contest-manual-row">{items}</div>;
+  const textArea = (section: "settings" | "preferences", key: string, label: string) => <label><span>{label}</span><textarea rows={3} value={String(draft[section][key] ?? "")} onChange={event => update(section, key, event.target.value)}/></label>;
+  const selectValues = (values: string[], current: unknown) => [...new Set([...values, ...(current === undefined ? [] : [String(current)])])];
+  const choice = (section: "settings" | "preferences", key: string, label: string, values: string[]) => field(section, key, label, "text", selectValues(values, draft[section][key]));
+  const bindingValue = (() => {
+    try { const parsed = JSON.parse(String(draft.preferences.keyBindings ?? "null")); return Array.isArray(parsed) && parsed.every(item => item && typeof item.key === "string" && typeof item.action === "string" && typeof item.context === "string" && typeof item.description === "string") ? parsed as KeyBinding[] : defaultBindings; }
+    catch { return defaultBindings; }
+  })();
+  const setBindings = (next: KeyBinding[]) => update("preferences", "keyBindings", JSON.stringify(next));
+  let content: ReactNode = null;
+  if (view === "Station Settings") content = <div className="contest-station-form">
+    {row(field("station", "Call", "Call"))}
+    {row(field("station", "Name", "Name"))}
+    {row(field("station", "Street1", "Address"))}
+    {row(field("station", "Street2", "Address", "text"))}
+    {row(field("station", "City", "City"), field("station", "State", "State"), field("station", "Zip", "Zip"))}
+    {row(field("station", "Country", "Country"))}
+    {row(field("station", "GridSquare", "Grid Square"), field("station", "CQZone", "CQ Zone"), field("station", "IARUZone", "ITU Zone"))}
+    {row(field("station", "LicenseClass", "License"), field("station", "Latitude", "Latitude"), field("station", "Longitude", "Longitude"))}
+    {row(field("station", "STXeq", "Station TX/RX"), field("station", "SPowe", "Power"))}
+    {row(field("station", "SAnte", "Antenna"), field("station", "SAntH1", "Ant. Height"), field("station", "SAntH2", "a.s.l."))}
+    {row(field("station", "ARRLSection", "ARRL Section"))}
+    {row(field("station", "RoverQTH", "Rover QTH"))}
+    {row(field("station", "Club", "Club"))}
+    {row(field("station", "Email", "Email address"))}
+    {shared("Station")}
+  </div>;
+  else if (view === "New Contest" || view === "Edit Current Contest") content = <div className="contest-parameters">
+    <p>Select Contest Type for {view === "New Contest" ? "New" : "Current"} Log</p>
+    <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => setDraft(current => ({ ...current, pluginID: event.target.value }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
+    {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
+    <hr/>
+    {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}
+    {choice("settings", "BandCategory", "Band", ["ALL", "160M", "80M", "40M", "20M", "15M", "10M", "6M", "2M", "1.25M", "70CM", "33CM", "23CM"])}
+    {choice("settings", "PowerCategory", "Power", ["HIGH", "LOW", "QRP"])}
+    {choice("settings", "ModeCategory", "Mode", ["CW", "SSB", "RTTY", "MIXED", "DIGI"])}
+    {choice("settings", "OverlayCategory", "Overlay", ["", "N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"])}
+    {choice("settings", "StationCategory", "Station", ["FIXED", "MOBILE", "PORTABLE", "ROVER", "EXPEDITION", "HQ", "SCHOOL"])}
+    {choice("settings", "AssistedCategory", "Assisted", ["ASSISTED", "NON-ASSISTED"])}
+    {choice("settings", "TransmitterCategory", "Transmitter", ["ONE", "TWO", "LIMITED", "UNLIMITED", "SWL"])}
+    <div className="contest-exchange-row">{field("settings", "SentExchange", "Sent Exchange")}<span>Exclude RST</span></div>
+    <label><span>Operators</span><input value={draft.operator} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>
+    {textArea("settings", "Soapbox", "Soapbox")}
+  </div>;
+  else if (view === "Choose a Contest") content = <table className="contest-choose-table"><thead><tr><th>Contest Name</th><th>Contest Start</th></tr></thead><tbody>{sessions.map(session => <tr key={session.sessionID} aria-selected={selectedSession === session.sessionID} onClick={() => setSelectedSession(session.sessionID)}><td><label><input type="radio" name="contest-session" checked={selectedSession === session.sessionID} onChange={() => setSelectedSession(session.sessionID)}/>{session.name}</label></td><td>{session.startUTC ?? "—"}</td></tr>)}</tbody></table>;
+  else if (view === "Configuration Settings") {
+    switch (tab) {
+      case "Lookup": content = <div className="contest-manual-stack">{choice("preferences", "lookup", "Lookup service", ["QRZ.com", "HamQTH.com"])}{field("preferences", "lookupUsername", "Username")}{field("preferences", "lookupPassword", "Password", "password")}{shared("QRZ")}</div>; break;
+      case "Sound": content = <div className="contest-manual-stack">{choice("preferences", "soundDevice", "Sound output device", ["default"])}{shared("Integrations")}</div>; break;
+      case "CAT": content = <><div className="contest-manual-stack">{row(field("preferences", "rigControlHost", "Rig Control IP"), field("preferences", "rigControlPort", "Port", "number"))}<div className="contest-radio-options">{["rigctld", "flrig", "None"].map(provider => <label key={provider}><input type="radio" name="cat-provider" checked={draft.preferences.catProvider === provider} onChange={() => update("preferences", "catProvider", provider)}/>{provider}</label>)}</div></div>{shared("Radio")}</>; break;
+      case "CW": content = <div className="contest-manual-stack">{choice("preferences", "cwProvider", "CW interface", ["cwdaemon", "pywinkeyer", "CAT"])}{row(field("preferences", "cwHost", "IP"), field("preferences", "cwPort", "Port", "number"))}{choice("preferences", "cwSpeedIncrement", "Speed Increment for PgUp/PgDown", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])}{choice("preferences", "cwSendRST", "Send 599 RST as", ["5NN", "599", "ENN"])}{choice("preferences", "cwPaddingCharacter", "Serial Number Padding Character", ["0", "O", "T"])}{field("preferences", "cwPaddingLength", "Padding Length", "number")}{row(choice("preferences", "cwCut1", "Send 1 as", ["1", "A"]), choice("preferences", "cwCut9", "Send 9 as", ["9", "N"]), choice("preferences", "cwCut0", "Send 0 as", ["0", "T"]))}{shared("CW")}</div>; break;
+      case "Rotator": content = <p>The manual shows a Rotator tab but does not document its controls. Use the station rotator window for the available service.</p>; break;
+      case "Cluster": content = <div className="contest-manual-stack">{field("preferences", "clusterServer", "Server")}{field("preferences", "clusterPort", "Port", "number")}{field("preferences", "clusterPassword", "Password", "password")}{field("preferences", "clusterFilter", "Filter")}{choice("preferences", "clusterMode", "Mode", ["OPEN", "FILTER"])}{shared("Cluster")}</div>; break;
+      case "Group": content = <div className="contest-manual-stack">{check("network", "multiEnabled", "Connect to server")}{check("network", "multiMaster", "Be the master")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}</div>; break;
+      case "N1MM": content = <div className="contest-manual-stack">{check("network", "n1mmEnabled", "Send N1MM packets")}{row(field("network", "stationName", "Station Name"), field("network", "n1mmOperatorName", "Operator Name"))}{(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}</div>; break;
+      case "Bands": content = <div className="contest-manual-bands">{[["160m", "80m", "40m", "20m", "15m", "10m"], ["6m", "2m", "1.25m", "70cm", "33cm", "23cm"]].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
+      case "Options": content = <><div className="contest-options-columns"><div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div><div className="contest-manual-stack">{check("preferences", "callHistory", "Use Call History")}<hr/>{check("preferences", "rtcEnabled", "Use RTC score reporting")}{choice("preferences", "rtcURL", "Score reporting URL", ["https://hamscore.com/postxml/", "https://contestsonlinescore.com/postscore.jsp", "https://contest.run/postscore"])}{field("preferences", "rtcUsername", "Score reporting username")}{field("preferences", "rtcPassword", "Score reporting password", "password")}{field("preferences", "rtcIntervalMinutes", "Score posting interval (minutes)", "number")}</div></div>{check("preferences", "clearOnVFOChange", "Clear input fields in S&P when the VFO frequency changes")}{callHistoryPanel ?? (onOpenCallHistory ? <button type="button" onClick={onOpenCallHistory}>Open Call History</button> : null)}</>; break;
+    }
+  } else if (view === "Edit Macros") content = <><p>File → Edit Macros opens the system text editor for the active contest and operating mode. Each contest and mode has its own macro file.</p>{onEditMacros ? <button type="button" onClick={onEditMacros}>Open macro file in text editor</button> : <p>The macro file editor is not connected in this window yet.</p>}</>;
+  else if (view === "Edit Keys") content = <><div className="contest-key-scroll"><table className="contest-key-table"><thead><tr>{["Context", "Key", "Action", "Description"].map(name => <th key={name}>{name}</th>)}</tr></thead><tbody>{bindingValue.map((binding, index) => <tr key={index} aria-selected={selectedBinding === index} onClick={() => setSelectedBinding(index)}>{(["context", "key", "action", "description"] as const).map(property => <td key={property}>{property === "context" || property === "action" ? <select aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}>{selectValues(property === "context" ? ["*", "Callsign", "Report", "Exchange"] : defaultBindings.map(item => item.action), binding[property]).map(option => <option key={option}>{option}</option>)}</select> : <input aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}/>}</td>)}</tr>)}</tbody></table></div><div className="contest-key-actions"><button type="button" onClick={() => { setBindings([...bindingValue, { context: "*", key: "", action: "LOG_NOW", description: "" }]); setSelectedBinding(bindingValue.length); }}>Add</button><button type="button" disabled={!bindingValue.length} onClick={() => { setBindings(bindingValue.filter((_, i) => i !== selectedBinding)); setSelectedBinding(0); }}>Remove</button><button type="button" onClick={() => setBindings(structuredClone(defaultBindings))}>Reset all</button></div></>;
+  const configuration = view === "Configuration Settings";
+  return <section className="contest-setup" aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>
+    {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => open(name)}>{name}</button>)}</div> :
+      <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections">{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); setTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
+        <fieldset disabled={disabled}><div id={id + "-panel"} role={configuration ? "tabpanel" : undefined} aria-labelledby={configuration ? id + "-tab-" + contestSetupTabs.indexOf(tab) : undefined} className="contest-manual-content">{content}</div></fieldset>
+        <footer><button type="button" disabled={disabled} onClick={close}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && view !== "New Contest" && view !== "Choose a Contest")}>{pending ? "Saving…" : configuration ? "Save" : "OK"}</button></footer>
+      </form>}
+    {(error || message) && <p role={error ? "alert" : "status"}>{error || message}</p>}
+  </section>;
 }
