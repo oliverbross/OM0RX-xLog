@@ -43,6 +43,7 @@ export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
 export type ContestSurfaceUnavailableProjection = { schemaVersion: 1; status: "unavailable" };
 export type ContestSurfaceReceivedField = { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number };
 export type ContestManualRow = { qsoID: string; TS: string; Call: string; Freq: string; SNT: string; RCV: string; ZN: string; SentNr: string; prefix: string; Points: string };
+export type ContestPluginLogRow = { qsoID: string; values: string[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
@@ -90,6 +91,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
   canExportCabrillo: boolean;
   exchangeLayout?: "plugin";
   manualRows?: ContestManualRow[]; partialRows?: ContestManualRow[];
+  pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
   editing: null | { reportsVisible?: boolean; qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
@@ -117,6 +119,12 @@ const optionalKeys = (value: Record<string, unknown>, keys: readonly string[], o
   exact(value, [...keys, ...optional.filter(key => key in value)]);
 const manualRowsValid = (value: unknown) => Array.isArray(value) && value.length <= 500 && value.every(row => record(row) &&
   exact(row, ["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "ZN", "SentNr", "prefix", "Points"]) && Object.values(row).every(item => text(item, 160, true)));
+const pluginColumnsValid = (value: unknown): value is string[] => Array.isArray(value) && value.length > 0 && value.length <= 32 &&
+  value.every(column => text(column, 64) && column === column.trim()) && new Set(value).size === value.length &&
+  value.filter(column => column === "Call").length === 1;
+const pluginRowsValid = (value: unknown, columns: number, maximum: number) => Array.isArray(value) && value.length <= maximum &&
+  value.every(row => record(row) && exact(row, ["qsoID", "values"]) && text(row.qsoID, 160) &&
+    Array.isArray(row.values) && row.values.length === columns && row.values.every(item => text(item, 512, true)));
 const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
   text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
   ["cwSpeedWpm", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm"].every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
@@ -235,15 +243,23 @@ function validStatisticsProjection(value: Record<string, unknown>) {
 }
 function validLogProjection(value: Record<string, unknown>) {
   const page = record(value.page) ? value.page : undefined, editing = record(value.editing) ? value.editing : undefined;
-  return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "canExportCabrillo", "page", "editing", "busy"], ["manualRows", "partialRows", "exchangeLayout"]) &&
+  const pageRows = Array.isArray(page?.rows) ? page.rows : [], pluginLayout = value.exchangeLayout === "plugin";
+  const pluginColumns = pluginColumnsValid(value.pluginColumns) ? value.pluginColumns : undefined;
+  return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "canExportCabrillo", "page", "editing", "busy"],
+      ["manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows"]) &&
     typeof value.canExportCabrillo === "boolean" &&
     (!("exchangeLayout" in value) || value.exchangeLayout === "plugin") &&
-    ["manualRows", "partialRows"].every(key => !(key in value) || manualRowsValid(value[key])) && uint(value.sessionRevision) &&
+    (pluginLayout ? !!pluginColumns && pluginRowsValid(value.pluginRows, pluginColumns.length, 20) &&
+        pluginRowsValid(value.pluginPartialRows, pluginColumns.length, 500) && !("manualRows" in value) && !("partialRows" in value)
+      : !("pluginColumns" in value) && !("pluginRows" in value) && !("pluginPartialRows" in value) &&
+        ["manualRows", "partialRows"].every(key => !(key in value) || manualRowsValid(value[key]))) && uint(value.sessionRevision) &&
     !!page && exact(page, ["offset", "limit", "total", "rows"]) && uint(page.offset, 1_000_000) && uint(page.limit, 20) &&
-    uint(page.total, 1_000_000) && Array.isArray(page.rows) && page.rows.length <= 20 && page.rows.every(item => { const row = record(item) ? item : undefined;
+    uint(page.total, 1_000_000) && Array.isArray(page.rows) && pageRows.length <= 20 && pageRows.every(item => { const row = record(item) ? item : undefined;
       return !!row && exact(row, ["qsoID", "workedAt", "callsign", "band", "mode", "sentExchange", "receivedExchange", "points", "multiplierLabels"]) &&
         text(row.qsoID, 160) && canonicalISO(row.workedAt) && text(row.callsign, 32) && text(row.band, 16) && text(row.mode, 16) &&
         text(row.sentExchange, 2048, true) && text(row.receivedExchange, 2048, true) && uint(row.points) && texts(row.multiplierLabels, 32, 160); }) &&
+    (!pluginLayout || Array.isArray(value.pluginRows) && value.pluginRows.length === pageRows.length && value.pluginRows.every((item, index) =>
+      record(item) && record(pageRows[index]) && item.qsoID === pageRows[index].qsoID)) &&
     (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["reportsVisible"]) &&
       (!("reportsVisible" in editing) || typeof editing.reportsVisible === "boolean") &&
       text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&

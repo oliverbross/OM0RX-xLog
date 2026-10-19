@@ -10,7 +10,7 @@ import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextFi
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
-  type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext } from "./contestSurfaceProtocol";
+  type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
@@ -29,6 +29,7 @@ type Projection = {
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
   supportedBands?: string[]; supportedModes?: Array<"CW" | "SSB" | "RTTY" | "AM" | "FM">; allowDuplicateCommit?: boolean;
+  columns?: string[];
   history: string; score: Score; operator?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
@@ -142,6 +143,23 @@ function manualRows(rows: Data[]): ContestManualRow[] {
     Freq: String(row.Freq ?? ""), SNT: String(row.SNT ?? ""), RCV: String(row.RCV ?? ""), ZN: String(row.ZN ?? ""),
     SentNr: String(row.SentNr ?? ""), prefix: String(row.WPXPrefix || row.CountryPrefix || ""), Points: String(row.Points ?? "") }));
 }
+const pluginColumnFields: Record<string, string> = {
+  "YYYY-MM-DD HH:MM:SS": "TS", Snt: "SNT", Rcv: "RCV", RcvNr: "NR", WPX: "WPXPrefix",
+  PFX: "WPXPrefix", M1: "IsMultiplier1", M2: "IsMultiplier2", PTS: "Points",
+};
+function not1mmLogColumns(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 32) return [];
+  const columns = value.map(column => typeof column === "string" ? column : "");
+  return columns.every(column => column.trim() && column === column.trim() && new TextEncoder().encode(column).length <= 64) &&
+    new Set(columns).size === columns.length && columns.filter(column => column === "Call").length === 1 ? columns : [];
+}
+function not1mmLogRows(rows: Data[], columns: string[]): ContestPluginLogRow[] {
+  return rows.map(row => ({ qsoID: String(row.ID ?? ""), values: columns.map(column => {
+    const value = row[pluginColumnFields[column] ?? column];
+    if (column === "M1" || column === "M2") return value && value !== "0" ? "✓" : "";
+    return String(value ?? "");
+  }) }));
+}
 
 function partialCandidates(kind: "log" | "cluster", calls: unknown[], query: string) {
   if (!/^[A-Z0-9/]{1,32}$/.test(query)) return [];
@@ -227,6 +245,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       ? fieldsRef.current : projectionFields(next);
     fieldsRef.current = values; setFields(values);
   };
+  const acceptSessionProjection = (next: Projection) => {
+    if (projectionRef.current?.sessionID !== next.sessionID) {
+      setRows([]); setLogOffset(0); setLogTotal(0); setPartial(null); setScore(null);
+      setMatrices({ countries: [], zones: [] }); setRates(null); setEditing(null);
+    }
+    acceptProjection(next);
+  };
   const refresh = async (sessionID: string, next?: Projection, offset = 0) => {
     const [log, scoreResult, rateResult] = await Promise.all([
       result<Data>("contest_log_page", { sessionID, expectedRevision: (next ?? projectionRef.current)?.revision,
@@ -250,7 +275,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const setupResult = await result<{ setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] }>("contest_setup_get", { sessionID: session.sessionID });
       setEffectiveMacros(setupResult.effectiveMacros);
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
-      acceptProjection(opened.projection); rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
+      acceptSessionProjection(opened.projection); rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
       localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
@@ -383,7 +408,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         settings: document.settings });
       const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] };
       setEffectiveMacros(saved.effectiveMacros);
-      acceptProjection(saved.projection); rememberSetup(saved.setup); await refresh(sessionID, saved.projection);
+      acceptSessionProjection(saved.projection); rememberSetup(saved.setup); await refresh(sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
       localStorage.setItem(activeSessionKey, sessionID); if (!setupOnly) setManager(false);
     } catch (cause) { setError(errorMessage(cause)); throw cause; }
@@ -572,11 +597,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       dirty: !sameFields(currentFields, projectionFields(projection)) || frequencyHz !== projection.frequencyHz,
       uncertain: false,
     };
+    const partialRows = partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery
+      ? partial.rows : [];
+    const pluginColumns = not1mmLogColumns(projection.columns);
     unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: true,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID) },
-      ...(["icwc_mst", "cwo", "trans_tasman"].includes(projection.pluginID) ? { exchangeLayout: "plugin" as const } : { manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]) }),
+      ...(pluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
+        pluginRows:not1mmLogRows(rows,pluginColumns), pluginPartialRows:not1mmLogRows(partialRows,pluginColumns) }
+        : { manualRows:manualRows(rows), partialRows:manualRows(partialRows) }),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall, reportsVisible,
         band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),

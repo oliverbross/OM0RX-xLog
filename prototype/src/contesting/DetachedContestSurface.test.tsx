@@ -98,6 +98,32 @@ it("renders authoritative raw DXLOG values in the log and full-log partial table
     expect(Array.from(screen.getByRole("table",{name}).querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual([row.TS,row.Call,row.Freq,row.SNT,row.RCV,row.ZN,row.SentNr,row.prefix,row.Points]);
 });
 
+it("renders the exact plugin log columns for both paged and partial rows",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","CK","Prec","Sect","M1","PTS"];
+  const row={qsoID:"ss-qso",values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"]};
+  const partial={qsoID:"ss-partial",values:["2026-10-20 12:01:00","K1ABD","14026","599","599","2","124","68","B","EMA","","2"]};
+  const pageRow={qsoID:row.qsoID,workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentExchange:"1",receivedExchange:"123 A K1ABC 67 CT",points:2,multiplierLabels:["CT"]};
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,exchangeLayout:"plugin",
+    pluginColumns:columns,pluginRows:[row],pluginPartialRows:[partial],page:{offset:0,limit:20,total:1,rows:[pageRow]},
+    editing:null,busy:false};
+  expect(validContestSurfaceProjection("logbook",view)).toBe(true);
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?
+    {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
+  render(<DetachedContestSurface/>);
+  await screen.findByRole("heading",{name:"Log Display"});
+  for(const [label,expected] of [["Contest log",row.values],["Callsign partial matches",partial.values]] as const) {
+    const table=screen.getByRole("table",{name:label});
+    expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(columns);
+    expect(Array.from(table.querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual(expected);
+  }
+  fireEvent.click(screen.getByRole("button",{name:"K1ABC"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID:"logbook",projectionRevision:6,action:"log_edit_begin",params:{qsoID:"ss-qso"},
+  }));
+});
+
 it("routes Cabrillo export from the detached Log window to its contest owner",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,

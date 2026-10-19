@@ -120,7 +120,7 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   focus: "callsign", tabNext: { callsign: "sent", sent: "receive", receive: "other_2", other_2: "callsign" },
   tabPrevious: { callsign: "other_2", sent: "callsign", receive: "sent", other_2: "receive" }, run: false,
   functionKeys: Array.from({ length: 12 }, (_, index) => ({ id: `F${index + 1}`, highlighted: index === 1 })),
-  dupe: false, countryResolved: true, history: "K1ABC United States", columns: [],
+  dupe: false, countryResolved: true, history: "K1ABC United States", columns: [] as string[],
   score: { qsos: 0, points: 0, countries: 0, zones: 0, total: 0 },
   fields: [
     ["callsign", "Call", true, ""], ["sent", "SNT", true, "599"], ["receive", "RCV", true, "599"],
@@ -130,6 +130,7 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
 
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3,
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name","RcvNr","PTS"],
     score:{qsos:2,points:2,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:2} };
   current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
     readOnly:field.id==="other_1", label:field.id==="other_1"?"Sent S/N":field.id==="other_2"?"Name + S/N":field.label}));
@@ -153,7 +154,9 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
   expect(entry.descriptor).toMatchObject({reportsVisible:false,serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:3}});
   expect(entry.draft).toMatchObject({reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]});
   expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 unique calls"]});
-  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",page:{rows:[{receivedExchange:"BOB 12",sentExchange:"1"}]}});
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",
+    pluginColumns:current.columns,pluginRows:[{qsoID:row.ID,values:[row.TS,row.Call,String(row.Freq),"1",row.Name,"12","1"]}],
+    page:{rows:[{receivedExchange:"BOB 12",sentExchange:"1"}]}});
   await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:row.ID}}));
   expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({reportsVisible:false,
@@ -163,6 +166,7 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
 
 it("projects CWOPS Open serial/name exchange, retained dupes and unique-call score", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"12 ALICE"}), pluginID:"cwo", pluginName:"CWOPS - Open",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","Name","M1","PTS"],
     reservedSerial:3,allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band.",
     score:{qsos:2,points:1,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:1} };
   current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
@@ -189,7 +193,7 @@ it("projects CWOPS Open serial/name exchange, retained dupes and unique-call sco
   expect(entry.draft).toMatchObject({dupe:{state:"duplicate",reason:"Worked on this band."},reservedSerial:3,
     receivedFields:[{id:"other_2",label:"Recd Number and Name",value:"12 ALICE"}]});
   expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 unique calls"]});
-  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",page:{rows:[{
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",pluginColumns:current.columns,page:{rows:[{
     receivedExchange:"12 ALICE",sentExchange:"1",multiplierLabels:[]}]}});
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
@@ -197,6 +201,7 @@ it("projects CWOPS Open serial/name exchange, retained dupes and unique-call sco
 it("projects Trans Tasman low bands, serial exchange, plugin dupe period and retained duplicate logging", async () => {
   const current = { ...projection(5, {other_1:"001",other_2:"012"}), pluginID:"trans_tasman", pluginName:"Trans Tasman CW",
     frequencyHz:7_025_000,band:7,reservedSerial:1,supportedBands:["160m","80m","40m"],supportedModes:["CW"],
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Mode","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14).",
     ruleIdentity:{id:"trans-tasman",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"},
     score:{qsos:1,points:1,countries:0,zones:0,multipliers:1,prefixes:1,total:1} };
@@ -222,11 +227,44 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
   expect(entry.draft).toMatchObject({band:"40m",dupe:{state:"duplicate",reason:current.dupeExplanation},
     receivedFields:[{id:"other_2",label:"RcvNR",value:"012"}]});
   expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 prefixes"]});
-  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",page:{rows:[{
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",pluginColumns:current.columns,page:{rows:[{
     receivedExchange:"12",sentExchange:"1",multiplierLabels:["ZL1"]}]}});
   expect(surfaceOwner.current.projections.awards.status).toBe("unavailable");
   expect(surfaceOwner.current.projections["chaser-dx"].status).toBe("unavailable");
   expect(validContestSurfaceProjection("active-qso",entry)).toBe(true);
+});
+
+it.each([
+  { pluginID:"cq_wpx_cw", pluginName:"CQ WPX CW",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","WPX","M1","PTS"],
+    row:{ID:"wpx-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,WPXPrefix:"K1",IsMultiplier1:1,Points:3},
+    receivedExchange:"123", values:["2026-10-20 11:00:00","K1ABC","14025","599","599","1","123","K1","✓","3"] },
+  { pluginID:"arrl_ss_cw", pluginName:"ARRL Sweepstakes CW",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","CK","Prec","Sect","M1","PTS"],
+    row:{ID:"ss-qso",TS:"2026-10-20 12:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,CK:67,Prec:"A",Sect:"CT",IsMultiplier1:1,Points:2},
+    receivedExchange:"123 A K1ABC 67 CT", values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"] },
+])("projects the actual $pluginName log columns and exchange", async ({pluginID,pluginName,columns,row,receivedExchange,values}) => {
+  const current={...projection(3,{other_1:"002"}),pluginID,pluginName,columns,
+    reservedSerial:2,score:{qsos:1,points:row.Points,countries:0,zones:0,multipliers:1,total:row.Points}};
+  current.fields=current.fields.map(field=>({...field,readOnly:field.id==="other_1"}));
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:pluginID}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
+  const logbook=surfaceOwner.current.projections.logbook;
+  expect(logbook).toMatchObject({exchangeLayout:"plugin",pluginColumns:columns,
+    pluginRows:[{qsoID:row.ID,values}],pluginPartialRows:[],page:{rows:[{receivedExchange}]}});
+  expect(logbook).not.toHaveProperty("manualRows");
+  expect(validContestSurfaceProjection("logbook",logbook)).toBe(true);
 });
 
 it("projects only configured bands into detached Main Logging", async () => {
@@ -346,6 +384,45 @@ it("restores the saved manual frequency when reopening a session without CAT", a
   await screen.findByText("Contest windows are ready");
   await act(async () => { await expect(transition.prepare()).resolves.toBeUndefined(); });
   expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
+});
+
+it("clears prior-session log rows when a newly opened session cannot refresh its log",async()=>{
+  const first={...projection(),sessionID:"11111111-1111-4111-8111-111111111111",pluginName:"CQ WW CW",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","PTS"]};
+  const second={...projection(2),sessionID:"22222222-2222-4222-8222-222222222222",draftID:"44444444-4444-4444-8444-444444444444",
+    pluginID:"arrl_ss_cw",pluginName:"ARRL Sweepstakes CW",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","CK","Prec","Sect","M1","PTS"]};
+  const sessions=[{...first,name:"First contest"},{...second,name:"Second contest"}];
+  const oldRow={ID:"old-qso",TS:"2026-10-20 01:00:00",Call:"DL1ABC",Freq:14025,SNT:"599",RCV:"599",SentNr:1,NR:14,Points:3,
+    Band:14,Mode:"CW"};
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1",first.sessionID);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_catalog")return{id:crypto.randomUUID(),ok:true,result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"},{id:"arrl_ss_cw",name:"ARRL Sweepstakes CW"}]}};
+    if(method==="contest_sessions")return{id:crypto.randomUUID(),ok:true,result:{sessions}};
+    if(method==="contest_open")return{id:crypto.randomUUID(),ok:true,result:{projection:params.sessionID===first.sessionID?first:second}};
+    if(method==="contest_setup_get")return{id:crypto.randomUUID(),ok:true,result:{setup:{...newContestSetup("OM0RX"),pluginID:params.sessionID===first.sessionID?first.pluginID:second.pluginID}}};
+    if(method==="contest_log_page"){
+      if(params.sessionID===first.sessionID)return{id:crypto.randomUUID(),ok:true,result:{rows:[oldRow],offset:0,total:1}};
+      throw new Error("Second contest log is temporarily unavailable.");
+    }
+    if(method==="contest_score")return{id:crypto.randomUUID(),ok:true,result:{score:(params.sessionID===first.sessionID?first:second).score,matrices:{countries:[],zones:[]}}};
+    if(method==="contest_rates")return{id:crypto.randomUUID(),ok:true,result:{lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,
+      sinceMinuteQsoPerHour:null,runQso:0,searchAndPounceQso:0,hourRunQso:0,hourSearchAndPounceQso:0}};
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    throw new Error(method);
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.pluginRows).toEqual([
+    {qsoID:"old-qso",values:[oldRow.TS,oldRow.Call,"14025","599","599","1","14","3"]},
+  ]));
+  await userEvent.click(screen.getByRole("button",{name:"Select contest"}));
+  await userEvent.click(screen.getByRole("button",{name:"Choose a Contest"}));
+  await userEvent.click(screen.getByRole("radio",{name:"Second contest"}));
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  expect((await screen.findByRole("alert")).textContent).toContain("Second contest log is temporarily unavailable.");
+  expect(surfaceOwner.current.context.sessionID).toBe(second.sessionID);
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({pluginColumns:second.columns,pluginRows:[],pluginPartialRows:[],
+    page:{offset:0,total:0,rows:[]}});
 });
 
 it("defers a native contest window command until the saved session is fully restored", async () => {
