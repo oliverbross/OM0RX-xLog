@@ -355,16 +355,31 @@ class Host:
                     continue
                 try:
                     session_id = identifier(directory.name)
-                except HostError:
+                    path = directory / "contest.sqlite"
+                    require(not path.is_symlink() and path.is_file() and path.stat().st_nlink == 1,
+                            "Unsafe or missing session database", "unsafe_database")
+                    # Listing must never initialize or repair a candidate via Store.
+                    probe = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+                    try:
+                        tables = {row[0] for row in probe.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                        require({"xlog_session", "xlog_operation", "xlog_qso_identity", "xlog_qso_audit", "DXLOG"} <= tables,
+                                "Existing file is not a Python contest store", "unsafe_database")
+                        row = probe.execute("SELECT state FROM xlog_session WHERE id=?", (session_id,)).fetchone()
+                    finally:
+                        probe.close()
+                    if row is None:
+                        continue  # A rejected create can leave an initialized, empty store.
+                    state = json.loads(row[0])
+                    self.verify_engine(state)
+                    summary = {"sessionID": session_id, "name": state.get("name", "CQ WW CW"),
+                               "workspaceGeneration": workspace_generation(state),
+                               "pluginID": state["pluginID"], "sourceRevision": state["sourceRevision"],
+                               "revision": state["revision"]}
+                except (HostError, sqlite3.Error, OSError, json.JSONDecodeError):
+                    # Discovery must not let one stale/incomplete store hide other sessions.
+                    # Explicit opens still report the candidate's original error.
                     continue
-                store = self.database(session_id)
-                state = store.state(session_id)
-                require(state is not None, "Session does not exist", "not_found")
-                self.verify_engine(state)
-                sessions.append({"sessionID": session_id, "name": state.get("name", "CQ WW CW"),
-                                 "workspaceGeneration": workspace_generation(state),
-                                 "pluginID": state["pluginID"], "sourceRevision": state["sourceRevision"],
-                                 "revision": state["revision"]})
+                sessions.append(summary)
             return {"sessions": sessions}
         session_id = identifier(params.get("sessionID"))
         store = self.database(session_id, method == "session_create")
@@ -672,9 +687,26 @@ class Host:
 
     @staticmethod
     def verify_engine(state):
-        require(state.get("engine") == "not1mm-python" and state.get("pluginID") in PLUGINS
+        require(isinstance(state, dict), "Invalid persisted session state", "invalid_session")
+        require(state.get("engine") == "not1mm-python" and isinstance(state.get("pluginID"), str)
+                and state["pluginID"] in PLUGINS
                 and state.get("sourceRevision") == SOURCE_REVISION,
                 "This session belongs to a different contest engine/source", "engine_mismatch")
+        require(isinstance(state.get("sessionID"), str)
+                and type(state.get("revision")) is int and state["revision"] >= 0
+                and all(isinstance(state.get(key), dict) for key in ("station", "settings", "reference", "draft"))
+                and isinstance(state.get("operator"), str) and state.get("focus") in FIELDS
+                and type(state.get("run")) is bool,
+                "Incomplete persisted session state", "invalid_session")
+        identifier(state["sessionID"])
+        require(isinstance(state["draft"].get("fields"), dict)
+                and isinstance(state["draft"].get("id"), str)
+                and type(state["draft"].get("frequencyHz")) is int
+                and isinstance(state["reference"].get("countries"), dict)
+                and isinstance(state["reference"].get("id"), str)
+                and isinstance(state["station"].get("Call"), str)
+                and "SentExchange" in state["settings"],
+                "Incomplete persisted session state", "invalid_session")
 
     def new_state(self, session_id, params):
         plugin_id = params.get("pluginID", PLUGIN_ID)

@@ -521,6 +521,75 @@ class HostTests(unittest.TestCase):
             self.call("session_open", {"sessionID": linked_id})
         self.assertEqual(error.exception.code, "unsafe_database")
 
+    def test_session_discovery_survives_rejected_create_and_incomplete_stores(self):
+        rejected = uid()
+        with self.assertRaises(HostError):
+            self.call("session_create", {**self.create, "sessionID": rejected,
+                                        "operationID": uid(), "pluginID": "unsupported"})
+        self.assertIsNone(self.host.database(rejected).state(rejected))
+        missing = self.root / uid()
+        missing.mkdir()
+        foreign = self.root / uid()
+        foreign.mkdir()
+        foreign_path = foreign / "contest.sqlite"
+        with sqlite3.connect(foreign_path) as connection:
+            connection.execute("CREATE TABLE normal_logbook(id TEXT)")
+        corrupt = self.root / uid()
+        corrupt.mkdir()
+        (corrupt / "contest.sqlite").write_bytes(b"not a sqlite database")
+        foreign_before = foreign_path.read_bytes()
+        # Restart to exercise discovery through disk, rather than cached stores.
+        self.host.close()
+        self.host = Host(self.root)
+        sessions = self.call("sessions", {})["sessions"]
+        self.assertEqual([session["sessionID"] for session in sessions], [self.session])
+        self.assertEqual(self.read("session_open")["projection"]["sessionID"], self.session)
+        self.assertEqual(foreign_path.read_bytes(), foreign_before)
+        self.assertFalse((missing / "contest.sqlite").exists())
+        self.assertEqual((corrupt / "contest.sqlite").read_bytes(), b"not a sqlite database")
+        with self.assertRaises(HostError) as error:
+            self.call("session_open", {"sessionID": rejected})
+        self.assertEqual(error.exception.code, "not_found")
+
+    def test_session_discovery_isolates_malformed_json_state_and_explicit_open_rejects_it(self):
+        valid = self.host.database(self.session).state(self.session)
+        malformed = [[], {}, {**valid, "pluginID": []}]
+        for key in ("revision", "sessionID", "draft", "station", "settings", "reference", "operator", "focus", "run"):
+            state = deepcopy(valid)
+            del state[key]
+            malformed.append(state)
+        malformed.append({**valid, "draft": {}})
+        for state in malformed:
+            with self.subTest(state=state):
+                session = uid()
+                store = self.host.database(session, create=True)
+                store.conn.execute("INSERT INTO xlog_session VALUES(?,?)", (session, json.dumps(state)))
+                store.conn.commit()
+                self.assertEqual([item["sessionID"] for item in self.call("sessions", {})["sessions"]], [self.session])
+                with self.assertRaises(HostError):
+                    self.call("session_open", {"sessionID": session})
+                self.assertEqual(store.exec_sql("SELECT state FROM xlog_session WHERE id=?", (session,))["state"], json.dumps(state))
+
+    def test_session_discovery_never_repairs_malformed_store_after_restart(self):
+        malformed = uid()
+        store = self.host.database(malformed, create=True)
+        store.conn.execute("INSERT INTO xlog_session VALUES(?,?)", (malformed, "[]"))
+        store.conn.execute("DROP TABLE xlog_serial")
+        store.conn.commit()
+        self.host.close()
+        path = self.root / malformed / "contest.sqlite"
+        before = hashlib.sha256(path.read_bytes()).hexdigest()
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
+            schema_before = connection.execute("SELECT type,name,sql FROM sqlite_master ORDER BY type,name").fetchall()
+        self.host = Host(self.root)
+        self.assertEqual([item["sessionID"] for item in self.call("sessions", {})["sessions"]], [self.session])
+        self.assertFalse(self.host.stores)
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), before)
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
+            self.assertEqual(connection.execute("SELECT type,name,sql FROM sqlite_master ORDER BY type,name").fetchall(), schema_before)
+            self.assertIsNone(connection.execute("SELECT name FROM sqlite_master WHERE name='xlog_serial'").fetchone())
+            self.assertEqual(connection.execute("SELECT state FROM xlog_session").fetchone(), ("[]",))
+
     def test_atomic_rollback_on_sql_error_and_timestamp_collision(self):
         self.log()
         before = self.read("projection")["projection"]["revision"]

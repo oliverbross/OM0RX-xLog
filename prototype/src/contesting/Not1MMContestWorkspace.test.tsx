@@ -590,3 +590,45 @@ it("keeps legacy-generation Python sessions open in the main desk with detached 
   expect(surfaceOwner.current.context).toBeNull();
   expect(request.mock.calls.find(([method])=>method==="contest_open")?.[1]).toMatchObject({workspaceGeneration:legacyGeneration});
 });
+
+it("recovers a stale remembered session to a discovered contest in Contest Setup", async () => {
+  const current = projection();
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}
+      : method === "contest_sessions" ? {sessions:[{sessionID:current.sessionID,
+        workspaceGeneration:current.workspaceGeneration,name:"Preserved session",pluginID:current.pluginID,
+        sourceRevision:current.sourceRevision,revision:current.revision}]}
+      : method === "contest_open" ? {projection:current}
+      : method === "contest_log_page" ? {rows:[],offset:0,limit:20,total:0}
+      : method === "contest_score" ? {score:current.score,matrices:{countries:[],zones:[]}} : null;
+    if (!result) throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  await waitFor(() => expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID));
+  expect(request.mock.calls.find(([method]) => method === "contest_open")?.[1]).toMatchObject({sessionID:current.sessionID});
+  await userEvent.click(screen.getByRole("button", {name:"Choose a Contest"}));
+  expect(screen.getByText("Preserved session")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("clears a stale remembered session and leaves multiple discovered contests for the operator to choose", async () => {
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  const sessions = ["First preserved contest", "Second preserved contest"].map(name => ({
+    sessionID:crypto.randomUUID(),workspaceGeneration,name,pluginID:"cq_ww_cw",sourceRevision:"pinned",revision:1,
+  }));
+  const request = vi.fn(async (method: string) => {
+    if (method === "contest_catalog") return {id:crypto.randomUUID(),ok:true,result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}};
+    if (method === "contest_sessions") return {id:crypto.randomUUID(),ok:true,result:{sessions}};
+    throw new Error(`Unexpected ${method}`);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  await waitFor(() => expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBeNull());
+  expect(request.mock.calls.some(([method]) => method === "contest_open")).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"Choose a Contest"}));
+  expect(screen.getByText("First preserved contest")).toBeTruthy();
+  expect(screen.getByText("Second preserved contest")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+});

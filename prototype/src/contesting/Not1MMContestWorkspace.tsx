@@ -254,7 +254,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if (!active) return;
       setCatalog(Array.isArray(available.plugins) ? available.plugins : []); setSessions(list.sessions);
       const stored = localStorage.getItem(activeSessionKey);
-      const saved = stored ? list.sessions.find(session => session.sessionID === stored) : undefined;
+      const saved = stored ? list.sessions.find(session => session.sessionID === stored)
+        ?? (list.sessions.length === 1 ? list.sessions[0] : undefined) : undefined;
+      if (stored && !saved) localStorage.removeItem(activeSessionKey);
       if (saved) void openSession(saved);
     }).catch(cause => { if (active) setError(errorMessage(cause)); });
     return () => { active = false; };
