@@ -607,6 +607,8 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                     "callsign",
                     "sentReport",
                     "receivedReport",
+                    "timestamp",
+                    "operator",
                     "correctionReason",
                     "deletionReason",
                 ],
@@ -704,8 +706,12 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         "propagation" if schema_version == 1 => validate_statistics_projection(projection),
         "propagation" if schema_version == 2 => validate_statistics_projection_v2(projection),
         "monitor" if schema_version == 1 => validate_rate_projection(projection),
+        "awards" | "chaser-dx" if schema_version == 1 => {
+            validate_matrix_projection(projection)
+        }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
-        "active-qso" | "callsign-intelligence" | "propagation" | "monitor" | "logbook" => {
+        "active-qso" | "callsign-intelligence" | "propagation" | "monitor" | "awards"
+        | "chaser-dx" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }
         _ => Err("That contest surface has no ready projection schema.".into()),
@@ -713,8 +719,10 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
 }
 
 fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
+    let mut required = value.clone();
+    let manual = required.remove("manual");
     exact(
-        value,
+        &required,
         &[
             "schemaVersion",
             "status",
@@ -726,12 +734,17 @@ fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
         ],
         "entry projection",
     )?;
+    if let Some(manual) = manual {
+        validate_manual_context(&manual)?;
+    }
     validate_entry_projection_body(value)
 }
 
 fn validate_entry_projection_v2(value: &Map<String, Value>) -> Result<(), String> {
+    let mut required = value.clone();
+    let manual = required.remove("manual");
     exact(
-        value,
+        &required,
         &[
             "schemaVersion",
             "status",
@@ -745,6 +758,9 @@ fn validate_entry_projection_v2(value: &Map<String, Value>) -> Result<(), String
         ],
         "entry projection",
     )?;
+    if let Some(manual) = manual {
+        validate_manual_context(&manual)?;
+    }
     validate_entry_projection_body(value)?;
     let sent_field_ids = validate_entry_descriptor(&value["descriptor"])?;
     validate_entry_operator(&value["operator"])?;
@@ -756,6 +772,43 @@ fn validate_entry_projection_v2(value: &Map<String, Value>) -> Result<(), String
         if !sent_field_ids.contains(field_id) {
             return Err("The allocated serial field is not a sent exchange field.".into());
         }
+    }
+    Ok(())
+}
+
+fn validate_manual_context(value: &Value) -> Result<(), String> {
+    let manual = object(value, "manual contest context")?;
+    exact(
+        manual,
+        &[
+            "operator",
+            "cwSpeedWpm",
+            "country",
+            "cqZone",
+            "ituZone",
+            "headingDegrees",
+            "longPathHeadingDegrees",
+            "distanceKm",
+            "qsos",
+            "multipliers",
+            "total",
+        ],
+        "manual contest context",
+    )?;
+    text_value(&manual["operator"], 32, true, "manual operator")?;
+    nullable_text(&manual["country"], 160, "manual country")?;
+    for key in [
+        "cwSpeedWpm",
+        "cqZone",
+        "ituZone",
+        "headingDegrees",
+        "longPathHeadingDegrees",
+        "distanceKm",
+    ] {
+        nullable_nonnegative_number(&manual[key], "manual numeric context")?;
+    }
+    for key in ["qsos", "multipliers", "total"] {
+        uint_value(&manual[key], MAX_SAFE_INTEGER, "manual contest total")?;
     }
     Ok(())
 }
@@ -910,7 +963,11 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
         ],
         "entry operator",
     )?;
-    enum_value(&operator["output"], &["simulation-only"], "operator output")?;
+    enum_value(
+        &operator["output"],
+        &["simulation-only", "xlog-native"],
+        "operator output",
+    )?;
     boolean(&operator["armed"], "operator armed state")?;
     enum_value(
         &operator["style"],
@@ -950,7 +1007,7 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
         if !keys.insert(key) {
             return Err("The operator function keys are not unique.".into());
         }
-        contest_macro(&mapping["macro"])?;
+        text_value(&mapping["macro"], 160, true, "operator macro label")?;
     }
     let readiness = object(&operator["readiness"], "operator readiness")?;
     exact(
@@ -1122,6 +1179,9 @@ fn validate_statistics_score(value: &Value) -> Result<(), String> {
 }
 
 fn validate_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
+    if value.contains_key("lastHourQsoPerHour") {
+        return validate_native_rate_projection(value);
+    }
     exact(
         value,
         &[
@@ -1145,6 +1205,79 @@ fn validate_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
     )?;
     validate_rate_fields(value)?;
     boolean(&value["busy"], "rate busy")
+}
+
+fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "lastHourQsoPerHour",
+            "last10QsoPerHour",
+            "last100QsoPerHour",
+            "sinceMinuteQsoPerHour",
+            "runQso",
+            "searchAndPounceQso",
+            "hourRunQso",
+            "hourSearchAndPounceQso",
+            "busy",
+        ],
+        "native rate projection",
+    )?;
+    for key in [
+        "lastHourQsoPerHour",
+        "last10QsoPerHour",
+        "last100QsoPerHour",
+        "sinceMinuteQsoPerHour",
+    ] {
+        nullable_nonnegative_number(&value[key], "native contest rate")?;
+    }
+    for key in [
+        "runQso",
+        "searchAndPounceQso",
+        "hourRunQso",
+        "hourSearchAndPounceQso",
+    ] {
+        uint_value(&value[key], MAX_SAFE_INTEGER, "native contest count")?;
+    }
+    boolean(&value["busy"], "native rate busy")
+}
+
+fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &["schemaVersion", "status", "title", "bands", "rows", "total", "busy"],
+        "multiplier matrix projection",
+    )?;
+    text_value(&value["title"], 160, false, "multiplier matrix title")?;
+    let bands = array(&value["bands"], 32, "multiplier matrix bands")?;
+    let mut band_names = BTreeSet::new();
+    for band in bands {
+        let band = text_value(band, 16, false, "multiplier matrix band")?;
+        if !band_names.insert(band) {
+            return Err("The multiplier matrix bands are not unique.".into());
+        }
+    }
+    let mut labels = BTreeSet::new();
+    for row in array(&value["rows"], 10_000, "multiplier matrix rows")? {
+        let row = object(row, "multiplier matrix row")?;
+        exact(row, &["label", "counts", "total"], "multiplier matrix row")?;
+        let label = text_value(&row["label"], 160, false, "multiplier matrix label")?;
+        if !labels.insert(label) {
+            return Err("The multiplier matrix labels are not unique.".into());
+        }
+        let counts = object(&row["counts"], "multiplier matrix counts")?;
+        if counts.len() != band_names.len() || !band_names.iter().all(|band| counts.contains_key(*band)) {
+            return Err("The multiplier matrix counts do not match its bands.".into());
+        }
+        for count in counts.values() {
+            uint_value(count, MAX_SAFE_INTEGER, "multiplier matrix count")?;
+        }
+        uint_value(&row["total"], MAX_SAFE_INTEGER, "multiplier matrix total")?;
+    }
+    uint_value(&value["total"], MAX_SAFE_INTEGER, "multiplier matrix total")?;
+    boolean(&value["busy"], "multiplier matrix busy")
 }
 
 fn validate_statistics_projection_v2(value: &Map<String, Value>) -> Result<(), String> {
@@ -1367,8 +1500,14 @@ fn validate_band_statistics(value: &Value, total: bool) -> Result<(String, [u64;
 }
 
 fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
+    let mut required = value.clone();
+    for key in ["manualRows", "partialRows"] {
+        if let Some(rows) = required.remove(key) {
+            validate_manual_rows(&rows)?;
+        }
+    }
     exact(
-        value,
+        &required,
         &[
             "schemaVersion",
             "status",
@@ -1423,8 +1562,11 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
     }
     if !value["editing"].is_null() {
         let edit = object(&value["editing"], "log edit")?;
+        let mut required_edit = edit.clone();
+        let worked_at = required_edit.remove("workedAt");
+        let operator = required_edit.remove("operator");
         exact(
-            edit,
+            &required_edit,
             &[
                 "qsoID",
                 "callsign",
@@ -1442,6 +1584,12 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
             ],
             "log edit",
         )?;
+        if let Some(worked_at) = worked_at {
+            text_value(&worked_at, 32, false, "log edit timestamp")?;
+        }
+        if let Some(operator) = operator {
+            text_value(&operator, 32, true, "log edit operator")?;
+        }
         text_value(&edit["qsoID"], 160, false, "QSO ID")?;
         text_value(&edit["callsign"], 32, true, "log callsign")?;
         for key in ["band", "mode"] {
@@ -1460,6 +1608,21 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         text_value(&edit["editFrequencyText"], 11, true, "log frequency text")?;
         text_value(&edit["frequencyError"], 512, true, "log frequency error")?;
         boolean(&edit["confirmDelete"], "delete confirmation")?;
+    }
+    Ok(())
+}
+
+fn validate_manual_rows(value: &Value) -> Result<(), String> {
+    for row in array(value, 500, "manual log rows")? {
+        let row = object(row, "manual log row")?;
+        exact(
+            row,
+            &["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "ZN", "SentNr", "prefix", "Points"],
+            "manual log row",
+        )?;
+        for field in row.values() {
+            text_value(field, 160, true, "manual log value")?;
+        }
     }
     Ok(())
 }
@@ -1847,6 +2010,17 @@ mod tests {
                 "receivedReport":"599","receivedFields":[],"frequencyHz":null,"editFrequencyText":"bad",
                 "frequencyError":"Enter a frequency","correctionReason":"","confirmDelete":false,"deletionReason":""},"busy":false});
         assert!(validate_projection("logbook", &logbook).is_ok());
+        let not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,
+            "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00.000Z",
+                "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
+                "points":3,"multiplierLabels":["Germany"]}]},
+            "manualRows":[{"qsoID":"qso","TS":"2026-10-18 00:00:00","Call":"DL1AAA","Freq":"14025.0",
+                "SNT":"599","RCV":"599","ZN":"14","SentNr":"15","prefix":"DL","Points":"3"}],"partialRows":[],
+            "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA",
+                "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
+                "frequencyHz":14025000,"editFrequencyText":"14025000","frequencyError":"","correctionReason":"Operator correction",
+                "confirmDelete":false,"deletionReason":"Operator deletion"},"busy":false});
+        assert!(validate_projection("logbook", &not1mm_logbook).is_ok());
         let statistics = json!({"schemaVersion":1,"status":"ready","score":{"qsos":12,"points":12,"multipliers":10,
             "claimedScore":120,"multiplierLabels":["country:K"],"multiplierDisplayLabels":["United States"],
             "sourceVerification":"verified"},"busy":false});
@@ -1861,6 +2035,14 @@ mod tests {
         missing_display["score"]["multiplierDisplayLabels"] = json!(too_many);
         assert!(validate_projection("propagation", &missing_display).is_err());
         assert!(validate_projection("propagation", &statistics_v2()).is_ok());
+        let native_rates = json!({"schemaVersion":1,"status":"ready","lastHourQsoPerHour":null,
+            "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceMinuteQsoPerHour":0.0,
+            "runQso":2,"searchAndPounceQso":1,"hourRunQso":1,"hourSearchAndPounceQso":0,"busy":false});
+        assert!(validate_projection("monitor", &native_rates).is_ok());
+        let matrix = json!({"schemaVersion":1,"status":"ready","title":"DXCC","bands":["20m","40m"],
+            "rows":[{"label":"Germany","counts":{"20m":1,"40m":0},"total":1}],"total":1,"busy":false});
+        assert!(validate_projection("awards", &matrix).is_ok());
+        assert!(validate_projection("chaser-dx", &matrix).is_ok());
     }
 
     #[test]
@@ -1897,6 +2079,12 @@ mod tests {
     fn entry_v2_projects_resolved_sent_exchange_and_simulation_state_exactly() {
         let entry = entry_v2();
         assert!(validate_projection("active-qso", &entry).is_ok());
+        let mut native = entry.clone();
+        native["manual"] = json!({"operator":"OM0RX","cwSpeedWpm":20,"country":null,"cqZone":null,"ituZone":null,
+            "headingDegrees":null,"longPathHeadingDegrees":null,"distanceKm":null,"qsos":0,"multipliers":0,"total":0});
+        native["operator"]["output"] = json!("xlog-native");
+        native["operator"]["functionKeys"][0]["macro"] = json!("Run CQ");
+        assert!(validate_projection("active-qso", &native).is_ok());
         assert!(validate_projection(
             "active-qso",
             &json!({"schemaVersion":2,"status":"unavailable"})

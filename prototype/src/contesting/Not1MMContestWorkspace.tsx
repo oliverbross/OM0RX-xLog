@@ -109,9 +109,15 @@ function sameFields(left: Record<string, string>, right: Record<string, string>)
   return [...keys].every(key => (left[key] ?? "") === (right[key] ?? ""));
 }
 
+function canonicalWorkedAt(value: unknown) {
+  const normalized = `${String(value ?? "").replace(" ", "T")}Z`;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? normalized : parsed.toISOString();
+}
+
 function logRows(rows: Data[]): ContestLogRow[] {
   return rows.map(row => ({
-    qsoID: String(row.ID ?? ""), workedAt: `${String(row.TS ?? "").replace(" ", "T")}Z`, callsign: String(row.Call ?? ""),
+    qsoID: String(row.ID ?? ""), workedAt: canonicalWorkedAt(row.TS), callsign: String(row.Call ?? ""),
     band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: String(row.ZN ?? row.Exchange1 ?? ""),
     points: Number(row.Points ?? 0), multiplierLabels: [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),

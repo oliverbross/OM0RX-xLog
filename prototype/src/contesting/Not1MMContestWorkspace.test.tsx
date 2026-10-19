@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import userEvent from "@testing-library/user-event";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 import { ContestMutationUncertain } from "./client";
-import { validContestSurfaceProjection } from "./contestSurfaceProtocol";
+import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { newContestSetup } from "./ContestSetupPanel";
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any }));
@@ -103,7 +103,7 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
   expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"}]);
   expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
-  for(const panel of ["active-qso","callsign-intelligence","logbook"] as const)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
+  for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
 
 const projection = (revision = 1, values: Record<string, string> = {}) => ({
@@ -344,6 +344,8 @@ it("pages past QSO 100 and sends the complete correction contract", async () => 
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_page",params:{offset:100}}));
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows[0]?.qsoID).toBe("qso-001"));
+  expect(surfaceOwner.current.projections.logbook.page.rows[0]?.workedAt).toBe("2026-10-19T08:00:00.000Z");
+  expect(validContestSurfaceProjection("logbook", surfaceOwner.current.projections.logbook)).toBe(true);
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:"qso-001"}}));
   for (const [field,value] of [["timestamp","2026-10-19 09:15:30"],["operator","om0rx/p"],["sentReport","579"],["receivedReport","589"]] as const)
     await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_set_text",params:{qsoID:"qso-001",field,value}}));
