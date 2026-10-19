@@ -2533,13 +2533,13 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_window_open_is_main_only_and_bounded_to_connected_tools() {
-        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster"] {
+        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("main", panel).is_ok());
             for label in ["contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());
             }
         }
-        for panel in ["awards", "alerts", "chaser-dx", "station-control", "cw", "settings", "contest--logbook", ""] {
+        for panel in ["alerts", "cw", "settings", "contest--logbook", ""] {
             assert!(super::validate_contest_window_open("main", panel).is_err());
         }
     }

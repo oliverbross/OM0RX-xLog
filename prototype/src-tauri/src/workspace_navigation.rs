@@ -28,16 +28,19 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 9] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 12] = [
     ("contest-setup", "Contest Setup"),
+    ("contest-window-active-qso", "Main Logging"),
     ("contest-window-propagation", "Stats"),
     ("contest-window-logbook", "Logbook"),
-    ("contest-window-active-qso", "Main Logging"),
     ("contest-window-band-maps", "Band Map"),
-    ("contest-window-rotor", "Rotator"),
-    ("contest-window-monitor", "Rates"),
     ("contest-window-dx-cluster", "Cluster"),
     ("contest-window-callsign-intelligence", "Check Partial"),
+    ("contest-window-monitor", "Rates"),
+    ("contest-window-awards", "DXCC"),
+    ("contest-window-chaser-dx", "Zone"),
+    ("contest-window-rotor", "Rotator"),
+    ("contest-window-station-control", "Remote VFO"),
 ];
 pub fn contest_route(id: &str) -> Option<&'static str> {
     CONTEST_MENU_ITEMS.iter().find_map(|(route, _)| (*route == id).then_some(*route))
@@ -104,13 +107,13 @@ mod tests {
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
             state.acknowledge("main", pending.revision).unwrap();
         }
-        assert_eq!(windows, ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster"].into_iter().collect());
-        for invalid in ["contest-window-settings", "contest-window-cw", "contest-window-awards", "contest-window-chaser-dx", "contest-window-station-control", "contest-window-alerts", "contest-window-", "contest_setup", "workspace_window_logbook"] {
+        assert_eq!(windows, ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        for invalid in ["contest-window-settings", "contest-window-cw", "contest-window-alerts", "contest-window-", "contest_setup", "workspace_window_logbook"] {
             assert!(contest_menu_route(invalid).is_none());
             assert!(contest_route(invalid).is_none());
             if invalid.starts_with("contest-") { assert!(state.request(invalid).is_err()); }
         }
-        for invalid in ["settings", "cw", "awards", "chaser-dx", "station-control", "alerts", "contest--logbook", "contest-setup", ""] {
+        for invalid in ["settings", "cw", "alerts", "contest--logbook", "contest-setup", ""] {
             assert!(contest_window_panel(invalid).is_none());
         }
     }
