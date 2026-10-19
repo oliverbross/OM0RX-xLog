@@ -17,7 +17,7 @@ npx tauri build --bundles app
 # development hosts still fall back to ad-hoc signing; notarization remains a
 # separate acceptance step, never inferred from a valid code signature.
 bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
-bash prototype/scripts/stage-contest-python-macos.sh "$bundle"
+bash "$root/prototype/scripts/stage-contest-python-macos.sh" "$bundle"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
@@ -48,6 +48,10 @@ while IFS= read -r -d '' component; do
     fi
   fi
 done < <(find "$bundle/Contents/Frameworks/Python.framework" -type f -print0)
+sign_component "$bundle/Contents/Frameworks/Python.framework/Versions/3.12/Resources/Python.app" "com.oliverbross.xlog.integration.python.helper"
+sign_component "$bundle/Contents/Frameworks/Python.framework" "com.oliverbross.xlog.integration.python"
+"$bundle/Contents/Frameworks/Python.framework/Versions/3.12/bin/python3.12" -I -B \
+  "$root/prototype/scripts/relocate-contest-python.py" --bundle "$bundle" --finalize-provenance
 sign_component "$bundle/Contents/MacOS/xlog-prototype-worker" "com.oliverbross.xlog.integration.worker"
 sign_component "$bundle/Contents/MacOS/rigctld" "com.oliverbross.xlog.integration.rigctld"
 sign_component "$bundle/Contents/MacOS/rotctld" "com.oliverbross.xlog.integration.rotctld"

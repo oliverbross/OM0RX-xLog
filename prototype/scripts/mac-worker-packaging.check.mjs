@@ -31,21 +31,27 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
     '/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle',
   ]);
   assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.check\.mjs/);
-  assert.match(script, /stage-contest-python-macos\.sh "\$bundle"/);
+  assert.match(script, /bash "\$root\/prototype\/scripts\/stage-contest-python-macos\.sh" "\$bundle"/);
   assert.match(script, /find "\$bundle\/Contents\/Frameworks\/Python\.framework" -type f -print0/);
   assert.match(script, /security find-identity -v -p codesigning/);
   assert.match(script, /Developer ID Application:/);
   assert.match(script, /com\.oliverbross\.xlog\.integration\.worker/);
   assert.match(script, /codesign --force --identifier "\$identifier"/);
   assert.match(script, /codesign --verify --deep --strict "\$bundle"/);
+  assert.match(script, /Python\.framework" "com\.oliverbross\.xlog\.integration\.python"/);
+  assert.match(script, /--finalize-provenance/);
 });
 
 test('contest Python staging is application-relative and relocation-checked', () => {
   const script = source('stage-contest-python-macos.sh');
-  assert.match(script, /source_framework=.*Python\.framework/);
+  assert.match(script, /source_framework=\/opt\/local\/Library\/Frameworks\/Python\.framework/);
   assert.match(script, /source_python="\$source_framework\/Versions\/3\.12\/bin\/python3\.12"/);
-  assert.match(script, /install_name_tool -change "\$old_python" '@executable_path\/\.\.\/Python'/);
-  assert.match(script, /--exclude '__pycache__' --exclude '\*\.pyc'/);
-  assert.match(script, /contest_host\/launcher\.py/);
-  assert.match(script, /"engine":"not1mm-python"/);
+  assert.match(script, /"\$source_python" -I -B "\$repo_root\/prototype\/scripts\/relocate-contest-python\.py"/);
+  const helper = source('relocate-contest-python.py');
+  assert.match(helper, /site-packages/);
+  assert.match(helper, /source_dependency/);
+  assert.match(helper, /check_minimum\(source, target\)/);
+  assert.match(helper, /sqlite3, ssl, lzma, decimal/);
+  assert.match(helper, /DYLD_PRINT_LIBRARIES/);
+  assert.match(helper, /sourceExecutableSHA256/);
 });
