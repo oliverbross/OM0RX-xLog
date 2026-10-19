@@ -102,7 +102,7 @@ impl Admission for NativeAdmission {
     fn check(&self) -> Result<(), String> {
         let production_contesting = !crate::runtime_profile::CONTESTING_TEST
             && !self.isolated
-            && crate::operating_module::selected_worker_value().ok() == Some("contesting");
+            && crate::contest_window_context::active().is_ok();
         validate_admission(
             &self.label,
             crate::runtime_profile::CONTESTING_TEST,

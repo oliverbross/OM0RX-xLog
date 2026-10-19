@@ -100,7 +100,7 @@ impl Backend for Native {
         let profile = saved["cwProfile"].clone();
         if !profile.is_object() || profile["version"] != 1 { return Err("Save valid CW preferences before arming.".into()); }
         let (provider, selection) = output_selection(&profile, || crate::station_selection::owner(&self.app)?.snapshot())?;
-        if crate::operating_module::selected_worker_value()? == "contesting" {
+        if crate::contest_window_context::active().is_ok() {
             let contest = call(worker, "contest_cw_context", json!({}))?;
             let fields = &contest["fields"];
             if !settings["generation"].is_string() || !settings["revision"].is_u64()

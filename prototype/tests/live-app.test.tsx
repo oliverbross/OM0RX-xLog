@@ -16,11 +16,7 @@ const clusterStartup = vi.hoisted(() => ({ native: false, initialize: vi.fn() })
 const activation = vi.hoisted(() => ({ activate: vi.fn(), reconcile: vi.fn() }));
 const editor = vi.hoisted(() => ({ reconcile: vi.fn() }));
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
-const moduleAuthority = vi.hoisted(() => ({ selected: "normal_logging" as "normal_logging" | "contesting", switch: vi.fn() }));
 vi.mock("@tauri-apps/api/core", async importOriginal => ({ ...await importOriginal<typeof import("@tauri-apps/api/core")>(), invoke: native.invoke }));
-vi.mock("../src/operatingModule", async importOriginal => ({ ...await importOriginal<typeof import("../src/operatingModule")>(),
-  operatingModuleStatus: async () => ({ selected: moduleAuthority.selected, context: "test-module-context", transitioning: false }),
-  switchOperatingModule: moduleAuthority.switch }));
 vi.mock("../src/live/clusterResume", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/clusterResume")>(),
   nativeClusterSession: () => clusterStartup.native, initializeNativeClusterResume: clusterStartup.initialize }));
 vi.mock("../src/live/workspaceNavigation", async importOriginal => ({ ...await importOriginal<typeof import("../src/live/workspaceNavigation")>(),
@@ -41,7 +37,6 @@ beforeEach(() => {
   clusterStartup.native = false; clusterStartup.initialize.mockReset().mockResolvedValue(undefined);
   activation.activate.mockReset(); activation.reconcile.mockReset().mockResolvedValue(true);
   editor.reconcile.mockReset().mockResolvedValue(true); native.invoke.mockReset();
-  moduleAuthority.selected = "normal_logging"; moduleAuthority.switch.mockReset().mockResolvedValue(undefined);
   draftBackend = operatorDraftFixture({ id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" });
   calls.request.mockImplementation(async (method: string, params: any = {}) => {
     const shared = draftBackend(method, params);
@@ -306,7 +301,6 @@ it("keeps the main window on normal logging with no embedded contest controls", 
   expect(screen.queryByLabelText("Operating module")).toBeNull();
   expect(screen.queryByRole("button", { name: "Contest Manager / Desk" })).toBeNull();
   expect(screen.getByRole("button", { name: "Monitor" })).toBeTruthy();
-  expect(moduleAuthority.switch).not.toHaveBeenCalled();
 });
 
 it("routes Sync to the Logbook choice in integrated-only mode", () => {

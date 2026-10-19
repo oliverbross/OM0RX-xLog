@@ -3,8 +3,8 @@ use serde_json::{json, Value};
 use std::{collections::{BTreeMap, BTreeSet}, sync::{Arc, Mutex}, time::Instant};
 
 pub fn validate_surface(label: &str, isolated: bool, exiting: bool, action: &str) -> Result<(), String> {
-    if !matches!(label, "main" | "cw") || isolated || exiting {
-        return Err("Shared CW controls require the live Desk or CW window.".into());
+    if !matches!(label, "main" | "cw" | "contest-setup") || isolated || exiting {
+        return Err("Shared CW controls require the live Desk, CW, or Contest Setup window.".into());
     }
     if !matches!(action, "snapshot" | "arm" | "send" | "contest" | "stop" | "acknowledge" | "unregister") {
         return Err("Unknown CW session action".into());
@@ -490,7 +490,7 @@ mod tests {
     fn cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions() {
         for label in ["main", "cw", "monitor", "station-control", "settings", "log-qso", "unknown", "CW"] {
             for action in ["snapshot", "arm", "send", "stop", "acknowledge", "unregister"] {
-                assert_eq!(validate_surface(label, false, false, action).is_ok(), matches!(label, "main" | "cw"));
+                assert_eq!(validate_surface(label, false, false, action).is_ok(), matches!(label, "main" | "cw" | "contest-setup"));
                 assert!(validate_surface(label, true, false, action).is_err());
                 assert!(validate_surface(label, false, true, action).is_err());
             }

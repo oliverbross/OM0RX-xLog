@@ -1524,15 +1524,19 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     cw_session::validate_surface(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
-    let _module_admission = if matches!(params["action"].as_str(), Some("arm" | "send")) { Some(operating_module::owner()?.admit_current()?) } else { None };
+    let output_action = matches!(params["action"].as_str(), Some("arm" | "send" | "contest"));
+    if output_action && window.label() != "contest-setup" && contest_window_context::active().is_ok() {
+        return Err("Contest Setup owns CW while a contest session is active. Stop remains available here.".into());
+    }
+    let _module_admission = if output_action { Some(operating_module::owner()?.admit_current()?) } else { None };
     let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
-    if matches!(params["action"].as_str(), Some("arm" | "send"))
+    if output_action
         && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
     let owner = cw_session_backend::owner(&app); let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
-        let _output=if matches!(params["action"].as_str(),Some("arm"|"send")) {Some(carrier_tune::reserve_output()?)}else{None};
+        let _output=if output_action {Some(carrier_tune::reserve_output()?)}else{None};
         owner.request(&label, &client, sequence, focused, &params)
     })
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
@@ -1752,76 +1756,6 @@ fn workspace_layout_refresh_scope(method: &str, request: &serde_json::Value) -> 
 #[tauri::command]
 fn operating_module_status() -> Result<serde_json::Value, String> {
     operating_module::owner()?.snapshot()
-}
-
-fn normal_operator_windows_open(app: &tauri::AppHandle) -> Vec<&'static str> {
-    ["log-qso", "logbook", "cw"].into_iter().filter(|label| app.get_webview_window(label).is_some()).collect()
-}
-
-fn require_module_transition_idle(app: &tauri::AppHandle) -> Result<(), String> {
-    let open = normal_operator_windows_open(app);
-    if !open.is_empty() { return Err(format!("Close these operator windows before changing module: {}.", open.join(", "))); }
-    if worker::requests_in_flight() != 0 { return Err("Wait for the current station or logbook operation to finish before changing module.".into()); }
-    if SPOT_ACTIVATION.get().and_then(|owner| owner.snapshot().ok()).is_some_and(|value| value["reservationActive"] == true)
-        || qsy_clear::reservation_active() || radio_read::reservation_active() || radio_follow::reservation_active() {
-        return Err("Resolve the protected draft or radio operation before changing module.".into());
-    }
-    if let Some(owner) = cw_session_backend::existing() {
-        let state = owner.snapshot()?;
-        if state["pending"] == true || state["armed"] == true || !state["owner"].is_null() {
-            return Err("Stop CW and verify that output is idle before changing module.".into());
-        }
-    }
-    if !carrier_tune::owner(app)?.snapshot()?["receipts"].as_array().is_some_and(|value| value.is_empty()) {
-        return Err("Resolve the retained carrier Tune receipt before changing module.".into());
-    }
-    let ptt = ptt_session::owner(app)?.snapshot()?;
-    if !ptt["release_required"].is_null() || !ptt["receipts"].as_array().is_some_and(|value| value.is_empty()) {
-        return Err("Resolve the retained PTT receipt and verify RX before changing module.".into());
-    }
-    Ok(())
-}
-
-fn retire_for_module_restart(app: &tauri::AppHandle) -> Result<(), String> {
-    carrier_tune::revoke_output_intent()?;
-    radio_follow::revoke("The operating module changed. Follow Radio is off.");
-    auto_rotor::revoke();
-    if let Some(owner) = cw_session_backend::existing() { owner.stop()?; }
-    rotor_session::shutdown(); station_identity::shutdown(); dx_alerts::shutdown(); propagation_session::shutdown();
-    auto_rotor_reconcile::shutdown(); logbook_events::shutdown(); workspace_window_runtime::shutdown();
-    cluster_session::shutdown(); winkeyer::shutdown(); hamlib::shutdown(); worker::shutdown_for_module_transition()?;
-    detached_geometry::shutdown(app);
-    Ok(())
-}
-
-#[tauri::command]
-async fn operating_module_switch(app: tauri::AppHandle, window: tauri::WebviewWindow,
-    _state: tauri::State<'_, acceptance::Acceptance>, target: String, context: String) -> Result<serde_json::Value, String> {
-    let rejected = |message: String| serde_json::json!({"status":"rejected","message":message,"servicesRetired":false});
-    let failed = |message: String| serde_json::json!({"status":"failed","message":message,"servicesRetired":true});
-    if window.label() != "main" { return Ok(rejected("Only the main workspace can change operating module.".into())); }
-    if let Err(error) = operating_module::validate_target(&target, runtime_profile::CONTESTING_TEST) {
-        return Ok(rejected(error));
-    }
-    let owner = operating_module::owner()?;
-    let target = match owner.begin(&target, &context) {
-        Ok(target) => target,
-        Err(error) => return Ok(rejected(error)),
-    };
-    if let Err(error) = require_module_transition_idle(&app) {
-        owner.cancel();
-        return Ok(rejected(format!("Operating module was not changed. {error}")));
-    }
-    if let Err(error) = retire_for_module_restart(&app) {
-        // Retirement is not transactional across station services. Keep the
-        // native authority closed until restart once any retirement may have
-        // begun, even though the persisted choice still names the old owner.
-        return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station-service retirement may have started.")));
-    }
-    if let Err(error) = owner.commit(target) {
-        return Ok(failed(format!("Operating module was not changed. {error} Restart xLog before retrying because station services were retired.")));
-    }
-    app.restart()
 }
 
 #[tauri::command]
@@ -2502,7 +2436,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![operating_module_status, operating_module_switch, worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![operating_module_status, worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,

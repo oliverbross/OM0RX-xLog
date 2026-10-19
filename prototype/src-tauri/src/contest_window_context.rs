@@ -41,6 +41,13 @@ pub fn resolve_workspace(workspace_generation: &str) -> Result<ContestWindowCont
     authority().lock().map_err(|_| "Contest window context unavailable")?
         .resolve_workspace(&module, workspace_generation)
 }
+pub fn active() -> Result<ContestWindowContext, String> {
+    let module = crate::operating_module::owner()?.snapshot()?;
+    let authority = authority().lock().map_err(|_| "Contest window context unavailable")?;
+    let context = authority.active.as_ref().ok_or("No contest session is active.")?.clone();
+    authority.admit(&module, &context)?;
+    Ok(context)
+}
 
 pub fn invalidate() {
     if let Ok(mut authority) = authority().lock() { authority.invalidate(); }
@@ -159,6 +166,7 @@ impl ContestWindowContextAuthority {
         Ok(context)
     }
 
+    #[cfg(test)]
     pub fn close(&mut self, module: &Value, context: &ContestWindowContext) -> Result<(), String> {
         self.admit(module, context)?;
         self.invalidate();
@@ -177,8 +185,8 @@ impl ContestWindowContextAuthority {
 }
 
 fn active_contest_context(module: &Value) -> Result<&str, String> {
-    if module["selected"] != "contesting" || module["transitioning"] != false {
-        return Err("Contesting is not the active operating module.".into());
+    if module["transitioning"] != false {
+        return Err("The application operation context is changing.".into());
     }
     canonical_uuid(&module["context"], "operating context")
 }
@@ -206,7 +214,7 @@ mod tests {
     const DRAFT: &str = "40000000-0000-4000-8000-000000000001";
 
     fn module(context: &str) -> Value {
-        json!({"selected":"contesting","context":context,"transitioning":false})
+        json!({"selected":"normal_logging","context":context,"transitioning":false})
     }
     fn request(method: &str, operating: &str, session: &str) -> Value {
         json!({"method":method,"operatingContext":operating,
@@ -265,7 +273,7 @@ mod tests {
     fn malformed_mismatched_and_inactive_inputs_fail_closed() {
         let mut authority = ContestWindowContextAuthority::default();
         for bad in [
-            json!({"selected":"normal_logging","context":OPERATING_A,"transitioning":false}),
+            json!({"selected":"normal_logging","context":OPERATING_A,"transitioning":true}),
             json!({"selected":"contesting","context":OPERATING_A,"transitioning":true}),
         ] {
             assert!(authority.begin(&bad, &request("contest_open", OPERATING_A, SESSION_A)).is_err());

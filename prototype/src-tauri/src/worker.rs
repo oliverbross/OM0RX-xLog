@@ -678,7 +678,6 @@ static LOCAL_ACCEPTANCE: OnceLock<bool> = OnceLock::new();
 static CONTESTING_TEST: OnceLock<bool> = OnceLock::new();
 pub fn local_acceptance() -> bool { *LOCAL_ACCEPTANCE.get().unwrap_or(&false) }
 pub fn generation() -> u64 { SESSION_GENERATION.load(Ordering::Acquire) }
-pub fn requests_in_flight() -> usize { IN_FLIGHT.load(Ordering::Acquire) }
 
 /// Called once by native main before creating any webviews. A renderer cannot
 /// opt into or out of isolation, or nominate a directory for acceptance data.
@@ -711,9 +710,9 @@ fn start() -> Result<Arc<Session>, String> {
         return Err("Bundled station service is missing. Reinstall the application.".into());
     }
     let mut command = Command::new(path);
-    // The native persisted owner, rather than renderer payload, binds every
-    // worker generation to one operating module for its entire lifetime.
-    command.env("XLOG_OPERATING_MODULE", crate::operating_module::selected_worker_value()?);
+    // Normal logging remains the process workspace. The production worker also
+    // owns the serialized Python contest lane used by detached Contest windows.
+    command.env("XLOG_OPERATING_MODULE", "normal_logging");
     if LOCAL_ACCEPTANCE.get() == Some(&true) {
         command.arg("--local-ui-acceptance");
     } else if CONTESTING_TEST.get() == Some(&true) {
@@ -860,19 +859,6 @@ pub fn shutdown() {
             }
         }
     }
-}
-
-pub fn shutdown_for_module_transition() -> Result<(), String> {
-    SHUTTING_DOWN.store(true, Ordering::Release);
-    if let Some(lock) = SESSION.get() {
-        let mut guard = lock.lock().map_err(|_| "Station service retirement lock failed")?;
-        if let Some(session) = guard.take() {
-            if !session.shutdown() {
-                return Err("The station service did not finish accepted background work before the retirement deadline.".into());
-            }
-        }
-    }
-    Ok(())
 }
 
 pub fn request(request: Value) -> Result<Value, String> {
