@@ -106,6 +106,8 @@ public actor LiveWorker {
     private let logbookLane: LogbookLane
     private let contestLane: ContestLane?
     private let contestLaneInitializationError: ContestLaneError?
+    private let pythonContestLane: PythonContestLane?
+    private let pythonContestLaneInitializationError: ContestLaneError?
     let remoteBackup: LiveRemoteBackupService
     private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
@@ -140,7 +142,8 @@ public actor LiveWorker {
           ownsProcessSessions: Bool = false,
           runtimeProfile: AppRuntimeProfile = .production,
           operatingModule: WorkerOperatingModule = .normalLogging,
-          contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil) {
+          contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
+          pythonContestConfiguration: PythonContestHostConfiguration? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
@@ -164,6 +167,25 @@ public actor LiveWorker {
         } else {
             contestLane = nil
             contestLaneInitializationError = nil
+        }
+        if runtimeProfile == .production, operatingModule == .contesting {
+            do {
+                let configuration = try pythonContestConfiguration
+                    ?? PythonContestHostConfiguration.bundled(
+                        applicationSupport: logbook.workspaceDirectoryURL.deletingLastPathComponent())
+                pythonContestLane = try PythonContestLane(configuration: configuration)
+                pythonContestLaneInitializationError = nil
+            } catch let error as ContestLaneError {
+                pythonContestLane = nil
+                pythonContestLaneInitializationError = error
+            } catch {
+                pythonContestLane = nil
+                pythonContestLaneInitializationError = .confirmed(
+                    "contest_host_unavailable", "The bundled contest host could not be initialized.")
+            }
+        } else {
+            pythonContestLane = nil
+            pythonContestLaneInitializationError = nil
         }
         let backupVerifier = remoteBackupEnvironment.map {
             LiveDropboxBackupAccountVerifier(vault: $0.vault, http: $0.http)
@@ -201,6 +223,7 @@ public actor LiveWorker {
     func beginTerminalShutdown() async {
         terminalShutdown = true
         await contestLane?.shutdown()
+        await pythonContestLane?.shutdown()
         powerCapture.terminate()
         cancelContactRefresh()
         remoteBackup.beginTermination()
@@ -370,6 +393,11 @@ public actor LiveWorker {
                     health["credentials_accessed"] = false
                     health["live_cluster"] = false
                     health["station_io"] = false
+                } else if operatingModule == .contesting {
+                    health["mode"] = "contesting"
+                    health["isolated_workspace"] = false
+                    health["contesting_engine"] = "not1mm-python"
+                    health["contesting_available"] = pythonContestLane != nil
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
@@ -378,12 +406,21 @@ public actor LiveWorker {
             }
             let result: [String: Any]
             if method.hasPrefix("contest_") {
-                guard case .contestingTest = runtimeProfile else {
-                    throw WorkerFailure("contest_profile_required", "Contest storage is available only in OM0RX-xLog Contesting Test.")
+                if runtimeProfile == .production, operatingModule == .contesting {
+                    if let pythonContestLaneInitializationError { throw pythonContestLaneInitializationError }
+                    guard let pythonContestLane else {
+                        throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")
+                    }
+                    result = try await pythonContestLane.handle(method: method, params: params)
+                } else if case .contestingTest = runtimeProfile {
+                    if let contestLaneInitializationError { throw contestLaneInitializationError }
+                    guard let contestLane else {
+                        throw WorkerFailure("contest_unavailable", "The isolated contest store is unavailable.")
+                    }
+                    result = try await contestLane.handle(method: method, params: params)
+                } else {
+                    throw WorkerFailure("inactive_operating_module", "Contesting belongs to the inactive operating module.")
                 }
-                if let contestLaneInitializationError { throw contestLaneInitializationError }
-                guard let contestLane else { throw WorkerFailure("contest_unavailable", "The isolated contest store is unavailable.") }
-                result = try await contestLane.handle(method: method, params: params)
             } else if method == "station_power_selection" {
                 guard !terminalShutdown,
                       Set(params.keys) == ["radio_id", "provider", "selection_id", "sequence"],
