@@ -47,6 +47,10 @@ function result<T>(response: any): T {
     : response) as T;
 }
 
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 // Construct once, not for every row on every selection/poll-driven render.
 const utcDateTime = new Intl.DateTimeFormat("en-GB", {
   year: "numeric", month: "2-digit", day: "2-digit",
@@ -217,7 +221,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         // Read-only startup contention may settle after the first request.
         // Retry once, and retire the timer with this exact page/query effect.
         if (!retry) retryTimer = setTimeout(() => { retryTimer = undefined; void load(true); }, 500);
-        else { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
+        else { setPage(null); setError(errorMessage(cause)); }
       })
       .finally(() => { if (!cancelled && retryTimer === undefined) setLoading(false); });
     void load();
@@ -246,7 +250,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     try {
       const snapshot = await mutations.prepareDelete(id);
       if (ticket === preparation.current) setConfirmDelete(snapshot);
-    } catch (cause) { if (ticket === preparation.current) setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { if (ticket === preparation.current) setError(errorMessage(cause)); }
   }
 
   async function deleteQSO(snapshot: DraftSnapshot) {
@@ -260,7 +264,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       if (onChanged) onChanged(); else await reload();
     } catch (cause) {
       setConfirmDelete(null);
-      if (!mutations.getSnapshot().error) setError(cause instanceof Error ? cause.message : String(cause));
+      if (!mutations.getSnapshot().error) setError(errorMessage(cause));
     } finally { finishWorking(); }
   }
 
@@ -273,7 +277,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       if (receipt) setNotice("QSO restored in the integrated logbook.");
       if (onChanged) onChanged(); else await reload();
     } catch (cause) {
-      if (!mutations.getSnapshot().error) setError(cause instanceof Error ? cause.message : String(cause));
+      if (!mutations.getSnapshot().error) setError(errorMessage(cause));
     } finally { finishWorking(); }
   }
 
@@ -300,7 +304,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         setNotice(`Validating ADIF · ${index + 1} of ${batches.length} batches`);
       }
       if (mounted.current) { setImportReview({ name: file.name, encoding: importEncoding, batches, fieldMetadata, records, duplicates, generation, token }); setNotice(""); }
-    } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { if (mounted.current) setError(errorMessage(cause)); }
     finally { finishWorking(); }
   }
 
@@ -333,7 +337,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       await reload(0);
       setNotice(updateDuplicates ? `${updated} duplicate QSOs updated. New and repeated records were skipped.` : `${imported} QSOs imported; ${skipped} duplicates skipped.`);
     } catch (cause) {
-      setError(`${imported} QSOs imported; ${updated} updates acknowledged before the operation stopped. The last batch may have committed if its reply was lost; inspect the logbook before reviewing again. ${cause instanceof Error ? cause.message : String(cause)}`);
+      setError(`${imported} QSOs imported; ${updated} updates acknowledged before the operation stopped. The last batch may have committed if its reply was lost; inspect the logbook before reviewing again. ${errorMessage(cause)}`);
       await reload(0);
     } finally {
       finishWorking();
@@ -375,7 +379,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       setNotice(`${exported.toLocaleString()} QSOs exported from the integrated logbook.`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally { finishWorking(); }
   }
 
