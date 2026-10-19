@@ -60,7 +60,7 @@ it("renders the owner projection and forwards raw edits with exact revision fenc
 });
 
 it("renders Entry v2 sent and simulation state and forwards an exact style action",async()=>{
-  const v2={...snapshot,projection:{...projection,schemaVersion:2,
+  const v2={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000},
     descriptor:{bands:["20m","40m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",
@@ -72,6 +72,11 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);expect(await screen.findByText("CQ OM0RX")).toBeTruthy();expect(screen.getByText("100")).toBeTruthy();
+  expect(screen.getByRole("region",{name:"Main Logging"})).toBeTruthy();
+  expect(screen.getByLabelText("Current frequency").textContent).toBe("14,025.00 kHz");
+  expect(screen.getByRole("group",{name:"Function key macros"}).querySelectorAll("button")).toHaveLength(12);
+  expect((screen.getByRole("button",{name:"F12 Unassigned"}) as HTMLButtonElement).disabled).toBe(true);
+  expect(document.querySelector("canvas")).toBeNull();
   fireEvent.change(screen.getByLabelText("Operating style"),{target:{value:"search-and-pounce"}});
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")).toBe(true));
   expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])

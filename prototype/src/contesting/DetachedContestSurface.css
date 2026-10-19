@@ -19,3 +19,29 @@
 .contest-detached-surface table { width:100%; border-collapse:collapse; font-size:12px; }
 .contest-detached-surface th, .contest-detached-surface td { padding:6px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
 .contest-surface-editor { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; padding:8px; border:1px solid var(--border); border-radius:6px; }
+.contest-surface-entry > header { align-items:flex-start; padding-bottom:10px; border-bottom:1px solid var(--border); }
+.contest-surface-radio { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+.contest-surface-radio output { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1; }
+.contest-surface-radio output small { font-size:12px; font-weight:400; color:var(--secondary); }
+.contest-surface-operating > * { flex:1 1 90px; }
+.contest-surface-main-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.contest-surface-main-fields > .contest-surface-intent:first-child,
+.contest-surface-main-fields > .contest-surface-row { grid-column:1 / -1; }
+.contest-surface-main-fields > .contest-surface-intent input { min-height:44px; font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+.contest-surface-main-fields > .contest-surface-intent:first-child input { min-height:56px; font-size:32px; letter-spacing:.035em; text-transform:uppercase; }
+.contest-surface-main-fields > .contest-surface-row > * { flex:1 1 80px; }
+.contest-surface-macros { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; }
+.contest-surface-macros button { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0; min-height:54px; text-align:left; }
+.contest-surface-macros kbd { font:600 12px ui-monospace,monospace; color:var(--secondary); }
+.contest-surface-macros span { max-width:100%; overflow-wrap:anywhere; }
+.contest-surface-trace { font-size:12px; }
+.contest-surface-trace summary { cursor:pointer; color:var(--secondary); }
+.contest-surface-entry > footer { justify-content:flex-end; padding-top:8px; border-top:1px solid var(--border); }
+@media (max-width:480px) {
+  .contest-surface-macros { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .contest-surface-radio output { font-size:22px; }
+}
+@media (max-width:320px) {
+  .contest-surface-main-fields { grid-template-columns:minmax(0,1fr); }
+  .contest-surface-macros { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}

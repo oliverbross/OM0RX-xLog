@@ -207,8 +207,18 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
     const focusedField=(target?.dataset.contestOperatorField as "callsign"|"exchange"|undefined)??operator?.focusedField??null;
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
-  return <section className="contest-surface-entry" onKeyDown={onKeyDown}><header><div><h1>{projection.session.name}</h1><span>{projection.session.ruleName} · {projection.session.mode}</span></div>
-    <strong>{projection.draft.band} · {projection.draft.mode}</strong></header>
+  return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header><div><h1>{projection.session.name}</h1><span>{projection.session.ruleName} · {projection.session.mode}</span></div>
+    <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
+      <strong>{projection.draft.band} · {projection.draft.mode}</strong></div></header>
+    {projection.schemaVersion===2&&<div className="contest-surface-row contest-surface-operating">
+      {operator&&<label>Operating style<select value={operator.style} disabled={disabled||operator.pending!==null}
+        onChange={event=>void send({action:"entry_operator_style",params:{...base,value:event.target.value as "run"|"search-and-pounce"}},projectionRevision)}><option value="run">Run</option><option value="search-and-pounce">Search &amp; Pounce</option></select></label>}
+      <label>Band<select value={projection.draft.band} disabled={disabled}
+        onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
+      <label>Mode<select value={projection.draft.mode} disabled={disabled}
+        onChange={event=>void send({action:"entry_set_mode",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.modes.map((mode:string)=><option key={mode}>{mode}</option>)}</select></label>
+    </div>}
+    <div className="contest-surface-main-fields">
     <ContestEntryFields detached callsign={<EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
       operatorField="callsign" inputRef={callsignRef} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
       unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>} reports={(["sentReport","receivedReport","frequency"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
@@ -218,20 +228,17 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       label={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
       operatorField="exchange" inputRef={index===0?exchangeRef:undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
       unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;})}/>
-    {projection.schemaVersion===2&&<><div className="contest-surface-row"><label>Band<select value={projection.draft.band} disabled={disabled}
-      onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
-      <label>Mode<select value={projection.draft.mode} disabled={disabled}
-        onChange={event=>void send({action:"entry_set_mode",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.modes.map((mode:string)=><option key={mode}>{mode}</option>)}</select></label></div>
-      <dl>{projection.descriptor.sentFields.map((field:any)=><div key={field.id}><dt>{field.label}</dt><dd>{field.value||"—"}</dd></div>)}</dl>
+    </div>
+    {projection.schemaVersion===2&&<>
+      {projection.descriptor.sentFields.length>0&&<dl aria-label="Sent exchange">{projection.descriptor.sentFields.map((field:any)=><div key={field.id}><dt>{field.label}</dt><dd>{field.value||"—"}</dd></div>)}</dl>}
       {projection.descriptor.serial.requirement==="requiredForCommit"&&<p>Serial: {projection.descriptor.serial.reservedSerial??"not reserved"}</p>}
-      {operator&&<section aria-label="Run and S&P simulation"><label>Operating style<select value={operator.style} disabled={disabled||operator.pending!==null}
-        onChange={event=>void send({action:"entry_operator_style",params:{...base,value:event.target.value as "run"|"search-and-pounce"}},projectionRevision)}><option value="run">Run</option><option value="search-and-pounce">Search &amp; Pounce</option></select></label>
+      {operator&&<section aria-label="Run and S&P simulation"><div className="contest-surface-row">
         <button type="button" aria-pressed={operator.armed} disabled={disabled||operator.pending!==null}
           onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":"Arm simulation"}</button>
         <button type="button" disabled={!operator.armed} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
-        <span>{operator.status}</span><div className="contest-surface-results">{operator.functionKeys.map((item:any)=><button type="button" key={item.key}
-          disabled={disabled} onClick={()=>operatorKey(item.key,operator.focusedField)}>{item.key} {item.macro}</button>)}</div>
-        <ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol>
+        <span role="status">Simulation · {operator.status}</span></div><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key);return <button type="button" key={key}
+          disabled={disabled||!item} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}</kbd> <span>{item?.macro??"Unassigned"}</span></button>;})}</div>
+        {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
       </section>}</>}
     {projection.draft.frequencyError && <p role="alert">{projection.draft.frequencyError}</p>}
     {[...projection.draft.validation.errors,...projection.draft.validation.warnings].map((item:string) => <p key={item}>{item}</p>)}
