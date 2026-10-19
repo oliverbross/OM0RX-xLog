@@ -271,9 +271,13 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
   return <section className="contest-surface-check"><h1>Check Partial</h1><IntentInput label="Callsign query" value={projection.inputCallsign}
     identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
     maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
-    <div className="contest-surface-check-columns"><div><h2>Log</h2>{projection.loggedCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.loggedCalls&&<p aria-label="Matching logged calls unavailable">—</p>}</div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
+    <div className="contest-surface-check-columns"><div><h2>Log</h2>{projection.loggedCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
+      candidates={projection.loggedCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"log",candidateID}},projectionRevision)}/> : projection.loggedCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.loggedCandidates&&!projection.loggedCalls&&<p aria-label="Matching logged calls unavailable">—</p>}</div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
       candidates={projection.scp.candidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2>{projection.clusterCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.clusterCalls&&<p aria-label="Matching cluster calls unavailable">—</p>}</div></div>
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2>{projection.clusterCandidates ? <ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
+      candidates={projection.clusterCandidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"cluster",candidateID}},projectionRevision)}/> : projection.clusterCalls?.map((call:string)=><p key={call}>{call}</p>)}{!projection.clusterCandidates&&!projection.clusterCalls&&<p aria-label="Matching cluster calls unavailable">—</p>}</div></div>
     <details><summary>Call history</summary><ContestCandidates disabled={disabled}
       candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
         detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}

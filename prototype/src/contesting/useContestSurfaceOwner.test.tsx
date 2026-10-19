@@ -49,6 +49,30 @@ it("does not execute a dequeued action after its owner context closes",async()=>
   expect(native.invoke.mock.calls.some(([name])=>name==="contest_surface_context_close")).toBe(true);
 });
 
+it.each(["log", "cluster"] as const)("rejects stale %s candidate projection revisions before mutation",async kind=>{
+  const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next")return null;
+    if(command==="contest_surface_action_next")return queue.shift()??null;
+    if(command==="contest_surface_action_complete"){completed.push(args);return;}
+    throw new Error(command);
+  });
+  const check={schemaVersion:1 as const,status:"ready" as const,draftID:"draft-1",draftRevision:5,inputCallsign:"K1",
+    loggedCandidates:[{candidateID:"log:K1ABC",callsign:"K1ABC"}],clusterCandidates:[{candidateID:"cluster:K1ABC",callsign:"K1ABC"}],
+    scp:{source:null,candidates:[]},history:{source:null,rows:[]},busy:false};
+  const projections={...unavailable(),"callsign-intelligence":check},handle=vi.fn(async()=>{});
+  const view=render(<Harness projections={projections} handle={handle}/>);
+  await waitFor(()=>expect(native.wake).toBeTypeOf("function"));
+  view.rerender(<Harness projections={{...projections,"callsign-intelligence":{...check,busy:true}}} handle={handle}/>);
+  const select:ContestSurfaceActionEnvelope={...context,scope:"contesting",panelID:"callsign-intelligence",projectionRevision:1,
+    requestID:crypto.randomUUID(),action:"assistance_select",params:{draftID:"draft-1",expectedDraftRevision:5,kind,candidateID:`${kind}:K1ABC`}};
+  queue.push(select);await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(completed).toHaveLength(1));
+  expect(completed[0]).toMatchObject({outcome:"rejected",message:"The contest panel changed before this action reached the owner."});
+  expect(handle).not.toHaveBeenCalled();
+});
+
 it("rebases safe presentation edits across a sibling projection update but rejects a stale commit",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{

@@ -122,6 +122,50 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it.each(["log", "cluster"])("applies %s Check Partial only through the revision-fenced Python draft",async kind=>{
+  let current=projection(9,{callsign:"DL1"});
+  let partialAvailable=true;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:method==="contest_check_partial"?{rows:partialAvailable?[{ID:"off-page",Call:"DL1ABC"}]:[]}:null;
+    if(method==="contest_draft_apply"){
+      current={...projection(current.revision+1,{...(params.fields as Record<string,string>),other_2:"14"}),dupe:true,
+        functionKeys:current.functionKeys.map(key=>({...key,highlighted:key.id==="F6",label:key.id==="F6"?"QSOB4":key.id}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const props={...workspaceProps,request,serviceRequest:request};
+  const view=render(<Not1MMContestWorkspace {...props} spots={[{callsign:"DL1ABC"} as any]}/>);
+  await createContestThroughSetup();
+  const key=kind==="log"?"loggedCandidates":"clusterCandidates";
+  await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"][key]).toEqual([{candidateID:`${kind}:DL1ABC`,callsign:"DL1ABC"}]));
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"callsign-intelligence",projectionRevision:1,requestID:crypto.randomUUID(),action:"assistance_select",
+    params:{draftID:current.draftID,expectedDraftRevision:9,kind,candidateID:`${kind}:DL1ABC`}};
+  await expect(surfaceOwner.current.handle({...envelope,params:{...envelope.params,expectedDraftRevision:8}})).rejects.toThrow("entry changed");
+  await expect(surfaceOwner.current.handle({...envelope,params:{...envelope.params,candidateID:`${kind}:DL1GONE`}})).rejects.toThrow("no longer available");
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(0);
+  partialAvailable=false;
+  await act(async()=>surfaceOwner.current.handle(envelope));
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(1);
+  expect(request.mock.calls.find(([method])=>method==="contest_draft_apply")?.[1]).toMatchObject({
+    expectedRevision:9,draftID:current.draftID,frequencyHz:14_025_000,fields:{callsign:"DL1ABC"}});
+  expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({callsign:"DL1ABC",dupe:{state:"duplicate"}});
+  expect(surfaceOwner.current.projections["active-qso"].draft.receivedFields).toContainEqual(expect.objectContaining({value:"14"}));
+  expect(surfaceOwner.current.projections["active-qso"].operator.functionKeys).toContainEqual({key:"F6",macro:"QSOB4"});
+  await expect(surfaceOwner.current.handle(envelope)).rejects.toThrow("entry changed");
+  view.rerender(<Not1MMContestWorkspace {...props} spots={[]}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"][key]).toEqual([]));
+  const missing={...envelope,requestID:crypto.randomUUID(),params:{...envelope.params,expectedDraftRevision:current.revision}};
+  await expect(surfaceOwner.current.handle(missing)).rejects.toThrow("no longer available");
+  expect(workspaceProps.stationTune).not.toHaveBeenCalled();
+  expect(nativeCW.execute).not.toHaveBeenCalled();
+});
+
 it.each(["", "10.1", "invalid"])("admits an offline contest only after the operator enters a valid manual frequency (initial %j)", async initial => {
   let current = projection();
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {

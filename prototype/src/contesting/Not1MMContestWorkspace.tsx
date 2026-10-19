@@ -123,6 +123,13 @@ function manualRows(rows: Data[]): ContestManualRow[] {
     SentNr: String(row.SentNr ?? ""), prefix: String(row.WPXPrefix || row.CountryPrefix || ""), Points: String(row.Points ?? "") }));
 }
 
+function partialCandidates(kind: "log" | "cluster", calls: unknown[], query: string) {
+  if (!/^[A-Z0-9/]{1,32}$/.test(query)) return [];
+  return [...new Set(calls.map(call => String(call ?? "").trim().toUpperCase())
+    .filter(call => /^[A-Z0-9/]{1,32}$/.test(call) && call.includes(query)))].slice(0, 500)
+    .map(callsign => ({ candidateID: `${kind}:${callsign}`, callsign }));
+}
+
 function multiplierMatrix(title: string, values: Data[], busy: boolean) {
   const rows = new Map<string, Record<string, number>>();
   for (const item of values) {
@@ -176,6 +183,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
 
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
   const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
+  const loggedCandidates = partialCandidates("log",
+    partial?.sessionID === projection?.sessionID && partial?.revision === projection?.revision && partial?.query === partialQuery
+      ? partial?.rows.map(row => row.Call) ?? [] : [], partialQuery);
+  const clusterCandidates = partialCandidates("cluster", spots.map(spot => spot.callsign), partialQuery);
   useEffect(() => {
     let cancelled = false;
     if (!projection || !/^[A-Z0-9/]{1,32}$/.test(partialQuery)) { setPartial(null); return; }
@@ -537,8 +548,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     unavailable["callsign-intelligence"] = {
       schemaVersion: 1, status: "ready", draftID: projection.draftID, draftRevision: projection.revision,
       inputCallsign: currentFields.callsign ?? "",
-      loggedCalls:[...new Set((partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]).map(row=>String(row.Call??"")).filter(Boolean))],
-      clusterCalls:partialQuery ? [...new Set(spots.map(spot=>String(spot.callsign??"").trim().toUpperCase()).filter(call=>call.includes(partialQuery)))].slice(0,500) : [],
+      loggedCalls:loggedCandidates.map(candidate => candidate.callsign),
+      clusterCalls:clusterCandidates.map(candidate => candidate.callsign),
+      loggedCandidates, clusterCandidates,
       scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
       history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
       busy: !!scpSurface?.busy || !!historySurface?.busy,
@@ -629,7 +641,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await hostAction("contest_function_key", { key: action.params.key }); return;
       case "assistance_query": await persistFields("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select":
-        if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
+        if (action.params.kind === "log" || action.params.kind === "cluster") {
+          const candidates = action.params.kind === "log" ? loggedCandidates : clusterCandidates;
+          const candidate = candidates.find(item => item.candidateID === action.params.candidateID);
+          if (!candidate) throw new Error("The callsign candidate is no longer available.");
+          await persistFields("callsign", candidate.callsign);
+        }
+        else if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
         else if (action.params.kind === "history" && historySurface) await historySurface.selectCandidate(action.params.candidateID);
         else throw new Error("The callsign candidate set is unavailable.");
         return;

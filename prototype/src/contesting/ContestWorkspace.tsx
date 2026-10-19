@@ -556,7 +556,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       }
       case "assistance_query": changeField("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select": {
-        const surface = action.params.kind === "scp" ? scpSurface : historySurface;
+        const surface = action.params.kind === "scp" ? scpSurface : action.params.kind === "history" ? historySurface : null;
         if (!surface) throw new Error("The callsign candidate set is unavailable.");
         await surface.selectCandidate(action.params.candidateID); return;
       }

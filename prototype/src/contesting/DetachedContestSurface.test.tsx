@@ -61,6 +61,23 @@ it("uses supplied full-log and cluster calls in their manual Check Partial colum
   expect(screen.getByRole("heading",{name:"Telnet"}).parentElement?.textContent).toBe("TelnetDL1XYZ");
 });
 
+it.each(["log", "scp", "cluster", "history"])("selects the %s Check Partial candidate with exact owner revisions",async kind=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  const candidate={candidateID:`${kind}:DL1ABC`,callsign:"DL1ABC"};
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1",
+    loggedCandidates:kind==="log"?[candidate]:[],clusterCandidates:kind==="cluster"?[candidate]:[],
+    scp:{source:null,candidates:kind==="scp"?[candidate]:[]},
+    history:{source:null,rows:kind==="history"?[{...candidate,fields:[]}]:[]},busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?
+    {...snapshot,panelID:"callsign-intelligence",projection:view}:{requestID:args.requestID,status:"queued"});
+  render(<DetachedContestSurface/>);
+  const button=await screen.findByRole("button",{name:"DL1ABC"});
+  fireEvent.click(button);
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID:"callsign-intelligence",projectionRevision:6,action:"assistance_select",
+    params:{draftID:"draft-1",expectedDraftRevision:5,kind,candidateID:candidate.candidateID}}));
+});
+
 it("routes a scoped native contest child without mounting the normal surface",async()=>{
   expect(await loadWindowSurface(search)).toBe(DetachedContestSurface);
 });

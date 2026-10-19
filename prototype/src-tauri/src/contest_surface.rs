@@ -587,7 +587,11 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
         }
         "assistance_select" => {
             draft(params, &["kind", "candidateID"])?;
-            enum_value(&params["kind"], &["scp", "history"], "assistance kind")?;
+            enum_value(
+                &params["kind"],
+                &["scp", "history", "log", "cluster"],
+                "assistance kind",
+            )?;
             text_value(&params["candidateID"], 160, false, "assistance candidate")?;
         }
         "log_page" => {
@@ -1005,8 +1009,32 @@ fn contest_macro(value: &Value) -> Result<(), String> {
 }
 
 fn validate_assistance_projection(value: &Map<String, Value>) -> Result<(), String> {
+    let mut required = value.clone();
+    for key in ["loggedCalls", "clusterCalls"] {
+        if let Some(calls) = required.remove(key) {
+            string_array(&calls, 500, 32, "partial calls")?;
+        }
+    }
+    for key in ["loggedCandidates", "clusterCandidates"] {
+        if let Some(candidates) = required.remove(key) {
+            let mut ids = BTreeSet::new();
+            for candidate in array(&candidates, 500, "partial candidates")? {
+                let candidate = object(candidate, "partial candidate")?;
+                exact(candidate, &["candidateID", "callsign"], "partial candidate")?;
+                let id = text_value(&candidate["candidateID"], 160, false, "candidate ID")?;
+                let call = text_value(&candidate["callsign"], 32, false, "candidate callsign")?;
+                if !ids.insert(id)
+                    || !call.bytes().all(|byte| {
+                        byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'/'
+                    })
+                {
+                    return Err("The partial candidate is invalid.".into());
+                }
+            }
+        }
+    }
     exact(
-        value,
+        &required,
         &[
             "schemaVersion",
             "status",
@@ -1934,6 +1962,33 @@ mod tests {
     }
 
     #[test]
+    fn partial_columns_require_unique_bounded_candidates() {
+        for (kind, key) in [
+            ("log", "loggedCandidates"),
+            ("cluster", "clusterCandidates"),
+        ] {
+            let mut projection = json!({"schemaVersion":1,"status":"ready","draftID":"draft","draftRevision":2,
+                "inputCallsign":"K1","scp":{"source":null,"candidates":[]},
+                "history":{"source":null,"rows":[]},"loggedCalls":["K1ABC"],"clusterCalls":[],"busy":false});
+            let candidate = json!({"candidateID":format!("{kind}:K1ABC"),"callsign":"K1ABC"});
+            projection[key] = json!([candidate.clone()]);
+            assert!(validate_projection("callsign-intelligence", &projection).is_ok());
+            let params = json!({"draftID":"draft","expectedDraftRevision":2,"kind":kind,"candidateID":format!("{kind}:K1ABC")});
+            assert!(
+                validate_action_params("assistance_select", params.as_object().unwrap()).is_ok()
+            );
+            projection[key] = json!([candidate.clone(), candidate.clone()]);
+            assert!(validate_projection("callsign-intelligence", &projection).is_err());
+            projection[key] = json!([{"callsign":"K1ABC"}]);
+            assert!(validate_projection("callsign-intelligence", &projection).is_err());
+            projection[key] = json!([{"candidateID":"id","callsign":"bad call"}]);
+            assert!(validate_projection("callsign-intelligence", &projection).is_err());
+            projection[key] = Value::Array(vec![candidate; 501]);
+            assert!(validate_projection("callsign-intelligence", &projection).is_err());
+        }
+    }
+
+    #[test]
     fn context_registration_and_invalidation_are_exact() {
         let current = context();
         let mut state = State::default();
@@ -2130,6 +2185,68 @@ mod tests {
         assert_eq!(state.panels["active-qso"].receipts.len(), 1);
         state.panels.get_mut("active-qso").unwrap().receipts.clear();
         assert!(submit_checked(&mut state, "active-qso", &checked, checked_value()).is_err());
+    }
+
+    #[test]
+    fn partial_candidate_actions_are_revision_fenced_and_never_replayed() {
+        for kind in ["log", "cluster", "scp", "history"] {
+            let mut state = State {
+                context: Some(context()),
+                ..State::default()
+            };
+            let envelope = action(
+                "assistance_select",
+                "callsign-intelligence",
+                json!({"draftID":"draft","expectedDraftRevision":2,"kind":kind,"candidateID":format!("{kind}:K1ABC")}),
+            );
+            publish_after_admission(
+                &mut state,
+                "callsign-intelligence",
+                7,
+                json!({"status":"ready"}),
+            )
+            .unwrap();
+            let mut stale = envelope.clone();
+            stale["projectionRevision"] = json!(6);
+            let checked_stale = validate_action_envelope(&stale).unwrap();
+            assert!(
+                submit_checked(&mut state, "callsign-intelligence", &checked_stale, stale).is_err()
+            );
+            let checked = validate_action_envelope(&envelope).unwrap();
+            submit_checked(
+                &mut state,
+                "callsign-intelligence",
+                &checked,
+                envelope.clone(),
+            )
+            .unwrap();
+            submit_checked(
+                &mut state,
+                "callsign-intelligence",
+                &checked,
+                envelope.clone(),
+            )
+            .unwrap();
+            assert_eq!(state.actions.len(), 1);
+            assert_eq!(take_next(&mut state).unwrap(), Some(envelope.clone()));
+            assert_eq!(
+                submit_checked(
+                    &mut state,
+                    "callsign-intelligence",
+                    &checked,
+                    envelope.clone()
+                )
+                .unwrap()["status"],
+                "uncertain"
+            );
+            complete_after_admission(&mut state, REQUEST, "applied", None, 8).unwrap();
+            assert_eq!(
+                submit_checked(&mut state, "callsign-intelligence", &checked, envelope).unwrap()
+                    ["status"],
+                "applied"
+            );
+            assert!(state.actions.is_empty());
+        }
     }
 
     #[test]

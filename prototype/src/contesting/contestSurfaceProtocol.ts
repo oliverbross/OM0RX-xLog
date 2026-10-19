@@ -16,7 +16,7 @@ export type ContestSurfaceAction =
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: "callsign" | "exchange" | null } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
-  | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history"; candidateID: string } }
+  | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
   | { action: "log_page"; params: { offset: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
@@ -62,8 +62,10 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
       canReserveCommit: boolean; canCommit: boolean };
     trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: "CQ" | "EXCH" | "QRZ" | "AGN" |
       "HISCALL" | "MYCALL" | "QSOB4"; text: string; status: "pending" | "confirmed" | "failed" | "stopped" }[] } };
+export type ContestCallCandidate = { candidateID: string; callsign: string };
 export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
   loggedCalls?: string[]; clusterCalls?: string[];
+  loggedCandidates?: ContestCallCandidate[]; clusterCandidates?: ContestCallCandidate[];
   inputCallsign: string; scp: { source: string | null; candidates: { candidateID: string; callsign: string }[] };
   history: { source: string | null; rows: { candidateID: string; callsign: string;
     fields: { id: string; label: string; value: string }[] }[] }; busy: boolean };
@@ -183,9 +185,19 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&
     new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && operatorValid;
 }
+function validCallCandidates(value: unknown) {
+  if (!Array.isArray(value) || value.length > 500) return false;
+  const ids = new Set<string>();
+  return value.every(item => {
+    if (!record(item) || !exact(item, ["candidateID", "callsign"]) || !text(item.candidateID, 160) ||
+        typeof item.callsign !== "string" || !/^[A-Z0-9/]{1,32}$/.test(item.callsign) || ids.has(item.candidateID as string)) return false;
+    ids.add(item.candidateID as string); return true;
+  });
+}
 function validCheckProjection(value: Record<string, unknown>) {
   const scp = record(value.scp) ? value.scp : undefined, history = record(value.history) ? value.history : undefined;
-  return optionalKeys(value, ["schemaVersion", "status", "draftID", "draftRevision", "inputCallsign", "scp", "history", "busy"], ["loggedCalls", "clusterCalls"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", "draftID", "draftRevision", "inputCallsign", "scp", "history", "busy"], ["loggedCalls", "clusterCalls", "loggedCandidates", "clusterCandidates"]) &&
+    ["loggedCandidates", "clusterCandidates"].every(key => !(key in value) || validCallCandidates(value[key])) &&
     ["loggedCalls", "clusterCalls"].every(key => !(key in value) || texts(value[key], 500, 32)) &&
     text(value.draftID, 160) && uint(value.draftRevision) && text(value.inputCallsign, 32, true) && !!scp &&
     exact(scp, ["source", "candidates"]) && (scp.source === null || text(scp.source, 160)) && Array.isArray(scp.candidates) &&
@@ -274,7 +286,7 @@ function validParams(action: string, params: Record<string, unknown>) {
     (params.focusedField === null || oneOf(params.focusedField, ["callsign", "exchange"]));
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
-    oneOf(params.kind, ["scp", "history"]) && text(params.candidateID, 160);
+    oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
   if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&

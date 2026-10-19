@@ -5,6 +5,16 @@ const base = { operatingContext: "00000000-0000-4000-8000-000000000001", scope: 
   sessionID: "00000000-0000-4000-8000-000000000002", workspaceGeneration: "00000000-0000-4000-8000-000000000003",
   projectionRevision: 4, requestID: "00000000-0000-4000-8000-000000000004" } as const;
 const draft = { draftID: "draft-1", expectedDraftRevision: 5 };
+it.each(["log", "cluster"])("validates bounded %s candidate selection and projections", kind => {
+  const action = {...base, panelID:"callsign-intelligence", action:"assistance_select", params:{...draft,kind,candidateID:`${kind}:K1ABC`}};
+  expect(() => validateContestSurfaceActionEnvelope(action)).not.toThrow();
+  expect(() => validateContestSurfaceActionEnvelope({...action,params:{...action.params,candidateID:"x".repeat(161)}})).toThrow();
+  const key = kind === "log" ? "loggedCandidates" : "clusterCandidates";
+  const candidates = [{candidateID:`${kind}:K1ABC`,callsign:"K1ABC"}];
+  expect(validContestSurfaceProjection("callsign-intelligence",{...checkProjection,[key]:candidates})).toBe(true);
+  for (const invalid of [[...candidates,...candidates], [{callsign:"K1ABC"}], [{...candidates[0],callsign:"bad call"}], Array(501).fill(candidates[0])])
+    expect(validContestSurfaceProjection("callsign-intelligence",{...checkProjection,[key]:invalid})).toBe(false);
+});
 const qso = { qsoID: "qso-1" };
 const valid = [
   { panelID: "active-qso", action: "entry_set_text", params: { ...draft, field: "callsign", value: "OM0RX" } },
