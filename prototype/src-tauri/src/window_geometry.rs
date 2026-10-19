@@ -97,6 +97,20 @@ pub fn restore_size(saved: &SavedWindow, display: &Display, logical_chrome: (f64
     };
     restore(&SavedWindow { normal, maximized: saved.maximized }, std::slice::from_ref(display), logical_chrome)
 }
+/// Migrate only an untouched logical default size. Positions, maximized state,
+/// custom sizes, and legacy physical-pixel documents remain unchanged.
+pub fn migrate_logical_size(mut saved: SavedWindow, from: (f64, f64), to: (f64, f64)) -> SavedWindow {
+    let migrate = |width: &mut f64, height: &mut f64| {
+        if *width == from.0 && *height == from.1 {
+            *width = to.0; *height = to.1;
+        }
+    };
+    match &mut saved.normal {
+        Position::Relative { width, height, .. } | Position::SizeOnly { width, height } => migrate(width, height),
+        Position::Legacy { .. } => {}
+    }
+    saved
+}
 pub fn restore(saved: &SavedWindow, displays: &[Display], logical_chrome: (f64, f64)) -> Option<Bounds> {
     if ![logical_chrome.0, logical_chrome.1].iter().all(|value| value.is_finite() && (0.0..=1000.0).contains(value)) { return None; }
     let (requested, display) = match &saved.normal {
@@ -193,6 +207,24 @@ mod tests {
         let decoded: Document = serde_json::from_slice(&encoded).unwrap(); assert!(decoded.validate().is_ok());
     }
     #[test]
+    fn default_size_migration_preserves_position_custom_sizes_and_maximized_state() {
+        let display = display("external", 1920, 2.0);
+        let saved = SavedWindow { maximized: true, normal: Position::Relative {
+            display: display.clone(), x: 90.0, y: 50.0, width: 800.0, height: 620.0 } };
+        let migrated = migrate_logical_size(saved.clone(), (800.0, 620.0), (800.0, 480.0));
+        assert_eq!(migrated, SavedWindow { maximized: true, normal: Position::Relative {
+            display, x: 90.0, y: 50.0, width: 800.0, height: 480.0 } });
+        let custom = SavedWindow { maximized: false, normal: Position::SizeOnly { width: 812.0, height: 608.0 } };
+        assert_eq!(migrate_logical_size(custom.clone(), (800.0, 620.0), (800.0, 480.0)), custom);
+        for delta in [-0.5, 0.5] {
+            let one_pixel_at_2x = SavedWindow { maximized: false, normal: Position::SizeOnly {
+                width: 800.0 + delta, height: 620.0 + delta } };
+            assert_eq!(migrate_logical_size(one_pixel_at_2x.clone(), (800.0, 620.0), (800.0, 480.0)), one_pixel_at_2x);
+        }
+        let legacy = SavedWindow { maximized: false, normal: Position::Legacy { bounds: bounds() } };
+        assert_eq!(migrate_logical_size(legacy.clone(), (1000.0, 700.0), (800.0, 480.0)), legacy);
+    }
+    #[test]
     fn missing_duplicate_names_invalid_scales_and_empty_topology_are_safe() {
         let mut unnamed = display("same", -1920, 1.0); unnamed.name = None;
         let saved = capture(Bounds { x: -1800, ..bounds() }, &[unnamed.clone()], false).unwrap();
@@ -226,11 +258,11 @@ mod tests {
         assert_eq!(effective_minimum("logbook", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
         assert_eq!(effective_minimum("log-qso", &display("external", 0, 2.0), (4.0, 30.0)), (640.0, 480.0));
         assert_eq!(effective_minimum("propagation", &display("external", 0, 2.0), (4.0, 30.0)), (480.0, 190.0));
-        assert_eq!(effective_minimum("contest--active-qso", &small, (4.0, 30.0)), (520.0, 240.0));
-        assert_eq!(effective_minimum("contest--callsign-intelligence", &small, (4.0, 30.0)), (360.0, 240.0));
-        assert_eq!(effective_minimum("contest--monitor", &small, (4.0, 30.0)), (320.0, 180.0));
-        assert_eq!(effective_minimum("contest--station-control", &small, (4.0, 30.0)), (320.0, 180.0));
-        assert_eq!(effective_minimum("contest--rotor", &small, (4.0, 30.0)), (240.0, 240.0));
+        assert_eq!(effective_minimum("contest--active-qso", &small, (4.0, 30.0)), (560.0, 360.0));
+        assert_eq!(effective_minimum("contest--callsign-intelligence", &small, (4.0, 30.0)), (480.0, 420.0));
+        assert_eq!(effective_minimum("contest--monitor", &small, (4.0, 30.0)), (300.0, 240.0));
+        assert_eq!(effective_minimum("contest--station-control", &small, (4.0, 30.0)), (520.0, 420.0));
+        assert_eq!(effective_minimum("contest--rotor", &small, (4.0, 30.0)), (420.0, 360.0));
     }
     #[test]
     fn wayland_size_changes_preserve_preferred_display_origin_and_dpi() {

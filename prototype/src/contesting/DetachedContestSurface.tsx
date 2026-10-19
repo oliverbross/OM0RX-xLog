@@ -335,7 +335,7 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
         detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></details></section>;
 }
-function Statistics({projection}:{projection:any}) { return <section><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
+function Statistics({projection}:{projection:any}) { return <section className="contest-surface-statistics"><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
 function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
   const rates = [["Last hour", projection.lastHourQsoPerHour], ["10 Last QSO", projection.last10QsoPerHour],
     ["100 Last QSO", projection.last100QsoPerHour], ["Since 0000z", projection.sinceMinuteQsoPerHour]] as const;

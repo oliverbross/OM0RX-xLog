@@ -810,7 +810,7 @@ fn ensure_contest_setup_window(app: &tauri::AppHandle) -> Result<(), String> {
         let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
             tauri::WebviewUrl::App(format!("index.html?view=contest-setup{suffix}").into()))
             .title("OM0RX-xLog Contest — Setup")
-            .inner_size(980.0, 760.0)
+            .inner_size(920.0, 720.0)
             .min_inner_size(720.0, 520.0)
             .focused(true)
             .always_on_top(false)
@@ -2014,7 +2014,7 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
     let (minimum_width, minimum_height) = workspace_windows::native_minimum(kind);
     let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(format!("index.html?view={route}{suffix}").into()))
         .title(title)
-        .inner_size(if role == "band-maps" { 380.0 } else { spec.width }, spec.height)
+        .inner_size(if identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging && role == "band-maps" { 380.0 } else { spec.width }, spec.height)
         .min_inner_size(minimum_width, minimum_height)
         .focused(focus)
         .always_on_top(false)

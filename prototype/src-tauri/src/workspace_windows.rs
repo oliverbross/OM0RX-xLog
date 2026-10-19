@@ -85,19 +85,19 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
 pub const CONTEST_WINDOWS: [WindowSpec; 13] = [
-    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 620.0 },
-    WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 900.0, height: 720.0 },
-    WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 920.0, height: 760.0 },
-    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 700.0, height: 620.0 },
-    WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 780.0, height: 600.0 },
-    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 800.0, height: 480.0 },
+    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 480.0 },
+    WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 640.0 },
+    WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 700.0 },
+    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 500.0 },
+    WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
+    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 380.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Group Chat", width: 780.0, height: 600.0 },
-    WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 1280.0, height: 800.0 },
-    WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 1180.0, height: 800.0 },
-    WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 700.0, height: 600.0 },
-    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 900.0, height: 700.0 },
-    WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log Display", width: 1280.0, height: 800.0 },
-    WindowSpec { id: "dx-cluster", title: "OM0RX-xLog Contest — Cluster", width: 1180.0, height: 800.0 },
+    WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 720.0 },
+    WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 680.0 },
+    WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 620.0, height: 420.0 },
+    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 900.0, height: 680.0 },
+    WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log Display", width: 1120.0, height: 700.0 },
+    WindowSpec { id: "dx-cluster", title: "OM0RX-xLog Contest — Cluster", width: 1040.0, height: 680.0 },
 ];
 pub fn supports_panel(scope: WorkspaceWindowScope, panel_id: &str) -> bool {
     match scope {
@@ -110,6 +110,28 @@ pub fn scoped_spec(identity: WorkspaceWindowIdentity<'_>) -> Option<&'static Win
         WorkspaceWindowScope::NormalLogging => SUPPORTED_WINDOWS.iter().find(|window| window.id == surface_role(identity.panel_id)),
         WorkspaceWindowScope::Contesting => CONTEST_WINDOWS.iter().find(|window| window.id == identity.panel_id),
     }
+}
+pub fn contest_default_size_migration(label: &str) -> Option<((f64, f64), (f64, f64))> {
+    if label == "contest-setup" { return Some(((980.0, 760.0), (920.0, 720.0))); }
+    let identity = WorkspaceWindowIdentity::parse_native_label(label).ok()?;
+    if identity.scope != WorkspaceWindowScope::Contesting { return None; }
+    let old = match identity.panel_id {
+        "active-qso" => (800.0, 620.0),
+        "call-history" => (900.0, 720.0),
+        "band-maps" => (380.0, 760.0),
+        "callsign-intelligence" => (700.0, 620.0),
+        "monitor" => (780.0, 600.0),
+        "propagation" => (800.0, 480.0),
+        "rotor" => (700.0, 600.0),
+        "station-control" => (900.0, 700.0),
+        "awards" => (1280.0, 800.0),
+        "chaser-dx" => (1180.0, 800.0),
+        "logbook" => (1280.0, 800.0),
+        "dx-cluster" => (1180.0, 800.0),
+        _ => return None,
+    };
+    let spec = scoped_spec(identity)?;
+    Some((old, (spec.width, spec.height)))
 }
 pub const BAND_MAP_BANDS: [&str; 13] = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
 pub fn band_map_band(label: &str) -> Option<&str> {
@@ -126,15 +148,19 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
     if let Ok(identity) = WorkspaceWindowIdentity::parse_native_label(label) {
         if identity.scope == WorkspaceWindowScope::Contesting {
             return match identity.panel_id {
-                "active-qso" => (520.0, 240.0),
+                "active-qso" => (560.0, 360.0),
                 "call-history" => (620.0, 420.0),
-                "callsign-intelligence" => (360.0, 240.0),
-                "logbook" => (640.0, 480.0),
-                "propagation" | "alerts" => (240.0, 80.0),
-                "band-maps" | "dx-cluster" => (280.0, 200.0),
-                "rotor" => (240.0, 240.0),
-                "monitor" | "station-control" => (320.0, 180.0),
-                "awards" | "chaser-dx" => (420.0, 280.0),
+                "callsign-intelligence" => (480.0, 420.0),
+                "logbook" => (760.0, 480.0),
+                "propagation" => (360.0, 260.0),
+                "alerts" => (320.0, 220.0),
+                "band-maps" => (420.0, 420.0),
+                "dx-cluster" => (720.0, 420.0),
+                "rotor" => (420.0, 360.0),
+                "monitor" => (300.0, 240.0),
+                "station-control" => (520.0, 420.0),
+                "awards" => (560.0, 420.0),
+                "chaser-dx" => (520.0, 420.0),
                 _ => unreachable!("validated contest window identity"),
             };
         }
@@ -459,12 +485,13 @@ mod tests {
     #[test]
     fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
         let expected = [
-            ("active-qso", (520.0, 240.0)), ("callsign-intelligence", (360.0, 240.0)),
-            ("logbook", (640.0, 480.0)), ("propagation", (240.0, 80.0)),
-            ("alerts", (240.0, 80.0)), ("band-maps", (280.0, 200.0)),
-            ("dx-cluster", (280.0, 200.0)), ("rotor", (240.0, 240.0)),
-            ("monitor", (320.0, 180.0)), ("station-control", (320.0, 180.0)),
-            ("awards", (420.0, 280.0)), ("chaser-dx", (420.0, 280.0)),
+            ("active-qso", (560.0, 360.0)), ("call-history", (620.0, 420.0)),
+            ("callsign-intelligence", (480.0, 420.0)), ("logbook", (760.0, 480.0)),
+            ("propagation", (360.0, 260.0)), ("alerts", (320.0, 220.0)),
+            ("band-maps", (420.0, 420.0)), ("dx-cluster", (720.0, 420.0)),
+            ("rotor", (420.0, 360.0)), ("monitor", (300.0, 240.0)),
+            ("station-control", (520.0, 420.0)), ("awards", (560.0, 420.0)),
+            ("chaser-dx", (520.0, 420.0)),
         ];
         assert_eq!(expected.len(), CONTEST_WINDOWS.len());
         for (panel, minimum) in expected {
@@ -476,6 +503,18 @@ mod tests {
         assert_eq!(native_minimum("monitor"), (640.0, 480.0));
         assert_eq!(native_minimum("rotor"), (640.0, 480.0));
         assert_eq!(native_minimum("contest--unknown"), (640.0, 480.0));
+    }
+    #[test]
+    fn contest_default_size_migrations_are_exact_and_do_not_touch_shared_tools() {
+        assert_eq!(contest_default_size_migration("contest-setup"), Some(((980.0, 760.0), (920.0, 720.0))));
+        assert_eq!(contest_default_size_migration("contest--active-qso"), Some(((800.0, 620.0), (800.0, 480.0))));
+        assert_eq!(contest_default_size_migration("contest--band-maps"), Some(((380.0, 760.0), (520.0, 700.0))));
+        assert_eq!(contest_default_size_migration("contest--monitor"), Some(((780.0, 600.0), (340.0, 300.0))));
+        assert_eq!(contest_default_size_migration("contest--rotor"), Some(((700.0, 600.0), (620.0, 420.0))));
+        assert_eq!(contest_default_size_migration("contest--station-control"), Some(((900.0, 700.0), (900.0, 680.0))));
+        for label in ["active-qso", "rotor", "station-control", "contest--alerts"] {
+            assert_eq!(contest_default_size_migration(label), None, "{label}");
+        }
     }
     #[test]
     fn separate_mode_resolves_legacy_qso_and_never_requires_main() {
