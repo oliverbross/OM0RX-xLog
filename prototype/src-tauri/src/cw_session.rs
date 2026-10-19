@@ -195,7 +195,8 @@ impl Session {
                 }
                 let mut frozen = canonical.clone();
                 frozen["context"] = json!({"MYCALL":action["stationCall"],"CALL":action["fields"]["callsign"],
-                    "RST":action["fields"]["sent"],"EXCHANGE":action["sentExchange"],"SERIAL":"","NAME":"","GRID":canonical["context"]["GRID"]});
+                    "RST":action["fields"]["sent"],"EXCHANGE":action["sentExchange"],
+                    "SERIAL":action["sentSerial"],"SENTNR":action["sentSerial"],"NAME":"","GRID":canonical["context"]["GRID"]});
                 messages.push(expand_template(&frozen, action["template"].as_str().ok_or("Pinned contest CW template unavailable")?,
                     target["limit"].as_u64().unwrap_or(80) as usize)?);
             }
@@ -354,7 +355,7 @@ fn expand_template(canonical: &Value, source: &str, limit: usize) -> Result<Stri
     while let Some(start) = rest.find('{') {
         expanded.push_str(&rest[..start]); let after = &rest[start + 1..];
         let end = after.find('}').ok_or("Invalid CW placeholder")?; let token = &after[..end];
-        if !["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL", "EXCHANGE"].contains(&token) { return Err("Unknown CW placeholder".into()); }
+        if !["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL", "SENTNR", "EXCHANGE"].contains(&token) { return Err("Unknown CW placeholder".into()); }
         let value = canonical["context"][token].as_str().unwrap_or("").trim();
         if value.is_empty() { return Err(format!("Fill {token} before sending this macro.")); }
         if !value.bytes().all(allowed) { return Err(format!("{token} contains characters this CW output cannot send.")); }
@@ -388,7 +389,7 @@ mod tests {
             Ok(json!({"operationID":params["operationID"],"sessionID":canonical["contestSessionID"],"revision":revision,
                 "projection":{"revision":revision,"draftID":"next-draft"},"replayed":params["replayed"] == true,
                 "actions":[{"kind":"function_key","key":"F2","sessionID":canonical["contestSessionID"],"draftID":canonical["draftID"],
-                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15",
+                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15","sentSerial":"",
                     "template":"{CALL} {RST} {EXCHANGE}"}]}))
         }
         fn claim_contest_output(&self, _: &Value, result: &Value) -> Result<(), String> {
@@ -705,6 +706,8 @@ mod tests {
         canonical["context"]["CALL"] = json!("K1{ABC}"); assert!(expand(&canonical, 1, 128).is_err());
         canonical["context"]["CALL"] = json!(""); assert!(expand(&canonical, 1, 128).is_err());
         canonical["profile"]["macros"][0]["text"] = json!("{EXCHANGE}"); canonical["context"]["EXCHANGE"] = json!("15"); assert_eq!(expand(&canonical, 1, 128).unwrap(), "15");
+        canonical["profile"]["macros"][0]["text"] = json!("{EXCHANGE} {SENTNR}"); canonical["context"]["SENTNR"] = json!("0042");
+        assert_eq!(expand(&canonical, 1, 128).unwrap(), "15 0042");
         canonical["profile"]["macros"][0]["text"] = json!("C".repeat(81)); assert!(expand(&canonical, 1, 80).is_err()); assert!(expand(&canonical, 1, 128).is_ok());
         canonical["profile"]["macros"][0]["text"] = json!("{UNKNOWN}"); assert!(expand(&canonical, 1, 128).is_err());
         assert!(session.snapshot().unwrap()["owner"].is_null());

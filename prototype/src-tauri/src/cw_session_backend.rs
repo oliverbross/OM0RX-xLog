@@ -106,6 +106,7 @@ impl Backend for Native {
             if !settings["generation"].is_string() || !settings["revision"].is_u64()
                 || !contest["revision"].is_u64() || !contest["draftID"].is_string()
                 || !contest["sessionID"].is_string() || !contest["stationCall"].is_string()
+                || !contest["sentExchange"].is_string() || !contest["sentSerial"].is_string()
                 || !fields["callsign"].is_string() || !fields["sent"].is_string()
                 || !fields["other_1"].is_string() {
                 return Err("CW canonical contest revisions are unavailable.".into());
@@ -114,7 +115,8 @@ impl Backend for Native {
                 "draftRevision":contest["revision"],"draftID":contest["draftID"],"contestSessionID":contest["sessionID"],
                 "provider":provider,"selection":selection,"profile":profile,
                 "context":{"MYCALL":contest["stationCall"],"CALL":fields["callsign"],"RST":fields["sent"],
-                    "NAME":"","GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":"","EXCHANGE":fields["other_1"]}}));
+                    "NAME":"","GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":contest["sentSerial"],
+                    "SENTNR":contest["sentSerial"],"EXCHANGE":contest["sentExchange"]}}));
         }
         let draft = call(worker, "logbook_operator_draft", json!({}))?["draft"].clone();
         if settings["generation"] != draft["generation"] || !settings["generation"].is_string() || !settings["revision"].is_u64() || !draft["revision"].is_u64() || !draft["qso"]["id"].is_string() {
