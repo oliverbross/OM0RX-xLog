@@ -25,27 +25,32 @@ def verify_source():
     _verified = True
 
 
+def adapt_cw_template(plugin_id, template):
+    """Adapt one pinned or persisted Not1MM template to xLog's output tokens."""
+    replacements = {"HISCALL": "CALL", "SNT": "RST", "EXCH": "EXCHANGE"}
+    for upstream, native in replacements.items():
+        template = template.replace("{" + upstream + "}", "{" + native + "}")
+    if plugin_id == "cq_ww_cw":
+        # CQ WW's configured zone is the number meant by MyNR. Persisted
+        # macro-editor rows must receive the same migration as pinned defaults.
+        template = template.replace("{SENTNR}", "{EXCHANGE}")
+    if re.findall(r"\{([^}]+)\}", template) and any(
+            token not in {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
+            for token in re.findall(r"\{([^}]+)\}", template)):
+        raise RuntimeError("Pinned Not1MM CW macro uses an unsupported token")
+    return template
+
+
 def load_cw_macros(plugin_id="cq_ww_cw"):
     """Return the pinned Not1MM Run/S&P macro text through a finite token adapter."""
     verify_source()
     result = {}
-    replacements = {"HISCALL": "CALL", "SNT": "RST", "EXCH": "EXCHANGE"}
     source = VENDOR / "not1mm/data/cwmacros.txt"
     for line in source.read_text(encoding="utf-8").splitlines():
         parts = line.split("|", 3)
         if len(parts) != 4 or parts[0] not in {"S", "R"} or re.fullmatch(r"F(?:[1-9]|1[0-2])", parts[1]) is None:
             raise RuntimeError("Pinned Not1MM CW macro source is invalid")
-        template = parts[3]
-        for upstream, native in replacements.items():
-            template = template.replace("{" + upstream + "}", "{" + native + "}")
-        if plugin_id == "cq_ww_cw":
-            # CQ WW's configured zone is the number meant by the pinned
-            # MyNR macro; serial contests retain SENTNR as a separate token.
-            template = template.replace("{SENTNR}", "{EXCHANGE}")
-        if re.findall(r"\{([^}]+)\}", template) and any(
-                token not in {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR"}
-                for token in re.findall(r"\{([^}]+)\}", template)):
-            raise RuntimeError("Pinned Not1MM CW macro uses an unsupported token")
+        template = adapt_cw_template(plugin_id, parts[3])
         result[(parts[0], parts[1])] = {"label": parts[2], "template": template}
     if plugin_id == "cq_wpx_cw":
         # The shipped macros target a configured exchange. WPX sends the

@@ -108,6 +108,22 @@ class WPXHostTests(unittest.TestCase):
         self.assertEqual(self.fields()["other_1"], "003")
         self.assertEqual(saved["projection"]["score"]["qsos"], 1)
 
+    def test_prefixed_stale_serial_draft_is_reconciled_before_open_and_commit(self):
+        store = self.host.database(self.session)
+        state = store.state(self.session)
+        state["draft"]["fields"].update(callsign="K1ABC", other_1="999", other_2="123")
+        store.save_state(state)
+        store.conn.commit()
+        self.host.close()
+        self.host = Host(self.root)
+
+        projection = self.read("session_open")["projection"]
+        sent = next(field for field in projection["fields"] if field["id"] == "other_1")
+        self.assertEqual((sent["value"], sent["readOnly"]), ("001", True))
+        self.mutate("qso_commit")
+        row = self.read("log")["rows"][0]
+        self.assertEqual((row["SentNr"], self.fields()["other_1"]), (1, "002"))
+
     def test_plugin_esm_numeric_exchange_and_repeat_safe_intents(self):
         self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": ""})
         call = self.mutate("esm", field="callsign")

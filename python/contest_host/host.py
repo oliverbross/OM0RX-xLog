@@ -13,7 +13,7 @@ import uuid
 
 from .store import Store, canonical
 from .rates import calculate_rates
-from .upstream import load_plugin, load_cw_macros
+from .upstream import adapt_cw_template, load_plugin, load_cw_macros
 
 PLUGIN_ID = "cq_ww_cw"
 PLUGINS = {"cq_ww_cw": "CQ WW CW", "cq_wpx_cw": "CQ WPX CW", "arrl_ss_cw": "ARRL Sweepstakes CW"}
@@ -103,7 +103,10 @@ class Desk:
         self.contest = load_plugin(state["pluginID"])
         self.cw_macros = load_cw_macros(state["pluginID"])
         for macro in state.get("setup", {}).get("macros", []):
-            self.cw_macros[(macro["mode"], macro["key"])] = {"label": macro["label"], "template": macro["template"]}
+            self.cw_macros[(macro["mode"], macro["key"])] = {
+                "label": macro["label"],
+                "template": adapt_cw_template(state["pluginID"], macro["template"]),
+            }
         self.station, self.contest_settings = state["station"], state["settings"]
         self.pref = {"contest": 1, "run_state": state["run"], "esm_send_corrected_call": True}
         self.actions, self.messages, self.highlights = [], [], set()
@@ -127,6 +130,12 @@ class Desk:
         self.contact = self.database.get_empty().copy()
         self.contest.init_contest(self)
         if state["pluginID"] in SERIAL_PLUGINS:
+            # Older hosts allowed this visible field to drift from the durable
+            # reservation. Reconcile it on every load before any projection,
+            # mutation, direct commit, or reopen can consume the stale value.
+            expected = str(state["draft"]["serial"]).zfill(3)
+            self.other_1.setText(expected)
+            state["draft"]["fields"]["other_1"] = expected
             self.other_1.setReadOnly(True)
 
     def cty_lookup(self, call):
@@ -566,7 +575,10 @@ class Host:
     def effective_macros(state):
         macros = load_cw_macros(state["pluginID"])
         for macro in state.get("setup", {}).get("macros", []):
-            macros[(macro["mode"], macro["key"])] = {"label": macro["label"], "template": macro["template"]}
+            macros[(macro["mode"], macro["key"])] = {
+                "label": macro["label"],
+                "template": adapt_cw_template(state["pluginID"], macro["template"]),
+            }
         return [{"mode": mode, "key": f"F{number}", **deepcopy(macros[(mode, f"F{number}")])}
                 for mode in ("R", "S") for number in range(1, 13)]
 

@@ -204,6 +204,20 @@ class HostTests(unittest.TestCase):
                          ("OM0RX/P", "OM1ABC", 16))
         self.assertEqual((rows[qso]["IsRunQSO"], rows[qso]["Run1Run2"]), (0, 1))
 
+    def test_saved_cqww_mynr_macro_migrates_to_configured_exchange(self):
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "R", "key": "F6", "label": "MyNR", "template": "{SENTNR}"}]
+        saved = self.mutate("setup_save", setup=setup)
+        effective = next(item for item in saved["effectiveMacros"]
+                         if item["mode"] == "R" and item["key"] == "F6")
+        self.assertEqual(effective["template"], "{EXCHANGE}")
+        self.host.close()
+        self.host = Host(self.root)
+        self.mutate("run_state", run=True)
+        action = self.mutate("function_key", key="F6")["actions"][0]
+        self.assertEqual((action["template"], action["sentExchange"], action["sentSerial"]),
+                         ("{EXCHANGE}", "15", ""))
+
     def test_setup_rejects_invalid_contest_configuration_atomically(self):
         setup = self.read("setup_get")["setup"]
         for update in ({"station": {"Call": "XX1UNKNOWN"}}, {"settings": {"SentExchange": "41"}},
