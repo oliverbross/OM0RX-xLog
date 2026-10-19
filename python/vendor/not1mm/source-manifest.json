@@ -8,6 +8,7 @@
     "not1mm/lib/plugin_common.py": "09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737",
     "not1mm/lib/ham_utility.py": "dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2",
     "not1mm/lib/version.py": "bb767896fc77896e60a0073bfc3adfe846ba6bb2f47477807f8228d47d5ffb23",
-    "not1mm/data/contests.sql": "e21989083beb6f19c0fd8e52e13e68e764d989e78593a414c057abc2515e3cd0"
+    "not1mm/data/contests.sql": "e21989083beb6f19c0fd8e52e13e68e764d989e78593a414c057abc2515e3cd0",
+    "not1mm/data/cwmacros.txt": "373b6e7ec5fa479da000eed5c89d801ebef03a1e35a494f01ca8792dcb37d9db"
   }
 }

@@ -7,6 +7,7 @@ from importlib import import_module, util
 from hashlib import sha256
 import json
 from pathlib import Path
+import re
 import sys
 
 VENDOR = Path(__file__).resolve().parents[1] / "vendor/not1mm/upstream"
@@ -22,6 +23,29 @@ def verify_source():
         if sha256((VENDOR / relative).read_bytes()).hexdigest() != expected:
             raise RuntimeError(f"Pinned Not1MM source hash differs: {relative}")
     _verified = True
+
+
+def load_cw_macros():
+    """Return the pinned Not1MM Run/S&P macro text through a finite token adapter."""
+    verify_source()
+    result = {}
+    replacements = {"HISCALL": "CALL", "SNT": "RST", "EXCH": "EXCHANGE", "SENTNR": "EXCHANGE"}
+    source = VENDOR / "not1mm/data/cwmacros.txt"
+    for line in source.read_text(encoding="utf-8").splitlines():
+        parts = line.split("|", 3)
+        if len(parts) != 4 or parts[0] not in {"S", "R"} or re.fullmatch(r"F(?:[1-9]|1[0-2])", parts[1]) is None:
+            raise RuntimeError("Pinned Not1MM CW macro source is invalid")
+        template = parts[3]
+        for upstream, native in replacements.items():
+            template = template.replace("{" + upstream + "}", "{" + native + "}")
+        if re.findall(r"\{([^}]+)\}", template) and any(
+                token not in {"MYCALL", "CALL", "RST", "EXCHANGE"}
+                for token in re.findall(r"\{([^}]+)\}", template)):
+            raise RuntimeError("Pinned Not1MM CW macro uses an unsupported token")
+        result[(parts[0], parts[1])] = {"label": parts[2], "template": template}
+    if len(result) != 24:
+        raise RuntimeError("Pinned Not1MM CW macro set is incomplete")
+    return result
 
 
 def overlay(name, replacements):

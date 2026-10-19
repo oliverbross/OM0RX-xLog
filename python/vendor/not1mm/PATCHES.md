@@ -25,6 +25,9 @@ import time and fails if the pinned source differs:
 4. CQ WW's empty `recalculate_mults` callback does not recompute duplicate points.
    The adapter replays retained contacts chronologically through actual plugin
    `points` calls after correction/deletion, then calls `recalculate_mults`.
+5. The original `cwmacros.txt` remains byte-identical. The finite output adapter
+   maps its four Not1MM substitution names (`HISCALL`, `SNT`, `EXCH`, `SENTNR`)
+   to xLog's native CW context tokens; xLog still validates, arms and transmits.
 
 Original SHA-256:
 
@@ -34,3 +37,4 @@ Original SHA-256:
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
+| data/cwmacros.txt | 373b6e7ec5fa479da000eed5c89d801ebef03a1e35a494f01ca8792dcb37d9db |

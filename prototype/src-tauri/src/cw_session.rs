@@ -193,13 +193,10 @@ impl Session {
                     || action["kind"] != "function_key" {
                     return Err("Contest output identity could not be verified.".into());
                 }
-                let macros = canonical["profile"]["macros"].as_array().ok_or("Saved CW macros unavailable")?;
-                let macro_value = macros.iter().find(|item| item["enabled"] == true && item["shortcut"] == action["key"])
-                    .ok_or("Assign the requested contest F-key to a saved xLog CW macro first.")?;
                 let mut frozen = canonical.clone();
                 frozen["context"] = json!({"MYCALL":action["stationCall"],"CALL":action["fields"]["callsign"],
                     "RST":action["fields"]["sent"],"EXCHANGE":action["sentExchange"],"SERIAL":"","NAME":"","GRID":canonical["context"]["GRID"]});
-                messages.push(expand(&frozen, macro_value["id"].as_u64().ok_or("Saved CW macro identity unavailable")?,
+                messages.push(expand_template(&frozen, action["template"].as_str().ok_or("Pinned contest CW template unavailable")?,
                     target["limit"].as_u64().unwrap_or(80) as usize)?);
             }
             let text = messages.join(" ");
@@ -349,6 +346,9 @@ fn allowed(byte: u8) -> bool { byte.is_ascii_alphanumeric() || b" /?=+.,-".conta
 fn expand(canonical: &Value, id: u64, limit: usize) -> Result<String, String> {
     let macro_value = canonical["profile"]["macros"].as_array().and_then(|values| values.iter().find(|value| value["id"] == id && value["enabled"] == true)).ok_or("This macro is disabled or is not saved.")?;
     let source = macro_value["text"].as_str().ok_or("Invalid CW template")?;
+    expand_template(canonical, source, limit)
+}
+fn expand_template(canonical: &Value, source: &str, limit: usize) -> Result<String, String> {
     if source.trim().is_empty() || source.len() > 512 { return Err("Use a CW template of 1–512 characters.".into()); }
     let mut rest = source; let mut expanded = String::new();
     while let Some(start) = rest.find('{') {
@@ -388,7 +388,8 @@ mod tests {
             Ok(json!({"operationID":params["operationID"],"sessionID":canonical["contestSessionID"],"revision":revision,
                 "projection":{"revision":revision,"draftID":"next-draft"},"replayed":params["replayed"] == true,
                 "actions":[{"kind":"function_key","key":"F2","sessionID":canonical["contestSessionID"],"draftID":canonical["draftID"],
-                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15"}]}))
+                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15",
+                    "template":"{CALL} {RST} {EXCHANGE}"}]}))
         }
         fn claim_contest_output(&self, _: &Value, result: &Value) -> Result<(), String> {
             if self.claims.lock().unwrap().insert(result["operationID"].as_str().unwrap().into()) { Ok(()) }
@@ -431,9 +432,7 @@ mod tests {
     fn contest_ready() -> (Arc<Session>, Arc<Fake>, Client) {
         let (session, backend, _) = fixture();
         { let mut canonical = backend.canonical.lock().unwrap(); canonical["contestSessionID"] = json!("contest-1");
-            canonical["draftID"] = json!("draft-1"); canonical["context"]["CALL"] = json!("");
-            canonical["profile"]["macros"][0]["shortcut"] = json!("F2");
-            canonical["profile"]["macros"][0]["text"] = json!("{CALL} {RST} {EXCHANGE}"); }
+            canonical["draftID"] = json!("draft-1"); canonical["context"]["CALL"] = json!(""); }
         let mut client = Client::new(); ready(&mut client, &session); (session, backend, client)
     }
     fn contest_call(client: &mut Client, session: &Session, extra: Value) -> Value {

@@ -1,1 +1,2 @@
 Tests/XContestCoreTests/SourceFixtures/master-scp-focused.txt text eol=lf
+python/vendor/not1mm/upstream/not1mm/data/cwmacros.txt text eol=lf whitespace=-blank-at-eol

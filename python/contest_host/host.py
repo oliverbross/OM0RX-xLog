@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 import uuid
 
 from .store import Store, canonical
-from .upstream import load_cqww
+from .upstream import load_cqww, load_cw_macros
 
 PLUGIN_ID = "cq_ww_cw"
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
@@ -89,6 +89,7 @@ class Desk:
     def __init__(self, store, state, commit):
         self.database, self.state, self._commit = store, state, commit
         self.contest = load_cqww()
+        self.cw_macros = load_cw_macros()
         self.station, self.contest_settings = state["station"], state["settings"]
         self.pref = {"contest": 1, "run_state": state["run"], "esm_send_corrected_call": True}
         self.actions, self.messages, self.highlights = [], [], set()
@@ -124,7 +125,11 @@ class Desk:
 
     def process_function_key(self, button):
         require(button.name in {f"F{i}" for i in range(1, 13)}, "Unknown function key")
+        macro = self.cw_macros[("R" if self.state["run"] else "S", button.name)]
+        if not macro["template"].strip():
+            return
         self.actions.append({"kind": "function_key", "key": button.name,
+                             "label": macro["label"], "template": macro["template"],
                              "sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                              "fields": self.values(), "stationCall": self.station["Call"],
                              "sentExchange": self.contest_settings["SentExchange"]})

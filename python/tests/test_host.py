@@ -118,6 +118,7 @@ class HostTests(unittest.TestCase):
         self.assertEqual(result["projection"]["fields"][0]["value"], "")
         self.assertEqual(result["actions"][0]["fields"]["callsign"], "K1ABC")
         self.assertEqual(result["actions"][0]["fields"]["sent"], "579")
+        self.assertEqual(result["actions"][0]["template"], "{CALL}")
         claimed = self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
         self.assertEqual(claimed["actions"], result["actions"])
         self.host.close(); self.host = Host(self.root)
@@ -132,6 +133,14 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(HostError) as error:
             self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
         self.assertEqual(error.exception.code, "stale_revision")
+
+    def test_pinned_not1mm_macros_follow_run_and_search_and_pounce(self):
+        sandp = self.mutate("function_key", key="F3")
+        self.assertEqual(sandp["actions"][0]["template"], "{RST} {EXCHANGE}")
+        self.mutate("run_state", run=True)
+        run = self.mutate("function_key", key="F4")
+        self.assertEqual(run["actions"][0]["label"], "Run TU")
+        self.assertEqual(run["actions"][0]["template"], "tu {MYCALL} qrz")
 
     def test_correction_and_delete_promote_duplicate(self):
         first = self.log()
