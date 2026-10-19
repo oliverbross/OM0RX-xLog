@@ -1,16 +1,30 @@
-import { expect, it, vi } from "vitest";
-import { ContestExportSaveOwner, nativeSavePrepared, validateContestExportSaveResult } from "./contestExportSave";
+import { beforeEach, expect, it, vi } from "vitest";
+import { ContestExportSaveOwner, nativeContestExportSave, nativeSavePrepared, validateContestExportSaveResult,
+  type ContestExportSavePrepared } from "./contestExportSave";
 import { MemoryContestRecoveryStorage } from "./sessionOwner";
 import type { ContestPreparedExport } from "./types";
+
+const native = vi.hoisted(() => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 
 const prepared: ContestPreparedExport = { artifactID: "10000000-0000-4000-8000-000000000001", sessionID: "20000000-0000-4000-8000-000000000002",
   workspaceGeneration: "30000000-0000-4000-8000-000000000003", revision: 7, format: "cabrillo", inputSchemaVersion: "1",
   formatterVersion: "pilot-2", generatedAtUTC: "2026-10-18T00:00:00.000Z", qsoCount: 2, totalPoints: 6,
   multiplierCount: 2, claimedScore: 12, byteLength: 450, sha256: "a".repeat(64), chunkLimit: 64, expiresAfterSeconds: 60 };
 
+beforeEach(() => native.invoke.mockReset());
+
 it("maps the worker artifact coordinate to the exact native prepared DTO", () => {
   expect(nativeSavePrepared(prepared)).toEqual({ artifactID: prepared.artifactID, sessionID: prepared.sessionID,
     workspaceGeneration: prepared.workspaceGeneration, revision: 7, byteLength: 450, sha256: "a".repeat(64), format: "cabrillo" });
+});
+
+it("strips worker presentation metadata before invoking the strict native save contract", async () => {
+  const expected = nativeSavePrepared(prepared);
+  native.invoke.mockResolvedValue({ status: "cancelled", artifactID: prepared.artifactID, sha256: prepared.sha256 });
+  await expect(nativeContestExportSave({ ...expected, filename: "OM0RX-CQ-WW.log" } as ContestExportSavePrepared))
+    .resolves.toMatchObject({ status: "cancelled" });
+  expect(native.invoke).toHaveBeenCalledWith("contest_export_save", { prepared: expected });
 });
 
 it("strictly validates correlated native outcomes", () => {

@@ -34,7 +34,7 @@ const uint = (value: unknown): value is number => Number.isSafeInteger(value) &&
 const basename = (value: unknown): value is string => text(value, 160) && value !== "." && value !== ".." &&
   !/[\\/]/.test(value) && [...value].every(character => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127);
 
-export function nativeSavePrepared(prepared: ContestPreparedExport): ContestExportSavePrepared {
+export function nativeSavePrepared(prepared: ContestExportSavePrepared): ContestExportSavePrepared {
   return { artifactID: prepared.artifactID, sessionID: prepared.sessionID,
     workspaceGeneration: prepared.workspaceGeneration, revision: prepared.revision,
     byteLength: prepared.byteLength, sha256: prepared.sha256, format: prepared.format };
@@ -51,8 +51,10 @@ export function validateContestExportSaveResult(value: unknown, expected: Contes
   throw new Error("Native export save returned a malformed or mismatched result.");
 }
 
-export const nativeContestExportSave: ContestExportSaveAdapter = async prepared =>
-  validateContestExportSaveResult(await invoke("contest_export_save", { prepared }), prepared);
+export const nativeContestExportSave: ContestExportSaveAdapter = async prepared => {
+  const payload = nativeSavePrepared(prepared);
+  return validateContestExportSaveResult(await invoke("contest_export_save", { prepared: payload }), payload);
+};
 
 type Release = (prepared: ContestPreparedExport) => Promise<unknown>;
 const scopeOf = (prepared: Pick<ContestPreparedExport, "sessionID" | "workspaceGeneration">): ContestExportSaveScope =>
