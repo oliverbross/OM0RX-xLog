@@ -115,7 +115,7 @@ final class PythonContestLaneTests: XCTestCase {
         }
     }
 
-    func testNormalLoggingHealthAdvertisesBundledPythonContestingWithoutLaunchingIt() async throws {
+    func testNormalLoggingWorkerInterleavesLogbookAndPythonContestWorkInOneGeneration() async throws {
         let root = repositoryRoot()
         let basePath = FileManager.default.temporaryDirectory.path
             .replacingOccurrences(of: "/var/", with: "/private/var/")
@@ -127,10 +127,13 @@ final class PythonContestLaneTests: XCTestCase {
             executableURL: try python312(),
             launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
             dataRootURL: temporary.appendingPathComponent("contest", isDirectory: true))
-        let worker = LiveWorker(logbook: LiveLogbookMethods(
+        let logbook = LiveLogbookMethods(
             supportDirectory: temporary.appendingPathComponent("workspace", isDirectory: true),
-            inheritNativePreferences: false), runtimeProfile: .production,
+            inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: .production,
             operatingModule: .normalLogging, pythonContestConfiguration: configuration)
+        await worker.startBackgroundServices()
         let request = try JSONSerialization.data(withJSONObject: [
             "id": "health", "method": "health", "params": [:],
         ])
@@ -141,6 +144,47 @@ final class PythonContestLaneTests: XCTestCase {
         XCTAssertEqual(health["contesting_engine"] as? String, "not1mm-python")
         XCTAssertEqual(health["contesting_available"] as? Bool, true)
         XCTAssertEqual(health["isolated_workspace"] as? Bool, false)
-        await worker.beginTerminalShutdown()
+
+        let settingsRequest = try JSONSerialization.data(withJSONObject: [
+            "id": "settings", "method": "settings_load", "params": [:],
+        ])
+        let settingsData = await worker.response(to: settingsRequest)
+        let settingsReply = try XCTUnwrap(try JSONSerialization.jsonObject(with: settingsData) as? [String: Any])
+        let settings = try XCTUnwrap(settingsReply["result"] as? [String: Any])
+        let generation = try XCTUnwrap(settings["generation"] as? String)
+
+        let logbookRequest = try JSONSerialization.data(withJSONObject: [
+            "id": "normal-logbook", "method": "logbook_stats", "params": [:],
+        ])
+        let sessionID = UUID().uuidString.lowercased()
+        let contestRequest = try JSONSerialization.data(withJSONObject: [
+            "id": "python-contest", "method": "contest_session_create", "params": [
+                "sessionID": sessionID,
+                "workspaceGeneration": generation,
+                "operationID": UUID().uuidString.lowercased(),
+                "expectedRevision": 0,
+                "pluginID": "cq_ww_cw",
+                "frequencyHz": 14_025_000,
+                "station": ["Call": "OM0RX", "CQZone": "15"],
+                "settings": ["SentExchange": "15"],
+            ],
+        ] as [String: Any])
+        async let logbookData = worker.response(to: logbookRequest)
+        async let contestData = worker.response(to: contestRequest)
+        let (normalReplyData, contestReplyData) = await (logbookData, contestData)
+        let normalReply = try XCTUnwrap(try JSONSerialization.jsonObject(with: normalReplyData) as? [String: Any])
+        let contestReply = try XCTUnwrap(try JSONSerialization.jsonObject(with: contestReplyData) as? [String: Any])
+        XCTAssertEqual(normalReply["id"] as? String, "normal-logbook")
+        XCTAssertEqual(normalReply["ok"] as? Bool, true)
+        XCTAssertEqual(((normalReply["result"] as? [String: Any])?["stats"] as? [String: Any])?["qso_count"] as? Int, 0)
+        XCTAssertEqual(contestReply["id"] as? String, "python-contest")
+        XCTAssertEqual(contestReply["ok"] as? Bool, true)
+        let projection = ((contestReply["result"] as? [String: Any])?["projection"] as? [String: Any])
+        XCTAssertEqual(projection?["sessionID"] as? String, sessionID)
+        XCTAssertEqual(projection?["workspaceGeneration"] as? String, generation)
+        XCTAssertEqual(projection?["engine"] as? String, "not1mm-python")
+        let background = await worker.backgroundServiceStateForTesting()
+        XCTAssertTrue(background.sync); XCTAssertTrue(background.delivery)
+        await worker.shutdown()
     }
 }

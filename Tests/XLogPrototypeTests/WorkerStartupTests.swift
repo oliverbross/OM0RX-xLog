@@ -11,7 +11,7 @@ final class WorkerStartupTests: XCTestCase {
             environment: ["XLOG_OPERATING_MODULE": "normal"] ))
     }
 
-    func testBackgroundServicesStartOnlyForImmutableNormalLoggingGeneration() async throws {
+    func testNormalBackgroundServicesRemainActiveAlongsideProductionContestCapability() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-module-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let normal = LiveWorker(logbook: LiveLogbookMethods(
@@ -20,6 +20,10 @@ final class WorkerStartupTests: XCTestCase {
         await normal.startBackgroundServices()
         let normalState = await normal.backgroundServiceStateForTesting()
         XCTAssertTrue(normalState.sync); XCTAssertTrue(normalState.delivery)
+        let health = try await response(normal, id: "normal-health", method: "health")
+        XCTAssertEqual((health["result"] as? [String: Any])?["mode"] as? String, "integrated")
+        XCTAssertEqual((health["result"] as? [String: Any])?["contesting_engine"] as? String,
+                       "not1mm-python")
         await normal.shutdown()
 
         let contest = LiveWorker(logbook: LiveLogbookMethods(

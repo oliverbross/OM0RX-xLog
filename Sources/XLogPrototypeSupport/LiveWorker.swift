@@ -174,8 +174,7 @@ public actor LiveWorker {
                 let configuration = try pythonContestConfiguration
                     ?? PythonContestHostConfiguration.bundled(
                         applicationSupport: logbook.workspaceDirectoryURL.deletingLastPathComponent())
-                pythonContestLane = operatingModule == .contesting
-                    ? try PythonContestLane(configuration: configuration) : nil
+                pythonContestLane = try PythonContestLane(configuration: configuration)
                 pythonContestLaneInitializationError = nil
                 pythonContestAvailable = true
             } catch let error as ContestLaneError {
@@ -424,7 +423,7 @@ public actor LiveWorker {
             #endif
             let result: [String: Any]
             if method.hasPrefix("contest_") {
-                if runtimeProfile == .production, operatingModule == .contesting {
+                if runtimeProfile == .production {
                     if let pythonContestLaneInitializationError { throw pythonContestLaneInitializationError }
                     guard let pythonContestLane else {
                         throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")
