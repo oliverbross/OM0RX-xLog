@@ -158,20 +158,21 @@ class Desk:
         self.state["focus"] = self.current_widget
         self.state["esmCallSent"] = self.esm_call_sent
 
-    def contact_for(self, fields, qso_id, timestamp, frequency):
+    def contact_for(self, fields, qso_id, timestamp, frequency, base=None, operator=None):
         call = fields["callsign"].upper()
         country = self.cty_lookup(call)
         info = next(iter(country.values())) if country else {}
         band = self.band(frequency)
-        self.contact = self.database.get_empty().copy()
+        self.contact = deepcopy(base) if base is not None else self.database.get_empty().copy()
         from not1mm.lib.ham_utility import calculate_wpx_prefix
-        self.contact.update({"ID": qso_id, "Call": call, "TS": timestamp,
-            "Freq": frequency / 1000, "QSXFreq": frequency / 1000, "Band": band, "Mode": "CW",
-            "ContestNR": 1, "ContestName": self.contest.cabrillo_name,
-            "StationPrefix": self.station["Call"], "Operator": self.state["operator"],
+        self.contact.update({"ID": qso_id, "Call": call, "TS": timestamp, "Freq": frequency / 1000,
+            "Band": band, "Operator": operator or self.state["operator"],
             "CountryPrefix": info.get("primary_pfx", ""), "Continent": info.get("continent", ""),
-            "ZN": info.get("cq", 0), "WPXPrefix": calculate_wpx_prefix(call),
-            "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
+            "ZN": info.get("cq", 0), "WPXPrefix": calculate_wpx_prefix(call)})
+        if base is None:
+            self.contact.update({"QSXFreq": frequency / 1000, "Mode": "CW", "ContestNR": 1,
+                "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
+                "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
         for name in INPUTS:
             getattr(self, name).setText(fields[name])
         self.contact_is_dupe = int(bool(self.database.check_dupe_on_band(call, band).get("isdupe")))
@@ -330,20 +331,22 @@ class Host:
         if method == "log":
             offset, limit = params.get("offset", 0), params.get("limit", 50)
             require(type(offset) is int and offset >= 0 and type(limit) is int and 1 <= limit <= 100, "Invalid page")
-            return {"sessionID": session_id, "revision": state["revision"], "total": desk.score()["qsos"],
-                    "rows": store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY TS,ID LIMIT ? OFFSET ?", (limit, offset))}
+            expected = params.get("expectedRevision")
+            require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
+            return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
+                    "total": desk.score()["qsos"],
+                    "rows": store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY TS DESC,rowid DESC LIMIT ? OFFSET ?", (limit, offset))}
         if method == "export":
             return self.export(desk)
         if method == "export_prepare":
-            exported = self.export(desk)
-            payload = exported["content"].encode("utf-8")
-            require(bool(payload), "Plugin export was empty", "export_failed")
             require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
+            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024)
+            require(bool(payload), "Plugin export was empty", "export_failed")
             artifact_id = str(uuid.uuid4())
             prepared = {"artifactID": artifact_id, "sessionID": session_id,
                         "workspaceGeneration": workspace_generation(state), "revision": state["revision"],
                         "byteLength": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
-                        "format": "cabrillo", "filename": exported["filename"]}
+                        "format": "cabrillo", "filename": filename}
             self.exports[artifact_id] = {"prepared": prepared, "bytes": payload}
             return prepared
         if method == "export_read":
@@ -574,8 +577,21 @@ class Host:
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", updated["callsign"]) is not None, "Complete callsign required")
             require(updated["other_2"].isdigit() and 1 <= int(updated["other_2"]) <= 40, "CQ zone must be 1 to 40")
-            # Existing ID/timestamp/frequency remain stable in this bounded editor.
-            after = desk.contact_for(updated, qso_id, before["TS"], round(before["Freq"] * 1000))
+            timestamp = params.get("timestamp", before["TS"])
+            try:
+                require(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == timestamp,
+                        "Timestamp must be UTC YYYY-MM-DD HH:MM:SS")
+            except (ValueError, TypeError) as error:
+                raise HostError("invalid_request", "Invalid UTC timestamp") from error
+            frequency = params.get("frequencyHz", round(before["Freq"] * 1000))
+            require(type(frequency) is int, "Frequency must be integer Hz")
+            desk.band(frequency)
+            operator = text(params.get("operator", before["Operator"]), 20)
+            require(bool(operator.strip()), "Operator is required")
+            require(updated["other_1"].isdigit() and 1 <= int(updated["other_1"]) <= 40,
+                    "Sent CQ zone must be 1 to 40")
+            after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
+            after["SentNr"] = int(updated["other_1"])
             try:
                 desk.database.change_contact(after)
             except sqlite3.IntegrityError as error:
@@ -608,13 +624,20 @@ class Host:
                 "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG GROUP BY ZN,Band ORDER BY ZN,Band")}
 
     @staticmethod
-    def export(desk):
+    def export_artifact(desk, maximum):
         # The pinned plugin writes only inside this explicit private destination.
         with TemporaryDirectory(prefix="export-", dir=Path(desk.database.database).parent) as directory:
             desk.export_directory = Path(directory)
             desk.contest.cabrillo(desk, "utf-8")
             files = list(Path(directory).glob("*.log"))
             require(len(files) == 1, "Plugin export failed", "export_failed")
-            require(files[0].stat().st_size <= 512000, "Use a chunked export route for this log", "export_too_large")
-            return {"sessionID": desk.state["sessionID"], "revision": desk.state["revision"], "filename": files[0].name,
-                    "format": "cabrillo", "content": files[0].read_bytes().decode("utf-8")}
+            require(files[0].stat().st_size <= maximum,
+                    "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
+                    "export_too_large")
+            return files[0].name, files[0].read_bytes()
+
+    @classmethod
+    def export(cls, desk):
+        filename, payload = cls.export_artifact(desk, 512000)
+        return {"sessionID": desk.state["sessionID"], "revision": desk.state["revision"], "filename": filename,
+                "format": "cabrillo", "content": payload.decode("utf-8")}

@@ -106,3 +106,39 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
   expect((screen.getByLabelText("Call") as HTMLInputElement).value).toBe("");
   expect(request.mock.calls.some(([method])=>method === "contest_esm")).toBe(false);
 });
+
+it("pages past QSO 100 and sends the complete correction contract", async () => {
+  let current = projection(), corrected: Record<string, unknown> | null = null;
+  const row = { ID:"qso-001", TS:"2026-10-19 08:00:00", Call:"DL1ABC", Freq:14025, Band:14,
+    Mode:"CW", SNT:"599", RCV:"599", SentNr:15, ZN:14, Operator:"OM0RX", Points:1, CountryPrefix:"DL" };
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    let result: any;
+    if (method === "contest_catalog") result = { plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}] };
+    else if (method === "contest_sessions") result = { sessions:[] };
+    else if (method === "contest_create") result = { projection:current };
+    else if (method === "contest_log_page") {
+      const offset = Number(params.offset ?? 0);
+      result = { rows:offset === 100 ? [row] : [], offset, limit:100, total:101 };
+    } else if (method === "contest_score") result = { score:current.score, matrices:{countries:[],zones:[]} };
+    else if (method === "contest_qso_correct") {
+      corrected = params; current = projection(current.revision + 1); result = { projection:current, actions:[], messages:[] };
+    } else throw new Error(`Unexpected ${method}`);
+    return { id:crypto.randomUUID(), ok:true, result };
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} stationCall="OM0RX" radioFrequencyHz={14_025_000} spots={[]} cluster={null}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"Create and open"}));
+  expect(await screen.findByText("101 contacts in the Python-owned DXLOG store.")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", {name:"Older"}));
+  await userEvent.click(await screen.findByRole("button", {name:"Edit DL1ABC"}));
+  fireEvent.change(screen.getByLabelText("UTC timestamp"), {target:{value:"2026-10-19 09:15:30"}});
+  fireEvent.change(screen.getByLabelText("Frequency MHz"), {target:{value:"7.025"}});
+  fireEvent.change(screen.getByLabelText("Operator"), {target:{value:"om0rx/p"}});
+  fireEvent.change(screen.getByLabelText("Sent report"), {target:{value:"579"}});
+  fireEvent.change(screen.getByLabelText("Received report"), {target:{value:"589"}});
+  fireEvent.change(screen.getByLabelText("Sent CQ zone"), {target:{value:"16"}});
+  fireEvent.change(screen.getByLabelText("Received CQ zone"), {target:{value:"14"}});
+  await userEvent.click(screen.getByRole("button", {name:"Save correction"}));
+  await waitFor(()=>expect(corrected).not.toBeNull());
+  expect(corrected).toMatchObject({qsoID:"qso-001",timestamp:"2026-10-19 09:15:30",frequencyHz:7_025_000,
+    operator:"OM0RX/P",fields:{callsign:"DL1ABC",sent:"579",receive:"589",other_1:"16",other_2:"14"}});
+});

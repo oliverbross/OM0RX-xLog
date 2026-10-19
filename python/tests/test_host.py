@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import base64
@@ -277,6 +278,76 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("log")["total"], 1)
         self.assertEqual(store.exec_sql("SELECT count(*) AS n FROM xlog_qso_audit")["n"], 1)
 
+    def test_log_pages_are_recent_first_and_qso_101_can_be_corrected(self):
+        base = datetime(2026, 10, 19, 8, 0, 0)
+        contacts = []
+        for index in range(201):
+            qso = uid()
+            timestamp = (base + timedelta(seconds=index)).strftime("%Y-%m-%d %H:%M:%S")
+            self.mutate("qso_commit", qsoID=qso, timestamp=timestamp, frequencyHz=14025000,
+                        fields={"callsign": "K1ABC", "other_2": "5"})
+            contacts.append(qso)
+        recent = self.read("log", offset=0, limit=100)
+        self.assertEqual((recent["offset"], recent["limit"], recent["total"]), (0, 100, 201))
+        self.assertEqual(recent["rows"][0]["ID"], contacts[-1])
+        self.assertEqual(recent["rows"][-1]["ID"], contacts[101])
+        middle = self.read("log", offset=100, limit=100)
+        self.assertEqual(middle["rows"][0]["ID"], contacts[100])
+        qso_101 = middle["rows"][0]["ID"]
+        self.mutate("qso_correct", qsoID=qso_101, fields={"other_2": "6"}, reason="QSO 101 correction")
+        corrected = self.read("log", offset=100, limit=100)
+        self.assertEqual((corrected["rows"][0]["ID"], corrected["rows"][0]["ZN"]), (qso_101, 6))
+
+    def test_log_page_ties_follow_commit_order_and_revision_fence(self):
+        first = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        second = "00000000-0000-4000-8000-000000000000"
+        timestamp = "2026-10-19 08:00:00"
+        self.mutate("qso_commit", qsoID=first, timestamp=timestamp, frequencyHz=14025000,
+                    fields={"callsign": "K1ABC", "other_2": "5"})
+        self.mutate("qso_commit", qsoID=second, timestamp=timestamp, frequencyHz=14025000,
+                    fields={"callsign": "DL1ABC", "other_2": "14"})
+        revision = self.revision
+        self.assertEqual([row["ID"] for row in self.read("log", expectedRevision=revision)["rows"]], [second, first])
+        self.mutate("draft_apply", fields={"callsign": "OM1ABC"})
+        with self.assertRaises(HostError) as error:
+            self.read("log", expectedRevision=revision)
+        self.assertEqual(error.exception.code, "stale_revision")
+
+    def test_correction_updates_operator_fields_without_changing_historical_run_metadata(self):
+        qso = self.log()
+        store = self.host.database(self.session)
+        sentinels = {"QSXFreq": 14123, "Mode": "SSB", "ContestName": "HIST",
+                     "StationPrefix": "HIST", "RadioNR": 2, "ContactType": "X",
+                     "NetworkedCompNr": 7, "NetBiosName": "OLD-NODE", "IsOriginal": 0}
+        store.conn.execute("UPDATE DXLOG SET " + ",".join(f"{key}=?" for key in sentinels) + " WHERE ID=?",
+                           (*sentinels.values(), qso))
+        store.conn.commit()
+        before = self.read("log", limit=1)["rows"][0]
+        self.assertEqual(before["IsRunQSO"], 0)
+        self.mutate("run_state", run=True)
+        self.mutate("qso_correct", qsoID=qso, timestamp="2026-10-19 09:15:30", frequencyHz=7025000,
+                    operator="OM0RX/P", fields={"callsign": "DL1ABC", "sent": "579", "receive": "589",
+                    "other_1": "16", "other_2": "14"}, reason="Correct paper log")
+        after = self.read("log", limit=1)["rows"][0]
+        self.assertEqual(after["TS"], "2026-10-19 09:15:30")
+        self.assertEqual(after["Freq"], 7025)
+        self.assertEqual(after["Band"], 7)
+        self.assertEqual(after["Operator"], "OM0RX/P")
+        self.assertEqual((after["Call"], after["SNT"], after["RCV"], after["SentNr"], after["ZN"]),
+                         ("DL1ABC", "579", "589", 16, 14))
+        self.assertEqual(after["IsRunQSO"], 0)
+        self.assertEqual(after["Run1Run2"], before["Run1Run2"])
+        for key, value in sentinels.items():
+            self.assertEqual(after[key], value, key)
+        allowed = {"TS", "Call", "Freq", "Band", "Operator", "SNT", "RCV", "SentNr", "ZN", "NR",
+                   "CountryPrefix", "Continent", "WPXPrefix", "Points", "IsMultiplier1", "IsMultiplier2",
+                   "isMultiplier3", "Dirty"}
+        self.assertLessEqual({key for key in before if before[key] != after[key]}, allowed)
+        audit = store.exec_sql(
+            "SELECT before_json,after_json FROM xlog_qso_audit WHERE qso_id=? AND kind='correct'", (qso,))
+        self.assertEqual(json.loads(audit["before_json"]), before)
+        self.assertEqual(json.loads(audit["after_json"]), after)
+
     def test_unknown_country_retained_and_station_country_required(self):
         self.log("XX1TEST", "10")
         self.assertEqual(self.read("log")["total"], 1)
@@ -333,6 +404,48 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(HostError) as error:
             self.read("export_read", exportID=prepared["artifactID"],
                       workspaceGeneration=self.workspace, offset=0, length=prepared["byteLength"])
+        self.assertEqual(error.exception.code, "not_found")
+
+    def test_prepared_export_above_inline_limit_contains_every_qso_and_end_marker(self):
+        self.log()
+        store = self.host.database(self.session)
+        seed = store.exec_sql("SELECT * FROM DXLOG LIMIT 1")
+        columns = list(seed)
+        statement = f"INSERT INTO DXLOG ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})"
+        base = datetime(2026, 10, 20, 0, 0, 0)
+        expected_calls = [seed["Call"]]
+        for index in range(7001):
+            row = deepcopy(seed)
+            row["ID"] = uid()
+            row["TS"] = (base + timedelta(seconds=index)).strftime("%Y-%m-%d %H:%M:%S")
+            row["Call"] = f"K{index:05d}"
+            expected_calls.append(row["Call"])
+            store.conn.execute(statement, tuple(row[column] for column in columns))
+        store.conn.commit()
+        with self.assertRaises(HostError) as error:
+            self.read("export")
+        self.assertEqual(error.exception.code, "export_too_large")
+        prepared = self.read("export_prepare")
+        self.assertGreater(prepared["byteLength"], 512000)
+        payload = bytearray()
+        while len(payload) < prepared["byteLength"]:
+            length = min(65536, prepared["byteLength"] - len(payload))
+            offset = len(payload)
+            chunk = self.read("export_read", exportID=prepared["artifactID"],
+                              workspaceGeneration=self.workspace, offset=offset, length=length)
+            self.assertEqual(chunk["offset"], offset)
+            self.assertEqual(chunk["eof"], offset + length == prepared["byteLength"])
+            payload.extend(base64.b64decode(chunk["dataBase64"]))
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), prepared["sha256"])
+        content = payload.decode("utf-8")
+        qso_lines = [line for line in content.splitlines() if line.startswith("QSO:")]
+        self.assertEqual([line.split()[8] for line in qso_lines], expected_calls)
+        self.assertTrue(content.endswith("END-OF-LOG:\r\n"))
+        self.assertTrue(self.read("export_release", exportID=prepared["artifactID"],
+                                  workspaceGeneration=self.workspace)["released"])
+        with self.assertRaises(HostError) as error:
+            self.read("export_read", exportID=prepared["artifactID"],
+                      workspaceGeneration=self.workspace, offset=0, length=1)
         self.assertEqual(error.exception.code, "not_found")
 
     def test_bounded_serial_jsonl_and_real_process(self):
