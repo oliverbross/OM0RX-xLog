@@ -178,7 +178,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     {choice("settings", "StationCategory", "Station", ["FIXED", "MOBILE", "PORTABLE", "ROVER", "EXPEDITION", "HQ", "SCHOOL"])}
     {choice("settings", "AssistedCategory", "Assisted", ["ASSISTED", "NON-ASSISTED"])}
     {choice("settings", "TransmitterCategory", "Transmitter", ["ONE", "TWO", "LIMITED", "UNLIMITED", "SWL"])}
-    <div className="contest-exchange-row">{field("settings", "SentExchange", draft.pluginID === "icwc_mst" ? "Name" : "Sent Exchange")}<span>Exclude RST</span></div>
+    <div className="contest-exchange-row">{field("settings", "SentExchange", ["icwc_mst", "cwo"].includes(draft.pluginID) ? "Name" : "Sent Exchange")}<span>Exclude RST</span></div>
     <label><span>Operators</span><input value={draft.operator} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>
     {textArea("settings", "Soapbox", "Soapbox")}
   </div>;

@@ -159,6 +159,39 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
 
+it("projects CWOPS Open serial/name exchange, retained dupes and unique-call score", async () => {
+  const current = { ...projection(4, {other_1:"003",other_2:"12 ALICE"}), pluginID:"cwo", pluginName:"CWOPS - Open",
+    reservedSerial:3,allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band.",
+    score:{qsos:2,points:1,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:1} };
+  current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
+    readOnly:field.id==="other_1", label:field.id==="other_1"?"SentNR":field.id==="other_2"?"Recd Number and Name":field.label}));
+  const row = {ID:"cwo-qso",TS:"2026-10-20 10:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,Name:"ALICE",NR:12,Points:1};
+  const request = vi.fn(async (method:string,params:Record<string,unknown>={}) => {
+    const support=workspaceSupport(method,params,current); if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP(); if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cwo",name:"CWOPS - Open"}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method); return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:"cwo"}});
+  fireEvent.change(screen.getByLabelText("Name"),{target:{value:"OLIVER"}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.session.ruleName).toBe("CWOPS - Open");
+  expect(entry.descriptor).toMatchObject({reportsVisible:false,allowDuplicateCommit:true,
+    serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:3}});
+  expect(entry.draft).toMatchObject({dupe:{state:"duplicate",reason:"Worked on this band."},reservedSerial:3,
+    receivedFields:[{id:"other_2",label:"Recd Number and Name",value:"12 ALICE"}]});
+  expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 unique calls"]});
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",page:{rows:[{
+    receivedExchange:"12 ALICE",sentExchange:"1",multiplierLabels:[]}]}});
+  for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
+});
+
 it("projects Trans Tasman low bands, serial exchange, plugin dupe period and retained duplicate logging", async () => {
   const current = { ...projection(5, {other_1:"001",other_2:"012"}), pluginID:"trans_tasman", pluginName:"Trans Tasman CW",
     frequencyHz:7_025_000,band:7,reservedSerial:1,supportedBands:["160m","80m","40m"],supportedModes:["CW"],

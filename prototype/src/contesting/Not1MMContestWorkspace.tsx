@@ -124,6 +124,7 @@ function canonicalWorkedAt(value: unknown) {
 
 function receivedExchange(row: Data, pluginID?: string): string {
   if (pluginID === "icwc_mst") return `${row.Name ?? ""} ${row.NR ?? ""}`.trim();
+  if (pluginID === "cwo") return `${row.NR ?? ""} ${row.Name ?? ""}`.trim();
   if (pluginID === "arrl_ss_cw") return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
   return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
 }
@@ -132,7 +133,7 @@ function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
     qsoID: String(row.ID ?? ""), workedAt: canonicalWorkedAt(row.TS), callsign: String(row.Call ?? ""),
     band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
-    points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" ? []
+    points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" || pluginID === "cwo" ? []
       : pluginID === "trans_tasman" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
       : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));
@@ -577,7 +578,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: true,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID) },
-      ...(["icwc_mst", "trans_tasman"].includes(projection.pluginID) ? { exchangeLayout: "plugin" as const } : { manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]) }),
+      ...(["icwc_mst", "cwo", "trans_tasman"].includes(projection.pluginID) ? { exchangeLayout: "plugin" as const } : { manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]) }),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall, reportsVisible,
         band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),

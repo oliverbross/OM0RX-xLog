@@ -18,6 +18,7 @@ PLUGIN_REGISTRY = MappingProxyType({
     "arrl_ss_cw": Plugin("ARRL Sweepstakes CW", serial=True),
     "icwc_mst": Plugin("ICWC Medium Speed Test", serial=True),
     "cwt": Plugin("CWT"),
+    "cwo": Plugin("CWOPS - Open", serial=True, allow_duplicate_commit=True),
     "k1usn_sst": Plugin("K1USN SLOW SPEED TEST"),
     "trans_tasman": Plugin("Trans Tasman CW", serial=True, bands=("160m", "80m", "40m"),
                             allow_duplicate_commit=True),

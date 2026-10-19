@@ -310,7 +310,7 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "prefixes": prefixes,
                     "multipliers": prefixes, "total": self.contest.calc_score(self)}
-        if self.state["pluginID"] in {"icwc_mst", "cwt"}:
+        if self.state["pluginID"] in {"icwc_mst", "cwt", "cwo"}:
             calls = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "uniqueCalls": calls,
@@ -590,6 +590,8 @@ class Host:
                     require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
                 if state["pluginID"] == "icwc_mst":
                     require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "ICWC sent exchange must be one name")
+                if state["pluginID"] == "cwo":
+                    require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "CW Open sent exchange must be one name")
                 require(setup["settings"].get("ModeCategory", "CW") == "CW", "Selected plugin requires CW mode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
@@ -772,6 +774,10 @@ class Host:
             require(isinstance(settings["SentExchange"], str)
                     and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", settings["SentExchange"]) is not None,
                     "ICWC sent exchange must be one name")
+        if plugin_id == "cwo":
+            require(isinstance(settings["SentExchange"], str)
+                    and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", settings["SentExchange"]) is not None,
+                    "CW Open sent exchange must be one name")
         if plugin_id in {"cwt", "k1usn_sst"}:
             require(isinstance(settings["SentExchange"], str)
                     and settings["SentExchange"] == settings["SentExchange"].strip()
@@ -868,6 +874,18 @@ class Host:
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
                         "Sent and received serials must be positive SQLite integers")
+        elif desk.state["pluginID"] == "cwo":
+            require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
+                    and 0 < int(fields["other_1"]) <= 9223372036854775807,
+                    "CW Open sent serial must be a positive SQLite integer")
+            first, separator, second = fields["other_2"].partition(" ")
+            name = first if re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", first) else second
+            serial = second if name == first else first
+            require(separator == " " and fields["other_2"].count(" ") == 1
+                    and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", name) is not None
+                    and re.fullmatch(r"[0-9]+", serial) is not None
+                    and 0 < int(serial) <= 9223372036854775807,
+                    "CW Open received exchange must be SERIAL NAME or NAME SERIAL with one space")
         elif desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
             require(all(value and value == value.strip() for value in (fields["other_1"], fields["other_2"])),
                     "Received name and exchange must be non-empty without surrounding whitespace")

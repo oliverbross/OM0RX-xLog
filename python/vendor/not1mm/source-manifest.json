@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "k1usn_sst", "trans_tasman"],
+  "registeredPlugins": ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman"],
   "sha256": {
     "not1mm/plugins/trans_tasman.py": "e077c5bc1f77d7f4ef75c7591cf4a0d5f984a26997fbd6831ddd7f92093e3344",
     "not1mm/plugins/icwc_mst.py": "4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca",
@@ -9,6 +9,7 @@
     "not1mm/plugins/cq_wpx_cw.py": "27551aab291943acc03b53c74773b8da8ad3c5cbeb96dc6e483870408eadbc86",
     "not1mm/plugins/arrl_ss_cw.py": "ae6306cbe34df212371989d9c324693b8f88da8e29701f17d8aeb5a32f5b3ce4",
     "not1mm/plugins/cwt.py": "12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64",
+    "not1mm/plugins/cwo.py": "e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e",
     "not1mm/plugins/k1usn_sst.py": "73cf9b72f53c6bd65d1f804f28b4ea80f6bf82d2b8b08406b2153691fd1d8120",
     "not1mm/lib/database.py": "855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8",
     "not1mm/lib/plugin_common.py": "09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737",

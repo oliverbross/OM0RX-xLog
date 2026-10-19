@@ -72,6 +72,10 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # Original plugin stores configured name and the reserved serial separately.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{EXCHANGE} {SENTNR}"
+    elif plugin_id == "cwo":
+        # CW Open sends the host-reserved serial followed by the configured name.
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{SENTNR} {EXCHANGE}"
     if len(result) != 24:
         raise RuntimeError("Pinned Not1MM CW macro set is incomplete")
     return result
