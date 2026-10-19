@@ -99,6 +99,27 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("score")["score"]["total"], 42)
         self.assertEqual(len(self.read("score")["matrices"]["zones"]), 3)
 
+    def test_native_esm_batch_preserves_frozen_call_after_log_and_consumes_output_once(self):
+        result = self.mutate("esm", field="other_2", fields={"callsign":"K1ABC", "sent":"579", "other_2":"5"}, frequencyHz=14025000)
+        self.assertEqual(self.read("log")["total"], 1)
+        self.assertEqual(result["projection"]["fields"][0]["value"], "")
+        self.assertEqual(result["actions"][0]["fields"]["callsign"], "K1ABC")
+        self.assertEqual(result["actions"][0]["fields"]["sent"], "579")
+        claimed = self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
+        self.assertEqual(claimed["actions"], result["actions"])
+        self.host.close(); self.host = Host(self.root)
+        with self.assertRaises(HostError) as error:
+            self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
+        self.assertEqual(error.exception.code, "output_consumed")
+        self.assertEqual(self.read("receipt", operationID=result["operationID"])["result"]["actions"], [])
+
+    def test_native_output_claim_rejects_a_newer_session_revision(self):
+        result = self.mutate("function_key", key="F1", fields={"callsign":"K1ABC"}, frequencyHz=14025000)
+        self.mutate("draft_apply", fields={"callsign":"DL1ABC"})
+        with self.assertRaises(HostError) as error:
+            self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
+        self.assertEqual(error.exception.code, "stale_revision")
+
     def test_correction_and_delete_promote_duplicate(self):
         first = self.log()
         second = self.log(minute=1)

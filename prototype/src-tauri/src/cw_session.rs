@@ -6,13 +6,15 @@ pub fn validate_surface(label: &str, isolated: bool, exiting: bool, action: &str
     if !matches!(label, "main" | "cw") || isolated || exiting {
         return Err("Shared CW controls require the live Desk or CW window.".into());
     }
-    if !matches!(action, "snapshot" | "arm" | "send" | "stop" | "acknowledge" | "unregister") {
+    if !matches!(action, "snapshot" | "arm" | "send" | "contest" | "stop" | "acknowledge" | "unregister") {
         return Err("Unknown CW session action".into());
     }
     Ok(())
 }
 
 pub trait Backend: Send + Sync {
+    fn contest_operation(&self, _canonical: &Value, _params: &Value) -> Result<Value, String> { Err("Contest CW is unavailable".into()) }
+    fn claim_contest_output(&self, _canonical: &Value, _result: &Value) -> Result<(), String> { Err("Contest CW is unavailable".into()) }
     fn canonical(&self) -> Result<Value, String>;
     fn inspect(&self, canonical: &Value, capabilities: bool) -> Result<Value, String>;
     fn output(&self, target: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String>;
@@ -23,7 +25,7 @@ struct State {
     revision: u64, epoch: u64, clients: BTreeMap<String, Client>, closing: BTreeSet<String>, canonical: Value,
     holder: Option<String>, lease: Option<String>, target: Value, owner: Value, winkeyer: Value,
     armed_until: u64, pending: bool, stopping: bool, releases: usize, intent: u64,
-    message: String, error: String,
+    message: String, error: String, contest_result: Value, contest_pending: bool,
 }
 pub struct Session { state: Mutex<State>, backend: Arc<dyn Backend>, clock: Arc<dyn Fn() -> u64 + Send + Sync> }
 impl Session {
@@ -33,13 +35,13 @@ impl Session {
     fn with_clock(backend: Arc<dyn Backend>, clock: Arc<dyn Fn() -> u64 + Send + Sync>) -> Self {
         Self { backend, clock, state: Mutex::new(State { revision: 0, epoch: 0, clients: BTreeMap::new(), closing: BTreeSet::new(), canonical: Value::Null,
             holder: None, lease: None, target: Value::Null, owner: Value::Null, winkeyer: Value::Null, armed_until: 0, pending: false, stopping: false, releases: 0,
-            intent: 0, message: "CW disarmed".into(), error: String::new() }) }
+            intent: 0, message: "CW disarmed".into(), error: String::new(), contest_result: Value::Null, contest_pending: false }) }
     }
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, State>, String> { self.state.lock().map_err(|_| "CW session unavailable".into()) }
     fn snapshot_locked(&self, state: &State) -> Value {
         json!({"revision":state.revision,"armed":state.armed_until > (self.clock)(),"pending":state.pending || state.stopping,
             "owner":state.owner,"message":state.message,"error":state.error,"winkeyer":state.winkeyer,
-            "client":state.holder,"lease":state.lease,"canonical":state.canonical})
+            "client":state.holder,"lease":state.lease,"canonical":state.canonical,"contestResult":state.contest_result})
     }
     pub fn snapshot(&self) -> Result<Value, String> { let state = self.lock()?; Ok(self.snapshot_locked(&state)) }
     fn change(state: &mut State) { state.revision += 1; }
@@ -51,8 +53,12 @@ impl Session {
         Ok(())
     }
     fn refresh(&self) -> Result<(), String> {
+        // A native contest operation temporarily owns the canonical transition.
+        // Its own post-operation read validates the new context before output.
+        if self.lock()?.contest_pending { return Ok(()); }
         let canonical = self.backend.canonical()?;
         let changed = { let mut state = self.lock()?;
+            if state.contest_pending { return Ok(()); }
             if canonical == state.canonical { false } else { state.canonical = canonical; Self::change(&mut state); true }
         };
         if changed { self.stop()?; }
@@ -89,10 +95,11 @@ impl Session {
             "stop" => { self.stop()?; },
             "unregister" => { self.release_client(client)?; },
             "snapshot" => { if !focused { self.release_client(client)?; } self.refresh()?; self.tick()?; },
-            "arm" | "send" | "acknowledge" => {
+            "arm" | "send" | "contest" | "acknowledge" => {
                 if !focused { self.release_client(client)?; return Err("Focus the CW controls before using them.".into()); }
                 self.refresh()?;
-                match action { "arm" => self.arm(client, params)?, "send" => self.send(client, params)?, _ => self.acknowledge(params)? }
+                match action { "arm" => self.arm(client, params)?, "send" => self.send(client, params)?,
+                    "contest" => { if let Err(error) = self.contest(client, params) { self.lock()?.error = error; } }, _ => self.acknowledge(params)? }
             },
             _ => return Err("Unknown CW session action".into()),
         }
@@ -146,6 +153,78 @@ impl Session {
             self.backend.output(&target, "send", Some(&text), intent)?; Ok(())
         })();
         self.complete(epoch, result, true)
+    }
+    fn contest(&self, client: &str, params: &Value) -> Result<(), String> {
+        let admission: Result<(Value, Value, u64), String> = (|| {
+            let mut state = self.lock()?;
+            Self::check(&state, client, params, true)?;
+            if state.pending || state.stopping || state.armed_until <= (self.clock)() || state.target.is_null() {
+                return Err("Arm CW before using contest ESM.".into());
+            }
+            let canonical = &state.canonical;
+            if !canonical["contestSessionID"].is_string() || params["sessionID"] != canonical["contestSessionID"]
+                || params["expectedContestRevision"] != canonical["draftRevision"] || params["draftID"] != canonical["draftID"]
+                || params["operationID"].as_str().and_then(|id| uuid::Uuid::parse_str(id).ok()).is_none() {
+                return Err("The armed contest context changed; refresh and arm again.".into());
+            }
+            let value = (state.canonical.clone(), state.target.clone(), state.epoch);
+            state.pending = true; state.contest_pending = true; state.contest_result = Value::Null;
+            state.error.clear(); Self::change(&mut state); Ok(value)
+        })();
+        let (canonical, target, epoch) = match admission {
+            Ok(value) => value,
+            Err(error) => { self.lock()?.error = error.clone(); return Err(error); }
+        };
+        let outcome = (|| {
+            if self.backend.canonical()? != canonical { return Err("Contest context changed before ESM admission.".into()); }
+            let result = self.backend.contest_operation(&canonical, params)?;
+            { let mut state = self.lock()?; state.contest_result = result.clone(); }
+            let after = self.backend.canonical()?;
+            if !same_contest_authority(&canonical, &after) || result["sessionID"] != canonical["contestSessionID"]
+                || result["projection"]["revision"] != after["draftRevision"] || result["projection"]["draftID"] != after["draftID"]
+                || result["operationID"] != params["operationID"] || result["replayed"] != false {
+                return Err("Contest operation was replayed or its authoritative context changed; output was not replayed.".into());
+            }
+            let actions = result["actions"].as_array().ok_or("Contest output actions unavailable")?;
+            let mut messages = Vec::new();
+            for (index, action) in actions.iter().enumerate() {
+                if action["sessionID"] != canonical["contestSessionID"] || action["draftID"] != canonical["draftID"]
+                    || action["actionID"] != format!("{}:{index}", params["operationID"].as_str().unwrap_or(""))
+                    || action["kind"] != "function_key" {
+                    return Err("Contest output identity could not be verified.".into());
+                }
+                let macros = canonical["profile"]["macros"].as_array().ok_or("Saved CW macros unavailable")?;
+                let macro_value = macros.iter().find(|item| item["enabled"] == true && item["shortcut"] == action["key"])
+                    .ok_or("Assign the requested contest F-key to a saved xLog CW macro first.")?;
+                let mut frozen = canonical.clone();
+                frozen["context"] = json!({"MYCALL":action["stationCall"],"CALL":action["fields"]["callsign"],
+                    "RST":action["fields"]["sent"],"EXCHANGE":action["sentExchange"],"SERIAL":"","NAME":"","GRID":canonical["context"]["GRID"]});
+                messages.push(expand(&frozen, macro_value["id"].as_u64().ok_or("Saved CW macro identity unavailable")?,
+                    target["limit"].as_u64().unwrap_or(80) as usize)?);
+            }
+            let text = messages.join(" ");
+            if text.len() > target["limit"].as_u64().unwrap_or(80) as usize { return Err("The contest CW sequence exceeds this output's message limit.".into()); }
+            let observed = self.backend.inspect(&after, false)?;
+            if !same_target(&target, &observed) || self.backend.canonical()? != after {
+                return Err("Contest session, settings or radio changed before output.".into());
+            }
+            { let state = self.lock()?; self.current(&state, epoch, client)?;
+                if state.armed_until <= (self.clock)() { return Err("CW arming expired before contest output.".into()); } }
+            if !actions.is_empty() {
+                // Durable consumption precedes physical output. An uncertain
+                // write can never be replayed by retrying the host operation.
+                self.backend.claim_contest_output(&after, &result)?;
+                if self.backend.canonical()? != after { return Err("Contest changed during output claim; nothing was replayed.".into()); }
+                let intent = { let mut state = self.lock()?; self.current(&state, epoch, client)?;
+                    state.intent = state.intent.max(observed["last_intent"].as_u64().unwrap_or(0)).checked_add(1).ok_or("CW intent exhausted")?;
+                    state.owner = target.clone(); Self::change(&mut state); state.intent };
+                self.backend.output(&target, "send", Some(&text), intent)?;
+            }
+            let mut state = self.lock()?; self.current(&state, epoch, client)?;
+            state.canonical = after; Ok(())
+        })();
+        self.lock()?.contest_pending = false;
+        self.complete(epoch, outcome, true)
     }
     fn complete(&self, epoch: u64, result: Result<(), String>, sending: bool) -> Result<(), String> {
         let cleanup = { let mut state = self.lock()?;
@@ -259,6 +338,10 @@ impl Session {
         if expired { self.stop()?; } Ok(())
     }
 }
+fn same_contest_authority(a: &Value, b: &Value) -> bool {
+    a["contestSessionID"].is_string() && ["worker", "generation", "settingsRevision", "contestSessionID", "provider", "selection", "profile"]
+        .iter().all(|key| a[*key] == b[*key])
+}
 fn same_target(a: &Value, b: &Value) -> bool {
     ["output", "provider", "generation", "worker", "selection"].iter().all(|key| a[key] == b[key])
 }
@@ -290,11 +373,27 @@ mod tests {
     use std::sync::{atomic::{AtomicBool, AtomicU64, Ordering}, mpsc};
     struct Fake {
         canonical: Mutex<Value>, target: Mutex<Value>, writes: Mutex<Vec<(String, Option<String>, u64)>>,
+        claims: Mutex<BTreeSet<String>>,
         lost_send: AtomicBool, stop_fails: AtomicBool,
         gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
         arm_gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
     }
     impl Backend for Fake {
+        fn contest_operation(&self, canonical: &Value, params: &Value) -> Result<Value, String> {
+            let revision = canonical["draftRevision"].as_u64().unwrap() + 1;
+            let mut after = canonical.clone(); after["draftRevision"] = json!(revision); after["draftID"] = json!("next-draft");
+            after["context"]["CALL"] = json!("");
+            if params["changeSettings"] == true { after["settingsRevision"] = json!(999); }
+            *self.canonical.lock().unwrap() = after;
+            Ok(json!({"operationID":params["operationID"],"sessionID":canonical["contestSessionID"],"revision":revision,
+                "projection":{"revision":revision,"draftID":"next-draft"},"replayed":params["replayed"] == true,
+                "actions":[{"kind":"function_key","key":"F2","sessionID":canonical["contestSessionID"],"draftID":canonical["draftID"],
+                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15"}]}))
+        }
+        fn claim_contest_output(&self, _: &Value, result: &Value) -> Result<(), String> {
+            if self.claims.lock().unwrap().insert(result["operationID"].as_str().unwrap().into()) { Ok(()) }
+            else { Err("Output consumed".into()) }
+        }
         fn canonical(&self) -> Result<Value, String> { Ok(self.canonical.lock().unwrap().clone()) }
         fn inspect(&self, _: &Value, _: bool) -> Result<Value, String> { Ok(self.target.lock().unwrap().clone()) }
         fn output(&self, _: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
@@ -316,7 +415,7 @@ mod tests {
             "profile":{"macros":[{"id":1,"enabled":true,"text":"{CALL} DE {MYCALL} {RST} K"}]},
             "context":{"CALL":"K1ABC","MYCALL":"OM0RX","RST":"599"}})),
             target: Mutex::new(json!({"output":"radio","provider":"direct_agent","generation":7,"worker":4,"selection":"choice","limit":128})),
-            writes: Mutex::new(vec![]), lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
+            writes: Mutex::new(vec![]), claims: Mutex::new(BTreeSet::new()), lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
         let clock = Arc::new(AtomicU64::new(0)); let ticking = clock.clone();
         (Arc::new(Session::with_clock(backend.clone(), Arc::new(move || ticking.load(Ordering::SeqCst)))), backend, clock)
     }
@@ -329,6 +428,65 @@ mod tests {
         }
     }
     fn ready(client: &mut Client, session: &Session) { client.call(session, "snapshot").unwrap(); client.call(session, "arm").unwrap(); }
+    fn contest_ready() -> (Arc<Session>, Arc<Fake>, Client) {
+        let (session, backend, _) = fixture();
+        { let mut canonical = backend.canonical.lock().unwrap(); canonical["contestSessionID"] = json!("contest-1");
+            canonical["draftID"] = json!("draft-1"); canonical["context"]["CALL"] = json!("");
+            canonical["profile"]["macros"][0]["shortcut"] = json!("F2");
+            canonical["profile"]["macros"][0]["text"] = json!("{CALL} {RST} {EXCHANGE}"); }
+        let mut client = Client::new(); ready(&mut client, &session); (session, backend, client)
+    }
+    fn contest_call(client: &mut Client, session: &Session, extra: Value) -> Value {
+        let snapshot = session.snapshot().unwrap(); client.sequence += 1;
+        let mut params = json!({"action":"contest","expectedRevision":snapshot["revision"],"lease":snapshot["lease"],
+            "sessionID":snapshot["canonical"]["contestSessionID"],"expectedContestRevision":snapshot["canonical"]["draftRevision"],
+            "draftID":snapshot["canonical"]["draftID"],"operationID":uuid::Uuid::new_v4().to_string(),"fields":{"callsign":"K1ABC","sent":"599"}});
+        for (key, value) in extra.as_object().unwrap() { params[key] = value.clone(); }
+        session.request("main", &client.id, client.sequence, true, &params).unwrap()
+    }
+    #[test]
+    fn contest_esm_uses_frozen_host_call_after_log_clears_draft_and_keeps_validated_lease() {
+        let (session, backend, mut client) = contest_ready();
+        let reply = contest_call(&mut client, &session, json!({}));
+        assert_eq!(reply["canonical"]["context"]["CALL"], ""); assert_eq!(reply["armed"], true);
+        assert!(backend.writes.lock().unwrap().iter().any(|(action,text,_)| action=="send" && text.as_deref()==Some("K1ABC 599 15")));
+        assert_eq!(backend.claims.lock().unwrap().len(), 1);
+    }
+    #[test]
+    fn contest_replay_and_authority_change_never_send() {
+        for extra in [json!({"replayed":true}),json!({"changeSettings":true}),json!({"draftID":"wrong-draft"})] {
+            let (session, backend, mut client) = contest_ready();
+            let reply = contest_call(&mut client, &session, extra);
+            assert_ne!(reply["error"], "");
+            assert!(!backend.writes.lock().unwrap().iter().any(|(action,_,_)| action=="send"));
+        }
+    }
+    #[test]
+    fn contest_output_claim_survives_lost_send_and_rearming_cannot_replay_it() {
+        let (session, backend, mut client) = contest_ready();
+        let operation = uuid::Uuid::new_v4().to_string(); backend.lost_send.store(true, Ordering::SeqCst);
+        let reply = contest_call(&mut client, &session, json!({"operationID":operation}));
+        assert_eq!(reply["armed"], false); assert_eq!(backend.claims.lock().unwrap().len(), 1);
+        client.call(&session,"stop").unwrap(); ready(&mut client,&session);
+        let _ = contest_call(&mut client,&session,json!({"operationID":operation}));
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(action,_,_)|action=="send").count(),1);
+    }
+    #[test]
+    fn contest_polling_does_not_cancel_owned_transition_but_stop_revokes_inflight_output() {
+        let (session, backend, mut client) = contest_ready();
+        let (entered_tx, entered_rx) = mpsc::channel(); let (resume_tx, resume_rx) = mpsc::channel();
+        *backend.gate.lock().unwrap() = Some((entered_tx, resume_rx));
+        let sending = session.clone();
+        let thread = std::thread::spawn(move || contest_call(&mut client, &sending, json!({})));
+        entered_rx.recv().unwrap();
+        let mut observer = Client::new();
+        let polling = observer.call(&session, "snapshot").unwrap();
+        assert_eq!(polling["pending"], true);
+        assert!(!backend.writes.lock().unwrap().iter().any(|(action,_,_)| action=="stop"));
+        observer.call(&session,"stop").unwrap(); resume_tx.send(()).unwrap();
+        let finished = thread.join().unwrap(); assert_eq!(finished["armed"], false);
+        assert!(backend.writes.lock().unwrap().iter().filter(|(action,_,_)|action=="stop").count()>=2);
+    }
     #[test]
     fn cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions() {
         for label in ["main", "cw", "monitor", "station-control", "settings", "log-qso", "unknown", "CW"] {

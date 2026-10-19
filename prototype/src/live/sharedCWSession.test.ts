@@ -38,4 +38,16 @@ describe("native shared CW renderer adapter", () => {
     const session = new SharedCWSession(transport); await session.refresh(); await session.arm(); session.dispose(); await Promise.resolve();
     expect(transport.mock.calls.map(call => call[2].action)).toEqual(["snapshot", "arm", "unregister", "unregister"]);
   });
+  it("pins native contest execution to its observed lease and never retries an uncertain operation", async () => {
+    const transport = vi.fn<CWTransport>(async (client, _, params) => {
+      if (params.action === "contest") throw new Error("Contest reply lost");
+      return { ...snapshot(client), armed:true };
+    });
+    const session = new SharedCWSession(transport); await session.refresh();
+    await session.executeContest({operation:"esm",operationID:"operation-1",sessionID:"contest-1",
+      expectedContestRevision:3,draftID:"draft-1",fields:{callsign:"K1ABC"},lease:"renderer-lease",expectedRevision:999});
+    expect(transport.mock.calls[1][2]).toMatchObject({action:"contest",lease:"lease",expectedRevision:1,operationID:"operation-1"});
+    await session.refresh(); expect(session.getSnapshot().armed).toBe(false);
+    expect(transport.mock.calls.filter(call=>call[2].action === "contest")).toHaveLength(1);
+  });
 });

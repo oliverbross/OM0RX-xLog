@@ -21,7 +21,7 @@ type Projection = {
   history: string; score: Score;
 };
 type Session = { sessionID: string; name: string; pluginID: string; sourceRevision: string; revision: number };
-type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean };
+type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string };
 type Props = {
   request: Request;
   serviceRequest: Request;
@@ -137,23 +137,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationCall, r
       const changed = await operation(base); acceptProjection(changed.projection);
       if (refreshViews) await refresh(changed.projection.sessionID, changed.projection);
       for (const item of changed.messages ?? []) setNotice(item);
-      for (const action of changed.actions ?? []) {
-        if (action.kind !== "function_key" || typeof action.key !== "string") continue;
-        const macro = cw.profile.macros.find(item => item.enabled && item.shortcut === action.key);
-        if (!macro) throw new Error(`Not1MM requested ${action.key}; assign that shortcut to a saved xLog CW macro first.`);
-        await cw.controller.send(macro);
-      }
+      if (changed.actions?.length) throw new Error("Contest output requires native operation admission; no renderer output was sent.");
+      if (changed.outputError) setError(changed.outputError);
       return changed.projection;
     } catch (cause) { setError(errorMessage(cause)); return null; }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const saveDraft = async (base: Projection) => {
-    if (sameFields(fieldsRef.current, projectionFields(base))) return base;
-    const changed = await mutate("contest_draft_apply", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz });
-    acceptProjection(changed.projection); return changed.projection;
-  };
   const hostAction = (method: string, extra: Record<string, unknown> = {}) => runMutation(async base => {
-    const saved = await saveDraft(base); return mutate(method, saved, extra);
+    const operationID = crypto.randomUUID();
+    const native = await cw.controller.executeContest({ operation: method === "contest_esm" ? "esm" : "function_key",
+      operationID, sessionID: base.sessionID, expectedContestRevision: base.revision, draftID: base.draftID,
+      fields: fieldsRef.current, frequencyHz: base.frequencyHz, ...extra });
+    const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
+    if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
+    return { ...changed, actions: [], outputError: native?.error || undefined };
   });
 
   const createSession = async (event: FormEvent) => {
@@ -174,8 +171,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationCall, r
   };
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (!projection || busy || retiring) return;
     if (event.key === "Escape") { event.preventDefault(); void cw.controller.stop(); return; }
+    if (!projection || busy || retiring) return;
     if (/^F(?:[1-9]|1[0-2])$/.test(event.key)) { event.preventDefault(); void hostAction("contest_function_key", { key: event.key }); return; }
     if (event.key === "Enter") { event.preventDefault(); void hostAction("contest_esm", { field: focusRef.current }); return; }
     if (event.key === "Tab") {

@@ -67,6 +67,29 @@ fn radio_request(target: &Value, action: &str, text: Option<&str>) -> Result<Val
     Ok(request(if provider == "hamlib" { "hamlib_control" } else { "station_radio_control" }, params))
 }
 impl Backend for Native {
+    fn contest_operation(&self, canonical: &Value, params: &Value) -> Result<Value, String> {
+        let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
+        let method = match params["operation"].as_str() {
+            Some("esm") => "contest_esm", Some("function_key") => "contest_function_key",
+            _ => return Err("Unknown contest CW operation".into()),
+        };
+        let result = call(worker, method, json!({
+            "sessionID":canonical["contestSessionID"], "operationID":params["operationID"],
+            "expectedRevision":canonical["draftRevision"], "draftID":canonical["draftID"],
+            "fields":params["fields"], "frequencyHz":params["frequencyHz"],
+            "field":params["field"], "key":params["key"]
+        }))?;
+        Ok(result)
+    }
+    fn claim_contest_output(&self, canonical: &Value, result: &Value) -> Result<(), String> {
+        let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
+        let claimed = call(worker, "contest_output_claim", json!({"sessionID":canonical["contestSessionID"],
+            "operationID":result["operationID"], "revision":result["revision"]}))?;
+        if claimed["claimed"] != true || claimed["operationID"] != result["operationID"] || claimed["actions"] != result["actions"] {
+            return Err("Contest output claim could not be verified; do not replay.".into());
+        }
+        Ok(())
+    }
     fn keyer_snapshot(&self) -> Result<Option<Value>, String> { local("winkeyer_snapshot", json!({})).map(Some) }
     fn canonical(&self) -> Result<Value, String> {
         let worker = crate::worker::generation(); if worker == 0 { return Err("Open a workspace before using CW.".into()); }

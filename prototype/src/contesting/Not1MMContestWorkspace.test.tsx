@@ -3,12 +3,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 
 vi.mock("./ContestOperatorCanvas", () => ({ ContestOperatorCanvas: ({ traditional }: { traditional: unknown }) => traditional }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
-  controller: { refresh: vi.fn(async () => {}), arm: vi.fn(async () => {}), stop: vi.fn(async () => {}), send: vi.fn(async () => {}) },
+  controller: { refresh: vi.fn(async () => {}), arm: vi.fn(async () => {}), stop: nativeCW.stop, send: vi.fn(async () => {}), executeContest: nativeCW.execute },
   state: { pending: false, armed: false, message: "CW disarmed", error: "" },
   profile: { macros: [{ id: 2, enabled: true, shortcut: "F2", text: "{CALL} {RST} {EXCHANGE}" }] },
 }) }));
@@ -53,4 +54,41 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
   expect(logged).toMatchObject({ sessionID: current.sessionID, fields: { callsign: "K1ABC", other_2: "5" }, frequencyHz: 14025000 });
   expect(screen.getByText("Shared bandmap")).toBeTruthy();
   expect(screen.getByText("Shared cluster")).toBeTruthy();
+});
+
+it("sends one native ESM operation with buffered fields and accepts its confirmed log even when CW fails", async () => {
+  let current = projection();
+  const request = vi.fn(async (method: string) => {
+    let result: any;
+    if (method === "contest_catalog") result = { plugins: [{ id:"cq_ww_cw", name:"CQ WW CW" }] };
+    else if (method === "contest_sessions") result = { sessions:[] };
+    else if (method === "contest_session_create") result = { sessionID:current.sessionID, projection:current };
+    else if (method === "contest_log_page") result = { rows:[], total:0 };
+    else if (method === "contest_score") result = { score:current.score, matrices:{countries:[],zones:[]} };
+    else throw new Error(`Unexpected renderer request ${method}`);
+    return { id:crypto.randomUUID(), ok:true, result };
+  });
+  let settle!:()=>void;
+  const gate = new Promise<void>(resolve=>{settle=resolve;});
+  nativeCW.execute.mockImplementation(async params => {
+    await gate;
+    current = projection(2);
+    return { error:"CW acknowledgement was lost; use Stop.", contestResult:{ operationID:params.operationID,
+      projection:current, actions:[{kind:"function_key",key:"F2",fields:{callsign:"K1ABC"}}] } };
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} stationCall="OM0RX" spots={[]} cluster={null}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"Create and open"}));
+  const call = await screen.findByLabelText("Call"), zone = screen.getByLabelText("CQ Zone");
+  fireEvent.change(call,{target:{value:"k1abc"}}); fireEvent.focus(zone); fireEvent.change(zone,{target:{value:"5"}});
+  fireEvent.keyDown(zone,{key:"Enter"});
+  await waitFor(()=>expect(nativeCW.execute).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(screen.getByRole("form",{name:"CQ WW CW entry"}),{key:"Escape"});
+  expect(nativeCW.stop).toHaveBeenCalledTimes(1);
+  settle();
+  await screen.findByText("CW acknowledgement was lost; use Stop.");
+  expect(nativeCW.execute).toHaveBeenCalledTimes(1);
+  expect(nativeCW.execute.mock.calls[0][0]).toMatchObject({operation:"esm",sessionID:current.sessionID,
+    expectedContestRevision:1,draftID:current.draftID,fields:{callsign:"K1ABC",other_2:"5"},field:"other_2"});
+  expect((screen.getByLabelText("Call") as HTMLInputElement).value).toBe("");
+  expect(request.mock.calls.some(([method])=>method === "contest_esm" || method === "contest_draft_apply")).toBe(false);
 });

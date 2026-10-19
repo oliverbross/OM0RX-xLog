@@ -59,6 +59,23 @@ final class PythonContestLaneTests: XCTestCase {
         XCTAssertEqual(cw["sessionID"] as? String, sessionID)
         XCTAssertEqual(cw["stationCall"] as? String, "OM0RX")
 
+        let outputOperation = UUID().uuidString.lowercased()
+        let function = try await lane.handle(method: "contest_function_key", params: [
+            "sessionID": sessionID, "operationID": outputOperation, "expectedRevision": 1,
+            "draftID": try XCTUnwrap(projection["draftID"] as? String),
+            "key": "F1", "fields": ["callsign": "K1ABC"], "frequencyHz": 14_025_000,
+        ])
+        let claim = try await lane.handle(method: "contest_output_claim", params: [
+            "sessionID": sessionID, "operationID": outputOperation, "revision": try XCTUnwrap(function["revision"] as? Int),
+        ])
+        XCTAssertEqual(claim["claimed"] as? Bool, true)
+        do {
+            _ = try await lane.handle(method: "contest_output_claim", params: [
+                "sessionID": UUID().uuidString.lowercased(), "operationID": outputOperation, "revision": 2,
+            ])
+            XCTFail("Output claims must belong to the active session.")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "contest_session_inactive") }
+
         await lane.shutdown()
         do {
             _ = try await lane.handle(method: "contest_catalog", params: [:])

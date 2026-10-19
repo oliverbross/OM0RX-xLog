@@ -68,6 +68,11 @@ actor PythonContestLane {
                 }
                 effectiveParams["sessionID"] = activeSessionID
             }
+            if method == "contest_output_claim" {
+                guard let activeSessionID, params["sessionID"] as? String == activeSessionID else {
+                    throw ContestLaneError.confirmed("contest_session_inactive", "The output action belongs to an inactive contest.")
+                }
+            }
             let result = try await perform(method: method, params: effectiveParams)
             if method == "contest_session_create" || method == "contest_create" {
                 activeSessionID = result["sessionID"] as? String

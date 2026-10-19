@@ -30,9 +30,10 @@ export class SharedCWSession {
       if (action === "arm" || action === "stop" || action === "acknowledge") this.uncertain = false;
       this.update({ ...value, armed: value.armed && value.client === this.client && !this.uncertain,
         error: this.uncertain ? "CW acknowledgement was lost. Use Stop; do not retry the macro." : value.error } as SharedCWState);
+      return value;
     } catch (cause) {
       if (!this.disposed) {
-        if (action === "send" || action === "arm" || action === "stop") this.uncertain = true;
+        if (action === "send" || action === "contest" || action === "arm" || action === "stop") this.uncertain = true;
         this.update({ armed: false, error: cause instanceof Error ? cause.message : String(cause) });
         // An Arm rejection/lost reply must release only our lease: another
         // window may have won admission after our last observed snapshot.
@@ -40,14 +41,15 @@ export class SharedCWSession {
       }
     }
   }
-  refresh = () => this.action("snapshot");
+  refresh = () => this.action("snapshot").then(() => {});
   pollWinKeyer = () => this.refresh();
-  arm = () => this.action("arm", { expectedRevision: this.state.revision });
-  send = (macro: CWMacro, _previewContext?: CWContext) => this.action("send", { expectedRevision: this.state.revision, lease: this.state.lease, macroID: macro.id });
-  stop = () => this.action("stop");
+  arm = () => this.action("arm", { expectedRevision: this.state.revision }).then(() => {});
+  send = (macro: CWMacro, _previewContext?: CWContext) => this.action("send", { expectedRevision: this.state.revision, lease: this.state.lease, macroID: macro.id }).then(() => {});
+  executeContest = (params: Data) => this.action("contest", { ...params, expectedRevision: this.state.revision, lease: this.state.lease });
+  stop = () => this.action("stop").then(() => {});
   // Focus/renderer lifecycle releases only this client's lease. Explicit Stop
   // remains global so any visible CW control can clear retained output.
-  release = () => this.action("unregister");
+  release = () => this.action("unregister").then(() => {});
   activate = () => { this.disposed = false; };
   acknowledgeStopped = () => { void this.action("acknowledge", { expectedRevision: this.state.revision, confirmed: true }); };
   dispose = () => { this.disposed = true; void this.action("unregister"); };

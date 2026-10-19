@@ -283,6 +283,25 @@ class Host:
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"])) if row else None}
+        if method == "output_claim":
+            operation = identifier(params.get("operationID"))
+            store.begin()
+            try:
+                current = store.state(session_id)
+                row = store.exec_sql("SELECT result FROM xlog_operation WHERE operation_id=?", (operation,))
+                require(bool(row), "Output operation does not exist", "not_found")
+                result = json.loads(row["result"])
+                require(current["revision"] == result["revision"] == params.get("revision"),
+                        "Contest changed before output admission", "stale_revision")
+                require(bool(result["actions"]), "Operation has no output actions")
+                require(not store.exec_sql("SELECT operation_id FROM xlog_output_claim WHERE operation_id=?", (operation,)),
+                        "Output was already consumed; do not replay", "output_consumed")
+                store.conn.execute("INSERT INTO xlog_output_claim VALUES(?)", (operation,))
+                store.finish(True)
+                return {"claimed": True, "operationID": operation, "actions": result["actions"]}
+            except BaseException:
+                store.finish(False)
+                raise
         if method == "score":
             return {"sessionID": session_id, "revision": state["revision"], "score": desk.score(), "matrices": self.matrices(store)}
         if method == "log":
@@ -363,10 +382,16 @@ class Host:
                 require(type(params.get("run")) is bool, "Run state must be boolean")
                 desk.pref["run_state"] = state["run"] = params["run"]
             elif method == "esm":
+                if "fields" in params:
+                    self.apply_fields(desk, params)
+                    self.prefill(desk)
                 field = params.get("field", state["focus"])
                 require(field in INPUTS, "Unknown focused field")
                 desk.contest.process_esm(desk, getattr(desk, field), True)
             elif method == "function_key":
+                if "fields" in params:
+                    self.apply_fields(desk, params)
+                    self.prefill(desk)
                 key = params.get("key")
                 require(key in {f"F{i}" for i in range(1, 13)}, "Unknown function key")
                 desk.process_function_key(getattr(desk, key))
