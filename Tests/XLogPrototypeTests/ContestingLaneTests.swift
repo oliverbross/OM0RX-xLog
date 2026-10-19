@@ -994,10 +994,12 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual((health["result"] as? [String: Any])?["mode"] as? String, "contesting_test")
         let status = try await workerRequest(worker, method: "workspace_status")
         XCTAssertEqual((status["result"] as? [String: Any])?["workspace_exists"] as? Bool, true)
+        let statusGeneration = try XCTUnwrap((status["result"] as? [String: Any])?["generation"] as? String)
 
         let catalogFrame = try await workerRequest(worker, method: "contest_catalog")
         let catalog = try XCTUnwrap(catalogFrame["result"] as? [String: Any])
         let workspaceGeneration = try XCTUnwrap(catalog["workspaceGeneration"] as? String)
+        XCTAssertEqual(statusGeneration, workspaceGeneration)
         XCTAssertEqual(workspaceGeneration, workspaceGeneration.lowercased())
         let rules = try XCTUnwrap(catalog["rules"] as? [[String: Any]])
         XCTAssertEqual(rules.count, 26)

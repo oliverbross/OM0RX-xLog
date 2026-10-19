@@ -120,7 +120,11 @@ struct LiveLogbookMethodsTests {
         let service = LiveLogbookMethods(supportDirectory: root)
         let before = try service.handle(method: "workspace_status", params: [:])
         #expect(before["workspace_exists"] as? Bool == false)
+        #expect(before["generation"] == nil)
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        let createdStatus = try service.handle(method: "workspace_status", params: [:])
+        let createdGeneration = try #require(createdStatus["generation"] as? String)
+        #expect(UUID(uuidString: createdGeneration) != nil)
 
         let draftResponse = try service.handle(method: "logbook_draft", params: [:])
         var draft = try #require(draftResponse["qso"] as? [String: Any])
@@ -149,6 +153,7 @@ struct LiveLogbookMethodsTests {
         let status = try reopened.handle(method: "workspace_status", params: [:])
         #expect(status["workspace_exists"] as? Bool == true)
         #expect(status["qso_count"] as? Int == 1)
+        #expect(status["generation"] as? String == createdGeneration)
         let settings = try reopened.handle(method: "settings_load", params: [:])
         #expect(settings["automatic_sync"] as? Bool == false)
     }

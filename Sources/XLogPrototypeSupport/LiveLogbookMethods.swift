@@ -531,13 +531,15 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 try requireKeys(params, allowed: [])
                 let exists = fileManager.fileExists(atPath: workspaceURL.path)
                 if exists { try loadWorkspace() }
-                return ["workspace_exists": exists,
-                        "native_log_exists": fileManager.fileExists(atPath: nativeDatabaseURL.path),
-                        "source": exists ? "isolated_workspace" : "none",
-                        "qso_count": try database?.stats().qsoCount ?? 0,
-                        "pending_sync_count": try database?.pendingSyncCount() ?? 0,
-                        "outbox_count": try database?.outboxCount() ?? 0,
-                        "automatic_sync": false]
+                var status: [String: Any] = ["workspace_exists": exists,
+                                             "native_log_exists": fileManager.fileExists(atPath: nativeDatabaseURL.path),
+                                             "source": exists ? "isolated_workspace" : "none",
+                                             "qso_count": try database?.stats().qsoCount ?? 0,
+                                             "pending_sync_count": try database?.pendingSyncCount() ?? 0,
+                                             "outbox_count": try database?.outboxCount() ?? 0,
+                                             "automatic_sync": false]
+                if exists { status["generation"] = try editGeneration() }
+                return status
             case "workspace_create":
                 try requireKeys(params, allowed: ["mode"], required: ["mode"])
                 guard let mode = params["mode"] as? String else { throw invalid() }
