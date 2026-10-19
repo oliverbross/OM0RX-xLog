@@ -1630,7 +1630,7 @@ final class ContestingLaneTests: XCTestCase {
         XCTAssertEqual(projectedQSOs.first { $0["callsign"] as? String == "HI8AAA" }?["multiplierDisplayLabels"] as? [String], ["Dominican Republic · 20m"])
     }
 
-    func testWorkerAllowsContestOnlyInBoundTestProfileAndStillDeniesExternalIO() async throws {
+    func testBoundTestProfileRemainsIsolatedAndProductionReportsMissingHost() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-worker-lane-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
@@ -1652,7 +1652,7 @@ final class ContestingLaneTests: XCTestCase {
         let data = try JSONSerialization.data(withJSONObject: ["id": "production", "method": "contest_catalog", "params": [:]])
         let responseData = await production.response(to: data)
         let response = try XCTUnwrap(JSONSerialization.jsonObject(with: responseData) as? [String: Any])
-        XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? String, "contest_profile_required")
+        XCTAssertEqual((response["error"] as? [String: Any])?["code"] as? String, "contest_host_unavailable")
     }
 }
 
