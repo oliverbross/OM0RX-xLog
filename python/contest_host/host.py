@@ -16,7 +16,8 @@ from .rates import calculate_rates
 from .upstream import load_plugin, load_cw_macros
 
 PLUGIN_ID = "cq_ww_cw"
-PLUGINS = {"cq_ww_cw": "CQ WW CW", "cq_wpx_cw": "CQ WPX CW"}
+PLUGINS = {"cq_ww_cw": "CQ WW CW", "cq_wpx_cw": "CQ WPX CW", "arrl_ss_cw": "ARRL Sweepstakes CW"}
+SERIAL_PLUGINS = {"cq_wpx_cw", "arrl_ss_cw"}
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
@@ -151,7 +152,7 @@ class Desk:
                              "sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                              "fields": self.values(), "stationCall": self.station["Call"],
                              "sentExchange": str(self.contest_settings["SentExchange"]),
-                             "sentSerial": self.other_1.text() if self.state["pluginID"] == "cq_wpx_cw" else ""})
+                             "sentSerial": self.other_1.text() if self.state["pluginID"] in SERIAL_PLUGINS else ""})
 
     def save_contact(self):
         self._commit(self)
@@ -165,7 +166,9 @@ class Desk:
         self.state["esmCallSent"] = self.esm_call_sent
 
     def contact_for(self, fields, qso_id, timestamp, frequency, base=None, operator=None):
-        call = fields["callsign"].upper()
+        for name in INPUTS:
+            getattr(self, name).setText(fields[name])
+        call = self.parsed_call()
         country = self.cty_lookup(call)
         info = next(iter(country.values())) if country else {}
         band = self.band(frequency)
@@ -179,12 +182,22 @@ class Desk:
             self.contact.update({"QSXFreq": frequency / 1000, "Mode": "CW", "ContestNR": 1,
                 "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
                 "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
-        for name in INPUTS:
-            getattr(self, name).setText(fields[name])
-        self.contact_is_dupe = int(bool(self.database.check_dupe_on_band(call, band).get("isdupe")))
+        self.contact_is_dupe = int(self.is_dupe(call, band))
         self.contest.set_contact_vars(self)
         self.contact["Points"] = self.contest.points(self)
         return deepcopy(self.contact)
+
+    def parsed_call(self):
+        # Sweepstakes' original parser may supply a corrected call inside the
+        # packed exchange. Use that result consistently for identity and dupe.
+        if self.state["pluginID"] == "arrl_ss_cw":
+            return self.contest.parse_exchange(self)[4]
+        return self.callsign.text().upper()
+
+    def is_dupe(self, call, band):
+        if self.contest.dupe_type == 1:
+            return bool(self.database.check_dupe(call).get("isdupe"))
+        return bool(self.database.check_dupe_on_band(call, band).get("isdupe"))
 
     @staticmethod
     def band(frequency):
@@ -199,6 +212,7 @@ class Desk:
         # Rebuild Not1MM's non-transmitting ESM presentation on every read so
         # highlights survive reopen/refresh without emitting an output intent.
         self.contest.process_esm(self, getattr(self, self.current_widget), False)
+        call = self.parsed_call()
         fields = []
         containers = [self.field0, self.field1, self.field2, self.field3, self.field4]
         labels = ["Call", self.snt_label.text() or "SNT", self.rcv_label.text() or "RCV", self.other_label.text(), self.exch_label.text()]
@@ -207,7 +221,6 @@ class Desk:
             fields.append({"id": name, "value": field.text(), "visible": container.visible,
                            "label": label, "accessibleName": container.accessible_name or label,
                            "readOnly": field.read_only, "enabled": field.enabled})
-        call = self.callsign.text().upper()
         band = self.band(self.state["draft"]["frequencyHz"])
         country = self.state["reference"]["countries"].get(call, {})
         speed = self.state.get("setup", {}).get("preferences", {}).get("cwSpeed")
@@ -229,11 +242,16 @@ class Desk:
                 "tabPrevious": {a.name: b.name for a, b in self.tab_prev.items()},
                 "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights,
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
-                "dupe": bool(call and self.database.check_dupe_on_band(call, band).get("isdupe")),
+                "dupe": bool(call and self.is_dupe(call, band)),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] == "arrl_ss_cw":
+            sections = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": 0, "sections": sections,
+                    "multipliers": sections, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] == "cq_wpx_cw":
             prefixes = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -363,7 +381,7 @@ class Host:
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
                     "sentExchange": str(state["settings"]["SentExchange"]),
-                    "sentSerial": desk.other_1.text() if state["pluginID"] == "cq_wpx_cw" else ""}
+                    "sentSerial": desk.other_1.text() if state["pluginID"] in SERIAL_PLUGINS else ""}
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"])) if row else None}
@@ -635,7 +653,7 @@ class Host:
                 "fields": dict(zip(INPUTS, ("", "599", "599", str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" else "", "")))}}
 
     def reserve_serial(self, store, state):
-        if state["pluginID"] != "cq_wpx_cw":
+        if state["pluginID"] not in SERIAL_PLUGINS:
             return
         serial = store.exec_sql("SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial")["serial"]
         store.conn.execute("INSERT INTO xlog_serial VALUES(?,?,?)", (state["draft"]["id"], serial, self._operation))
@@ -691,14 +709,18 @@ class Host:
         if desk.state["pluginID"] == "cq_ww_cw":
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
-        else:
+        elif desk.state["pluginID"] == "cq_wpx_cw":
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
                         "WPX sent and received serials must be positive SQLite integers")
+        else:
+            require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
+                    and 0 < int(fields["other_1"]) <= 9223372036854775807,
+                    "Sent serial must be a positive SQLite integer")
 
     def commit(self, desk, qso_id=None, timestamp=None):
         fields = desk.values()
-        require(re.fullmatch(r"[A-Z0-9/]{3,32}", fields["callsign"]) is not None, "Complete callsign required")
+        require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
         self.validate_exchange(desk, fields)
         qso_id = identifier(qso_id) if qso_id else str(uuid.uuid4())
         timestamp = timestamp or now()
@@ -711,13 +733,13 @@ class Host:
             desk.database.log_contact(contact)
         except sqlite3.IntegrityError as error:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
-        country = desk.state["reference"]["countries"].get(fields["callsign"])
+        country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         self.audit(desk.database, qso_id, "commit", None, contact)
         desk.state["draft"]["id"] = str(uuid.uuid4())
         for name in ("callsign", "other_2"):
             getattr(desk, name).setText("")
-        if desk.state["pluginID"] == "cq_wpx_cw":
+        if desk.state["pluginID"] in SERIAL_PLUGINS:
             self.reserve_serial(desk.database, desk.state)
             desk.current_sn = desk.state["draft"]["serial"]
             desk.other_1.setText(desk.state["draft"]["fields"]["other_1"])
@@ -743,7 +765,7 @@ class Host:
                 changes.update({"countries": params["countries"], "referenceID": params.get("referenceID")})
             self.apply_fields(desk, changes)
             updated = desk.values()
-            require(re.fullmatch(r"[A-Z0-9/]{3,32}", updated["callsign"]) is not None, "Complete callsign required")
+            require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
             self.validate_exchange(desk, updated)
             timestamp = params.get("timestamp", before["TS"])
             try:
@@ -762,7 +784,7 @@ class Host:
                 desk.database.change_contact(after)
             except sqlite3.IntegrityError as error:
                 raise HostError("qso_collision", "Corrected timestamp/call collides with another contact") from error
-            country = desk.state["reference"]["countries"].get(updated["callsign"])
+            country = desk.state["reference"]["countries"].get(after["Call"])
             desk.database.conn.execute("UPDATE xlog_qso_identity SET raw_fields=?,country=? WHERE id=?", (canonical(updated), canonical(country), qso_id))
         self.rebuild(desk)
         after = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
@@ -777,7 +799,7 @@ class Host:
         desk.database.conn.execute("DELETE FROM DXLOG")
         for row in rows:
             desk.contact = row
-            desk.contact_is_dupe = int(bool(desk.database.check_dupe_on_band(row["Call"], row["Band"]).get("isdupe")))
+            desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"]))
             row["Points"] = desk.contest.points(desk)
             points[row["ID"]] = row["Points"]
             desk.database.log_contact(row)

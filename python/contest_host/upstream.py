@@ -48,6 +48,10 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # host-reserved draft serial, independently of that configured text.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{RST} {SENTNR}"
+    elif plugin_id == "arrl_ss_cw":
+        # The pinned plugin's SOAPBOX_HINT gives its exchange macro explicitly.
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{CALL} {SENTNR} {EXCHANGE}"
     if len(result) != 24:
         raise RuntimeError("Pinned Not1MM CW macro set is incomplete")
     return result
@@ -72,7 +76,7 @@ def overlay(name, replacements):
 
 
 def load_plugin(plugin_id="cq_ww_cw"):
-    if plugin_id not in {"cq_ww_cw", "cq_wpx_cw"}:
+    if plugin_id not in {"cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw"}:
         raise ValueError("Unsupported pinned plugin")
     verify_source()
     if str(VENDOR) not in sys.path:
