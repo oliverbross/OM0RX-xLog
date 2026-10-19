@@ -154,10 +154,20 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect(screen.getByLabelText("CW speed unavailable").textContent).toBe("—");
   expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("—/— —");
+  expect(Array.from(document.querySelectorAll(".contest-surface-main-fields > *")).map(field=>field.querySelector("label")?.firstChild?.textContent??field.firstChild?.textContent))
+    .toEqual(["Callsign","SNT","RCV","SentNR","RcvNR"]);
+  expect(screen.getByLabelText("Power")).toHaveProperty("value","100");
+  expect(screen.getAllByRole("radio").map(input=>input.parentElement?.textContent)).toEqual(["Run","S&P"]);
+  expect(screen.queryByLabelText("Operating style")).toBeNull();
+  expect(document.querySelector(".contest-surface-entry > footer")).toBeNull();
+  const options=document.querySelector(".contest-surface-entry-options") as HTMLDetailsElement;
+  expect(options.open).toBe(false);
+  expect(options.querySelector("footer")?.textContent).toBe("Log QSO");
+  expect(screen.queryByRole("button",{name:"Reserve serial",hidden:true})).toBeNull();
     expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F1: CQ");
   expect((screen.getByRole("button",{name:"F12 Unassigned"}) as HTMLButtonElement).disabled).toBe(true);
   expect(document.querySelector("canvas")).toBeNull();
-  fireEvent.change(screen.getByLabelText("Operating style"),{target:{value:"search-and-pounce"}});
+  fireEvent.click(screen.getByRole("radio",{name:"S&P"}));
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")).toBe(true));
   expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
@@ -229,7 +239,8 @@ it("does not replay an action when its reply is lost",async()=>{
     throw new Error(`unexpected ${command}`);
   });
   render(<DetachedContestSurface/>); await screen.findByRole("heading",{name:"ARRL DX"});
-  fireEvent.click(screen.getByRole("button",{name:"Reserve serial"}));
+  fireEvent.click(screen.getByText("Entry controls"));
+  fireEvent.click(screen.getByRole("button",{name:"Log QSO"}));
   expect(await screen.findByText("IPC reply lost")).toBeTruthy();
   expect(actions).toBe(1); expect(snapshots).toBeGreaterThanOrEqual(2);
 });
@@ -305,7 +316,7 @@ it("does not silently rebase a control action after another surface revision win
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
   fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
-  fireEvent.change(screen.getByLabelText("Operating style"),{target:{value:"search-and-pounce"}});
+  fireEvent.click(screen.getByRole("radio",{name:"S&P"}));
   current={...current,projectionRevision:7,projection:{...current.projection,draft:{...current.projection.draft,revision:6,callsign:"K"}},
     receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:7}]};await act(async()=>{native.wake!();});
   expect(await screen.findByText("The shared contest panel changed before this action could be applied.")).toBeTruthy();

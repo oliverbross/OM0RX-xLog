@@ -172,10 +172,10 @@ function useEntryIntents(projection:any,projectionRevision:number,send:Send){
     draft.receivedFields.every((field:any)=>intended[`exchange:${field.id}`]===field.value),[projection.draft.receivedFields.length]);
   return {values,unresolved,change,flush,discard,retry,capture,matches};
 }
-function EntryIntentInput({label,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onChange,unresolved,retry,discard}:{
-  label:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:"callsign"|"exchange";
+function EntryIntentInput({label,accessibleLabel,intentKey,value,maximumUTF8Bytes,disabled,operatorField,inputRef,onChange,unresolved,retry,discard}:{
+  label:string;accessibleLabel?:string;intentKey:EntryIntentKey;value:string;maximumUTF8Bytes:number;disabled:boolean;operatorField?:"callsign"|"exchange";
   inputRef?:RefObject<HTMLInputElement|null>;onChange:(key:EntryIntentKey,value:string)=>void;unresolved:boolean;retry:()=>void;discard:()=>void}){
-  return <div className="contest-surface-intent"><ContestTextField label={label} inputRef={inputRef} data-contest-operator-field={operatorField}
+  return <div className="contest-surface-intent"><ContestTextField label={label} aria-label={accessibleLabel} inputRef={inputRef} data-contest-operator-field={operatorField}
     value={value} disabled={disabled} onChange={event=>{const next=event.target.value;if(new TextEncoder().encode(next).length<=maximumUTF8Bytes)
       onChange(intentKey,next);}}/>{unresolved&&<div role="status"><span>This edit is not confirmed.</span>
       <button type="button" onClick={retry}>Apply edit again</button><button type="button" onClick={discard}>Use shared value</button></div>}</div>;
@@ -224,11 +224,11 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}
     <div className="contest-surface-sent-number"><span>SentNR</span><output aria-label="Sent exchange">{projection.schemaVersion===2 ? projection.descriptor.sentFields.map((field:any)=>field.value||"—").join(" ")||"—" : "—"}</output></div>
     {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey;return <EntryIntentInput key={field.id}
-      label={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
+      label={projection.draft.receivedFields.length===1?"RcvNR":field.label} accessibleLabel={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
       operatorField="exchange" inputRef={index===0?exchangeRef:undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
       unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
     </div>
-    <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable">● ●</span>
+    <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable"><span>●</span><span>●</span></span>
       <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
       <div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
@@ -239,8 +239,6 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     </div></div>
     <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
     <details className="contest-surface-entry-options"><summary>Entry controls</summary>
-    {operator&&<label>Operating style<select value={operator.style} disabled={disabled||operator.pending!==null}
-        onChange={event=>void send({action:"entry_operator_style",params:{...base,value:event.target.value as "run"|"search-and-pounce"}},projectionRevision)}><option value="run">Run</option><option value="search-and-pounce">S&amp;P</option></select></label>}
     {projection.schemaVersion===2&&<div className="contest-surface-row contest-surface-operating">
       <label>Band<select value={projection.draft.band} disabled={disabled}
         onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
@@ -258,12 +256,14 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
         <button type="button" disabled={!operator.armed} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
         <span role="status">{operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
         {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
-      </section>}</>}</details>
+      </section>}</>}
+      <footer>{projection.schemaVersion===2&&projection.descriptor.serial.requirement!=="none"&&<button disabled={disabled||sending} onClick={() => void send({action:"entry_reserve_serial",params:base},projectionRevision)}>Reserve serial</button>}
+        <button disabled={disabled||sending || projection.draft.validation.errors.length > 0 || projection.draft.dupe.state === "duplicate"}
+          onClick={() => void send({action:"entry_commit",params:base},projectionRevision)}>Log QSO</button></footer>
+    </details>
     {projection.draft.frequencyError && <p role="alert">{projection.draft.frequencyError}</p>}
     {[...projection.draft.validation.errors,...projection.draft.validation.warnings].map((item:string) => <p key={item}>{item}</p>)}
-    <footer><button disabled={disabled||sending} onClick={() => void send({action:"entry_reserve_serial",params:base},projectionRevision)}>Reserve serial</button>
-      <button disabled={disabled||sending || projection.draft.validation.errors.length > 0 || projection.draft.dupe.state === "duplicate"}
-        onClick={() => void send({action:"entry_commit",params:base},projectionRevision)}>Log QSO</button></footer></section>;
+    </section>;
 }
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
   projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send: Send }) {
