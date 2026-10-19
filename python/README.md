@@ -32,7 +32,7 @@ Methods (an optional `contest_` prefix is accepted): `catalog`, `sessions`, `ses
 (`create`), `session_open` (`open`), `projection` (`draft_get`), `draft_apply`,
 `focus`, `run_state`, `esm`, `function_key`, `qso_commit`, `qso_correct`,
 `qso_delete`, `receipt` (`operation_receipt`), `log` (`log_page`), `score`,
-`cw_context`, `rates`, `setup_get`, `setup_save`, `export`, `export_prepare`,
+`cw_context`, `rates`, `check_partial`, `setup_get`, `setup_save`, `export`, `export_prepare`,
 `export_read`, `export_release`.
 
 Except catalog and sessions, requests contain canonical UUID `sessionID`. All mutations also
@@ -68,6 +68,28 @@ tab maps, focus, Run/S&P, F-key highlights, score and dupe. `score` adds band
 country/zone matrices. An output action contains `actionID`, session/draft IDs,
 F-key and captured exchange context. Native code must resolve macros and apply
 existing explicit operator/transmit controls; no physical action is executed here.
+
+The Main-window projection also carries `operator`, nullable `cwSpeedWpm`
+(saved numeric `preferences.cwSpeed` in 1–100 WPM, otherwise null), and
+`callContext:{callsign,entity,country,continent,cqZone,ituZone,primaryPrefix,
+headingDegrees,longPathHeadingDegrees,distanceKm}`. Country/zone/prefix facts
+come only from the current call's pinned CTY record; unresolved facts are null.
+Heading, long-path heading and distance are null because the current reference
+contract does not provide authoritative coordinates for both endpoints.
+`score` includes `multipliers`, the pinned CQ WW plugin's country-plus-zone
+multiplier count, alongside its QSO count, points and total score.
+
+`check_partial` accepts a callsign fragment `query` (1–32 ASCII letters, digits
+or slash; normalized uppercase), `limit` (1–500, default 100), and optional
+`expectedRevision`. It searches every row of the session's contest log using
+the pinned `DataBase.fetch_like_calls` substring match and `TS ASC` ordering
+(rowid breaks timestamp ties), independently of displayed log pagination.
+It returns `{sessionID,revision,query,limit,total,rows}` from one read snapshot;
+`total` includes all matching rows even when the reply cap is reached. The
+existing `log` and partial-search rows retain the original Not1MM fields:
+`TS`, `Call`, `Freq` in kHz, `SNT`, `RCV`, `SentNr`, `ZN`, `WPXPrefix`,
+`CountryPrefix`, `Points`, and other stored columns. No Swift rule translation
+or second scoring authority is introduced.
 
 `rates` reads all retained `DXLOG` rows in one read snapshot, returning session ID,
 revision and `lastHourQsoPerHour`, `last10QsoPerHour`, `last100QsoPerHour`,

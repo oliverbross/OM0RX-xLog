@@ -217,6 +217,56 @@ class HostTests(unittest.TestCase):
         for key in ("Operator", "StationPrefix", "SentNr", "IsRunQSO", "Run1Run2"):
             self.assertEqual(after[key], before[key])
 
+    def test_main_context_exposes_operator_saved_speed_cty_and_authoritative_score(self):
+        setup = self.read("setup_get")["setup"]
+        self.mutate("setup_save", setup={**setup, "operator": "OM0RX/P", "preferences": {"cwSpeed": 27}})
+        self.log()
+        view = self.mutate("draft_apply", fields={"callsign": "DL1ABC"})["projection"]
+        self.assertEqual((view["operator"], view["cwSpeedWpm"]), ("OM0RX/P", 27))
+        self.assertEqual(view["score"]["multipliers"], view["score"]["countries"] + view["score"]["zones"])
+        self.assertEqual(view["callContext"], {"callsign": "DL1ABC", "entity": "Germany", "country": "Germany",
+            "continent": "EU", "cqZone": 14, "ituZone": 28, "primaryPrefix": "DL", "headingDegrees": None,
+            "longPathHeadingDegrees": None, "distanceKm": None})
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("projection")["projection"]["callContext"], view["callContext"])
+        unknown = self.mutate("draft_apply", fields={"callsign": "XX1UNKNOWN"})["projection"]["callContext"]
+        self.assertEqual(unknown["callsign"], "XX1UNKNOWN")
+        self.assertTrue(all(value is None for key, value in unknown.items() if key != "callsign"))
+
+    def test_main_context_absent_or_invalid_saved_speed_stays_unknown(self):
+        self.assertIsNone(self.read("projection")["projection"]["cwSpeedWpm"])
+        setup = self.read("setup_get")["setup"]
+        for speed in (True, "25", 0, -1, 101):
+            self.assertIsNone(self.mutate("setup_save", setup={**setup, "preferences": {"cwSpeed": speed}})["projection"]["cwSpeedWpm"])
+
+    def test_partial_log_searches_all_rows_with_total_and_not1mm_order(self):
+        qso = self.log()
+        store = self.host.database(self.session)
+        base = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso,))
+        start = datetime(2026, 10, 19, 9, 0)
+        for index in range(125):
+            store.log_contact({**base, "ID": uid(), "TS": (start + timedelta(seconds=index)).isoformat(" "),
+                               "Call": f"K{index}ABC"})
+        store.conn.commit()
+        result = self.read("contest_check_partial", query="abc", limit=120, expectedRevision=self.revision)
+        self.assertEqual((result["query"], result["total"], len(result["rows"])), ("ABC", 126, 120))
+        self.assertEqual(result["rows"][0]["ID"], qso)
+        self.assertEqual(result["rows"][-1]["Call"], "K118ABC")
+        self.assertEqual(self.read("check_partial", query="124")["rows"][0]["Call"], "K124ABC")
+        self.assertEqual(self.read("check_partial", query="NOTFOUND")["total"], 0)
+        row = result["rows"][0]
+        self.assertTrue({"TS", "Call", "Freq", "SNT", "RCV", "SentNr", "ZN", "WPXPrefix", "CountryPrefix", "Points"} <= set(row))
+        self.assertEqual(self.read("log", limit=1)["rows"][0]["Freq"], 14025)
+        self.assertEqual(self.read("check_partial", query="ABC")["revision"], self.revision)
+        self.mutate("draft_apply", fields={"callsign": "DL1ABC"})
+        with self.assertRaises(HostError) as error:
+            self.read("check_partial", query="ABC", expectedRevision=self.revision - 1)
+        self.assertEqual(error.exception.code, "stale_revision")
+        for params in ({"query": "%"}, {"query": ""}, {"query": "ABC", "limit": 501}, {"query": "ABC", "limit": True}):
+            with self.subTest(params=params), self.assertRaises(HostError):
+                self.read("check_partial", **params)
+
     def test_country_additions_require_the_session_reference_identity(self):
         country = {"VK1ABC": {"entity": "Australia", "continent": "OC", "cq": 30,
                               "itu": 59, "primary_pfx": "VK"}}
@@ -244,7 +294,7 @@ class HostTests(unittest.TestCase):
     def test_actual_score_dupe_and_band_semantics(self):
         self.log()
         self.log("DL1ABC", "14", 1)
-        self.assertEqual(self.read("score")["score"], {"qsos": 2, "points": 4, "countries": 2, "zones": 2, "total": 16})
+        self.assertEqual(self.read("score")["score"], {"qsos": 2, "points": 4, "countries": 2, "zones": 2, "multipliers": 4, "total": 16})
         self.log(minute=2)
         self.assertEqual(self.read("score")["score"]["points"], 4)
         self.log(minute=3, frequency=7025000)

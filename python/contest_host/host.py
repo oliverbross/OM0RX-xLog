@@ -207,12 +207,21 @@ class Desk:
                            "readOnly": field.read_only, "enabled": field.enabled})
         call = self.callsign.text().upper()
         band = self.band(self.state["draft"]["frequencyHz"])
+        country = self.state["reference"]["countries"].get(call, {})
+        speed = self.state.get("setup", {}).get("preferences", {}).get("cwSpeed")
+        if type(speed) not in {int, float} or not 1 <= speed <= 100:
+            speed = None
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": PLUGIN_ID, "sourceRevision": SOURCE_REVISION,
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
                 "frequencyHz": self.state["draft"]["frequencyHz"], "mode": "CW", "band": band,
+                "operator": self.state["operator"], "cwSpeedWpm": speed,
+                "callContext": {"callsign": call, "entity": country.get("entity"), "country": country.get("entity"),
+                    "continent": country.get("continent"), "cqZone": country.get("cq"), "ituZone": country.get("itu"),
+                    "primaryPrefix": country.get("primary_pfx"), "headingDegrees": None,
+                    "longPathHeadingDegrees": None, "distanceKm": None},
                 "focus": self.current_widget, "nextField": self.next_field.name,
                 "tabNext": {a.name: b.name for a, b in self.tab_next.items()},
                 "tabPrevious": {a.name: b.name for a, b in self.tab_prev.items()},
@@ -225,7 +234,7 @@ class Desk:
     def score(self):
         country, zone = self.contest.show_mults(self, rtc=True)
         return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
-                "countries": country, "zones": zone, "total": self.contest.calc_score(self)}
+                "countries": country, "zones": zone, "multipliers": country + zone, "total": self.contest.calc_score(self)}
 
 
 class Host:
@@ -316,6 +325,27 @@ class Host:
         if method == "setup_get":
             return {"sessionID": session_id, "revision": state["revision"],
                     "setup": deepcopy(state.get("setup", self.default_setup(state)))}
+        if method == "check_partial":
+            query = text(params.get("query", ""), 32).upper()
+            require(re.fullmatch(r"[A-Z0-9/]{1,32}", query) is not None, "Partial callsign must contain letters, digits or slash")
+            limit = params.get("limit", 100)
+            require(type(limit) is int and 1 <= limit <= 500, "Invalid partial result limit")
+            # Mirror pinned DataBase.fetch_like_calls: substring, contest scope,
+            # oldest first. Bound the reply without bounding the search domain.
+            store.conn.execute("BEGIN")
+            try:
+                state = store.state(session_id)
+                self.verify_engine(state)
+                expected = params.get("expectedRevision")
+                require(expected is None or type(expected) is int and expected == state["revision"],
+                        "Contest changed before partial log lookup", "stale_revision")
+                match = (f"%{query}%", store.current_contest)
+                total = store.exec_sql("SELECT count(*) AS n FROM DXLOG WHERE Call LIKE ? AND ContestNR=?", match)["n"]
+                rows = store.exec_sql_mult("SELECT * FROM DXLOG WHERE Call LIKE ? AND ContestNR=? ORDER BY TS ASC,rowid ASC LIMIT ?", (*match, limit))
+                return {"sessionID": session_id, "revision": state["revision"], "query": query,
+                        "limit": limit, "total": total, "rows": rows}
+            finally:
+                store.conn.rollback()
         desk = Desk(store, state, self.commit)
         if method in {"session_open", "projection"}:
             return {"projection": desk.projection()}
