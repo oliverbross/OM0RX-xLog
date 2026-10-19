@@ -186,6 +186,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const base = { draftID: projection.draft.draftID, expectedDraftRevision: projection.draft.revision };
   const callsignRef=useRef<HTMLInputElement>(null),exchangeRef=useRef<HTMLInputElement>(null);
   const operator=projection.schemaVersion===2?projection.operator:null;
+  const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
   const intents=useEntryIntents(projection,projectionRevision,send);
   const actionFor=(key:EntryIntentKey)=>(value:string):ContestSurfaceAction=>key==="callsign"||key==="sentReport"||key==="receivedReport"
     ?{action:"entry_set_text",params:{...base,field:key,value}}
@@ -212,7 +213,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
-    <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{["160m","80m","40m","20m","15m","10m"].map(band=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
+    <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{displayedBands.map((band:string)=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields">
     <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
@@ -241,7 +242,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     <details className="contest-surface-entry-options"><summary>Entry controls</summary>
     {projection.schemaVersion===2&&<div className="contest-surface-row contest-surface-operating">
       <label>Band<select value={projection.draft.band} disabled={disabled}
-        onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
+        onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{!projection.descriptor.bands.includes(projection.draft.band)&&<option hidden>{projection.draft.band}</option>}{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
       <label>Mode<select value={projection.draft.mode} disabled={disabled}
         onChange={event=>void send({action:"entry_set_mode",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.modes.map((mode:string)=><option key={mode}>{mode}</option>)}</select></label>
     </div>}

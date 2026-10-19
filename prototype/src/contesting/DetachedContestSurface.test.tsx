@@ -166,7 +166,7 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect(screen.getByRole("region",{name:"Main Logging"})).toBeTruthy();
   expect(screen.getByLabelText("Current frequency").textContent).toBe("14,025.00 kHz");
   expect(screen.getByRole("group",{name:"Function key macros"}).querySelectorAll("button")).toHaveLength(12);
-  expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040201510");
+  expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW2040");
   expect(screen.getByLabelText("Sent exchange").textContent).toBe("100");
   expect(screen.getByLabelText("CW speed unavailable").textContent).toBe("—");
   expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);

@@ -122,6 +122,29 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it("projects only configured bands into detached Main Logging", async () => {
+  const current = projection();
+  const saved = newContestSetup("OM0RX");
+  saved.preferences.bands = ["40m", "20m", "2m"];
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? { plugins: [{ id: "cq_ww_cw", name: "CQ WW CW" }] }
+      : method === "contest_sessions" ? { sessions: [] }
+      : method === "contest_create" ? { projection: current }
+      : method === "contest_log_page" ? { rows: [], total: 0 }
+      : method === "contest_score" ? { score: current.score }
+      : method === "contest_check_partial" ? { query: "", rows: [], total: 0 } : null;
+    if (!result) throw new Error(method);
+    return { id: crypto.randomUUID(), ok: true, result };
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections["active-qso"].descriptor.bands).toEqual(["40m", "20m", "2m"]));
+});
+
 it.each(["log", "cluster"])("applies %s Check Partial only through the revision-fenced Python draft",async kind=>{
   let current=projection(9,{callsign:"DL1"});
   let partialAvailable=true;

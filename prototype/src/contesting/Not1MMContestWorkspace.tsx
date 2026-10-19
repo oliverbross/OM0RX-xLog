@@ -5,7 +5,7 @@ import ClusterPanel from "../live/ClusterPanel";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
 import { ContestCallHistoryPanel, type ContestHistoryPanelSurface } from "./ContestCallHistoryPanel";
-import { ContestSetupPanel, newContestSetup, type ContestSetupDocument, type ContestSetupMacro } from "./ContestSetupPanel";
+import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupMacro } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
@@ -54,6 +54,7 @@ const setupDraftKey = "xlog.contesting.not1mm.setup-draft.v1";
 const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
+const setupBandChoices = [...contestBands, "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
 const cqwwFrequency = (value: unknown): number | null => {
@@ -78,7 +79,7 @@ function restoredSetup(stationCall: string): ContestSetupDocument {
     return { ...defaults, ...saved,
       station: { ...defaults.station, ...(saved.station ?? {}) },
       settings: { ...defaults.settings, ...(saved.settings ?? {}) },
-      preferences: { ...defaults.preferences, ...(saved.preferences ?? {}) },
+      preferences: { ...defaults.preferences, ...restoredESMPreferences(saved.preferences ?? {}) },
       network: { ...defaults.network, ...(saved.network ?? {}) },
       macros: Array.isArray(saved.macros) ? saved.macros : defaults.macros };
   } catch { return defaults; }
@@ -162,6 +163,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
+  const configuredBands = useMemo(() => {
+    const selected = Array.isArray(setup.preferences.bands) ? setup.preferences.bands : contestBands;
+    return setupBandChoices.filter(band => selected.includes(band));
+  }, [setup.preferences.bands]);
   const [effectiveMacros, setEffectiveMacros] = useState<ContestSetupMacro[] | undefined>();
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
@@ -514,7 +519,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         reservedSerial: null,
       },
       descriptor: {
-        bands: [bandLabels[String(projection.band)] ?? String(projection.band)], modes: ["CW"],
+        bands: configuredBands, modes: ["CW"],
         sentFields: [{ id: "other_1", label: sentZone?.label || "Sent CQ zone", value: currentFields.other_1 ?? "",
           required: true, maximumUTF8Bytes: 8 }],
         serial: { requirement: "none", allocatedFieldID: null, reservedSerial: null },
@@ -572,7 +577,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, historySurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots]);
+    busy, retiring, scpSurface, historySurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots, configuredBands]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
