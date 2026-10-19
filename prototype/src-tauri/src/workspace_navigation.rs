@@ -28,8 +28,9 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 12] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 13] = [
     ("contest-setup", "Contest Setup"),
+    ("contest-window-call-history", "Call History"),
     ("contest-window-active-qso", "Main Logging"),
     ("contest-window-propagation", "Stats"),
     ("contest-window-logbook", "Logbook"),
@@ -124,7 +125,7 @@ mod tests {
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
             state.acknowledge("contest-setup", pending.revision).unwrap();
         }
-        assert_eq!(windows, ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        assert_eq!(windows, ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         for invalid in ["contest-window-settings", "contest-window-cw", "contest-window-alerts", "contest-window-", "contest_setup", "workspace_window_logbook"] {
             assert!(contest_menu_route(invalid).is_none());
             assert!(contest_route(invalid).is_none());
@@ -141,6 +142,7 @@ mod tests {
         let windows = capability["windows"].as_array().unwrap();
         for label in [
             "contest-setup",
+            "contest--call-history",
             "contest--active-qso",
             "contest--propagation",
             "contest--logbook",

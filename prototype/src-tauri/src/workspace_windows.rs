@@ -84,8 +84,9 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 12] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 13] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 620.0 },
+    WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 900.0, height: 720.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 920.0, height: 760.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check", width: 700.0, height: 620.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rate", width: 780.0, height: 600.0 },
@@ -126,6 +127,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
         if identity.scope == WorkspaceWindowScope::Contesting {
             return match identity.panel_id {
                 "active-qso" => (520.0, 240.0),
+                "call-history" => (620.0, 420.0),
                 "callsign-intelligence" => (360.0, 240.0),
                 "logbook" => (640.0, 480.0),
                 "propagation" | "alerts" => (240.0, 80.0),

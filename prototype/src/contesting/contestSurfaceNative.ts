@@ -128,6 +128,12 @@ export async function openContestSurfaceWindow(context: ContestSurfaceContext, p
   await invoke("contest_window_open", { ...context, panelID });
 }
 
+export async function openContestCallHistoryWindow(context: ContestSurfaceContext): Promise<void> {
+  if (!contextValid(context)) throw new Error("The Call History window request could not be verified.");
+  if (!isTauri()) throw new Error("Call History requires the native application.");
+  await invoke("contest_window_open", { ...context, panelID: "call-history" });
+}
+
 export async function onContestSurfaceWake(refresh: () => void): Promise<UnlistenFn> {
   return listen(contestSurfaceEvent, () => refresh());
 }

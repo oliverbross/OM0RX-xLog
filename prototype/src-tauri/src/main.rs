@@ -65,6 +65,8 @@ static APP_EXITING: AtomicBool = AtomicBool::new(false);
 static SCP_IMPORT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static HISTORY_PREVIEW_ACTIVE: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
+const CONTEST_SETUP_WINDOW: &str = "contest-setup";
+const CONTEST_CALL_HISTORY_WINDOW: &str = "contest--call-history";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
 pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
     SPOT_ACTIVATION.get_or_init(|| Arc::new(spot_activation::Coordinator::new(
@@ -130,6 +132,17 @@ mod contesting_test_native_admission_tests {
         assert!(super::native_only_worker_method("contest_scp_import_private"));
         assert!(super::native_only_worker_method("contest_history_preview_private"));
         assert!(!super::native_only_worker_method("contest_scp_query"));
+        assert_eq!(super::CONTEST_SETUP_WINDOW, "contest-setup");
+        assert_eq!(super::CONTEST_CALL_HISTORY_WINDOW, "contest--call-history");
+        assert_ne!(super::CONTEST_SETUP_WINDOW, super::CONTEST_CALL_HISTORY_WINDOW);
+        for method in ["contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
+            "contest_history_preview_commit", "contest_history_activate"] {
+            assert!(super::contest_history_manager_method(method));
+        }
+        for method in ["contest_history_query", "contest_history_select", "contest_history_preview_private",
+            "contest_scp_import_private", "workspace_create"] {
+            assert!(!super::contest_history_manager_method(method));
+        }
         assert!(super::private_picker_final_admission("SCP import",7,7,false,true).is_ok());
         assert!(super::private_picker_final_admission("SCP import",7,8,false,true).is_err());
         assert!(super::private_picker_final_admission("Call-history preview",7,7,true,true).is_err());
@@ -1051,7 +1064,7 @@ async fn contest_export_save(window: tauri::WebviewWindow, state: tauri::State<'
 
 #[tauri::command]
 async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, String> {
-    if !runtime_profile::CONTESTING_TEST || window.label() != "contest-setup" || APP_EXITING.load(Ordering::Acquire) {
+    if !runtime_profile::CONTESTING_TEST || window.label() != CONTEST_SETUP_WINDOW || APP_EXITING.load(Ordering::Acquire) {
         return Err("SCP import is unavailable in this window.".into());
     }
     let generation=worker::existing_generation()?;
@@ -1065,10 +1078,10 @@ async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde
         let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
             "method":"contest_scp_import_private","params":{"path":path.to_string_lossy(),"sourceName":source_name}});
         dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("contest-setup").is_some(),|| {
+            app.get_webview_window(CONTEST_SETUP_WINDOW).is_some(),|| {
                 let response=worker::request_existing_generation(request,generation)?;
                 private_picker_final_admission("SCP import",generation,worker::generation(),
-                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("contest-setup").is_some())?;
+                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window(CONTEST_SETUP_WINDOW).is_some())?;
                 Ok(response)
             }).map(Some)
     })).await
@@ -1076,8 +1089,10 @@ async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde
 }
 
 #[tauri::command]
-async fn contest_history_preview(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, String> {
-    if !runtime_profile::CONTESTING_TEST || window.label() != "contest-setup" || APP_EXITING.load(Ordering::Acquire) {
+async fn contest_history_preview(window: tauri::WebviewWindow, operating_context: String,
+    session_i_d: String, workspace_generation: String) -> Result<Option<serde_json::Value>, String> {
+    let context = contest_history_manager_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    if APP_EXITING.load(Ordering::Acquire) {
         return Err("Call-history preview is unavailable in this window.".into());
     }
     let generation=worker::existing_generation()?;
@@ -1092,13 +1107,63 @@ async fn contest_history_preview(window: tauri::WebviewWindow) -> Result<Option<
             "method":"contest_history_preview_private","params":{
                 "path":path.to_string_lossy(),"sourceName":source_name}});
         dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("contest-setup").is_some(),|| {
+            app.get_webview_window(CONTEST_CALL_HISTORY_WINDOW).is_some(),|| {
+                contest_window_context::admit(&context)?;
                 let response=worker::request_existing_generation(request,generation)?;
                 private_picker_final_admission("Call-history preview",generation,worker::generation(),
-                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("contest-setup").is_some())?;
+                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window(CONTEST_CALL_HISTORY_WINDOW).is_some())?;
+                contest_window_context::admit(&context)?;
                 Ok(response)
             }).map(Some)
     })).await.map_err(|_| "Call-history preview worker task failed.".to_string())?
+}
+
+fn contest_history_manager_context(window: &tauri::WebviewWindow, operating_context: &str,
+    session_id: &str, workspace_generation: &str) -> Result<contest_window_context::ContestWindowContext, String> {
+    if window.label() != CONTEST_CALL_HISTORY_WINDOW {
+        return Err("Call history is unavailable in this window.".into());
+    }
+    let context = contest_window_context::resolve(session_id, workspace_generation)?;
+    if context.operating_context != operating_context {
+        return Err("That Call History window belongs to an expired operating context.".into());
+    }
+    Ok(context)
+}
+
+fn contest_history_manager_method(method: &str) -> bool {
+    matches!(method, "contest_history_status" | "contest_history_preview_page" |
+        "contest_history_preview_cancel" | "contest_history_preview_commit" | "contest_history_activate")
+}
+
+#[tauri::command]
+async fn contest_history_manager_request(window: tauri::WebviewWindow, operating_context: String,
+    session_i_d: String, workspace_generation: String, method: String,
+    params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let context = contest_history_manager_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    if APP_EXITING.load(Ordering::Acquire) {
+        return Err("Call history is unavailable while the application is closing.".into());
+    }
+    if !contest_history_manager_method(&method) {
+        return Err("That Call History operation is unavailable in this window.".into());
+    }
+    let object = params.as_object().ok_or("Call History parameters must be an object.")?;
+    if method == "contest_history_status" {
+        if !object.is_empty() { return Err("Call History status does not accept parameters.".into()); }
+    } else if object.get("workspaceGeneration").and_then(serde_json::Value::as_str)
+        != Some(context.workspace_generation.as_str()) {
+        return Err("That Call History operation belongs to another contest workspace.".into());
+    }
+    let generation = worker::existing_generation()?;
+    let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),"method":method,"params":params});
+    tauri::async_runtime::spawn_blocking(move || {
+        contest_window_context::admit(&context)?;
+        let response = worker::request_existing_generation(request, generation)?;
+        if worker::generation() != generation || APP_EXITING.load(Ordering::Acquire) {
+            return Err("Call History changed while the operation was running.".into());
+        }
+        contest_window_context::admit(&context)?;
+        Ok(response)
+    }).await.map_err(|_| "Call History worker task failed.".to_string())?
 }
 
 #[cfg(target_os = "macos")]
@@ -1110,7 +1175,7 @@ fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option
     let app=window.app_handle().clone();
     window.run_on_main_thread(move || {
         let selected = dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("contest-setup").is_some(),|| {
+            app.get_webview_window(CONTEST_SETUP_WINDOW).is_some(),|| {
             MainThreadMarker::new().ok_or_else(||"SCP chooser is unavailable.".to_string()).map(|main| {
             let panel = NSOpenPanel::openPanel(main);
             panel.setCanChooseFiles(true); panel.setCanChooseDirectories(false);
@@ -1135,7 +1200,7 @@ fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Op
     let app=window.app_handle().clone();
     window.run_on_main_thread(move || {
         let selected = dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("contest-setup").is_some(),|| {
+            app.get_webview_window(CONTEST_CALL_HISTORY_WINDOW).is_some(),|| {
             MainThreadMarker::new().ok_or_else(||"Call-history chooser is unavailable.".to_string()).map(|main| {
                 let panel = NSOpenPanel::openPanel(main);
                 panel.setCanChooseFiles(true); panel.setCanChooseDirectories(false);
@@ -1155,7 +1220,7 @@ fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Op
 fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
     let app=window.app_handle().clone();
     dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-        app.get_webview_window("contest-setup").is_some(),|| {
+        app.get_webview_window(CONTEST_CALL_HISTORY_WINDOW).is_some(),|| {
         Ok(rfd::FileDialog::new().set_title("Choose an operator-managed call-history file").pick_file())
     })
 }
@@ -1164,7 +1229,7 @@ fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Op
 fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
     let app=window.app_handle().clone();
     dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-        app.get_webview_window("contest-setup").is_some(),|| {
+        app.get_webview_window(CONTEST_SETUP_WINDOW).is_some(),|| {
         Ok(rfd::FileDialog::new().set_title("Choose an operator-managed MASTER.SCP file")
             .add_filter("Super Check Partial", &["scp", "txt"]).pick_file())
     })
@@ -2477,7 +2542,7 @@ fn main() {
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close, contest_setup_service_open,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
              acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
@@ -2528,7 +2593,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
-        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
+        for panel in ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
             for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());

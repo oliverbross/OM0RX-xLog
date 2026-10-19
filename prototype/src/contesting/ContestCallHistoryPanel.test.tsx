@@ -15,9 +15,9 @@ const preview={previewID:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",sha256:"b".repea
 it("runs private preview, advisory commit, exact selection, and explicit typed apply without exposing a path",async()=>{
   let active=false;const calls:{method:string;params:Record<string,unknown>}[]=[];const applied=vi.fn(async()=>{});
   const request=(async(method:string,params:Record<string,unknown>={})=>{calls.push({method,params});
-    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset:active?dataset:null,pendingPreview:null,unavailableReason:active?null:"not_imported"}};
+  if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset:active?dataset:null,pendingPreview:null,unavailableReason:active?null:"not_imported",activation:{state:"not_imported",generation:null,digest:null,rowCount:null,message:null}}};
     if(method==="contest_history_preview_page")return {id:"x",ok:true,result:{preview,offset:0,limit:20,total:1,diagnostics:[{severity:"advisory",code:"invalidCall",line:3,detail:"Row retained for review."}]}};
-    if(method==="contest_history_preview_commit"){active=true;return {id:"x",ok:true,result:{dataset}};}
+  if(method==="contest_history_preview_commit"){active=true;return {id:"x",ok:true,result:{dataset,activation:{state:"active",generation:dataset.generation,digest:dataset.sha256,rowCount:dataset.recordCount,message:null}}};}
     if(method==="contest_history_query")return {id:"x",ok:true,result:{context:{sessionID,workspaceGeneration:generation,sessionRevision:2,draftID,draftRevision:2,inputCallsign:"K1ABC",requestID:params.requestID,ruleIdentity:identity,referenceDataVersion:"fixture"},normalizedCallsign:"K1ABC",dataset,totalRecords:1,recordOffset:0,recordLimit:20,valueOffset:0,valueLimit:128,records:[{recordID:`${dataset.sha256}:0`,sourceOrdinal:0,sourceLine:2,normalizedCallsign:"K1ABC",indexingIssue:null,values:[{header:preview.headers[0],value:"K1ABC"},{header:preview.headers[1],value:"kept"},{header:preview.headers[2],value:"05"}]}],next:null}};
     if(method==="contest_history_select")return {id:"x",ok:true,result:{context:{sessionID,workspaceGeneration:generation,sessionRevision:2,draftID,draftRevision:2,inputCallsign:"K1ABC",requestID:params.requestID,ruleIdentity:identity,referenceDataVersion:"fixture"},dataset,record:{recordID:`${dataset.sha256}:0`,sourceOrdinal:0,sourceLine:2,normalizedCallsign:"K1ABC",indexingIssue:null,values:[{header:preview.headers[0],value:"K1ABC"},{header:preview.headers[1],value:"kept"},{header:preview.headers[2],value:"05"}]},valueOffset:0,valueLimit:128,nextValueOffset:null,projections:[{id:"legacy-received-zone",sourceKey:"cqzone",target:"legacyReceivedExchange",fieldID:null,label:"CQ zone",rawValue:"05",normalizedValue:"05"}]}};
     if(method==="contest_history_query_cancel")return {id:"x",ok:true,result:{cancelled:true}};
@@ -47,7 +47,7 @@ it("does not activate history for an unsupported rule",()=>{
 it("cancels the scoped query when the history surface unmounts",async()=>{
   const calls:{method:string;params:Record<string,unknown>}[]=[];
   const request=(async(method:string,params:Record<string,unknown>={})=>{calls.push({method,params});
-    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null}};
+    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null,activation:{state:"active",generation:dataset.generation,digest:dataset.sha256,rowCount:dataset.recordCount,message:null}}};
     if(method==="contest_history_query")return {id:"x",ok:true,result:{context:{sessionID,workspaceGeneration:generation,sessionRevision:2,draftID,draftRevision:2,inputCallsign:"K1ABC",requestID:params.requestID,ruleIdentity:identity,referenceDataVersion:"fixture"},normalizedCallsign:"K1ABC",dataset,totalRecords:0,recordOffset:0,recordLimit:20,valueOffset:0,valueLimit:128,records:[],next:null}};
     if(method==="contest_history_query_cancel")return {id:"x",ok:true,result:{cancelled:true}};
     throw new Error(method);
@@ -63,7 +63,7 @@ it("fences a late callsign result after the authoritative draft context changes"
   const calls:{method:string;params:Record<string,unknown>}[]=[];let resolveOld!:(value:any)=>void;
   const response=(params:Record<string,unknown>,records:unknown[])=>({id:"x",ok:true,result:{context:{sessionID,workspaceGeneration:generation,sessionRevision:params.expectedRevision,draftID,draftRevision:params.expectedDraftRevision,inputCallsign:params.callsign,requestID:params.requestID,ruleIdentity:identity,referenceDataVersion:"fixture"},normalizedCallsign:params.callsign,dataset,totalRecords:records.length,recordOffset:0,recordLimit:20,valueOffset:0,valueLimit:128,records,next:null}});
   const request=(async(method:string,params:Record<string,unknown>={})=>{calls.push({method,params});
-    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null}};
+    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null,activation:{state:"active",generation:dataset.generation,digest:dataset.sha256,rowCount:dataset.recordCount,message:null}}};
     if(method==="contest_history_query"&&params.callsign==="K1ABC")return new Promise(resolve=>{resolveOld=resolve;});
     if(method==="contest_history_query")return response(params,[]);
     if(method==="contest_history_query_cancel")return {id:"x",ok:true,result:{cancelled:true}};
@@ -87,7 +87,7 @@ it.each([
 ])("releases a pending query busy owner for a %s",async(_name,next)=>{
   let resolveQuery!:(value:any)=>void;const calls:string[]=[];
   const request=(async(method:string)=>{calls.push(method);
-    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null}};
+    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null,activation:{state:"active",generation:dataset.generation,digest:dataset.sha256,rowCount:dataset.recordCount,message:null}}};
     if(method==="contest_history_query")return new Promise(resolve=>{resolveQuery=resolve;});
     if(method==="contest_history_query_cancel")return {id:"x",ok:true,result:{cancelled:true}};
     throw new Error(method);
@@ -105,7 +105,7 @@ it("releases apply busy ownership when the successful mutation advances revision
   let resolveApply!:()=>void;const applied=vi.fn(()=>new Promise<void>(resolve=>{resolveApply=resolve;}));
   const record={recordID:`${dataset.sha256}:0`,sourceOrdinal:0,sourceLine:2,normalizedCallsign:"K1ABC",indexingIssue:null,values:[{header:preview.headers[0],value:"K1ABC"},{header:preview.headers[2],value:"05"}]};
   const request=(async(method:string,params:Record<string,unknown>={})=>{
-    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null}};
+    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset,pendingPreview:null,unavailableReason:null,activation:{state:"active",generation:dataset.generation,digest:dataset.sha256,rowCount:dataset.recordCount,message:null}}};
     const queryContext={sessionID,workspaceGeneration:generation,sessionRevision:Number(params.expectedRevision),draftID,draftRevision:Number(params.expectedDraftRevision),inputCallsign:params.callsign,requestID:params.requestID,ruleIdentity:identity,referenceDataVersion:"fixture"};
     if(method==="contest_history_query")return {id:"x",ok:true,result:{context:queryContext,normalizedCallsign:"K1ABC",dataset,totalRecords:1,recordOffset:0,recordLimit:20,valueOffset:0,valueLimit:128,records:[record],next:null}};
     if(method==="contest_history_select")return {id:"x",ok:true,result:{context:queryContext,dataset,record,valueOffset:0,valueLimit:128,nextValueOffset:null,projections:[{id:"legacy-received-zone",sourceKey:"cqzone",target:"legacyReceivedExchange",fieldID:null,label:"CQ zone",rawValue:"05",normalizedValue:"05"}]}};
@@ -124,7 +124,7 @@ it("releases apply busy ownership when the successful mutation advances revision
 
 it("surfaces an expired diagnostic page without an unhandled rejection",async()=>{
   const request=(async(method:string)=>{
-    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset:null,pendingPreview:preview,unavailableReason:null}};
+    if(method==="contest_history_status")return {id:"x",ok:true,result:{dataset:null,pendingPreview:preview,unavailableReason:null,activation:{state:"not_imported",generation:null,digest:null,rowCount:null,message:null}}};
     if(method==="contest_history_preview_page")return {id:"x",ok:false,error:{message:"The call-history preview expired."}};
     throw new Error(method);
   }) as ContestRequest;

@@ -8,10 +8,11 @@ import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contest
 import { newContestSetup } from "./ContestSetupPanel";
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any }));
-const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}) }));
+const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}) }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => { surfaceOwner.current = owner; } }));
-vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWindow.open }));
+vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWindow.open,
+  openContestCallHistoryWindow: surfaceWindow.openHistory }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
@@ -29,7 +30,8 @@ const workspaceProps = { operatingContext, workspaceGeneration, stationCall: "OM
 const unavailableSCP = () => ({ id: "scp-status", ok: true,
   result: { dataset: null, unavailableReason: "not_imported" } });
 const unavailableHistory = () => ({ id: "history-status", ok: true,
-  result: { dataset: null, pendingPreview: null, unavailableReason: "not_imported" } });
+  result: { dataset: null, pendingPreview: null, unavailableReason: "not_imported",
+    activation: { state: "not_imported", generation: null, digest: null, rowCount: null, message: null } } });
 
 it("keeps the detached owner on Contest Setup instead of embedding a contest desk", async () => {
   const request = vi.fn(async (method: string) => {
@@ -100,7 +102,7 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[{callsign:"DL1XYZ"},{callsign:"K1ABC"}]}/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].loggedCalls).toEqual(["DL1ABC"]));
-  expect(request.mock.calls.some(([method])=>method==="contest_history_status")).toBe(true);
+  expect(request.mock.calls.some(([method])=>method==="contest_history_status")).toBe(false);
   expect(request.mock.calls.find(([method])=>method==="contest_check_partial")?.[1]).toEqual({sessionID:current.sessionID,expectedRevision:9,query:"DL1",limit:500});
   expect(surfaceOwner.current.projections["callsign-intelligence"].clusterCalls).toEqual(["DL1XYZ"]);
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
@@ -379,6 +381,8 @@ it("defers a native contest window command until the saved session is fully rest
   await waitFor(async () => expect(await route!("contest-window-active-qso")).toBe(true));
   expect(surfaceWindow.open).toHaveBeenCalledTimes(1);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
+  await expect(route!("contest-window-call-history")).resolves.toBe(true);
+  expect(surfaceWindow.openHistory).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}));
 });
 
 it("acknowledges a native contest window command with Setup after startup finds no session", async () => {
@@ -680,7 +684,7 @@ it("applies retained SCP selection through the active Python draft owner", async
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support = workspaceSupport(method, params, current); if (support) return support;
     let result:any;
-    if(method==="contest_history_status")result={dataset:null,pendingPreview:null,unavailableReason:"not_imported"};
+      if(method==="contest_history_status")result={dataset:null,pendingPreview:null,unavailableReason:"not_imported",activation:{state:"not_imported",generation:null,digest:null,rowCount:null,message:null}};
     else if(method==="contest_scp_status")result={dataset,unavailableReason:null};
     else if(method==="contest_scp_query")result={sessionID:params.sessionID,workspaceGeneration:params.workspaceGeneration,
       requestID:params.requestID,normalizedQuery:String(params.query).toUpperCase(),

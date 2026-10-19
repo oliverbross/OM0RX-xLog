@@ -6,7 +6,7 @@ export type ContestMethod =
   | "contest_export_prepare" | "contest_export_read" | "contest_export_release"
   | "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel"
   | "contest_history_preview_commit" | "contest_history_query" | "contest_history_query_cancel"
-  | "contest_history_select" | "contest_history_apply";
+  | "contest_history_select" | "contest_history_apply" | "contest_history_activate";
 
 export type ContestWorkerError = { code?: string; message?: string; outcome?: "confirmed" | "uncertain" };
 export type ContestWorkerResponse<T> = { id: string; ok: true; result: T } | { id: string; ok: false; error: ContestWorkerError };

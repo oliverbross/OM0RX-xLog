@@ -4,17 +4,16 @@ import BandMaps, { type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
-import { ContestCallHistoryPanel, type ContestHistoryPanelSurface } from "./ContestCallHistoryPanel";
 import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupMacro } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
-import type { ContestDraftSnapshot, ContestRequest, ContestSessionSummary } from "./types";
+import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
-import { openContestSurfaceWindow } from "./contestSurfaceNative";
+import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
 import { openContestSetupService } from "./contestSetupServices";
 import "./ContestWorkspace.css";
 
@@ -193,7 +192,6 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [logOffset, setLogOffset] = useState(0), [logTotal, setLogTotal] = useState(0);
   const [scpSurface, setSCPSurface] = useState<ContestSCPPanelSurface | null>(null);
-  const [historySurface, setHistorySurface] = useState<ContestHistoryPanelSurface | null>(null);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusRef = useRef("callsign");
   const editVersionRef = useRef(0);
@@ -600,8 +598,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       clusterCalls:clusterCandidates.map(candidate => candidate.callsign),
       loggedCandidates, clusterCandidates,
       scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
-      history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
-      busy: !!scpSurface?.busy || !!historySurface?.busy,
+      history: { source: null, rows: [] },
+      busy: !!scpSurface?.busy,
     };
     unavailable.propagation = { schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring };
     unavailable.monitor = { schemaVersion: 1, status: "ready",
@@ -618,7 +616,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, historySurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots, configuredBands]);
+    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots, configuredBands]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -706,7 +704,6 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           await persistFields("callsign", candidate.callsign);
         }
         else if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
-        else if (action.params.kind === "history" && historySurface) await historySurface.selectCandidate(action.params.candidateID);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
       case "log_export_cabrillo": await exportCabrillo(true); return;
@@ -765,6 +762,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         setManager(true);
         return true;
       }
+      if (route === "contest-window-call-history") {
+        if (startupPending) return false;
+        if (!projectionRef.current || !detachedAvailable || !surfaceContext) {
+          setManager(true); setError("Open a contest session before opening Call History."); return true;
+        }
+        await flushDraftRef.current();
+        await openContestCallHistoryWindow(surfaceContext);
+        return true;
+      }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;
       if (!panelID || !contestSurfacePanelIDs.includes(panelID)) return false;
       if (startupPending) return false;
@@ -811,21 +817,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     <footer><button type="button" disabled={busy || retiring} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
   </form>;
   const scorePanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score</h2><ContestScoreSummary score={scoreView}/></aside>;
-  const historySession = projection?.ruleIdentity ? { sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
-    revision: projection.revision, referenceDataVersion: projection.referenceID,
-    rule: { identity: projection.ruleIdentity } } as unknown as ContestSessionSummary : null;
-  const historyDraft = projection ? { draftID: projection.draftID, revision: projection.revision,
-    fields: { callsign: fields.callsign ?? "" } } as unknown as ContestDraftSnapshot : null;
   const checkPanel = <section className="contest-score" aria-label="Check Partial"><h2>Check Partial</h2>{projection && <ContestAssistancePanel
     request={request as ContestRequest} ownerLeaseID={0} sessionID={projection.sessionID} workspaceGeneration={projection.workspaceGeneration}
     draftID={projection.draftID} callsign={fields.callsign ?? ""} disabled={busy || retiring}
-    onSelect={applyAssistanceCallsign} onSurfaceChange={setSCPSurface}/>} {historySession && historyDraft && <ContestCallHistoryPanel
-    request={request as ContestRequest} ownerLeaseID={0} session={historySession} draft={historyDraft}
-    disabled={busy || retiring} ready={!busy} onSurfaceChange={setHistorySurface}
-    onApply={async (_selection, projectionIDs) => {
-      if (projectionIDs.length) throw new Error("Applying xLog call-history fields to a Not1MM draft is not available yet.");
-      setNotice("Call-history row selected for review; no Not1MM exchange field was changed.");
-    }}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe
+    onSelect={applyAssistanceCallsign} onSurfaceChange={setSCPSurface}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe
       ? projection.dupeExplanation ?? "Worked in this contest" : projection?.countryResolved ? "Country resolved · not a duplicate" : "No country match yet"}</p></section>;
   const matrixPanel = <section className="contest-score" aria-label="Country and zone matrices"><h2>Countries / zones</h2><div className="contest-multipliers">{[...(matrices.countries ?? []), ...(matrices.zones ?? [])].map((item: Data, index: number) => <span key={`${item.value}-${item.band}-${index}`}>{item.value || "Unknown"} · {bandLabels[String(item.band)] ?? item.band} · {item.qsos}</span>)}</div></section>;
   const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><button type="button" disabled={busy} onClick={() => void exportCabrillo()}><Download size={14}/>Export Cabrillo</button></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
@@ -851,7 +846,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
-        if (!setupOnly) setManager(false); void openContestSurfaceWindow(surfaceContext, "callsign-intelligence"); }}/>
+        if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
         ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
