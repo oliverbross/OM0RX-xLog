@@ -1856,7 +1856,14 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
 
 #[tauri::command]
 async fn contest_setup_service_open(window: tauri::WebviewWindow, app: tauri::AppHandle, service: String) -> Result<(), String> {
-    let destination = contest_setup_services::destination(window.label(), &service)?;
+    let active_radio = (service == "Radio")
+        .then(|| radio_slots::active(&app))
+        .transpose()?;
+    let destination = contest_setup_services::destination(
+        window.label(),
+        &service,
+        active_radio.as_deref(),
+    )?;
     if destination == "rotor" { open_detached_workspace(app, destination.into()).await }
     else { navigate_workspace(app, destination.into()).await }
 }
