@@ -17,6 +17,7 @@ npx tauri build --bundles app
 # development hosts still fall back to ad-hoc signing; notarization remains a
 # separate acceptance step, never inferred from a valid code signature.
 bundle="$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app"
+bash prototype/scripts/stage-contest-python-macos.sh "$bundle"
 binary_dir="$(XLOG_PORTABLE_ONLY=1 swift build --build-system xcode --package-path "$root" --scratch-path "$root/.build/prototype-worker" -c release --show-bin-path)"
 rm -rf "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle"
 ditto "$binary_dir/OM0RXXLogPrototype_XLogCore.bundle" "$bundle/Contents/Resources/OM0RXXLogPrototype_XLogCore.bundle"
@@ -38,6 +39,15 @@ sign_component() {
     codesign --force --identifier "$identifier" --options runtime --timestamp --sign "$signing_identity" "$component"
   fi
 }
+while IFS= read -r -d '' component; do
+  if file "$component" | grep -q 'Mach-O'; then
+    if [ "$signing_identity" = - ]; then
+      codesign --force --sign - --timestamp=none "$component"
+    else
+      codesign --force --options runtime --timestamp --sign "$signing_identity" "$component"
+    fi
+  fi
+done < <(find "$bundle/Contents/Frameworks/Python.framework" -type f -print0)
 sign_component "$bundle/Contents/MacOS/xlog-prototype-worker" "com.oliverbross.xlog.integration.worker"
 sign_component "$bundle/Contents/MacOS/rigctld" "com.oliverbross.xlog.integration.rigctld"
 sign_component "$bundle/Contents/MacOS/rotctld" "com.oliverbross.xlog.integration.rotctld"
