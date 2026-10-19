@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
 import { invoke } from "@tauri-apps/api/core";
@@ -14,9 +14,8 @@ import { nativeRotorStop } from "./live/nativeRotorStop";
 import { useFollowRadio } from "./live/useFollowRadio";
 import { useReferenceEvidence } from "./live/useReferenceEvidence";
 import { Radio, BookOpen, Network, History, Map as MapIcon, Settings, Activity, Award, LayoutDashboard, ExternalLink, RefreshCw, Sun } from "lucide-react";
-import { workerRequest, framedWorkerRequest, openMonitor, openDetachedMap, detachedMapKind,
+import { workerRequest, openMonitor, openDetachedMap, detachedMapKind,
   type StationProvider } from "./worker";
-import { contestRetirementAssessment, operatingModuleStatus, switchOperatingModule, type OperatingModule, type OperatingModuleStatus } from "./operatingModule";
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
@@ -87,7 +86,7 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
-import { connectWorkspaceNavigation, isContestMenuRoute, workspaceMenuScreensFor } from "./live/workspaceNavigation";
+import { connectWorkspaceNavigation, isContestMenuRoute, workspaceMenuScreens } from "./live/workspaceNavigation";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
@@ -100,17 +99,11 @@ import { TCIObservation } from "./live/TCIObservation";
 import { loadStationSession, type RadioID } from "./live/stationSession";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
-import type { ContestRequest } from "./contesting/types";
-import type { ContestTransitionController } from "./contesting/ContestWorkspace";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
-const contestTitle = "Contest Manager / Desk";
-const contestRequest: ContestRequest = (method, params = {}) => framedWorkerRequest(method, params);
-const ContestWorkspace = lazy(() => import("./contesting/ContestWorkspace"));
-const Not1MMContestWorkspace = lazy(() => import("./contesting/Not1MMContestWorkspace"));
 export function contestingRuntimeKind(value: unknown): "legacy" | "python" | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const health = value as Data;
@@ -232,29 +225,7 @@ function MainLiveApp() {
   const [workspace, setWorkspace] = useState<Data | null>(null);
   const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const [workspacePending, setWorkspacePending] = useState(true);
-  const [contestCapability, setContestCapability] = useState<"checking" | "available" | "unavailable">("checking");
-  const [contestRuntime, setContestRuntime] = useState<"legacy" | "python" | null>(null);
-  const [operatingModule, setOperatingModule] = useState<OperatingModuleStatus | null>(null);
-  const [moduleChanging, setModuleChanging] = useState(false);
   const moduleTransitioning = useRef(false);
-  const moduleChoice = useRef<(target: OperatingModule) => Promise<void>>(async () => {});
-  const contestTransition = useRef<ContestTransitionController | null>(null);
-  const registerContestTransition = useCallback((controller: ContestTransitionController | null) => { contestTransition.current = controller; }, []);
-  const contestCapabilityRef = useRef(contestCapability); contestCapabilityRef.current = contestCapability;
-  const refreshContestCapability = useCallback(async () => {
-    try {
-      const response = await framedWorkerRequest("health");
-      if (mounted.current) {
-        const runtime = response.ok === true ? contestingRuntimeKind(response.result) : null;
-        setContestRuntime(runtime); setContestCapability(runtime ? "available" : "unavailable");
-      }
-    } catch {
-      if (mounted.current) { setContestRuntime(null); setContestCapability("unavailable"); }
-    }
-  }, []);
-  useEffect(() => { let active = true; void operatingModuleStatus(true).then(value => { if (active) setOperatingModule(value); })
-    .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Operating module authority is unavailable."); });
-    return () => { active = false; }; }, []);
   const deskLayout = useWorkspaceLayout(workspace?.workspace_exists === true);
   const modeAction = useRef<(title: string) => Promise<boolean>>(async () => false);
   const [settingsSession] = useState(() => new SettingsSession(requestSettings,
@@ -292,7 +263,7 @@ function MainLiveApp() {
   editing.current = !!contactEdit.draft;
   const [legacyDraft, setLegacyDraft] = useState(legacyDraftValue);
   const draft = contactEdit.draft ?? sharedDraft.draft;
-  const editorLocked = moduleChanging || radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
+  const editorLocked = radioBusy || sharedDraft.activationFrozen || contactEdit.activationFrozen || sharedDraft.locked || contactEdit.locked || sharedDraft.workspaceChanged || contactEdit.workspaceChanged || !!contactEdit.draft && (logbookMutation.busy || !!logbookMutation.pending || logbookMutation.workspaceChanged || logbookMutation.conflict);
   const editorBlocked = editorLocked || !!sharedDraft.conflict || contactEdit.conflict;
   const setDraft = useCallback((next: Data | null | ((current: Data | null) => Data | null)) => {
     if (moduleTransitioning.current || mainClosing.current || layoutChanging.current || editorTransition.current || readingRadio.current) return;
@@ -332,7 +303,6 @@ function MainLiveApp() {
     const radioSettingsRoute = next === "Station Control" || next === "Radio 1 Settings" || next === "Radio 2 Settings";
     const requestedRadioId: RadioID = next === "Radio 2 Settings" ? "radio2" : "radio1";
     if (radioSettingsRoute) next = "Settings";
-    if (next === contestTitle) { void moduleChoice.current("contesting"); return true; }
     if (next === viewRef.current) {
       if (radioSettingsRoute) {
         setSettingsTabRequest(previous => ({ tab: "Radio", revision: previous.revision + 1 }));
@@ -364,23 +334,16 @@ function MainLiveApp() {
     setSettingsTabRequest(previous => ({ tab, revision: previous.revision + 1 }));
     return true;
   }, [setView]);
-  const contestMenuRoute = useRef<((route: string) => boolean | Promise<boolean>) | null>(null);
-  const contestMenuReadiness = useRef(new Set<() => void>());
-  const registerContestMenuRoute = useCallback((handler: ((route: string) => boolean | Promise<boolean>) | null) => {
-    contestMenuRoute.current = handler;
-    if (handler) for (const retry of contestMenuReadiness.current) retry();
-  }, []);
   useEffect(() => connectWorkspaceNavigation(title => {
-    if (isContestMenuRoute(title)) return contestMenuRoute.current?.(title) ?? false;
+    if (isContestMenuRoute(title)) return false;
     if (title.startsWith("Workspace Mode: ")) return modeAction.current(title);
     const onlineTab = ({ "Wavelog Settings": "Wavelog", "QRZ Settings": "QRZ", "Online Log Settings": "Online logs",
       "Reference Data Settings": "Reference data" } as const)[title as "Wavelog Settings" | "QRZ Settings" | "Online Log Settings" | "Reference Data Settings"];
     return title === "Sync" ? showSyncSettings() : onlineTab ? showOnlineSettings(onlineTab) : setView(title);
   }, setError, undefined, retry => {
     const draft = draftSession.subscribe(retry), contact = contactSession.subscribe(retry), layout = deskLayout.session.subscribe(retry);
-    contestMenuReadiness.current.add(retry);
-    return () => { draft(); contact(); layout(); contestMenuReadiness.current.delete(retry); };
-  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking, contestCapability, workspace?.workspace_exists]);
+    return () => { draft(); contact(); layout(); };
+  }), [showOnlineSettings, showSyncSettings, setView, draftSession, contactSession, logbookWorking, workspace?.workspace_exists]);
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
@@ -815,7 +778,7 @@ function MainLiveApp() {
     const revision = ++reloadRevision.current;
     setWorkspacePending(true);
     try {
-    const [state] = await Promise.all([request("workspace_status"), refreshContestCapability()]);
+    const state = await request("workspace_status");
     if (state.workspace_exists) {
       await preferenceWrite.current.catch(() => {});
       const [, , , loaded] = await Promise.all([settingsSession.load(), loadRotorConfiguration(), draftSession.load(), request("workspace_preferences_load")]);
@@ -840,7 +803,7 @@ function MainLiveApp() {
       if (revision === reloadRevision.current) setStats(totals);
     }).catch(() => { if (revision === reloadRevision.current) setError("Logbook totals could not be loaded. Your draft is available; reopen the workspace to retry."); });
     } finally { if (revision === reloadRevision.current) setWorkspacePending(false); }
-  }, [request, settingsSession, loadRotorConfiguration, draftSession, contactSession, refreshContestCapability]);
+  }, [request, settingsSession, loadRotorConfiguration, draftSession, contactSession]);
   const changeBandMapPreferences = (compact: boolean, view: BandMapViewPreferences) => {
     const current = latestWorkspacePreferences.current;
     if (!current || !validBandMapView(view)) return;
@@ -1231,53 +1194,6 @@ function MainLiveApp() {
     setError("");
     return "Local radio state refreshed. Connections were left running.";
   }, [changeFollow, reconcileRetainedRadioRead, spotEditor.reconcile, spotActivation.reconcile, draftSession, contactSession, request]);
-  const chooseOperatingModule = async (target: OperatingModule) => {
-    const current = operatingModule;
-    if (!current || current.transitioning || moduleTransitioning.current || moduleChanging || current.selected === target) return;
-    moduleTransitioning.current = true;
-    let contestFrozen = false, nativeInvoked = false, nativeOutcomeKnown = false, servicesRetired = false;
-    setModuleChanging(true); setError(""); setMessage("");
-    try {
-      if (target === "contesting" && (contestCapability !== "available" || workspace?.workspace_exists !== true))
-        throw new Error("Create or reconnect this isolated workspace before opening Contesting.");
-      if (current.selected === "normal_logging") {
-        await draftSession.flush();
-        // A terminal native read receipt is recovery evidence. Reconcile it
-        // before deciding whether an unresolved operation still blocks exit.
-        if (readOperation.current) await reconcileRetainedRadioRead();
-        if (normalTransitionBlocked()) throw new Error("Finish the draft fields and resolve unsaved, pending or uncertain Normal Logging work before changing module.");
-        await changeFollow(false);
-        if (nativeAutoRotor.state?.armed === true) await nativeAutoRotor.set(false, rotorRef.current);
-      } else {
-        const transition = contestTransition.current;
-        const assessment = contestRetirementAssessment(contestCapability, workspace?.workspace_exists === true, !!transition);
-        if (assessment === "prepare") { transition!.freeze(); contestFrozen = true; await transition!.prepare(); }
-        else if (assessment === "wait")
-          throw new Error("Contest recovery is still loading. Wait before changing module.");
-      }
-      selection.current += 1;
-      window.clearTimeout(spotActivationDelay.current);
-      spotAwaitingActivation.current = null; spotAwaitingDraftRecovery.current = null;
-      pendingTune.current = false; setSelected(null);
-      nativeInvoked = true;
-      const result = await switchOperatingModule(target);
-      nativeOutcomeKnown = true;
-      servicesRetired = result?.servicesRetired === true;
-      if (result?.message) throw new Error(result.message);
-      throw new Error("xLog did not restart after changing operating module.");
-    } catch (cause) {
-      const canResume = !nativeInvoked || nativeOutcomeKnown && !servicesRetired;
-      if (canResume) {
-        moduleTransitioning.current = false;
-        if (contestFrozen) contestTransition.current?.resume();
-      }
-      if (mounted.current) {
-        if (canResume) setModuleChanging(false);
-        setError(cause instanceof Error ? cause.message : "Operating module was not changed.");
-      }
-    }
-  };
-  moduleChoice.current = chooseOperatingModule;
   const liveSpots: Data[] = cluster?.snapshot?.spots || emptySpots;
   const mapTarget = useMemo(() => draft?.call && lookup?.call === draft.call &&
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
@@ -1323,39 +1239,31 @@ function MainLiveApp() {
   const deskPrevious = previous.filter(qso => sameNormalLogCall(qso?.call, deskCall));
   const deskEquipment = equipmentProfile(settings?.stationEquipment), deskKind = deskEquipmentKind(deskEquipment, rotorState, hasConfiguredRotor(rotorConfigurationState.base?.configuration));
   const deskBands = <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} compact preferences={workspacePreferences ? bandMapView(workspacePreferences, true) : undefined} onPreferencesChange={value => changeBandMapPreferences(true, value)} />;
-  const contestView = operatingModule?.selected === "contesting";
-  const displayedSeparateWindows = separateWindows && !contestView;
-  const navigation = workspaceMenuScreensFor({ contesting: contestCapability === "available" && workspace?.workspace_exists === true })
-    .filter(screen => operatingModule?.selected !== "contesting" || screen.id === "contesting")
-    .map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group, screen.id] as const);
+  const displayedSeparateWindows = separateWindows;
+  const navigation = workspaceMenuScreens.map(screen => [screen.title, screenIcons[screen.id] ?? Award, screen.group, screen.id] as const);
   const radioConnectionLabel = station?.radio?.connected ? station.radio.observed ? "Connected" : "Refreshing" : "Disconnected";
   return <div className="app live">
     <header className="station-rail main-station-rail"><strong className="brand teal"><img src={appLogo} alt="" width={32} height={32} />OM0RX-xLog</strong><strong className="cyan rail-frequency">{frequency(station?.radio?.frequency_hz)} MHz · {station?.radio?.mode || "Radio offline"}</strong>
-      <section className="module-choice rail-module-choice" aria-label="Operating module"><strong>Operating module</strong>
-        <button type="button" aria-pressed={operatingModule?.selected === "normal_logging"} disabled={!operatingModule || moduleChanging} onClick={() => void chooseOperatingModule("normal_logging")}>Normal Logging</button>
-        <button type="button" aria-pressed={operatingModule?.selected === "contesting"} disabled={!operatingModule || moduleChanging || contestCapability !== "available" || workspace?.workspace_exists !== true} onClick={() => void chooseOperatingModule("contesting")}>Contesting</button>
-        {moduleChanging && <span role="status">Saving and restarting…</span>}
-      </section>
       <span className={station?.radio?.connected && station.radio.observed ? "teal" : "amber"}>{radioConnectionLabel}</span>
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact includeWeather={false} />}
     </header>
     <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}>
-      <nav>{navigation.map(([name, Icon, group, id], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Contesting" ? "Contesting" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={contestView && id === "contesting" || view === name ? "page" : undefined} onClick={() => id === "contesting" ? void chooseOperatingModule("contesting") : void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
-      {operatingModule?.selected === "normal_logging" && <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
+      <nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
+      <SidebarStation snapshot={stationWithRotor} provider={stationProvider} busy={busy} onAction={action => {
         if(nativeStationSelection())void amplifierTransitionSession().transition(action as "operate"|"standby").catch(cause => setError(String(cause)));
         else void run(async()=>{await request("station_action",{action});});
-      }} />}
-      {operatingModule?.selected === "normal_logging" && nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
-      {operatingModule?.selected === "normal_logging" && !separateWindows && <SidebarOwnSpots
+      }} />
+      {nativeStationSelection() && stationProvider === "direct_agent" && view !== "Station Control" && <AmplifierTransitionStatus />}
+      {!separateWindows && <SidebarOwnSpots
         request={request}
         ownCall={settings?.stationCall || ""}
         liveSpots={liveSpots}
         connected={(cluster?.snapshot?.connectedClusters || 0) > 0}
         rbnTransport={nativeHFPropagationTransport}
       />}
-      <div className="sidebar-foot">{operatingModule?.selected === "normal_logging" && <button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button>}<strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
+      <div className="sidebar-foot"><button onClick={() => void openMonitor().catch(e => setError(e.message))}><ExternalLink size={16} />Monitor</button><strong className="teal">{settings?.stationCall || "Station not configured"}</strong><span>{settings?.gridSquare || "Set station grid"}</span></div>
     </aside>
     <main className="qso-feedback-area live-feedback-host" aria-label={displayedSeparateWindows ? "Separate Windows" : view} style={displayedSeparateWindows ? { gridColumn: "1 / -1" } : undefined}>
       <StableFeedbackLayer>
@@ -1386,17 +1294,7 @@ function MainLiveApp() {
       </StableFeedbackLayer>
       {loggedFeedback.toast}
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
-      {!operatingModule ? <section className="live-panel" aria-label="Operating module loading"><h2>Opening operating module…</h2></section>
-        : contestView ? contestCapability === "available" && workspace?.workspace_exists === true
-        ? <Suspense fallback={null}>{contestRuntime === "python"
-          ? <Not1MMContestWorkspace request={(method, params = {}) => framedWorkerRequest(method, params)} serviceRequest={request}
-              operatingContext={operatingModule.context}
-              workspaceGeneration={typeof workspace.generation === "string" ? workspace.generation : ""}
-              stationCall={settings?.stationCall || ""} radioFrequencyHz={station?.radio?.frequency_hz}
-              spots={liveSpots} cluster={cluster} selectedSpotId={selected} onSelectedSpot={setSelected}
-              registerTransition={registerContestTransition} registerMenuRoute={registerContestMenuRoute}/>
-          : <ContestWorkspace request={contestRequest} operatingContext={operatingModule.context} registerTransition={registerContestTransition}/>}</Suspense>
-        : <section className="live-panel" aria-label="Contesting unavailable"><h2>Contesting</h2><p>Reconnect the isolated contest workspace before operating. Normal Logging remains inactive.</p></section> : <>
+      <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="service-settings" aria-label="Settings recovery">
           <h2>Settings</h2>
@@ -1467,7 +1365,7 @@ function MainLiveApp() {
         onUseSaved={() => { try { settingsSession.useSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Saved Settings could not be restored."); } }}
         requestedTab={settingsTabRequest.tab} requestedTabRevision={settingsTabRequest.revision} radioSettings={<RadioSettings requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} onRefreshLocalState={refreshLocalRadioState} />} syncSettings={settings.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Settings → Logbook to enable it.</p> : <SyncPanel request={request} onChanged={() => setRefresh(n => n + 1)} />} onExternalContact={() => setRefresh(n => n + 1)} cwContext={cwContext} cwState={cw.state} cwProvider={stationProvider} refreshCW={() => cw.controller.pollWinKeyer()} rotorSettings={<RotorPanel snapshot={rotorState} request={request} onManual={disarmAutoRotor} configurationSession={rotorConfigurationSession} automaticRotorArmed={autoRotor} automaticRotorAvailable={!!nativeAutoRotor.state && !nativeAutoRotor.error && !!rotorState?.owner && Number.isSafeInteger(rotorState.generation)} automaticRotorError={nativeAutoRotor.error} onAutomaticRotorChange={setAutomaticRotor} />} clusterSettings={<ClusterPanel settingsOnly snapshot={null} onRequest={request} onSelect={() => {}} />} workspaceSettings={<WorkspaceSettings {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind} requiredRotor={deskKind === "rotor" && !!rotorState?.owner} available={["active-qso", "callsign-intelligence", "world-map", "band-maps", "dx-cluster", "logbook", "awards", "chaser-dx", "spot-history", ...(deskKind === "none" ? [] : [deskKind] as ("rotor" | "antenna")[])]} />} dataRequest={dataManagementRequest} onDataChanged={() => { setDraft(null); setStats(null); latestWorkspacePreferences.current = null; setWorkspacePreferences(null); setRefresh(n => n + 1); }} />}
       </>}
-      </>}
+      </>
       </WorkspaceModeSurface>
     </main></div>;
 }

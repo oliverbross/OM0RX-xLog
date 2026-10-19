@@ -28,8 +28,13 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return Err("Use the typed retained Connection Doctor projection.".into());
     }
     if request["method"].as_str().is_some_and(|method| method.starts_with("contest_")) {
-        return if label == "main" { Ok(()) }
-        else { Err("Contest methods are available only in the main window.".into()) };
+        return if label == "contest-setup" { Ok(()) }
+        else { Err("Contest methods are available only in the detached Contest Setup owner window.".into()) };
+    }
+    if label == "contest-setup" {
+        return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot")) {
+            Ok(())
+        } else { Err("Contest Setup can only read shared station context and own contest sessions.".into()) };
     }
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
     if label == "rotor" { return Err("Rotor can only read retained native rotor telemetry.".into()); }
@@ -199,6 +204,10 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_operation_receipt",
         "contest_log_page",
         "contest_score",
+        "contest_rates",
+        "contest_check_partial",
+        "contest_setup_get",
+        "contest_setup_save",
         "contest_statistics",
         "contest_export_prepare",
         "contest_export_read",
@@ -1555,18 +1564,20 @@ mod tests {
         }
     }
     #[test]
-    fn contest_lane_methods_are_explicitly_admitted_only_on_main_surface() {
+    fn contest_lane_methods_are_explicitly_admitted_only_on_setup_owner_surface() {
         for method in [
             "contest_catalog", "contest_sessions", "contest_create", "contest_session_create", "contest_open",
             "contest_draft_get", "contest_draft_apply", "contest_focus", "contest_run_state", "contest_cw_context",
             "contest_esm", "contest_function_key", "contest_output_claim", "contest_serial_reserve",
             "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
-            "contest_operation_receipt", "contest_log_page", "contest_score", "contest_statistics",
+            "contest_operation_receipt", "contest_log_page", "contest_score", "contest_rates", "contest_check_partial",
+            "contest_setup_get", "contest_setup_save", "contest_statistics",
             "contest_export_prepare", "contest_export_read", "contest_export_release",
         ] {
             let request = json!({"id":"contest", "method":method, "params":{}});
             assert!(validate_request(&request).is_ok(), "{method}");
-            assert!(validate_surface("main", &request).is_ok(), "{method}");
+            assert!(validate_surface("contest-setup", &request).is_ok(), "{method}");
+            assert!(validate_surface("main", &request).is_err(), "{method}");
             assert!(validate_surface("monitor", &request).is_err(), "{method}");
             assert!(validate_surface("settings", &request).is_err(), "{method}");
         }

@@ -47,8 +47,9 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // applies the mode-aware 59/599 defaults in every editor. Settings owns the
   // persisted propagation cadence. The heavier canvas editor remains outside
   // both detached surfaces.
-  // One more lazy route adds a few hundred bytes to the shared surface loader.
-  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 406_000 : 400_000;
+  // Contest Setup adds one lazy route to the shared surface loader without
+  // pulling its contest workspace into ordinary detached-window startup.
+  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 406_000 : 401_000;
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
 }

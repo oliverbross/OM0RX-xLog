@@ -44,6 +44,7 @@ type Props = {
   onSelectedSpot?: (id: string) => void;
   registerTransition?: (controller: ContestTransitionController | null) => void;
   registerMenuRoute?: (handler: ((route: string) => boolean | Promise<boolean>) | null) => void;
+  setupOnly?: boolean;
 };
 
 const activeSessionKey = "xlog.contesting.not1mm.active-session.v1";
@@ -51,7 +52,8 @@ const setupDraftKey = "xlog.contesting.not1mm.setup-draft.v1";
 const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
-const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : "Contest operation failed.";
+const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
+  typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
 const cqwwFrequency = (value: unknown): number | null => {
   const frequency = typeof value === "number" ? Math.round(value) : NaN;
   if (!Number.isSafeInteger(frequency)) return null;
@@ -134,7 +136,7 @@ function multiplierMatrix(title: string, values: Data[], busy: boolean) {
 }
 
 export function Not1MMContestWorkspace({ request, serviceRequest, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
-  selectedSpotId, onSelectedSpot, registerTransition, registerMenuRoute }: Props) {
+  selectedSpotId, onSelectedSpot, registerTransition, registerMenuRoute, setupOnly = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
@@ -209,7 +211,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       const setupResult = await result<{ setup: ContestSetupDocument }>("contest_setup_get", { sessionID: session.sessionID });
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
       acceptProjection(opened.projection); rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
-      localStorage.setItem(activeSessionKey, session.sessionID); setManager(false); setEditing(null);
+      localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
     finally { busyRef.current = false; setBusy(false); }
@@ -331,7 +333,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
       acceptProjection(saved.projection); rememberSetup(saved.setup); await refresh(sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
-      localStorage.setItem(activeSessionKey, sessionID); setManager(false);
+      localStorage.setItem(activeSessionKey, sessionID); if (!setupOnly) setManager(false);
     } catch (cause) { setError(errorMessage(cause)); throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
@@ -741,8 +743,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><button type="button" disabled={busy} onClick={() => void exportCabrillo()}><Download size={14}/>Export Cabrillo</button></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label="Sent CQ zone" inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label="Received CQ zone" inputMode="numeric" value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
+  const showSetup = setupOnly || manager;
   return <main className="contest-workspace">
-    <header className="contest-header"><div><h1>Contest Manager / Desk</h1><p>CQ WW CW · actual Not1MM Python plugin · xLog station services</p></div><div className="contest-header-actions">{projection && <button type="button" disabled={busy} onClick={() => {
+    <header className="contest-header"><div><h1>{setupOnly ? "Contest Setup" : "Contest Manager / Desk"}</h1><p>CQ WW CW · actual Not1MM Python plugin · xLog station services</p></div><div className="contest-header-actions">{!setupOnly && projection && <button type="button" disabled={busy} onClick={() => {
       if (manager) { setManager(false); return; }
       busyRef.current = true; setBusy(true); setError("");
       void flushDraftRef.current().then(() => setManager(true)).catch(cause => setError(errorMessage(cause)))
@@ -750,15 +753,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
-    {manager && observedFrequencyHz === null && <div className="contest-entry-context">
+    {showSetup && observedFrequencyHz === null && <div className="contest-entry-context">
       <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}
-    {manager ? <ContestSetupPanel value={setup} sessions={sessions} activeSessionID={projection?.sessionID}
+    {showSetup ? <ContestSetupPanel value={setup} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
-        setManager(false); void openContestSurfaceWindow(surfaceContext, "callsign-intelligence"); }}/>
+        if (!setupOnly) setManager(false); void openContestSurfaceWindow(surfaceContext, "callsign-intelligence"); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
         ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}

@@ -35,7 +35,7 @@ pub fn validate(label: &str, request: &Value) -> Result<(), String> {
     if !handles(method)
         || !matches!(
             label,
-            "main" | "settings" | "dx-cluster" | "monitor" | "world-map" | "band-maps"
+            "main" | "settings" | "dx-cluster" | "monitor" | "world-map" | "band-maps" | "contest-setup"
         )
     {
         return Err("This window cannot access the cluster session.".into());
@@ -494,7 +494,7 @@ mod tests {
         assert!(validate("settings", &request("cluster_snapshot")).is_ok());
         assert!(validate("settings", &request("cluster_radio_spots_configure")).is_ok());
         assert!(validate("settings", &request("cluster_configure")).is_err());
-        for label in ["monitor", "world-map", "band-maps"] {
+        for label in ["monitor", "world-map", "band-maps", "contest-setup"] {
             assert!(validate(label, &request("cluster_snapshot")).is_ok());
             assert!(validate(label, &request("cluster_connect")).is_err());
         }

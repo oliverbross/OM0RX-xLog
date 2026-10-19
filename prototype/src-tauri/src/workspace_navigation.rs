@@ -19,7 +19,7 @@ pub fn screens() -> &'static [Screen] {
 }
 pub fn screen(id: &str) -> Option<&'static Screen> { screens().iter().find(|screen| screen.id == id) }
 pub fn available_screen(id: &str) -> Option<&'static Screen> {
-    screen(id).filter(|screen| screen.id != "contesting" || crate::runtime_profile::CONTESTING_TEST)
+    screen(id)
 }
 pub fn menu_screen(id: &str) -> Option<&'static Screen> { available_screen(id.strip_prefix("workspace_screen_")?) }
 pub fn mode_route(id: &str) -> Option<&'static str> {
@@ -82,15 +82,19 @@ impl WorkspaceNavigation {
         Ok(navigation)
     }
     pub fn snapshot(&self, label: &str) -> Result<Option<Navigation>, String> {
-        if label != "main" { return Err("Only the main workspace receives screen navigation".into()); }
-        Ok(self.0.lock().map_err(|_| "Workspace navigation unavailable")?.pending.clone())
+        if !matches!(label, "main" | "contest-setup") { return Err("This window does not receive menu navigation".into()); }
+        let pending = self.0.lock().map_err(|_| "Workspace navigation unavailable")?.pending.clone();
+        Ok(pending.filter(|navigation| is_receiver(label, &navigation.screen)))
     }
     pub fn acknowledge(&self, label: &str, revision: u64) -> Result<(), String> {
-        if label != "main" { return Err("Only the main workspace acknowledges screen navigation".into()); }
+        if !matches!(label, "main" | "contest-setup") { return Err("This window does not acknowledge menu navigation".into()); }
         let mut state = self.0.lock().map_err(|_| "Workspace navigation unavailable")?;
-        if state.pending.as_ref().is_some_and(|pending| pending.revision == revision) { state.pending = None; }
+        if state.pending.as_ref().is_some_and(|pending| pending.revision == revision && is_receiver(label, &pending.screen)) { state.pending = None; }
         Ok(())
     }
+}
+fn is_receiver(label: &str, route: &str) -> bool {
+    if contest_route(route).is_some() { label == "contest-setup" } else { label == "main" }
 }
 
 #[cfg(test)]
@@ -114,10 +118,11 @@ mod tests {
                 assert_eq!((route, title), ("contest-setup", "Contest Setup"));
             }
             let pending = state.request(route).unwrap();
-            assert_eq!(state.snapshot("main").unwrap(), Some(pending.clone()));
+            assert_eq!(state.snapshot("contest-setup").unwrap(), Some(pending.clone()));
+            assert_eq!(state.snapshot("main").unwrap(), None);
             assert!(state.snapshot("contest--active-qso").is_err());
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
-            state.acknowledge("main", pending.revision).unwrap();
+            state.acknowledge("contest-setup", pending.revision).unwrap();
         }
         assert_eq!(windows, ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         for invalid in ["contest-window-settings", "contest-window-cw", "contest-window-alerts", "contest-window-", "contest_setup", "workspace_window_logbook"] {
@@ -143,7 +148,7 @@ mod tests {
     }
     #[test]
     fn inventory_has_all_existing_screens_unique_ids_titles_and_shortcuts() {
-        let expected = ["operator-desk", "log-qso", "logbook", "dx-cluster", "spot-history", "world-map", "band-maps", "chaser-dx", "hf-propagation-live", "awards", "station-control", "radio1-settings", "radio2-settings", "sync", "wavelog-settings", "qrz-settings", "online-log-settings", "reference-data-settings", "settings", "contesting"];
+        let expected = ["operator-desk", "log-qso", "logbook", "dx-cluster", "spot-history", "world-map", "band-maps", "chaser-dx", "hf-propagation-live", "awards", "station-control", "radio1-settings", "radio2-settings", "sync", "wavelog-settings", "qrz-settings", "online-log-settings", "reference-data-settings", "settings"];
         assert_eq!(screens().len(), expected.len());
         for id in expected { assert!(screen(id).is_some(), "Missing {id}"); }
         let mut ids = std::collections::HashSet::new();
@@ -151,13 +156,9 @@ mod tests {
         let mut shortcuts = std::collections::HashSet::new();
         for item in screens() {
             assert!(ids.insert(&item.id)); assert!(titles.insert(&item.title));
-            assert!(matches!(item.group.as_str(), "Logbook" | "Station" | "View" | "Contesting"));
+            assert!(matches!(item.group.as_str(), "Logbook" | "Station" | "View"));
             let menu_item = menu_screen(&format!("workspace_screen_{}", item.id));
-            if item.id == "contesting" && !crate::runtime_profile::CONTESTING_TEST {
-                assert!(menu_item.is_none());
-            } else {
-                assert_eq!(menu_item.unwrap().id, item.id);
-            }
+            assert_eq!(menu_item.unwrap().id, item.id);
             if let Some(shortcut) = &item.shortcut { assert!(shortcuts.insert(shortcut)); assert!(shortcut.starts_with("CmdOrCtrl+")); }
         }
         assert!(menu_screen("station_tune").is_none()); assert!(screen("unknown").is_none());
@@ -166,20 +167,13 @@ mod tests {
             assert!(screen(id).unwrap().hidden);
         }
         assert!(!screen("settings").unwrap().hidden);
-        assert!(screen("contesting").unwrap().hidden);
-        assert_eq!(available_screen("contesting").is_some(), crate::runtime_profile::CONTESTING_TEST);
+        assert!(screen("contesting").is_none());
     }
     #[test]
-    fn contesting_navigation_is_compile_bound_to_the_test_profile() {
+    fn contesting_is_not_a_main_workspace_destination() {
         let state = WorkspaceNavigation::default();
-        if crate::runtime_profile::CONTESTING_TEST {
-            let pending = state.request("contesting").unwrap();
-            assert_eq!(pending.screen, "contesting");
-            assert_eq!(menu_screen("workspace_screen_contesting").unwrap().id, "contesting");
-        } else {
-            assert!(state.request("contesting").is_err());
-            assert!(menu_screen("workspace_screen_contesting").is_none());
-        }
+        assert!(state.request("contesting").is_err());
+        assert!(menu_screen("workspace_screen_contesting").is_none());
     }
     #[test]
     fn pending_navigation_survives_missing_renderer_and_stale_acknowledgement() {

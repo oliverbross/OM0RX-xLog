@@ -29,6 +29,24 @@ const unavailableSCP = () => ({ id: "scp-status", ok: true,
 const unavailableHistory = () => ({ id: "history-status", ok: true,
   result: { dataset: null, pendingPreview: null, unavailableReason: "not_imported" } });
 
+it("keeps the detached owner on Contest Setup instead of embedding a contest desk", async () => {
+  const request = vi.fn(async (method: string) => {
+    if (method === "contest_catalog") return { id:crypto.randomUUID(), ok:true, result:{plugins:[]} };
+    if (method === "contest_sessions") return { id:crypto.randomUUID(), ok:true, result:{sessions:[]} };
+    throw new Error(method);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  expect(await screen.findByRole("heading", { name: "Contest Setup", level: 1 })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name:"Contest Manager / Desk" })).toBeNull();
+  expect(screen.queryByRole("button", { name:"Back to desk" })).toBeNull();
+});
+
+it("shows a string rejection from the detached contest owner", async () => {
+  const request = vi.fn(async () => Promise.reject("Contest mutations require backend admission."));
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  expect((await screen.findByRole("alert")).textContent).toContain("Contest mutations require backend admission.");
+});
+
 it("persists station settings before the first contest exists", async () => {
   const request = vi.fn(async (method: string) => {
     if (method === "contest_catalog") return { id:crypto.randomUUID(), ok:true, result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} };

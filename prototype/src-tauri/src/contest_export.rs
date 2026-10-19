@@ -185,8 +185,8 @@ fn validate_admission(
     exiting: bool,
     production_contesting: bool,
 ) -> Result<(), String> {
-    if label != "main" || exiting || !(compiled_test && isolated || production_contesting && !isolated) {
-        Err("Contest export saving requires the active main Contesting window.".into())
+    if label != "contest-setup" || exiting || !(compiled_test && isolated || production_contesting && !isolated) {
+        Err("Contest export saving requires the active Contest Setup window.".into())
     } else {
         Ok(())
     }
@@ -618,7 +618,7 @@ fn choose_native(
 }
 
 fn validate_queued_dialog(label: &str, exiting: bool) -> Result<(), &'static str> {
-    if label == "main" && !exiting {
+    if label == "contest-setup" && !exiting {
         Ok(())
     } else {
         Err("Contest export chooser is unavailable.")
@@ -846,14 +846,15 @@ mod tests {
     }
 
     #[test]
-    fn admission_requires_main_compiled_test_profile_and_nonexiting_state() {
-        assert!(validate_admission("main", true, true, false, false).is_ok());
-        assert!(validate_admission("main", false, false, false, true).is_ok());
+    fn admission_requires_setup_owner_profile_and_nonexiting_state() {
+        assert!(validate_admission("contest-setup", true, true, false, false).is_ok());
+        assert!(validate_admission("contest-setup", false, false, false, true).is_ok());
         for value in [
             ("other", true, true, false),
-            ("main", false, true, false),
-            ("main", true, false, false),
-            ("main", true, true, true),
+            ("main", true, true, false),
+            ("contest-setup", false, true, false),
+            ("contest-setup", true, false, false),
+            ("contest-setup", true, true, true),
         ] {
             assert!(validate_admission(value.0, value.1, value.2, value.3, false).is_err());
         }
@@ -1024,7 +1025,7 @@ mod tests {
                 _suggested: &str,
                 _format: ExportFormat,
             ) -> Result<Option<PathBuf>, String> {
-                validate_queued_dialog("main", true).map_err(str::to_owned)?;
+                validate_queued_dialog("contest-setup", true).map_err(str::to_owned)?;
                 *self.0.lock().unwrap() += 1;
                 Ok(Some(PathBuf::from("out.log")))
             }

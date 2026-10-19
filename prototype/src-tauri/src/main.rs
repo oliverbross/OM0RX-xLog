@@ -754,7 +754,13 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
 }
 
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
-    if screen.starts_with("workspace-mode-") {
+    if workspace_navigation::contest_route(&screen).is_some() {
+        app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
+        return tauri::async_runtime::spawn_blocking(move || {
+            ensure_contest_setup_window(&app)?;
+            app.emit_to("contest-setup", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+        }).await.map_err(|_| "Contest Setup window task failed".to_string())?;
+    } else if screen.starts_with("workspace-mode-") {
         let native = app.clone();
         tauri::async_runtime::spawn_blocking(move || {
             let id = format!("workspace-mode-menu-{}", uuid::Uuid::new_v4());
@@ -782,6 +788,30 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
         ensure_main_workspace(&app)?;
         app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
     }).await.map_err(|_| "Main workspace task failed".to_string())?
+}
+
+fn ensure_contest_setup_window(app: &tauri::AppHandle) -> Result<(), String> {
+    let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window("contest-setup"), || {
+        let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
+        let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
+            tauri::WebviewUrl::App(format!("index.html?view=contest-setup{suffix}").into()))
+            .title("OM0RX-xLog Contest — Setup")
+            .inner_size(980.0, 760.0)
+            .min_inner_size(720.0, 520.0)
+            .focused(true)
+            .always_on_top(false)
+            .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+        if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
+            builder = builder.data_directory(directory);
+        }
+        let window = builder.build().map_err(|error| error.to_string())?;
+        if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
+        Ok(window)
+    })?;
+    window.unminimize().map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn workspace_mode_ready() -> Result<(), String> {
@@ -1020,7 +1050,7 @@ async fn contest_export_save(window: tauri::WebviewWindow, state: tauri::State<'
 
 #[tauri::command]
 async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, String> {
-    if !runtime_profile::CONTESTING_TEST || window.label() != "main" || APP_EXITING.load(Ordering::Acquire) {
+    if !runtime_profile::CONTESTING_TEST || window.label() != "contest-setup" || APP_EXITING.load(Ordering::Acquire) {
         return Err("SCP import is unavailable in this window.".into());
     }
     let generation=worker::existing_generation()?;
@@ -1034,10 +1064,10 @@ async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde
         let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),
             "method":"contest_scp_import_private","params":{"path":path.to_string_lossy(),"sourceName":source_name}});
         dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("main").is_some(),|| {
+            app.get_webview_window("contest-setup").is_some(),|| {
                 let response=worker::request_existing_generation(request,generation)?;
                 private_picker_final_admission("SCP import",generation,worker::generation(),
-                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("main").is_some())?;
+                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("contest-setup").is_some())?;
                 Ok(response)
             }).map(Some)
     })).await
@@ -1046,7 +1076,7 @@ async fn contest_scp_import(window: tauri::WebviewWindow) -> Result<Option<serde
 
 #[tauri::command]
 async fn contest_history_preview(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, String> {
-    if !runtime_profile::CONTESTING_TEST || window.label() != "main" || APP_EXITING.load(Ordering::Acquire) {
+    if !runtime_profile::CONTESTING_TEST || window.label() != "contest-setup" || APP_EXITING.load(Ordering::Acquire) {
         return Err("Call-history preview is unavailable in this window.".into());
     }
     let generation=worker::existing_generation()?;
@@ -1061,10 +1091,10 @@ async fn contest_history_preview(window: tauri::WebviewWindow) -> Result<Option<
             "method":"contest_history_preview_private","params":{
                 "path":path.to_string_lossy(),"sourceName":source_name}});
         dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("main").is_some(),|| {
+            app.get_webview_window("contest-setup").is_some(),|| {
                 let response=worker::request_existing_generation(request,generation)?;
                 private_picker_final_admission("Call-history preview",generation,worker::generation(),
-                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("main").is_some())?;
+                    APP_EXITING.load(Ordering::Acquire),app.get_webview_window("contest-setup").is_some())?;
                 Ok(response)
             }).map(Some)
     })).await.map_err(|_| "Call-history preview worker task failed.".to_string())?
@@ -1079,7 +1109,7 @@ fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option
     let app=window.app_handle().clone();
     window.run_on_main_thread(move || {
         let selected = dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("main").is_some(),|| {
+            app.get_webview_window("contest-setup").is_some(),|| {
             MainThreadMarker::new().ok_or_else(||"SCP chooser is unavailable.".to_string()).map(|main| {
             let panel = NSOpenPanel::openPanel(main);
             panel.setCanChooseFiles(true); panel.setCanChooseDirectories(false);
@@ -1104,7 +1134,7 @@ fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Op
     let app=window.app_handle().clone();
     window.run_on_main_thread(move || {
         let selected = dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-            app.get_webview_window("main").is_some(),|| {
+            app.get_webview_window("contest-setup").is_some(),|| {
             MainThreadMarker::new().ok_or_else(||"Call-history chooser is unavailable.".to_string()).map(|main| {
                 let panel = NSOpenPanel::openPanel(main);
                 panel.setCanChooseFiles(true); panel.setCanChooseDirectories(false);
@@ -1124,7 +1154,7 @@ fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Op
 fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
     let app=window.app_handle().clone();
     dispatch_private_picker("Call-history preview",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-        app.get_webview_window("main").is_some(),|| {
+        app.get_webview_window("contest-setup").is_some(),|| {
         Ok(rfd::FileDialog::new().set_title("Choose an operator-managed call-history file").pick_file())
     })
 }
@@ -1133,7 +1163,7 @@ fn choose_history_file(window: tauri::WebviewWindow,generation:u64) -> Result<Op
 fn choose_scp_file(window: tauri::WebviewWindow,generation:u64) -> Result<Option<std::path::PathBuf>, String> {
     let app=window.app_handle().clone();
     dispatch_private_picker("SCP import",generation,worker::generation(),APP_EXITING.load(Ordering::Acquire),
-        app.get_webview_window("main").is_some(),|| {
+        app.get_webview_window("contest-setup").is_some(),|| {
         Ok(rfd::FileDialog::new().set_title("Choose an operator-managed MASTER.SCP file")
             .add_filter("Super Check Partial", &["scp", "txt"]).pick_file())
     })
@@ -1515,7 +1545,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     validate_worker_request_caller(window.label())?;
     let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
     let method = method_value.as_str();
-    let contest_window_ticket = if window.label() == "main" && matches!(method, "contest_create" | "contest_session_create" | "contest_open") {
+    let contest_window_ticket = if window.label() == "contest-setup" && matches!(method, "contest_create" | "contest_session_create" | "contest_open") {
         Some(contest_window_context::begin(&request)?)
     } else { None };
     let _module_admission = if let Some(module) = operating_module::worker_module(&request) {
@@ -1996,7 +2026,7 @@ fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), Strin
 #[tauri::command]
 async fn contest_surface_context_close(window: tauri::WebviewWindow, app: tauri::AppHandle,
     operating_context: String, session_i_d: String, workspace_generation: String) -> Result<(), String> {
-    if window.label() != "main" { return Err("Only the main contest workspace can close the contest window context.".into()); }
+    if window.label() != "contest-setup" { return Err("Only the detached Contest Setup owner can close the contest window context.".into()); }
     let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
     if context.operating_context != operating_context { return Err("That contest window belongs to an expired operating context.".into()); }
     tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_closed(&app, context))
@@ -2012,8 +2042,8 @@ fn contest_surface_main_context(window: &tauri::WebviewWindow, operating_context
 }
 
 fn validate_contest_surface_main_caller(label: &str) -> Result<(), String> {
-    if label == "main" { Ok(()) }
-    else { Err("Only the main contest workspace can own contest surface actions.".into()) }
+    if label == "contest-setup" { Ok(()) }
+    else { Err("Only the detached Contest Setup owner can own contest surface actions.".into()) }
 }
 
 #[tauri::command]
@@ -2532,15 +2562,15 @@ mod workspace_layout_tests {
     use serde_json::json;
 
     #[test]
-    fn contest_window_open_is_main_only_and_bounded_to_connected_tools() {
+    fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
         for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
-            assert!(super::validate_contest_window_open("main", panel).is_ok());
-            for label in ["contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
+            assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
+            for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());
             }
         }
         for panel in ["alerts", "cw", "settings", "contest--logbook", ""] {
-            assert!(super::validate_contest_window_open("main", panel).is_err());
+            assert!(super::validate_contest_window_open("contest-setup", panel).is_err());
         }
     }
 
@@ -2603,12 +2633,14 @@ mod workspace_layout_tests {
     #[test]
     fn contest_native_children_cannot_bypass_the_surface_action_owner() {
         assert!(super::validate_worker_request_caller("main").is_ok());
+        assert!(super::validate_worker_request_caller("contest-setup").is_ok());
         assert!(super::validate_worker_request_caller("logbook").is_ok());
         for label in ["contest--active-qso", "contest--logbook", "contest--unknown"] {
             assert!(super::validate_worker_request_caller(label).is_err());
             assert!(super::validate_contest_surface_main_caller(label).is_err());
         }
-        assert!(super::validate_contest_surface_main_caller("main").is_ok());
+        assert!(super::validate_contest_surface_main_caller("main").is_err());
+        assert!(super::validate_contest_surface_main_caller("contest-setup").is_ok());
     }
 
     #[test]
