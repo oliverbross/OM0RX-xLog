@@ -47,6 +47,7 @@ type Props = {
 };
 
 const activeSessionKey = "xlog.contesting.not1mm.active-session.v1";
+const setupDraftKey = "xlog.contesting.not1mm.setup-draft.v1";
 const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
@@ -62,6 +63,22 @@ const manualFrequency = (value: string): number | null => {
   const mhz = Number(value.trim());
   return Number.isFinite(mhz) ? cqwwFrequency(mhz * 1_000_000) : null;
 };
+
+function restoredSetup(stationCall: string): ContestSetupDocument {
+  const defaults = newContestSetup(stationCall);
+  try {
+    const raw = localStorage.getItem(setupDraftKey);
+    if (!raw) return defaults;
+    const saved = JSON.parse(raw) as Partial<ContestSetupDocument>;
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return defaults;
+    return { ...defaults, ...saved,
+      station: { ...defaults.station, ...(saved.station ?? {}) },
+      settings: { ...defaults.settings, ...(saved.settings ?? {}) },
+      preferences: { ...defaults.preferences, ...(saved.preferences ?? {}) },
+      network: { ...defaults.network, ...(saved.network ?? {}) },
+      macros: Array.isArray(saved.macros) ? saved.macros : defaults.macros };
+  } catch { return defaults; }
+}
 
 function unwrap<T>(value: unknown): T {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("The contest host returned an invalid response.");
@@ -127,7 +144,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
-  const [setup, setSetup] = useState<ContestSetupDocument>(() => newContestSetup(stationCall));
+  const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
@@ -147,6 +164,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+  const rememberSetup = (document: ContestSetupDocument) => {
+    setSetup(document);
+    try { localStorage.setItem(setupDraftKey, JSON.stringify(document)); } catch { /* storage is optional */ }
+  };
 
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
   const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
@@ -187,7 +208,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       });
       const setupResult = await result<{ setup: ContestSetupDocument }>("contest_setup_get", { sessionID: session.sessionID });
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
-      acceptProjection(opened.projection); setSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
+      acceptProjection(opened.projection); rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
       localStorage.setItem(activeSessionKey, session.sessionID); setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
@@ -308,16 +329,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
         operator: document.operator.trim().toUpperCase() || contestCall, frequencyHz: operationFrequencyHz,
         settings: document.settings });
       const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
-      acceptProjection(saved.projection); setSetup(saved.setup); await refresh(sessionID, saved.projection);
+      acceptProjection(saved.projection); rememberSetup(saved.setup); await refresh(sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
       localStorage.setItem(activeSessionKey, sessionID); setManager(false);
     } catch (cause) { setError(errorMessage(cause)); throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
   const saveSetup = async (document: ContestSetupDocument) => {
+    if (!projectionRef.current) { rememberSetup(document); return; }
     const saved = await runMutation(base => mutate("contest_setup_save", base, { setup: document }) as Promise<MutationResult & { setup: ContestSetupDocument }>,
       false, true, false, true);
-    if (saved) setSetup(document);
+    if (saved) rememberSetup(document);
   };
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {

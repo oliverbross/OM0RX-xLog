@@ -28,6 +28,26 @@ const unavailableSCP = () => ({ id: "scp-status", ok: true,
   result: { dataset: null, unavailableReason: "not_imported" } });
 const unavailableHistory = () => ({ id: "history-status", ok: true,
   result: { dataset: null, pendingPreview: null, unavailableReason: "not_imported" } });
+
+it("persists station settings before the first contest exists", async () => {
+  const request = vi.fn(async (method: string) => {
+    if (method === "contest_catalog") return { id:crypto.randomUUID(), ok:true, result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} };
+    if (method === "contest_sessions") return { id:crypto.randomUUID(), ok:true, result:{sessions:[]} };
+    throw new Error(method);
+  });
+  const view = render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button", { name:"Station Settings" }));
+  fireEvent.change(screen.getByRole("textbox", { name:"Name" }), { target:{value:"Oliver"} });
+  const save = screen.getByRole("button", { name:"OK" });
+  expect((save as HTMLButtonElement).disabled).toBe(false);
+  await userEvent.click(save);
+  expect(JSON.parse(localStorage.getItem("xlog.contesting.not1mm.setup-draft.v1") ?? "{}").station.Name).toBe("Oliver");
+  expect(request).not.toHaveBeenCalledWith("contest_setup_save", expect.anything());
+  view.unmount();
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button", { name:"Station Settings" }));
+  expect((screen.getByRole("textbox", { name:"Name" }) as HTMLInputElement).value).toBe("Oliver");
+});
 async function createContestThroughSetup() {
   await userEvent.click(await screen.findByRole("button", { name: "New Contest" }));
   await userEvent.click(await screen.findByRole("button", { name: "OK" }));
