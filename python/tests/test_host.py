@@ -35,8 +35,10 @@ class HostTests(unittest.TestCase):
         self.root = Path(self.temporary.name).resolve() / "host"
         self.host = Host(self.root)
         self.session = uid()
+        self.workspace = uid()
         self.revision = 0
-        self.create = {"sessionID": self.session, "operationID": uid(), "expectedRevision": 0,
+        self.create = {"sessionID": self.session, "workspaceGeneration": self.workspace,
+                       "operationID": uid(), "expectedRevision": 0,
                        "pluginID": "cq_ww_cw", "station": {"Call": "OM0RX", "GridSquare": "JN88"},
                        "settings": {"SentExchange": "15", "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL", "PowerCategory": "LOW"},
                        "reference": {"id": "test-cty-v1", "countries": deepcopy(CTY)}}
@@ -94,6 +96,7 @@ class HostTests(unittest.TestCase):
     def test_session_catalog_reopens_owned_python_sessions(self):
         sessions = self.call("sessions", {})["sessions"]
         self.assertEqual(sessions, [{"sessionID": self.session, "name": "CQ WW CW",
+                                    "workspaceGeneration": self.workspace,
                                     "pluginID": "cq_ww_cw",
                                     "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
                                     "revision": self.revision}])
@@ -298,17 +301,17 @@ class HostTests(unittest.TestCase):
     def test_prepared_export_is_chunked_verified_and_explicitly_released(self):
         self.log()
         prepared = self.read("export_prepare")
-        self.assertEqual(prepared["workspaceGeneration"], self.session)
+        self.assertEqual(prepared["workspaceGeneration"], self.workspace)
         chunk = self.read("export_read", exportID=prepared["artifactID"],
-                          workspaceGeneration=self.session, offset=0, length=prepared["byteLength"])
+                          workspaceGeneration=self.workspace, offset=0, length=prepared["byteLength"])
         payload = base64.b64decode(chunk["dataBase64"])
         self.assertEqual(hashlib.sha256(payload).hexdigest(), prepared["sha256"])
         self.assertTrue(chunk["eof"])
         self.assertTrue(self.read("export_release", exportID=prepared["artifactID"],
-                                  workspaceGeneration=self.session)["released"])
+                                  workspaceGeneration=self.workspace)["released"])
         with self.assertRaises(HostError) as error:
             self.read("export_read", exportID=prepared["artifactID"],
-                      workspaceGeneration=self.session, offset=0, length=prepared["byteLength"])
+                      workspaceGeneration=self.workspace, offset=0, length=prepared["byteLength"])
         self.assertEqual(error.exception.code, "not_found")
 
     def test_bounded_serial_jsonl_and_real_process(self):

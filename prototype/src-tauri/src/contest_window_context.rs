@@ -75,7 +75,7 @@ impl ContestWindowContextAuthority {
     pub fn begin(&mut self, module: &Value, request: &Value) -> Result<u64, String> {
         let operating_context = active_contest_context(module)?;
         let method = request["method"].as_str().unwrap_or("");
-        if !matches!(method, "contest_create" | "contest_open") {
+        if !matches!(method, "contest_create" | "contest_session_create" | "contest_open") {
             return Err("Only a contest session open can establish detached window context.".into());
         }
         let supplied_context = canonical_uuid(&request["operatingContext"], "operating context")?;
@@ -106,16 +106,21 @@ impl ContestWindowContextAuthority {
         if response["ok"] != true {
             return Err("The contest session was not opened.".into());
         }
-        let session = &response["result"]["session"];
+        let result = &response["result"];
+        let session = if result["projection"].is_object() { &result["projection"] } else { &result["session"] };
         let session_id = canonical_uuid(&session["sessionID"], "contest session")?;
         let workspace_generation = canonical_uuid(&session["workspaceGeneration"], "contest workspace")?;
         if session_id != pending.session_id || workspace_generation != pending.workspace_generation {
             return Err("The contest session response did not match its request.".into());
         }
-        let draft = &response["result"]["draft"];
-        if canonical_uuid(&draft["sessionID"], "contest draft session")? != session_id
-            || canonical_uuid(&draft["workspaceGeneration"], "contest draft workspace")? != workspace_generation {
-            return Err("The contest session response contains a mismatched draft.".into());
+        if result["projection"].is_object() {
+            canonical_uuid(&session["draftID"], "contest draft")?;
+        } else {
+            let draft = &result["draft"];
+            if canonical_uuid(&draft["sessionID"], "contest draft session")? != session_id
+                || canonical_uuid(&draft["workspaceGeneration"], "contest draft workspace")? != workspace_generation {
+                return Err("The contest session response contains a mismatched draft.".into());
+            }
         }
         let context = ContestWindowContext {
             operating_context: pending.operating_context.clone(),
@@ -211,6 +216,10 @@ mod tests {
         json!({"ok":true,"result":{"session":{"sessionID":session,"workspaceGeneration":WORKSPACE},
             "draft":{"draftID":DRAFT,"sessionID":session,"workspaceGeneration":WORKSPACE}}})
     }
+    fn python_response(session: &str) -> Value {
+        json!({"ok":true,"result":{"projection":{"sessionID":session,
+            "workspaceGeneration":WORKSPACE,"draftID":DRAFT}}})
+    }
     fn context(operating: &str, session: &str) -> ContestWindowContext {
         ContestWindowContext { operating_context: operating.into(), session_id: session.into(), workspace_generation: WORKSPACE.into() }
     }
@@ -228,6 +237,14 @@ mod tests {
         assert!(authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_B)).is_err());
         authority.close(&module(OPERATING_A), &context(OPERATING_A, SESSION_A)).unwrap();
         assert!(authority.admit(&module(OPERATING_A), &context(OPERATING_A, SESSION_A)).is_err());
+    }
+
+    #[test]
+    fn python_create_projection_establishes_the_same_exact_context() {
+        let mut authority = ContestWindowContextAuthority::default();
+        let ticket = authority.begin(&module(OPERATING_A), &request("contest_session_create", OPERATING_A, SESSION_A)).unwrap();
+        assert_eq!(authority.complete(ticket, &module(OPERATING_A), &python_response(SESSION_A)).unwrap(),
+            context(OPERATING_A, SESSION_A));
     }
 
     #[test]

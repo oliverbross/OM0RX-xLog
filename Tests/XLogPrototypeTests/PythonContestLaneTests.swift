@@ -41,8 +41,10 @@ final class PythonContestLaneTests: XCTestCase {
         XCTAssertEqual(plugins[0]["engine"] as? String, "not1mm-python")
 
         let sessionID = UUID().uuidString.lowercased()
+        let workspaceGeneration = UUID().uuidString.lowercased()
         let result = try await lane.handle(method: "contest_session_create", params: [
             "sessionID": sessionID,
+            "workspaceGeneration": workspaceGeneration,
             "operationID": UUID().uuidString.lowercased(),
             "expectedRevision": 0,
             "pluginID": "cq_ww_cw",
@@ -54,6 +56,7 @@ final class PythonContestLaneTests: XCTestCase {
         let projection = try XCTUnwrap(result["projection"] as? [String: Any])
         XCTAssertEqual(projection["engine"] as? String, "not1mm-python")
         XCTAssertEqual(projection["pluginID"] as? String, "cq_ww_cw")
+        XCTAssertEqual(projection["workspaceGeneration"] as? String, workspaceGeneration)
         XCTAssertEqual(projection["referenceID"] as? String, try ContestReferenceData.bundled().version)
         let cw = try await lane.handle(method: "contest_cw_context", params: [:])
         XCTAssertEqual(cw["sessionID"] as? String, sessionID)

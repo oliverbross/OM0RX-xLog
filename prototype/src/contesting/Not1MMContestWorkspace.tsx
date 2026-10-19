@@ -15,12 +15,12 @@ type Field = { id: string; label: string; accessibleName: string; value: string;
 type Score = { qsos: number; points: number; countries: number; zones: number; total: number };
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; sourceRevision: string; referenceID: string;
-  revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
+  workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; run: boolean;
   functionKeys: Array<{ id: string; highlighted: boolean }>; dupe: boolean; countryResolved: boolean;
   history: string; score: Score;
 };
-type Session = { sessionID: string; name: string; pluginID: string; sourceRevision: string; revision: number };
+type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string };
 type Props = {
   request: Request;
@@ -90,13 +90,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationCall, r
     if (next && projectionRef.current?.sessionID !== next.sessionID) return;
     setRows(Array.isArray(log.rows) ? log.rows : []); setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? { countries: [], zones: [] });
   };
-  const openSession = async (sessionID: string) => {
+  const openSession = async (session: Session) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
-      const opened = await result<{ projection: Projection }>("contest_open", { sessionID });
-      acceptProjection(opened.projection); await refresh(sessionID, opened.projection);
-      localStorage.setItem(activeSessionKey, sessionID); setManager(false); setEditing(null);
+      const opened = await result<{ projection: Projection }>("contest_open", {
+        sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
+      });
+      acceptProjection(opened.projection); await refresh(session.sessionID, opened.projection);
+      localStorage.setItem(activeSessionKey, session.sessionID); setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
     finally { busyRef.current = false; setBusy(false); }
@@ -108,7 +110,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationCall, r
       if (!active) return;
       setCatalog(Array.isArray(available.plugins) ? available.plugins : []); setSessions(list.sessions);
       const stored = localStorage.getItem(activeSessionKey);
-      if (stored && list.sessions.some(session => session.sessionID === stored)) void openSession(stored);
+      const saved = stored ? list.sessions.find(session => session.sessionID === stored) : undefined;
+      if (saved) void openSession(saved);
     }).catch(cause => { if (active) setError(errorMessage(cause)); });
     return () => { active = false; };
   }, []);
@@ -160,7 +163,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationCall, r
     busyRef.current = true; setBusy(true); setError("");
     try {
       const sessionID = crypto.randomUUID();
-      const created = await result<MutationResult>("contest_session_create", { sessionID, operationID: crypto.randomUUID(), expectedRevision: 0,
+      const workspaceGeneration = crypto.randomUUID();
+      const created = await result<MutationResult>("contest_create", { sessionID, workspaceGeneration,
+        operationID: crypto.randomUUID(), expectedRevision: 0,
         pluginID: "cq_ww_cw", name: create.name.trim() || "CQ WW CW", station: { Call: stationCall.trim().toUpperCase(), CQZone: create.cqZone },
         operator: stationCall.trim().toUpperCase(), settings: { SentExchange: create.cqZone, ModeCategory: "CW" } });
       acceptProjection(created.projection); await refresh(sessionID, created.projection);
@@ -239,7 +244,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationCall, r
     <header className="contest-header"><div><h1>Contest Manager / Desk</h1><p>CQ WW CW · actual Not1MM Python plugin · xLog station services</p></div><div className="contest-header-actions">{projection && <button type="button" disabled={busy} onClick={() => setManager(value => !value)}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
-    {manager ? <section className="contest-manager"><div className="contest-session-list"><h2>Python contest sessions</h2>{sessions.length ? sessions.map(session => <button type="button" key={session.sessionID} disabled={busy} onClick={() => void openSession(session.sessionID)}><span><strong>{session.name}</strong><small>{session.pluginID} · revision {session.revision}</small></span></button>) : <p className="contest-empty">No Python contest sessions yet. Existing Swift sessions remain preserved in their legacy store.</p>}</div><form className="contest-create" onSubmit={createSession}><h2>New contest</h2><div className="contest-create-fields"><label>Contest<select disabled value="cq_ww_cw"><option value="cq_ww_cw">{catalog[0]?.name ?? "CQ WW CW"}</option></select></label><ContestTextField label="Session name" disabled={busy} value={create.name} onChange={event => setCreate({ ...create, name: event.target.value })}/><ContestTextField label="Station call" disabled value={stationCall}/><ContestTextField label="Sent CQ zone" disabled={busy} inputMode="numeric" value={create.cqZone} onChange={event => setCreate({ ...create, cqZone: event.target.value })}/></div><p className="contest-source">The new session is owned by upstream-compatible Python SQLite. Normal-log and legacy contest data are not modified.</p><button className="contest-primary" type="submit" disabled={busy || !stationCall.trim()}>Create and open</button></form></section> : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section><ContestOperatorCanvas request={(method, params) => request(method, params)} canChangeLayout={() => !busy && !retiring && !editing} panels={{ "active-qso": { title: "Entry", content: entryPanel }, "callsign-intelligence": { title: "Check Partial", content: checkPanel }, propagation: { title: "Statistics", content: <>{scorePanel}{matrixPanel}</> }, logbook: { title: "Log", content: logPanel }, "band-maps": { title: "Bandmap", content: bandMapPanel }, "dx-cluster": { title: "Cluster", content: clusterPanel }, cw: { title: "CW", content: cwPanel() } }} traditional={<><div className="contest-operating-grid">{entryPanel}{scorePanel}</div>{checkPanel}{matrixPanel}<div className="contest-operating-grid">{bandMapPanel}{clusterPanel}</div>{logPanel}</>}/></> : <section className="contest-welcome"><h2>Open a CQ WW session</h2></section>}
+    {manager ? <section className="contest-manager"><div className="contest-session-list"><h2>Python contest sessions</h2>{sessions.length ? sessions.map(session => <button type="button" key={session.sessionID} disabled={busy} onClick={() => void openSession(session)}><span><strong>{session.name}</strong><small>{session.pluginID} · revision {session.revision}</small></span></button>) : <p className="contest-empty">No Python contest sessions yet. Existing Swift sessions remain preserved in their legacy store.</p>}</div><form className="contest-create" onSubmit={createSession}><h2>New contest</h2><div className="contest-create-fields"><label>Contest<select disabled value="cq_ww_cw"><option value="cq_ww_cw">{catalog[0]?.name ?? "CQ WW CW"}</option></select></label><ContestTextField label="Session name" disabled={busy} value={create.name} onChange={event => setCreate({ ...create, name: event.target.value })}/><ContestTextField label="Station call" disabled value={stationCall}/><ContestTextField label="Sent CQ zone" disabled={busy} inputMode="numeric" value={create.cqZone} onChange={event => setCreate({ ...create, cqZone: event.target.value })}/></div><p className="contest-source">The new session is owned by upstream-compatible Python SQLite. Normal-log and legacy contest data are not modified.</p><button className="contest-primary" type="submit" disabled={busy || !stationCall.trim()}>Create and open</button></form></section> : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section><ContestOperatorCanvas request={(method, params) => request(method, params)} canChangeLayout={() => !busy && !retiring && !editing} panels={{ "active-qso": { title: "Entry", content: entryPanel }, "callsign-intelligence": { title: "Check Partial", content: checkPanel }, propagation: { title: "Statistics", content: <>{scorePanel}{matrixPanel}</> }, logbook: { title: "Log", content: logPanel }, "band-maps": { title: "Bandmap", content: bandMapPanel }, "dx-cluster": { title: "Cluster", content: clusterPanel }, cw: { title: "CW", content: cwPanel() } }} traditional={<><div className="contest-operating-grid">{entryPanel}{scorePanel}</div>{checkPanel}{matrixPanel}<div className="contest-operating-grid">{bandMapPanel}{clusterPanel}</div>{logPanel}</>}/></> : <section className="contest-welcome"><h2>Open a CQ WW session</h2></section>}
   </main>;
 }
 

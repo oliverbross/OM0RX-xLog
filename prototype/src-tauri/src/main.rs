@@ -1515,7 +1515,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     validate_worker_request_caller(window.label())?;
     let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
     let method = method_value.as_str();
-    let contest_window_ticket = if window.label() == "main" && matches!(method, "contest_create" | "contest_open") {
+    let contest_window_ticket = if window.label() == "main" && matches!(method, "contest_create" | "contest_session_create" | "contest_open") {
         Some(contest_window_context::begin(&request)?)
     } else { None };
     let _module_admission = if let Some(module) = operating_module::worker_module(&request) {

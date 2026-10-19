@@ -153,7 +153,7 @@ actor PythonContestLane {
 
     private func referencedParams(method: String, params: [String: Any]) throws -> [String: Any] {
         var result = params
-        if method == "contest_session_create", result["reference"] == nil,
+        if (method == "contest_session_create" || method == "contest_create"), result["reference"] == nil,
            let station = result["station"] as? [String: Any], let call = station["Call"] as? String {
             guard let country = countryWire(call) else {
                 throw ContestLaneError.confirmed("station_country_unresolved", "Resolve the station country before creating this contest.")

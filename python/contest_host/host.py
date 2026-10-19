@@ -50,6 +50,14 @@ def now():
     return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def workspace_generation(state):
+    """Return the persisted window identity, or a stable identity for pre-contract sessions."""
+    value = state.get("workspaceGeneration")
+    if value is not None:
+        return identifier(value)
+    return str(uuid.uuid5(uuid.UUID(state["sessionID"]), "xlog-not1mm-workspace"))
+
+
 class Field:
     """Only the audited plugin field API; Python rejects unknown attributes."""
     __slots__ = ("name", "value", "visible", "accessible_name", "read_only", "enabled", "focused")
@@ -188,6 +196,7 @@ class Desk:
         band = self.band(self.state["draft"]["frequencyHz"])
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": PLUGIN_ID, "sourceRevision": SOURCE_REVISION,
+                "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
                 "frequencyHz": self.state["draft"]["frequencyHz"], "mode": "CW", "band": band,
@@ -268,6 +277,7 @@ class Host:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
                 sessions.append({"sessionID": session_id, "name": state.get("name", "CQ WW CW"),
+                                 "workspaceGeneration": workspace_generation(state),
                                  "pluginID": state["pluginID"], "sourceRevision": state["sourceRevision"],
                                  "revision": state["revision"]})
             return {"sessions": sessions}
@@ -323,7 +333,7 @@ class Host:
             require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
             artifact_id = str(uuid.uuid4())
             prepared = {"artifactID": artifact_id, "sessionID": session_id,
-                        "workspaceGeneration": session_id, "revision": state["revision"],
+                        "workspaceGeneration": workspace_generation(state), "revision": state["revision"],
                         "byteLength": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
                         "format": "cabrillo", "filename": exported["filename"]}
             self.exports[artifact_id] = {"prepared": prepared, "bytes": payload}
@@ -333,7 +343,8 @@ class Host:
             artifact = self.exports.get(artifact_id)
             require(artifact is not None, "Prepared export is unavailable", "not_found")
             prepared, payload = artifact["prepared"], artifact["bytes"]
-            require(params.get("workspaceGeneration") == session_id == prepared["sessionID"],
+            require(params.get("workspaceGeneration") == workspace_generation(state)
+                    and session_id == prepared["sessionID"],
                     "Prepared export scope changed", "export_scope_changed")
             offset, length = params.get("offset"), params.get("length")
             require(type(offset) is int and type(length) is int and offset >= 0 and 0 < length <= 65536
@@ -346,7 +357,8 @@ class Host:
             artifact_id = identifier(params.get("exportID"))
             artifact = self.exports.get(artifact_id)
             require(artifact is not None, "Prepared export is unavailable", "not_found")
-            require(params.get("workspaceGeneration") == session_id == artifact["prepared"]["sessionID"],
+            require(params.get("workspaceGeneration") == workspace_generation(state)
+                    and session_id == artifact["prepared"]["sessionID"],
                     "Prepared export scope changed", "export_scope_changed")
             del self.exports[artifact_id]
             return {"released": True, "artifactID": artifact_id, "sessionID": session_id}
@@ -438,6 +450,7 @@ class Host:
 
     def new_state(self, session_id, params):
         require(params.get("pluginID", PLUGIN_ID) == PLUGIN_ID, "Only CQ WW CW is supported")
+        workspace = identifier(params.get("workspaceGeneration"))
         station, reference = deepcopy(params.get("station")), deepcopy(params.get("reference"))
         require(isinstance(station, dict) and isinstance(reference, dict), "Station and reference are required")
         call = text(station.get("Call", ""), 32).upper()
@@ -454,7 +467,8 @@ class Host:
         settings.setdefault("SentExchange", str(countries[call]["cq"]))
         require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
         settings.setdefault("ModeCategory", "CW")
-        return {"sessionID": session_id, "name": text(params.get("name", "CQ WW CW"), 128),
+        return {"sessionID": session_id, "workspaceGeneration": workspace,
+                "name": text(params.get("name", "CQ WW CW"), 128),
                 "revision": 0, "engine": "not1mm-python", "pluginID": PLUGIN_ID,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},

@@ -18,6 +18,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
 const projection = (revision = 1, values: Record<string, string> = {}) => ({
   sessionID: "11111111-1111-4111-8111-111111111111", engine: "not1mm-python", pluginID: "cq_ww_cw",
+  workspaceGeneration: "33333333-3333-4333-8333-333333333333",
   sourceRevision: "7c8b499225a73f7f8f792246881bd7aefc05452f", referenceID: "cty-test", revision,
   draftID: "22222222-2222-4222-8222-222222222222", frequencyHz: 14025000, mode: "CW", band: 14,
   focus: "callsign", tabNext: { callsign: "sent", sent: "receive", receive: "other_2", other_2: "callsign" },
@@ -37,7 +38,7 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
     let result: any;
     if (method === "contest_catalog") result = { plugins: [{ id: "cq_ww_cw", name: "CQ WW CW", engine: "not1mm-python" }] };
     else if (method === "contest_sessions") result = { sessions: [] };
-    else if (method === "contest_session_create") result = { sessionID: current.sessionID, revision: 1, projection: current, actions: [], messages: [] };
+    else if (method === "contest_create") result = { sessionID: current.sessionID, revision: 1, projection: current, actions: [], messages: [] };
     else if (method === "contest_log_page") result = { rows: [], total: 0, revision: current.revision };
     else if (method === "contest_score") result = { score: current.score, matrices: { countries: [], zones: [] }, revision: current.revision };
     else if (method === "contest_qso_commit") { logged = params; current = projection(current.revision + 1); result = { projection: current, actions: [], messages: [] }; }
@@ -62,7 +63,7 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
     let result: any;
     if (method === "contest_catalog") result = { plugins: [{ id:"cq_ww_cw", name:"CQ WW CW" }] };
     else if (method === "contest_sessions") result = { sessions:[] };
-    else if (method === "contest_session_create") result = { sessionID:current.sessionID, projection:current };
+    else if (method === "contest_create") result = { sessionID:current.sessionID, projection:current };
     else if (method === "contest_log_page") result = { rows:[], total:0 };
     else if (method === "contest_score") result = { score:current.score, matrices:{countries:[],zones:[]} };
     else throw new Error(`Unexpected renderer request ${method}`);
