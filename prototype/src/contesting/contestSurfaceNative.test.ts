@@ -30,7 +30,7 @@ describe("contest native surface bridge", () => {
   it("submits one exact action and rejects a coercible malformed receipt", async () => {
     native.invoke.mockResolvedValue({ requestID: action.requestID, status: "queued" });
     await expect(submitContestSurfaceAction(action)).resolves.toEqual({ requestID: action.requestID, status: "queued" });
-    expect(native.invoke).toHaveBeenCalledWith("contest_surface_action", action);
+    expect(native.invoke).toHaveBeenCalledWith("contest_surface_action", { envelope: action });
     native.invoke.mockResolvedValue({ requestID: action.requestID, status: ["queued"] });
     await expect(submitContestSurfaceAction(action)).rejects.toThrow("receipt could not be verified");
     native.tauri = false;

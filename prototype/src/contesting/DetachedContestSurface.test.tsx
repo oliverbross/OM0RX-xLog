@@ -9,7 +9,11 @@ import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type Contes
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void),wakes:[] as (()=>void)[] }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (command: string, args: Record<string, any>) =>
+    native.invoke(command, command === "contest_surface_action" ? args.envelope : args),
+  isTauri: () => true,
+}));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 
 const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",

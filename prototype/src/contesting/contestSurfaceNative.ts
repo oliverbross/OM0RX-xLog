@@ -69,7 +69,7 @@ function surfaceSnapshot(value: unknown, context: ContestSurfaceContext): Contes
 export async function submitContestSurfaceAction(action: ContestSurfaceActionEnvelope): Promise<ContestSurfaceActionReceipt> {
   validateContestSurfaceActionEnvelope(action);
   if (!isTauri()) throw new Error("Detached contest actions require the native application.");
-  return actionReceipt(await invoke("contest_surface_action", action));
+  return actionReceipt(await invoke("contest_surface_action", { envelope: action }));
 }
 
 export async function nextContestSurfaceAction(context: ContestSurfaceContext): Promise<ContestSurfaceActionEnvelope | null> {
