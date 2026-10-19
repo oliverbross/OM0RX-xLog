@@ -337,6 +337,16 @@ pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
     }
     scoped_open(app, WorkspaceWindowScope::NormalLogging, None, label.into())
 }
+/// Open one contest tool without reconciling or changing its saved layout.
+/// The serialized owner rechecks context admission before touching the window.
+pub fn contest_open(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    panel_id: &str) -> Result<(), String> {
+    let panel = crate::workspace_navigation::contest_window_panel(panel_id)
+        .ok_or("That contest window is not available.")?;
+    crate::contest_window_context::admit(&context)?;
+    let identity = crate::workspace_windows::WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, panel)?;
+    scoped_open(app, WorkspaceWindowScope::Contesting, Some(context), identity.native_label())
+}
 fn scoped_open(app: &AppHandle, scope: WorkspaceWindowScope,
     contest_context: Option<crate::contest_window_context::ContestWindowContext>, label: String) -> Result<(), String> {
     let owner = owner(app)?;
@@ -1287,6 +1297,15 @@ mod tests {
         assert!(checked_response(untagged, "load", WorkspaceWindowScope::Contesting,
             Some("12345678-1234-1234-1234-123456789abc")).is_err());
     }
+    #[test]
+    fn explicit_contest_open_shows_only_requested_tool_without_loading_layout() {
+        let mut engine = Engine::for_scope(WorkspaceWindowScope::Contesting);
+        let mut host = FakeHost::new(vec![contest_layout(1, &["active-qso", "logbook"])]);
+        engine.open(&mut host, "contest--callsign-intelligence").unwrap();
+        assert_eq!(host.operations, ["show:contest--callsign-intelligence:true"]);
+        assert_eq!(host.layouts.len(), 1);
+    }
+
     #[test]
     fn contest_engine_uses_scoped_labels_for_reconcile_and_reopen() {
         let mut engine = Engine::for_scope(WorkspaceWindowScope::Contesting);

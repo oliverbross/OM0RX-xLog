@@ -26,6 +26,30 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
     match id { "workspace_mode_canvas" => Some("workspace-mode-canvas"), "workspace_mode_windows" => Some("workspace-mode-windows"), _ => None }
 }
 
+// Menu destinations are retained main-renderer intents. The main contest
+// controller supplies the current session when opening its existing windows.
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 9] = [
+    ("contest-setup", "Contest Setup"),
+    ("contest-window-propagation", "Stats"),
+    ("contest-window-logbook", "Logbook"),
+    ("contest-window-active-qso", "Main Logging"),
+    ("contest-window-band-maps", "Band Map"),
+    ("contest-window-rotor", "Rotator"),
+    ("contest-window-monitor", "Rates"),
+    ("contest-window-dx-cluster", "Cluster"),
+    ("contest-window-callsign-intelligence", "Check Partial"),
+];
+pub fn contest_route(id: &str) -> Option<&'static str> {
+    CONTEST_MENU_ITEMS.iter().find_map(|(route, _)| (*route == id).then_some(*route))
+}
+pub fn contest_menu_route(id: &str) -> Option<&'static str> {
+    contest_route(id.strip_prefix("contest_menu_")?)
+}
+pub fn contest_window_panel(panel_id: &str) -> Option<&'static str> {
+    CONTEST_MENU_ITEMS.iter().filter_map(|(route, _)| route.strip_prefix("contest-window-"))
+        .find(|panel| *panel == panel_id)
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Navigation { pub revision: u64, pub screen: String }
 #[derive(Default)]
@@ -34,7 +58,7 @@ struct State { revision: u64, pending: Option<Navigation> }
 pub struct WorkspaceNavigation(Mutex<State>);
 impl WorkspaceNavigation {
     pub fn request(&self, id: &str) -> Result<Navigation, String> {
-        if available_screen(id).is_none() && !["workspace-mode-canvas", "workspace-mode-windows"].contains(&id) { return Err("Unknown or unavailable workspace screen".into()); }
+        if available_screen(id).is_none() && contest_route(id).is_none() && !["workspace-mode-canvas", "workspace-mode-windows"].contains(&id) { return Err("Unknown or unavailable workspace screen".into()); }
         let mut state = self.0.lock().map_err(|_| "Workspace navigation unavailable")?;
         if state.revision >= 9_007_199_254_740_990 { return Err("Workspace navigation revision exhausted".into()); }
         state.revision += 1;
@@ -57,6 +81,39 @@ impl WorkspaceNavigation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn contest_menu_routes_retain_intent_for_connected_contest_windows() {
+        let state = WorkspaceNavigation::default();
+        let mut routes = std::collections::HashSet::new();
+        let mut titles = std::collections::HashSet::new();
+        let mut windows = std::collections::HashSet::new();
+        for (route, title) in CONTEST_MENU_ITEMS {
+            assert!(routes.insert(route));
+            assert!(titles.insert(title));
+            assert_eq!(contest_menu_route(&format!("contest_menu_{route}")), Some(route));
+            if let Some(panel) = route.strip_prefix("contest-window-") {
+                assert!(crate::workspace_windows::supports_panel(crate::workspace_windows::WorkspaceWindowScope::Contesting, panel));
+                assert_eq!(contest_window_panel(panel), Some(panel));
+                windows.insert(panel);
+            } else {
+                assert_eq!((route, title), ("contest-setup", "Contest Setup"));
+            }
+            let pending = state.request(route).unwrap();
+            assert_eq!(state.snapshot("main").unwrap(), Some(pending.clone()));
+            assert!(state.snapshot("contest--active-qso").is_err());
+            assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
+            state.acknowledge("main", pending.revision).unwrap();
+        }
+        assert_eq!(windows, ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster"].into_iter().collect());
+        for invalid in ["contest-window-settings", "contest-window-cw", "contest-window-awards", "contest-window-chaser-dx", "contest-window-station-control", "contest-window-alerts", "contest-window-", "contest_setup", "workspace_window_logbook"] {
+            assert!(contest_menu_route(invalid).is_none());
+            assert!(contest_route(invalid).is_none());
+            if invalid.starts_with("contest-") { assert!(state.request(invalid).is_err()); }
+        }
+        for invalid in ["settings", "cw", "awards", "chaser-dx", "station-control", "alerts", "contest--logbook", "contest-setup", ""] {
+            assert!(contest_window_panel(invalid).is_none());
+        }
+    }
     #[test]
     fn workspace_mode_choices_use_the_retained_main_navigation_channel() {
         let state = WorkspaceNavigation::default();

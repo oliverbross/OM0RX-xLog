@@ -547,7 +547,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     view.append(&PredefinedMenuItem::separator(app)?)?;
     append_screen_group(app, &view, "View")?;
     append_logbook_menu(app, &menu)?;
-    if runtime_profile::CONTESTING_TEST { append_contesting_menu(app, &menu)?; }
+    append_contesting_menu(app, &menu)?;
     append_radio_menu(app, &menu)?;
     append_online_menu(app, &menu)?;
     let existing_window = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
@@ -605,11 +605,11 @@ fn append_logbook_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri
 }
 
 fn append_contesting_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
-    let screen = workspace_navigation::available_screen("contesting")
-        .expect("Contesting Test bundle must include its workspace screen");
-    let contesting = Submenu::new(app, "Contesting", true)?;
-    contesting.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
-        "Contest Manager / Desk", true, None::<&str>)?)?;
+    let contesting = Submenu::new(app, "Contest", true)?;
+    for (route, title) in workspace_navigation::CONTEST_MENU_ITEMS {
+        contesting.append(&MenuItem::with_id(app, format!("contest_menu_{route}"),
+            title, true, None::<&str>)?)?;
+    }
     let items = menu.items()?;
     let before_window = items.iter().position(|item| item.as_submenu()
         .is_some_and(|submenu| submenu.id().0 == WINDOW_SUBMENU_ID)).unwrap_or(items.len());
@@ -1979,6 +1979,21 @@ fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHand
 }
 
 #[tauri::command]
+async fn contest_window_open(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, session_i_d: String, workspace_generation: String, panel_i_d: String) -> Result<(), String> {
+    validate_contest_window_open(window.label(), &panel_i_d)?;
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_open(&app, context, &panel_i_d))
+        .await.map_err(|_| "Contest window task failed".to_string())?
+}
+
+fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), String> {
+    validate_contest_surface_main_caller(label)?;
+    workspace_navigation::contest_window_panel(panel_id)
+        .map(|_| ()).ok_or_else(|| "That contest window is not available.".into())
+}
+
+#[tauri::command]
 async fn contest_surface_context_close(window: tauri::WebviewWindow, app: tauri::AppHandle,
     operating_context: String, session_i_d: String, workspace_generation: String) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main contest workspace can close the contest window context.".into()); }
@@ -2306,6 +2321,13 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if let Some(route) = workspace_navigation::contest_menu_route(&event.id().0) {
+                let app = app.clone(); let route = route.to_owned();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = navigate_workspace(app, route).await { eprintln!("Could not open contest action: {error}"); }
+                });
+                return;
+            }
             if let Some(screen) = radio_menu_route(&event.id().0) {
                 let app = app.clone(); let screen = screen.to_owned();
                 tauri::async_runtime::spawn(async move {
@@ -2457,7 +2479,7 @@ fn main() {
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile, contest_surface_context_close,
+            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
@@ -2508,6 +2530,19 @@ mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn contest_window_open_is_main_only_and_bounded_to_connected_tools() {
+        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster"] {
+            assert!(super::validate_contest_window_open("main", panel).is_ok());
+            for label in ["contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
+                assert!(super::validate_contest_window_open(label, panel).is_err());
+            }
+        }
+        for panel in ["awards", "alerts", "chaser-dx", "station-control", "cw", "settings", "contest--logbook", ""] {
+            assert!(super::validate_contest_window_open("main", panel).is_err());
+        }
+    }
 
     #[test]
     fn presentation_hint_recovers_after_a_prior_owner_panics() {
