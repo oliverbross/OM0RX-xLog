@@ -85,7 +85,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
 pub const CONTEST_WINDOWS: [WindowSpec; 12] = [
-    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Entry", width: 800.0, height: 620.0 },
+    WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 620.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 920.0, height: 760.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check", width: 700.0, height: 620.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rate", width: 780.0, height: 600.0 },
@@ -336,7 +336,7 @@ mod tests {
         let contest = WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, "active-qso").unwrap();
         assert_eq!(contest.native_label(), "contest--active-qso");
         assert_eq!(WorkspaceWindowIdentity::parse_native_label("contest--active-qso").unwrap(), contest);
-        assert_eq!(scoped_spec(contest).unwrap().title, "OM0RX-xLog Contest — Entry");
+        assert_eq!(scoped_spec(contest).unwrap().title, "OM0RX-xLog Contest — Main Logging");
         for invalid in ["contest--", "contest--log-qso", "contest--band-map-20m", "contest--contest--active-qso", "contest--ACTIVE-QSO"] {
             assert!(WorkspaceWindowIdentity::parse_native_label(invalid).is_err(), "{invalid}");
         }
