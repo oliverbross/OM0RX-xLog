@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from contest_host.host import Host, HostError
+from contest_host.store import CALLHISTORY_COLUMNS
 from contest_host.upstream import VENDOR, load_plugin
 import test_host as fixtures
 
@@ -83,12 +84,18 @@ class CWOHostTests(unittest.TestCase):
         setup = self.read("setup_get")["setup"]
         setup["preferences"]["callHistory"] = True
         self.mutate("setup_save", setup=setup)
-        store = self.host.database(self.session)
-        store.conn.execute(
-            "INSERT INTO callhistory(Call,Name,UserText) VALUES(?,?,?)",
-            ("K1ABC", "ALICE", "CW Open regular"),
-        )
-        store.conn.commit()
+        generation, digest = uid(), "a" * 64
+        history = {column: "" for column in CALLHISTORY_COLUMNS}
+        history.update(Call="K1ABC", Name="ALICE", UserText="CW Open regular")
+        self.call("history_stage_begin", {"sessionID": self.session,
+            "workspaceGeneration": self.workspace, "generation": generation,
+            "digest": digest, "rowCount": 1})
+        self.call("history_stage_chunk", {"sessionID": self.session,
+            "workspaceGeneration": self.workspace, "generation": generation,
+            "digest": digest, "offset": 0, "rows": [history]})
+        self.call("history_stage_commit", {"sessionID": self.session,
+            "workspaceGeneration": self.workspace, "generation": generation,
+            "digest": digest, "rowCount": 1})
         self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": ""})
         self.assertEqual(self.fields()["other_2"]["value"], "ALICE ")
         self.assertIn("CW Open regular", self.read("projection")["projection"]["history"])

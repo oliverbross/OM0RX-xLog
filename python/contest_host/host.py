@@ -93,17 +93,18 @@ def workspace_generation(state):
 
 class Field:
     """Only the audited plugin field API; Python rejects unknown attributes."""
-    __slots__ = ("name", "value", "visible", "accessible_name", "read_only", "enabled", "focused")
+    __slots__ = ("name", "value", "maximum", "visible", "accessible_name", "read_only", "enabled", "focused")
 
-    def __init__(self, name, value=""):
-        self.name, self.value, self.visible = name, str(value), True
+    def __init__(self, name, value="", maximum=512):
+        self.name, self.value, self.maximum, self.visible = name, "", maximum, True
         self.accessible_name, self.read_only, self.enabled, self.focused = "", False, True, False
+        self.setText(value)
 
     def text(self):
         return self.value
 
     def setText(self, value):
-        self.value = text(str(value), 512)
+        self.value = text(str(value), self.maximum)
 
     def show(self):
         self.visible = True
@@ -146,7 +147,12 @@ class Desk:
         # multiplier rebuild. xLog projects the rebuilt database directly.
         self.log_window = None
         for name in FIELDS:
-            setattr(self, name, Field(name, state["draft"]["fields"].get(name, "")))
+            # Upstream assembles up to four separately bounded CALLHISTORY
+            # values into this read-only presentation line. Keep operator
+            # inputs at their exact 512-byte protocol bound while allowing
+            # that combined output to remain lossless.
+            maximum = 4_096 if name == "history_info" else 512
+            setattr(self, name, Field(name, state["draft"]["fields"].get(name, ""), maximum))
         # fieldN are visual containers, not a second set of input values.
         self.field0, self.field1, self.field2, self.field3, self.field4 = [Field(f"field{i}") for i in range(5)]
         self.inputs_dict = {getattr(self, name): name for name in INPUTS}
@@ -268,7 +274,7 @@ class Desk:
         raise HostError("invalid_frequency", "Frequency is outside CQ WW bands")
 
     def projection(self):
-        if (self.state.get("setup", {}).get("preferences", {}).get("callHistory") is True
+        if (self.state.get("setup", {}).get("preferences", {}).get("callHistory", True) is not False
                 and hasattr(self.contest, "populate_history_info_line")):
             self.contest.populate_history_info_line(self)
         else:
@@ -585,9 +591,8 @@ class Host:
             for row in rows:
                 require(isinstance(row, dict) and set(row) == set(CALLHISTORY_COLUMNS),
                         "Invalid call-history row")
-                for name, value in row.items():
-                    maximum = 32 if name == "Call" else 4_096
-                    text(value, maximum)
+                for value in row.values():
+                    text(value, 512)
         elif method == "history_stage_cancel":
             require(set(params) == common, "Unexpected call-history cancellation fields")
         else:
@@ -931,7 +936,7 @@ class Host:
         if desk.state["pluginID"] == "trans_tasman":
             desk.contact["Band"] = desk.contest_band(desk.state["draft"]["frequencyHz"])
         desk.contest.prefill(desk)
-        if (desk.state.get("setup", {}).get("preferences", {}).get("callHistory") is True
+        if (desk.state.get("setup", {}).get("preferences", {}).get("callHistory", True) is not False
                 and hasattr(desk.contest, "check_call_history")):
             desk.contest.check_call_history(desk)
 

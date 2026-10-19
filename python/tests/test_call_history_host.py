@@ -71,6 +71,10 @@ class CallHistoryHostTests(unittest.TestCase):
         result = self.activate(generation, digest, [row("K1ABC", "4", "Minnesota")])
         self.assertEqual(result["activation"], {"generation": generation, "digest": digest, "rowCount": 1})
 
+        legacy = self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": ""})["projection"]
+        self.assertEqual(legacy["history"], "K1ABC, 4, Minnesota")
+
+        self.set_enabled(False)
         disabled = self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": ""})["projection"]
         self.assertEqual(disabled["history"], "")
         self.assertEqual(next(item["value"] for item in disabled["fields"] if item["id"] == "other_2"), "5")
@@ -105,6 +109,17 @@ class CallHistoryHostTests(unittest.TestCase):
         self.assertEqual(error.exception.code, "history_activation_failed")
         self.assertEqual(self.call("history_status", self.scope())["activation"]["generation"], generation)
 
+    def test_plugin_history_line_combines_individually_bounded_values_without_truncation(self):
+        user_text = "M" * 506
+        self.activate(uid(), "9" * 64, [row("K1ABC", "05", user_text)])
+
+        projection = self.mutate(
+            "draft_apply", fields={"callsign": "K1ABC", "other_2": ""}
+        )["projection"]
+
+        self.assertEqual(projection["history"], f"K1ABC, 5, {user_text}")
+        self.assertGreater(len(projection["history"].encode("utf-8")), 512)
+
     def test_scope_methods_and_rows_are_strict(self):
         generation, digest = uid(), "d" * 64
         with self.assertRaises(HostError):
@@ -119,6 +134,11 @@ class CallHistoryHostTests(unittest.TestCase):
         with self.assertRaises(HostError):
             self.call("history_stage_chunk", self.scope(
                 generation=generation, digest=digest, offset=0, rows=[invalid]))
+        oversized = row("K1ABC")
+        oversized["UserText"] = "X" * 513
+        with self.assertRaises(HostError):
+            self.call("history_stage_chunk", self.scope(
+                generation=generation, digest=digest, offset=0, rows=[oversized]))
 
     def test_stale_cancel_does_not_remove_the_current_host_stage(self):
         first, current = uid(), uid()
