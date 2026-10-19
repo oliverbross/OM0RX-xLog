@@ -14,6 +14,7 @@ export type ContestSetupSession = { sessionID: string; name: string; pluginID: s
 export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Cluster" | "Integrations" | "Rotator";
 export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
+export type ContestAudioOutput = { deviceID: string; label: string };
 type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Edit Macros" | "Edit Keys";
 const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Edit Macros", "Edit Keys"];
 type KeyBinding = { context: string; key: string; action: string; description: string };
@@ -57,6 +58,14 @@ export function restoredESMPreferences(preferences: ContestSetupDocument["prefer
   return { useESM: true, sendCorrectedCall: true, esmCQ: "F1", esmExchange: "F3", esmQRZ: "F4", esmAGN: "F9", esmHisCall: "F2", esmMyCall: "F5", esmQsoB4: "DISABLED", ...preferences };
 }
 
+export async function loadContestAudioOutputs(enumerateDevices?: () => Promise<MediaDeviceInfo[]>): Promise<ContestAudioOutput[]> {
+  const enumerate = enumerateDevices ?? (typeof navigator === "undefined" ? undefined : navigator.mediaDevices?.enumerateDevices?.bind(navigator.mediaDevices));
+  if (!enumerate) return [];
+  const outputs = await enumerate(), seen = new Set<string>();
+  return outputs.filter(device => device.kind === "audiooutput" && !seen.has(device.deviceId) && seen.add(device.deviceId))
+    .map((device, index) => ({ deviceID: device.deviceId, label: device.label || `Audio output ${index + 1}` }));
+}
+
 function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
   const defaults = newContestSetup(String(value.station.Call ?? ""));
   const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...restoredESMPreferences(value.preferences) }, network: { ...defaults.network, ...value.network } });
@@ -76,12 +85,21 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
   const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
   const [selectedBinding, setSelectedBinding] = useState(0);
+  const [audioOutputs, setAudioOutputs] = useState<ContestAudioOutput[] | null>(null);
+  const [audioOutputError, setAudioOutputError] = useState("");
   const [pending, setPending] = useState(false), pendingRef = useRef(false);
   const id = useId();
   useEffect(() => { setDraft(view === "Edit Macros" ? macroDraft() : setupDraft(value)); }, [value, effectiveMacros]);
   useEffect(() => {
     if (contestSetupTabs.includes(initialTab as ContestSetupTab)) { setTab(initialTab as ContestSetupTab); setView("Configuration Settings"); }
   }, [initialTab]);
+  useEffect(() => {
+    if (view !== "Configuration Settings" || tab !== "Sound" || audioOutputs !== null) return;
+    let current = true;
+    void loadContestAudioOutputs().then(outputs => { if (current) setAudioOutputs(outputs); })
+      .catch(cause => { if (current) { setAudioOutputs([]); setAudioOutputError(cause instanceof Error ? cause.message : "Audio outputs could not be listed."); } });
+    return () => { current = false; };
+  }, [view, tab, audioOutputs]);
   const disabled = busy || pending;
   const update = (section: "station" | "settings" | "preferences" | "network", key: string, next: string | number | boolean | string[]) =>
     setDraft(current => ({ ...current, [section]: { ...current[section], [key]: next } }));
@@ -168,7 +186,19 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "Configuration Settings") {
     switch (tab) {
       case "Lookup": content = managed("QRZ", "Configure QRZ XML lookup and save its credentials securely there."); break;
-      case "Sound": content = <p role="status">No xLog contest audio-output owner is available. Sound device selection is unavailable in Contest Setup.</p>; break;
+      case "Sound": {
+        const saved = String(draft.preferences.soundDevice ?? "");
+        const savedAvailable = !saved || audioOutputs?.some(output => output.deviceID === saved);
+        content = <div className="contest-manual-stack">
+          <label><span>Sound Output</span><select value={saved} onChange={event => update("preferences", "soundDevice", event.target.value)}>
+            <option value="">System default</option>
+            {!savedAvailable && <option value={saved}>Saved device (unavailable)</option>}
+            {(audioOutputs ?? []).map(output => <option key={output.deviceID} value={output.deviceID}>{output.label}</option>)}
+          </select></label>
+          <p role="status">{audioOutputs === null ? "Finding audio outputs…" : audioOutputError ? `Audio output discovery failed: ${audioOutputError}` : audioOutputs.length ? "Choose the sound output device for the voice keyer." : "No named audio outputs were reported. The system default remains available."}</p>
+        </div>;
+        break;
+      }
       case "CAT": content = managed("Radio", "Use the shared radio selection, saved connection and observed status."); break;
       case "CW": content = managed("CW", "Choose the shared radio or WinKeyer output there. Contest messages remain in Edit Macros; sending requires the existing output controls."); break;
       case "Rotator": content = managed("Rotator", "Use the shared rotor configuration and observed status."); break;

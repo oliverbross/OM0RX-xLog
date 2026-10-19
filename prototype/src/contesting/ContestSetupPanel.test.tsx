@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ContestSetupPanel, contestSetupTabs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
+import { ContestSetupPanel, contestSetupTabs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
 afterEach(cleanup);
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
@@ -92,6 +92,32 @@ it("keeps ESM mappings, Call History and score reporting together in Options and
   fireEvent.click(screen.getByRole("tab", { name: "Group" }));
   for (const label of ["Connect to server", "Be the master", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
 });
+it("uses the Not1MM Sound tab to choose and durably save the voice-keyer output", async () => {
+  const original = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
+  Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { enumerateDevices: vi.fn(async () => [
+    { kind: "audioinput", deviceId: "mic", label: "Desk microphone" },
+    { kind: "audiooutput", deviceId: "radio", label: "Radio line out" },
+    { kind: "audiooutput", deviceId: "headphones", label: "Operator headphones" },
+  ]) } });
+  try {
+    const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
+    const output = await screen.findByLabelText("Sound Output") as HTMLSelectElement;
+    await waitFor(() => expect(Array.from(output.options).map(option => option.textContent)).toEqual(["System default", "Radio line out", "Operator headphones"]));
+    fireEvent.change(output, { target: { value: "headphones" } }); open("Save");
+    await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+    expect(p.onSave.mock.calls[0][0].preferences.soundDevice).toBe("headphones");
+  } finally {
+    if (original) Object.defineProperty(navigator, "mediaDevices", original); else Reflect.deleteProperty(navigator, "mediaDevices");
+  }
+});
+it("filters contest audio discovery to uniquely identified output devices", async () => {
+  const enumerate = vi.fn(async () => [
+    { kind: "audiooutput", deviceId: "radio", label: "" },
+    { kind: "audiooutput", deviceId: "radio", label: "Duplicate" },
+    { kind: "videoinput", deviceId: "camera", label: "Camera" },
+  ] as MediaDeviceInfo[]);
+  await expect(loadContestAudioOutputs(enumerate)).resolves.toEqual([{ deviceID: "radio", label: "Audio output 1" }]);
+});
 it("retains draft edits on failed save and prevents concurrent submissions", async () => {
   const p = props(); let reject!: (cause: Error) => void;
   p.onSave.mockImplementation(() => new Promise<void>((_, rejectPromise) => { reject = rejectPromise; }));
@@ -149,7 +175,7 @@ it("routes every shared service and reports native opening errors without saving
   expect(p.onSave).not.toHaveBeenCalled();
 });
 
-it("hands shared services to xLog without duplicate editable settings and keeps Sound visible", () => {
+it("hands shared services to xLog without duplicate editable settings and keeps Sound independent", () => {
   const p = props(); render(<ContestSetupPanel {...p} initialTab="Lookup"/>);
   for (const [tab, service] of [["Lookup", "QRZ"], ["CAT", "Radio"], ["CW", "CW"], ["Rotator", "Rotator"], ["Cluster", "Cluster"]]) {
     fireEvent.click(screen.getByRole("tab", { name: tab }));
@@ -158,9 +184,8 @@ it("hands shared services to xLog without duplicate editable settings and keeps 
     expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
   }
   fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
-  expect(screen.getByRole("status").textContent).toContain("No xLog contest audio-output owner is available");
   expect(screen.queryByRole("button", { name: /Open xLog/ })).toBeNull();
-  expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
+  expect(screen.getByLabelText("Sound Output")).toBeTruthy();
   expect(p.onOpenSettings).not.toHaveBeenCalled();
   expect(p.onSave).not.toHaveBeenCalled();
 });
