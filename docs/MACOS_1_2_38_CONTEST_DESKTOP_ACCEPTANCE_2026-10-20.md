@@ -41,7 +41,7 @@ The two newest station-log contacts, VE2BJG and K8NVR, predated this installatio
 
 Contest storage remains separate from the normal log. The original CQ WW database is healthy and unchanged at session revision `1`, `0` QSOs, operator `OM0RX`, sent exchange `15`, and manual frequency `14,025,125 Hz`. The empty database left by the earlier rejected-create path is retained, remains healthy, and is ignored read-only by session discovery.
 
-During final installed UI acceptance, the New Contest submit path reached the real Python host and created a second empty CQ WW session. It is preserved rather than silently removed: session `fbe19482-fff4-4715-82c7-42ba7ad40df7`, revision `2`, `0` QSOs, operator `OM0RX`, sent exchange `15`, and manual frequency `14,025,125 Hz`. No contest QSO was logged.
+During final installed UI acceptance, the New Contest submit path reached the real Python host and created a second empty CQ WW session. That acceptance artifact was archived recoverably under `acceptance-artifacts-1.2.38` in the recovery set rather than left in the active contest list or deleted: session `fbe19482-fff4-4715-82c7-42ba7ad40df7`, revision `2`, `0` QSOs, operator `OM0RX`, sent exchange `15`, and manual frequency `14,025,125 Hz`. No contest QSO was logged. A final installed-app restart recovered the original CQ WW session automatically.
 
 ## Actual packaged desktop behavior
 
