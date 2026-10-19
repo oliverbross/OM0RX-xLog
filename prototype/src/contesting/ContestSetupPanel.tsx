@@ -47,16 +47,22 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
       catProvider: "rigctld", rigControlHost: "127.0.0.1", rigControlPort: 4532, cwProvider: "cwdaemon", cwHost: "127.0.0.1", cwPort: 6789,
       cwSpeedIncrement: "1", cwSendRST: "5NN", cwPaddingCharacter: "0", cwPaddingLength: 1, cwCut1: "1", cwCut9: "9", cwCut0: "0",
       clusterServer: "", clusterPort: 7373, clusterPassword: "", clusterFilter: "", clusterMode: "OPEN", rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
-      bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: true, sendCorrectedCall: true, autoCQ: false, autoCQDelay: 15,
+      bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
+      esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
       spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
       n1mmHost: "127.0.0.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062, n1mmRadio: false, n1mmContact: false,
       n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmOperatorName: "", multicastGroup: "224.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
 }
 
+export function restoredESMPreferences(preferences: ContestSetupDocument["preferences"]): ContestSetupDocument["preferences"] {
+  // Existing documents predate effective ESM settings and used these fixed roles.
+  return { useESM: true, sendCorrectedCall: true, esmCQ: "F1", esmExchange: "F3", esmQRZ: "F4", esmAGN: "F9", esmHisCall: "F2", esmMyCall: "F5", esmQsoB4: "DISABLED", ...preferences };
+}
+
 function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
   const defaults = newContestSetup(String(value.station.Call ?? ""));
-  const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...value.preferences }, network: { ...defaults.network, ...value.network } });
+  const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...restoredESMPreferences(value.preferences) }, network: { ...defaults.network, ...value.network } });
   for (const kind of ["Radio", "Contact", "Lookup", "Score"]) {
     const key = "n1mm" + kind + "Destinations";
     if (result.network[key] === undefined) result.network[key] = String(value.network.n1mmHost ?? "127.0.0.1") + ":" + String(value.network["n1mm" + kind + "Port"] ?? 12060);

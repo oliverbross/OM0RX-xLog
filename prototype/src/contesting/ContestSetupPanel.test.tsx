@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ContestSetupPanel, contestSetupTabs, newContestSetup, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
+import { ContestSetupPanel, contestSetupTabs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
 afterEach(cleanup);
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
@@ -9,6 +9,15 @@ function props() {
     onSave: vi.fn(async (_value: ContestSetupDocument) => {}), onCreate: vi.fn(async (_value: ContestSetupDocument) => {}), onOpen: vi.fn(async (_session: ContestSetupSession) => {}), onOpenSettings: vi.fn() };
 }
 function open(name: string) { fireEvent.click(screen.getByRole("button", { name })); }
+it("uses upstream ESM defaults for new contests and explicit compatibility defaults only for missing saved fields", () => {
+  const preferences = newContestSetup("OM0RX").preferences;
+  expect(preferences.useESM).toBe(false);
+  expect(preferences.sendCorrectedCall).toBe(false);
+  for (const key of ["esmCQ", "esmHisCall", "esmExchange", "esmAGN", "esmMyCall", "esmQRZ", "esmQsoB4"]) expect(preferences[key]).toBe("DISABLED");
+  expect(restoredESMPreferences({})).toMatchObject({ useESM: true, sendCorrectedCall: true, esmCQ: "F1", esmExchange: "F3", esmAGN: "F9" });
+  expect(restoredESMPreferences(preferences)).toEqual(preferences);
+  expect(restoredESMPreferences({ useESM: false, esmCQ: "F12" })).toMatchObject({ useESM: false, esmCQ: "F12", esmExchange: "F3" });
+});
 it("separates original File dialogs from Configuration Settings and keeps manual tab order", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>);
   for (const name of ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Edit Macros", "Edit Keys"]) expect(screen.getByRole("button", { name })).toBeTruthy();

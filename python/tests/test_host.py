@@ -84,6 +84,58 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             Field("callsign").silentlyIgnoreMissingQtMethod()
 
+    def save_esm(self, **preferences):
+        setup = self.read("setup_get")["setup"]
+        setup["preferences"].update(preferences)
+        return self.mutate("setup_save", setup=setup)
+
+    def test_esm_disabled_enter_commits_without_output_and_manual_keys_still_work(self):
+        self.save_esm(useESM=False, sendCorrectedCall=False)
+        self.mutate("run_state", run=True)
+        view = self.mutate("focus", field="other_2")["projection"]
+        self.assertFalse(any(key["highlighted"] for key in view["functionKeys"]))
+        result = self.mutate("esm", field="other_2", fields={"callsign": "K1ABC", "other_2": "5"})
+        self.assertEqual(result["actions"], [])
+        self.assertEqual(self.read("log")["total"], 1)
+        self.assertEqual([action["key"] for action in self.mutate("function_key", key="F1")["actions"]], ["F1"])
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertFalse(self.read("setup_get")["setup"]["preferences"]["useESM"])
+
+    def test_esm_uses_saved_roles_and_disabled_roles_without_changing_manual_keys(self):
+        self.save_esm(useESM=True, esmCQ="F7", esmHisCall="F6", esmExchange="F8", esmQRZ="F10",
+                      esmAGN="DISABLED", esmMyCall="F11", esmQsoB4="F12", sendCorrectedCall=False)
+        self.mutate("run_state", run=True)
+        view = self.read("projection")["projection"]
+        self.assertEqual([key["id"] for key in view["functionKeys"] if key["highlighted"]], ["F7"])
+        self.assertEqual([action["key"] for action in self.mutate("esm", field="callsign")["actions"]], ["F7"])
+        exchange = self.mutate("esm", field="callsign", fields={"callsign": "K1ABC", "other_2": ""})
+        self.assertEqual([action["key"] for action in exchange["actions"]], ["F6", "F8"])
+        # The configured resend flag suppresses the corrected-call role.
+        result = self.mutate("esm", field="other_2", fields={"callsign": "DL1ABC", "other_2": "14"})
+        self.assertEqual([action["key"] for action in result["actions"]], ["F10"])
+        self.assertEqual(self.read("log")["total"], 1)
+        self.assertEqual(self.mutate("esm", field="other_2", fields={"callsign": "K9XYZ", "other_2": ""})["actions"], [])
+
+    def test_esm_rejects_invalid_settings_atomically(self):
+        for key, value in [("useESM", "false"), ("useESM", 1), ("sendCorrectedCall", 0),
+                           ("esmCQ", "F13"), ("esmExchange", "f3"), ("esmAGN", True)]:
+            with self.subTest(key=key, value=value):
+                revision = self.revision
+                with self.assertRaises(HostError):
+                    self.save_esm(**{key: value})
+                self.assertEqual(self.read("projection")["projection"]["revision"], revision)
+
+    def test_legacy_esm_defaults_are_explicit_on_restore_and_preserve_existing_behavior(self):
+        setup = self.read("setup_get")["setup"]
+        self.assertEqual({key: setup["preferences"][key] for key in ("useESM", "sendCorrectedCall", "esmCQ", "esmExchange")},
+                         {"useESM": True, "sendCorrectedCall": True, "esmCQ": "F1", "esmExchange": "F3"})
+        self.mutate("setup_save", setup=setup)
+        self.host.close()
+        self.host = Host(self.root)
+        self.mutate("run_state", run=True)
+        self.assertEqual([action["key"] for action in self.mutate("esm", field="callsign")["actions"]], ["F1"])
+
     def test_function_key_projection_uses_actual_active_macros(self):
         sandp = {row["id"]: row for row in self.read("projection")["projection"]["functionKeys"]}
         self.assertEqual((sandp["F3"]["label"], sandp["F3"]["template"]), ("Exch", "{RST} {EXCHANGE}"))
@@ -134,7 +186,7 @@ class HostTests(unittest.TestCase):
 
     def test_setup_save_is_durable_revision_fenced_and_idempotent(self):
         setup = self.read("contest_setup_get")["setup"]
-        setup.update({"name": "Saved contest", "preferences": {"useESM": True, "bands": ["20m"], "speed": 25},
+        setup.update({"name": "Saved contest", "preferences": {**setup["preferences"], "useESM": True, "bands": ["20m"], "speed": 25},
                       "network": {"enabled": False, "port": 12060},
                       "macros": [{"mode": "R", "key": "F1", "label": "CQ", "template": "cq {MYCALL}"}]})
         params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision, "setup": setup}

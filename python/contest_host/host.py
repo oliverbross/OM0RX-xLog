@@ -21,6 +21,22 @@ SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
+ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmAGN",
+             "HISCALL": "esmHisCall", "MYCALL": "esmMyCall", "QSOB4": "esmQsoB4"}
+# Pre-settings host sessions always used these assignments. Materialize only
+# missing values on restore; new setup documents explicitly choose upstream defaults.
+LEGACY_ESM = {"useESM": True, "sendCorrectedCall": True, "esmCQ": "F1", "esmExchange": "F3",
+              "esmQRZ": "F4", "esmAGN": "F9", "esmHisCall": "F2", "esmMyCall": "F5", "esmQsoB4": "DISABLED"}
+
+
+def esm_preferences(preferences):
+    result = {key: preferences.get(key, default) for key, default in LEGACY_ESM.items()}
+    for key in ("useESM", "sendCorrectedCall"):
+        require(type(result[key]) is bool, f"{key} must be boolean")
+    for key in ESM_ROLES.values():
+        require(isinstance(result[key], str) and result[key] in {"DISABLED", *(f"F{i}" for i in range(1, 13))},
+                f"{key} must be F1-F12 or DISABLED")
+    return result
 
 
 class HostError(Exception):
@@ -107,7 +123,10 @@ class Desk:
                 "template": adapt_cw_template(state["pluginID"], macro["template"]),
             }
         self.station, self.contest_settings = state["station"], state["settings"]
-        self.pref = {"contest": 1, "run_state": state["run"], "esm_send_corrected_call": True}
+        esm = esm_preferences(state.get("setup", {}).get("preferences", {}))
+        self.use_esm = esm["useESM"]
+        self.pref = {"contest": 1, "run_state": state["run"], "use_esm": self.use_esm,
+                     "esm_send_corrected_call": esm["sendCorrectedCall"]}
         self.actions, self.messages, self.highlights = [], [], set()
         for name in FIELDS:
             setattr(self, name, Field(name, state["draft"]["fields"].get(name, "")))
@@ -116,12 +135,8 @@ class Desk:
         self.inputs_dict = {getattr(self, name): name for name in INPUTS}
         for i in range(1, 13):
             setattr(self, f"F{i}", Field(f"F{i}"))
-        # Not1MM stores ESM roles as preferences; they are not sequential F-keys.
-        # These are the upstream defaults for the pinned CQ WW macro file.
-        self.esm_dict = {
-            "CQ": self.F1, "EXCH": self.F3, "QRZ": self.F4, "AGN": self.F9,
-            "HISCALL": self.F2, "MYCALL": self.F5, "QSOB4": None,
-        }
+        self.esm_dict = {role: None if esm[key] == "DISABLED" else getattr(self, esm[key])
+                         for role, key in ESM_ROLES.items()}
         self.current_widget = state["focus"]
         self.esm_call_sent = state.get("esmCallSent", "")
         self.current_sn, self.contact_is_dupe = state["draft"].get("serial", 0), 0
@@ -221,7 +236,8 @@ class Desk:
     def projection(self):
         # Rebuild Not1MM's non-transmitting ESM presentation on every read so
         # highlights survive reopen/refresh without emitting an output intent.
-        self.contest.process_esm(self, getattr(self, self.current_widget), False)
+        if self.use_esm:
+            self.contest.process_esm(self, getattr(self, self.current_widget), False)
         call = self.parsed_call()
         fields = []
         containers = [self.field0, self.field1, self.field2, self.field3, self.field4]
@@ -360,8 +376,10 @@ class Host:
             finally:
                 store.conn.rollback()
         if method == "setup_get":
+            setup = deepcopy(state.get("setup", self.default_setup(state)))
+            setup["preferences"] = {**setup["preferences"], **esm_preferences(setup["preferences"])}
             return {"sessionID": session_id, "revision": state["revision"],
-                    "setup": deepcopy(state.get("setup", self.default_setup(state))),
+                    "setup": setup,
                     "effectiveMacros": self.effective_macros(state)}
         if method == "check_partial":
             query = text(params.get("query", ""), 32).upper()
@@ -496,7 +514,8 @@ class Host:
             elif method == "focus":
                 require(params.get("field") in INPUTS, "Unknown field")
                 desk.current_widget = params["field"]
-                desk.contest.process_esm(desk, getattr(desk, params["field"]), False)
+                if desk.use_esm:
+                    desk.contest.process_esm(desk, getattr(desk, params["field"]), False)
             elif method == "run_state":
                 require(type(params.get("run")) is bool, "Run state must be boolean")
                 desk.pref["run_state"] = state["run"] = params["run"]
@@ -532,7 +551,11 @@ class Host:
                     self.prefill(desk)
                 field = params.get("field", state["focus"])
                 require(field in INPUTS, "Unknown focused field")
-                desk.contest.process_esm(desk, getattr(desk, field), True)
+                desk.current_widget = field
+                if desk.use_esm:
+                    desk.contest.process_esm(desk, getattr(desk, field), True)
+                else:
+                    desk.save_contact()
             elif method == "function_key":
                 if "fields" in params:
                     self.apply_fields(desk, params)
@@ -604,6 +627,7 @@ class Host:
                     require(type(item) in ({int, float, bool} if key in {"preferences", "network"} else {int, float}),
                             "Setup values must be supported scalars")
                     require(type(item) is not float or math.isfinite(item), "Setup numbers must be finite")
+        esm_preferences(value["preferences"])
         macros = value["macros"]
         require(isinstance(macros, list) and len(macros) <= 24, "At most 24 macros are supported")
         seen = set()
