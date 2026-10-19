@@ -31,6 +31,7 @@ const valid = [
   { panelID: "callsign-intelligence", action: "assistance_query", params: { ...draft, inputCallsign: "OM0" } },
   { panelID: "callsign-intelligence", action: "assistance_select", params: { ...draft, kind: "history", candidateID: "history-1" } },
   { panelID: "logbook", action: "log_page", params: { offset: 20 } },
+  { panelID: "logbook", action: "log_export_cabrillo", params: {} },
   { panelID: "logbook", action: "log_edit_begin", params: qso },
   { panelID: "logbook", action: "log_edit_cancel", params: qso },
   { panelID: "logbook", action: "log_edit_set_text", params: { ...qso, field: "correctionReason", value: "Corrected from paper log" } },
@@ -65,7 +66,7 @@ describe("contest native surface action v1", () => {
     { ...base, ...valid[1], params: { ...valid[1].params, fieldID: "   " } },
     { ...base, ...valid[1], params: { ...valid[1].params, value: "😀".repeat(257) } },
     { ...base, ...valid[2], params: { ...valid[2].params, value: "1".repeat(12) } },
-    { ...base, ...valid[18], params: { ...valid[18].params, value: "😀".repeat(3) } },
+    { ...base, ...valid[19], params: { ...valid[19].params, value: "😀".repeat(3) } },
     { ...base, ...valid[13], params: { offset: 1_000_001 } },
   ])("rejects malformed, cross-panel or over-bound envelopes %#", envelope => {
     expect(() => validateContestSurfaceActionEnvelope(envelope)).toThrow("could not be verified");
@@ -99,7 +100,7 @@ const ratesProjection = { schemaVersion: 1, status: "ready", lastHourQsoPerHour:
   hourSearchAndPounceQso: 18, busy: false } as const;
 const matrixProjection = { schemaVersion: 1, status: "ready", title: "DXCC", bands: ["20m", "40m"],
   rows: [{ label: "Slovakia", counts: { "20m": 2, "40m": 0 }, total: 2 }], total: 1, busy: false };
-const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, page: { offset: 0, limit: 20, total: 1,
+const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, canExportCabrillo: true, page: { offset: 0, limit: 20, total: 1,
   rows: [{ qsoID: "qso-1", workedAt: "2026-10-18T00:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW",
     sentExchange: "599 100", receivedExchange: "599 MA", points: 3, multiplierLabels: ["K"] }] },
   editing: { qsoID: "qso-1", workedAt: "2026-10-19T10:00:00Z", operator: "OM0RX", callsign: "K1ABC", band: "20m", mode: "CW", sentReport: "599", receivedReport: "599",

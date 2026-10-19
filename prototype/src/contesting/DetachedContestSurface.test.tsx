@@ -55,13 +55,26 @@ it("renders ICWC original name/serial input while omitting hidden report fields"
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"outside-current-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"};
-  const view={schemaVersion:1,status:"ready",sessionRevision:1,page:{offset:0,limit:20,total:1,rows:[]},manualRows:[row],partialRows:[row],editing:null,busy:false};
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,page:{offset:0,limit:20,total:1,rows:[]},manualRows:[row],partialRows:[row],editing:null,busy:false};
   expect(validContestSurfaceProjection("logbook",view)).toBe(true);
   expect(validContestSurfaceProjection("logbook",{...view,partialRows:[{...row,Freq:14025}]})).toBe(false);
   native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});render(<DetachedContestSurface/>);
   await screen.findByRole("heading",{name:"Log Display"});
   for(const name of ["Contest log","Callsign partial matches"])
     expect(Array.from(screen.getByRole("table",{name}).querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual([row.TS,row.Call,row.Freq,row.SNT,row.RCV,row.ZN,row.SentNr,row.prefix,row.Points]);
+});
+
+it("routes Cabrillo export from the detached Log window to its contest owner",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?
+    {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
+  render(<DetachedContestSurface/>);
+  fireEvent.click(await screen.findByRole("button",{name:"Export Cabrillo…"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID:"logbook",projectionRevision:6,action:"log_export_cabrillo",params:{},
+  }));
 });
 
 it("uses supplied full-log and cluster calls in their manual Check Partial columns",async()=>{
@@ -217,7 +230,7 @@ it("retains the manual Check Partial Log, Master and Telnet columns with explici
 
 it("retains both manual log table structures even when the log is empty",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
-  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:{schemaVersion:1,status:"ready",sessionRevision:1,
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:{schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
     page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false}});
   render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
   for(const name of ["Contest log","Callsign partial matches"]){
@@ -452,7 +465,7 @@ it("coalesces rapid log edits and resets the presentation buffer when the owner 
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,workedAt:"2026-10-19T10:00:00Z",operator:"OM0RX",band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
     frequencyHz:14_025_000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"});
-  let current:any={...snapshot,panelID:"logbook",projectionRevision:3,projection:{schemaVersion:1,status:"ready",sessionRevision:8,
+  let current:any={...snapshot,panelID:"logbook",projectionRevision:3,projection:{schemaVersion:1,status:"ready",sessionRevision:8,canExportCabrillo:true,
     page:{offset:0,limit:20,total:2,rows:[]},editing:editing("qso-1","K1ABC"),busy:false},receipts:[]};const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return structuredClone(current);

@@ -409,7 +409,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     setNotice(`Loaded ${spot.callsign} after the selected radio confirmed one tune.`);
   };
 
-  const exportCabrillo = async () => {
+  const exportCabrillo = async (throwFailures = false) => {
     const active = projectionRef.current;
     if (!active || busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
@@ -418,8 +418,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const saved = await nativeContestExportSave(prepared);
       if (saved.status === "saved") setNotice(`Saved ${saved.filename}.`);
       else if (saved.status === "cancelled") setNotice("Cabrillo save cancelled.");
-      else setError(saved.message);
-    } catch (cause) { setError(errorMessage(cause)); }
+      else { setError(saved.message); if (throwFailures) throw new Error(saved.message); }
+    } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
 
@@ -553,6 +553,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     };
     unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
+      canExportCabrillo: true,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID) },
       ...(projection.pluginID === "icwc_mst" ? { exchangeLayout: "plugin" as const } : { manualRows:manualRows(rows), partialRows:manualRows(partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery?partial.rows:[]) }),
       editing: editing ? {
@@ -677,6 +678,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         else if (action.params.kind === "history" && historySurface) await historySurface.selectCandidate(action.params.candidateID);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
+      case "log_export_cabrillo": await exportCabrillo(true); return;
       case "log_page": await loadLogPage(action.params.offset, true); return;
       case "log_edit_begin": await beginEdit(action.params.qsoID, true); return;
       case "log_edit_cancel": requireEditing(action.params.qsoID); setEditing(null); setConfirmDelete(false); return;

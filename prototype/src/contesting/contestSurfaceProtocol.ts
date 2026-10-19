@@ -17,6 +17,7 @@ export type ContestSurfaceAction =
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: "callsign" | "exchange" | null } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
+  | { action: "log_export_cabrillo"; params: Record<string, never> }
   | { action: "log_page"; params: { offset: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
@@ -80,6 +81,7 @@ export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
 export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
+  canExportCabrillo: boolean;
   exchangeLayout?: "plugin";
   manualRows?: ContestManualRow[]; partialRows?: ContestManualRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
@@ -222,7 +224,8 @@ function validStatisticsProjection(value: Record<string, unknown>) {
 }
 function validLogProjection(value: Record<string, unknown>) {
   const page = record(value.page) ? value.page : undefined, editing = record(value.editing) ? value.editing : undefined;
-  return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "page", "editing", "busy"], ["manualRows", "partialRows", "exchangeLayout"]) &&
+  return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "canExportCabrillo", "page", "editing", "busy"], ["manualRows", "partialRows", "exchangeLayout"]) &&
+    typeof value.canExportCabrillo === "boolean" &&
     (!("exchangeLayout" in value) || value.exchangeLayout === "plugin") &&
     ["manualRows", "partialRows"].every(key => !(key in value) || manualRowsValid(value[key])) && uint(value.sessionRevision) &&
     !!page && exact(page, ["offset", "limit", "total", "rows"]) && uint(page.offset, 1_000_000) && uint(page.limit, 20) &&
@@ -291,6 +294,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
+  if (action === "log_export_cabrillo") return exact(params, []);
   if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&

@@ -509,6 +509,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
       multiplierLabels: score.multiplierLabels, multiplierDisplayLabels: score.multiplierDisplayLabels ?? score.multiplierLabels,
       sourceVerification: score.sourceVerification } : null, busy };
     liveSurfaceProjections.logbook = { schemaVersion: 1, status: "ready", sessionRevision: active.revision,
+      canExportCabrillo: false,
       page: { offset: page?.offset ?? offset, limit: page?.limit ?? PAGE_SIZE, total: page?.total ?? 0,
         rows: page?.qsos.map(qso => ({ qsoID: qso.qsoID, workedAt: qso.workedAt, callsign: qso.callsign, band: qso.band,
           mode: qso.mode, sentExchange: qso.sentExchange, receivedExchange: qso.receivedExchange, points: qso.points,
@@ -560,6 +561,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         if (!surface) throw new Error("The callsign candidate set is unavailable.");
         await surface.selectCandidate(action.params.candidateID); return;
       }
+      case "log_export_cabrillo": throw new Error("Cabrillo export is available from the Python contest host.");
       case "log_page": await movePage(action.params.offset, true); return;
       case "log_edit_begin": await editQSO(action.params.qsoID, true); return;
       case "log_edit_cancel":
