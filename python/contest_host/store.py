@@ -9,6 +9,26 @@ load_cqww()
 from not1mm.lib.database import DataBase
 
 
+CALLHISTORY_COLUMNS = (
+    "Call", "Name", "Loc1", "Loc2", "Sect", "State", "CK", "BirthDate",
+    "Exch1", "Misc", "Power", "CqZone", "ITUZone", "UserText", "LastUpdateNote",
+)
+
+
+class CallHistoryRow(dict):
+    """Retain upstream spelling while making its CQZone/CqZone lookup defect harmless."""
+
+    def get(self, key, default=None):
+        if key in self:
+            return super().get(key, default)
+        if isinstance(key, str):
+            folded = key.casefold()
+            for candidate, value in self.items():
+                if isinstance(candidate, str) and candidate.casefold() == folded:
+                    return value
+        return default
+
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
@@ -25,6 +45,14 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT PRIMARY KEY, serial INTEGER NOT NULL UNIQUE, operation_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_qso_identity(id TEXT PRIMARY KEY, raw_fields TEXT NOT NULL, country TEXT, deleted INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL, before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_callhistory_state(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                generation TEXT NOT NULL, digest TEXT NOT NULL, row_count INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_callhistory_stage_meta(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                generation TEXT NOT NULL, digest TEXT NOT NULL, expected_count INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_callhistory_stage(ordinal INTEGER PRIMARY KEY,
+                Call TEXT NOT NULL, Name TEXT, Loc1 TEXT, Loc2 TEXT, Sect TEXT, State TEXT, CK TEXT,
+                BirthDate TEXT, Exch1 TEXT, Misc TEXT, Power TEXT, CqZone TEXT, ITUZone TEXT,
+                UserText TEXT, LastUpdateNote TEXT);
         """)
         # Retain every issued reservation when introducing per-band scopes.
         columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(xlog_serial)")}
@@ -86,6 +114,65 @@ class Store(DataBase):
 
     def save_state(self, state):
         self.conn.execute("INSERT INTO xlog_session VALUES(?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state", (state["sessionID"], canonical(state)))
+
+    def callhistory_status(self):
+        row = self.exec_sql("SELECT generation,digest,row_count FROM xlog_callhistory_state WHERE singleton=1")
+        if not row:
+            return None
+        return {"generation": row["generation"], "digest": row["digest"], "rowCount": row["row_count"]}
+
+    def begin_callhistory_stage(self, generation, digest, expected_count):
+        self.conn.execute("DELETE FROM xlog_callhistory_stage")
+        self.conn.execute("DELETE FROM xlog_callhistory_stage_meta")
+        self.conn.execute(
+            "INSERT INTO xlog_callhistory_stage_meta VALUES(1,?,?,?)",
+            (generation, digest, expected_count),
+        )
+
+    def append_callhistory_stage(self, generation, digest, offset, rows):
+        meta = self.exec_sql(
+            "SELECT generation,digest,expected_count FROM xlog_callhistory_stage_meta WHERE singleton=1"
+        )
+        if not meta or meta["generation"] != generation or meta["digest"] != digest:
+            raise ValueError("Call-history stage is stale")
+        actual = self.exec_sql("SELECT count(*) AS value FROM xlog_callhistory_stage")["value"]
+        if actual != offset or offset + len(rows) > meta["expected_count"]:
+            raise ValueError("Call-history stage offset is invalid")
+        placeholders = ",".join("?" for _ in range(len(CALLHISTORY_COLUMNS) + 1))
+        sql = f"INSERT INTO xlog_callhistory_stage VALUES({placeholders})"
+        for index, row in enumerate(rows, offset):
+            if set(row) != set(CALLHISTORY_COLUMNS) or not all(isinstance(row[key], str) for key in CALLHISTORY_COLUMNS):
+                raise ValueError("Call-history row is invalid")
+            self.conn.execute(sql, (index, *(row[key] for key in CALLHISTORY_COLUMNS)))
+
+    def activate_callhistory_stage(self, generation, digest, expected_count):
+        meta = self.exec_sql(
+            "SELECT generation,digest,expected_count FROM xlog_callhistory_stage_meta WHERE singleton=1"
+        )
+        actual = self.exec_sql("SELECT count(*) AS value FROM xlog_callhistory_stage").get("value", 0)
+        if (not meta or meta["generation"] != generation or meta["digest"] != digest or
+                meta["expected_count"] != expected_count or actual != expected_count):
+            raise ValueError("Call-history stage is incomplete")
+        columns = ",".join(CALLHISTORY_COLUMNS)
+        self.conn.execute("DELETE FROM CALLHISTORY")
+        self.conn.execute(
+            f"INSERT INTO CALLHISTORY({columns}) SELECT {columns} FROM xlog_callhistory_stage ORDER BY ordinal"
+        )
+        self.conn.execute(
+            "INSERT INTO xlog_callhistory_state VALUES(1,?,?,?) "
+            "ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,digest=excluded.digest,row_count=excluded.row_count",
+            (generation, digest, expected_count),
+        )
+        self.conn.execute("DELETE FROM xlog_callhistory_stage")
+        self.conn.execute("DELETE FROM xlog_callhistory_stage_meta")
+
+    def cancel_callhistory_stage(self):
+        self.conn.execute("DELETE FROM xlog_callhistory_stage")
+        self.conn.execute("DELETE FROM xlog_callhistory_stage_meta")
+
+    def fetch_call_history(self, call):
+        row = super().fetch_call_history(call)
+        return CallHistoryRow(row) if row else row
 
     def close(self):
         self.conn.close()

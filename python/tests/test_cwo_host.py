@@ -92,8 +92,9 @@ class CWOHostTests(unittest.TestCase):
 
     def test_exchange_and_sent_name_validation_are_atomic(self):
         invalid = ("", "ALICE", "12", "0 ALICE", "ALICE 0", "-1 ALICE", "ALICE -1",
-                   "ALICE ABC", "12 34", "ALICE  12", " ALICE 12", "ALICE 12 ",
-                   "ALICE 12 EXTRA", "9223372036854775808 ALICE")
+                   "ALICE ABC", "12 34", "12 ANNE-MARIE", "O'NEIL 12", "12 ÉLODIE",
+                   "ALICE  12", " ALICE 12", "ALICE 12 ", "ALICE 12 EXTRA",
+                   "9223372036854775808 ALICE")
         for exchange in invalid:
             with self.subTest(exchange=exchange):
                 revision = self.revision
@@ -102,14 +103,43 @@ class CWOHostTests(unittest.TestCase):
                 self.assertEqual(self.read("projection")["projection"]["revision"], revision)
         self.assertEqual(self.read("log")["total"], 0)
 
-        for name in ("", "OLIVER 1", "123", " OLIVER", "OLIVER ", 123):
+        for name in ("", "OLIVER 1", "123", "ANNE-MARIE", "O'NEIL", "ÉLODIE",
+                     " OLIVER", "OLIVER ", 123):
             params = deepcopy(self.create)
-            params.update(sessionID=uid(), operationID=uid(), settings={"SentExchange": name})
+            params.update(sessionID=uid(), operationID=uid(),
+                          station={"Call": "OM0RX", "Name": name}, settings={"SentExchange": name})
             with self.subTest(name=name), self.assertRaises(HostError):
                 self.call("session_create", params)
 
         with self.assertRaisesRegex(HostError, "reserved"):
             self.mutate("draft_apply", fields={"other_1": "002"})
+
+    def test_station_name_and_sent_exchange_are_one_export_identity(self):
+        for station_name, sent_exchange in (("", "OLIVER"), ("ALFRED BROSS", "OLIVER"),
+                                            ("OLIVER-BROSS", "OLIVER"), ("ÉLODIE", "ÉLODIE")):
+            params = deepcopy(self.create)
+            params.update(sessionID=uid(), operationID=uid(),
+                          station={"Call": "OM0RX", "Name": station_name},
+                          settings={"SentExchange": sent_exchange})
+            with self.subTest(station_name=station_name, sent_exchange=sent_exchange), self.assertRaises(HostError):
+                self.call("session_create", params)
+
+        accepted = deepcopy(self.create)
+        accepted.update(sessionID=uid(), operationID=uid(),
+                        station={"Call": "OM0RX", "Name": "oliver Bross"},
+                        settings={"SentExchange": "OLIVER"})
+        self.assertEqual(self.call("session_create", accepted)["projection"]["pluginID"], "cwo")
+
+        setup = self.read("setup_get")["setup"]
+        for station_name, sent_exchange in (("", "OLIVER"), ("ALFRED BROSS", "OLIVER"),
+                                            ("OLIVER BROSS", "ALFRED"), ("O'NEIL", "O'NEIL")):
+            revision = self.revision
+            changed = deepcopy(setup)
+            changed["station"]["Name"] = station_name
+            changed["settings"]["SentExchange"] = sent_exchange
+            with self.subTest(setup=(station_name, sent_exchange)), self.assertRaises(HostError):
+                self.mutate("setup_save", setup=changed)
+            self.assertEqual(self.read("projection")["projection"]["revision"], revision)
 
     def test_scoring_band_dupes_correction_delete_export_and_reopen(self):
         first = self.log(exchange="12 ALICE")

@@ -40,11 +40,14 @@ import time and fails if the pinned source differs:
    reserved serial; Stats displays unique calls. The MST log uses a generic
    exchange table. DXCC/zone multiplier windows are unavailable for this plugin.
 7. CWOPS Open's unchanged `cwo.py` uses the same reserved-serial authority as the
-   other serial contests. The adapter validates the original two-part received
-   exchange before invoking its parser, sends `{SENTNR} {EXCHANGE}`, retains
-   same-band duplicates with zero points, and projects its original unique-call
-   multiplier score and Cabrillo export. No CWO scoring, dupe, database, ESM or
-   export function is replaced.
+   other serial contests. The adapter validates the original ASCII-letter,
+   two-part received exchange before invoking its parser. It also requires the
+   configured sent name to equal the first token of Station Name because the
+   original F3 path sends the former while its Cabrillo QSO rows export the
+   latter. F3 sends `{SENTNR} {EXCHANGE}`, same-band duplicates remain logged
+   with zero points, and the original unique-call score and Cabrillo callbacks
+   remain authoritative. No CWO scoring, dupe, database, ESM or export function
+   is replaced.
 
 Original SHA-256:
 

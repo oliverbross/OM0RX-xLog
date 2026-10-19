@@ -65,6 +65,20 @@ def text(value, maximum=256):
     return value
 
 
+def validate_cwo_names(station, sent_exchange):
+    """Match cwo.py's ASCII name parser and station-name export token."""
+    require(isinstance(sent_exchange, str)
+            and re.fullmatch(r"[A-Za-z]{1,32}", sent_exchange) is not None,
+            "CW Open sent exchange must be one ASCII-letter name")
+    station_name = station.get("Name", "")
+    require(isinstance(station_name, str), "CW Open station name must be text")
+    export_name = station_name.partition(" ")[0]
+    require(re.fullmatch(r"[A-Za-z]{1,32}", export_name) is not None,
+            "CW Open Station Name must begin with an ASCII-letter name")
+    require(export_name.casefold() == sent_exchange.casefold(),
+            "CW Open Station Name must begin with the Sent Exchange name")
+
+
 def now():
     return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -591,7 +605,7 @@ class Host:
                 if state["pluginID"] == "icwc_mst":
                     require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "ICWC sent exchange must be one name")
                 if state["pluginID"] == "cwo":
-                    require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "CW Open sent exchange must be one name")
+                    validate_cwo_names(setup["station"], setup["settings"].get("SentExchange"))
                 require(setup["settings"].get("ModeCategory", "CW") == "CW", "Selected plugin requires CW mode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
@@ -775,9 +789,7 @@ class Host:
                     and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", settings["SentExchange"]) is not None,
                     "ICWC sent exchange must be one name")
         if plugin_id == "cwo":
-            require(isinstance(settings["SentExchange"], str)
-                    and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", settings["SentExchange"]) is not None,
-                    "CW Open sent exchange must be one name")
+            validate_cwo_names(station, settings["SentExchange"])
         if plugin_id in {"cwt", "k1usn_sst"}:
             require(isinstance(settings["SentExchange"], str)
                     and settings["SentExchange"] == settings["SentExchange"].strip()
@@ -879,10 +891,10 @@ class Host:
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
                     "CW Open sent serial must be a positive SQLite integer")
             first, separator, second = fields["other_2"].partition(" ")
-            name = first if re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", first) else second
+            name = first if re.fullmatch(r"[A-Za-z]{1,32}", first) else second
             serial = second if name == first else first
             require(separator == " " and fields["other_2"].count(" ") == 1
-                    and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", name) is not None
+                    and re.fullmatch(r"[A-Za-z]{1,32}", name) is not None
                     and re.fullmatch(r"[0-9]+", serial) is not None
                     and 0 < int(serial) <= 9223372036854775807,
                     "CW Open received exchange must be SERIAL NAME or NAME SERIAL with one space")
