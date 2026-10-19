@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { operatingModuleStatus } from "../operatingModule";
 import { workerRequest, framedWorkerRequest } from "../worker";
 import { connectWorkspaceNavigation, isContestMenuRoute } from "../live/workspaceNavigation";
+import { loadStationSession, type RadioID, type StationSession } from "../live/stationSession";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 import { tuneContestSpot } from "./contestSpotTune";
 
@@ -12,6 +13,20 @@ const message = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest Setup could not load.";
 const request = async (method: string, params: Record<string, unknown> = {}) =>
   (await workerRequest(method, params)).result as Data;
+
+type LoadStationSession = (radioId: RadioID) => Promise<StationSession>;
+
+/** Read the active radio through xLog's retained native station owner. Contest
+ * Setup must not bypass that owner with an unscoped worker station_snapshot. */
+export async function loadContestStationSnapshot(load: LoadStationSession = loadStationSession): Promise<Data> {
+  const primary = await load("radio1");
+  const radioId = primary.active_radio;
+  const current = radioId === "radio1" ? primary : await load(radioId);
+  if (current.active_radio !== radioId) {
+    throw new Error("The active radio changed. Refresh Contest Setup before using station data.");
+  }
+  return current.radio?.snapshot && typeof current.radio.snapshot === "object" ? current.radio.snapshot : {};
+}
 
 export function DetachedContestSetupSurface() {
   const [context, setContext] = useState<{ operatingContext: string; workspaceGeneration: string; stationCall: string } | null>(null);
@@ -24,23 +39,35 @@ export function DetachedContestSetupSurface() {
   }, []);
 
   useEffect(() => {
-    let active = true;
+    let active = true, ready = false, inFlight = false;
     const refresh = async () => {
       const [operating, workspace, settings, nextStation, nextCluster] = await Promise.all([
         operatingModuleStatus(true), request("workspace_status"), request("settings_load"),
-        request("station_snapshot"), request("cluster_snapshot"),
+        loadContestStationSnapshot(), request("cluster_snapshot"),
       ]);
       if (!active) return;
       const generation = typeof settings.generation === "string" ? settings.generation : "";
       if (!workspace.workspace_exists || !generation) throw new Error("Reconnect the xLog workspace before opening Contest Setup.");
       setContext({ operatingContext: operating.context, workspaceGeneration: generation,
         stationCall: typeof settings.settings?.stationCall === "string" ? settings.settings.stationCall : "" });
-      setStation(nextStation); setCluster(nextCluster); setError("");
+      setStation(nextStation); setCluster(nextCluster); setError(""); ready = true;
     };
-    void refresh().catch(cause => { if (active) setError(message(cause)); });
-    const timer = window.setInterval(() => void Promise.all([request("station_snapshot"), request("cluster_snapshot")])
-      .then(([nextStation, nextCluster]) => { if (active) { setStation(nextStation); setCluster(nextCluster); } })
-      .catch(cause => { if (active) setError(message(cause)); }), 1_000);
+    const poll = async () => {
+      const [nextStation, nextCluster] = await Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
+      if (active) { setStation(nextStation); setCluster(nextCluster); setError(""); }
+    };
+    const run = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try { await (ready ? poll() : refresh()); }
+      catch (cause) { if (active) setError(message(cause)); }
+      finally { inFlight = false; }
+    };
+    void run();
+    // A temporary handover or startup delay must not strand Contest Setup on
+    // its error shell. Retry bootstrap until context exists, then poll only the
+    // two retained observations used by the contest windows.
+    const timer = window.setInterval(() => void run(), 1_000);
     return () => { active = false; window.clearInterval(timer); };
   }, []);
 
