@@ -82,6 +82,11 @@ const checkProjection = { schemaVersion: 1, status: "ready", draftID: "draft-1",
     fields: [{ id: "section", label: "Section", value: "DX" }] }] }, busy: false } as const;
 const statisticsProjection = { schemaVersion: 1, status: "ready", score: { qsos: 6, points: 21, multipliers: 8, claimedScore: 168,
   multiplierLabels: ["K", "W"], multiplierDisplayLabels: ["United States", "United States"], sourceVerification: "verified" }, busy: false } as const;
+const ratesProjection = { schemaVersion: 1, status: "ready", lastHourQsoPerHour: 48, last10QsoPerHour: 72.5,
+  last100QsoPerHour: null, sinceMinuteQsoPerHour: 120, runQso: 210, searchAndPounceQso: 70, hourRunQso: 30,
+  hourSearchAndPounceQso: 18, busy: false } as const;
+const matrixProjection = { schemaVersion: 1, status: "ready", title: "DXCC", bands: ["20m", "40m"],
+  rows: [{ label: "Slovakia", counts: { "20m": 2, "40m": 0 }, total: 2 }], total: 1, busy: false };
 const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, page: { offset: 0, limit: 20, total: 1,
   rows: [{ qsoID: "qso-1", workedAt: "2026-10-18T00:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW",
     sentExchange: "599 100", receivedExchange: "599 MA", points: 3, multiplierLabels: ["K"] }] },
@@ -96,6 +101,11 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("callsign-intelligence", checkProjection)).toBe(true);
     expect(validContestSurfaceProjection("propagation", statisticsProjection)).toBe(true);
     expect(validContestSurfaceProjection("logbook", logProjection)).toBe(true);
+    expect(validContestSurfaceProjection("monitor", ratesProjection)).toBe(true);
+    expect(validContestSurfaceProjection("awards", matrixProjection)).toBe(true);
+    expect(validContestSurfaceProjection("chaser-dx", { ...matrixProjection, title: "Zone" })).toBe(true);
+    expect(validContestSurfaceProjection("propagation", ratesProjection)).toBe(false);
+    expect(validContestSurfaceProjection("monitor", matrixProjection)).toBe(false);
     for (const panelID of contestSurfacePanelIDs)
       expect(validContestSurfaceProjection(panelID, { schemaVersion: 1, status: "unavailable" })).toBe(true);
     expect(validContestSurfaceProjection("logbook", entryProjection)).toBe(false);
@@ -117,6 +127,21 @@ describe("contest native surface projection v1", () => {
   ] as const)("rejects malformed or over-bound $panelID projections %#", ({ panelID, value }) => {
     expect(validContestSurfaceProjection(panelID, value)).toBe(false);
   });
+
+  it.each([
+    { ...ratesProjection, lastHourQsoPerHour: Infinity },
+    { ...ratesProjection, last10QsoPerHour: -1 },
+    { ...ratesProjection, runQso: 1.5 },
+    { ...ratesProjection, extra: "log-page inference" },
+  ])("rejects invalid owner rates %#", value => expect(validContestSurfaceProjection("monitor", value)).toBe(false));
+
+  it.each([
+    { ...matrixProjection, bands: ["20m", "20m"] },
+    { ...matrixProjection, rows: [{ label: "Slovakia", counts: { "20m": 2 }, total: 2 }] },
+    { ...matrixProjection, rows: [{ label: "Slovakia", counts: { "20m": 2, "40m": 0, "80m": 1 }, total: 3 }] },
+    { ...matrixProjection, rows: [{ label: "Slovakia", counts: { "20m": -1, "40m": 0 }, total: 0 }] },
+    { ...matrixProjection, rows: [matrixProjection.rows[0], matrixProjection.rows[0]] },
+  ])("rejects ambiguous or malformed matrix cells %#", value => expect(validContestSurfaceProjection("awards", value)).toBe(false));
 
   it.each([
     { ...entryProjectionV2, descriptor: { ...entryProjectionV2.descriptor, bands: ["20m", "20m"] } },

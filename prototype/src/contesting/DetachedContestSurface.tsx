@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
-import type { ContestSurfaceAction, ContestSurfaceActionEnvelope } from "./contestSurfaceProtocol";
+import type { ContestSurfaceAction, ContestSurfaceActionEnvelope, ContestRatesSurfaceProjection, ContestMatrixSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestEntryFields, ContestCandidates, ContestScoreSummary, ContestLogTable } from "./ContestPresentation";
 import "./DetachedContestSurface.css";
 
@@ -93,6 +93,8 @@ function Surface({ context }: { context: Context }) {
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as Extract<typeof projection, { score: unknown }>}/>
+      : snapshot.panelID === "monitor" ? <Rates projection={projection as ContestRatesSurfaceProjection}/>
+      : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
       : snapshot.panelID === "logbook" ? <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : null}
@@ -261,6 +263,27 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></section>;
 }
 function Statistics({projection}:{projection:any}) { return <section><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
+function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
+  const rates = [["Last hour", projection.lastHourQsoPerHour], ["Last 10 QSOs", projection.last10QsoPerHour],
+    ["Last 100 QSOs", projection.last100QsoPerHour], ["Since last minute", projection.sinceMinuteQsoPerHour]] as const;
+  return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
+    <dl>{rates.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>QSO/h</small></dd></div>)}</dl>
+    <table aria-label="Run and Search & Pounce QSOs"><thead><tr><th scope="col">QSOs</th><th scope="col">Run</th><th scope="col">Search &amp; Pounce</th></tr></thead>
+      <tbody><tr><th scope="row">Contest</th><td>{projection.runQso.toLocaleString()}</td><td>{projection.searchAndPounceQso.toLocaleString()}</td></tr>
+        <tr><th scope="row">Last hour</th><td>{projection.hourRunQso.toLocaleString()}</td><td>{projection.hourSearchAndPounceQso.toLocaleString()}</td></tr></tbody></table>
+  </section>;
+}
+function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) {
+  return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header><h1>{projection.title}</h1>
+    <span>{projection.total.toLocaleString()} worked</span></header>
+    {projection.rows.length === 0 ? <p>No {projection.title === "DXCC" ? "countries" : "zones"} worked in this contest.</p> :
+      <div className="contest-surface-matrix-scroll"><table aria-label={`${projection.title} by band`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "Country" : "Zone"}</th>
+        {projection.bands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
+        {projection.rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>{projection.bands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
+          {row.counts[band] > 0 ? row.counts[band].toLocaleString() : "—"}</td>)}<td>{row.total.toLocaleString()}</td></tr>)}
+      </tbody></table></div>}
+  </section>;
+}
 function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section><h1>Contest log</h1>
   {editing&&<div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <div className="contest-surface-row"><IntentInput label="Sent report" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>

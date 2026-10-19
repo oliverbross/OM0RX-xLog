@@ -64,6 +64,13 @@ export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready";
 export type ContestStatisticsSurfaceProjection = { schemaVersion: 1; status: "ready"; score: null | {
   qsos: number; points: number; multipliers: number; claimedScore: number; multiplierLabels: string[];
   multiplierDisplayLabels: string[]; sourceVerification: "verified" | "provisional" | "unverified" }; busy: boolean };
+// Rates are computed from the full Python-owned contest log, never a displayed log page.
+export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
+  lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
+  sinceMinuteQsoPerHour: number | null; runQso: number; searchAndPounceQso: number;
+  hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
+export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"; title: string;
+  bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
@@ -71,7 +78,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
-  ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestLogSurfaceProjection;
+  ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection | ContestLogSurfaceProjection;
 
 export const validContestSurfaceUUID = (value: unknown): value is string => typeof value === "string" &&
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
@@ -198,6 +205,27 @@ function validLogProjection(value: Record<string, unknown>) {
       typeof editing.confirmDelete === "boolean" && text(editing.deletionReason, 1024, true)) && typeof value.busy === "boolean";
 }
 
+function validRatesProjection(value: Record<string, unknown>) {
+  const rateKeys = ["lastHourQsoPerHour", "last10QsoPerHour", "last100QsoPerHour", "sinceMinuteQsoPerHour"];
+  const countKeys = ["runQso", "searchAndPounceQso", "hourRunQso", "hourSearchAndPounceQso"];
+  return exact(value, ["schemaVersion", "status", ...rateKeys, ...countKeys, "busy"]) &&
+    rateKeys.every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
+    countKeys.every(key => uint(value[key])) && typeof value.busy === "boolean";
+}
+function validMatrixProjection(value: Record<string, unknown>) {
+  const bands = value.bands;
+  if (!exact(value, ["schemaVersion", "status", "title", "bands", "rows", "total", "busy"]) || !text(value.title, 160) ||
+      !Array.isArray(bands) || bands.length > 32 || !bands.every(band => text(band, 16)) || new Set(bands).size !== bands.length ||
+      !Array.isArray(value.rows) || value.rows.length > 10_000 || !uint(value.total) || typeof value.busy !== "boolean") return false;
+  const labels = new Set<string>();
+  return value.rows.every(item => {
+    if (!record(item) || !exact(item, ["label", "counts", "total"]) || !text(item.label, 160) ||
+        labels.has(item.label as string) || !record(item.counts) || !exact(item.counts, bands) ||
+        !Object.values(item.counts).every(count => uint(count)) || !uint(item.total)) return false;
+    labels.add(item.label as string); return true;
+  });
+}
+
 export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, value: unknown): value is ContestSurfaceProjection {
   const projection = record(value) ? value : undefined;
   if (!projection || typeof projection.status !== "string") return false;
@@ -208,6 +236,8 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (panelID === "active-qso") return validEntryProjection(projection);
   if (panelID === "callsign-intelligence") return validCheckProjection(projection);
   if (panelID === "propagation") return validStatisticsProjection(projection);
+  if (panelID === "monitor") return validRatesProjection(projection);
+  if (panelID === "awards" || panelID === "chaser-dx") return validMatrixProjection(projection);
   if (panelID === "logbook") return validLogProjection(projection);
   return false;
 }

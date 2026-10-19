@@ -43,6 +43,44 @@ it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "stat
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
 
+it("renders exact owner Rates independently of the current log page and refreshes on wake", async () => {
+  window.history.replaceState({}, "", search.replace("view=active-qso", "view=monitor"));
+  let rates = { schemaVersion: 1, status: "ready", lastHourQsoPerHour: 48, last10QsoPerHour: 72.5,
+    last100QsoPerHour: null, sinceMinuteQsoPerHour: 120, runQso: 210, searchAndPounceQso: 70,
+    hourRunQso: 30, hourSearchAndPounceQso: 18, busy: false };
+  native.invoke.mockImplementation(async (command: string) => {
+    if (command === "contest_surface_snapshot") return { ...snapshot, panelID: "monitor", projection: rates };
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("heading", { name: "Rates" })).toBeTruthy();
+  expect(screen.getByText("72.5")).toBeTruthy();
+  expect(screen.getByLabelText("Not enough contacts")).toBeTruthy();
+  expect(screen.getByRole("table", { name: "Run and Search & Pounce QSOs" }).textContent).toContain("210");
+  rates = { ...rates, runQso: 211 };
+  await act(async () => { native.wake!(); });
+  expect(await screen.findByText("211")).toBeTruthy();
+  expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+});
+
+it.each([{ panelID: "awards", title: "DXCC", label: "Slovakia" }, { panelID: "chaser-dx", title: "Zone", label: "15" }])(
+  "renders the session-owned $title matrix with per-band cells", async ({ panelID, title, label }) => {
+    window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
+    native.invoke.mockImplementation(async (command: string) => {
+      if (command === "contest_surface_snapshot") return { ...snapshot, panelID, projection: { schemaVersion: 1, status: "ready",
+        title, bands: ["20m", "40m"], rows: [{ label, counts: { "20m": 21, "40m": 0 }, total: 21 }], total: 1, busy: false } };
+      throw new Error(command);
+    });
+    render(<DetachedContestSurface/>);
+    expect(await screen.findByRole("heading", { name: title })).toBeTruthy();
+    expect(screen.getByRole("table", { name: `${title} by band` })).toBeTruthy();
+    expect(screen.getByRole("rowheader", { name: label })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "—" })).toBeTruthy();
+    expect(screen.getByText("1 worked")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+  });
+
 it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return snapshot;
