@@ -3,6 +3,7 @@ import { operatingModuleStatus } from "../operatingModule";
 import { workerRequest, framedWorkerRequest } from "../worker";
 import { connectWorkspaceNavigation, isContestMenuRoute } from "../live/workspaceNavigation";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+import { tuneContestSpot } from "./contestSpotTune";
 
 type Data = Record<string, any>;
 type MenuHandler = (route: string) => boolean | Promise<boolean>;
@@ -56,7 +57,7 @@ export function DetachedContestSetupSurface() {
     {error ? <p className="contest-alert is-error" role="alert">{error}</p> : <p role="status">Loading contest setup…</p>}
   </main>;
   return <Not1MMContestWorkspace setupOnly request={(method, params = {}) => framedWorkerRequest(method, params)}
-    serviceRequest={request} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
+    serviceRequest={request} stationTune={tuneContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
     registerMenuRoute={registerMenuRoute}/>;

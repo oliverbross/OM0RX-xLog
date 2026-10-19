@@ -40,7 +40,8 @@ pub struct Session {
 }
 
 pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String> {
-    if isolated || !matches!(label, "main" | "station-control") {
+    if isolated || !(matches!(label, "main" | "station-control")
+        || label == "contest-setup" && matches!(action, "snapshot" | "receipt" | "manual_tune" | "review")) {
         return Err("This window cannot perform that Station Control operation.".into());
     }
     if !matches!(
@@ -52,6 +53,20 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
             | "receive_frequency" | "receive_mode" | "manual_tune" | "tci_receive_filter" | "review"
     ) {
         return Err("Unknown Station Control operation.".into());
+    }
+    Ok(())
+}
+
+pub fn validate_receipt(label: &str, receipt: &Value) -> Result<(), String> {
+    if label == "contest-setup" && !receipt.is_null() && receipt["request"]["action"] != "manual_tune" {
+        return Err("Contest Setup can only inspect manual tune receipts.".into());
+    }
+    Ok(())
+}
+
+pub fn validate_review(label: &str, reviewed_action: &str) -> Result<(), String> {
+    if label == "contest-setup" && reviewed_action != "manual_tune" {
+        return Err("Contest Setup can only review a manual tune receipt.".into());
     }
     Ok(())
 }
@@ -890,6 +905,26 @@ pub fn reject_duplicate_configuration(app: &tauri::AppHandle, radio_id: &str, pa
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn contest_setup_admits_only_durable_manual_tune_operations() {
+        for action in ["snapshot", "receipt", "manual_tune", "review"] {
+            assert!(validate("contest-setup", false, action).is_ok(), "{action}");
+        }
+        for action in ["save", "connect", "disconnect", "select", "set_active_radio", "receive_frequency", "tci_receive_filter"] {
+            assert!(validate("contest-setup", false, action).is_err(), "{action}");
+        }
+        assert!(validate("contest-setup", true, "manual_tune").is_err());
+        let tune = json!({"request":{"action":"manual_tune"}});
+        let filter = json!({"request":{"action":"tci_receive_filter"}});
+        assert!(validate_receipt("contest-setup", &Value::Null).is_ok());
+        assert!(validate_receipt("contest-setup", &tune).is_ok());
+        assert!(validate_receipt("contest-setup", &filter).is_err());
+        assert!(validate_review("contest-setup", "manual_tune").is_ok());
+        assert!(validate_review("contest-setup", "tci_receive_filter").is_err());
+        assert!(validate_receipt("station-control", &filter).is_ok());
+        assert!(validate_review("station-control", "tci_receive_filter").is_ok());
+    }
+
     #[test]
     fn tci_filter_durable_receipts_never_replay_and_review_is_exact() {
         for confirms in [false, true] {

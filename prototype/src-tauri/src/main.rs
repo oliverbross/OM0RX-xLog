@@ -1403,6 +1403,13 @@ fn station_session_changes_state(action: &str) -> bool {
     !matches!(action, "snapshot" | "receipt" | "review" | "hamlib_catalogue")
 }
 
+fn validate_contest_station_target(label: &str, action: &str, requested_radio: &str, active_radio: &str) -> Result<(), String> {
+    if label == "contest-setup" && action == "manual_tune" && requested_radio != active_radio {
+        return Err("Contest Setup can only tune the active xLog radio.".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
@@ -1436,12 +1443,21 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
         value["worker_generation"] = serde_json::json!(worker::generation());
         return Ok(value);
     }
-    if action == "receipt" { return owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?); }
+    if action == "receipt" {
+        let receipt = owner.receipt(params["operation_id"].as_str().ok_or("Missing operation identity.")?)?;
+        station_session::validate_receipt(window.label(), &receipt)?;
+        return Ok(receipt);
+    }
     if action == "review" {
         if params.as_object().is_none_or(|value| value.len() != 3) || !matches!(params["reviewed_action"].as_str(), Some("manual_tune" | "tci_receive_filter")) {
             return Err("Invalid exact manual operation review request.".into());
         }
+        station_session::validate_review(window.label(), params["reviewed_action"].as_str().unwrap())?;
         return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, params["reviewed_action"].as_str().unwrap());
+    }
+    if window.label() == "contest-setup" && action == "manual_tune" {
+        contest_window_context::active()?;
+        validate_contest_station_target(window.label(), &action, &radio_id, &radio_slots::active(&app)?)?;
     }
     let selection = station_selection::owner_for(&app, &radio_id)?;
     let telemetry = station_telemetry::owner_for(&app, &radio_id)?;
@@ -2575,6 +2591,14 @@ mod workspace_layout_tests {
         }
         assert!(super::validate_contest_surface_main_caller("main").is_err());
         assert!(super::validate_contest_surface_main_caller("contest-setup").is_ok());
+    }
+
+    #[test]
+    fn contest_manual_tune_is_bounded_to_the_active_radio() {
+        assert!(super::validate_contest_station_target("contest-setup", "manual_tune", "radio1", "radio1").is_ok());
+        assert!(super::validate_contest_station_target("contest-setup", "manual_tune", "radio2", "radio1").is_err());
+        assert!(super::validate_contest_station_target("contest-setup", "snapshot", "radio2", "radio1").is_ok());
+        assert!(super::validate_contest_station_target("station-control", "manual_tune", "radio2", "radio1").is_ok());
     }
 
     #[test]

@@ -34,6 +34,7 @@ type MutationResult = { projection: Projection; actions?: Data[]; messages?: str
 type Props = {
   request: Request;
   serviceRequest: Request;
+  stationTune: (frequencyHz: number, mode: string) => Promise<unknown>;
   operatingContext: string;
   workspaceGeneration: string;
   stationCall: string;
@@ -135,7 +136,7 @@ function multiplierMatrix(title: string, values: Data[], busy: boolean) {
       total: Object.values(counts).reduce((sum, value) => sum + value, 0) })), total: rows.size, busy };
 }
 
-export function Not1MMContestWorkspace({ request, serviceRequest, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
+export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, registerTransition, registerMenuRoute, setupOnly = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
@@ -359,7 +360,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     const frequencyHz = Math.round(Number(spot.frequencyKHz) * 1000);
     if (cqwwFrequency(frequencyHz) === null) return;
     const next = await runMutation(async base => {
-      await serviceRequest("contest_station_tune", { frequency_hz: frequencyHz, mode: "CW" });
+      await stationTune(frequencyHz, "CW");
       return mutate("contest_draft_apply", base, {
         fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz,
       });
