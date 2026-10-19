@@ -121,7 +121,8 @@ class HostTests(unittest.TestCase):
         self.assertEqual(result["projection"]["fields"][0]["value"], "")
         self.assertEqual(result["actions"][0]["fields"]["callsign"], "K1ABC")
         self.assertEqual(result["actions"][0]["fields"]["sent"], "579")
-        self.assertEqual(result["actions"][0]["template"], "{CALL}")
+        self.assertEqual(result["actions"][0]["key"], "F3")
+        self.assertEqual(result["actions"][0]["template"], "{RST} {EXCHANGE}")
         claimed = self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
         self.assertEqual(claimed["actions"], result["actions"])
         self.host.close(); self.host = Host(self.root)
@@ -144,6 +145,24 @@ class HostTests(unittest.TestCase):
         run = self.mutate("function_key", key="F4")
         self.assertEqual(run["actions"][0]["label"], "Run TU")
         self.assertEqual(run["actions"][0]["template"], "tu {MYCALL} qrz")
+
+    def test_esm_roles_follow_not1mm_preferences_in_run_and_search_and_pounce(self):
+        sandp_call = self.mutate("esm", field="callsign", fields={"callsign": "K1ABC"})
+        self.assertEqual([(item["key"], item["template"]) for item in sandp_call["actions"]],
+                         [("F5", "{MYCALL}")])
+        sandp_exchange = self.mutate("esm", field="other_2", fields={"callsign": "K1ABC", "other_2": "5"})
+        self.assertEqual([(item["key"], item["template"]) for item in sandp_exchange["actions"]],
+                         [("F3", "{RST} {EXCHANGE}")])
+        self.assertEqual(self.read("log")["total"], 1)
+
+        self.mutate("run_state", run=True)
+        run_call = self.mutate("esm", field="callsign", fields={"callsign": "DL1ABC", "other_2": ""})
+        self.assertEqual([(item["key"], item["template"]) for item in run_call["actions"]],
+                         [("F2", "{CALL}"), ("F3", "{RST} {EXCHANGE}")])
+        run_exchange = self.mutate("esm", field="other_2", fields={"callsign": "DL1ABC", "other_2": "14"})
+        self.assertEqual([(item["key"], item["template"]) for item in run_exchange["actions"]],
+                         [("F4", "tu {MYCALL} qrz")])
+        self.assertEqual(self.read("log")["total"], 2)
 
     def test_correction_and_delete_promote_duplicate(self):
         first = self.log()
@@ -272,7 +291,8 @@ class HostTests(unittest.TestCase):
         self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": "5"})
         params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision, "field": "other_2"}
         result = self.call("esm", params)
-        self.assertEqual([a["key"] for a in result["actions"]], ["F2"])
+        self.assertEqual([a["key"] for a in result["actions"]], ["F3"])
+        self.assertEqual(result["actions"][0]["template"], "{RST} {EXCHANGE}")
         self.assertEqual(result["actions"][0]["fields"]["callsign"], "K1ABC")
         self.assertEqual(result["projection"]["score"]["qsos"], 1)
         self.assertEqual(self.call("esm", params)["actions"], [])

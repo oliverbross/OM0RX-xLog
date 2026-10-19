@@ -108,7 +108,12 @@ class Desk:
         self.inputs_dict = {getattr(self, name): name for name in INPUTS}
         for i in range(1, 13):
             setattr(self, f"F{i}", Field(f"F{i}"))
-        self.esm_dict = dict(zip(("CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"), [getattr(self, f"F{i}") for i in range(1, 8)]))
+        # Not1MM stores ESM roles as preferences; they are not sequential F-keys.
+        # These are the upstream defaults for the pinned CQ WW macro file.
+        self.esm_dict = {
+            "CQ": self.F1, "EXCH": self.F3, "QRZ": self.F4, "AGN": self.F9,
+            "HISCALL": self.F2, "MYCALL": self.F5, "QSOB4": None,
+        }
         self.current_widget = state["focus"]
         self.esm_call_sent = state.get("esmCallSent", "")
         self.current_sn, self.contact_is_dupe = 0, 0
