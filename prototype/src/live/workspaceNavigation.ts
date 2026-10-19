@@ -9,10 +9,11 @@ export function workspaceMenuScreensFor(capabilities: { contesting: boolean }) {
 }
 type Navigation = { revision: number; screen: string };
 export const workspaceModeRoutes = { "workspace-mode-canvas": "Workspace Mode: Canvas", "workspace-mode-windows": "Workspace Mode: Separate Windows" } as const;
-export const contestMenuPanelIDs = ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster"] as const;
+export const contestMenuPanelIDs = ["active-qso", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster",
+  "awards", "chaser-dx", "station-control"] as const;
 /** Native contest menu intents stay distinct from ordinary screen titles. The
  * current contest owner supplies the session context before opening a child. */
-export function isContestMenuRoute(route: unknown): route is string {
+export function isContestMenuRoute(route: unknown): boolean {
   return typeof route === "string" && (route === "contest-setup" ||
     contestMenuPanelIDs.some(panelID => route === `contest-window-${panelID}`));
 }

@@ -3,9 +3,9 @@ import { BookOpen, Download, Radio, Trophy } from "lucide-react";
 import BandMaps, { type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { useSharedCW } from "../live/useSharedCW";
-import { ContestOperatorCanvas } from "./ContestOperatorCanvas";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
 import { ContestCallHistoryPanel, type ContestHistoryPanelSurface } from "./ContestCallHistoryPanel";
+import { ContestSetupPanel, newContestSetup, type ContestSetupDocument } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
@@ -14,9 +14,11 @@ import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type Contest
   type ContestSurfaceProjection } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
+import { openContestSurfaceWindow } from "./contestSurfaceNative";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
+type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
 type Score = { qsos: number; points: number; countries: number; zones: number; total: number };
@@ -24,7 +26,7 @@ type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; run: boolean;
-  functionKeys: Array<{ id: string; highlighted: boolean }>; dupe: boolean; countryResolved: boolean;
+  functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; countryResolved: boolean;
   history: string; score: Score;
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
@@ -41,11 +43,13 @@ type Props = {
   selectedSpotId?: string | null;
   onSelectedSpot?: (id: string) => void;
   registerTransition?: (controller: ContestTransitionController | null) => void;
+  registerMenuRoute?: (handler: ((route: string) => boolean | Promise<boolean>) | null) => void;
 };
 
 const activeSessionKey = "xlog.contesting.not1mm.active-session.v1";
 const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
+const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : "Contest operation failed.";
 const cqwwFrequency = (value: unknown): number | null => {
   const frequency = typeof value === "number" ? Math.round(value) : NaN;
@@ -93,15 +97,31 @@ function logRows(rows: Data[]): ContestLogRow[] {
   }));
 }
 
+function multiplierMatrix(title: string, values: Data[], busy: boolean) {
+  const rows = new Map<string, Record<string, number>>();
+  for (const item of values) {
+    const label = String(item.value ?? "").trim() || "Unknown";
+    const band = bandLabels[String(item.band)] ?? String(item.band ?? "");
+    if (!contestBands.includes(band)) continue;
+    const counts = rows.get(label) ?? Object.fromEntries(contestBands.map(value => [value, 0]));
+    counts[band] = Number(item.qsos ?? 0); rows.set(label, counts);
+  }
+  return { schemaVersion: 1 as const, status: "ready" as const, title, bands: contestBands,
+    rows: [...rows.entries()].map(([label, counts]) => ({ label, counts,
+      total: Object.values(counts).reduce((sum, value) => sum + value, 0) })), total: rows.size, busy };
+}
+
 export function Not1MMContestWorkspace({ request, serviceRequest, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
-  selectedSpotId, onSelectedSpot, registerTransition }: Props) {
+  selectedSpotId, onSelectedSpot, registerTransition, registerMenuRoute }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
   const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({ countries: [], zones: [] });
+  const [rates, setRates] = useState<Data | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
+  const [setup, setSetup] = useState<ContestSetupDocument>(() => newContestSetup(stationCall));
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
@@ -130,14 +150,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     fieldsRef.current = values; setFields(values);
   };
   const refresh = async (sessionID: string, next?: Projection, offset = 0) => {
-    const [log, scoreResult] = await Promise.all([
+    const [log, scoreResult, rateResult] = await Promise.all([
       result<Data>("contest_log_page", { sessionID, expectedRevision: (next ?? projectionRef.current)?.revision,
         offset, limit: logPageSize }),
       result<Data>("contest_score", { sessionID }),
+      result<Data>("contest_rates", { sessionID }),
     ]);
     if (next && projectionRef.current?.sessionID !== next.sessionID) return;
     setRows(Array.isArray(log.rows) ? log.rows : []); setLogOffset(Number(log.offset ?? offset)); setLogTotal(Number(log.total ?? 0));
     setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? { countries: [], zones: [] });
+    setRates(rateResult);
   };
   const openSession = async (session: Session) => {
     if (busyRef.current) return;
@@ -147,7 +169,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       const opened = await result<{ projection: Projection }>("contest_open", {
         sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
       });
-      acceptProjection(opened.projection); await refresh(session.sessionID, opened.projection);
+      const setupResult = await result<{ setup: ContestSetupDocument }>("contest_setup_get", { sessionID: session.sessionID });
+      acceptProjection(opened.projection); setSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
       localStorage.setItem(activeSessionKey, session.sessionID); setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
@@ -251,9 +274,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     }), false, false, true);
   }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, retiring]);
 
-  const createSession = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!stationCall.trim()) { setError("Configure the xLog station callsign before creating a contest."); return; }
+  const createSession = async (document: ContestSetupDocument) => {
+    const contestCall = String(document.station.Call || stationCall).trim().toUpperCase();
+    if (!contestCall) { setError("Configure the xLog station callsign before creating a contest."); return; }
     if (operationFrequencyHz === null) { setError("Connect the selected radio or enter a valid CQ WW frequency before creating a contest."); return; }
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
@@ -264,14 +287,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       const sessionID = crypto.randomUUID();
       const created = await result<MutationResult>("contest_create", { sessionID, workspaceGeneration,
         operationID: crypto.randomUUID(), expectedRevision: 0,
-        pluginID: "cq_ww_cw", name: create.name.trim() || "CQ WW CW", station: { Call: stationCall.trim().toUpperCase(), CQZone: create.cqZone },
-        operator: stationCall.trim().toUpperCase(), frequencyHz: operationFrequencyHz,
-        settings: { SentExchange: create.cqZone, ModeCategory: "CW" } });
-      acceptProjection(created.projection); await refresh(sessionID, created.projection);
+        pluginID: document.pluginID, name: document.name.trim() || "CQ WW CW", station: { ...document.station, Call: contestCall },
+        operator: document.operator.trim().toUpperCase() || contestCall, frequencyHz: operationFrequencyHz,
+        settings: document.settings });
+      const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
+      acceptProjection(saved.projection); setSetup(saved.setup); await refresh(sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
       localStorage.setItem(activeSessionKey, sessionID); setManager(false);
     } catch (cause) { setError(errorMessage(cause)); }
     finally { busyRef.current = false; setBusy(false); }
+  };
+  const saveSetup = async (document: ContestSetupDocument) => {
+    const saved = await runMutation(base => mutate("contest_setup_save", base, { setup: document }) as Promise<MutationResult & { setup: ContestSetupDocument }>,
+      false, true, false, true);
+    if (saved) setSetup(document);
   };
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
@@ -351,7 +380,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     void deleteQSO(deletionReason).catch(cause => setError(errorMessage(cause))); };
 
   const scoreView = score ? { claimedScore: score.total, qsos: score.qsos, points: score.points,
-    multipliers: score.countries + score.zones, multiplierLabels: [`${score.countries} countries`, `${score.zones} zones`], sourceVerification: "verified" } : null;
+    multipliers: score.countries + score.zones, multiplierLabels: [`${score.countries} countries`, `${score.zones} zones`],
+    multiplierDisplayLabels: [`${score.countries} countries`, `${score.zones} zones`], sourceVerification: "verified" as const } : null;
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
   const changeField = (field: string, value: string) => {
     editVersionRef.current += 1;
@@ -414,7 +444,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
           required: true, maximumUTF8Bytes: 8 }],
         serial: { requirement: "none", allocatedFieldID: null, reservedSerial: null },
       },
-      operator: null,
+      operator: {
+        output: "xlog-native", armed: cw.state.armed, style: projection.run ? "run" : "search-and-pounce",
+        status: cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
+        pending: cw.state.pending ? "send" : null,
+        focusedField: projection.focus === "callsign" ? "callsign" : projection.focus === "other_2" ? "exchange" : null,
+        functionKeys: projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })),
+        readiness: { canSendCQ: cw.state.armed, canSendCall: cw.state.armed, canSendDuplicate: cw.state.armed,
+          canReserveCall: false, canReserveCommit: false, canCommit: true },
+        trace: [],
+      },
       busy: busy || retiring,
       dirty: !sameFields(currentFields, projectionFields(projection)) || frequencyHz !== projection.frequencyHz,
       uncertain: false,
@@ -423,7 +462,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows) },
       editing: editing ? {
-        qsoID: String(editing.ID ?? ""), callsign: editCall,
+        qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall,
         band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),
         sentReport: editSent, receivedReport: editReceived,
         receivedFields: [
@@ -443,10 +482,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       history: { source: historySurface?.source ?? null, rows: historySurface?.rows ?? [] },
       busy: !!scpSurface?.busy || !!historySurface?.busy,
     };
+    unavailable.propagation = { schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring };
+    unavailable.monitor = { schemaVersion: 1, status: "ready",
+      lastHourQsoPerHour: rates?.lastHourQsoPerHour ?? null, last10QsoPerHour: rates?.last10QsoPerHour ?? null,
+      last100QsoPerHour: rates?.last100QsoPerHour ?? null, sinceMinuteQsoPerHour: rates?.sinceMinuteQsoPerHour ?? null,
+      runQso: Number(rates?.runQso ?? 0), searchAndPounceQso: Number(rates?.searchAndPounceQso ?? 0),
+      hourRunQso: Number(rates?.hourRunQso ?? 0), hourSearchAndPounceQso: Number(rates?.hourSearchAndPounceQso ?? 0), busy: busy || retiring };
+    unavailable.awards = multiplierMatrix("DXCC", Array.isArray(matrices.countries) ? matrices.countries : [], busy || retiring);
+    unavailable["chaser-dx"] = multiplierMatrix("CQ Zones", Array.isArray(matrices.zones) ? matrices.zones : [], busy || retiring);
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
-    editCall, editFrequencyMHz, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, historySurface]);
+    editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
+    busy, retiring, scpSurface, historySurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -456,6 +503,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     if (!active || !detachedAvailable || action.sessionID !== active.sessionID ||
         action.workspaceGeneration !== active.workspaceGeneration || action.operatingContext !== operatingContext)
       throw new Error("This detached panel no longer belongs to the active contest session.");
+    if (action.action === "entry_operator_key" && action.params.key === "Escape") {
+      await cw.controller.stop(); return;
+    }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_")) {
       if (!("draftID" in action.params) || action.params.draftID !== active.draftID ||
@@ -498,8 +548,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
       case "entry_commit":
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
           true, true, false, true); return;
-      case "entry_operator_arm": case "entry_operator_style": case "entry_operator_key":
-        throw new Error("Native CW remains available only in the main contest desk.");
+      case "entry_operator_arm":
+        if (action.params.armed) await cw.controller.arm(); else await cw.controller.stop();
+        return;
+      case "entry_operator_style":
+        await runMutation(base => mutate("contest_run_state", base, { run: action.params.value === "run" }), false,
+          true, false, true);
+        return;
+      case "entry_operator_key":
+        if (action.params.key === "Enter") {
+          await hostAction("contest_esm", { field: action.params.focusedField === "exchange" ? "other_2" : "callsign" }); return;
+        }
+        await hostAction("contest_function_key", { key: action.params.key }); return;
       case "assistance_query": await persistFields("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select":
         if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
@@ -514,6 +574,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
         if (action.params.field === "callsign") setEditCall(action.params.value.toUpperCase());
         else if (action.params.field === "sentReport") setEditSent(action.params.value);
         else if (action.params.field === "receivedReport") setEditReceived(action.params.value);
+        else if (action.params.field === "timestamp") setEditTimestamp(action.params.value);
+        else if (action.params.field === "operator") setEditOperator(action.params.value.toUpperCase());
         else if (action.params.field === "correctionReason") setCorrectionReason(action.params.value);
         else setDeletionReason(action.params.value);
         return;
@@ -550,6 +612,31 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   };
   const reportSurfaceError = useCallback((message: string) => setError(message), []);
   useContestSurfaceOwner({ context: surfaceContext, projections: surfaceProjections, handle: handleSurfaceAction, report: reportSurfaceError });
+
+  useEffect(() => {
+    if (!registerMenuRoute) return;
+    const handle = async (route: string) => {
+      if (route === "contest-setup") {
+        await flushDraftRef.current();
+        setManager(true);
+        return true;
+      }
+      const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;
+      if (!panelID || !contestSurfacePanelIDs.includes(panelID)) return false;
+      const active = projectionRef.current;
+      if (!active || !detachedAvailable || !surfaceContext) {
+        setManager(true);
+        setError("Open a contest session before opening its windows.");
+        return true;
+      }
+      await flushDraftRef.current();
+      await openContestSurfaceWindow(surfaceContext, panelID);
+      return true;
+    };
+    registerMenuRoute(handle);
+    return () => registerMenuRoute(null);
+  }, [registerMenuRoute, detachedAvailable, surfaceContext?.operatingContext, surfaceContext?.sessionID,
+    surfaceContext?.workspaceGeneration]);
 
   const applyAssistanceCallsign = (callsign: string, selection: SCPSelectionScope) => {
     const active = projectionRef.current;
@@ -599,8 +686,6 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
   const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><button type="button" disabled={busy} onClick={() => void exportCabrillo()}><Download size={14}/>Export Cabrillo</button></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label="Sent CQ zone" inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label="Received CQ zone" inputMode="numeric" value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
-  const traditionalDesk = <><div className="contest-operating-grid">{entryPanel}{scorePanel}</div>{checkPanel}{matrixPanel}<div className="contest-operating-grid">{bandMapPanel}{clusterPanel}</div>{logPanel}</>;
-
   return <main className="contest-workspace">
     <header className="contest-header"><div><h1>Contest Manager / Desk</h1><p>CQ WW CW · actual Not1MM Python plugin · xLog station services</p></div><div className="contest-header-actions">{projection && <button type="button" disabled={busy} onClick={() => {
       if (manager) { setManager(false); return; }
@@ -610,7 +695,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, operatingConte
     }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
-    {manager ? <section className="contest-manager"><div className="contest-session-list"><h2>Python contest sessions</h2>{sessions.length ? sessions.map(session => <button type="button" key={session.sessionID} disabled={busy} onClick={() => void openSession(session)}><span><strong>{session.name}</strong><small>{session.pluginID} · revision {session.revision}</small></span></button>) : <p className="contest-empty">No Python contest sessions yet. Existing Swift sessions remain preserved in their legacy store.</p>}</div><form className="contest-create" onSubmit={createSession}><h2>New contest</h2><div className="contest-create-fields"><label>Contest<select disabled value="cq_ww_cw"><option value="cq_ww_cw">{catalog[0]?.name ?? "CQ WW CW"}</option></select></label><ContestTextField label="Session name" disabled={busy} value={create.name} onChange={event => setCreate({ ...create, name: event.target.value })}/><ContestTextField label="Station call" disabled value={stationCall}/><ContestTextField label="Sent CQ zone" disabled={busy} inputMode="numeric" value={create.cqZone} onChange={event => setCreate({ ...create, cqZone: event.target.value })}/>{observedFrequencyHz === null && <ContestTextField label="Manual frequency MHz" disabled={busy} inputMode="decimal" value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>}</div><p className="contest-source">The new session is owned by upstream-compatible Python SQLite. Normal-log and legacy contest data are not modified.</p><button className="contest-primary" type="submit" disabled={busy || !stationCall.trim() || operationFrequencyHz === null}>Create and open</button></form></section> : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable ? <ContestOperatorCanvas request={(method, params) => request(method, params)} canChangeLayout={() => !busy && !retiring && !editing} panels={{ "active-qso": { title: "Entry", content: entryPanel }, "callsign-intelligence": { title: "Check Partial", content: checkPanel }, propagation: { title: "Statistics", content: <>{scorePanel}{matrixPanel}</> }, logbook: { title: "Log", content: logPanel }, "band-maps": { title: "Bandmap", content: bandMapPanel }, "dx-cluster": { title: "Cluster", content: clusterPanel }, cw: { title: "CW", content: cwPanel() } }} traditional={traditionalDesk}/> : <><p className="contest-alert" role="status">This session predates detached contest windows. It remains available in the main desk; create a new session in this xLog workspace to use detached Entry and Log.</p>{traditionalDesk}</>}</> : <section className="contest-welcome"><h2>Open a CQ WW session</h2></section>}
+    {manager ? <ContestSetupPanel value={setup} sessions={sessions} activeSessionID={projection?.sessionID}
+      catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
+      onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)}
+      onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
+        setManager(false); void openContestSurfaceWindow(surfaceContext, "callsign-intelligence"); }}/>
+      : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
+        ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
+        : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
+    <div hidden aria-hidden="true">{checkPanel}</div>
   </main>;
 }
 

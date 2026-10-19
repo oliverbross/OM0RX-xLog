@@ -37,7 +37,7 @@ it("accepts only known contest setup and window intents", () => {
     expect(isContestMenuRoute(screen)).toBe(true);
     expect(validWorkspaceNavigation({ revision: 1, screen })).toBe(true);
   }
-  for (const screen of ["contest-window-unknown", "contest-window-awards", "contest-window-alerts", "contest-window-chaser-dx", "contest-window-station-control", "contest-window-", "contest-window-active-qso&scope=normal", "Contest Setup", null, {}]) {
+  for (const screen of ["contest-window-unknown", "contest-window-alerts", "contest-window-", "contest-window-active-qso&scope=normal", "Contest Setup", null, {}]) {
     expect(isContestMenuRoute(screen)).toBe(false);
     expect(validWorkspaceNavigation({ revision: 1, screen })).toBeFalsy();
   }

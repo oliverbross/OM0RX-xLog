@@ -90,7 +90,7 @@ const matrixProjection = { schemaVersion: 1, status: "ready", title: "DXCC", ban
 const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, page: { offset: 0, limit: 20, total: 1,
   rows: [{ qsoID: "qso-1", workedAt: "2026-10-18T00:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW",
     sentExchange: "599 100", receivedExchange: "599 MA", points: 3, multiplierLabels: ["K"] }] },
-  editing: { qsoID: "qso-1", callsign: "K1ABC", band: "20m", mode: "CW", sentReport: "599", receivedReport: "599",
+  editing: { qsoID: "qso-1", workedAt: "2026-10-19T10:00:00Z", operator: "OM0RX", callsign: "K1ABC", band: "20m", mode: "CW", sentReport: "599", receivedReport: "599",
     receivedFields: [receivedField], frequencyHz: 14_025_000, editFrequencyText: "14.025A", frequencyError: "Use digits only",
     correctionReason: "", confirmDelete: false, deletionReason: "" }, busy: false } as const;
 

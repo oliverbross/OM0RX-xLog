@@ -19,7 +19,7 @@ export type ContestSurfaceAction =
   | { action: "log_page"; params: { offset: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
-      "correctionReason" | "deletionReason"; value: string } }
+      "timestamp" | "operator" | "correctionReason" | "deletionReason"; value: string } }
   | { action: "log_edit_set_exchange"; params: { qsoID: string; fieldID: string; value: string } }
   | { action: "log_edit_set_frequency_text"; params: { qsoID: string; value: string } }
   | { action: "log_edit_set_band"; params: { qsoID: string; value: string } }
@@ -48,11 +48,11 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
   descriptor: { bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
     sentFields: { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number }[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
-  operator: null | { output: "simulation-only"; armed: boolean; style: "run" | "search-and-pounce";
+  operator: null | { output: "simulation-only" | "xlog-native"; armed: boolean; style: "run" | "search-and-pounce";
     status: "disarmed" | "armed" | "waiting" | "uncertain"; pending: "reserve-serial" | "send" | "commit" | null;
     focusedField: "callsign" | "exchange" | null;
     functionKeys: { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
-      macro: "CQ" | "EXCH" | "QRZ" | "AGN" | "HISCALL" | "MYCALL" | "QSOB4" }[];
+      macro: string }[];
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
       canReserveCommit: boolean; canCommit: boolean };
     trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: "CQ" | "EXCH" | "QRZ" | "AGN" |
@@ -74,7 +74,7 @@ export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
-  editing: null | { qsoID: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
+  editing: null | { qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
@@ -145,7 +145,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     (serial.reservedSerial === null || uint(serial.reservedSerial)) && serial.reservedSerial === draftValue?.reservedSerial;
   const operatorValid = value.operator === null || !!operator &&
     exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "functionKeys", "readiness", "trace"]) &&
-    operator.output === "simulation-only" && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
+    oneOf(operator.output, ["simulation-only", "xlog-native"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
     oneOf(operator.status, ["disarmed", "armed", "waiting", "uncertain"]) &&
     (operator.pending === null || oneOf(operator.pending, ["reserve-serial", "send", "commit"])) &&
     (operator.focusedField === null || oneOf(operator.focusedField, ["callsign", "exchange"])) &&
@@ -153,8 +153,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       const key = record(item) ? item : undefined; return key?.key;
     })).size === operator.functionKeys.length &&
     operator.functionKeys.every(item => { const key = record(item) ? item : undefined; return !!key && exact(key, ["key", "macro"]) &&
-      oneOf(key.key, ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"]) &&
-      oneOf(key.macro, ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"]); }) &&
+      oneOf(key.key, ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"]) && text(key.macro, 160, true); }) &&
     !!readiness && exact(readiness, ["canSendCQ", "canSendCall", "canSendDuplicate", "canReserveCall", "canReserveCommit", "canCommit"]) &&
     Object.values(readiness).every(item => typeof item === "boolean") && Array.isArray(operator.trace) && operator.trace.length <= 24 &&
     operator.trace.every(item => { const trace = record(item) ? item : undefined; return !!trace &&
@@ -198,8 +197,8 @@ function validLogProjection(value: Record<string, unknown>) {
       return !!row && exact(row, ["qsoID", "workedAt", "callsign", "band", "mode", "sentExchange", "receivedExchange", "points", "multiplierLabels"]) &&
         text(row.qsoID, 160) && canonicalISO(row.workedAt) && text(row.callsign, 32) && text(row.band, 16) && text(row.mode, 16) &&
         text(row.sentExchange, 2048, true) && text(row.receivedExchange, 2048, true) && uint(row.points) && texts(row.multiplierLabels, 32, 160); }) &&
-    (value.editing === null || !!editing && exact(editing, ["qsoID", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"]) &&
-      text(editing.qsoID, 160) && text(editing.callsign, 32, true) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&
+    (value.editing === null || !!editing && exact(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"]) &&
+      text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&
       text(editing.receivedReport, 160, true) && validReceivedFields(editing.receivedFields) && optionalFrequency(editing.frequencyHz) &&
       text(editing.editFrequencyText, 11, true) && text(editing.frequencyError, 512, true) && text(editing.correctionReason, 1024, true) &&
       typeof editing.confirmDelete === "boolean" && text(editing.deletionReason, 1024, true)) && typeof value.busy === "boolean";
@@ -260,7 +259,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&
-    oneOf(params.field, ["callsign", "sentReport", "receivedReport", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);
+    oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);
   if (action === "log_edit_set_exchange") return qso(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "log_edit_set_frequency_text") return qso(params, ["value"]) && text(params.value, 11, true);
   if (action === "log_edit_set_band") return qso(params, ["value"]) && text(params.value, 16);

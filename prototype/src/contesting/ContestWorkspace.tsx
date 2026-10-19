@@ -513,7 +513,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         rows: page?.qsos.map(qso => ({ qsoID: qso.qsoID, workedAt: qso.workedAt, callsign: qso.callsign, band: qso.band,
           mode: qso.mode, sentExchange: qso.sentExchange, receivedExchange: qso.receivedExchange, points: qso.points,
           multiplierLabels: qso.multiplierDisplayLabels ?? (qso.multiplier ? [qso.multiplier] : []) })) ?? [] },
-      editing: editing ? { qsoID: editing.qso.qsoID, callsign: editing.qso.callsign, band: editing.qso.band,
+      editing: editing ? { qsoID: editing.qso.qsoID, workedAt: editing.qso.originalUTC, operator: editing.qso.operatorCallsign,
+        callsign: editing.qso.callsign, band: editing.qso.band,
         mode: editing.qso.mode, sentReport: editing.qso.sentReport, receivedReport: editing.qso.receivedReport,
         receivedFields: editingSurfaceFields, frequencyHz: editing.qso.frequencyHz, editFrequencyText,
         frequencyError: editorFrequencyError, correctionReason, confirmDelete, deletionReason } : null, busy };
@@ -568,6 +569,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
         if (action.params.field === "correctionReason") setCorrectionReason(action.params.value);
         else if (action.params.field === "deletionReason") setDeletionReason(action.params.value);
+        else if (action.params.field === "timestamp") changeQSO("originalUTC", action.params.value);
+        else if (action.params.field === "operator") changeQSO("operatorCallsign", action.params.value);
         else changeQSO(action.params.field, action.params.value); return;
       case "log_edit_set_exchange":
         if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
