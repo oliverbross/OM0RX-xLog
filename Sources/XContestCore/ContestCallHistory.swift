@@ -42,7 +42,7 @@ public enum ContestCallHistoryDiagnosticSeverity: String, Codable, Sendable { ca
 public enum ContestCallHistoryDiagnosticCode: String, Codable, Sendable {
     case invalidLimits, invalidProvenance, datasetTooLarge, invalidUTF8, lineTooLong
     case missingHeaderMarker, tooManyHeaders, invalidHeader, duplicateHeader, missingCallHeader
-    case tooManyRecords, extraValues, valueTooLong, blankCall, invalidCall, noIndexableCalls
+    case tooManyRecords, extraValues, valueTooLong, runtimeValueTooLong, blankCall, invalidCall, noIndexableCalls
 }
 
 public struct ContestCallHistoryDiagnostic: Codable, Equatable, Sendable {
@@ -343,6 +343,11 @@ public struct ContestCallHistoryParser: Sendable {
                 diagnostics.append(.init(severity: .blocking, code: .valueTooLong, line: lineNumber,
                                          detail: "Row contains a value exceeding the byte limit."))
             }
+            for index in values.indices where index < headers.count &&
+                headers[index].knownKey.map(Self.runtimeKeys.contains) == true && values[index].utf8.count > 512 {
+                diagnostics.append(.init(severity: .blocking, code: .runtimeValueTooLong, line: lineNumber,
+                                         detail: "\(headers[index].originalName) exceeds the Not1MM runtime field limit."))
+            }
             let rawCall = callIndex.flatMap { values.indices.contains($0) ? values[$0] : nil } ?? ""
             let normalized = Self.normalizedCallsign(rawCall)
             let issue: ContestCallHistoryIndexingIssue?
@@ -384,6 +389,10 @@ public struct ContestCallHistoryParser: Sendable {
     private static func canonicalHeader(_ value: String) -> String {
         String(decoding: value.utf8.map { (65...90).contains($0) ? $0 + 32 : $0 }, as: UTF8.self)
     }
+
+    private static let runtimeKeys = Set(ContestCallHistoryKnownKey.allCases.filter {
+        $0 != .exchange1 && $0 != .county
+    })
 
     private static func normalizedCallsign(_ value: String) -> String? {
         guard let normalized = ContestSCPIndex.normalizedCallsign(value), normalized.utf8.count >= 2 else { return nil }

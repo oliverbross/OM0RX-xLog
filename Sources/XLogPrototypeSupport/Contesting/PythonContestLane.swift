@@ -78,7 +78,7 @@ actor PythonContestLane {
                     throw ContestLaneError.confirmed("contest_session_inactive", "The output action belongs to an inactive contest.")
                 }
             }
-            let result = try await perform(method: method, params: effectiveParams)
+            var result = try await perform(method: method, params: effectiveParams)
             if let projection = result["projection"] as? [String: Any] {
                 activeProjection = projection
             }
@@ -90,6 +90,15 @@ actor PythonContestLane {
                 let projection = activeProjection
                 activeSessionID = projection?["sessionID"] as? String
                 activeWorkspaceGeneration = projection?["workspaceGeneration"] as? String
+            }
+            if ["contest_session_create", "contest_create", "contest_session_open", "contest_open"].contains(method),
+               let lane = try? callHistory(),
+               let activation = await lane.reconcileCurrent(), activation["state"] as? String == "active",
+               let sessionID = activeSessionID,
+               let refreshed = try? await perform(method: "contest_projection", params: ["sessionID": sessionID]),
+               let projection = refreshed["projection"] as? [String: Any] {
+                result["projection"] = projection
+                activeProjection = projection
             }
             return result
         }
@@ -130,20 +139,39 @@ actor PythonContestLane {
         guard !terminalShutdown else {
             throw ContestLaneError.confirmed("worker_stopping", "The contest host is shutting down.")
         }
-        let lane: PythonContestCallHistoryLane
-        if let callHistoryLane { lane = callHistoryLane }
-        else {
-            let created = try PythonContestCallHistoryLane(
-                contestingRoot: configuration.dataRootURL.standardizedFileURL.deletingLastPathComponent()) { [weak self] in
+        // A history commit can await many staged host calls. Admit the whole
+        // operation through the same tail as ordinary contest requests so an
+        // actor re-entrance cannot collide with `pending` or interleave a
+        // projection/mutation between begin, chunks, commit and cancellation.
+        let previous = tail
+        let operation = Task { [self] in
+            await previous?.value
+            guard !terminalShutdown else {
+                throw ContestLaneError.confirmed("worker_stopping", "The contest host is shutting down.")
+            }
+            return try await callHistory().handle(method: method, params: params)
+        }
+        tail = Task { _ = try? await operation.value }
+        return try await operation.value
+    }
+
+    private func callHistory() throws -> PythonContestCallHistoryLane {
+        if let callHistoryLane { return callHistoryLane }
+        let created = try PythonContestCallHistoryLane(
+                contestingRoot: configuration.dataRootURL.standardizedFileURL.deletingLastPathComponent(),
+                hostRequest: { [weak self] method, params in
+                    guard let self else {
+                        throw ContestLaneError.confirmed("stale_history_context", "The call-history request belongs to another contest context.")
+                    }
+                    return try await self.perform(method: method, params: params)
+                }) { [weak self] in
                     guard let self else {
                         throw ContestLaneError.confirmed("stale_history_context", "The call-history request belongs to another contest context.")
                     }
                     return try await self.callHistoryScope()
                 }
-            callHistoryLane = created
-            lane = created
-        }
-        return try await lane.handle(method: method, params: params)
+        callHistoryLane = created
+        return created
     }
 
     private func callHistoryScope() throws -> PythonContestCallHistoryScope {

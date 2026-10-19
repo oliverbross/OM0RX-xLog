@@ -215,6 +215,8 @@ actor ContestCallHistoryService {
         return .init(dataset: active?.info, unavailableReason: unavailableReason, pending: pending)
     }
 
+    func activeDataset() -> ContestCallHistoryDataset? { active }
+
     func query(callsign: String, context: ContestCallHistorySelectionContext) throws -> ContestCallHistoryQueryResult {
         guard let active else { throw ContestCallHistoryServiceError.dataUnavailable }
         let result = try active.exactMatches(callsign: callsign, context: context)

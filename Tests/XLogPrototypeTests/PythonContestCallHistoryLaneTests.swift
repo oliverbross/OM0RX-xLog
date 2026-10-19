@@ -85,6 +85,42 @@ final class PythonContestCallHistoryLaneTests: XCTestCase {
         }
     }
 
+    func testMaximumRecordActivationStreamsBoundedChunksWithoutMaterializingWireRows() async throws {
+        let root = try temporaryContestingRoot("bounded-activation")
+        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent().deletingLastPathComponent()) }
+        let scope = PythonContestCallHistoryScope(
+            sessionID: id(21), workspaceGeneration: id(22), revision: 1, draftID: id(23),
+            callsign: "K1ABC", ruleIdentity: CQWWCWRule.identity,
+            referenceDataVersion: "not1mm-reference-1")
+        let authority = PythonHistoryScopeAuthority(scope)
+        let recorder = PythonHistoryHostRecorder()
+        let lane = try PythonContestCallHistoryLane(
+            contestingRoot: root,
+            hostRequest: { method, params in try await recorder.request(method, params) },
+            activeScope: { await authority.current() })
+        let source = root.deletingLastPathComponent().appendingPathComponent("maximum-history.txt")
+        var data = Data("!!Order!!,Call,Name,UserText\n".utf8)
+        for index in 0..<100_000 {
+            data.append(Data("K\(index)ABC,Name\(index),Row \(index)\n".utf8))
+        }
+        try data.write(to: source)
+        let preview = try await lane.handle(method: "contest_history_preview_private", params: [
+            "path": source.path, "sourceName": source.lastPathComponent,
+        ])
+        let committed = try await lane.handle(method: "contest_history_preview_commit", params: [
+            "previewID": try XCTUnwrap(preview["previewID"] as? String),
+            "sha256": try XCTUnwrap(preview["sha256"] as? String),
+            "workspaceGeneration": scope.workspaceGeneration, "confirmAdvisories": false,
+        ])
+        XCTAssertEqual((committed["dataset"] as? [String: Any])?["recordCount"] as? Int, 100_000)
+        XCTAssertEqual((committed["activation"] as? [String: Any])?["state"] as? String, "active")
+        let stats = await recorder.stats()
+        XCTAssertEqual(stats.rows, 100_000)
+        XCTAssertGreaterThan(stats.chunks, 1)
+        XCTAssertLessThanOrEqual(stats.maximumRows, 256)
+        XCTAssertLessThanOrEqual(stats.maximumBytes, PrototypeWorker.maxRequestBytes)
+    }
+
     private func queryParams(_ scope: PythonContestCallHistoryScope,
                              requestID: String) -> [String: Any] {
         baseParams(scope, requestID: requestID).merging([
@@ -129,4 +165,49 @@ private actor PythonHistoryScopeAuthority {
     init(_ value: PythonContestCallHistoryScope) { self.value = value }
     func current() -> PythonContestCallHistoryScope { value }
     func replace(_ value: PythonContestCallHistoryScope) { self.value = value }
+}
+
+private actor PythonHistoryHostRecorder {
+    private var generation = "", digest = ""
+    private var expected = 0, rows = 0, chunks = 0, maximumRows = 0, maximumBytes = 0
+
+    func request(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
+        switch method {
+        case "contest_history_status":
+            return ["activation": NSNull()]
+        case "contest_history_stage_begin":
+            generation = params["generation"] as? String ?? ""
+            digest = params["digest"] as? String ?? ""
+            expected = params["rowCount"] as? Int ?? -1
+            rows = 0; chunks = 0; maximumRows = 0; maximumBytes = 0
+            return ["activation": NSNull()]
+        case "contest_history_stage_chunk":
+            guard params["generation"] as? String == generation,
+                  params["digest"] as? String == digest,
+                  params["offset"] as? Int == rows,
+                  let values = params["rows"] as? [[String: Any]] else {
+                throw NSError(domain: "PythonHistoryHostRecorder", code: 1)
+            }
+            let envelope: [String: Any] = [
+                "id": "00000000-0000-0000-0000-000000000000",
+                "method": method, "params": params,
+            ]
+            let bytes = try JSONSerialization.data(withJSONObject: envelope).count + 1
+            rows += values.count; chunks += 1
+            maximumRows = max(maximumRows, values.count)
+            maximumBytes = max(maximumBytes, bytes)
+            return ["activation": NSNull()]
+        case "contest_history_stage_commit":
+            guard rows == expected else { throw NSError(domain: "PythonHistoryHostRecorder", code: 2) }
+            return ["activation": ["generation": generation, "digest": digest, "rowCount": rows]]
+        case "contest_history_stage_cancel":
+            return ["activation": NSNull()]
+        default:
+            throw NSError(domain: "PythonHistoryHostRecorder", code: 3)
+        }
+    }
+
+    func stats() -> (rows: Int, chunks: Int, maximumRows: Int, maximumBytes: Int) {
+        (rows, chunks, maximumRows, maximumBytes)
+    }
 }

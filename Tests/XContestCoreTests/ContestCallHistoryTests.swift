@@ -81,6 +81,10 @@ final class ContestCallHistoryTests: XCTestCase {
         let longValue = preview("!!Order!!,Call,Note\nK1ABC,12345\n", limits: .init(maximumBytes: 128, maximumRecords: 10,
             maximumLineBytes: 64, maximumHeaders: 4, maximumHeaderBytes: 16, maximumValueBytes: 4))
         XCTAssertTrue(longValue.diagnostics.contains { $0.code == .valueTooLong })
+        let runtimeValue = preview("!!Order!!,Call,UserText,Unknown\nK1ABC,\(String(repeating: "A", count: 513)),\(String(repeating: "B", count: 600))\n")
+        XCTAssertFalse(runtimeValue.isCommittable)
+        XCTAssertTrue(runtimeValue.diagnostics.contains { $0.code == .runtimeValueTooLong && $0.line == 2 })
+        XCTAssertFalse(runtimeValue.diagnostics.contains { $0.code == .valueTooLong })
         let tooMany = preview("!!Order!!,Call\nK1ABC\nN1ABC\n", limits: .init(maximumBytes: 128, maximumRecords: 1,
             maximumLineBytes: 64, maximumHeaders: 4, maximumHeaderBytes: 16, maximumValueBytes: 16))
         XCTAssertTrue(tooMany.diagnostics.contains { $0.code == .tooManyRecords })

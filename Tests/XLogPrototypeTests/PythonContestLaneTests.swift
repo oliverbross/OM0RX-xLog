@@ -181,6 +181,66 @@ final class PythonContestLaneTests: XCTestCase {
         }
     }
 
+    func testCallHistoryActivationSerializesHostTrafficAndNormalizesSQLiteLookupCall() async throws {
+        let root = repositoryRoot()
+        let basePath = FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
+        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
+            .appendingPathComponent("xlog-python-history-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python312(),
+            launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python", isDirectory: true)))
+        let sessionID = UUID().uuidString.lowercased()
+        let workspaceGeneration = UUID().uuidString.lowercased()
+        _ = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_cw", "frequencyHz": 14_025_000,
+            "station": ["Call": "OM0RX", "CQZone": "15"],
+            "settings": ["SentExchange": "15"],
+        ])
+
+        let source = temporary.appendingPathComponent("operator-history.txt")
+        var data = Data("!!Order!!,Call,CqZone,UserText\n k1abc ,04,normalized lookup\n".utf8)
+        for index in 0..<3_000 {
+            data.append(Data("K\(index)XYZ,05,row \(index)\n".utf8))
+        }
+        try data.write(to: source)
+        let preview = try await lane.handleCallHistory(method: "contest_history_preview_private", params: [
+            "path": source.path, "sourceName": source.lastPathComponent,
+        ])
+        let commit = Task {
+            try await lane.handleCallHistory(method: "contest_history_preview_commit", params: [
+                "previewID": try XCTUnwrap(preview["previewID"] as? String),
+                "sha256": try XCTUnwrap(preview["sha256"] as? String),
+                "workspaceGeneration": workspaceGeneration, "confirmAdvisories": false,
+            ])
+        }
+        await Task.yield()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<12 {
+                group.addTask {
+                    _ = try await lane.handle(method: "contest_projection", params: ["sessionID": sessionID])
+                }
+            }
+            try await group.waitForAll()
+        }
+        let committed = try await commit.value
+        let activation = try XCTUnwrap(committed["activation"] as? [String: Any])
+        XCTAssertEqual(activation["state"] as? String, "active", String(describing: activation["message"]))
+
+        let applied = try await lane.handle(method: "contest_draft_apply", params: [
+            "sessionID": sessionID, "operationID": UUID().uuidString.lowercased(),
+            "expectedRevision": 1, "fields": ["callsign": "K1ABC", "other_2": ""],
+        ])
+        let projection = try XCTUnwrap(applied["projection"] as? [String: Any])
+        XCTAssertEqual(projection["history"] as? String, "K1ABC, 4, normalized lookup")
+        await lane.shutdown()
+    }
+
     func testNormalLoggingWorkerInterleavesLogbookAndPythonContestWorkInOneGeneration() async throws {
         let root = repositoryRoot()
         let basePath = FileManager.default.temporaryDirectory.path

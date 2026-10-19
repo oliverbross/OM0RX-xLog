@@ -25,12 +25,15 @@ struct PythonContestCallHistoryScope: Equatable, Sendable {
 /// legacy Swift contest repository's draft mutation owner.
 actor PythonContestCallHistoryLane {
     typealias ActiveScope = @Sendable () async throws -> PythonContestCallHistoryScope
+    typealias HostRequest = @Sendable (String, [String: Any]) async throws -> [String: Any]
 
     private static let wireBudget = 768 * 1_024
     private let service: ContestCallHistoryService
     private let activeScope: ActiveScope
+    private let hostRequest: HostRequest?
 
-    init(contestingRoot: URL, activeScope: @escaping ActiveScope) throws {
+    init(contestingRoot: URL, hostRequest: HostRequest? = nil,
+         activeScope: @escaping ActiveScope) throws {
         let root = contestingRoot.standardizedFileURL
         let cacheURL = root.appendingPathComponent("CallHistory", isDirectory: true)
             .appendingPathComponent("current.json")
@@ -41,6 +44,7 @@ actor PythonContestCallHistoryLane {
             applicationSupport.appendingPathComponent("OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite"),
         ]
         self.activeScope = activeScope
+        self.hostRequest = hostRequest
         service = try ContestCallHistoryService(cacheURL: cacheURL, validatePrivateRoot: {
             try ContestDatabaseBoundary.validatePrivateFile(
                 cacheURL, privateRoot: root, ancestorBoundary: applicationRoot,
@@ -56,10 +60,12 @@ actor PythonContestCallHistoryLane {
                 let scope = try await activeScope()
                 try Self.validate(scope)
                 let status = await service.status()
+                let activation = await activationWire(scope: scope)
                 try await requireUnchanged(scope)
                 return ["dataset": status.dataset.map(Self.datasetWire) ?? NSNull(),
                         "pendingPreview": status.pending.map(Self.previewWire) ?? NSNull(),
-                        "unavailableReason": status.unavailableReason ?? NSNull()]
+                        "unavailableReason": status.unavailableReason ?? NSNull(),
+                        "activation": activation]
             case "contest_history_preview_private":
                 try Self.exact(params, ["path", "sourceName"])
                 let scope = try await checkedScope()
@@ -104,7 +110,14 @@ actor PythonContestCallHistoryLane {
                     confirmAdvisories: try Self.boolean(params, "confirmAdvisories"),
                     expectedWorkspaceGeneration: scope.workspaceGeneration)
                 try await requireUnchanged(scope)
-                return ["dataset": Self.datasetWire(dataset)]
+                return ["dataset": Self.datasetWire(dataset),
+                        "activation": await activationWire(scope: scope)]
+            case "contest_history_activate":
+                try Self.exact(params, ["workspaceGeneration"])
+                let scope = try await checkedScope(params)
+                let activation = await activationWire(scope: scope)
+                try await requireUnchanged(scope)
+                return ["activation": activation]
             case "contest_history_query":
                 let context = try await context(params, selecting: false)
                 let recordOffset = try Self.integer(params, "recordOffset", range: 0...100_000)
@@ -139,6 +152,137 @@ actor PythonContestCallHistoryLane {
         } catch let error as ContestLaneError { throw error }
           catch let error as ContestCallHistoryServiceError { throw Self.map(error) }
           catch let error as ContestCallHistoryError { throw Self.map(error) }
+    }
+
+    func reconcileCurrent() async -> [String: Any]? {
+        do {
+            let scope = try await checkedScope()
+            guard await service.activeDataset() != nil else { return nil }
+            return await activationWire(scope: scope)
+        } catch {
+            return nil
+        }
+    }
+
+    private func activationWire(scope: PythonContestCallHistoryScope) async -> [String: Any] {
+        guard let dataset = await service.activeDataset() else {
+            return ["state": "not_imported", "generation": NSNull(), "digest": NSNull(),
+                    "rowCount": NSNull(), "message": NSNull()]
+        }
+        guard hostRequest != nil else {
+            return ["state": "unavailable", "generation": dataset.info.generation,
+                    "digest": dataset.info.sha256, "rowCount": dataset.info.recordCount,
+                    "message": "The Python contest host is unavailable."]
+        }
+        do {
+            try await synchronize(dataset, scope: scope)
+            return ["state": "active", "generation": dataset.info.generation,
+                    "digest": dataset.info.sha256, "rowCount": dataset.info.recordCount,
+                    "message": NSNull()]
+        } catch {
+            return ["state": "failed", "generation": dataset.info.generation,
+                    "digest": dataset.info.sha256, "rowCount": dataset.info.recordCount,
+                    "message": Self.message(error)]
+        }
+    }
+
+    private func synchronize(_ dataset: ContestCallHistoryDataset,
+                             scope: PythonContestCallHistoryScope) async throws {
+        guard let hostRequest else { throw Self.unavailable() }
+        let base: [String: Any] = ["sessionID": scope.sessionID,
+            "workspaceGeneration": scope.workspaceGeneration,
+            "generation": dataset.info.generation, "digest": dataset.info.sha256]
+        let status = try await hostRequest("contest_history_status", [
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
+        ])
+        if try Self.activationMatches(status["activation"], dataset.info) { return }
+        _ = try await hostRequest("contest_history_stage_begin",
+            base.merging(["rowCount": dataset.info.recordCount]) { _, new in new })
+        do {
+            guard !dataset.rows.isEmpty, dataset.rows.count == dataset.info.recordCount else {
+                throw Self.unavailable()
+            }
+            var offset = 0
+            while offset < dataset.rows.count {
+                var chunk: [[String: Any]] = []
+                while offset + chunk.count < dataset.rows.count && chunk.count < 256 {
+                    let row = Self.hostRow(dataset.rows[offset + chunk.count], dataset: dataset)
+                    let candidate = chunk + [row]
+                    let params = base.merging(["offset": offset, "rows": candidate]) { _, new in new }
+                    if try Self.hostRequestSize(method: "contest_history_stage_chunk", params: params)
+                        > PrototypeWorker.maxRequestBytes {
+                        guard !chunk.isEmpty else { throw Self.tooLarge("A call-history row exceeds the activation budget.") }
+                        break
+                    }
+                    chunk = candidate
+                }
+                guard !chunk.isEmpty else { throw Self.tooLarge("A call-history activation chunk is empty.") }
+                _ = try await hostRequest("contest_history_stage_chunk",
+                    base.merging(["offset": offset, "rows": chunk]) { _, new in new })
+                offset += chunk.count
+                try await requireUnchanged(scope)
+            }
+            let result = try await hostRequest("contest_history_stage_commit",
+                base.merging(["rowCount": dataset.info.recordCount]) { _, new in new })
+            guard try Self.activationMatches(result["activation"], dataset.info) else {
+                throw Self.unavailable()
+            }
+        } catch {
+            _ = try? await hostRequest("contest_history_stage_cancel", base)
+            throw error
+        }
+    }
+
+    private static func activationMatches(_ value: Any?, _ dataset: ContestCallHistoryDatasetInfo) throws -> Bool {
+        if value is NSNull || value == nil { return false }
+        guard let result = value as? [String: Any], Set(result.keys) == Set(["generation", "digest", "rowCount"]),
+              let generation = result["generation"] as? String,
+              let digest = result["digest"] as? String,
+              let rowCount = result["rowCount"] as? Int else { throw unavailable() }
+        return generation == dataset.generation && digest == dataset.sha256 && rowCount == dataset.recordCount
+    }
+
+    private static func hostRow(_ row: ContestCallHistoryRow,
+                                dataset: ContestCallHistoryDataset) -> [String: Any] {
+        var result = Dictionary(uniqueKeysWithValues: hostColumns.map { ($0.0, "") })
+        for (column, key) in hostColumns {
+            // The sidecar retains the operator's exact source bytes. SQLite
+            // receives the canonical index key expected by Not1MM's exact
+            // CALLHISTORY lookup, including for padded or lowercase input.
+            result[column] = key == .call
+                ? row.normalizedCallsign ?? ""
+                : dataset.value(in: row, for: key) ?? ""
+        }
+        return result
+    }
+
+    private static let hostColumns: [(String, ContestCallHistoryKnownKey)] = [
+        ("Call", .call), ("Name", .name), ("Loc1", .loc1), ("Loc2", .loc2),
+        ("Sect", .sect), ("State", .state), ("CK", .ck), ("BirthDate", .birthDate),
+        ("Exch1", .exch1), ("Misc", .misc), ("Power", .power), ("CqZone", .cqZone),
+        ("ITUZone", .ituZone), ("UserText", .userText), ("LastUpdateNote", .lastUpdateNote),
+    ]
+
+    private static func message(_ error: Error) -> String {
+        let value = (error as? ContestLaneError)?.message
+            ?? (error as? LocalizedError)?.errorDescription
+            ?? error.localizedDescription
+        return String(value.prefix(512))
+    }
+
+    private static func hostRequestSize(method: String, params: [String: Any]) throws -> Int {
+        // Match PythonContestLane.perform exactly: a canonical UUID-sized id,
+        // the method and params envelope, plus its terminating newline.
+        let envelope: [String: Any] = [
+            "id": "00000000-0000-0000-0000-000000000000",
+            "method": method,
+            "params": params,
+        ]
+        return try encodedSize(envelope) + 1
+    }
+
+    private static func unavailable() -> ContestLaneError {
+        .confirmed("history_activation_failed", "The Python call-history activation was not confirmed.")
     }
 
     private func checkedScope(_ params: [String: Any]? = nil) async throws -> PythonContestCallHistoryScope {

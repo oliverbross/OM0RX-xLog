@@ -435,7 +435,7 @@ public actor LiveWorker {
                                "contest_history_preview_page", "contest_history_preview_cancel",
                                "contest_history_preview_commit", "contest_history_query",
                                "contest_history_query_cancel", "contest_history_select",
-                               "contest_history_apply"].contains(method) {
+                               "contest_history_apply", "contest_history_activate"].contains(method) {
                         result = try await pythonContestLane.handleCallHistory(method: method, params: params)
                     } else {
                         result = try await pythonContestLane.handle(method: method, params: params)
