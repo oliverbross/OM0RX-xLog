@@ -1584,14 +1584,48 @@ fn validate_band_statistics(value: &Value, total: bool) -> Result<(String, [u64;
 
 fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
     let mut required = value.clone();
-    for key in ["manualRows", "partialRows"] {
-        if let Some(rows) = required.remove(key) {
+    let manual_rows = required.remove("manualRows");
+    let partial_rows = required.remove("partialRows");
+    let layout = required.remove("exchangeLayout");
+    let plugin_columns = required.remove("pluginColumns");
+    let plugin_rows = required.remove("pluginRows");
+    let plugin_partial_rows = required.remove("pluginPartialRows");
+    let plugin_layout = layout.is_some();
+    let plugin_row_ids = if let Some(layout) = layout {
+        enum_value(&layout, &["plugin"], "log exchange layout")?;
+        if manual_rows.is_some() || partial_rows.is_some() {
+            return Err("The plugin log projection cannot include manual rows.".into());
+        }
+        let columns = validate_plugin_columns(plugin_columns.as_ref().ok_or(
+            "The plugin log projection is missing its columns.",
+        )?)?;
+        let rows = validate_plugin_rows(
+            plugin_rows
+                .as_ref()
+                .ok_or("The plugin log projection is missing its rows.")?,
+            columns,
+            20,
+        )?;
+        validate_plugin_rows(
+            plugin_partial_rows
+                .as_ref()
+                .ok_or("The plugin log projection is missing its partial rows.")?,
+            columns,
+            500,
+        )?;
+        Some(rows)
+    } else {
+        if plugin_columns.is_some() || plugin_rows.is_some() || plugin_partial_rows.is_some() {
+            return Err("The manual log projection cannot include plugin rows.".into());
+        }
+        if let Some(rows) = manual_rows {
             validate_manual_rows(&rows)?;
         }
-    }
-    if let Some(layout) = required.remove("exchangeLayout") {
-        enum_value(&layout, &["plugin"], "log exchange layout")?;
-    }
+        if let Some(rows) = partial_rows {
+            validate_manual_rows(&rows)?;
+        }
+        None
+    };
     exact(
         &required,
         &[
@@ -1618,6 +1652,7 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
     uint_value(&page["limit"], 20, "log limit")?;
     uint_value(&page["total"], MAX_SAFE_INTEGER, "log total")?;
     let rows = array(&page["rows"], 20, "log rows")?;
+    let mut page_row_ids = Vec::with_capacity(rows.len());
     for row in rows {
         let row = object(row, "log row")?;
         exact(
@@ -1635,9 +1670,8 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
             ],
             "log row",
         )?;
-        for key in ["qsoID", "workedAt"] {
-            text_value(&row[key], 160, false, "log identity")?;
-        }
+        page_row_ids.push(text_value(&row["qsoID"], 160, false, "log identity")?.to_string());
+        text_value(&row["workedAt"], 160, false, "log identity")?;
         text_value(&row["callsign"], 32, false, "log callsign")?;
         for key in ["band", "mode"] {
             text_value(&row[key], 16, false, "log radio value")?;
@@ -1647,6 +1681,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         }
         integer(&row["points"], "log points")?;
         string_array(&row["multiplierLabels"], 64, 160, "multiplier labels")?;
+    }
+    if plugin_layout && plugin_row_ids.as_ref() != Some(&page_row_ids) {
+        return Err("The plugin log rows do not match the visible page.".into());
     }
     if !value["editing"].is_null() {
         let edit = object(&value["editing"], "log edit")?;
@@ -1717,6 +1754,46 @@ fn validate_manual_rows(value: &Value) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn validate_plugin_columns(value: &Value) -> Result<usize, String> {
+    let columns = array(value, 32, "plugin log columns")?;
+    if columns.is_empty() {
+        return Err("The plugin log columns are invalid.".into());
+    }
+    let mut unique = BTreeSet::new();
+    let mut calls = 0;
+    for column in columns {
+        let column = text_value(column, 64, false, "plugin log column")?;
+        if column != column.trim() || !unique.insert(column) {
+            return Err("The plugin log columns are invalid.".into());
+        }
+        if column == "Call" {
+            calls += 1;
+        }
+    }
+    if calls != 1 {
+        return Err("The plugin log columns require exactly one Call column.".into());
+    }
+    Ok(columns.len())
+}
+
+fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result<Vec<String>, String> {
+    let rows = array(value, maximum, "plugin log rows")?;
+    let mut ids = Vec::with_capacity(rows.len());
+    for row in rows {
+        let row = object(row, "plugin log row")?;
+        exact(row, &["qsoID", "values"], "plugin log row")?;
+        ids.push(text_value(&row["qsoID"], 160, false, "plugin log QSO ID")?.to_string());
+        let values = array(&row["values"], columns, "plugin log values")?;
+        if values.len() != columns {
+            return Err("The plugin log row does not match its columns.".into());
+        }
+        for value in values {
+            text_value(value, 512, true, "plugin log value")?;
+        }
+    }
+    Ok(ids)
 }
 
 fn fields(value: &Value, descriptor: bool) -> Result<(), String> {
@@ -2128,13 +2205,26 @@ mod tests {
             "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00.000Z",
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
-            "manualRows":[{"qsoID":"qso","TS":"2026-10-18 00:00:00","Call":"DL1AAA","Freq":"14025.0",
-                "SNT":"599","RCV":"599","ZN":"14","SentNr":"15","prefix":"DL","Points":"3"}],"partialRows":[],
+            "pluginColumns":["TS","Call","Freq","SNT","RCV","ZN","SentNr","prefix","Points"],
+            "pluginRows":[{"qsoID":"qso","values":["2026-10-18 00:00:00","DL1AAA","14025.0","599","599","14","15","DL","3"]}],
+            "pluginPartialRows":[],
             "editing":{"qsoID":"qso","workedAt":"2026-10-18 00:00:00","operator":"OM0RX","callsign":"DL1AAA","reportsVisible":false,
                 "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
                 "frequencyHz":14025000,"editFrequencyText":"14025000","frequencyError":"","correctionReason":"Operator correction",
                 "confirmDelete":false,"deletionReason":"Operator deletion"},"busy":false});
         assert!(validate_projection("logbook", &not1mm_logbook).is_ok());
+        let mut missing_call_column = not1mm_logbook.clone();
+        missing_call_column["pluginColumns"][1] = json!("Station");
+        assert!(validate_projection("logbook", &missing_call_column).is_err());
+        let mut mismatched_plugin_row = not1mm_logbook.clone();
+        mismatched_plugin_row["pluginRows"][0]["qsoID"] = json!("other");
+        assert!(validate_projection("logbook", &mismatched_plugin_row).is_err());
+        let mut short_plugin_row = not1mm_logbook.clone();
+        short_plugin_row["pluginRows"][0]["values"].as_array_mut().unwrap().pop();
+        assert!(validate_projection("logbook", &short_plugin_row).is_err());
+        let mut crossed_layout = not1mm_logbook;
+        crossed_layout["manualRows"] = json!([]);
+        assert!(validate_projection("logbook", &crossed_layout).is_err());
         let statistics = json!({"schemaVersion":1,"status":"ready","score":{"qsos":12,"points":12,"multipliers":10,
             "claimedScore":120,"multiplierLabels":["country:K"],"multiplierDisplayLabels":["United States"],
             "sourceVerification":"verified"},"busy":false});
