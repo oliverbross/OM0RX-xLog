@@ -78,6 +78,19 @@ class HostTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             Field("callsign").silentlyIgnoreMissingQtMethod()
 
+    def test_country_additions_require_the_session_reference_identity(self):
+        country = {"VK1ABC": {"entity": "Australia", "continent": "OC", "cq": 30,
+                              "itu": 59, "primary_pfx": "VK"}}
+        before = self.revision
+        with self.assertRaises(HostError) as error:
+            self.mutate("draft_apply", fields={"callsign": "VK1ABC"}, countries=country,
+                        referenceID="test-cty-v2")
+        self.assertEqual(error.exception.code, "reference_mismatch")
+        self.assertEqual(self.read("projection")["projection"]["revision"], before)
+        accepted = self.mutate("draft_apply", fields={"callsign": "VK1ABC"}, countries=country,
+                               referenceID="test-cty-v1")
+        self.assertTrue(accepted["projection"]["countryResolved"])
+
     def test_session_catalog_reopens_owned_python_sessions(self):
         sessions = self.call("sessions", {})["sessions"]
         self.assertEqual(sessions, [{"sessionID": self.session, "name": "CQ WW CW",

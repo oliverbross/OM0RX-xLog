@@ -473,6 +473,9 @@ class Host:
     def apply_fields(self, desk, params):
         require(params.get("draftID", desk.state["draft"]["id"]) == desk.state["draft"]["id"], "Draft changed", "stale_draft")
         if "countries" in params:
+            require(params.get("referenceID") == desk.state["reference"]["id"],
+                    "The contest CTY reference differs from this session; migrate it explicitly before resolving new calls",
+                    "reference_mismatch")
             additions = self.countries(deepcopy(params["countries"]))
             current = desk.state["reference"]["countries"]
             for call, country in additions.items():
@@ -534,7 +537,10 @@ class Host:
             fields = json.loads(identity["raw_fields"])
             for name in INPUTS:
                 getattr(desk, name).setText(fields[name])
-            self.apply_fields(desk, {"fields": params.get("fields", {}), "countries": params.get("countries", {})})
+            changes = {"fields": params.get("fields", {})}
+            if "countries" in params:
+                changes.update({"countries": params["countries"], "referenceID": params.get("referenceID")})
+            self.apply_fields(desk, changes)
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", updated["callsign"]) is not None, "Complete callsign required")
             require(updated["other_2"].isdigit() and 1 <= int(updated["other_2"]) <= 40, "CQ zone must be 1 to 40")

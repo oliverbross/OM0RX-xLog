@@ -1774,6 +1774,9 @@ struct ContestReferenceData {
     }
 
     func resolve(_ callsign: String, at date: Date) -> CountryInfo? { resolver.resolve(callsign, at: date) }
+    func resolveCountryEndpoint(_ callsign: String, at date: Date) -> CountryInfo? {
+        resolver.resolveCountryEndpoint(callsign, at: date)
+    }
     func resolve(_ callsign: String, at date: Date, for rule: any ContestRule) -> CountryInfo? {
         rule is any ContestCountryReferenceBoundRule
             ? resolver.resolveCountryEndpoint(callsign, at: date)

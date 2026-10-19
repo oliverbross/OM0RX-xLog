@@ -165,13 +165,14 @@ actor PythonContestLane {
            !call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let country = countryWire(call) {
             result["countries"] = [call.uppercased(): country]
+            result["referenceID"] = reference.version
         }
         return result
     }
 
     private func countryWire(_ rawCallsign: String) -> [String: Any]? {
         let callsign = rawCallsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard let country = reference.resolve(callsign, at: Date()),
+        guard let country = reference.resolveCountryEndpoint(callsign, at: Date()),
               let prefix = reference.primaryPrefixes[country.adif], !prefix.isEmpty else { return nil }
         return ["entity": country.name, "continent": country.continent,
                 "cq": country.cqZone, "itu": country.ituZone, "primary_pfx": prefix]
