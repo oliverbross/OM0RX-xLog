@@ -14,6 +14,8 @@ PLUGIN_REGISTRY = MappingProxyType({
     "cq_wpx_cw": Plugin("CQ WPX CW", serial=True),
     "arrl_ss_cw": Plugin("ARRL Sweepstakes CW", serial=True),
     "icwc_mst": Plugin("ICWC Medium Speed Test", serial=True),
+    "cwt": Plugin("CWT"),
+    "k1usn_sst": Plugin("K1USN SLOW SPEED TEST"),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)

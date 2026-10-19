@@ -128,6 +128,9 @@ class Desk:
         self.pref = {"contest": 1, "run_state": state["run"], "use_esm": self.use_esm,
                      "esm_send_corrected_call": esm["sendCorrectedCall"]}
         self.actions, self.messages, self.highlights = [], [], set()
+        # Original plugins may notify Not1MM's optional log window after a
+        # multiplier rebuild. xLog projects the rebuilt database directly.
+        self.log_window = None
         for name in FIELDS:
             setattr(self, name, Field(name, state["draft"]["fields"].get(name, "")))
         # fieldN are visual containers, not a second set of input values.
@@ -277,12 +280,12 @@ class Desk:
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
-        if self.state["pluginID"] == "icwc_mst":
+        if self.state["pluginID"] in {"icwc_mst", "cwt"}:
             calls = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "uniqueCalls": calls,
                     "multipliers": calls, "total": self.contest.calc_score(self)}
-        if self.state["pluginID"] == "arrl_ss_cw":
+        if self.state["pluginID"] in {"arrl_ss_cw", "k1usn_sst"}:
             sections = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "sections": sections,
@@ -735,6 +738,11 @@ class Host:
             require(isinstance(settings["SentExchange"], str)
                     and re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", settings["SentExchange"]) is not None,
                     "ICWC sent exchange must be one name")
+        if plugin_id in {"cwt", "k1usn_sst"}:
+            require(isinstance(settings["SentExchange"], str)
+                    and settings["SentExchange"] == settings["SentExchange"].strip()
+                    and 0 < len(settings["SentExchange"]) <= 64,
+                    "Sent exchange must be non-empty text without surrounding whitespace")
         settings.setdefault("ModeCategory", "CW")
         require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
         return {"sessionID": session_id, "workspaceGeneration": workspace,
@@ -810,6 +818,9 @@ class Host:
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
                         "WPX sent and received serials must be positive SQLite integers")
+        elif desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
+            require(all(value and value == value.strip() for value in (fields["other_1"], fields["other_2"])),
+                    "Received name and exchange must be non-empty without surrounding whitespace")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -880,7 +891,10 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
-            after["SentNr"] = int(updated["other_1"])
+            if desk.state["pluginID"] not in {"cwt", "k1usn_sst"}:
+                # The first four supported plugins expose an operator-correctable
+                # numeric sent exchange in other_1; name/SPC plugins do not.
+                after["SentNr"] = int(updated["other_1"])
             try:
                 desk.database.change_contact(after)
             except sqlite3.IntegrityError as error:
