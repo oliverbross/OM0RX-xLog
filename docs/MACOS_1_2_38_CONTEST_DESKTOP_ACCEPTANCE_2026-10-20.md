@@ -3,7 +3,8 @@
 ## Installed build
 
 - Branch: `codex/not1mm-contesting`
-- Exact source and pushed branch head: `f086fbb11256e61e53ae42f14056ebec0bcdc9bf`
+- Exact packaged source commit, pushed before packaging: `f086fbb11256e61e53ae42f14056ebec0bcdc9bf`
+- This acceptance record follows the packaged source commit on the same pushed branch; it does not alter the installed bundle.
 - Runtime provenance: the installed `Not1MM/python-runtime.json` records that source commit with `sourceChanges: []` and `hashPhase: final-component-signatures-before-outer-app-signature`.
 - Installed bundle: `/Applications/OM0RX-xLog.app`
 - Version and build: `1.2.38`
