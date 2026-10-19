@@ -88,15 +88,15 @@ pub const CONTEST_WINDOWS: [WindowSpec; 13] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 620.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 900.0, height: 720.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 920.0, height: 760.0 },
-    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check", width: 700.0, height: 620.0 },
-    WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rate", width: 780.0, height: 600.0 },
-    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Statistics", width: 800.0, height: 480.0 },
+    WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 700.0, height: 620.0 },
+    WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 780.0, height: 600.0 },
+    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 800.0, height: 480.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Group Chat", width: 780.0, height: 600.0 },
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 1280.0, height: 800.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 1180.0, height: 800.0 },
     WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 700.0, height: 600.0 },
-    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — VFO", width: 900.0, height: 700.0 },
-    WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log", width: 1280.0, height: 800.0 },
+    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 900.0, height: 700.0 },
+    WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log Display", width: 1280.0, height: 800.0 },
     WindowSpec { id: "dx-cluster", title: "OM0RX-xLog Contest — Cluster", width: 1180.0, height: 800.0 },
 ];
 pub fn supports_panel(scope: WorkspaceWindowScope, panel_id: &str) -> bool {
@@ -345,8 +345,17 @@ mod tests {
 
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
-        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "callsign-intelligence",
+        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "callsign-intelligence",
             "chaser-dx", "dx-cluster", "logbook", "monitor", "propagation", "rotor", "station-control"]));
+        let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
+        for (panel, title) in [
+            ("callsign-intelligence", "OM0RX-xLog Contest — Check Partial"),
+            ("propagation", "OM0RX-xLog Contest — Stats"),
+            ("logbook", "OM0RX-xLog Contest — Log Display"),
+            ("monitor", "OM0RX-xLog Contest — Rates"),
+            ("station-control", "OM0RX-xLog Contest — Remote VFO"),
+            ("alerts", "OM0RX-xLog Contest — Group Chat"),
+        ] { assert_eq!(titles.get(panel), Some(&title)); }
     }
     #[test]
     fn band_instances_are_exactly_validated_and_keep_only_map_capabilities() {

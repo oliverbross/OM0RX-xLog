@@ -124,6 +124,15 @@ mod tests {
             state.acknowledge("contest-setup", pending.revision).unwrap();
         }
         assert_eq!(windows, ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
+            ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"),
+            ("contest-window-active-qso", "Main Logging"), ("contest-window-propagation", "Stats"),
+            ("contest-window-logbook", "Logbook"), ("contest-window-band-maps", "Band Map"),
+            ("contest-window-dx-cluster", "Cluster"), ("contest-window-callsign-intelligence", "Check Partial"),
+            ("contest-window-monitor", "Rates"),
+            ("contest-window-awards", "DXCC"), ("contest-window-chaser-dx", "Zone"),
+            ("contest-window-rotor", "Rotator"), ("contest-window-station-control", "Remote VFO"),
+        ]));
         for invalid in ["contest-window-settings", "contest-window-cw", "contest-window-alerts", "contest-window-", "contest_setup", "workspace_window_logbook"] {
             assert!(contest_menu_route(invalid).is_none());
             assert!(contest_route(invalid).is_none());
