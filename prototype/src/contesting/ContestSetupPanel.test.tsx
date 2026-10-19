@@ -129,7 +129,7 @@ it("routes every shared service and reports native opening errors without saving
   await waitFor(() => expect(p.onOpenSettings).toHaveBeenCalledWith("Station"));
   await waitFor(() => expect(screen.getByLabelText("City").closest("fieldset")?.disabled).toBe(false));
   open("Cancel"); open("Configuration Settings");
-  for (const [tab, service] of [["Lookup", "QRZ"], ["Sound", "Integrations"], ["CAT", "Radio"], ["CW", "CW"], ["Cluster", "Cluster"], ["Rotator", "Rotator"]]) {
+  for (const [tab, service] of [["Lookup", "QRZ"], ["CAT", "Radio"], ["CW", "CW"], ["Cluster", "Cluster"], ["Rotator", "Rotator"]]) {
     fireEvent.click(screen.getByRole("tab", { name: tab })); open(`Open xLog ${service} settings`);
     await waitFor(() => expect(p.onOpenSettings).toHaveBeenCalledWith(service));
     await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false));
@@ -138,4 +138,45 @@ it("routes every shared service and reports native opening errors without saving
   open("Open xLog Rotator settings");
   await screen.findByText("Rotor window is unavailable");
   expect(p.onSave).not.toHaveBeenCalled();
+});
+
+it("hands shared services to xLog without duplicate editable settings and keeps Sound visible", () => {
+  const p = props(); render(<ContestSetupPanel {...p} initialTab="Lookup"/>);
+  for (const [tab, service] of [["Lookup", "QRZ"], ["CAT", "Radio"], ["CW", "CW"], ["Rotator", "Rotator"], ["Cluster", "Cluster"]]) {
+    fireEvent.click(screen.getByRole("tab", { name: tab }));
+    expect(screen.getByRole("status").textContent).toContain(`Managed by xLog ${service} settings`);
+    expect(screen.getByRole("button", { name: `Open xLog ${service} settings` })).toBeTruthy();
+    expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
+  }
+  fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
+  expect(screen.getByRole("status").textContent).toContain("No xLog contest audio-output owner is available");
+  expect(screen.queryByRole("button", { name: /Open xLog/ })).toBeNull();
+  expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
+  expect(p.onOpenSettings).not.toHaveBeenCalled();
+  expect(p.onSave).not.toHaveBeenCalled();
+});
+
+it("omits inert service defaults from new documents and preserves saved fields without applying them", async () => {
+  const p = props();
+  const legacy = { lookup: "HamQTH.com", lookupUsername: "old-user", lookupPassword: "test-only-secret", soundDevice: "old-device", phonetic: "NATO",
+    catProvider: "flrig", rigControlHost: "192.0.2.1", rigControlPort: 1234, cwProvider: "cwdaemon", cwHost: "192.0.2.2", cwPort: 6789,
+    cwWeight: 50, cwLeadMs: 0, cwTailMs: 0, cwSpeedIncrement: "1", cwSendRST: "5NN", cwPaddingCharacter: "0", cwPaddingLength: 1, cwCut1: "1", cwCut9: "9", cwCut0: "0",
+    clusterServer: "192.0.2.3", clusterPort: 7373, clusterPassword: "test-only-cluster-secret", clusterFilter: "legacy filter", clusterMode: "FILTER", futureServiceField: "keep" };
+  const defaults = newContestSetup().preferences;
+  for (const key of Object.keys(legacy)) expect(defaults).not.toHaveProperty(key);
+  expect(defaults.cwSpeed).toBe(25);
+  Object.assign(p.value.preferences, legacy);
+  render(<ContestSetupPanel {...p} initialTab="Lookup"/>);
+  expect(document.querySelector('input[type="password"]')).toBeNull();
+  open("Save");
+  await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(p.onSave.mock.calls[0][0].preferences).toMatchObject(legacy);
+  expect(p.onOpenSettings).not.toHaveBeenCalled();
+  expect(p.value.preferences).toMatchObject(legacy);
+});
+
+it("identifies the shared owner even when native service navigation is unavailable", () => {
+  render(<ContestSetupPanel {...props()} onOpenSettings={undefined} initialTab="Cluster"/>);
+  expect(screen.getByRole("status").textContent).toContain("Managed by xLog Cluster settings");
+  expect(screen.getByText("Open these settings in the main xLog application.")).toBeTruthy();
 });

@@ -43,10 +43,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
   return { name: "CQ WW CW", operator: stationCall, pluginID: "cq_ww_cw",
     station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "", LicenseClass: "", Latitude: "", Longitude: "", STXeq: "", SPowe: "", SAnte: "", SAntH1: "", SAntH2: "", ARRLSection: "", RoverQTH: "", Club: "" },
     settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "15", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "", Soapbox: "" },
-    preferences: { lookup: "QRZ.com", lookupUsername: "", lookupPassword: "", soundDevice: "default", phonetic: "NATO", cwSpeed: 25, cwWeight: 50, cwLeadMs: 0, cwTailMs: 0,
-      catProvider: "rigctld", rigControlHost: "127.0.0.1", rigControlPort: 4532, cwProvider: "cwdaemon", cwHost: "127.0.0.1", cwPort: 6789,
-      cwSpeedIncrement: "1", cwSendRST: "5NN", cwPaddingCharacter: "0", cwPaddingLength: 1, cwCut1: "1", cwCut9: "9", cwCut0: "0",
-      clusterServer: "", clusterPort: 7373, clusterPassword: "", clusterFilter: "", clusterMode: "OPEN", rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
+    preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
       spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, darkMode: true,
@@ -96,6 +93,11 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   };
   const check = (section: "preferences" | "network", key: string, label: string) => <label key={key} className="contest-setup-check"><input type="checkbox" checked={draft[section][key] === true} onChange={event => update(section, key, event.target.checked)}/><span>{label}</span></label>;
   const shared = (service: ContestSetupServiceTab) => servicePanels?.[service] ?? (onOpenSettings ? <button type="button" onClick={() => void run(async () => { await onOpenSettings(service); }, "")}>Open xLog {service} settings</button> : null);
+  const managed = (service: ContestSetupServiceTab, description: string) => <div className="contest-manual-stack">
+    <p role="status">Managed by xLog {service} settings. {description}</p>
+    {shared(service) ?? <p>Open these settings in the main xLog application.</p>}
+    <p>Save here applies contest preferences only. Existing contest service fields are retained without applying them.</p>
+  </div>;
   async function run(operation: () => Promise<void>, success: string) {
     if (disabled || pendingRef.current) return;
     pendingRef.current = true; setPending(true); setMessage("");
@@ -164,12 +166,12 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "Choose a Contest") content = <table className="contest-choose-table"><thead><tr><th>Contest Name</th><th>Contest Start</th></tr></thead><tbody>{sessions.map(session => <tr key={session.sessionID} aria-selected={selectedSession === session.sessionID} onClick={() => setSelectedSession(session.sessionID)}><td><label><input type="radio" name="contest-session" checked={selectedSession === session.sessionID} onChange={() => setSelectedSession(session.sessionID)}/>{session.name}</label></td><td>{session.startUTC ?? "—"}</td></tr>)}</tbody></table>;
   else if (view === "Configuration Settings") {
     switch (tab) {
-      case "Lookup": content = <div className="contest-manual-stack">{choice("preferences", "lookup", "Lookup service", ["QRZ.com", "HamQTH.com"])}{field("preferences", "lookupUsername", "Username")}{field("preferences", "lookupPassword", "Password", "password")}{shared("QRZ")}</div>; break;
-      case "Sound": content = <div className="contest-manual-stack">{choice("preferences", "soundDevice", "Sound output device", ["default"])}{shared("Integrations")}</div>; break;
-      case "CAT": content = <><div className="contest-manual-stack">{row(field("preferences", "rigControlHost", "Rig Control IP"), field("preferences", "rigControlPort", "Port", "number"))}<div className="contest-radio-options">{["rigctld", "flrig", "None"].map(provider => <label key={provider}><input type="radio" name="cat-provider" checked={draft.preferences.catProvider === provider} onChange={() => update("preferences", "catProvider", provider)}/>{provider}</label>)}</div></div>{shared("Radio")}</>; break;
-      case "CW": content = <div className="contest-manual-stack">{choice("preferences", "cwProvider", "CW interface", ["cwdaemon", "pywinkeyer", "CAT"])}{row(field("preferences", "cwHost", "IP"), field("preferences", "cwPort", "Port", "number"))}{choice("preferences", "cwSpeedIncrement", "Speed Increment for PgUp/PgDown", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])}{choice("preferences", "cwSendRST", "Send 599 RST as", ["5NN", "599", "ENN"])}{choice("preferences", "cwPaddingCharacter", "Serial Number Padding Character", ["0", "O", "T"])}{field("preferences", "cwPaddingLength", "Padding Length", "number")}{row(choice("preferences", "cwCut1", "Send 1 as", ["1", "A"]), choice("preferences", "cwCut9", "Send 9 as", ["9", "N"]), choice("preferences", "cwCut0", "Send 0 as", ["0", "T"]))}{shared("CW")}</div>; break;
-      case "Rotator": content = shared("Rotator"); break;
-      case "Cluster": content = <div className="contest-manual-stack">{field("preferences", "clusterServer", "Server")}{field("preferences", "clusterPort", "Port", "number")}{field("preferences", "clusterPassword", "Password", "password")}{field("preferences", "clusterFilter", "Filter")}{choice("preferences", "clusterMode", "Mode", ["OPEN", "FILTER"])}{shared("Cluster")}</div>; break;
+      case "Lookup": content = managed("QRZ", "Configure QRZ XML lookup and save its credentials securely there."); break;
+      case "Sound": content = <p role="status">No xLog contest audio-output owner is available. Sound device selection is unavailable in Contest Setup.</p>; break;
+      case "CAT": content = managed("Radio", "Use the shared radio selection, saved connection and observed status."); break;
+      case "CW": content = managed("CW", "Choose the shared radio or WinKeyer output there. Contest messages remain in Edit Macros; sending requires the existing output controls."); break;
+      case "Rotator": content = managed("Rotator", "Use the shared rotor configuration and observed status."); break;
+      case "Cluster": content = managed("Cluster", "Manage servers, secure passwords, filters and connections there."); break;
       case "Group": content = <div className="contest-manual-stack">{check("network", "multiEnabled", "Connect to server")}{check("network", "multiMaster", "Be the master")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}</div>; break;
       case "N1MM": content = <div className="contest-manual-stack">{check("network", "n1mmEnabled", "Send N1MM packets")}{row(field("network", "stationName", "Station Name"), field("network", "n1mmOperatorName", "Operator Name"))}{(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}</div>; break;
       case "Bands": content = <div className="contest-manual-bands">{[["160m", "80m", "40m", "20m", "15m", "10m"], ["6m", "2m", "1.25m", "70cm", "33cm", "23cm"]].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
