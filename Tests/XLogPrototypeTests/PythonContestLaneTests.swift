@@ -36,9 +36,10 @@ final class PythonContestLaneTests: XCTestCase {
 
         let catalog = try await lane.handle(method: "contest_catalog", params: [:])
         let plugins = try XCTUnwrap(catalog["plugins"] as? [[String: Any]])
-        XCTAssertEqual(plugins.count, 1)
-        XCTAssertEqual(plugins[0]["id"] as? String, "cq_ww_cw")
-        XCTAssertEqual(plugins[0]["engine"] as? String, "not1mm-python")
+        XCTAssertEqual(Set(plugins.compactMap { $0["id"] as? String }),
+                       Set(["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw"]))
+        let cqww = try XCTUnwrap(plugins.first { $0["id"] as? String == "cq_ww_cw" })
+        XCTAssertEqual(cqww["engine"] as? String, "not1mm-python")
 
         let sessionID = UUID().uuidString.lowercased()
         let workspaceGeneration = UUID().uuidString.lowercased()
