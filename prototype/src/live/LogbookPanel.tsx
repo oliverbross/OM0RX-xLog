@@ -141,6 +141,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   const busy = disabled || working || mutation.busy || !!mutation.pending || mutation.conflict || mutation.workspaceChanged;
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
+  const [readRetry, setReadRetry] = useState(0);
   const [notice, setNotice] = useState("");
   const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; fieldMetadata: (ADIFFieldMetadata | null)[][]; records: number; duplicates: number; generation: string; token: string } | null>(null);
   const [importEncoding, setImportEncoding] = useState<ADIFImportEncoding>("utf-8");
@@ -197,10 +198,11 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     setExportSelection([]);
     setLoading(true);
     setError("");
-    readPage(offset, search)
+    const load = (retry = false) => readPage(offset, search)
       .then((response) => {
         if (!cancelled) {
           if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));
@@ -211,11 +213,16 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         }
       })
       .catch((cause) => {
-        if (!cancelled) { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
+        if (cancelled) return;
+        // Read-only startup contention may settle after the first request.
+        // Retry once, and retire the timer with this exact page/query effect.
+        if (!retry) retryTimer = setTimeout(() => { retryTimer = undefined; void load(true); }, 500);
+        else { setPage(null); setError(cause instanceof Error ? cause.message : String(cause)); }
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [onRequest, search, offset, refreshKey, pageSize]);
+      .finally(() => { if (!cancelled && retryTimer === undefined) setLoading(false); });
+    void load();
+    return () => { cancelled = true; clearTimeout(retryTimer); };
+  }, [onRequest, search, offset, refreshKey, pageSize, readRetry]);
 
   async function reload(pageOffset = offset) {
     setExportSelection([]);
@@ -434,7 +441,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
       {followUpOpen && selected && <OnlineLogFollowUpPanel key={selected.id} contactID={selected.id} call={selected.call} onRequest={onRequest} refreshKey={refreshKey} onClose={() => setFollowUpOpen(false)} />}
       {filtersOpen && <LogbookSavedFilters onRequest={onRequest} currentQuery={query} disabled={busy}
         onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
-      {error && <p className="live-logbook-feedback error" role="alert">{error}</p>}
+      {error && <p className="live-logbook-feedback error" role="alert">{error} <button type="button" disabled={loading} onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
         <p>Source encoding: {importReview.encoding === "utf-8" ? "UTF-8" : importReview.encoding === "windows-1252" ? "Windows-1252" : "ISO-8859-1"}. Review uses normalized UTF-8 ADI.</p>
@@ -526,7 +533,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         {loading && <div className="live-logbook-empty" role="status">Loading logbook…</div>}
       </div>
       <footer className="live-logbook-footer">
-        <span>{total ? `${offset + 1}–${Math.min(offset + rows.length, total)} of ${total.toLocaleString()}` : "0 contacts"}</span>
+        <span>{!page && loading ? "Loading logbook…" : !page && error ? "Logbook unavailable" : total ? `${offset + 1}–${Math.min(offset + rows.length, total)} of ${total.toLocaleString()}` : "0 contacts"}</span>
         <div>
           <button type="button" onClick={() => { cancelDelete(); setOffset(Math.max(0, offset - pageSize)); }} disabled={loading || offset === 0}>Previous</button>
           <button type="button" onClick={() => { cancelDelete(); setOffset(offset + pageSize); }} disabled={loading || offset + pageSize >= total}>Next</button>

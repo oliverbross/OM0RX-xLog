@@ -18,7 +18,90 @@ const second = {
   extraFields: {}, comment: "", isDirty: false,
 };
 const page = (qsos: object[] = [first, second]) => ({ qsos, total: qsos.length, offset: 0, limit: 20 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+describe("logbook read recovery", () => {
+  it("automatically recovers a compact startup read without showing an empty logbook", async () => {
+    vi.useFakeTimers();
+    let initial = true;
+    const request = vi.fn(async () => {
+      if (initial) { initial = false; throw new Error("Operation failed"); }
+      return { ...page(), total: 68_316 };
+    });
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await act(async () => {});
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("0 contacts")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(screen.getByText("OM0RX")).toBeTruthy();
+    expect(screen.getByText(/of 68,316/)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("bounds automatic retries and lets the compact panel retry a persistent failure", async () => {
+    vi.useFakeTimers();
+    let failing = true;
+    const request = vi.fn(async () => {
+      if (failing) throw new Error("Operation failed");
+      return page();
+    });
+    render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("alert").textContent).toContain("Operation failed");
+    expect(screen.getByText("Logbook unavailable")).toBeTruthy();
+    expect(screen.queryByText("0 contacts")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(request).toHaveBeenCalledTimes(2);
+    failing = false;
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry logbook" })); });
+    expect(screen.getByText("OM0RX")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("cancels a scheduled retry on unmount", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => { throw new Error("Operation failed"); });
+    const view = render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await act(async () => {});
+    view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("retires the previous retry when a refreshed read succeeds", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => page());
+    request.mockRejectedValueOnce(new Error("Operation failed"));
+    const mutations = new LogbookMutationSession(request, () => {});
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await act(async () => {});
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={1} columnContext="desk" />);
+    await act(async () => {});
+    expect(screen.getByText("OM0RX")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores an in-flight retry response after a refreshed read succeeds", async () => {
+    vi.useFakeTimers();
+    let finish!: (value: ReturnType<typeof page>) => void;
+    const request = vi.fn(async () => {
+      if (!finish) return new Promise<ReturnType<typeof page>>(resolve => { finish = resolve; });
+      return page([second]);
+    });
+    request.mockRejectedValueOnce(new Error("Operation failed"));
+    const mutations = new LogbookMutationSession(request, () => {});
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={vi.fn()} refreshKey={1} />);
+    await act(async () => {});
+    await act(async () => { finish(page([first])); });
+    expect(screen.getByText("VK8AA")).toBeTruthy();
+    expect(screen.queryByText("OM0RX")).toBeNull();
+  });
+});
 
 describe("retained upload follow-up entry", () => {
   it("opens from the row without editing or adding a toolbar action, and closing retires a pending read", async () => {
