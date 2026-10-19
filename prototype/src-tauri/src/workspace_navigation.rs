@@ -53,6 +53,18 @@ pub fn contest_window_panel(panel_id: &str) -> Option<&'static str> {
         .find(|panel| *panel == panel_id)
 }
 
+/// These tools already have singleton xLog service windows. Opening them from
+/// Contest changes presentation only; their existing native owners keep control.
+pub fn contest_shared_window(panel_id: &str) -> Option<&'static str> {
+    match panel_id {
+        "band-maps" => Some("band-maps"),
+        "dx-cluster" => Some("dx-cluster"),
+        "rotor" => Some("rotor"),
+        "station-control" => Some("station-control"),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Navigation { pub revision: u64, pub screen: String }
 #[derive(Default)]

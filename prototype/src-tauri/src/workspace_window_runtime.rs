@@ -239,6 +239,16 @@ impl Owner {
                         let _ = open.reply.send(Err("That native window request belongs to an expired contest context.".into()));
                         continue;
                     };
+                    // Retain contest admission through the serialized queue,
+                    // then present the existing shared service lifetime.
+                    if open.scope == WorkspaceWindowScope::Contesting
+                        && crate::workspace_navigation::contest_shared_window(&open.label).is_some() {
+                        let engine = engines.get_mut(&WorkspaceWindowScope::NormalLogging).expect("normal engine");
+                        let mut host = SharedContestHost { app: self.app.clone(), context: open.contest_context.expect("admitted contest context") };
+                        let result = engine.open(&mut host, &open.label);
+                        let _ = open.reply.send(result);
+                        continue;
+                    }
                     let mut host = NativeHost { app: self.app.clone(), scope: open.scope, contest_context: open.contest_context };
                     let result = engine.open(&mut host, &open.label);
                     let _ = open.reply.send(result);
@@ -344,8 +354,13 @@ pub fn contest_open(app: &AppHandle, context: crate::contest_window_context::Con
     let panel = crate::workspace_navigation::contest_window_panel(panel_id)
         .ok_or("That contest window is not available.")?;
     crate::contest_window_context::admit(&context)?;
-    let identity = crate::workspace_windows::WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, panel)?;
-    scoped_open(app, WorkspaceWindowScope::Contesting, Some(context), identity.native_label())
+    let label = contest_open_label(panel)?;
+    scoped_open(app, WorkspaceWindowScope::Contesting, Some(context), label)
+}
+fn contest_open_label(panel: &str) -> Result<String, String> {
+    let panel = crate::workspace_navigation::contest_window_panel(panel).ok_or("That contest window is not available.")?;
+    if let Some(label) = crate::workspace_navigation::contest_shared_window(panel) { return Ok(label.into()); }
+    Ok(crate::workspace_windows::WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, panel)?.native_label())
 }
 fn scoped_open(app: &AppHandle, scope: WorkspaceWindowScope,
     contest_context: Option<crate::contest_window_context::ContestWindowContext>, label: String) -> Result<(), String> {
@@ -554,6 +569,23 @@ struct NativeHost {
     app: AppHandle,
     scope: WorkspaceWindowScope,
     contest_context: Option<crate::contest_window_context::ContestWindowContext>,
+}
+struct SharedContestHost {
+    app: AppHandle,
+    context: crate::contest_window_context::ContestWindowContext,
+}
+impl Host for SharedContestHost {
+    fn load(&mut self) -> Result<Value, String> { Err("Shared contest tools do not reconcile layouts.".into()) }
+    fn show(&mut self, label: &str, focus: bool) -> Result<bool, String> {
+        self.active()?;
+        if crate::workspace_navigation::contest_shared_window(label).is_none() { return Err("That tool is not a shared contest window.".into()); }
+        crate::ensure_workspace_window(&self.app, label, focus, None)
+    }
+    fn hide(&mut self, _label: &str) -> Result<(), String> { Err("Contest does not own shared service window retirement.".into()) }
+    fn active(&self) -> Result<(), String> {
+        active()?;
+        crate::contest_window_context::admit(&self.context)
+    }
 }
 impl Host for NativeHost {
     fn load(&mut self) -> Result<Value, String> {
@@ -1297,6 +1329,29 @@ mod tests {
         assert!(checked_response(untagged, "load", WorkspaceWindowScope::Contesting,
             Some("12345678-1234-1234-1234-123456789abc")).is_err());
     }
+    #[test]
+    fn contest_menu_reuses_service_singletons_and_keeps_session_tools_scoped() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &[])]);
+        for panel in ["band-maps", "dx-cluster", "rotor", "station-control"] {
+            let label = contest_open_label(panel).unwrap();
+            assert_eq!(label, panel);
+            assert!(supports(&label));
+            engine.open(&mut host, &label).unwrap();
+            engine.open(&mut host, &label).unwrap();
+            assert_eq!(&host.operations[host.operations.len() - 2..],
+                [format!("show:{panel}:true"), format!("show:{panel}:true")]);
+        }
+        assert_eq!(host.layouts.len(), 1);
+        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook"] {
+            assert_eq!(contest_open_label(panel).unwrap(), format!("contest--{panel}"));
+            assert!(crate::workspace_navigation::contest_shared_window(panel).is_none());
+        }
+        for panel in ["cw", "log-qso", "settings", "alerts", "contest--rotor", "band-maps-20m", ""] {
+            assert!(contest_open_label(panel).is_err());
+        }
+    }
+
     #[test]
     fn explicit_contest_open_shows_only_requested_tool_without_loading_layout() {
         let mut engine = Engine::for_scope(WorkspaceWindowScope::Contesting);
