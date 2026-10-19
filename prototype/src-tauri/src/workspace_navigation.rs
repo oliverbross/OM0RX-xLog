@@ -54,12 +54,10 @@ pub fn contest_window_panel(panel_id: &str) -> Option<&'static str> {
         .find(|panel| *panel == panel_id)
 }
 
-/// These tools already have singleton xLog service windows. Opening them from
-/// Contest changes presentation only; their existing native owners keep control.
+/// These station-control tools remain shared service owners in Contest. Spot
+/// presentation is contest scoped so it cannot target the normal logging draft.
 pub fn contest_shared_window(panel_id: &str) -> Option<&'static str> {
     match panel_id {
-        "band-maps" => Some("band-maps"),
-        "dx-cluster" => Some("dx-cluster"),
         "rotor" => Some("rotor"),
         "station-control" => Some("station-control"),
         _ => None,
@@ -150,6 +148,8 @@ mod tests {
             "contest--monitor",
             "contest--awards",
             "contest--chaser-dx",
+            "contest--band-maps",
+            "contest--dx-cluster",
         ] {
             assert!(
                 windows.iter().any(|candidate| candidate == label),

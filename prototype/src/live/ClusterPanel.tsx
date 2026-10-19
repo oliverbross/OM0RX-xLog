@@ -48,8 +48,8 @@ type History = { call: string; previous_count: number; previous: HistoryRow[]; a
   country: string; cq_zone?: number | null; grid: string; dxcc_contact_count: number;
   matrix: { band: string; mode: string; worked: boolean; confirmed: boolean }[] };
 type Props = { snapshot: unknown; onRequest: Request; onSelect: (spot: LiveClusterSpot) => void;
-  passive?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
-  settingsOnly?: boolean };
+  passive?: boolean; presentationOnly?: boolean; onUndock?: () => void; onDock?: () => void; passwordControlsEnabled?: boolean; selectedSpotId?: string | null; taskOnly?: boolean;
+  settingsOnly?: boolean; preferenceStorageKey?: string };
 
 const { bands, modes, callStatuses, dxccStatuses } = clusterFilterChoices;
 const formatDate = (value?: number | null) => value == null ? "—" : new Date((value + 978_307_200) * 1000).toLocaleString();
@@ -73,13 +73,14 @@ function ColumnWidthInput({ label, width, disabled, onCommit }: { label: string;
     value={draft} onChange={event => setDraft(event.currentTarget.value)} onBlur={commit}
     onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
-export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false }: Props) {
+export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, presentationOnly = false, onUndock, onDock, passwordControlsEnabled = true, selectedSpotId, taskOnly = false, settingsOnly = false,
+  preferenceStorageKey = fullClusterColumnsKey }: Props) {
   const saveToast = useSettingsSaveToast();
   const ageClock = useSpotAgeClock();
   const panelId = useId();
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [columnPreferences, setColumnPreferences] = useState(() => {
-    try { const raw = localStorage.getItem(fullClusterColumnsKey); return raw ? readWorkspacePreferences(raw) : defaultColumns(); }
+    try { const raw = localStorage.getItem(preferenceStorageKey); return raw ? readWorkspacePreferences(raw) : defaultColumns(); }
     catch { return defaultColumns(); }
   });
   const columnDrag = useRef<{ id: CompactColumn; x: number; width: number; scale: number } | null>(null);
@@ -89,8 +90,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     if (Number.isFinite(width)) setColumnPreferences(current => ({ ...current, widths: { ...current.widths, [id]: boundColumnWidth(width) } }));
   };
   useEffect(() => {
-    try { localStorage.setItem(fullClusterColumnsKey, JSON.stringify(columnPreferences)); } catch { /* Keep usable in memory if storage is unavailable. */ }
-  }, [columnPreferences]);
+    try { localStorage.setItem(preferenceStorageKey, JSON.stringify(columnPreferences)); } catch { /* Keep usable in memory if storage is unavailable. */ }
+  }, [columnPreferences, preferenceStorageKey]);
   const [consoleOpen, setConsoleOpen] = useState(false), [settingsOpen, setSettingsOpen] = useState(settingsOnly);
   const requestRef = useRef(onRequest);
   const filterVersion = useRef(0);
@@ -261,8 +262,8 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
 
   return <section className="live-cluster" aria-label="Live DX Cluster">
     <header className="live-cluster-head">
-      <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{connected} live · {live?.spots.length ?? 0} shown / {live?.loadedSpots ?? 0} received · {live?.contactCount ?? 0} log contacts</p></div>
-      <div className="live-cluster-actions">
+      <div>{!taskOnly && <h2>DX Cluster</h2>}<p>{presentationOnly ? `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received` : `${connected} live · ${live?.spots.length ?? 0} shown / ${live?.loadedSpots ?? 0} received · ${live?.contactCount ?? 0} log contacts`}</p></div>
+      {!presentationOnly && <div className="live-cluster-actions">
         <div className="live-cluster-connection-summary" role="status" aria-label="Cluster connections">{allConnections.length ? allConnections.map(connection => {
           const phase = connection.phase.toLowerCase(), label = phase.charAt(0).toUpperCase() + phase.slice(1);
           return <span key={connection.serverID} className={phase === "connected" ? "live-cluster-connected" : "live-cluster-disconnected"}><i className={`phase-${phase}`} />{connection.serverName} · {label}{connection.error && <small className="live-cluster-connection-error"> · {connection.error}</small>}</span>;
@@ -274,16 +275,16 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
         <button type="button" aria-expanded={settingsOpen} aria-controls={`${panelId}-settings`} onClick={() => setSettingsOpen(value => !value)}>Settings</button>
         {onUndock && <button type="button" onClick={onUndock}>Undock</button>}
         {onDock && <button type="button" onClick={onDock}>Dock back</button>}
-      </div>
+      </div>}
     </header>
-    {!live?.logbookDataLoaded && <p className="live-cluster-note">No integrated logbook is open; worked and confirmed status remains Unknown.</p>}
-    {!live?.countryDataLoaded && <p className="live-cluster-note">Country reference data is unavailable; DXCC status stays Unknown.</p>}
-    {snapshotTruncated && <p className="live-cluster-note">The live snapshot exceeded the worker limit; older console lines or spots are hidden. Narrow filters to view more.</p>}
+    {!presentationOnly && !live?.logbookDataLoaded && <p className="live-cluster-note">No integrated logbook is open; worked and confirmed status remains Unknown.</p>}
+    {!presentationOnly && !live?.countryDataLoaded && <p className="live-cluster-note">Country reference data is unavailable; DXCC status stays Unknown.</p>}
+    {!presentationOnly && snapshotTruncated && <p className="live-cluster-note">The live snapshot exceeded the worker limit; older console lines or spots are hidden. Narrow filters to view more.</p>}
     {error && <p className="live-cluster-error" role="alert">{error}</p>}
     {message && <p className="live-cluster-message" role="status">{message}</p>}{saveToast.toast}
-    {renderToolbarPanels()}
+    {!presentationOnly && renderToolbarPanels()}
 
-    <div className="live-cluster-filter-container"><div className="live-cluster-filterrail" aria-label="Spot filters">
+    {!presentationOnly && <div className="live-cluster-filter-container"><div className="live-cluster-filterrail" aria-label="Spot filters">
       <input aria-label="Search spots" placeholder="Callsign, country or note" value={filter.query} maxLength={128}
         onChange={(event) => changeFilter({ ...filter, query: event.target.value })} />
       {(Object.keys(filterLabels) as (keyof Filter)[]).map((key) => {
@@ -317,9 +318,9 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <button type="button" onClick={() => changeFilter(activePicker === "specials"
         ? { ...filter, specials: [], excludedSpecials: [] }
         : { ...filter, [activePicker]: activePicker === "sources" ? ["cluster", "rbl"] : [] })}>All</button>
-    </div>}</div>
+    </div>}</div>}
 
-    {columnsOpen && <section id={`${panelId}-columns`} className="live-cluster-columns" aria-label="Full cluster columns">
+    {!presentationOnly && columnsOpen && <section id={`${panelId}-columns`} className="live-cluster-columns" aria-label="Full cluster columns">
       <div className="live-cluster-column-fields">{compactClusterColumns.map(([id, label]) => <div key={id}>
         <label><input type="checkbox" aria-label={`Show ${label} column`} checked={visibleColumns.has(id)} disabled={visibleColumns.size === 1 && visibleColumns.has(id)}
           onChange={event => { const checked = event.target.checked; setColumnPreferences(current => ({ ...current, columns: compactClusterColumns.map(([key]) => key).filter(key => key === id ? checked : current.columns.includes(key)) })); }} />{label}</label>
@@ -339,13 +340,14 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
     </tr></thead><tbody>{(live?.spots ?? []).map((spot, index) => <tr key={spot.id}
       className={`${(selectedSpotId ?? selectedSpot?.id) === spot.id ? "is-selected" : ""} ${index % 2 ? "is-odd" : "is-even"}`}
       style={{ backgroundColor: (selectedSpotId ?? selectedSpot?.id) === spot.id ? undefined : clusterRowTint(spot.dxccStatus, configuration?.palette.status) }}
-      onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title="Load this spot into the logger and tune through xCat">
+      onClick={() => { setSelectedSpot(spot); onSelect(spot); }} title={presentationOnly ? "Load this spot into the contest draft and tune the selected radio" : "Load this spot into the logger and tune through xCat"}>
       <td hidden={!visibleColumns.has("time")} className="mono live-cluster-age live-cluster-age-strip"
         style={{ backgroundColor: spotAgeColor(spot.receivedAt, ageClock) }} title={`Received ${formatDate(spot.receivedAt)}`}>{formatSpotAge(spot.receivedAt, ageClock)}</td>
       <td hidden={!visibleColumns.has("score")}><span className={`live-cluster-score ${spot.score >= 80 ? "priority" : spot.score >= 55 ? "high" : spot.score >= 30 ? "medium" : "low"}`}>{spot.score}</span></td>
       <td hidden={!visibleColumns.has("band")}><span className="live-cluster-category" style={{ color: paletteColor(spot.band, configuration?.palette.band, clusterBandColors) }}>{spot.band}</span></td>
       <td hidden={!visibleColumns.has("frequency")} className="cyan mono">{(spot.frequencyKHz / 1000).toFixed(6)}</td>
-      <td hidden={!visibleColumns.has("callsign")}><button type="button" className="call-button live-cluster-call" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button></td>
+      <td hidden={!visibleColumns.has("callsign")}>{presentationOnly ? <span className="live-cluster-call">{spot.callsign}</span>
+        : <button type="button" className="call-button live-cluster-call" onClick={(event) => { event.stopPropagation(); void openHistory(spot); }} title="Show previous QSOs">{spot.callsign}</button>}</td>
       <td hidden={!visibleColumns.has("mode")}><span className="live-cluster-category" style={{ color: paletteColor(spot.mode, configuration?.palette.mode, clusterModeColors) }}>{spot.mode}</span></td>
       <td hidden={!visibleColumns.has("country")} title={countryDisplay(spot.country)}>{countryDisplay(spot.country)}</td><td hidden={!visibleColumns.has("cq")}>{spot.cqZone ?? "—"}</td>
       <td hidden={!visibleColumns.has("spotter")} title={`${isRbnSource(spot.source) ? "RBN" : "DX Cluster"} · ${spot.clusterName}`}>{spot.aggregateCount > 1 ? `${spot.spotter} +${spot.aggregateCount - 1}` : spot.spotter}</td>
@@ -357,7 +359,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, o
       <td hidden={!visibleColumns.has("workedBefore")} title={formatDate(spot.workedBefore)} className="live-cluster-worked-before">{spot.workedBefore == null ? "—" : `✓ ${formatDate(spot.workedBefore)}`}</td>
       <td hidden={!visibleColumns.has("comment")} title={spot.comment}>{spot.comment || "—"}</td>
     </tr>)}</tbody></table>
-      {!live?.spots.length && <p className="empty">{connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
+      {!live?.spots.length && <p className="empty">{presentationOnly ? "No shared cluster spots are available." : connected ? "No live spots match the current filters." : configuration?.servers.some(server => server.enabled) ? "Your cluster is configured. Use Connect to resume live spots; the radio can remain offline." : "Configure a cluster, then connect to receive live spots."}</p>}
     </div>
     {selectedSpot && <div className="live-cluster-inspector" aria-label="Selected spot details">
       <div><strong>{selectedSpot.callsign}</strong><span>{countryDisplay(selectedSpot.country)}</span></div>

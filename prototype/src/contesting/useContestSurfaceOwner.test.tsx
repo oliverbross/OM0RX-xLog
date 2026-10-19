@@ -73,6 +73,29 @@ it.each(["log", "cluster"] as const)("rejects stale %s candidate projection revi
   expect(handle).not.toHaveBeenCalled();
 });
 
+it("rejects stale contest spot selection before the owner can tune or mutate",async()=>{
+  const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next")return null;
+    if(command==="contest_surface_action_next")return queue.shift()??null;
+    if(command==="contest_surface_action_complete"){completed.push(args);return;}
+    throw new Error(command);
+  });
+  const spotProjection={schemaVersion:1 as const,status:"ready" as const,draftID:"draft-1",draftRevision:5,
+    radioFrequencyHz:14_025_000,connectedClusters:1,loadedSpots:0,spots:[],busy:false};
+  const projections={...unavailable(),"band-maps":spotProjection},handle=vi.fn(async()=>{});
+  const view=render(<Harness projections={projections} handle={handle}/>);
+  await waitFor(()=>expect(native.wake).toBeTypeOf("function"));
+  view.rerender(<Harness projections={{...projections,"band-maps":{...spotProjection,busy:true}}} handle={handle}/>);
+  queue.push({...context,scope:"contesting",panelID:"band-maps",projectionRevision:1,requestID:crypto.randomUUID(),
+    action:"spot_select",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"spot-1"}});
+  await act(async()=>{native.wake!();});
+  await waitFor(()=>expect(completed).toHaveLength(1));
+  expect(completed[0]).toMatchObject({outcome:"rejected",message:"The contest panel changed before this action reached the owner."});
+  expect(handle).not.toHaveBeenCalled();
+});
+
 it("rebases safe presentation edits across a sibling projection update but rejects a stale commit",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[],completed:Record<string,unknown>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{

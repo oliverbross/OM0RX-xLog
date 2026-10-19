@@ -24,7 +24,7 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
   preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string;
-  focusedBand?: string; onFocusedBandChange?: (band: string) => void };
+  focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string };
 type Allocation = { name: "CW" | "Data" | "Phone"; low: number; high: number };
 type Range = { low: number; high: number; allocations: Allocation[] };
 type ViewRange = { low: number; high: number };
@@ -116,11 +116,12 @@ export function bandMapFrequencyTicks(view: ViewRange, chartHeight = 208, fontSc
   if (Math.abs(ticks[ticks.length - 1] - view.high) > 0.001) ticks.push(view.high);
   return ticks;
 }
-const storageKey = (compact: boolean, name: string) => `xlog.integration.bandMaps.${compact ? "desk" : "workspace"}.${name}`;
-const controlStorageKey = (compact: boolean, focused: boolean, name: string) => `xlog.integration.bandMaps.${focused ? "focused" : compact ? "desk" : "workspace"}.${name}`;
-function storedBands(compact: boolean): string[] {
+const storageKey = (compact: boolean, name: string, namespace?: string) => `xlog.integration.bandMaps.${namespace || (compact ? "desk" : "workspace")}.${name}`;
+const controlStorageKey = (compact: boolean, focused: boolean, name: string, namespace?: string) =>
+  `xlog.integration.bandMaps.${namespace || (focused ? "focused" : compact ? "desk" : "workspace")}.${name}`;
+function storedBands(compact: boolean, namespace?: string): string[] {
   try {
-    const value = JSON.parse(localStorage.getItem(storageKey(compact, "bands")) || "null");
+    const value = JSON.parse(localStorage.getItem(storageKey(compact, "bands", namespace)) || "null");
     if (Array.isArray(value)) {
       const bands = [...new Set(value.filter((band): band is string => typeof band === "string" && band in BAND_RANGES))];
       if (bands.length) return bands;
@@ -128,8 +129,8 @@ function storedBands(compact: boolean): string[] {
   } catch { /* Invalid or unavailable storage uses the native 20 m default. */ }
   return ["20m"];
 }
-function storedFlag(compact: boolean, name: string, fallback: boolean): boolean {
-  try { const value = localStorage.getItem(storageKey(compact, name)); return value === null ? fallback : value === "true"; }
+function storedFlag(compact: boolean, name: string, fallback: boolean, namespace?: string): boolean {
+  try { const value = localStorage.getItem(storageKey(compact, name, namespace)); return value === null ? fallback : value === "true"; }
   catch { return fallback; }
 }
 function storedNumber<T extends number>(key: string, choices: readonly T[], fallback: T): T {
@@ -140,8 +141,8 @@ function storeAt(key: string, value: unknown): void {
   try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); }
   catch { /* Storage failure must not interrupt a live operating view. */ }
 }
-function store(compact: boolean, name: string, value: unknown): void {
-  try { localStorage.setItem(storageKey(compact, name), typeof value === "string" ? value : JSON.stringify(value)); }
+function store(compact: boolean, name: string, value: unknown, namespace?: string): void {
+  try { localStorage.setItem(storageKey(compact, name, namespace), typeof value === "string" ? value : JSON.stringify(value)); }
   catch { /* Storage failure must not interrupt a live operating view. */ }
 }
 export function bandForRadio(frequencyHz?: number): string | null {
@@ -383,17 +384,17 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange, selectionHint = "Select a marker to load it into the logger." }: Props) {
+export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange, storageNamespace, selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
-  const controlKey = (name: string) => controlStorageKey(compact, Boolean(focusedBand), name);
-  const [localBands, setLocalBands] = useState(() => storedBands(compact));
-  const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false));
+  const controlKey = (name: string) => controlStorageKey(compact, Boolean(focusedBand), name, storageNamespace);
+  const [localBands, setLocalBands] = useState(() => storedBands(compact, storageNamespace));
+  const [localFollow, setLocalFollow] = useState(() => storedFlag(compact, "followRadio", false, storageNamespace));
   const [localLayout, setLocalLayout] = useState<"row" | "grid">(() => {
-    try { return localStorage.getItem(storageKey(compact, "layout")) === "row" ? "row" : "grid"; }
+    try { return localStorage.getItem(storageKey(compact, "layout", storageNamespace)) === "row" ? "row" : "grid"; }
     catch { return "grid"; }
   });
   const [localFontScale, setLocalFontScale] = useState(() => {
-    try { const value = Number(localStorage.getItem(storageKey(compact, "fontScale"))); return value >= 0.8 && value <= 2 ? value : 1; }
+    try { const value = Number(localStorage.getItem(storageKey(compact, "fontScale", storageNamespace))); return value >= 0.8 && value <= 2 ? value : 1; }
     catch { return 1; }
   });
   const [resolution, setResolution] = useState<BandMapResolution>(() => {
@@ -457,7 +458,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
   const [status, setStatus] = useState("all");
   const [localModes, setLocalModes] = useState<BandMapMode[]>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey(compact, "modes")) || "null");
+      const saved = JSON.parse(localStorage.getItem(storageKey(compact, "modes", storageNamespace)) || "null");
       if (Array.isArray(saved) && saved.every(mode => BAND_MAP_MODES.includes(mode))) return [...new Set(saved)] as BandMapMode[];
     } catch { /* Missing or invalid legacy preference means all modes. */ }
     return [...BAND_MAP_MODES];
@@ -470,11 +471,11 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
   const [selected, setSelected] = useState<BandMapSpot | null>(null);
   const radioBand = bandForRadio(radioFrequencyHz);
   useEffect(() => { if (follow && radioBand && (bands.length !== 1 || bands[0] !== radioBand)) setBands([radioBand]); }, [follow, radioBand, bands]);
-  useEffect(() => { if (!preferences) store(compact, "bands", bands); }, [bands, compact, preferences]);
-  useEffect(() => { if (!preferences) store(compact, "followRadio", follow); }, [follow, compact, preferences]);
-  useEffect(() => { if (!preferences) store(compact, "layout", layout); }, [layout, compact, preferences]);
-  useEffect(() => { if (!preferences) store(compact, "fontScale", String(fontScale)); }, [fontScale, compact, preferences]);
-  useEffect(() => { if (!preferences) store(compact, "modes", modes); }, [modes, compact, preferences]);
+  useEffect(() => { if (!preferences) store(compact, "bands", bands, storageNamespace); }, [bands, compact, preferences, storageNamespace]);
+  useEffect(() => { if (!preferences) store(compact, "followRadio", follow, storageNamespace); }, [follow, compact, preferences, storageNamespace]);
+  useEffect(() => { if (!preferences) store(compact, "layout", layout, storageNamespace); }, [layout, compact, preferences, storageNamespace]);
+  useEffect(() => { if (!preferences) store(compact, "fontScale", String(fontScale), storageNamespace); }, [fontScale, compact, preferences, storageNamespace]);
+  useEffect(() => { if (!preferences) store(compact, "modes", modes, storageNamespace); }, [modes, compact, preferences, storageNamespace]);
   useEffect(() => { if (resolution !== "custom") storeAt(controlKey("resolution"), String(resolution)); }, [resolution, compact, focusedBand]);
   useEffect(() => { storeAt(controlKey("ageMinutes"), String(spotAgeMinutes)); }, [spotAgeMinutes, compact, focusedBand]);
   useEffect(() => { const timer = window.setInterval(() => setAgeClock(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);

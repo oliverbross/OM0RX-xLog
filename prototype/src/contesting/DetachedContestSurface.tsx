@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
-  type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
+import BandMaps from "../live/BandMaps";
+import ClusterPanel from "../live/ClusterPanel";
 import "./DetachedContestSurface.css";
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
@@ -98,6 +100,8 @@ function Surface({ context }: { context: Context }) {
       : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
       : snapshot.panelID === "logbook" ? <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
+      : snapshot.panelID === "band-maps" || snapshot.panelID === "dx-cluster" ? <ContestSpots panelID={snapshot.panelID}
+          projection={projection as Extract<typeof projection, { spots: unknown }>} projectionRevision={snapshot.projectionRevision} send={send}/>
       : null}
   </main>;
 }
@@ -105,6 +109,19 @@ function Surface({ context }: { context: Context }) {
 type SendResult={applied:boolean;projectionRevision:number|null};
 type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
+function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
+    projectionRevision:number;send:Send}) {
+  const select=(spotID:string)=>void send({action:"spot_select",params:{draftID:projection.draftID,
+    expectedDraftRevision:projection.draftRevision,spotID}},projectionRevision);
+  if(panelID==="band-maps")return <BandMaps spots={projection.spots} radioFrequencyHz={projection.radioFrequencyHz??undefined}
+    storageNamespace="contest" onSelect={spot=>select(String(spot.id))}
+    selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
+  const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
+    logbookDataLoaded:false,countryDataLoaded:false,connections:[],spots:projection.spots,console:[]}};
+  return <ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
+    preferenceStorageKey="xlog.integration.contest.cluster-columns.v1" onRequest={async()=>null}
+    onSelect={spot=>select(spot.id)}/>;
+}
 type IntentInputProps = { label:string;value:string;identity:string;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];
   disabled:boolean;maximumUTF8Bytes:number;send:Send;action:(value:string)=>ContestSurfaceAction;operatorField?:ContestInputFieldID;inputRef?:Ref<HTMLInputElement> };
 function IntentInput({label,value:authoritative,identity,projectionRevision,receipts,disabled,maximumUTF8Bytes,send,action,operatorField,inputRef}:IntentInputProps){

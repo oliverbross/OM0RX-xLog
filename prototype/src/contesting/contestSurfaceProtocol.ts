@@ -7,6 +7,7 @@ export type ContestInputFieldID = typeof contestInputFieldIDs[number];
 type Revision = number;
 type DraftRevision = { draftID: string; expectedDraftRevision: Revision };
 export type ContestSurfaceAction =
+  | { action: "spot_select"; params: DraftRevision & { spotID: string } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string } }
@@ -87,6 +88,14 @@ export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
 export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
+export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: string; spotter: string;
+  spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
+  band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
+  ituZone: number | null; callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
+  score: number; scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
+  statusHex: string; bandHex: string; modeHex: string };
+export type ContestSpotSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
+  radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; spots: ContestSurfaceSpot[]; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
   canExportCabrillo: boolean;
   exchangeLayout?: "plugin";
@@ -98,7 +107,8 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
-  ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection | ContestLogSurfaceProjection;
+  ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection |
+  ContestLogSurfaceProjection | ContestSpotSurfaceProjection;
 
 export const validContestSurfaceUUID = (value: unknown): value is string => typeof value === "string" &&
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
@@ -288,6 +298,27 @@ function validMatrixProjection(value: Record<string, unknown>) {
     labels.add(item.label as string); return true;
   });
 }
+function validSpotProjection(value: Record<string, unknown>) {
+  if (!exact(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "spots", "busy"]) ||
+      !text(value.draftID, 160) || !uint(value.draftRevision) || !optionalFrequency(value.radioFrequencyHz) ||
+      !uint(value.connectedClusters) || !uint(value.loadedSpots) || !Array.isArray(value.spots) || value.spots.length > 2_000 ||
+      typeof value.busy !== "boolean") return false;
+  const ids = new Set<string>();
+  return value.spots.every(item => {
+    if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
+        "frequencyText", "callsign", "comment", "band", "mode", "country", "adif", "continent", "cqZone", "ituZone",
+        "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "scoreReasons", "aggregateCount",
+        "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex"]) || !text(item.id, 128) || ids.has(item.id as string) ||
+        !["receivedAt", "frequencyKHz", "score"].every(key => typeof item[key] === "number" && Number.isFinite(item[key]) && (item[key] as number) >= 0) ||
+        !uint(item.aggregateCount) || !["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus",
+          "dxccStatus", "source", "statusHex", "bandHex", "modeHex"].every(key => text(item[key], 512, true)) ||
+        !text(item.callsign, 32) || !text(item.band, 16) || !text(item.mode, 16) ||
+        !["spotterContinent", "adif", "cqZone", "ituZone", "workedBefore"].every(key => item[key] === null ||
+          (key === "spotterContinent" ? text(item[key], 32, true) : uint(item[key]))) ||
+        !texts(item.specialTags, 32, 64) || !texts(item.scoreReasons, 64, 160) || !texts(item.aggregateSpotters, 64, 64)) return false;
+    ids.add(item.id as string); return true;
+  });
+}
 
 export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, value: unknown): value is ContestSurfaceProjection {
   const projection = record(value) ? value : undefined;
@@ -302,10 +333,12 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (panelID === "monitor") return validRatesProjection(projection);
   if (panelID === "awards" || panelID === "chaser-dx") return validMatrixProjection(projection);
   if (panelID === "logbook") return validLogProjection(projection);
+  if (panelID === "band-maps" || panelID === "dx-cluster") return validSpotProjection(projection);
   return false;
 }
 
 function validParams(action: string, params: Record<string, unknown>) {
+  if (action === "spot_select") return draft(params, ["spotID"]) && text(params.spotID, 128);
   if (action === "entry_set_text") return draft(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport"]) && text(params.value, 160, true);
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
@@ -341,7 +374,7 @@ export function validContestSurfaceActionEnvelope(value: unknown): value is Cont
   const action = typeof envelope?.action === "string" ? envelope.action : "";
   const panel = typeof envelope?.panelID === "string" ? envelope.panelID : "";
   const params = record(envelope?.params) ? envelope.params : undefined;
-  const panelMatches = action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
+  const panelMatches = action === "spot_select" ? panel === "band-maps" || panel === "dx-cluster" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
     ? panel === "callsign-intelligence" : action.startsWith("log_") ? panel === "logbook" : false;
   return !!envelope && exact(envelope, keys) && validContestSurfaceUUID(envelope.operatingContext) && envelope.scope === "contesting" &&
       validContestSurfaceUUID(envelope.sessionID) && validContestSurfaceUUID(envelope.workspaceGeneration) && oneOf(panel, contestSurfacePanelIDs) &&

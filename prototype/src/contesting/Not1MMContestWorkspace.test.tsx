@@ -334,6 +334,37 @@ it.each(["log", "cluster"])("applies %s Check Partial only through the revision-
   expect(nativeCW.execute).not.toHaveBeenCalled();
 });
 
+it("applies a contest-window spot only to the active Not1MM draft and tunes exactly once",async()=>{
+  let current=projection();
+  const tune=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:null;
+    if(method==="contest_draft_apply"){
+      current={...projection(current.revision+1,params.fields as Record<string,string>),frequencyHz:Number(params.frequencyHz)};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune} spots={[spot]}
+    cluster={{snapshot:{connectedClusters:1,loadedSpots:25}}}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots).toHaveLength(1));
+  expect(surfaceOwner.current.projections["dx-cluster"]).toMatchObject({connectedClusters:1,loadedSpots:25});
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"band-maps",
+    projectionRevision:1,requestID:crypto.randomUUID(),action:"spot_select",params:{draftID:current.draftID,expectedDraftRevision:current.revision,spotID:"spot-1"}};
+  await expect(surfaceOwner.current.handle({...envelope,params:{...envelope.params,expectedDraftRevision:current.revision-1}})).rejects.toThrow("entry changed");
+  expect(tune).not.toHaveBeenCalled();
+  await act(async()=>surfaceOwner.current.handle(envelope));
+  expect(tune).toHaveBeenCalledExactlyOnceWith(14_025_000,"CW");
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(1);
+  expect(request.mock.calls.some(([method])=>method==="activate_spot")).toBe(false);
+});
+
 it.each(["", "10.1", "invalid"])("admits an offline contest only after the operator enters a valid manual frequency (initial %j)", async initial => {
   let current = projection();
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {

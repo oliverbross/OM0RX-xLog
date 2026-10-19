@@ -168,6 +168,30 @@ function partialCandidates(kind: "log" | "cluster", calls: unknown[], query: str
     .map(callsign => ({ candidateID: `${kind}:${callsign}`, callsign }));
 }
 
+function contestSurfaceSpots(spots: BandMapSpot[]) {
+  const ids = new Set<string>();
+  return spots.slice(0, 2_000).flatMap(spot => {
+    const id=String(spot.id??""),callsign=String(spot.callsign??"").trim().toUpperCase(),frequencyKHz=Number(spot.frequencyKHz),
+      band=String(spot.band??"").trim(),mode=String(spot.mode??"").trim();
+    if(!id.trim()||new TextEncoder().encode(id).length>128||ids.has(id)||!callsign||new TextEncoder().encode(callsign).length>32||
+        !band||new TextEncoder().encode(band).length>16||!mode||new TextEncoder().encode(mode).length>16||
+        !Number.isFinite(frequencyKHz)||frequencyKHz<0)return [];
+    ids.add(id);
+    const bounded=(value:unknown,maximum=512)=>{const text=String(value??"");return new TextEncoder().encode(text).length<=maximum?text:"";};
+    const uintOrNull=(value:unknown)=>Number.isSafeInteger(value)&&Number(value)>=0?Number(value):null;
+    const strings=(value:unknown,maximum:number,bytes:number)=>Array.isArray(value)?value.filter(item=>typeof item==="string").slice(0,maximum).map(item=>bounded(item,bytes)):[];
+    return [{id,receivedAt:Math.max(0,Number(spot.receivedAt)||0),clusterName:bounded(spot.clusterName),spotter:bounded(spot.spotter),
+      spotterContinent:spot.spotterContinent==null?null:bounded(spot.spotterContinent,32),frequencyKHz,
+      frequencyText:bounded(spot.frequencyText),callsign,comment:bounded(spot.comment),band,mode,
+      country:bounded(spot.country),adif:uintOrNull(spot.adif),continent:bounded(spot.continent),cqZone:uintOrNull(spot.cqZone),
+      ituZone:uintOrNull(spot.ituZone),callStatus:bounded(spot.callStatus),dxccStatus:bounded(spot.dxccStatus),
+      workedBefore:uintOrNull(spot.workedBefore),specialTags:strings(spot.specialTags,32,64),score:Math.max(0,Number(spot.score)||0),
+      scoreReasons:strings(spot.scoreReasons,64,160),aggregateCount:uintOrNull(spot.aggregateCount)??0,
+      aggregateSpotters:strings(spot.aggregateSpotters,64,64),source:bounded(spot.source),statusHex:bounded(spot.statusHex),
+      bandHex:bounded(spot.bandHex),modeHex:bounded(spot.modeHex)}];
+  });
+}
+
 function multiplierMatrix(title: string, values: Data[], busy: boolean) {
   const rows = new Map<string, Record<string, number>>();
   for (const item of values) {
@@ -631,6 +655,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       history: { source: null, rows: [] },
       busy: !!scpSurface?.busy,
     };
+    const sharedSpots=contestSurfaceSpots(spots);
+    const clusterSnapshot=cluster?.snapshot as Data|undefined;
+    const connectedClusters=Number.isSafeInteger(clusterSnapshot?.connectedClusters)&&Number(clusterSnapshot?.connectedClusters)>=0
+      ? Number(clusterSnapshot?.connectedClusters):0;
+    const loadedSpots=Number.isSafeInteger(clusterSnapshot?.loadedSpots)&&Number(clusterSnapshot?.loadedSpots)>=0
+      ? Number(clusterSnapshot?.loadedSpots):sharedSpots.length;
+    for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:1,status:"ready",
+      draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
+      connectedClusters,loadedSpots,spots:sharedSpots,busy:busy||retiring};
     unavailable.propagation = { schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring };
     unavailable.monitor = { schemaVersion: 1, status: "ready",
       lastHourQsoPerHour: rates?.lastHourQsoPerHour ?? null, last10QsoPerHour: rates?.last10QsoPerHour ?? null,
@@ -646,7 +679,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots, configuredBands]);
+    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots, cluster, configuredBands]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -660,7 +693,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       await cw.controller.stop(); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
-    if (action.action.startsWith("entry_") || action.action.startsWith("assistance_")) {
+    if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action === "spot_select") {
       if (!("draftID" in action.params) || action.params.draftID !== active.draftID ||
           action.params.expectedDraftRevision !== active.revision)
         throw new Error("The contest entry changed before this action reached the owner.");
@@ -675,6 +708,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if (!editing || String(editing.ID ?? "") !== qsoID) throw new Error("Open this contact in the shared log editor first.");
     };
     switch (action.action) {
+      case "spot_select": {
+        const spot=spots.find(candidate=>String(candidate.id)===action.params.spotID);
+        if(!spot)throw new Error("That shared spot is no longer available.");
+        await chooseSpot(spot); return;
+      }
       case "entry_set_text": {
         const fieldID = { callsign: "callsign", sentReport: "sent", receivedReport: "receive" }[action.params.field];
         await persistFields(fieldID, action.params.field === "callsign" ? action.params.value.toUpperCase() : action.params.value); return;

@@ -24,6 +24,10 @@ const projection={schemaVersion:1,status:"ready",session:{name:"ARRL DX",ruleNam
   frequencyHz:null,frequencyText:"14.025A",frequencyError:"Frequency must contain digits only.",band:"20m",mode:"CW",dupe:{state:"clear",reason:""},
   validation:{errors:[],warnings:[]},reservedSerial:null},busy:false,dirty:true,uncertain:false};
 const snapshot={operatingContext,scope:"contesting",sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:6,projection,receipts:[]};
+const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,
+  frequencyKHz:14025,frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,
+  continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,
+  scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:""};
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;
 
@@ -166,6 +170,31 @@ it.each(["log", "scp", "cluster", "history"])("selects the %s Check Partial cand
 
 it("routes a scoped native contest child without mounting the normal surface",async()=>{
   expect(await loadWindowSurface(search)).toBe(DetachedContestSurface);
+});
+
+it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the contest %s window through only its fenced owner action",async panelID=>{
+  window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
+  localStorage.setItem("xlog.integration.bandMaps.workspace.bands","normal-band-map-sentinel");
+  localStorage.setItem("xlog.integration.full-cluster-columns.v1","normal-cluster-sentinel");
+  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:25,spots:[sharedSpot],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"queued"}:Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);
+  const callsign=await screen.findByText("DL1ABC");
+  if(panelID==="dx-cluster"){
+    expect(screen.getByText("1 live · 1 shown / 25 received")).toBeTruthy();
+    expect(screen.queryByLabelText("Spot filters")).toBeNull();
+    expect(screen.queryByRole("button",{name:/^(Connect|Disconnect|Refresh|Console|Settings)$/})).toBeNull();
+  }
+  fireEvent.click(panelID==="dx-cluster" ? callsign.closest("tr")! : callsign.closest("button")!);
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID,projectionRevision:6,action:"spot_select",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"spot-1"}}));
+  expect(native.invoke.mock.calls.some(([command])=>command==="activate_spot")).toBe(false);
+  expect(localStorage.getItem("xlog.integration.bandMaps.workspace.bands")).toBe("normal-band-map-sentinel");
+  expect(localStorage.getItem("xlog.integration.full-cluster-columns.v1")).toBe("normal-cluster-sentinel");
+  await waitFor(()=>expect(localStorage.getItem(panelID==="band-maps"
+    ? "xlog.integration.bandMaps.contest.bands":"xlog.integration.contest.cluster-columns.v1")).not.toBeNull());
 });
 
 it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "station-control", "dx-cluster"])(

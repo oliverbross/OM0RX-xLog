@@ -1330,10 +1330,10 @@ mod tests {
             Some("12345678-1234-1234-1234-123456789abc")).is_err());
     }
     #[test]
-    fn contest_menu_reuses_service_singletons_and_keeps_session_tools_scoped() {
+    fn contest_menu_scopes_spot_tools_and_reuses_only_station_service_singletons() {
         let mut engine = Engine::default();
         let mut host = FakeHost::new(vec![layout(1, &[])]);
-        for panel in ["band-maps", "dx-cluster", "rotor", "station-control"] {
+        for panel in ["rotor", "station-control"] {
             let label = contest_open_label(panel).unwrap();
             assert_eq!(label, panel);
             assert!(supports(&label));
@@ -1343,10 +1343,12 @@ mod tests {
                 [format!("show:{panel}:true"), format!("show:{panel}:true")]);
         }
         assert_eq!(host.layouts.len(), 1);
-        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook"] {
+        for panel in ["active-qso", "callsign-intelligence", "propagation", "monitor", "awards", "chaser-dx", "logbook", "band-maps", "dx-cluster"] {
             assert_eq!(contest_open_label(panel).unwrap(), format!("contest--{panel}"));
             assert!(crate::workspace_navigation::contest_shared_window(panel).is_none());
         }
+        assert!(supports("band-maps"));
+        assert!(supports("dx-cluster"));
         for panel in ["cw", "log-qso", "settings", "alerts", "contest--rotor", "band-maps-20m", ""] {
             assert!(contest_open_label(panel).is_err());
         }

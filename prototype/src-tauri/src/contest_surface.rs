@@ -512,7 +512,8 @@ fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
     let action = text_value(&envelope["action"], 64, false, "contest action")?;
     let params = object(&envelope["params"], "contest action params")?;
     validate_action_params(action, params)?;
-    let matches_panel = action.starts_with("entry_") && panel_id == "active-qso"
+    let matches_panel = action == "spot_select" && matches!(panel_id, "band-maps" | "dx-cluster")
+        || action.starts_with("entry_") && panel_id == "active-qso"
         || action.starts_with("assistance_") && panel_id == "callsign-intelligence"
         || action.starts_with("log_") && panel_id == "logbook";
     if !matches_panel {
@@ -528,6 +529,10 @@ fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
 
 fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(), String> {
     match action {
+        "spot_select" => {
+            draft(params, &["spotID"])?;
+            text_value(&params["spotID"], 128, false, "spot ID")?;
+        }
         "entry_set_text" => {
             draft(params, &["field", "value"])?;
             enum_value(
@@ -719,12 +724,49 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
             validate_matrix_projection(projection)
         }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
+        "band-maps" | "dx-cluster" if schema_version == 1 => validate_spot_projection(projection),
         "active-qso" | "callsign-intelligence" | "propagation" | "monitor" | "awards"
         | "chaser-dx" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }
         _ => Err("That contest surface has no ready projection schema.".into()),
     }
+}
+
+fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "spots", "busy"], "spot projection")?;
+    text_value(&value["draftID"], 160, false, "spot draft ID")?;
+    uint_value(&value["draftRevision"], MAX_SAFE_INTEGER, "spot draft revision")?;
+    nullable_uint(&value["radioFrequencyHz"], 100_000_000_000, "spot radio frequency")?;
+    uint_value(&value["connectedClusters"], MAX_SAFE_INTEGER, "connected cluster count")?;
+    uint_value(&value["loadedSpots"], MAX_SAFE_INTEGER, "loaded spot count")?;
+    boolean(&value["busy"], "spot projection busy state")?;
+    let mut ids = BTreeSet::new();
+    for item in array(&value["spots"], 2_000, "contest spots")? {
+        let spot = object(item, "contest spot")?;
+        exact(spot, &["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz", "frequencyText", "callsign", "comment",
+            "band", "mode", "country", "adif", "continent", "cqZone", "ituZone", "callStatus", "dxccStatus", "workedBefore", "specialTags", "score",
+            "scoreReasons", "aggregateCount", "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex"], "contest spot")?;
+        let id = text_value(&spot["id"], 128, false, "spot ID")?;
+        if !ids.insert(id) { return Err("Contest spot IDs must be unique.".into()); }
+        for key in ["receivedAt", "frequencyKHz", "score"] {
+            nullable_nonnegative_number(&spot[key], "spot number")?;
+            if spot[key].is_null() { return Err("Contest spot numbers cannot be null.".into()); }
+        }
+        uint_value(&spot["aggregateCount"], MAX_SAFE_INTEGER, "aggregate spot count")?;
+        for key in ["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus", "dxccStatus", "source", "statusHex", "bandHex", "modeHex"] {
+            text_value(&spot[key], 512, true, "spot text")?;
+        }
+        text_value(&spot["callsign"], 32, false, "spot callsign")?;
+        text_value(&spot["band"], 16, false, "spot band")?;
+        text_value(&spot["mode"], 16, false, "spot mode")?;
+        nullable_text(&spot["spotterContinent"], 32, "spotter continent")?;
+        for key in ["adif", "cqZone", "ituZone", "workedBefore"] { nullable_uint(&spot[key], MAX_SAFE_INTEGER, "spot integer")?; }
+        string_array(&spot["specialTags"], 32, 64, "spot tags")?;
+        string_array(&spot["scoreReasons"], 64, 160, "spot score reasons")?;
+        string_array(&spot["aggregateSpotters"], 64, 64, "aggregate spotters")?;
+    }
+    Ok(())
 }
 
 fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -2525,6 +2567,33 @@ mod tests {
             );
             assert!(state.actions.is_empty());
         }
+    }
+
+    #[test]
+    fn contest_spot_selection_is_scoped_revision_fenced_and_schema_bounded() {
+        let spot = json!({"id":"spot-1","receivedAt":1,"clusterName":"SK6AW","spotter":"K1ABC","spotterContinent":null,
+            "frequencyKHz":14025.0,"frequencyText":"14025.0","callsign":"DL1ABC","comment":"CQ","band":"20m","mode":"CW",
+            "country":"Germany","adif":230,"continent":"EU","cqZone":14,"ituZone":28,"callStatus":"New","dxccStatus":"New",
+            "workedBefore":null,"specialTags":[],"score":80,"scoreReasons":[],"aggregateCount":1,"aggregateSpotters":["K1ABC"],
+            "source":"DX Cluster","statusHex":"","bandHex":"","modeHex":""});
+        let projection = json!({"schemaVersion":1,"status":"ready","draftID":"draft","draftRevision":2,
+            "radioFrequencyHz":14025000,"connectedClusters":1,"loadedSpots":1,"spots":[spot.clone()],"busy":false});
+        for panel in ["band-maps", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        let mut duplicate = projection.clone(); duplicate["spots"] = json!([spot.clone(), spot]);
+        assert!(validate_projection("band-maps", &duplicate).is_err());
+        let mut state = State { context: Some(context()), ..State::default() };
+        publish_after_admission(&mut state, "band-maps", 7, projection).unwrap();
+        let envelope = action("spot_select", "band-maps", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}));
+        let checked = validate_action_envelope(&envelope).unwrap();
+        submit_checked(&mut state, "band-maps", &checked, envelope.clone()).unwrap();
+        assert_eq!(take_next(&mut state).unwrap(), Some(envelope));
+        let mut cross_panel = action("spot_select", "active-qso", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}));
+        cross_panel["requestID"] = json!("40000000-0000-4000-8000-000000000010");
+        assert!(validate_action_envelope(&cross_panel).is_err());
+        let mut stale = action("spot_select", "band-maps", json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}));
+        stale["requestID"] = json!("40000000-0000-4000-8000-000000000011"); stale["projectionRevision"] = json!(6);
+        let stale_checked = validate_action_envelope(&stale).unwrap();
+        assert!(submit_checked(&mut state, "band-maps", &stale_checked, stale).is_err());
     }
 
     #[test]
