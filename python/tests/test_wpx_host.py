@@ -124,6 +124,25 @@ class WPXHostTests(unittest.TestCase):
         row = self.read("log")["rows"][0]
         self.assertEqual((row["SentNr"], self.fields()["other_1"]), (1, "002"))
 
+    def test_legacy_operation_replay_and_receipt_reconcile_serial_projection(self):
+        operation = uid()
+        params = {"sessionID": self.session, "operationID": operation, "expectedRevision": self.revision,
+                  "fields": {"callsign": "K1ABC", "other_2": "123"}}
+        original = self.call("draft_apply", params)
+        stale = deepcopy(original)
+        sent = next(field for field in stale["projection"]["fields"] if field["id"] == "other_1")
+        sent["value"], sent["readOnly"] = "999", False
+        store = self.host.database(self.session)
+        store.conn.execute("UPDATE xlog_operation SET result=? WHERE operation_id=?", (json.dumps(stale), operation))
+        store.conn.commit()
+
+        receipt = self.read("receipt", operationID=operation)["result"]
+        replay = self.call("draft_apply", params)
+        for result in (receipt, replay):
+            field = next(item for item in result["projection"]["fields"] if item["id"] == "other_1")
+            self.assertEqual((field["value"], field["readOnly"], result["actions"], result["replayed"]),
+                             ("001", True, [], True))
+
     def test_plugin_esm_numeric_exchange_and_repeat_safe_intents(self):
         self.mutate("draft_apply", fields={"callsign": "K1ABC", "other_2": ""})
         call = self.mutate("esm", field="callsign")
