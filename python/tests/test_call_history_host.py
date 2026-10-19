@@ -120,6 +120,19 @@ class CallHistoryHostTests(unittest.TestCase):
             self.call("history_stage_chunk", self.scope(
                 generation=generation, digest=digest, offset=0, rows=[invalid]))
 
+    def test_stale_cancel_does_not_remove_the_current_host_stage(self):
+        first, current = uid(), uid()
+        self.call("history_stage_begin", self.scope(generation=first, digest="e" * 64, rowCount=1))
+        self.call("history_stage_begin", self.scope(generation=current, digest="f" * 64, rowCount=1))
+        with self.assertRaises(HostError) as error:
+            self.call("history_stage_cancel", self.scope(generation=first, digest="e" * 64))
+        self.assertEqual(error.exception.code, "history_activation_failed")
+        self.call("history_stage_chunk", self.scope(
+            generation=current, digest="f" * 64, offset=0, rows=[row("K1ABC", "5", "current")]))
+        self.call("history_stage_commit", self.scope(
+            generation=current, digest="f" * 64, rowCount=1))
+        self.assertEqual(self.call("history_status", self.scope())["activation"]["generation"], current)
+
 
 if __name__ == "__main__":
     unittest.main()

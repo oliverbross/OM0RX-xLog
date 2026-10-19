@@ -181,7 +181,14 @@ class Store(DataBase):
         self.conn.execute("DELETE FROM xlog_callhistory_stage")
         self.conn.execute("DELETE FROM xlog_callhistory_stage_meta")
 
-    def cancel_callhistory_stage(self):
+    def cancel_callhistory_stage(self, generation, digest):
+        meta = self.exec_sql(
+            "SELECT generation,digest FROM xlog_callhistory_stage_meta WHERE singleton=1"
+        )
+        if not meta:
+            return
+        if meta["generation"] != generation or meta["digest"] != digest:
+            raise ValueError("Call-history stage is stale")
         self.conn.execute("DELETE FROM xlog_callhistory_stage")
         self.conn.execute("DELETE FROM xlog_callhistory_stage_meta")
 

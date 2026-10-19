@@ -601,7 +601,7 @@ class Host:
             elif method == "history_stage_commit":
                 store.activate_callhistory_stage(generation, digest, row_count)
             else:
-                store.cancel_callhistory_stage()
+                store.cancel_callhistory_stage(generation, digest)
             store.finish(True)
         except (ValueError, sqlite3.Error) as error:
             store.finish(False)

@@ -71,7 +71,7 @@ class CallHistoryStoreTests(unittest.TestCase):
             WHEN NEW.Call='FAIL' BEGIN SELECT RAISE(ABORT, 'injected failure'); END
         """)
         self.store.conn.commit()
-        self.mutate(lambda: self.store.cancel_callhistory_stage())
+        self.mutate(lambda: self.store.cancel_callhistory_stage("generation-new", "c" * 64))
         self.mutate(lambda: self.store.begin_callhistory_stage("generation-new", "c" * 64, 1))
         self.mutate(lambda: self.store.append_callhistory_stage(
             "generation-new", "c" * 64, 0, [row("FAIL", "1", "candidate")]))
@@ -93,6 +93,16 @@ class CallHistoryStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.mutate(lambda: self.store.append_callhistory_stage(
                 "generation-a", "d" * 64, 0, [invalid]))
+
+    def test_stale_cancel_cannot_destroy_a_newer_stage(self):
+        self.mutate(lambda: self.store.begin_callhistory_stage("generation-a", "a" * 64, 1))
+        self.mutate(lambda: self.store.begin_callhistory_stage("generation-b", "b" * 64, 1))
+        with self.assertRaises(ValueError):
+            self.mutate(lambda: self.store.cancel_callhistory_stage("generation-a", "a" * 64))
+        self.mutate(lambda: self.store.append_callhistory_stage(
+            "generation-b", "b" * 64, 0, [row("K1ABC", "5", "current")]))
+        self.mutate(lambda: self.store.activate_callhistory_stage("generation-b", "b" * 64, 1))
+        self.assertEqual(self.store.callhistory_status()["generation"], "generation-b")
 
 
 if __name__ == "__main__":
