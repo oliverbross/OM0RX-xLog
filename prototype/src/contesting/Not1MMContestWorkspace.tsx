@@ -515,7 +515,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       },
       descriptor: {
         bands: [bandLabels[String(projection.band)] ?? String(projection.band)], modes: ["CW"],
-        sentFields: [{ id: "other_1", label: sentZone?.label ?? "Sent CQ zone", value: currentFields.other_1 ?? "",
+        sentFields: [{ id: "other_1", label: sentZone?.label || "Sent CQ zone", value: currentFields.other_1 ?? "",
           required: true, maximumUTF8Bytes: 8 }],
         serial: { requirement: "none", allocatedFieldID: null, reservedSerial: null },
       },

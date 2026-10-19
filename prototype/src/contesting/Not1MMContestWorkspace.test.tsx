@@ -118,7 +118,7 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   score: { qsos: 0, points: 0, countries: 0, zones: 0, total: 0 },
   fields: [
     ["callsign", "Call", true, ""], ["sent", "SNT", true, "599"], ["receive", "RCV", true, "599"],
-    ["other_1", "Sent CQ Zone", false, "15"], ["other_2", "CQ Zone", true, ""],
+    ["other_1", "", false, "15"], ["other_2", "CQ Zone", true, ""],
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
