@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import type { ContestSurfaceAction, ContestSurfaceActionEnvelope, ContestRatesSurfaceProjection, ContestMatrixSurfaceProjection } from "./contestSurfaceProtocol";
-import { ContestTextField, ContestEntryFields, ContestCandidates, ContestScoreSummary, ContestLogTable } from "./ContestPresentation";
+import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import "./DetachedContestSurface.css";
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
@@ -209,39 +209,54 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
     const focusedField=(target?.dataset.contestOperatorField as "callsign"|"exchange"|undefined)??operator?.focusedField??null;
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
-  return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header><div><h1>{projection.session.name}</h1><span>{projection.session.ruleName} · {projection.session.mode}</span></div>
+  return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
-      <strong>{projection.draft.band} · {projection.draft.mode}</strong></div></header>
+      <strong>{projection.draft.mode}</strong></div><span aria-label="Current operator unavailable">OP —</span><h1>{projection.session.name}</h1></header>
+    <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{["160m","80m","40m","20m","15m","10m"].map(band=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
+    <div className="contest-surface-logging-controls">
+    <div className="contest-surface-main-fields">
+    <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
+      operatorField="callsign" inputRef={callsignRef} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
+      unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>
+    {(["sentReport","receivedReport"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
+      label={["SNT","RCV"][index]} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={160}
+      disabled={disabled} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
+      retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}
+    <div className="contest-surface-sent-number"><span>SentNR</span><output aria-label="Sent exchange">{projection.schemaVersion===2 ? projection.descriptor.sentFields.map((field:any)=>field.value||"—").join(" ")||"—" : "—"}</output></div>
+    {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey;return <EntryIntentInput key={field.id}
+      label={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
+      operatorField="exchange" inputRef={index===0?exchangeRef:undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
+      unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
+    </div>
+    <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable">● ●</span>
+      <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
+        onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
+      <div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label="CW speed unavailable">—</output><button disabled aria-label="Decrease CW speed">−</button><button disabled aria-label="Increase CW speed">+</button></div></div>
+    <div className="contest-surface-macros" role="group" aria-label="Function key macros">{["Run CQ","HisCall","Run Exch","Run TU","MyCall","MyClass","MySect","Roger","AGN","Call?","Class?","Sect?"].map((label,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key);return <button type="button" key={key}
+      disabled={disabled||!item} aria-label={`${key} ${item?label:"Unassigned"}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
+    </div></div>
+    <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">—° Hdg · LP —° / distance — km<br/><span aria-label="Country and zones">— cq:— itu:—</span></div><output aria-label="QSOs, multipliers and score">—/— <span>—</span></output></div>
+    <details className="contest-surface-entry-options"><summary>Entry controls</summary>
+    {operator&&<label>Operating style<select value={operator.style} disabled={disabled||operator.pending!==null}
+        onChange={event=>void send({action:"entry_operator_style",params:{...base,value:event.target.value as "run"|"search-and-pounce"}},projectionRevision)}><option value="run">Run</option><option value="search-and-pounce">S&amp;P</option></select></label>}
     {projection.schemaVersion===2&&<div className="contest-surface-row contest-surface-operating">
-      {operator&&<label>Operating style<select value={operator.style} disabled={disabled||operator.pending!==null}
-        onChange={event=>void send({action:"entry_operator_style",params:{...base,value:event.target.value as "run"|"search-and-pounce"}},projectionRevision)}><option value="run">Run</option><option value="search-and-pounce">Search &amp; Pounce</option></select></label>}
       <label>Band<select value={projection.draft.band} disabled={disabled}
         onChange={event=>void send({action:"entry_set_band",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.bands.map((band:string)=><option key={band}>{band}</option>)}</select></label>
       <label>Mode<select value={projection.draft.mode} disabled={disabled}
         onChange={event=>void send({action:"entry_set_mode",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.modes.map((mode:string)=><option key={mode}>{mode}</option>)}</select></label>
     </div>}
-    <div className="contest-surface-main-fields">
-    <ContestEntryFields detached callsign={<EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
-      operatorField="callsign" inputRef={callsignRef} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
-      unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>} reports={(["sentReport","receivedReport","frequency"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
-      label={["Sent","Received","Frequency Hz"][index]} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={key==="frequency"?11:160}
-      disabled={disabled} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
-      retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)} exchange={projection.draft.receivedFields.map((field: any,index:number) => {const key=`exchange:${field.id}` as EntryIntentKey;return <EntryIntentInput key={field.id}
-      label={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
-      operatorField="exchange" inputRef={index===0?exchangeRef:undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
-      unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;})}/>
-    </div>
+    <EntryIntentInput label="Frequency Hz" intentKey="frequency" value={intents.values.frequency} maximumUTF8Bytes={11} disabled={disabled}
+      onChange={(key,value)=>intents.change(key,value,actionFor(key))} unresolved={intents.unresolved.has("frequency")}
+      retry={()=>intents.retry("frequency")} discard={()=>intents.discard("frequency")}/>
     {projection.schemaVersion===2&&<>
-      {projection.descriptor.sentFields.length>0&&<dl aria-label="Sent exchange">{projection.descriptor.sentFields.map((field:any)=><div key={field.id}><dt>{field.label}</dt><dd>{field.value||"—"}</dd></div>)}</dl>}
       {projection.descriptor.serial.requirement==="requiredForCommit"&&<p>Serial: {projection.descriptor.serial.reservedSerial??"not reserved"}</p>}
-      {operator&&<section aria-label="Run and S&P simulation"><div className="contest-surface-row">
+      {operator&&<section aria-label={operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
         <button type="button" aria-pressed={operator.armed} disabled={disabled||operator.pending!==null}
-          onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":"Arm simulation"}</button>
+          onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>
         <button type="button" disabled={!operator.armed} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
-        <span role="status">Simulation · {operator.status}</span></div><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key);return <button type="button" key={key}
-          disabled={disabled||!item} onClick={()=>operatorKey(key,operator.focusedField)}><kbd>{key}</kbd> <span>{item?.macro??"Unassigned"}</span></button>;})}</div>
+        <span role="status">{operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
         {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
-      </section>}</>}
+      </section>}</>}</details>
     {projection.draft.frequencyError && <p role="alert">{projection.draft.frequencyError}</p>}
     {[...projection.draft.validation.errors,...projection.draft.validation.warnings].map((item:string) => <p key={item}>{item}</p>)}
     <footer><button disabled={disabled||sending} onClick={() => void send({action:"entry_reserve_serial",params:base},projectionRevision)}>Reserve serial</button>
@@ -251,41 +266,47 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
 function Check({ projection, disabled, projectionRevision, receipts, send }: { projection: any; disabled: boolean;
   projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send: Send }) {
   const base={draftID:projection.draftID,expectedDraftRevision:projection.draftRevision};
-  return <section><h1>Check Partial & history</h1><IntentInput label="Callsign query" value={projection.inputCallsign}
+  return <section className="contest-surface-check"><h1>Check Partial</h1><IntentInput label="Callsign query" value={projection.inputCallsign}
     identity={`${projection.draftID}/query`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled}
     maximumUTF8Bytes={32} send={send} action={inputCallsign=>({action:"assistance_query",params:{...base,inputCallsign}})}/>
-    <h2>SCP</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
+    <div className="contest-surface-check-columns"><div><h2>Log</h2><p aria-label="Matching logged calls unavailable">—</p></div><div><h2>Master</h2><ContestCandidates className="contest-surface-results" disabled={disabled} strongLabel={false}
       candidates={projection.scp.candidates.map((item:any)=>({id:item.candidateID,label:item.callsign}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/>
-    <h2>History</h2><ContestCandidates disabled={disabled}
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"scp",candidateID}},projectionRevision)}/></div><div><h2>Telnet</h2><p aria-label="Matching cluster calls unavailable">—</p></div></div>
+    <details><summary>Call history</summary><ContestCandidates disabled={disabled}
       candidates={projection.history.rows.map((row:any)=>({id:row.candidateID,label:row.callsign,className:"contest-surface-history",
         detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
-      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></section>;
+      onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></details></section>;
 }
 function Statistics({projection}:{projection:any}) { return <section><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
 function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
-  const rates = [["Last hour", projection.lastHourQsoPerHour], ["Last 10 QSOs", projection.last10QsoPerHour],
-    ["Last 100 QSOs", projection.last100QsoPerHour], ["Since last minute", projection.sinceMinuteQsoPerHour]] as const;
+  const rates = [["Last hour", projection.lastHourQsoPerHour], ["10 Last QSO", projection.last10QsoPerHour],
+    ["100 Last QSO", projection.last100QsoPerHour], ["Since —z", null]] as const;
   return <section aria-label="Contest Rates" aria-busy={projection.busy} className="contest-surface-rates"><h1>Rates</h1>
-    <dl>{rates.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value === null ? <span aria-label="Not enough contacts">—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>QSO/h</small></dd></div>)}</dl>
-    <table aria-label="Run and Search & Pounce QSOs"><thead><tr><th scope="col">QSOs</th><th scope="col">Run</th><th scope="col">Search &amp; Pounce</th></tr></thead>
-      <tbody><tr><th scope="row">Contest</th><td>{projection.runQso.toLocaleString()}</td><td>{projection.searchAndPounceQso.toLocaleString()}</td></tr>
-        <tr><th scope="row">Last hour</th><td>{projection.hourRunQso.toLocaleString()}</td><td>{projection.hourSearchAndPounceQso.toLocaleString()}</td></tr></tbody></table>
+    <p className="contest-surface-rate-scope">All bands · All modes</p><dl>{rates.map(([label, value]) => <div key={label}><dt>{label}:</dt><dd>{value === null ? <span aria-label={label.startsWith("Since")?"Rate start time unavailable":"Not enough contacts"}>—</span> : value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Q/h</small></dd></div>)}</dl>
+    <table aria-label="Run and Search & Pounce QSOs"><tbody>{[["Run QSO",projection.runQso],["S&P QSO",projection.searchAndPounceQso],
+      ["Hour Run QSO",projection.hourRunQso],["Hour S&P QSO",projection.hourSearchAndPounceQso]].map(([label,value])=><tr key={label}><th scope="row">{label}:</th><td>{value.toLocaleString()}</td></tr>)}</tbody></table>
   </section>;
 }
 function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) {
   return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header><h1>{projection.title}</h1>
     <span>{projection.total.toLocaleString()} worked</span></header>
-    {projection.rows.length === 0 ? <p>No {projection.title === "DXCC" ? "countries" : "zones"} worked in this contest.</p> :
-      <div className="contest-surface-matrix-scroll"><table aria-label={`${projection.title} by band`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "Country" : "Zone"}</th>
+      <div className="contest-surface-matrix-scroll"><table aria-label={`${projection.title} by band`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
         {projection.bands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
         {projection.rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>{projection.bands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
-          {row.counts[band] > 0 ? row.counts[band].toLocaleString() : "—"}</td>)}<td>{row.total.toLocaleString()}</td></tr>)}
-      </tbody></table></div>}
+          {row.counts[band].toLocaleString()}</td>)}<td>{row.total.toLocaleString()}</td></tr>)}
+      </tbody></table></div>
   </section>;
 }
-function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section><h1>Contest log</h1>
+function ManualLogTable({rows,disabled,onEdit,label}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string}) {
+  return <div className="contest-surface-log-scroll"><table aria-label={label}><thead><tr>{["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"].map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.qsoID}>
+    <td>{new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{row.callsign}</button></td>
+    <td aria-label="Frequency unavailable">—</td><td aria-label="Sent report unavailable">—</td><td aria-label="Received report unavailable">—</td>
+    <td aria-label="Zone unavailable">—</td><td aria-label="Serial unavailable">—</td><td aria-label="Prefix unavailable">—</td><td>{row.points}</td></tr>)}</tbody></table></div>;
+}
+function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section className="contest-surface-log"><h1>Log Display</h1>
   {editing&&<div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
+    <IntentInput label="TimeStamp (UTC)" value={editing.workedAt??""} identity={`${editing.qsoID}/timestamp`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"timestamp",value}})}/>
+    <IntentInput label="Station Call" value={editing.operator??""} identity={`${editing.qsoID}/operator`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"operator",value}})}/>
     <div className="contest-surface-row"><IntentInput label="Sent report" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>
       <IntentInput label="Received report" value={editing.receivedReport} identity={`${editing.qsoID}/receivedReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"receivedReport",value}})}/></div>
     {editing.receivedFields.map((field:any)=><IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/exchange/${field.id}`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send} action={value=>({action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}})}/>)}
@@ -297,7 +318,8 @@ function Log({projection,disabled,sending,projectionRevision,receipts,send}:{pro
     <button disabled={disabled||sending} aria-pressed={editing.confirmDelete} onClick={()=>void send({action:"log_edit_confirm_delete",params:{qsoID:editing.qsoID,confirmed:!editing.confirmDelete}},projectionRevision)}>{editing.confirmDelete?"Keep contact":"Delete…"}</button></div>
     {editing.confirmDelete&&<div className="contest-surface-delete"><IntentInput label="Deletion reason" value={editing.deletionReason} identity={`${editing.qsoID}/deletionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"deletionReason",value}})}/>
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void send({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Delete contact</button></div>}</div>}
-  <ContestLogTable rows={projection.page.rows} disabled={disabled} detached onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
+  <ManualLogTable rows={projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
+  <ManualLogTable rows={[]} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }

@@ -75,7 +75,7 @@ it.each([{ panelID: "awards", title: "DXCC", label: "Slovakia" }, { panelID: "ch
     expect(await screen.findByRole("heading", { name: title })).toBeTruthy();
     expect(screen.getByRole("table", { name: `${title} by band` })).toBeTruthy();
     expect(screen.getByRole("rowheader", { name: label })).toBeTruthy();
-    expect(screen.getByRole("cell", { name: "—" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "0" })).toBeTruthy();
     expect(screen.getByText("1 worked")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
@@ -113,12 +113,42 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect(screen.getByRole("region",{name:"Main Logging"})).toBeTruthy();
   expect(screen.getByLabelText("Current frequency").textContent).toBe("14,025.00 kHz");
   expect(screen.getByRole("group",{name:"Function key macros"}).querySelectorAll("button")).toHaveLength(12);
+  expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040201510");
+  expect(screen.getByLabelText("Sent exchange").textContent).toBe("100");
+  expect(screen.getByLabelText("CW speed unavailable").textContent).toBe("—");
+  expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("—/— —");
+  expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F1: Run CQ");
+  expect(screen.getByRole("group",{name:"Function key macros"}).textContent).toContain("F12: Sect?");
   expect((screen.getByRole("button",{name:"F12 Unassigned"}) as HTMLButtonElement).disabled).toBe(true);
   expect(document.querySelector("canvas")).toBeNull();
   fireEvent.change(screen.getByLabelText("Operating style"),{target:{value:"search-and-pounce"}});
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")).toBe(true));
   expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
+});
+
+it("retains the manual Check Partial Log, Master and Telnet columns with explicit missing sources",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
+  native.invoke.mockResolvedValue({...snapshot,panelID:"callsign-intelligence",projection:{schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,
+    inputCallsign:"OM0",scp:{source:null,candidates:[{candidateID:"scp-1",callsign:"OM0RX"}]},history:{source:null,rows:[]},busy:false}});
+  render(<DetachedContestSurface/>);
+  await screen.findByRole("heading",{name:"Check Partial"});
+  expect(["Log","Master","Telnet"].map(name=>screen.getByRole("heading",{name}).textContent)).toEqual(["Log","Master","Telnet"]);
+  expect(screen.getByLabelText("Matching logged calls unavailable").textContent).toBe("—");
+  expect(screen.getByLabelText("Matching cluster calls unavailable").textContent).toBe("—");
+  expect(screen.getByRole("button",{name:"OM0RX"})).toBeTruthy();
+});
+
+it("retains both manual log table structures even when the log is empty",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:{schemaVersion:1,status:"ready",sessionRevision:1,
+    page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false}});
+  render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
+  for(const name of ["Contest log","Callsign partial matches"]){
+    const table=screen.getByRole("table",{name});
+    expect(Array.from(table.querySelectorAll("th")).map(cell=>cell.textContent)).toEqual(["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"]);
+  }
 });
 
 it("flushes true multi-keystroke callsign and exchange intent before detached Enter and waits for terminal receipts",async()=>{
@@ -344,7 +374,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
 
 it("coalesces rapid log edits and resets the presentation buffer when the owner switches contacts",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
-  const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
+  const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,workedAt:"2026-10-19T10:00:00Z",operator:"OM0RX",band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
     frequencyHz:14_025_000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"});
   let current:any={...snapshot,panelID:"logbook",projectionRevision:3,projection:{schemaVersion:1,status:"ready",sessionRevision:8,
     page:{offset:0,limit:20,total:2,rows:[]},editing:editing("qso-1","K1ABC"),busy:false},receipts:[]};const actions:Record<string,any>[]=[];
