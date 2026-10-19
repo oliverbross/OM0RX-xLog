@@ -888,6 +888,8 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     let descriptor = object(value, "entry descriptor")?;
     let mut required = descriptor.clone();
     let reports_visible = required.remove("reportsVisible");
+    let allow_duplicate_commit = required.remove("allowDuplicateCommit");
+    let automatic_serial = required.remove("automaticSerial");
     exact(
         &required,
         &["bands", "modes", "sentFields", "serial"],
@@ -895,6 +897,12 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     )?;
     if let Some(reports_visible) = reports_visible {
         boolean(&reports_visible, "entry report visibility")?;
+    }
+    if let Some(allow_duplicate_commit) = allow_duplicate_commit {
+        boolean(&allow_duplicate_commit, "duplicate commit allowance")?;
+    }
+    if let Some(automatic_serial) = automatic_serial {
+        boolean(&automatic_serial, "automatic serial allocation")?;
     }
     unique_text_array(&descriptor["bands"], 32, 16, None, "entry bands")?;
     unique_text_array(
@@ -2155,7 +2163,25 @@ mod tests {
         )
         .is_err());
 
+        for key in ["allowDuplicateCommit", "automaticSerial"] {
+            for value in [true, false] {
+                let mut metadata_entry = entry.clone();
+                metadata_entry["descriptor"][key] = json!(value);
+                assert!(validate_projection("active-qso", &metadata_entry).is_ok());
+            }
+            for value in [json!("true"), json!(null)] {
+                let mut metadata_entry = entry.clone();
+                metadata_entry["descriptor"][key] = value;
+                assert!(validate_projection("active-qso", &metadata_entry).is_err());
+            }
+        }
+        let mut unknown_metadata = entry.clone();
+        unknown_metadata["descriptor"]["unknown"] = json!(false);
+        assert!(validate_projection("active-qso", &unknown_metadata).is_err());
+
         let mut serial_entry = entry.clone();
+        serial_entry["descriptor"]["allowDuplicateCommit"] = json!(true);
+        serial_entry["descriptor"]["automaticSerial"] = json!(true);
         serial_entry["draft"]["reservedSerial"] = json!(1);
         serial_entry["descriptor"]["sentFields"]
             .as_array_mut()
