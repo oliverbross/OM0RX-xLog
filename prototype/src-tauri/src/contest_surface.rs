@@ -678,7 +678,11 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             )?;
             text_value(&params["candidateID"], 160, false, "assistance candidate")?;
         }
-        "log_export_cabrillo" => exact(params, &[], "Cabrillo export params")?,
+        "log_export_cabrillo" | "log_export_adif" => exact(params, &[], "contest export params")?,
+        "log_recalculate" => {
+            exact(params, &["expectedSessionRevision"], "log recalculation params")?;
+            uint_value(&params["expectedSessionRevision"], MAX_SAFE_INTEGER, "session revision")?;
+        }
         "log_page" => {
             exact(params, &["offset"], "log page params")?;
             uint_value(&params["offset"], 1_000_000, "log offset")?;
@@ -1880,6 +1884,7 @@ fn validate_band_statistics(value: &Value, total: bool) -> Result<(String, [u64;
 
 fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
     let mut required = value.clone();
+    let can_export_adif = required.remove("canExportAdif");
     let manual_rows = required.remove("manualRows");
     let partial_rows = required.remove("partialRows");
     let layout = required.remove("exchangeLayout");
@@ -1941,6 +1946,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         "session revision",
     )?;
     boolean(&value["canExportCabrillo"], "Cabrillo export availability")?;
+    if let Some(can_export_adif) = can_export_adif {
+        boolean(&can_export_adif, "ADIF export availability")?;
+    }
     boolean(&value["busy"], "logbook busy")?;
     let page = object(&value["page"], "log page")?;
     exact(page, &["offset", "limit", "total", "rows"], "log page")?;
@@ -2326,6 +2334,18 @@ mod tests {
             "log_export_cabrillo",
             "logbook",
             json!({})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "log_export_adif",
+            "logbook",
+            json!({})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "log_recalculate",
+            "logbook",
+            json!({"expectedSessionRevision":2})
         ))
         .is_ok());
         assert!(validate_action_envelope(&action(

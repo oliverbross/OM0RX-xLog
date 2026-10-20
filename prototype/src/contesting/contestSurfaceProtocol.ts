@@ -24,7 +24,8 @@ export type ContestSurfaceAction =
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null; shifted?: boolean } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
-  | { action: "log_export_cabrillo"; params: Record<string, never> }
+  | { action: "log_export_cabrillo" | "log_export_adif"; params: Record<string, never> }
+  | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
   | { action: "log_page"; params: { offset: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
@@ -115,7 +116,7 @@ export type ContestSpotSurfaceProjection = { schemaVersion: 1; status: "ready"; 
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
-  canExportCabrillo: boolean;
+  canExportCabrillo: boolean; canExportAdif?: boolean;
   exchangeLayout?: "plugin";
   manualRows?: ContestManualRow[]; partialRows?: ContestManualRow[];
   pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
@@ -316,8 +317,8 @@ function validLogProjection(value: Record<string, unknown>) {
   const pageRows = Array.isArray(page?.rows) ? page.rows : [], pluginLayout = value.exchangeLayout === "plugin";
   const pluginColumns = pluginColumnsValid(value.pluginColumns) ? value.pluginColumns : undefined;
   return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "canExportCabrillo", "page", "editing", "busy"],
-      ["manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows"]) &&
-    typeof value.canExportCabrillo === "boolean" &&
+      ["canExportAdif", "manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows"]) &&
+    typeof value.canExportCabrillo === "boolean" && (value.canExportAdif === undefined || typeof value.canExportAdif === "boolean") &&
     (!("exchangeLayout" in value) || value.exchangeLayout === "plugin") &&
     (pluginLayout ? !!pluginColumns && pluginRowsValid(value.pluginRows, pluginColumns.length, 20) &&
         pluginRowsValid(value.pluginPartialRows, pluginColumns.length, 500) && !("manualRows" in value) && !("partialRows" in value)
@@ -438,7 +439,8 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
-  if (action === "log_export_cabrillo") return exact(params, []);
+  if (action === "log_export_cabrillo" || action === "log_export_adif") return exact(params, []);
+  if (action === "log_recalculate") return exact(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
   if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&

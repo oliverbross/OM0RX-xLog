@@ -68,6 +68,7 @@
 .contest-entry,.contest-score,.contest-log,.contest-qso-editor { border:1px solid var(--border,#243a55); border-radius:10px; background:var(--panel,#0b1728); }
 .contest-entry { padding:12px; }
 .contest-entry>header,.contest-log>header,.contest-entry>footer,.contest-log>footer { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.contest-log-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; min-width:0; }
 .contest-entry>header span,.contest-entry>footer>span { color:var(--secondary,#a6b6ca); font-size:10px; }
 .contest-entry-fields { display:grid; grid-template-columns:minmax(170px,1.3fr) 72px minmax(100px,.8fr) 72px minmax(120px,1fr); gap:8px; align-items:end; margin-top:10px; }
 .contest-call input { color:var(--teal,#12d6a0); font:700 21px/1.1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; }

@@ -585,7 +585,7 @@ function validateResult<T>(method: ContestMethod, value: unknown, params: Record
   return value as T;
 }
 
-export type ContestMutation = { method: "contest_create" | "contest_draft_apply" | "contest_focus" | "contest_serial_reserve" | "contest_qso_commit" | "contest_qso_correct" | "contest_qso_delete" | "contest_history_apply"; scope: ContestMutationScope; payload: Record<string, unknown> };
+export type ContestMutation = { method: "contest_create" | "contest_draft_apply" | "contest_focus" | "contest_serial_reserve" | "contest_qso_commit" | "contest_qso_correct" | "contest_qso_delete" | "contest_recalculate" | "contest_history_apply"; scope: ContestMutationScope; payload: Record<string, unknown> };
 export class ContestServerError extends Error {
   constructor(readonly code: string, message: string, readonly outcome: "confirmed" | "uncertain") { super(message); this.name = "ContestServerError"; }
 }

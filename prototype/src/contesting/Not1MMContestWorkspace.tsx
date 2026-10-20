@@ -506,7 +506,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const payload = { sessionID: base.sessionID, operationID, expectedRevision: base.revision, draftID: base.draftID, ...extra };
     try { return await result<MutationResult>(method, payload); }
     catch (cause) {
-      const durableMethods = new Set<ContestMutation["method"]>(["contest_draft_apply", "contest_focus", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete"]);
+      const durableMethods = new Set<ContestMutation["method"]>(["contest_draft_apply", "contest_focus", "contest_qso_commit", "contest_qso_correct", "contest_qso_delete", "contest_recalculate"]);
       const uncertain = !(cause instanceof ContestServerError) || cause.outcome === "uncertain";
       if (uncertain && durableMethods.has(method as ContestMutation["method"])) {
         const operation: ContestMutation = { method: method as ContestMutation["method"], payload,
@@ -839,16 +839,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     setNotice(`Loaded ${spot.callsign} after the selected radio confirmed one tune.`);
   };
 
-  const exportCabrillo = async (throwFailures = false, completion?: {
+  const exportLog = async (format: "cabrillo" | "adif", throwFailures = false, completion?: {
       operatingContext:string;sessionID:string;workspaceGeneration:string;requestID:string;projectionRevision:number }) => {
     const active = projectionRef.current;
     if (!active || busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
-      const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID });
+      const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID, format });
       const saved = await nativeContestExportSave(prepared, completion);
       if (saved.status === "saved") setNotice(`Saved ${saved.filename}.`);
-      else if (saved.status === "cancelled") setNotice("Cabrillo save cancelled.");
+      else if (saved.status === "cancelled") setNotice(`${format === "adif" ? "ADIF" : "Cabrillo"} save cancelled.`);
       else { setError(saved.message); if (throwFailures) throw new Error(saved.message); }
     } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
@@ -1003,6 +1003,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     unavailable.logbook = {
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: true,
+      canExportAdif: true,
       page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID) },
       ...(pluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
         pluginRows:not1mmLogRows(rows,pluginColumns), pluginPartialRows:not1mmLogRows(partialRows,pluginColumns) }
@@ -1202,8 +1203,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         else if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
-      case "log_export_cabrillo": await exportCabrillo(true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
+      case "log_export_cabrillo": await exportLog("cabrillo", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
         workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision }); return;
+      case "log_export_adif": await exportLog("adif", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
+        workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision }); return;
+      case "log_recalculate":
+        if (action.params.expectedSessionRevision !== active.revision) throw new Error("The contest log changed before recalculation started.");
+        if (await runMutation(base => mutate("contest_recalculate", base), true, true, false, true))
+          setNotice("Score and multipliers recalculated from the complete contest log.");
+        return;
       case "log_page": await loadLogPage(action.params.offset, true); return;
       case "log_edit_begin": await beginEdit(action.params.qsoID, true); return;
       case "log_edit_cancel": requireEditing(action.params.qsoID); setEditing(null); setConfirmDelete(false); return;
@@ -1355,7 +1363,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     onSelect={applyAssistanceCallsign} onSurfaceChange={setSCPSurface}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe
       ? projection.dupeExplanation ?? "Worked in this contest" : projection?.countryResolved ? "Country resolved · not a duplicate" : "No country match yet"}</p></section>;
   const matrixPanel = <section className="contest-score" aria-label="Country and zone matrices"><h2>Countries / zones</h2><div className="contest-multipliers">{[...(matrices.countries ?? []), ...(matrices.zones ?? [])].map((item: Data, index: number) => <span key={`${item.value}-${item.band}-${index}`}>{item.value || "Unknown"} · {bandLabels[String(item.band)] ?? item.band} · {item.qsos}</span>)}</div></section>;
-  const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><button type="button" disabled={busy} onClick={() => void exportCabrillo()}><Download size={14}/>Export Cabrillo</button></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
+  const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><div className="contest-log-actions"><button type="button" disabled={busy} onClick={() => void exportLog("cabrillo")}><Download size={14}/>Cabrillo</button><button type="button" disabled={busy} onClick={() => void exportLog("adif")}><Download size={14}/>ADIF</button><button type="button" disabled={busy} onClick={() => void runMutation(base => mutate("contest_recalculate", base))}>Recalculate</button></div></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
   const showSetup = setupOnly || manager;

@@ -74,6 +74,8 @@ const valid = [
   { panelID: "callsign-intelligence", action: "assistance_select", params: { ...draft, kind: "history", candidateID: "history-1" } },
   { panelID: "logbook", action: "log_page", params: { offset: 20 } },
   { panelID: "logbook", action: "log_export_cabrillo", params: {} },
+  { panelID: "logbook", action: "log_export_adif", params: {} },
+  { panelID: "logbook", action: "log_recalculate", params: { expectedSessionRevision: 6 } },
   { panelID: "logbook", action: "log_edit_begin", params: qso },
   { panelID: "logbook", action: "log_edit_cancel", params: qso },
   { panelID: "logbook", action: "log_edit_set_text", params: { ...qso, field: "correctionReason", value: "Corrected from paper log" } },

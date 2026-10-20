@@ -561,7 +561,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save", "rover_location"}
+    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -805,14 +805,18 @@ class Host:
         if method == "export":
             return self.export(desk)
         if method == "export_prepare":
+            require(set(params) in ({"sessionID"}, {"sessionID", "format"}),
+                    "Unexpected contest export fields")
             require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
-            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024)
+            export_format = params.get("format", "cabrillo")
+            require(export_format in {"cabrillo", "adif"}, "Unsupported contest export format")
+            filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format)
             require(bool(payload), "Plugin export was empty", "export_failed")
             artifact_id = str(uuid.uuid4())
             prepared = {"artifactID": artifact_id, "sessionID": session_id,
                         "workspaceGeneration": workspace_generation(state), "revision": state["revision"],
                         "byteLength": len(payload), "sha256": hashlib.sha256(payload).hexdigest(),
-                        "format": "cabrillo", "filename": filename}
+                        "format": export_format, "filename": filename}
             self.exports[artifact_id] = {"prepared": prepared, "bytes": payload}
             return prepared
         if method == "export_read":
@@ -1019,6 +1023,15 @@ class Host:
                 location = text(params.get("location", ""), 10).strip().upper()
                 require(bool(location), "Enter the current rover location")
                 state["roverLocation"] = location
+            elif method == "recalculate":
+                # Manual recalculation is a durable, replay-safe operation over
+                # the complete Python-owned log. Keep the operator's in-progress
+                # draft unchanged while the original plugin rebuilds points and
+                # multiplier fields in timestamp order.
+                fields = desk.values()
+                self.rebuild(desk)
+                for name, value in fields.items():
+                    getattr(desk, name).setText(value)
             elif method == "esm":
                 if "fields" in params or "mode" in params:
                     self.apply_fields(desk, params)
@@ -1684,12 +1697,29 @@ class Host:
                 "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY ZN,Band ORDER BY ZN,Band", params)}
 
     @staticmethod
-    def export_artifact(desk, maximum):
+    def export_artifact(desk, maximum, export_format="cabrillo"):
         # The pinned plugin writes only inside this explicit private destination.
         with TemporaryDirectory(prefix="export-", dir=Path(desk.database.database).parent) as directory:
             desk.export_directory = Path(directory)
-            desk.contest.cabrillo(desk, "utf-8")
-            files = list(Path(directory).glob("*.log"))
+            if export_format == "cabrillo":
+                desk.contest.cabrillo(desk, "utf-8")
+                files = list(Path(directory).glob("*.log"))
+            else:
+                require(callable(getattr(desk.contest, "adif", None)),
+                        "This original plugin does not provide ADIF export", "export_unsupported")
+                # Original Not1MM ADIF writers target Path.home(). The host is a
+                # serialized helper process, so redirect HOME only for this one
+                # synchronous plugin call and restore it before inspecting output.
+                previous_home = os.environ.get("HOME")
+                os.environ["HOME"] = directory
+                try:
+                    desk.contest.adif(desk)
+                finally:
+                    if previous_home is None:
+                        os.environ.pop("HOME", None)
+                    else:
+                        os.environ["HOME"] = previous_home
+                files = list(Path(directory).glob("*.adi"))
             require(len(files) == 1, "Plugin export failed", "export_failed")
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",

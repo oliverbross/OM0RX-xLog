@@ -9,6 +9,7 @@
 .contest-detached-surface :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-matrix,.contest-surface-log,.contest-surface-contact-editor,.contest-surface-unavailable) h1 { font-size:16px; }
 .contest-detached-surface :is(.contest-surface-entry,.contest-surface-check,.contest-surface-statistics,.contest-surface-rates,.contest-surface-matrix,.contest-surface-log,.contest-surface-unavailable) h2 { font-size:13px; color:var(--secondary); }
 .contest-surface-entry > header,.contest-surface-entry-options > footer,.contest-surface-log > header,.contest-surface-log > footer,.contest-surface-matrix > header,.contest-surface-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.contest-surface-log-actions { display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
 .contest-detached-surface :is(.contest-surface-entry,.contest-surface-check,.contest-surface-log,.contest-surface-contact-editor) label { display:flex; flex-direction:column; gap:4px; min-width:0; color:var(--secondary); font-size:12px; }
 .contest-detached-surface .contest-field-label,.contest-surface-sent-number>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .contest-detached-surface :is(.contest-surface-entry,.contest-surface-check,.contest-surface-log,.contest-surface-contact-editor) :is(input,select) { min-width:0; width:100%; font:inherit; }

@@ -490,7 +490,9 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[];
   return <section className="contest-surface-log"><header><h1>Log Display</h1>
-  <button disabled={disabled||sending||!projection.canExportCabrillo} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button></header>
+  <div className="contest-surface-log-actions"><button disabled={disabled||sending||!projection.canExportCabrillo} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>
+  <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
+  <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></header>
   {projection.exchangeLayout==="plugin" ? <><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log"
       onEdit={qsoID=>void openEditor(qsoID)}/>
     {pluginPartialRows.length>0&&<PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches"

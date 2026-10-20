@@ -454,6 +454,20 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("score")["score"]["total"], 42)
         self.assertEqual(len(self.read("score")["matrices"]["zones"]), 3)
 
+    def test_manual_recalculation_repairs_derived_points_without_changing_draft(self):
+        qso = self.log()
+        self.mutate("draft_apply", fields={"callsign": "DL1ABC", "other_2": "14"})
+        before = self.read("projection")["projection"]
+        store = self.host.database(self.session)
+        store.conn.execute("UPDATE DXLOG SET Points=99, IsMultiplier1=0, IsMultiplier2=0 WHERE ID=?", (qso,))
+        store.conn.commit()
+        repaired = self.mutate("recalculate")
+        row = self.read("log")["rows"][0]
+        self.assertEqual(row["Points"], 3)
+        self.assertEqual(repaired["projection"]["fields"], before["fields"])
+        self.assertEqual(repaired["projection"]["draftID"], before["draftID"])
+        self.assertEqual(repaired["revision"], before["revision"] + 1)
+
     def test_native_esm_batch_preserves_frozen_call_after_log_and_consumes_output_once(self):
         result = self.mutate("esm", field="other_2", fields={"callsign":"K1ABC", "sent":"579", "other_2":"5"}, frequencyHz=14025000)
         self.assertEqual(self.read("log")["total"], 1)
@@ -811,6 +825,29 @@ class HostTests(unittest.TestCase):
             self.read("export_read", exportID=prepared["artifactID"],
                       workspaceGeneration=self.workspace, offset=0, length=prepared["byteLength"])
         self.assertEqual(error.exception.code, "not_found")
+
+    def test_prepared_adif_uses_original_plugin_inside_private_destination(self):
+        self.log()
+        prepared = self.read("export_prepare", format="adif")
+        self.assertEqual(prepared["format"], "adif")
+        self.assertTrue(prepared["filename"].endswith(".adi"))
+        chunk = self.read("export_read", exportID=prepared["artifactID"],
+                          workspaceGeneration=self.workspace, offset=0, length=prepared["byteLength"])
+        payload = base64.b64decode(chunk["dataBase64"])
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), prepared["sha256"])
+        content = payload.decode("utf-8")
+        self.assertIn("Not1MM ADIF export\r\n", content)
+        self.assertIn("<CALL:5>K1ABC", content)
+        self.assertIn("<CONTEST_ID:8>CQ-WW-CW", content)
+        self.assertIn("<EOR>", content)
+        self.assertEqual(list((self.root / self.session).glob("export-*")), [])
+        self.assertTrue(self.read("export_release", exportID=prepared["artifactID"],
+                                  workspaceGeneration=self.workspace)["released"])
+
+    def test_prepared_export_rejects_unknown_format(self):
+        with self.assertRaises(HostError) as error:
+            self.read("export_prepare", format="json")
+        self.assertEqual(error.exception.code, "invalid_request")
 
     def test_prepared_export_above_inline_limit_contains_every_qso_and_end_marker(self):
         self.log()

@@ -282,16 +282,20 @@ it("renders the exact plugin log columns for both paged and partial rows",async(
   }));
 });
 
-it("routes Cabrillo export from the detached Log window to its contest owner",async()=>{
+it.each([
+  ["Export Cabrillo…","log_export_cabrillo",{}],
+  ["Export ADIF…","log_export_adif",{}],
+  ["Recalculate","log_recalculate",{expectedSessionRevision:1}],
+] as const)("routes %s from the detached Log window to its contest owner",async(button,action,params)=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
-  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,canExportAdif:true,
     page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?
     {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
   render(<DetachedContestSurface/>);
-  fireEvent.click(await screen.findByRole("button",{name:"Export Cabrillo…"}));
+  fireEvent.click(await screen.findByRole("button",{name:button}));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
-    panelID:"logbook",projectionRevision:6,action:"log_export_cabrillo",params:{},
+    panelID:"logbook",projectionRevision:6,action,params,
   }));
 });
 

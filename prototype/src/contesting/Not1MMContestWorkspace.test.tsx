@@ -10,6 +10,7 @@ import { newContestSetup } from "./ContestSetupPanel";
 const stationControl = vi.hoisted(() => ({ speed: vi.fn(async () => ({accepted:true})) }));
 vi.mock("./contestStationControl", () => ({ setContestCWSpeed: stationControl.speed }));
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
+const nativeExport = vi.hoisted(() => ({ save: vi.fn() }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any, waitForPublication: vi.fn(async () => {}) }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
 const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: vi.fn(async () => {}) }));
@@ -30,6 +31,7 @@ vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   state: { pending: false, armed: false, message: "CW disarmed", error: "" },
   profile: { macros: [{ id: 2, enabled: true, shortcut: "F2", text: "{CALL} {RST} {EXCHANGE}" }] },
 }) }));
+vi.mock("./contestExportSave", () => ({ nativeContestExportSave: nativeExport.save }));
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks(); surfaceOwner.current = null; setupDialogOwner.current = null; });
 
@@ -181,6 +183,42 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
     ["callsign", "Call", true, ""], ["sent", "SNT", true, "599"], ["receive", "RCV", true, "599"],
     ["other_1", "", false, "15"], ["other_2", "CQ Zone", true, ""],
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
+});
+
+it("routes detached ADIF export and manual recalculation through the active Python owner", async () => {
+  let current:any=projection(4), preparedFormat="", recalculation:Record<string,unknown>|null=null;
+  nativeExport.save.mockResolvedValue({status:"saved",artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    sha256:"b".repeat(64),filename:"OM0RX_CQ-WW-CW.adi"});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],offset:0,limit:20,total:0};
+    else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+    else if(method==="contest_export_prepare"){
+      preparedFormat=String(params.format);result={artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        sessionID:current.sessionID,workspaceGeneration,currentRevision:current.revision,revision:current.revision,
+        byteLength:128,sha256:"b".repeat(64),format:params.format,filename:"OM0RX_CQ-WW-CW.adi"};
+    }else if(method==="contest_recalculate"){
+      recalculation=params;current={...current,revision:current.revision+1};result={projection:current,actions:[],messages:[]};
+    }else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.canExportAdif).toBe(true));
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_export_adif",params:{}}));
+  expect(preparedFormat).toBe("adif");
+  expect(nativeExport.save).toHaveBeenCalledWith(expect.objectContaining({format:"adif"}),expect.objectContaining({requestID:envelope.requestID}));
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_recalculate",
+    params:{expectedSessionRevision:current.revision}}));
+  expect(recalculation).toMatchObject({sessionID:current.sessionID,expectedRevision:4,draftID:current.draftID});
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.sessionRevision).toBe(5));
 });
 const statisticsFor = (current: ReturnType<typeof projection>) => ({
   rows: current.score.qsos ? [{band:"20m",qsos:current.score.qsos,calls:current.score.qsos,cw:current.score.qsos,
