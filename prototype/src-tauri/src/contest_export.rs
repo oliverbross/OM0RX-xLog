@@ -65,6 +65,7 @@ trait Admission {
 trait ExportWorker {
     fn request_existing(&self, request: Value) -> Result<(u64, Value), String>;
     fn request_generation(&self, generation: u64, request: Value) -> Result<Value, String>;
+    fn release_best_effort(&self, generation: u64, request: Value);
 }
 trait SaveDialog {
     fn choose(&self, suggested: &str, format: ExportFormat) -> Result<Option<PathBuf>, String>;
@@ -123,6 +124,20 @@ impl ExportWorker for NativeWorker {
         crate::worker::require_existing_generation(generation)?;
         Ok(response)
     }
+    fn release_best_effort(&self, generation: u64, request: Value) {
+        dispatch_release(move || {
+            let _ = Self.request_generation(generation, request);
+        });
+    }
+}
+
+fn dispatch_release(release: impl FnOnce() + Send + 'static) {
+    // Cleanup cannot change a completed save's outcome. In particular, never
+    // hold the save lease or its UI receipt while waiting for the shared worker.
+    // A generation-pinned request cannot release an artifact in a replacement.
+    let _ = std::thread::Builder::new()
+        .name("contest-export-release".into())
+        .spawn(release);
 }
 
 struct NativePublisher;
@@ -364,7 +379,7 @@ fn verify_available(
 
 fn release_best_effort(worker: &dyn ExportWorker, generation: u64, prepared: &PreparedCoordinate) {
     let id = uuid::Uuid::new_v4().to_string();
-    let _ = worker.request_generation(
+    worker.release_best_effort(
         generation,
         json!({"id": id, "method": "contest_export_release", "params": {
             "exportID": prepared.artifact_id, "sessionID": prepared.session_id,
@@ -792,6 +807,9 @@ mod tests {
         }
     }
     impl ExportWorker for TestWorker {
+        fn release_best_effort(&self, generation: u64, request: Value) {
+            let _ = self.request_generation(generation, request);
+        }
         fn request_existing(&self, request: Value) -> Result<(u64, Value), String> {
             Ok((self.generation, self.response(&request)?))
         }
@@ -1122,6 +1140,67 @@ mod tests {
                 .count(),
             0
         );
+    }
+
+    #[test]
+    fn published_save_completes_while_worker_release_is_blocked() {
+        #[derive(Clone)]
+        struct BlockedReleaseWorker {
+            inner: Arc<TestWorker>,
+            started: std::sync::mpsc::Sender<()>,
+            resume: Arc<Mutex<std::sync::mpsc::Receiver<()>>>,
+        }
+        impl ExportWorker for BlockedReleaseWorker {
+            fn request_existing(&self, request: Value) -> Result<(u64, Value), String> {
+                self.inner.request_existing(request)
+            }
+            fn request_generation(&self, generation: u64, request: Value) -> Result<Value, String> {
+                if request["method"] == "contest_export_release" {
+                    self.started.send(()).unwrap();
+                    self.resume.lock().unwrap().recv().unwrap();
+                }
+                self.inner.request_generation(generation, request)
+            }
+            fn release_best_effort(&self, generation: u64, request: Value) {
+                let worker = self.clone();
+                dispatch_release(move || {
+                    let _ = worker.request_generation(generation, request);
+                });
+            }
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("saved.log");
+        let path = destination.clone();
+        let (started, release_started) = std::sync::mpsc::channel();
+        let (resume, release_resume) = std::sync::mpsc::channel();
+        let worker = BlockedReleaseWorker {
+            inner: Arc::new(TestWorker::new(bytes())),
+            started,
+            resume: Arc::new(Mutex::new(release_resume)),
+        };
+        let (complete, completed) = std::sync::mpsc::channel();
+        let save = std::thread::spawn(move || {
+            let result = save_with(
+                &TestAdmission::passing(),
+                &worker,
+                &TestDialog {
+                    selected: Some(path),
+                    calls: Arc::new(Mutex::new(0)),
+                },
+                &NativePublisher,
+                worker.inner.coordinate.clone(),
+            );
+            complete.send(result).unwrap();
+        });
+        let started = release_started.recv_timeout(std::time::Duration::from_secs(2));
+        let result = completed.recv_timeout(std::time::Duration::from_secs(1));
+        // Always unblock cleanup before asserting so a regression leaves no
+        // stranded worker thread in the test process.
+        resume.send(()).unwrap();
+        save.join().unwrap();
+        started.unwrap();
+        assert_eq!(result.unwrap().unwrap().status, SaveStatus::Saved);
+        assert_eq!(std::fs::read(destination).unwrap(), bytes());
     }
 
     #[test]
