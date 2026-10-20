@@ -181,6 +181,13 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     '\n        f"(SELECT rowid FROM dxlog WHERE ID = \'{self.contact.get(\"ID\", \"\")}\'))) "',
                 ),
             ])
+        if plugin_id in {"ea_majestad_cw", "ea_majestad_ssb"}:
+            # This GUI-only keyword controls Not1MM radio output. xLog owns
+            # output admission, while the original function-key choice stays.
+            replacements.append((
+                "self.process_function_key(button, rttysendrx=False)",
+                "self.process_function_key(button)",
+            ))
         if plugin_id in {"cq_160_cw", "cq_160_ssb"}:
             # Preserve the original /MM non-multiplier rule during ordered
             # replay and make its timestamp-only multiplier queries stable for

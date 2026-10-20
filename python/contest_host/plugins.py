@@ -79,6 +79,10 @@ PLUGIN_REGISTRY = MappingProxyType({
                        sent_exchange_hint="State/Province, serial or ITU region"),
     "arrl_160m": Plugin("ARRL 160-Meter", bands=("160m",),
                         sent_exchange_hint="ARRL/RAC section or DX CQ zone"),
+    "ea_majestad_cw": Plugin("His Maj. King of Spain Contest, CW", conditional_serial=True,
+                             sent_exchange_hint="Province or #"),
+    "ea_majestad_ssb": Plugin("His Maj. King of Spain Contest, SSB", conditional_serial=True,
+                              modes=("SSB",), sent_exchange_hint="Province or #"),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -97,7 +101,8 @@ ARRL_DX_PLUGINS = frozenset({"arrl_dx_cw", "arrl_dx_ssb"})
 JIDX_PLUGINS = frozenset({"jidx_cw", "jidx_ph"})
 AADX_PLUGINS = frozenset({"aadx_cw", "aadx_ssb"})
 CQ_160_PLUGINS = frozenset({"cq_160_cw", "cq_160_ssb"})
+EA_MAJESTAD_PLUGINS = frozenset({"ea_majestad_cw", "ea_majestad_ssb"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
     "euhfc", "arrl_10m", "arrl_160m",
-}) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS
+}) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS

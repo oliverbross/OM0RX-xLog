@@ -17,7 +17,7 @@ from .rates import calculate_rates
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
-                      DISPLAY_SENTNR_PLUGINS,
+                      DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
@@ -30,7 +30,7 @@ SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
-VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb"}
+VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb"}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m"}
 VOICE_PAYLOAD_MAXIMUM = 4_096
 ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmAGN",
@@ -941,6 +941,9 @@ class Host:
                 if state["pluginID"] == "arrl_160m":
                     require(re.fullmatch(r"[A-Za-z0-9]{1,6}", zone) is not None,
                             "ARRL 160 sent exchange must be an ARRL/RAC section or CQ zone")
+                if state["pluginID"] in EA_MAJESTAD_PLUGINS:
+                    require(re.fullmatch(r"#|[A-Za-z]{1,4}", zone) is not None,
+                            "King of Spain sent exchange must be # or a province")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
@@ -964,7 +967,8 @@ class Host:
                 if (state["pluginID"] in CQ_WW_PLUGINS and state["pluginID"] != "cq_ww_rtty"
                         or state["pluginID"] in AADX_PLUGINS
                         or state["pluginID"] in DISPLAY_SENTNR_PLUGINS
-                        or state["pluginID"] == "arrl_10m"):
+                        or state["pluginID"] == "arrl_10m"
+                        or state["pluginID"] in EA_MAJESTAD_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1190,6 +1194,9 @@ class Host:
         if plugin_id == "arrl_160m":
             require(re.fullmatch(r"[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
                     "ARRL 160 sent exchange must be an ARRL/RAC section or CQ zone")
+        if plugin_id in EA_MAJESTAD_PLUGINS:
+            require(re.fullmatch(r"#|[A-Za-z]{1,4}", str(settings["SentExchange"])) is not None,
+                    "King of Spain sent exchange must be # or a province")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1215,7 +1222,8 @@ class Host:
                     or plugin_id in AADX_PLUGINS
                      or plugin_id in TEN_TEN_PLUGINS
                      or plugin_id in DISPLAY_SENTNR_PLUGINS
-                     or plugin_id == "arrl_10m" else "", "")))}}
+                     or plugin_id == "arrl_10m"
+                     or plugin_id in EA_MAJESTAD_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if not requires_serial(state):
@@ -1390,6 +1398,19 @@ class Host:
                     "Resolve the contact country before logging ARRL 160")
             require(re.fullmatch(r"[A-Za-z0-9]{1,6}", fields["other_2"]) is not None,
                     "ARRL 160 received exchange must be an ARRL/RAC section or CQ zone")
+        elif desk.state["pluginID"] in EA_MAJESTAD_PLUGINS:
+            require(re.fullmatch(r"[A-Za-z]{1,4}|[0-9]+", fields["other_2"]) is not None,
+                    "King of Spain received exchange must be a province or positive serial")
+            if fields["other_2"].isdigit():
+                require(0 < int(fields["other_2"]) <= 9223372036854775807,
+                        "King of Spain received serial must be a positive SQLite integer")
+            if requires_serial(desk.state):
+                require(fields["other_1"].isdigit()
+                        and 0 < int(fields["other_1"]) <= 9223372036854775807,
+                        "King of Spain sent serial must be a positive SQLite integer")
+            else:
+                require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
+                        "King of Spain sent province must match contest setup")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1457,9 +1478,11 @@ class Host:
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
             correction_fields = params.get("fields", {})
-            if desk.state["pluginID"] == "arrl_10m":
-                require(re.fullmatch(r"[A-Za-z0-9]{1,6}", updated["other_1"]) is not None,
-                        "ARRL 10M historical sent exchange must be a serial, state, province or ITU region")
+            if desk.state["pluginID"] == "arrl_10m" or desk.state["pluginID"] in EA_MAJESTAD_PLUGINS:
+                pattern = (r"[A-Za-z0-9]{1,6}" if desk.state["pluginID"] == "arrl_10m"
+                           else r"[A-Za-z]{1,4}|[0-9]+")
+                require(re.fullmatch(pattern, updated["other_1"]) is not None,
+                        "Historical sent exchange must be a serial or location code")
                 original = desk.state["settings"]["SentExchange"]
                 desk.state["settings"]["SentExchange"] = updated["other_1"]
                 try:
@@ -1485,11 +1508,15 @@ class Host:
                                  "cwt", "k1usn_sst", *TEN_TEN_PLUGINS, *NAME_SPC_ENTRY_PLUGINS,
                                  *ARRL_DX_PLUGINS, *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS, "arrl_160m"
                              }
-                             or desk.state["pluginID"] == "arrl_10m" and "other_1" not in correction_fields)
+                             or desk.state["pluginID"] in {"arrl_10m", *EA_MAJESTAD_PLUGINS}
+                             and "other_1" not in correction_fields)
             if preserve_sent:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]
+            elif desk.state["pluginID"] in EA_MAJESTAD_PLUGINS:
+                after["SentNr"] = (int(updated["other_1"]) if updated["other_1"].isdigit()
+                                   else updated["other_1"].upper())
             else:
                 # The first four supported plugins expose an operator-correctable
                 # numeric sent exchange in other_1; name/SPC plugins do not.
