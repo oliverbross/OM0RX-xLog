@@ -178,6 +178,23 @@ class CQWWRTTYHostTests(unittest.TestCase):
         self.assertEqual(lines[0][1:3], ["7080", "RY"])
         self.assertEqual(lines[0][5:], ["OM0RX", "599", "15", "DX", "K1ABC", "599", "05", "CT"])
 
+    def test_received_correction_preserves_historical_sent_exchange_after_setup_change(self):
+        qso = self.log("K1ABC", "5", "CT", 0)
+        setup = self.read("setup_get")["setup"]
+        setup["settings"]["SentExchange"] = "14 MA"
+        self.mutate("setup_save", setup=setup)
+
+        self.mutate("qso_correct", qsoID=qso, fields={"other_1": "4", "other_2": "MA"},
+                    reason="Correct received exchange")
+        row = self.read("log")["rows"][0]
+        self.assertEqual((row["SentNr"], row["ZN"], row["Exchange1"]), ("15 DX", 4, "MA"))
+
+        self.host.close()
+        self.host = Host(self.root)
+        export = self.read("export")["content"]
+        line = next(line.split() for line in export.splitlines() if line.startswith("QSO:"))
+        self.assertEqual(line[5:], ["OM0RX", "599", "15", "DX", "K1ABC", "599", "04", "MA"])
+
 
 if __name__ == "__main__":
     unittest.main()

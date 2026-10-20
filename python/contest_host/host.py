@@ -31,6 +31,7 @@ INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb"}
+MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m"}
 VOICE_PAYLOAD_MAXIMUM = 4_096
 ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmAGN",
              "HISCALL": "esmHisCall", "MYCALL": "esmMyCall", "QSOB4": "esmQsoB4"}
@@ -120,6 +121,15 @@ def validate_cq_ww_rtty_sent_exchange(sent_exchange):
 
 def now():
     return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def operating_mode(state):
+    """Return the live QSO mode without conflating it with Cabrillo category."""
+    return state.get("operatingMode", state["settings"]["ModeCategory"])
+
+
+def default_report(mode):
+    return "59" if mode == "SSB" else "599"
 
 
 def workspace_generation(state):
@@ -218,7 +228,7 @@ class Desk:
         self.current_widget = state["focus"]
         self.esm_call_sent = state.get("esmCallSent", "")
         self.current_sn, self.contact_is_dupe = state["draft"].get("serial", 0), 0
-        self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": state["settings"]["ModeCategory"]}
+        self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": operating_mode(state)}
         self.contact = self.database.get_empty().copy()
         if state["pluginID"] in RTTY_PLUGINS:
             self.fldigi_util = DigitalOutputSink()
@@ -254,7 +264,7 @@ class Desk:
         macro = self.cw_macros[identity]
         if not macro["template"].strip():
             return
-        mode = self.state["settings"]["ModeCategory"]
+        mode = operating_mode(self.state)
         context = {"sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                    "fields": self.values(), "stationCall": self.station["Call"],
                    "sentExchange": str(self.contest_settings["SentExchange"]),
@@ -329,7 +339,7 @@ class Desk:
             "ZN": info.get("cq", 0), "WPXPrefix": calculate_wpx_prefix(call)})
         if base is None:
             # Original phone Cabrillo converts USB/LSB to PH.
-            mode = self.state["settings"]["ModeCategory"]
+            mode = operating_mode(self.state)
             radio_mode = ("LSB" if frequency < 10000000 else "USB") if mode == "SSB" else mode
             self.contact.update({"QSXFreq": frequency / 1000, "Mode": radio_mode, "ContestNR": 1,
                 "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
@@ -430,7 +440,7 @@ class Desk:
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
-                "frequencyHz": self.state["draft"]["frequencyHz"], "mode": self.state["settings"]["ModeCategory"], "band": band,
+                "frequencyHz": self.state["draft"]["frequencyHz"], "mode": operating_mode(self.state), "band": band,
                 "operator": self.state["operator"], "cwSpeedWpm": speed,
                 "roverLocation": self.state.get("roverLocation", ""),
                 "callContext": {"callsign": call, "entity": country.get("entity"), "country": country.get("entity"),
@@ -447,8 +457,8 @@ class Desk:
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
                 "dupe": bool(call and self.is_dupe(
                     call, band, mode=("LSB" if self.state["draft"]["frequencyHz"] < 10000000 else "USB")
-                    if self.state["settings"]["ModeCategory"] == "SSB"
-                    else self.state["settings"]["ModeCategory"],
+                    if operating_mode(self.state) == "SSB"
+                    else operating_mode(self.state),
                 )),
                 "dupeExplanation": ("Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."
                                     if self.contest.dupe_type == 5 else
@@ -723,7 +733,7 @@ class Host:
                 self.remember_active_session(session_id)
             return {"projection": desk.projection()}
         if method == "cw_context":
-            require(state["settings"]["ModeCategory"] == "CW", "This contest does not support CW output", "unsupported_mode")
+            require(operating_mode(state) == "CW", "This contest does not support CW output", "unsupported_mode")
             return {"sessionID": session_id, "revision": state["revision"],
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
@@ -933,13 +943,17 @@ class Host:
                             "ARRL 160 sent exchange must be an ARRL/RAC section or CQ zone")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
-                require(setup["settings"].get("ModeCategory", mode) in modes,
+                allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
+                require(setup["settings"].get("ModeCategory", mode) in allowed_categories,
                         f"Selected plugin requires {mode} mode" if len(modes) == 1 else
                         f"Selected plugin requires a supported {mode} submode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
                 setup["settings"].setdefault("ModeCategory", mode)
                 setup["settings"].setdefault("OverlayCategory", "N/A")
+                state["operatingMode"] = operating_mode(state)
+                if setup["settings"]["ModeCategory"] != "MIXED":
+                    state["operatingMode"] = setup["settings"]["ModeCategory"]
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
                 self.reserve_serial(store, state)
@@ -961,7 +975,7 @@ class Host:
                 require(bool(location), "Enter the current rover location")
                 state["roverLocation"] = location
             elif method == "esm":
-                if "fields" in params:
+                if "fields" in params or "mode" in params:
                     self.apply_fields(desk, params)
                     self.prefill(desk)
                 field = params.get("field", state["focus"])
@@ -972,14 +986,14 @@ class Host:
                 else:
                     desk.save_contact()
             elif method == "function_key":
-                if "fields" in params:
+                if "fields" in params or "mode" in params:
                     self.apply_fields(desk, params)
                     self.prefill(desk)
                 key = params.get("key")
                 require(key in {f"F{i}" for i in range(1, 13)}, "Unknown function key")
                 desk.process_function_key(getattr(desk, key))
             elif method == "qso_commit":
-                if "fields" in params or "frequencyHz" in params or "countries" in params:
+                if "fields" in params or "frequencyHz" in params or "countries" in params or "mode" in params:
                     self.apply_fields(desk, params)
                 self.commit(desk, params.get("qsoID"), params.get("timestamp"))
             elif method in {"qso_correct", "qso_delete"}:
@@ -1098,6 +1112,8 @@ class Host:
                 and isinstance(state["station"].get("Call"), str)
                 and "SentExchange" in state["settings"],
                 "Incomplete persisted session state", "invalid_session")
+        require(operating_mode(state) in PLUGIN_REGISTRY[state["pluginID"]].modes,
+                "Invalid persisted operating mode", "invalid_session")
         rover_location = state.get("roverLocation", "")
         require(isinstance(rover_location, str) and len(rover_location.encode("utf-8")) <= 10,
                 "Invalid persisted rover location", "invalid_session")
@@ -1177,15 +1193,19 @@ class Host:
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
-        require(settings["ModeCategory"] in modes,
+        allowed_categories = {*modes, "MIXED"} if plugin_id in MIXED_MODE_PLUGINS else set(modes)
+        require(settings["ModeCategory"] in allowed_categories,
                 f"Selected plugin requires {mode} mode" if len(modes) == 1 else
                 f"Selected plugin requires a supported {mode} submode")
         settings.setdefault("OverlayCategory", "N/A")
-        report = "59" if settings["ModeCategory"] == "SSB" else "599"
+        live_mode = params.get("mode", mode) if settings["ModeCategory"] == "MIXED" else settings["ModeCategory"]
+        require(live_mode in modes, f"Selected plugin requires a supported {mode} submode")
+        report = default_report(live_mode)
         return {"sessionID": session_id, "workspaceGeneration": workspace,
                 "name": text(params.get("name", PLUGINS[plugin_id]), 128),
                 "revision": 0, "engine": "not1mm-python", "pluginID": plugin_id,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
+                "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
@@ -1230,6 +1250,19 @@ class Host:
 
     def apply_fields(self, desk, params, allow_reserved_serial_change=False):
         require(params.get("draftID", desk.state["draft"]["id"]) == desk.state["draft"]["id"], "Draft changed", "stale_draft")
+        if "mode" in params:
+            mode = params["mode"]
+            modes = PLUGIN_REGISTRY[desk.state["pluginID"]].modes
+            require(mode in modes, f"Selected plugin requires a supported {modes[0]} submode")
+            previous_report = default_report(operating_mode(desk.state))
+            next_report = default_report(mode)
+            explicit_fields = params.get("fields", {})
+            for name in ("sent", "receive"):
+                field = getattr(desk, name)
+                if name not in explicit_fields and field.text() == previous_report:
+                    field.setText(next_report)
+            desk.state["operatingMode"] = mode
+            desk.radio_state["mode"] = mode
         if "countries" in params:
             require(params.get("referenceID") == desk.state["reference"]["id"],
                     "The contest CTY reference differs from this session; migrate it explicitly before resolving new calls",
@@ -1262,7 +1295,8 @@ class Host:
     @staticmethod
     def prefill(desk):
         country = desk.cty_lookup(desk.callsign.text())
-        desk.contact["ZN"] = next(iter(country.values()))["cq"] if country else ""
+        zone_kind = "itu" if desk.state["pluginID"] == "iaru_hf" else "cq"
+        desk.contact["ZN"] = next(iter(country.values()))[zone_kind] if country else ""
         if desk.state["pluginID"] == "trans_tasman":
             desk.contact["Band"] = desk.contest_band(desk.state["draft"]["frequencyHz"])
         desk.contest.prefill(desk)
@@ -1388,7 +1422,7 @@ class Host:
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
         desk.state["draft"]["id"] = str(uuid.uuid4())
-        report = "59" if desk.state["settings"].get("ModeCategory") == "SSB" else "599"
+        report = default_report(operating_mode(desk.state))
         desk.callsign.setText("")
         desk.sent.setText(report)
         desk.receive.setText(report)
@@ -1422,7 +1456,18 @@ class Host:
             self.apply_fields(desk, changes, allow_reserved_serial_change=True)
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
-            self.validate_exchange(desk, updated)
+            correction_fields = params.get("fields", {})
+            if desk.state["pluginID"] == "arrl_10m":
+                require(re.fullmatch(r"[A-Za-z0-9]{1,6}", updated["other_1"]) is not None,
+                        "ARRL 10M historical sent exchange must be a serial, state, province or ITU region")
+                original = desk.state["settings"]["SentExchange"]
+                desk.state["settings"]["SentExchange"] = updated["other_1"]
+                try:
+                    self.validate_exchange(desk, updated)
+                finally:
+                    desk.state["settings"]["SentExchange"] = original
+            else:
+                self.validate_exchange(desk, updated)
             timestamp = params.get("timestamp", before["TS"])
             try:
                 require(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == timestamp,
@@ -1435,10 +1480,13 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
-            if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS,
-                                           *NAME_SPC_ENTRY_PLUGINS, *ARRL_DX_PLUGINS,
-                                           *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS,
-                                           "arrl_10m", "arrl_160m"}:
+            preserve_sent = (desk.state["pluginID"] == "cq_ww_rtty"
+                             or desk.state["pluginID"] != "arrl_10m" and desk.state["pluginID"] in {
+                                 "cwt", "k1usn_sst", *TEN_TEN_PLUGINS, *NAME_SPC_ENTRY_PLUGINS,
+                                 *ARRL_DX_PLUGINS, *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS, "arrl_160m"
+                             }
+                             or desk.state["pluginID"] == "arrl_10m" and "other_1" not in correction_fields)
+            if preserve_sent:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]

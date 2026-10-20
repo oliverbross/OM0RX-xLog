@@ -45,7 +45,7 @@ class ChampionshipHostCase(unittest.TestCase):
             "frequencyHz": 14025000,
             "settings": {
                 "SentExchange": self.sent_exchange,
-                "ModeCategory": "CW",
+                "ModeCategory": "MIXED",
                 "OperatorCategory": "SINGLE-OP",
                 "BandCategory": "ALL",
                 "PowerCategory": "LOW",
@@ -91,9 +91,7 @@ class ChampionshipHostCase(unittest.TestCase):
         self.assertEqual(load_plugin(self.plugin_id).__file__, str(source))
 
     def switch_to_ssb(self):
-        setup = self.read("setup_get")["setup"]
-        setup["settings"]["ModeCategory"] = "SSB"
-        return self.mutate("setup_save", setup=setup)
+        return self.mutate("draft_apply", mode="SSB")
 
 
 class EUHFCHostTests(ChampionshipHostCase):
@@ -122,6 +120,10 @@ class EUHFCHostTests(ChampionshipHostCase):
         })
 
         self.switch_to_ssb()
+        switched = self.read("projection")["projection"]
+        switched_fields = {field["id"]: field["value"] for field in switched["fields"]}
+        self.assertEqual((switched["mode"], switched_fields["sent"], switched_fields["receive"]),
+                         ("SSB", "59", "59"))
         self.log("DL1ABC", "17", 3)
         self.assertEqual(self.read("score")["score"]["total"], 6)
         duplicate_view = self.mutate("draft_apply", fields={"callsign": "DL1ABC", "other_2": "17"})
@@ -133,9 +135,14 @@ class EUHFCHostTests(ChampionshipHostCase):
 
         self.host.close()
         self.host = Host(self.root)
+        self.assertEqual(self.read("projection")["projection"]["mode"], "SSB")
         export = self.read("export")["content"]
         self.assertIn("CONTEST: EUHFC\r\n", export)
-        self.assertEqual(len([line for line in export.splitlines() if line.startswith("QSO:")]), 4)
+        self.assertIn("CATEGORY-MODE: MIXED\r\n", export)
+        qso_lines = [line for line in export.splitlines() if line.startswith("QSO:")]
+        self.assertEqual(len(qso_lines), 4)
+        self.assertTrue(any(" PH " in line for line in qso_lines))
+        self.assertTrue(any(" CW " in line for line in qso_lines))
 
     def test_two_digit_exchange_validation_and_original_esm(self):
         for exchange in ("", "7", "123", "DX"):
@@ -163,6 +170,14 @@ class IARUHFHostTests(ChampionshipHostCase):
             ("IARU HF", ["CW", "SSB"], "28", "ITU Zone"),
         )
 
+        prefilled = self.mutate("draft_apply", fields={"callsign": "K1ABC"})["projection"]
+        prefilled_fields = {field["id"]: field["value"] for field in prefilled["fields"]}
+        self.assertEqual(prefilled_fields["other_2"], "8")
+        manual = self.mutate("draft_apply", fields={"other_2": "DARC"})["projection"]
+        manual_fields = {field["id"]: field["value"] for field in manual["fields"]}
+        self.assertEqual(manual_fields["other_2"], "DARC")
+        self.mutate("draft_apply", fields={"callsign": "", "other_2": ""})
+
         first = self.log("DL1ABC", "28", 0)
         self.log("K1ABC", "8", 1)
         self.log("DA0HQ", "DARC", 2)
@@ -178,6 +193,7 @@ class IARUHFHostTests(ChampionshipHostCase):
         self.host = Host(self.root)
         export = self.read("export")["content"]
         self.assertIn("CONTEST: IARU-HF\r\n", export)
+        self.assertIn("CATEGORY-MODE: MIXED\r\n", export)
         self.assertIn("CLAIMED-SCORE:", export)
         self.assertEqual(len([line for line in export.splitlines() if line.startswith("QSO:")]), 3)
 

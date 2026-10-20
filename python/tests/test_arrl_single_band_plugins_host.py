@@ -44,7 +44,7 @@ class ARRLHostCase(unittest.TestCase):
             "frequencyHz": self.frequency,
             "settings": {
                 "SentExchange": self.sent_exchange,
-                "ModeCategory": "CW",
+                "ModeCategory": "MIXED" if self.plugin_id == "arrl_10m" else "CW",
                 "OperatorCategory": "SINGLE-OP",
                 "BandCategory": "ALL",
                 "PowerCategory": "LOW",
@@ -127,29 +127,42 @@ class ARRL10MHostTests(ARRLHostCase):
     def test_mixed_mode_scoring_correction_delete_restart_and_cabrillo(self):
         first = self.log("DL1ABC", "001", 0)
         second = self.log("K1ABC", "CT", 1)
-        setup = self.read("setup_get")["setup"]
-        setup["settings"]["ModeCategory"] = "SSB"
-        self.mutate("setup_save", setup=setup)
+        switched = self.mutate("draft_apply", mode="SSB")["projection"]
+        switched_fields = {field["id"]: field["value"] for field in switched["fields"]}
+        self.assertEqual((switched["mode"], switched_fields["sent"], switched_fields["receive"]),
+                         ("SSB", "59", "59"))
         third = self.log("DL1ABC", "002", 2)
         self.assertEqual(self.read("score")["score"], {
             "qsos": 3, "points": 10, "countries": 0, "zones": 0,
             "multipliers": 3, "total": 30,
         })
 
+        setup = self.read("setup_get")["setup"]
+        setup["settings"]["SentExchange"] = "CT"
+        self.mutate("setup_save", setup=setup)
         self.mutate("qso_correct", qsoID=second, fields={"other_2": "002"},
                     reason="Correct received serial")
         corrected = next(row for row in self.read("log")["rows"] if row["ID"] == second)
-        self.assertEqual(corrected["NR"], 2)
+        self.assertEqual((corrected["SentNr"], corrected["NR"]), (2, 2))
+        self.mutate("qso_correct", qsoID=first, fields={"other_1": "007"},
+                    reason="Correct historical sent serial")
+        corrected_sent = next(row for row in self.read("log")["rows"] if row["ID"] == first)
+        self.assertEqual(corrected_sent["SentNr"], 7)
         self.mutate("qso_delete", qsoID=first, reason="Remove first CW contact")
         self.assertEqual(self.read("score")["score"]["total"], 12)
 
         self.host.close()
         self.host = Host(self.root)
+        self.assertEqual(self.read("projection")["projection"]["mode"], "SSB")
         self.assertEqual(self.read("score")["score"]["total"], 12)
         export = self.read("export")["content"]
         self.assertIn("CONTEST: ARRL-10\r\n", export)
+        self.assertIn("CATEGORY-MODE: MIXED\r\n", export)
         self.assertIn("CLAIMED-SCORE: 12\r\n", export)
-        self.assertEqual(len([line for line in export.splitlines() if line.startswith("QSO:")]), 2)
+        qso_lines = [line for line in export.splitlines() if line.startswith("QSO:")]
+        self.assertEqual(len(qso_lines), 2)
+        self.assertTrue(any(" PH " in line for line in qso_lines))
+        self.assertTrue(any(" CW " in line for line in qso_lines))
 
 
 class ARRL160MHostTests(ARRLHostCase):
