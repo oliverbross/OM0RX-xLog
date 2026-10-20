@@ -555,7 +555,11 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             draft(params, &["value"])?;
             text_value(&params["value"], 16, false, "entry selection")?;
         }
-        "entry_reserve_serial" | "entry_commit" => draft(params, &[])?,
+        "entry_reserve_serial" | "entry_commit" | "entry_clear" => draft(params, &[])?,
+        "entry_step_spot" => {
+            draft(params, &["direction"])?;
+            enum_value(&params["direction"], &["previous", "next"], "spot direction")?;
+        }
         "entry_focus" => {
             draft(params, &["fieldID"])?;
             enum_value(
@@ -593,6 +597,11 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                 &["run", "search-and-pounce"],
                 "operator style",
             )?;
+        }
+        "entry_set_cw_speed" => {
+            draft(params, &["value"])?;
+            let speed = uint_value(&params["value"], 100, "CW speed")?;
+            if speed < 5 { return Err("CW speed must be between 5 and 100 WPM.".into()); }
         }
         "assistance_query" => {
             draft(params, &["inputCallsign"])?;
@@ -933,6 +942,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     let reports_visible = required.remove("reportsVisible");
     let allow_duplicate_commit = required.remove("allowDuplicateCommit");
     let automatic_serial = required.remove("automaticSerial");
+    let key_bindings = required.remove("keyBindings");
     exact(
         &required,
         &["bands", "modes", "sentFields", "serial"],
@@ -955,6 +965,27 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
         Some(&["CW", "SSB", "RTTY", "AM", "FM"]),
         "entry modes",
     )?;
+    let empty_bindings = Vec::new();
+    let key_bindings = match key_bindings.as_ref() {
+        Some(value) => array(value, 32, "entry key bindings")?,
+        None => &empty_bindings,
+    };
+    let mut bindings = BTreeSet::new();
+    for binding in key_bindings {
+        let binding = object(binding, "entry key binding")?;
+        exact(binding, &["context", "key", "action"], "entry key binding")?;
+        let context = enum_value(&binding["context"], &["*", "Callsign", "Report", "Exchange", "Other 1", "Other 2"],
+            "entry key context")?;
+        let key = text_value(&binding["key"], 64, false, "entry key")?;
+        if !key.is_ascii() || key.chars().any(char::is_whitespace) {
+            return Err("The entry key binding is not canonical.".into());
+        }
+        enum_value(&binding["action"], &["TOGGLE_RUN", "LOG_NOW", "CLEAR_INPUTS", "PREV_SPOT", "NEXT_SPOT"],
+            "entry key action")?;
+        if !bindings.insert(format!("{context}:{key}")) {
+            return Err("The entry key bindings are not unique.".into());
+        }
+    }
     let mut field_ids = BTreeSet::new();
     for field in array(&descriptor["sentFields"], 16, "sent exchange fields")? {
         let field = object(field, "sent exchange field")?;
@@ -2210,6 +2241,22 @@ mod tests {
 
     #[test]
     fn entry_operator_actions_are_typed_and_revision_fenced() {
+        assert!(validate_action_envelope(&action("entry_clear", "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2}))).is_ok());
+        for direction in ["previous", "next"] {
+            assert!(validate_action_envelope(&action("entry_step_spot", "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"direction":direction}))).is_ok());
+        }
+        assert!(validate_action_envelope(&action("entry_step_spot", "active-qso",
+            json!({"draftID":"draft","expectedDraftRevision":2,"direction":"up"}))).is_err());
+        for speed in [json!(5), json!(26), json!(100)] {
+            assert!(validate_action_envelope(&action("entry_set_cw_speed", "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":speed}))).is_ok());
+        }
+        for speed in [json!(4), json!(101), json!(26.5), json!("26"), Value::Null] {
+            assert!(validate_action_envelope(&action("entry_set_cw_speed", "active-qso",
+                json!({"draftID":"draft","expectedDraftRevision":2,"value":speed}))).is_err());
+        }
         assert!(validate_action_envelope(&action(
             "entry_operator_arm",
             "active-qso",
@@ -2493,6 +2540,16 @@ mod tests {
         let mut unknown_metadata = entry.clone();
         unknown_metadata["descriptor"]["unknown"] = json!(false);
         assert!(validate_projection("active-qso", &unknown_metadata).is_err());
+
+        let mut duplicate_binding = entry.clone();
+        duplicate_binding["descriptor"]["keyBindings"] = json!([
+            {"context":"*","key":"Ctrl+R","action":"TOGGLE_RUN"},
+            {"context":"*","key":"Ctrl+R","action":"LOG_NOW"}
+        ]);
+        assert!(validate_projection("active-qso", &duplicate_binding).is_err());
+        let mut unsupported_binding = entry.clone();
+        unsupported_binding["descriptor"]["keyBindings"][0]["action"] = json!("SHELL");
+        assert!(validate_projection("active-qso", &unsupported_binding).is_err());
 
         let mut serial_entry = entry.clone();
         serial_entry["descriptor"]["allowDuplicateCommit"] = json!(true);
@@ -3106,6 +3163,7 @@ mod tests {
                 "band":"20m","mode":"CW","dupe":{"state":"clear","reason":"Not worked on 20m."},
                 "validation":{"errors":[],"warnings":[]},"reservedSerial":null},
             "descriptor":{"bands":["20m"],"modes":["CW"],"reportsVisible":false,
+                "keyBindings":[{"context":"*","key":"Ctrl+R","action":"TOGGLE_RUN"}],
                 "sentFields":[{"id":"zone","label":"CQ zone","value":"15","required":true,"maximumUTF8Bytes":2}],
                 "serial":{"requirement":"none","allocatedFieldID":null,"reservedSerial":null}},
             "operator":{"output":"simulation-only","armed":true,"style":"run","status":"armed","pending":null,

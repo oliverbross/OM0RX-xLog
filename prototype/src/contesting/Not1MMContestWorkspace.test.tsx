@@ -6,6 +6,8 @@ import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { newContestSetup } from "./ContestSetupPanel";
+const stationControl = vi.hoisted(() => ({ speed: vi.fn(async () => ({accepted:true})) }));
+vi.mock("./contestStationControl", () => ({ setContestCWSpeed: stationControl.speed }));
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
@@ -281,6 +283,50 @@ it.each(["wrong session", "stale revision"])("rejects an initial Rates snapshot 
   expect(surfaceOwner.current.projections.monitor).toEqual({schemaVersion:1,status:"unavailable"});
 });
 
+it("projects CWT Name as received input and admits edits through the detached owner", async () => {
+  let current:any={...projection(3,{other_1:"ALICE",other_2:"1234"}),pluginID:"cwt",pluginName:"CWT",matrixTrackers:[],
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Name","SPC","PTS"]};
+  current.fields=current.fields.map((field:any)=>({...field,visible:!["sent","receive"].includes(field.id),
+    readOnly:false,label:field.id==="other_1"?"Name":field.id==="other_2"?"Member No./SPC":field.label}));
+  current.tabNext={callsign:"other_1",other_1:"other_2",other_2:"callsign"};
+  current.tabPrevious={callsign:"other_2",other_1:"callsign",other_2:"other_1"};
+  let applied:Record<string,unknown>|null=null;
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cwt",name:"CWT"}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],total:0};
+    else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+    else if(method==="contest_draft_apply"){
+      applied=params;current={...current,revision:current.revision+1,fields:current.fields.map((field:any)=>
+        ({...field,value:(params.fields as Record<string,string>)[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:"cwt"}});
+  fireEvent.change(screen.getByLabelText("Sent Exchange"),{target:{value:"OLIVER"}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  let entry:any=surfaceOwner.current.projections["active-qso"];
+  expect(entry.descriptor.sentFields).toEqual([{id:"sent-exchange",label:"Sent exchange",value:"OLIVER",required:true,maximumUTF8Bytes:64}]);
+  expect(entry.draft.receivedFields).toEqual([
+    {id:"other_1",label:"Name",value:"ALICE",required:true,maximumUTF8Bytes:32},
+    {id:"other_2",label:"Member No./SPC",value:"1234",required:true,maximumUTF8Bytes:128},
+  ]);
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_exchange",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_1",value:"bob"}}));
+  expect(applied).toMatchObject({fields:{other_1:"BOB",other_2:"1234"}});
+  entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.draft.receivedFields[0].value).toBe("BOB");
+});
+
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3, matrixTrackers:[],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name","RcvNr","PTS"],
@@ -518,6 +564,35 @@ it("applies a contest-window spot only to the active Not1MM draft and tunes exac
   expect(tune).toHaveBeenCalledExactlyOnceWith(14_025_000,"CW");
   expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(1);
   expect(request.mock.calls.some(([method])=>method==="activate_spot")).toBe(false);
+});
+
+it.each(["band-maps","dx-cluster"])("returns tune and draft failures to the originating detached %s action",async panelID=>{
+  let current=projection(), failure:"tune"|"draft"|"uncertain"="tune";
+  const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"};
+  const tune=vi.fn(async()=>{if(failure==="tune")throw new Error("Radio tune was not confirmed");return {accepted:true,confirmed:true};});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    if(method==="contest_draft_apply")return{id:crypto.randomUUID(),ok:false,error:{code:"contest_revision",message:"Draft changed after tune",
+      outcome:failure==="uncertain"?"uncertain":"confirmed"}};
+    const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const selected=vi.fn();
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune} spots={[spot]} onSelectedSpot={selected}/>);
+  await createContestThroughSetup();
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID,
+    projectionRevision:1,requestID:crypto.randomUUID(),action:"spot_select",params:{draftID:current.draftID,expectedDraftRevision:current.revision,spotID:"spot-1"}};
+  await act(async()=>{await expect(surfaceOwner.current.handle(envelope)).rejects.toThrow("Radio tune was not confirmed");});
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(0);
+  failure="draft";
+  await act(async()=>{await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID()})).rejects.toThrow("Draft changed after tune");});
+  failure="uncertain";
+  await act(async()=>{await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID()})).rejects.toBeInstanceOf(ContestMutationUncertain);});
+  expect(tune).toHaveBeenCalledTimes(3);
+  expect(selected).not.toHaveBeenCalled();
 });
 
 it.each(["", "10.1", "invalid"])("admits an offline contest only after the operator enters a valid manual frequency (initial %j)", async initial => {
@@ -840,7 +915,7 @@ it("applies detached Entry mutations and commit through the Python session owner
   await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,
     workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_cw_speed",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:26}}));
-  expect(request).toHaveBeenCalledWith("station_radio_control",{control:"set_cw_speed",words_per_minute:26});
+  expect(stationControl.speed).toHaveBeenCalledExactlyOnceWith(26);
   expect(surfaceOwner.current.projections["active-qso"].manual.cwSpeedWpm).toBe(26);
   entry = surfaceOwner.current.projections["active-qso"];
   await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,

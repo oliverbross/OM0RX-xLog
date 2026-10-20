@@ -5,6 +5,7 @@ import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceActi
   type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
   type ContestStatisticsSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
+import { contestKeyChord, resolveContestKeyBinding, type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
 import BandMaps from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import "./DetachedContestSurface.css";
@@ -244,10 +245,30 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
       await send({action:"entry_operator_key",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,
         key:key as any,focusedField}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
+  const bindingContext=(field:ContestInputFieldID|null):ContestKeyBindingContext=>field==="callsign"?"Callsign":field==="sent"||field==="receive"?"Report":
+    field==="other_1"?"Other 1":field==="other_2"?"Other 2":"*";
+  const runBoundAction=(action:ContestKeyBindingAction)=>{const intended=intents.capture();
+    void (async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
+      const current=await refresh(),currentProjection=current?.projection as any;
+      if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
+      if(!intents.matches(currentProjection.draft,intended)||current.projectionRevision!==Math.max(projectionRevision,
+          flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0)){
+        reportConflict("The shared contest entry changed before this key action. Review it and press the key again.");return;}
+      const params={draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision};
+      if(action==="TOGGLE_RUN")await send({action:"entry_operator_style",params:{...params,
+        value:currentProjection.operator?.style==="run"?"search-and-pounce":"run"}},current.projectionRevision);
+      else if(action==="LOG_NOW")await send({action:"entry_commit",params},current.projectionRevision);
+      else if(action==="CLEAR_INPUTS")await send({action:"entry_clear",params},current.projectionRevision);
+      else await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
+    })();};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
-    if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing||event.altKey||event.ctrlKey||event.metaKey)return;
+    if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing)return;
     const dataField=target?.dataset.contestFieldId,focusedField=contestInputFieldIDs.includes(dataField as ContestInputFieldID)
       ? dataField as ContestInputFieldID : operator?.focusedField??null;
+    const chord=contestKeyChord(event),bound=projection.descriptor?.keyBindings&&chord
+      ? resolveContestKeyBinding(projection.descriptor.keyBindings,bindingContext(focusedField),chord) : null;
+    if(bound){event.preventDefault();event.stopPropagation();runBoundAction(bound);return;}
+    if(event.altKey||event.ctrlKey||event.metaKey)return;
     if(event.key==="Tab"&&focusedField){const next=nextFocusable(focusedField,event.shiftKey?"tabPrevious":"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     if(!event.shiftKey&&event.key===" "&&focusedField==="callsign"){const next=nextFocusable(focusedField,"tabNext");

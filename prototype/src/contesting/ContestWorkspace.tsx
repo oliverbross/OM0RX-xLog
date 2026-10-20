@@ -12,6 +12,7 @@ import { historyProjectedFields, type HistoryImport, type HistorySelection } fro
 import { isStructuredEntry } from "./types";
 import { contestSurfacePanelIDs, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection } from "./contestSurfaceProtocol";
+import { defaultContestKeyBindings } from "./contestKeyBindings";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { nativeContestExportSave, sharedContestExportSaveOwner, type ContestExportSaveAdapter } from "./contestExportSave";
 import { sharedContestSessionOwner, type ContestOwnerLease, type ContestRecoveryStorage } from "./sessionOwner";
@@ -488,6 +489,7 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         mode: draft.fields.mode, dupe: draft.dupe, validation: draft.validation, reservedSerial: draft.reservedSerial },
       busy, dirty: owner.dirty, uncertain: !!uncertain,
       descriptor: { bands: active.rule.supportedBands ?? [draft.fields.band], modes, sentFields: sentSurfaceFields,
+        keyBindings: defaultContestKeyBindings,
         serial: { requirement: serialRequirement, allocatedFieldID, reservedSerial: draft.reservedSerial } },
       operator: operatorSurface ? { output: "simulation-only", armed: operatorSurface.armed, style: operatorSurface.style,
         status: operatorSurface.status, pending: operatorSurface.pending,

@@ -322,7 +322,7 @@ it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chase
 it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return snapshot;
-    if(command==="contest_surface_action")return {requestID:args.requestID,status:"queued"};
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:6};
     throw new Error(`unexpected ${command}`);
   });
   render(<DetachedContestSurface/>);
@@ -372,6 +372,44 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")).toBe(true));
   expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
+});
+
+it("executes saved finite Not1MM key bindings and stops using the replaced chord",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},keyBindings:[
+        {context:"*",key:"Alt+R",action:"TOGGLE_RUN"},{context:"Callsign",key:"Up",action:"NEXT_SPOT"}]},
+    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"queued"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const region=await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(region,{key:"r",ctrlKey:true});
+  expect(native.invoke.mock.calls.some(([command])=>command==="contest_surface_action")).toBe(false);
+  fireEvent.keyDown(region,{key:"r",altKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])
+    .toMatchObject({action:"entry_operator_style",params:{value:"search-and-pounce"}}));
+});
+
+it("executes a field-context Not1MM key binding",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},keyBindings:[{context:"Callsign",key:"Up",action:"NEXT_SPOT"}]},
+    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:6};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(screen.getByLabelText("Callsign"),{key:"ArrowUp"});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_step_spot")?.[1])
+    .toMatchObject({action:"entry_step_spot",params:{direction:"next"}}));
 });
 
 it("retains the manual Check Partial Log, Master and Telnet columns with explicit missing sources",async()=>{

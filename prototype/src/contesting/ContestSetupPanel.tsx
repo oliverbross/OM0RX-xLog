@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { contestKeyBindingActions, contestKeyBindingContexts, contestKeyBindingDescriptions, defaultContestKeyBindings,
+  encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings, type ContestKeyBinding } from "./contestKeyBindings";
 import "./ContestSetupPanel.css";
 
 export type ContestSetupMacro = { mode: "R" | "S"; key: string; label: string; template: string };
@@ -17,15 +19,6 @@ export type ContestSetupTab = typeof contestSetupTabs[number];
 export type ContestAudioOutput = { deviceID: string; label: string };
 type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Edit Macros" | "Edit Keys";
 const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Edit Macros", "Edit Keys"];
-type KeyBinding = { context: string; key: string; action: string; description: string };
-const defaultBindings: KeyBinding[] = [
-  { context: "*", key: "Ctrl+R", action: "TOGGLE_RUN", description: "Toggle between RUN and S&P" },
-  { context: "*", key: "Ctrl+=", action: "LOG_NOW", description: "Log the current contact" },
-  { context: "*", key: "Ctrl+W", action: "WIPE", description: "Clear all input fields" },
-  { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT", description: "Toggle CW text entry field" },
-  { context: "Callsign", key: "Up", action: "PREV_SPOT", description: "Jump to the previous spot" },
-  { context: "Callsign", key: "Down", action: "NEXT_SPOT", description: "Jump to the next spot" },
-];
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
   effectiveMacros?: ContestSetupMacro[];
@@ -133,12 +126,15 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
+      const document = structuredClone(draft);
+      if (view === "Edit Keys") document.preferences.keyBindings = encodeContestKeyBindings(
+        validateContestKeyBindings(encodeContestKeyBindings(bindingValue)));
       if (view === "Choose a Contest") {
         const session = sessions.find(item => item.sessionID === selectedSession);
         if (!session) throw new Error("Select a contest.");
         await onOpen(session);
-      } else if (view === "New Contest") await onCreate({ ...structuredClone(draft), name: catalog.find(item => item.id === draft.pluginID)?.name ?? draft.name });
-      else await onSave(structuredClone(draft));
+      } else if (view === "New Contest") await onCreate({ ...document, name: catalog.find(item => item.id === document.pluginID)?.name ?? document.name });
+      else await onSave(document);
       if (!detachedDialog) setView(null);
     }, view === "Choose a Contest" ? "Contest opened." : view === "New Contest" ? "Contest created." : "Settings saved.");
   }
@@ -146,11 +142,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const textArea = (section: "settings" | "preferences", key: string, label: string) => <label><span>{label}</span><textarea rows={3} value={String(draft[section][key] ?? "")} onChange={event => update(section, key, event.target.value)}/></label>;
   const selectValues = (values: string[], current: unknown) => [...new Set([...values, ...(current === undefined ? [] : [String(current)])])];
   const choice = (section: "settings" | "preferences", key: string, label: string, values: string[]) => field(section, key, label, "text", selectValues(values, draft[section][key]));
-  const bindingValue = (() => {
-    try { const parsed = JSON.parse(String(draft.preferences.keyBindings ?? "null")); return Array.isArray(parsed) && parsed.every(item => item && typeof item.key === "string" && typeof item.action === "string" && typeof item.context === "string" && typeof item.description === "string") ? parsed as KeyBinding[] : defaultBindings; }
-    catch { return defaultBindings; }
-  })();
-  const setBindings = (next: KeyBinding[]) => update("preferences", "keyBindings", JSON.stringify(next));
+  const bindingValue = readContestKeyBindings(draft.preferences.keyBindings);
+  const setBindings = (next: ContestKeyBinding[]) => update("preferences", "keyBindings", encodeContestKeyBindings(next));
   let content: ReactNode = null;
   if (view === "Station Settings") content = <div className="contest-station-form">
     {row(field("station", "Call", "Call"))}
@@ -234,7 +227,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     });
     return <tr key={key}><th scope="row">{key}</th><td><input aria-label={`${mode === "R" ? "Run" : "S&P"} ${key} label`} value={macro?.label ?? ""} placeholder={macro ? "" : "Contest default"} maxLength={128} onChange={event => edit("label", event.target.value)}/></td><td><input aria-label={`${mode === "R" ? "Run" : "S&P"} ${key} template`} value={macro?.template ?? ""} placeholder={macro ? "" : "Contest default"} maxLength={1024} onChange={event => edit("template", event.target.value)}/></td></tr>;
   })}</tbody></table></div></section>)}</>;
-  else if (view === "Edit Keys") content = <><div className="contest-key-scroll"><table className="contest-key-table"><thead><tr>{["Context", "Key", "Action", "Description"].map(name => <th key={name}>{name}</th>)}</tr></thead><tbody>{bindingValue.map((binding, index) => <tr key={index} aria-selected={selectedBinding === index} onClick={() => setSelectedBinding(index)}>{(["context", "key", "action", "description"] as const).map(property => <td key={property}>{property === "context" || property === "action" ? <select aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}>{selectValues(property === "context" ? ["*", "Callsign", "Report", "Exchange"] : defaultBindings.map(item => item.action), binding[property]).map(option => <option key={option}>{option}</option>)}</select> : <input aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}/>}</td>)}</tr>)}</tbody></table></div><div className="contest-key-actions"><button type="button" onClick={() => { setBindings([...bindingValue, { context: "*", key: "", action: "LOG_NOW", description: "" }]); setSelectedBinding(bindingValue.length); }}>Add</button><button type="button" disabled={!bindingValue.length} onClick={() => { setBindings(bindingValue.filter((_, i) => i !== selectedBinding)); setSelectedBinding(0); }}>Remove</button><button type="button" onClick={() => setBindings(structuredClone(defaultBindings))}>Reset all</button></div></>;
+  else if (view === "Edit Keys") content = <><div className="contest-key-scroll"><table className="contest-key-table"><thead><tr>{["Context", "Key", "Action", "Description"].map(name => <th key={name}>{name}</th>)}</tr></thead><tbody>{bindingValue.map((binding, index) => <tr key={index} aria-selected={selectedBinding === index} onClick={() => setSelectedBinding(index)}><td><select aria-label={`context ${index + 1}`} value={binding.context} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, context: event.target.value as ContestKeyBinding["context"] } : item))}>{contestKeyBindingContexts.map(option => <option key={option}>{option}</option>)}</select></td><td><input aria-label={`key ${index + 1}`} value={binding.key} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, key: event.target.value } : item))}/></td><td><select aria-label={`action ${index + 1}`} value={binding.action} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, action: event.target.value as ContestKeyBinding["action"] } : item))}>{contestKeyBindingActions.map(option => <option key={option}>{option}</option>)}</select></td><td><output aria-label={`description ${index + 1}`}>{contestKeyBindingDescriptions[binding.action]}</output></td></tr>)}</tbody></table></div><div className="contest-key-actions"><button type="button" onClick={() => { setBindings([...bindingValue, { context: "*", key: "", action: "LOG_NOW" }]); setSelectedBinding(bindingValue.length); }}>Add</button><button type="button" disabled={!bindingValue.length} onClick={() => { setBindings(bindingValue.filter((_, i) => i !== selectedBinding)); setSelectedBinding(0); }}>Remove</button><button type="button" onClick={() => setBindings(structuredClone(defaultContestKeyBindings))}>Reset all</button></div></>;
   const configuration = view === "Configuration Settings";
   return <section className="contest-setup" aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>
     {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => {

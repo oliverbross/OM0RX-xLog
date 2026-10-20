@@ -3,13 +3,42 @@ use serde_json::{json, Value};
 use std::{collections::{BTreeMap, BTreeSet}, sync::{Arc, Mutex}, time::Instant};
 
 pub fn validate_surface(label: &str, isolated: bool, exiting: bool, action: &str) -> Result<(), String> {
-    if !matches!(label, "main" | "cw" | "contest-setup") || isolated || exiting {
-        return Err("Shared CW controls require the live Desk, CW, or Contest Setup window.".into());
+    if !matches!(label, "main" | "cw" | "contest-setup" | "contest--active-qso") || isolated || exiting {
+        return Err("Shared CW controls require the live Desk, CW, or contest Entry window.".into());
     }
     if !matches!(action, "snapshot" | "arm" | "send" | "contest" | "stop" | "acknowledge" | "unregister") {
         return Err("Unknown CW session action".into());
     }
     Ok(())
+}
+
+pub fn validate_invoker(label: &str, isolated: bool, exiting: bool, action: &str) -> Result<(), String> {
+    if label == "contest--active-qso" {
+        return Err("Contest Entry controls CW through its native Setup owner.".into());
+    }
+    validate_surface(label, isolated, exiting, action)
+}
+
+/// Setup hosts the controller, but the operator uses the detached Entry window.
+/// Keep its label stable for snapshots and Stop even when a session is closed.
+pub fn control_window(label: &str) -> &str {
+    if label == "contest-setup" { "contest--active-qso" } else { label }
+}
+
+pub fn control_window_focused(label: &str, read: impl FnOnce(&str) -> Option<(bool, bool)>) -> bool {
+    read(control_window(label)).is_some_and(|(focused, visible)| focused && visible)
+}
+
+pub fn validate_contest_route(label: &str, params: &Value, active_session: Option<&str>) -> Result<(), String> {
+    if !matches!(params["action"].as_str(), Some("arm" | "send" | "contest")) { return Ok(()); }
+    let entry = control_window(label) == "contest--active-qso";
+    match (entry, active_session) {
+        (true, None) => Err("Open a contest session before arming or sending from Entry.".into()),
+        (false, Some(_)) => Err("Contest Entry owns CW while a contest session is active. Stop remains available here.".into()),
+        (true, Some(session)) if params["action"] == "contest" && params["sessionID"] != session =>
+            Err("The contest Entry request belongs to an expired session.".into()),
+        _ => Ok(()),
+    }
 }
 
 pub trait Backend: Send + Sync {
@@ -489,16 +518,74 @@ mod tests {
     }
     #[test]
     fn cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions() {
-        for label in ["main", "cw", "monitor", "station-control", "settings", "log-qso", "unknown", "CW"] {
+        for label in ["main", "cw", "contest-setup", "contest--active-qso", "contest--logbook", "monitor", "station-control", "settings", "log-qso", "unknown", "CW"] {
             for action in ["snapshot", "arm", "send", "stop", "acknowledge", "unregister"] {
-                assert_eq!(validate_surface(label, false, false, action).is_ok(), matches!(label, "main" | "cw" | "contest-setup"));
+                assert_eq!(validate_surface(label, false, false, action).is_ok(), matches!(label, "main" | "cw" | "contest-setup" | "contest--active-qso"));
                 assert!(validate_surface(label, true, false, action).is_err());
                 assert!(validate_surface(label, false, true, action).is_err());
+                assert_eq!(validate_invoker(label, false, false, action).is_ok(), matches!(label, "main" | "cw" | "contest-setup"));
             }
         }
         for action in ["", "connect", "cw_control", "send_text", "set_speed"] {
             assert!(validate_surface("cw", false, false, action).is_err());
         }
+    }
+    #[test]
+    fn contest_controller_routes_only_to_entry_and_requires_the_active_contest() {
+        assert_eq!(control_window("contest-setup"), "contest--active-qso");
+        assert_eq!(control_window("main"), "main");
+        for (observed, expected) in [(Some((true,true)),true),(Some((true,false)),false),(Some((false,true)),false),(None,false)] {
+            assert_eq!(control_window_focused("contest-setup", |label| {
+                assert_eq!(label,"contest--active-qso", "Setup focus is never consulted"); observed
+            }),expected);
+        }
+        for label in ["contest-setup", "contest--active-qso"] {
+            assert!(validate_contest_route(label, &json!({"action":"arm"}), Some("session")).is_ok());
+            assert!(validate_contest_route(label, &json!({"action":"arm"}), None).is_err());
+            assert!(validate_contest_route(label, &json!({"action":"contest","sessionID":"old"}), Some("session")).is_err());
+            assert!(validate_contest_route(label, &json!({"action":"contest","sessionID":"session"}), Some("session")).is_ok());
+            for active in [None, Some("session")] {
+                assert!(validate_contest_route(label, &json!({"action":"stop"}), active).is_ok());
+            }
+        }
+        assert!(validate_contest_route("main", &json!({"action":"arm"}), Some("session")).is_err());
+        assert!(validate_contest_route("main", &json!({"action":"stop"}), Some("session")).is_ok());
+    }
+    #[test]
+    fn contest_entry_focus_retirement_and_sequencing_remain_native() {
+        for destroyed in [false, true] {
+            let (session, _, _) = fixture(); let client = uuid::Uuid::new_v4().to_string();
+            let label = control_window("contest-setup");
+            let observed = session.request(label, &client, 1, false, &json!({"action":"snapshot"})).unwrap();
+            assert!(session.request(label, &client, 2, false, &json!({"action":"arm","expectedRevision":observed["revision"]})).is_err(),
+                "Setup focus cannot substitute for Entry focus");
+            let observed = session.request(label, &client, 3, true, &json!({"action":"snapshot"})).unwrap();
+            session.request(label, &client, 4, true, &json!({"action":"arm","expectedRevision":observed["revision"]})).unwrap();
+            assert_eq!(session.snapshot().unwrap()["armed"], true);
+            assert!(session.request(label, &client, 4, true, &json!({"action":"arm"})).is_err());
+            session.release_window("contest-setup").unwrap();
+            assert_eq!(session.snapshot().unwrap()["armed"], true, "Setup blur does not own this lease");
+            if destroyed { session.release_window("contest--active-qso").unwrap(); }
+            else { let retiring = session.revoke_window_clients("contest--active-qso").unwrap(); session.release_clients(&retiring).unwrap(); }
+            assert_eq!(session.snapshot().unwrap()["armed"], false);
+            session.request(label, &client, 5, false, &json!({"action":"stop"})).unwrap();
+        }
+    }
+    #[test]
+    fn contest_entry_executes_one_esm_with_its_own_native_lease() {
+        let (session, backend, _) = fixture(); let client = uuid::Uuid::new_v4().to_string();
+        { let mut canonical = backend.canonical.lock().unwrap(); canonical["contestSessionID"] = json!("contest-1");
+            canonical["draftID"] = json!("draft-1"); canonical["context"]["CALL"] = json!(""); }
+        let label = control_window("contest-setup");
+        let observed = session.request(label, &client, 1, true, &json!({"action":"snapshot"})).unwrap();
+        let armed = session.request(label, &client, 2, true, &json!({"action":"arm","expectedRevision":observed["revision"]})).unwrap();
+        let params = json!({"action":"contest","expectedRevision":armed["revision"],"lease":armed["lease"],
+            "sessionID":"contest-1","expectedContestRevision":2,"draftID":"draft-1","operationID":uuid::Uuid::new_v4().to_string(),
+            "operation":"esm","field":"other_2","fields":{"callsign":"K1ABC","sent":"599"}});
+        let result = session.request(label, &client, 3, true, &params).unwrap();
+        assert_eq!(result["contestResult"]["projection"]["draftID"], "next-draft");
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(action,_,_)| action == "send").count(), 1);
+        assert!(session.request(label, &client, 3, true, &params).is_err());
     }
     #[test]
     fn delayed_focus_cleanup_cannot_retire_a_new_registration_of_the_same_renderer_client() {

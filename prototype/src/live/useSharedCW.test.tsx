@@ -34,3 +34,21 @@ it("main Desk shared shortcuts preserve typing/modal/focus exclusions and unregi
   fireEvent.click(screen.getByText("Arm")); await screen.findByText("Armed"); rerender(<Harness contextKey="changed" />); await screen.findByText("Disarmed");
   unmount(); expect(invoke.mock.calls.at(-1)?.[1].params.action).toBe("unregister");
 });
+
+it("leaves detached Entry focus and shortcuts to the native owner while Setup hosts its controller", async () => {
+  vi.spyOn(document,"hasFocus").mockReturnValue(true);
+  let armed=false,revision=0;
+  invoke.mockImplementation(async(_command,{client,params})=>{
+    if(params.action==="arm"){armed=true;revision++;}
+    if(params.action==="unregister"){armed=false;revision++;}
+    return {revision,armed,pending:false,client:armed?client:null,lease:armed?"lease":null,error:"",canonical:{profile:defaultCWProfile}};
+  });
+  function Harness(){const {controller,state}=useSharedCW("contest",false,true);return <>
+    <button onClick={()=>void controller.arm()}>Arm</button><output>{state.armed?"Armed":"Disarmed"}</output></>;}
+  const {unmount}=render(<Harness/>);
+  await waitFor(()=>expect(invoke).toHaveBeenCalled());fireEvent.click(screen.getByText("Arm"));await screen.findByText("Armed");
+  await act(async()=>{window.dispatchEvent(new Event("blur"));document.dispatchEvent(new Event("visibilitychange"));});
+  fireEvent.keyDown(document.body,{key:"F1"});
+  expect(invoke.mock.calls.filter(call=>["unregister","send"].includes(call[1].params.action))).toHaveLength(0);
+  unmount();expect(invoke.mock.calls.at(-1)?.[1].params.action).toBe("unregister");
+});

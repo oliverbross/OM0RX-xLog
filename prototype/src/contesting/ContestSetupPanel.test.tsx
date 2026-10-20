@@ -161,7 +161,7 @@ it("uses the original Edit Keys table and saves key changes", async () => {
   open("Add"); expect(screen.getByLabelText("key 7")).toBeTruthy(); open("Remove"); expect(screen.queryByLabelText("key 7")).toBeNull();
   fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+R" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
-  expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0].key).toBe("Alt+R");
+  expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);
 });
 
 it("edits Run and S&P F1–F12 macros in the durable setup document without sending output", async () => {

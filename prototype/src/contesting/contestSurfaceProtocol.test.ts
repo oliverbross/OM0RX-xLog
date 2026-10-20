@@ -55,6 +55,8 @@ const valid = [
   { panelID: "active-qso", action: "entry_set_mode", params: { ...draft, value: "CW" } },
   { panelID: "active-qso", action: "entry_reserve_serial", params: draft },
   { panelID: "active-qso", action: "entry_commit", params: draft },
+  { panelID: "active-qso", action: "entry_clear", params: draft },
+  { panelID: "active-qso", action: "entry_step_spot", params: { ...draft, direction: "previous" } },
   { panelID: "active-qso", action: "entry_operator_arm", params: { ...draft, armed: true } },
   { panelID: "active-qso", action: "entry_operator_style", params: { ...draft, value: "search-and-pounce" } },
   { panelID: "active-qso", action: "entry_set_cw_speed", params: { ...draft, value: 27 } },
@@ -74,6 +76,7 @@ const valid = [
   { panelID: "logbook", action: "log_edit_save", params: { ...qso, expectedSessionRevision: 6 } },
   { panelID: "logbook", action: "log_edit_delete", params: { ...qso, expectedSessionRevision: 6 } },
 ] as const;
+const validAction = (action: string) => valid.find(item => item.action === action)!;
 
 describe("contest native surface action v1", () => {
   it("admits every bounded typed action with its owning panel", () => {
@@ -91,16 +94,16 @@ describe("contest native surface action v1", () => {
     { ...base, ...valid[0], params: null },
     { ...base, panelID: "active-qso", action: "entry_unknown", params: draft },
     { ...base, ...valid[0], params: { ...valid[0].params, field: ["callsign"] } },
-    { ...base, ...valid[11], params: { ...valid[11].params, key: ["F12"] } },
-    { ...base, ...valid[13], params: { ...valid[13].params, kind: ["history"] } },
-    { ...base, ...valid[10], params: { ...valid[10].params, fieldID: "band" } },
-    { ...base, ...valid[9], params: { ...valid[9].params, value: 101 } },
+    { ...base, ...validAction("entry_operator_key"), params: { ...validAction("entry_operator_key").params, key: ["F12"] } },
+    { ...base, ...validAction("assistance_select"), params: { ...validAction("assistance_select").params, kind: ["history"] } },
+    { ...base, ...validAction("entry_focus"), params: { ...validAction("entry_focus").params, fieldID: "band" } },
+    { ...base, ...validAction("entry_set_cw_speed"), params: { ...validAction("entry_set_cw_speed").params, value: 101 } },
     { ...base, ...valid[1], params: { ...valid[1].params, fieldID: "x".repeat(65) } },
     { ...base, ...valid[1], params: { ...valid[1].params, fieldID: "   " } },
     { ...base, ...valid[1], params: { ...valid[1].params, value: "😀".repeat(257) } },
     { ...base, ...valid[2], params: { ...valid[2].params, value: "1".repeat(12) } },
-    { ...base, ...valid[20], params: { ...valid[20].params, value: "😀".repeat(3) } },
-    { ...base, ...valid[14], params: { offset: 1_000_001 } },
+    { ...base, ...validAction("log_edit_set_exchange"), params: { ...validAction("log_edit_set_exchange").params, value: "😀".repeat(257) } },
+    { ...base, ...validAction("log_page"), params: { offset: 1_000_001 } },
   ])("rejects malformed, cross-panel or over-bound envelopes %#", envelope => {
     expect(() => validateContestSurfaceActionEnvelope(envelope)).toThrow("could not be verified");
   });

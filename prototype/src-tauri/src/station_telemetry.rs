@@ -154,6 +154,33 @@ impl StationTelemetry {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
         self.receive_control_at(generation, identity, connection, control, now)
     }
+    pub fn cw_speed_control(self: &Arc<Self>, provider: &str, generation: u64, identity: &str, connection: u64) -> Result<ControlFence, String> {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Radio clock unavailable")?.as_millis() as u64;
+        self.cw_speed_control_at(provider, generation, identity, connection, now)
+    }
+    fn cw_speed_control_at(self: &Arc<Self>, provider: &str, generation: u64, identity: &str, connection: u64, now: u64) -> Result<ControlFence, String> {
+        let mut state = self.state.lock().map_err(|_| "Radio telemetry unavailable")?;
+        let value = &state.projection; let snapshot = &value["snapshot"]; let radio = &snapshot["radio"];
+        let received_age = value["received_at_ms"].as_u64().map(|time| i128::from(now) - i128::from(time));
+        let source_age = snapshot["generated_at"].as_f64().map(|time| now as f64 - time * 1000.0);
+        let supported = if provider == "direct_agent" { &snapshot["station"]["supported_commands"] }
+            else { &snapshot["capabilities"]["supported_commands"] };
+        if self.stopped.load(Ordering::Acquire) || state.controls != 0
+            || !matches!(provider, "direct_agent" | "direct_flex_lan") || state.provider.as_deref() != Some(provider)
+            || state.selection_id.as_deref() != Some(identity) || state.selection_generation != Some(generation)
+            || value["available"] != true || value["provider"] != provider || value["selection_id"] != identity
+            || value["selection_generation"] != generation || snapshot["source"] != provider
+            || snapshot["generation"].as_u64() != Some(connection)
+            || !received_age.is_some_and(|age| (-1000..=5000).contains(&age))
+            || !source_age.is_some_and(|age| age.is_finite() && age.abs() <= 5000.0)
+            || radio["connected"] != true || radio["observed"] != true || radio["transmitting"] != false
+            || !supported.as_array().is_some_and(|items| items.iter().any(|item| item == "set_cw_speed")) {
+            return Err("A fresh idle selected radio with CW speed support is required.".into());
+        }
+        state.epoch += 1; state.controls += 1; state.revision += 1;
+        state.projection["available"] = json!(false); state.projection["revision"] = json!(state.revision);
+        Ok(ControlFence(self.clone()))
+    }
     pub fn spot_tune_control(self: &Arc<Self>, generation: u64, identity: &str) -> Result<ControlFence, String> {
         self.spot_tune_control_with_timeout(generation, identity, Duration::from_millis(1500))
     }
@@ -669,6 +696,40 @@ mod tests {
                 _ => state.projection["snapshot"]["observed_at_ms"] = json!(4000),
             }}
             assert!(owner.receive_control_at(2, &identity, 13, "set_receive_frequency_a", 10000).is_err(), "{change}");
+        }
+    }
+    #[test]
+    fn cw_speed_admission_rechecks_current_idle_connection_and_capability_under_its_lock() {
+        for change in 0..13 {
+            let (owner, identity) = receive_fixture("direct_flex_lan");
+            { let mut state = owner.state.lock().unwrap();
+              state.projection["snapshot"]["capabilities"]["supported_commands"] = json!(["set_cw_speed"]);
+              match change {
+                0 => state.projection["received_at_ms"] = json!(4000),
+                1 => state.projection["snapshot"]["generated_at"] = json!(0),
+                2 => state.projection["available"] = json!(false),
+                3 => state.projection["snapshot"]["generation"] = json!(14),
+                4 => state.projection["snapshot"]["radio"]["transmitting"] = json!(true),
+                5 => state.projection["snapshot"]["radio"]["connected"] = json!(false),
+                6 => state.projection["snapshot"]["radio"]["observed"] = json!(false),
+                7 => state.projection["snapshot"]["capabilities"]["supported_commands"] = json!([]),
+                8 => state.provider = Some("direct_agent".into()),
+                9 => state.selection_id = Some(uuid::Uuid::new_v4().to_string()),
+                10 => state.selection_generation = Some(3),
+                11 => state.controls = 1,
+                _ => state.projection["selection_id"] = json!(uuid::Uuid::new_v4().to_string()),
+              }}
+            assert!(owner.cw_speed_control_at("direct_flex_lan", 2, &identity, 13, 10000).is_err(), "{change}");
+            assert_eq!(owner.state.lock().unwrap().controls, if change == 11 { 1 } else { 0 });
+        }
+        for provider in ["direct_agent", "direct_flex_lan"] {
+            let (owner, identity) = receive_fixture(provider);
+            { let mut state = owner.state.lock().unwrap();
+              state.projection["snapshot"][if provider == "direct_agent" { "station" } else { "capabilities" }]["supported_commands"] = json!(["set_cw_speed"]); }
+            let fence = owner.cw_speed_control_at(provider, 2, &identity, 13, 10000).unwrap();
+            assert_eq!(owner.snapshot().unwrap()["available"], false);
+            assert!(owner.cw_speed_control_at(provider, 2, &identity, 13, 10000).is_err());
+            drop(fence); assert_eq!(owner.state.lock().unwrap().controls, 0);
         }
     }
     #[test]

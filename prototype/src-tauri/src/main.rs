@@ -1543,6 +1543,76 @@ fn validate_contest_station_target(label: &str, action: &str, requested_radio: &
     Ok(())
 }
 
+#[derive(Debug, PartialEq)]
+struct ContestCWSpeedTarget {
+    radio_id: String,
+    provider: String,
+    selection_generation: u64,
+    selection_id: String,
+    control_revision: u64,
+    connection_generation: u64,
+    words_per_minute: u64,
+}
+
+fn validate_contest_cw_speed_target(label: &str, isolated: bool, exiting: bool, params: &serde_json::Value,
+    active_radio: &str, selection: &serde_json::Value, radio: &serde_json::Value) -> Result<ContestCWSpeedTarget, String> {
+    if isolated || exiting || label != "contest-setup" {
+        return Err("CW speed is available only from the live Contest Setup owner.".into());
+    }
+    let object = params.as_object().filter(|object| object.len() == 1 && object.contains_key("words_per_minute"))
+        .ok_or("Invalid contest CW speed request.")?;
+    let words_per_minute = object["words_per_minute"].as_u64().filter(|value| (5..=100).contains(value))
+        .ok_or("CW speed must be between 5 and 100 WPM.")?;
+    radio_slots::index(active_radio)?;
+    let provider = selection["provider"].as_str().filter(|value| matches!(*value, "direct_agent" | "direct_flex_lan"))
+        .ok_or("CW speed control is unavailable for the selected radio provider.")?;
+    let selection_id = selection["selection_id"].as_str().filter(|value| uuid::Uuid::parse_str(value).is_ok())
+        .ok_or("Refresh the selected radio before changing CW speed.")?;
+    let selection_generation = selection["generation"].as_u64().filter(|value| *value <= 9_007_199_254_740_991)
+        .ok_or("Refresh the selected radio before changing CW speed.")?;
+    let control_revision = selection["control_revision"].as_u64().filter(|value| *value <= 9_007_199_254_740_991)
+        .ok_or("Refresh the selected radio before changing CW speed.")?;
+    let connection_generation = radio["snapshot"]["generation"].as_u64().filter(|value| *value <= 9_007_199_254_740_991)
+        .ok_or("Refresh the selected radio before changing CW speed.")?;
+    let supported = if provider == "direct_agent" { &radio["snapshot"]["station"]["supported_commands"] }
+        else { &radio["snapshot"]["capabilities"]["supported_commands"] };
+    if selection["radio_id"].as_str() != Some(active_radio) || radio["radio_id"].as_str() != Some(active_radio)
+        || radio["available"] != true || radio["provider"] != provider || radio["selection_id"] != selection_id
+        || radio["selection_generation"] != selection_generation || radio["snapshot"]["source"] != provider
+        || radio["snapshot"]["radio"]["connected"] != true || radio["snapshot"]["radio"]["observed"] != true
+        || radio["snapshot"]["radio"]["transmitting"] != false
+        || !supported.as_array().is_some_and(|items| items.iter().any(|item| item == "set_cw_speed")) {
+        return Err("A fresh selected radio with CW speed support is required.".into());
+    }
+    Ok(ContestCWSpeedTarget { radio_id: active_radio.into(), provider: provider.into(), selection_generation,
+        selection_id: selection_id.into(), control_revision, connection_generation, words_per_minute })
+}
+
+#[tauri::command]
+async fn contest_cw_speed_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
+    state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
+    let isolated = runtime_profile::isolated(state.path.is_some());
+    let exiting = APP_EXITING.load(Ordering::Acquire);
+    if isolated || exiting || window.label() != "contest-setup" {
+        return Err("CW speed is available only from the live Contest Setup owner.".into());
+    }
+    contest_window_context::active()?;
+    let radio_id = radio_slots::active(&app)?;
+    let selection = station_selection::owner_for(&app, &radio_id)?;
+    let telemetry = station_telemetry::owner_for(&app, &radio_id)?;
+    let target = validate_contest_cw_speed_target(window.label(), isolated, exiting,
+        &params, &radio_id, &selection.snapshot()?, &telemetry.snapshot()?)?;
+    let request = serde_json::json!({"id":uuid::Uuid::new_v4().to_string(),"method":"station_radio_control","params":{
+        "radio_id":target.radio_id,"provider":target.provider.clone(),"expected_generation":target.connection_generation,
+        "control":"set_cw_speed","words_per_minute":target.words_per_minute}});
+    let module_admission = operating_module::owner()?.admit_current()?;
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = module_admission;
+        selection.receive_control(request, target.selection_generation, &target.selection_id, target.control_revision,
+            || telemetry.cw_speed_control(&target.provider, target.selection_generation, &target.selection_id, target.connection_generation))
+    }).await.map_err(|_| "Contest CW speed task failed; refresh the selected radio before retrying.".to_string())?
+}
+
 #[tauri::command]
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
@@ -1672,18 +1742,19 @@ async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindo
 async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
-    cw_session::validate_surface(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
+    cw_session::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
     let output_action = matches!(params["action"].as_str(), Some("arm" | "send" | "contest"));
-    if output_action && window.label() != "contest-setup" && contest_window_context::active().is_ok() {
-        return Err("Contest Setup owns CW while a contest session is active. Stop remains available here.".into());
-    }
+    let contest_context = contest_window_context::active().ok();
+    cw_session::validate_contest_route(window.label(), &params, contest_context.as_ref().map(|context| context.session_id.as_str()))?;
     let _module_admission = if output_action { Some(operating_module::owner()?.admit_current()?) } else { None };
-    let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
+    let label = cw_session::control_window(window.label()).to_owned();
+    let focused = cw_session::control_window_focused(window.label(), |label| app.get_webview_window(label).map(|entry|
+        (entry.is_focused().unwrap_or(false), entry.is_visible().unwrap_or(false))));
     if output_action
         && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
-    let owner = cw_session_backend::owner(&app); let label = window.label().to_owned();
+    let owner = cw_session_backend::owner(&app);
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
         let _output=if output_action {Some(carrier_tune::reserve_output()?)}else{None};
         owner.request(&label, &client, sequence, focused, &params)
@@ -2638,7 +2709,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![operating_module_status, worker_request, cw_session_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![operating_module_status, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity,
             operator_draft_read_radio,
@@ -2821,6 +2892,36 @@ mod workspace_layout_tests {
         assert!(super::validate_contest_station_target("contest-setup", "manual_tune", "radio2", "radio1").is_err());
         assert!(super::validate_contest_station_target("contest-setup", "snapshot", "radio2", "radio1").is_ok());
         assert!(super::validate_contest_station_target("station-control", "manual_tune", "radio2", "radio1").is_ok());
+    }
+
+    #[test]
+    fn contest_cw_speed_is_a_narrow_native_selected_radio_route() {
+        let id = "11111111-1111-4111-8111-111111111111";
+        let params = json!({"words_per_minute":26});
+        let selection = json!({"radio_id":"radio2","provider":"direct_flex_lan","generation":3,
+            "selection_id":id,"control_revision":4});
+        let radio = json!({"radio_id":"radio2","available":true,"provider":"direct_flex_lan",
+            "selection_id":id,"selection_generation":3,"snapshot":{"source":"direct_flex_lan","generation":9,
+                "radio":{"connected":true,"observed":true,"transmitting":false},
+                "capabilities":{"supported_commands":["set_cw_speed"]}}});
+        let target = super::validate_contest_cw_speed_target("contest-setup", false, false, &params, "radio2", &selection, &radio).unwrap();
+        assert_eq!(target.words_per_minute, 26);
+        assert_eq!(target.connection_generation, 9);
+        for label in ["main", "contest--active-qso", "station-control"] {
+            assert!(super::validate_contest_cw_speed_target(label, false, false, &params, "radio2", &selection, &radio).is_err(), "{label}");
+        }
+        for params in [json!({"words_per_minute":4}), json!({"words_per_minute":101}),
+            json!({"words_per_minute":26,"provider":"direct_agent"}), json!({"words_per_minute":"26"})] {
+            assert!(super::validate_contest_cw_speed_target("contest-setup", false, false, &params, "radio2", &selection, &radio).is_err());
+        }
+        let mut changed = radio.clone(); changed["selection_generation"] = json!(2);
+        assert!(super::validate_contest_cw_speed_target("contest-setup", false, false, &params, "radio2", &selection, &changed).is_err());
+        changed = radio.clone(); changed["snapshot"]["capabilities"]["supported_commands"] = json!([]);
+        assert!(super::validate_contest_cw_speed_target("contest-setup", false, false, &params, "radio2", &selection, &changed).is_err());
+        changed = radio; changed["snapshot"]["radio"]["transmitting"] = json!(true);
+        assert!(super::validate_contest_cw_speed_target("contest-setup", false, false, &params, "radio2", &selection, &changed).is_err());
+        assert!(super::validate_contest_cw_speed_target("contest-setup", true, false, &params, "radio2", &selection, &changed).is_err());
+        assert!(super::validate_contest_cw_speed_target("contest-setup", false, true, &params, "radio2", &selection, &changed).is_err());
     }
 
     #[test]

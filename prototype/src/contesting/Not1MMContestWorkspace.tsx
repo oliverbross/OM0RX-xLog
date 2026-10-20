@@ -17,6 +17,8 @@ import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
 import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
+import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
+import { setContestCWSpeed } from "./contestStationControl";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
@@ -65,6 +67,10 @@ const contestInputFieldID = (value: unknown): value is ContestInputFieldID =>
   typeof value === "string" && contestInputFieldIDs.includes(value as ContestInputFieldID);
 const contestTabMap = (value: Record<string, string>) => Object.fromEntries(Object.entries(value)
   .filter(([from, to]) => contestInputFieldID(from) && contestInputFieldID(to))) as Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
+const activeContestKeyBindings = (value: unknown) => {
+  try { return validateContestKeyBindings(encodeContestKeyBindings(readContestKeyBindings(value))); }
+  catch { return structuredClone(defaultContestKeyBindings); }
+};
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
 const cqwwFrequency = (value: unknown): number | null => {
@@ -253,7 +259,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const focusRef = useRef("callsign");
   const editVersionRef = useRef(0);
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
-  const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring);
+  const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;
   const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
@@ -523,15 +529,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if (next && fieldRefs.current[next]) { event.preventDefault(); fieldRefs.current[next]?.focus(); }
     }
   };
-  const chooseSpot = async (spot: BandMapSpot) => {
+  const chooseSpot = async (spot: BandMapSpot, throwFailures = false) => {
     const frequencyHz = Math.round(Number(spot.frequencyKHz) * 1000);
-    if (cqwwFrequency(frequencyHz) === null) return;
+    if (cqwwFrequency(frequencyHz) === null) {
+      if (throwFailures) throw new Error("That spot has no valid HF contest frequency.");
+      return;
+    }
     const next = await runMutation(async base => {
       await stationTune(frequencyHz, "CW");
       return mutate("contest_draft_apply", base, {
         fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz,
       });
-    }, false, false);
+    }, false, false, false, throwFailures);
     if (!next) return;
     setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
     onSelectedSpot?.(String(spot.id));
@@ -629,9 +638,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (!projection || !detachedAvailable) return unavailable;
     const currentFields = fields;
     const frequencyHz = operationFrequencyHz;
+    const reservedSerial = projection.reservedSerial ?? null;
+    const exchangeFields = projection.fields.filter(field => (field.id === "other_1" || field.id === "other_2") && field.visible);
+    const receivedExchangeFields = exchangeFields.filter(field => field.enabled && !field.readOnly && !(field.id === "other_1" && reservedSerial !== null));
+    const sentExchangeFields = projection.fields.filter(field =>
+      (field.id === "other_1" || field.id === "other_2") && (field.visible && field.readOnly || field.id === "other_1" && reservedSerial !== null));
     const receivedZone = projection.fields.find(field => field.id === "other_2");
     const sentZone = projection.fields.find(field => field.id === "other_1");
-    const reservedSerial = projection.reservedSerial ?? null;
     const reportsVisible = projection.fields.some(field => field.id === "sent" && field.visible);
     const editedFrequencyHz = editing ? manualFrequency(editFrequencyMHz) : null;
     const callContext = projection.callContext?.callsign === partialQuery ? projection.callContext : undefined;
@@ -645,8 +658,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       draft: {
         draftID: projection.draftID, revision: projection.revision, callsign: currentFields.callsign ?? "",
         sentReport: currentFields.sent ?? "", receivedReport: currentFields.receive ?? "",
-        receivedFields: [{ id: "other_2", label: receivedZone?.label ?? "Received CQ zone",
-          value: currentFields.other_2 ?? "", required: true, maximumUTF8Bytes: 128 }],
+        receivedFields: receivedExchangeFields.map(field => ({ id: field.id, label: field.label,
+          value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: field.id === "other_1" ? 32 : 128 })),
         frequencyHz, frequencyText: frequencyHz === null ? "" : String(frequencyHz),
         frequencyError: frequencyHz === null ? "Enter a valid HF contest frequency." : "",
         band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode,
@@ -658,8 +671,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       descriptor: {
         bands: configuredBands, modes: projection.supportedModes?.length ? projection.supportedModes : ["CW"], reportsVisible,
         allowDuplicateCommit: projection.allowDuplicateCommit ?? false, automaticSerial: reservedSerial !== null,
-        sentFields: [{ id: "other_1", label: sentZone?.label || "Sent CQ zone", value: currentFields.other_1 ?? "",
-          required: true, maximumUTF8Bytes: 32 }],
+        keyBindings: activeContestKeyBindings(setup.preferences.keyBindings),
+        sentFields: sentExchangeFields.length ? sentExchangeFields.map(field => ({ id: field.id, label: field.label,
+          value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: 32 })) : [{ id: "sent-exchange",
+          label: "Sent exchange", value: String(setup.settings.SentExchange ?? ""), required: true, maximumUTF8Bytes: 64 }],
         serial: reservedSerial === null ? { requirement: "none", allocatedFieldID: null, reservedSerial: null }
           : { requirement: "requiredForCommit", allocatedFieldID: "other_1", reservedSerial },
       },
@@ -745,7 +760,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands]);
+    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands,
+    setup.settings.SentExchange, setup.preferences.keyBindings]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -777,15 +793,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       case "spot_select": {
         const spot=spots.find(candidate=>String(candidate.id)===action.params.spotID);
         if(!spot)throw new Error("That shared spot is no longer available.");
-        await chooseSpot(spot); return;
+        await chooseSpot(spot, true); return;
       }
       case "entry_set_text": {
         const fieldID = { callsign: "callsign", sentReport: "sent", receivedReport: "receive" }[action.params.field];
         await persistFields(fieldID, action.params.field === "callsign" ? action.params.value.toUpperCase() : action.params.value); return;
       }
       case "entry_set_exchange":
-        if (action.params.fieldID !== "other_2") throw new Error("This contest entry field is not editable here.");
-        await persistFields("other_2", action.params.value.toUpperCase()); return;
+        if (!active.fields.some(field => field.id === action.params.fieldID && field.visible && field.enabled && !field.readOnly))
+          throw new Error("This contest entry field is not editable here.");
+        await persistFields(action.params.fieldID, action.params.value.toUpperCase()); return;
       case "entry_set_frequency_text": {
         if (observedFrequencyHz !== null) throw new Error("Frequency follows the selected xLog radio and cannot be edited here.");
         const frequencyHz = /^\d+$/.test(action.params.value) ? cqwwFrequency(Number(action.params.value)) : null;
@@ -802,6 +819,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         if (action.params.value !== active.mode) throw new Error("This Python contest session does not support changing mode.");
         return;
       case "entry_reserve_serial": throw new Error("Serial numbers are allocated automatically by the contest host.");
+      case "entry_clear": {
+        const cleared = Object.fromEntries(active.fields.map(field => [field.id,
+          field.id === "callsign" ? "" : field.id === "sent" || field.id === "receive" ? "599"
+            : field.readOnly || field.id === "other_1" && active.reservedSerial !== null ? field.value : ""]));
+        fieldsRef.current = cleared; setFields(cleared); editVersionRef.current += 1;
+        await runMutation(base => mutate("contest_draft_apply", base, { fields: cleared,
+          frequencyHz: operationFrequencyHz ?? base.frequencyHz }), false, true, true, true);
+        return;
+      }
+      case "entry_step_spot": {
+        if (!spots.length) throw new Error("No shared contest spots are available.");
+        const current = selectedSpotId == null ? -1 : spots.findIndex(spot => String(spot.id) === String(selectedSpotId));
+        const nextIndex = action.params.direction === "next"
+          ? current < 0 || current + 1 >= spots.length ? 0 : current + 1
+          : current <= 0 ? spots.length - 1 : current - 1;
+        await chooseSpot(spots[nextIndex], true); return;
+      }
       case "entry_commit":
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
           true, true, false, true); return;
@@ -813,7 +847,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           true, false, true);
         return;
       case "entry_set_cw_speed": {
-        await serviceRequest("station_radio_control", { control: "set_cw_speed", words_per_minute: action.params.value });
+        await setContestCWSpeed(action.params.value);
         const document = { ...setup, preferences: { ...setup.preferences, cwSpeed: action.params.value } };
         const saved = await mutate("contest_setup_save", active, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
         acceptProjection(saved.projection); setSetup(saved.setup); return;

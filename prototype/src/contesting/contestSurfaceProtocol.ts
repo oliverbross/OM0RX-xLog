@@ -1,3 +1,5 @@
+import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
+
 export const contestSurfacePanelIDs = ["active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation",
   "alerts", "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
@@ -12,7 +14,8 @@ export type ContestSurfaceAction =
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string } }
   | { action: "entry_set_band" | "entry_set_mode"; params: DraftRevision & { value: string } }
-  | { action: "entry_reserve_serial" | "entry_commit"; params: DraftRevision }
+  | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear"; params: DraftRevision }
+  | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
   | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
@@ -57,7 +60,7 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
-    allowDuplicateCommit?: boolean; automaticSerial?: boolean;
+    allowDuplicateCommit?: boolean; automaticSerial?: boolean; keyBindings?: ContestKeyBinding[];
     sentFields: { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number }[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
   operator: null | { output: "simulation-only" | "xlog-native"; armed: boolean; style: "run" | "search-and-pounce";
@@ -197,6 +200,15 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     oneOf(serial.requirement, ["none", "requiredForCommit"]) &&
     (serial.requirement === "none" ? serial.allocatedFieldID === null : text(serial.allocatedFieldID, 64) && sentFieldIDs.has(serial.allocatedFieldID as string)) &&
     (serial.reservedSerial === null || uint(serial.reservedSerial)) && serial.reservedSerial === draftValue?.reservedSerial;
+  const keyBindingsValid = descriptor?.keyBindings === undefined || Array.isArray(descriptor.keyBindings) && descriptor.keyBindings.length <= 32 &&
+    new Set(descriptor.keyBindings.map(item => {
+      const binding = record(item) ? item : undefined;
+      return binding ? `${binding.context}:${binding.key}` : "";
+    })).size === descriptor.keyBindings.length && descriptor.keyBindings.every(item => {
+      const binding = record(item) ? item : undefined;
+      return !!binding && exact(binding, ["context", "key", "action"]) && oneOf(binding.context, contestKeyBindingContexts) &&
+        text(binding.key, 64) && normalizeContestKey(binding.key as string) === binding.key && oneOf(binding.action, contestKeyBindingActions);
+    });
   const operatorValid = value.operator === null || !!operator &&
     exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"]) &&
     oneOf(operator.output, ["simulation-only", "xlog-native"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
@@ -216,14 +228,14 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && oneOf(trace.macro, ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"]) &&
       text(trace.text, 1024, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
-    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial"]) &&
+    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial", "keyBindings"]) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
     (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
     (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
     texts(descriptor.bands, 32, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&
-    new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && operatorValid;
+    new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && keyBindingsValid && operatorValid;
 }
 function validCallCandidates(value: unknown) {
   if (!Array.isArray(value) || value.length > 500) return false;
@@ -378,7 +390,8 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "entry_set_frequency_text") return draft(params, ["value"]) && text(params.value, 11, true);
   if (action === "entry_set_band" || action === "entry_set_mode") return draft(params, ["value"]) && text(params.value, 16);
-  if (action === "entry_reserve_serial" || action === "entry_commit") return draft(params, []);
+  if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear") return draft(params, []);
+  if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
   if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;
