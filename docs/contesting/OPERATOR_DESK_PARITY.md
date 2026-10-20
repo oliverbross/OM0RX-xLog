@@ -4,11 +4,11 @@ Status: accepted product direction from Oliver on 18 October 2026; implementatio
 
 ## Operator experience
 
-Use the familiar contest-sw window composition and information hierarchy with xLog colours, typography, controls and station services. Operators must be able to open, close, move and resize each working panel. Offer both a single flexible canvas and separate native windows, including use across monitors. Save layouts independently from Normal Logging and restore them on restart; support restoring a default arrangement if windows become inaccessible.
+Use the familiar contest-sw window composition and information hierarchy with xLog colours, typography, controls and station services. Operators must be able to open, close, move and resize each working window, including use across monitors. Contesting is presented through separate native windows opened from the Contest menu; the earlier combined canvas is not a product mode. Save contest window geometry independently from Normal Logging and restore it on restart, while recovering windows that become inaccessible after a monitor change.
 
 The pinned upstream [desk screenshot](https://github.com/oliverbross/contest-sw/blob/7c8b499225a73f7f8f792246881bd7aefc05452f/pic/main.png) was visually inspected. It places a vertical band map on the left, cluster and Check Partial above the log, compact entry and macro controls below the log, and statistics, rate and rotor windows on the right. This is the starting preset, not a restriction on rearrangement. The pinned [entry/View-menu reference](https://github.com/oliverbross/contest-sw/blob/7c8b499225a73f7f8f792246881bd7aefc05452f/pic/view_menu.png) shows callsign/exchange fields, Run/S&P, band/mode choices, function-key macros and operator actions. It is an older upstream screenshot; current source determines available controls and behavior.
 
-The pinned `not1mm/__main__.py` source at that revision creates the central Entry surface plus 11 dock windows: Band Map, Check Partial, Rate, Statistics, Group Chat, DXCC, Zone, Rotator, VFO, Log and Cluster. This is the complete initial working-window inventory; dialogs and later xLog extensions are tracked separately. Canvas and native-window completion must account for all 12 surfaces even when an early functional slice exposes fewer panels.
+The pinned `not1mm/__main__.py` source at that revision creates the central Entry surface plus 11 dock windows: Band Map, Check Partial, Rate, Statistics, Group Chat, DXCC, Zone, Rotator, VFO, Log and Cluster. This is the complete initial working-window inventory; dialogs and later xLog extensions are tracked separately. Native-window completion must account for all 12 surfaces even when an early functional slice exposes fewer windows.
 
 ## Reuse and panel mapping
 
@@ -35,18 +35,18 @@ The contest catalog remains separate from presentation. Selecting a definition s
 
 Extend panel identities and layout scope deliberately. Normal Logging presets, pending layout operations and detached windows must not be overwritten or accidentally adopted by Contesting. Reuse native geometry recovery and existing unsaved-edit/mode-switch safeguards.
 
-## Functional canvas checkpoint
+## Historical canvas checkpoint
 
-The first source checkpoint now keeps `ContestWorkspace` as the sole session, draft, serial and mutation owner while the shared `OperatorCanvas` presents four live projections from that controller:
+An earlier source checkpoint kept `ContestWorkspace` as the sole session, draft, serial and mutation owner while the shared `OperatorCanvas` presented four live projections from that controller:
 
-| Canvas panel | Current content |
+| Historical panel | Checkpoint content |
 | --- | --- |
 | Entry | Contest fields, reports, duplicate/validation state, serial control and the existing Run/S&P macro bank |
 | Check Partial | SCP and call-history import, selection and safe field projection |
 | Statistics | Current score, QSO/point/multiplier totals and multiplier labels |
 | Log | Contest-session log, paging and the existing correction/deletion editor |
 
-The contest `traditional` preset is an editable canvas preset; hiding and restoring Entry does not unmount `ContestWorkspace` or create another draft owner. If the scoped layout cannot be verified, the same live controls remain available in the fixed arrangement. This is a bounded functional checkpoint, not full parity.
+That checkpoint is retained as implementation and regression history only. It does not define the current user experience: the Contest menu opens separate native windows, and there is no contest canvas/desktop mode. The single-owner rule remains applicable to every detached window.
 
 The remaining tracked working surfaces are Band Map, Rate, Group Chat, DXCC, Zone, Rotator, VFO and Cluster. They need contest-aware projections through their existing services before they can be exposed as meaningful canvas panels. The scoped native registry and planner recognize all 21 shared roles and the 12 contest-native roles, but native child presentation, action forwarding and state subscription remain separate implementation work.
 
@@ -67,11 +67,11 @@ This contract does not transfer draft or mutation ownership. The main `ContestWo
 1. Inventory current upstream working windows and fields against xLog components; identify missing panels and record exact source references.
 2. Separate contest session/controller ownership from panel presentation. Extract presentational components without duplicating draft, serial, score, log or assistance state.
 3. Add contest-scoped layout persistence using the existing layout engine, with a familiar default arrangement and editable saved layouts.
-4. Mount the same panels in the shared canvas. Verify close/reopen, move, resize, keyboard access, compact displays and restart restoration without losing entered text.
-5. Extend the existing native window registry and presentation path for those panels. Keep one active contest/session/draft owner across windows and reject stale window commands after session or module changes.
+4. Present the panels as separate native windows. Verify close/reopen, move, resize, keyboard access, compact displays and restart restoration without losing entered text.
+5. Extend the existing native window registry and presentation path for every panel. Keep one active contest/session/draft owner across windows and reject stale window commands after session or module changes.
 6. Connect reused cluster/band map/station views through existing services and contest context. Add missing statistics/rate/tracker information on top of those services.
 7. Package from the canonical checkout and test both modes on this Mac: cross-window updates, mode switches, window close/reopen, monitor changes, restart, CW/SSB Run/S&P, exports and Normal Logging isolation.
 
 ## Acceptance boundary
 
-The desk is complete only when the working panels can be independently opened, closed, repositioned and resized in canvas and native-window modes; their information and actions are mapped to verified contest logic; layout and session state survive restart; and switching presentation does not duplicate or lose QSOs, serials, drafts or service ownership. A screenshot or static mockup does not establish this behavior. The current Test runtime keeps external radio/keying/PTT/audio I/O disabled. Windows/Linux app builds remain deferred by user direction.
+The desk is complete only when the working windows can be independently opened, closed, repositioned and resized; their information and actions are mapped to verified contest logic; and window geometry and session state survive restart without duplicating or losing QSOs, serials, drafts or service ownership. A screenshot or static mockup does not establish this behavior. The current Test runtime keeps external radio/keying/PTT/audio I/O disabled. Windows/Linux app builds remain deferred by user direction.
