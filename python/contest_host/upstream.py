@@ -188,6 +188,22 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 "self.process_function_key(button, rttysendrx=False)",
                 "self.process_function_key(button)",
             ))
+        if plugin_id in {"ref_cw", "ref_ssb"}:
+            # The pinned REF siblings inherited Helvetia's country-prefix
+            # literal during multiplier replay, and their ESM accepted only
+            # numeric exchanges despite valid French department/prefix text.
+            replacements.extend([
+                ('if dxcc == "HB" and canton.isalpha():',
+                 'if dxcc == "F" and canton.isalpha():'),
+                ('elif self.other_2.text().isnumeric():\n'
+                 '                # If the operator corrected a busted callsign',
+                 'elif self.other_2.text().isalnum():\n'
+                 '                # If the operator corrected a busted callsign'),
+                ('elif self.other_2.text().isnumeric():\n'
+                 '                self.make_button_green(self.esm_dict["EXCH"])',
+                 'elif self.other_2.text().isalnum():\n'
+                 '                self.make_button_green(self.esm_dict["EXCH"])'),
+            ])
         if plugin_id in {"cq_160_cw", "cq_160_ssb"}:
             # Preserve the original /MM non-multiplier rule during ordered
             # replay and make its timestamp-only multiplier queries stable for
