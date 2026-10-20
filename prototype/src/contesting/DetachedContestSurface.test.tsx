@@ -9,13 +9,16 @@ import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type Contes
   type ContestSurfaceProjection, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 
-const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void),wakes:[] as (()=>void)[] }));
+const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), wake: null as null|(()=>void),wakes:[] as (()=>void)[],
+  closeRequested:null as null|((event:{preventDefault:()=>void})=>Promise<void>) }));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (command: string, args: Record<string, any>) =>
     native.invoke(command, command === "contest_surface_action" ? args.envelope : args),
   isTauri: () => true,
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
+vi.mock("@tauri-apps/api/window",()=>({getCurrentWindow:()=>({onCloseRequested:async(handler:typeof native.closeRequested)=>{
+  native.closeRequested=handler;return()=>{native.closeRequested=null;};}})}));
 
 const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",
   workspaceGeneration="00000000-0000-4000-8000-000000000003";
@@ -162,6 +165,81 @@ it.each(["legacy", "manual", "plugin"])("lets the %s log use the full pane when 
   expect(screen.getByRole("button",{name:"K1ABC"})).toBeTruthy();
   expect(screen.queryByRole("table",{name:"Callsign partial matches"})).toBeNull();
   expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(1);
+});
+
+it("opens editing from Log Display in a separate native Edit Contact window",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const row={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentExchange:"599",receivedExchange:"599",points:2,multiplierLabels:[]};
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:1,rows:[row]},manualRows:[{qsoID:row.qsoID,TS:"2026-10-20 12:00:00",Call:row.callsign,
+      Freq:"14025",SNT:"599",RCV:"599",ZN:"5",SentNr:"1",prefix:"K1",Points:"2"}],partialRows:[],editing:null,busy:false};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
+    if(command==="contest_contact_editor_open")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"K1ABC"}));
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration}));
+  expect(screen.queryByRole("heading",{name:"Edit Contact"})).toBeNull();
+});
+
+it("renders the original contact fields in the dedicated editor and closes after Save",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
+  const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
+    band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",
+    receivedFields:[{id:"other_1",label:"Sent exchange",value:"001",required:true,maximumUTF8Bytes:32},
+      {id:"other_2",label:"Received exchange",value:"005",required:true,maximumUTF8Bytes:128}],
+    frequencyHz:14025000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",
+    confirmDelete:false,deletionReason:"Operator deletion"};
+  const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:1,rows:[]},manualRows:[],partialRows:[],editing,busy:false};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
+    if(command==="contest_contact_editor_close")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("heading",{name:"Edit Contact"})).toBeTruthy();
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","K1ABC");
+  expect(screen.getByLabelText("TimeStamp (UTC)")).toHaveProperty("value","2026-10-20 12:00:00");
+  expect(screen.getByText("20m · CW")).toBeTruthy();
+  expect(screen.getByLabelText("Station Call")).toHaveProperty("value","OM0RX");
+  fireEvent.click(screen.getByRole("button",{name:"Save"}));
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_close",undefined));
+  expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID:"logbook",action:"log_edit_save",params:{qsoID:"logged-qso",expectedSessionRevision:7},
+  });
+});
+
+it("treats the native Edit Contact traffic-light close as Cancel before destroying the window",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
+  const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
+    band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",receivedFields:[],frequencyHz:14025000,
+    editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:""};
+  const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:1,rows:[]},manualRows:[],partialRows:[],editing,busy:false};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
+    if(command==="contest_contact_editor_close")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Edit Contact"});
+  await waitFor(()=>expect(native.closeRequested).toBeTypeOf("function"));
+  const preventDefault=vi.fn();await act(async()=>{await native.closeRequested!({preventDefault});});
+  expect(preventDefault).toHaveBeenCalledOnce();
+  expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
+    panelID:"logbook",action:"log_edit_cancel",params:{qsoID:"logged-qso"},
+  });
+  expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_close",undefined);
+});
+
+it("lays out Edit Contact actions as a wrapping right-aligned native-style row",()=>{
+  const css=readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`,"utf8");
+  expect(css).toMatch(/contest-surface-editor-actions[^}]*display:flex[^}]*justify-content:flex-end[^}]*flex-wrap:wrap[^}]*gap:8px/);
 });
 
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
@@ -902,7 +980,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
 });
 
 it("coalesces rapid log edits and resets the presentation buffer when the owner switches contacts",async()=>{
-  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
   const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,workedAt:"2026-10-19T10:00:00Z",operator:"OM0RX",band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
     frequencyHz:14_025_000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"});
   let current:any={...snapshot,panelID:"logbook",projectionRevision:3,projection:{schemaVersion:1,status:"ready",sessionRevision:8,canExportCabrillo:true,

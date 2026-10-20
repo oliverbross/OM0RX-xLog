@@ -464,7 +464,8 @@ fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
             let token = lifetimes().lock().map_err(|_| "Contest window lifetime unavailable")?.get(label).copied()
                 .ok_or("Contest window lifetime unavailable")?;
             retiring_contest_windows().lock().map_err(|_| "Contest window retirement unavailable")?.insert(label.clone(), token);
-            if let Err(error) = window.close() {
+            let closed = if contest_retirement_force_destroys(label) { window.destroy() } else { window.close() };
+            if let Err(error) = closed {
                 if let Ok(mut retiring) = retiring_contest_windows().lock() { retiring.remove(label); }
                 return Err(error.to_string());
             }
@@ -479,6 +480,7 @@ fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+fn contest_retirement_force_destroys(label: &str) -> bool { label == "contest--edit-contact" }
 fn contest_window_labels() -> Vec<String> {
     crate::workspace_windows::CONTEST_WINDOWS.iter()
         .map(|spec| format!("{}{}", crate::workspace_windows::CONTEST_LABEL_PREFIX, spec.id)).collect()
@@ -1459,6 +1461,10 @@ mod tests {
         let labels = contest_window_labels();
         assert_eq!(labels.len(), crate::workspace_windows::CONTEST_WINDOWS.len());
         assert!(labels.iter().all(|label| label.starts_with("contest--")));
+        assert!(labels.iter().any(|label| label == "contest--edit-contact"));
+        assert!(labels.iter().any(|label| label == "contest--qrz-details"));
+        assert!(contest_retirement_force_destroys("contest--edit-contact"));
+        assert!(!contest_retirement_force_destroys("contest--logbook"));
         assert!(!labels.iter().any(|label| label == "main" || crate::workspace_windows::supports(label)));
     }
 }

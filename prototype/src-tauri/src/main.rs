@@ -71,6 +71,7 @@ const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
 const CONTEST_SETUP_WINDOW: &str = "contest-setup";
 const CONTEST_CALL_HISTORY_WINDOW: &str = "contest--call-history";
 const CONTEST_QRZ_DETAILS_WINDOW: &str = "contest--qrz-details";
+const CONTEST_CONTACT_EDITOR_WINDOW: &str = "contest--edit-contact";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
 pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
     SPOT_ACTIVATION.get_or_init(|| Arc::new(spot_activation::Coordinator::new(
@@ -138,6 +139,7 @@ mod contesting_test_native_admission_tests {
         assert!(!super::native_only_worker_method("contest_scp_query"));
         assert_eq!(super::CONTEST_SETUP_WINDOW, "contest-setup");
         assert_eq!(super::CONTEST_CALL_HISTORY_WINDOW, "contest--call-history");
+        assert_eq!(super::CONTEST_CONTACT_EDITOR_WINDOW, "contest--edit-contact");
         assert_ne!(super::CONTEST_SETUP_WINDOW, super::CONTEST_CALL_HISTORY_WINDOW);
         for method in ["contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
             "contest_history_preview_commit", "contest_history_activate"] {
@@ -2328,6 +2330,48 @@ async fn contest_window_open(window: tauri::WebviewWindow, app: tauri::AppHandle
         .await.map_err(|_| "Contest window task failed".to_string())?
 }
 
+#[tauri::command]
+async fn contest_contact_editor_open(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    operating_context: String, session_i_d: String, workspace_generation: String) -> Result<(), String> {
+    validate_contest_contact_editor_open_caller(window.label())?;
+    let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
+    if context.operating_context != operating_context { return Err("That Edit Contact request belongs to an expired contest.".into()); }
+    let editor = recover_singleton(&MAIN_CREATION, || app.get_webview_window(CONTEST_CONTACT_EDITOR_WINDOW), || {
+        let route = format!("edit-contact&scope=contesting&operatingContext={}&sessionID={}&workspaceGeneration={}",
+            context.operating_context, context.session_id, context.workspace_generation);
+        let mut builder = tauri::WebviewWindowBuilder::new(&app, CONTEST_CONTACT_EDITOR_WINDOW,
+            tauri::WebviewUrl::App(format!("index.html?view={route}").into()))
+            .title("OM0RX-xLog Contest — Edit Contact")
+            .inner_size(560.0, 540.0).min_inner_size(460.0, 420.0).focused(true)
+            .always_on_top(false)
+            .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+        if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
+        let editor = builder.build().map_err(|error| error.to_string())?;
+        workspace_window_runtime::created(&editor);
+        if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&editor); }
+        Ok(editor)
+    })?;
+    editor.unminimize().map_err(|error| error.to_string())?;
+    editor.show().map_err(|error| error.to_string())?;
+    editor.set_focus().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn contest_contact_editor_close(window: tauri::WebviewWindow) -> Result<(), String> {
+    validate_contest_contact_editor_close_caller(window.label())?;
+    window.destroy().map_err(|error| error.to_string())
+}
+
+fn validate_contest_contact_editor_open_caller(label: &str) -> Result<(), String> {
+    if label == "contest--logbook" { Ok(()) }
+    else { Err("Only Contest Log Display can open Edit Contact.".into()) }
+}
+
+fn validate_contest_contact_editor_close_caller(label: &str) -> Result<(), String> {
+    if label == CONTEST_CONTACT_EDITOR_WINDOW { Ok(()) }
+    else { Err("Only Edit Contact can close itself here.".into()) }
+}
+
 fn contest_group_chat_context(window: &tauri::WebviewWindow, operating_context: &str,
     session_id: &str, workspace_generation: &str) -> Result<contest_window_context::ContestWindowContext, String> {
     if window.label() != "contest--group-chat" { return Err("Only the Group Chat window can use the chat runtime.".into()); }
@@ -2863,7 +2907,7 @@ fn main() {
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
-            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close, contest_setup_service_open,
+            workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
@@ -2929,6 +2973,19 @@ mod workspace_layout_tests {
         for panel in ["alerts", "cw", "settings", "contest--logbook", ""] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_err());
         }
+    }
+
+    #[test]
+    fn contest_contact_editor_is_logbook_owned_and_self_closing() {
+        assert!(super::validate_contest_contact_editor_open_caller("contest--logbook").is_ok());
+        assert!(super::validate_contest_contact_editor_close_caller("contest--edit-contact").is_ok());
+        for label in ["contest-setup", "contest--active-qso", "contest--edit-contact", "logbook", "main", ""] {
+            assert!(super::validate_contest_contact_editor_open_caller(label).is_err(), "opened from {label:?}");
+        }
+        for label in ["contest--logbook", "contest-setup", "logbook", "main", ""] {
+            assert!(super::validate_contest_contact_editor_close_caller(label).is_err(), "closed from {label:?}");
+        }
+        assert!(super::workspace_navigation::contest_window_panel("edit-contact").is_none());
     }
 
     #[test]

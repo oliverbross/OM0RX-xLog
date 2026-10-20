@@ -27,7 +27,8 @@ const contextValid = (value: ContestSurfaceContext) => validContestSurfaceUUID(v
 
 export function contestSurfaceContextFromSearch(search: string): ContestSurfaceContext & { panelID: ContestSurfacePanelID } {
   const query = new URLSearchParams(search), single = (key: string) => query.getAll(key).length === 1 ? query.get(key) : null;
-  const panelID = single("view"), context = { operatingContext: single("operatingContext"), sessionID: single("sessionID"),
+  const view = single("view"), panelID = view === "edit-contact" ? "logbook" : view;
+  const context = { operatingContext: single("operatingContext"), sessionID: single("sessionID"),
     workspaceGeneration: single("workspaceGeneration") };
   if (single("scope") !== "contesting" || !contestSurfacePanelIDs.includes(panelID as ContestSurfacePanelID) ||
       !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
@@ -132,6 +133,18 @@ export async function openContestCallHistoryWindow(context: ContestSurfaceContex
   if (!contextValid(context)) throw new Error("The Call History window request could not be verified.");
   if (!isTauri()) throw new Error("Call History requires the native application.");
   await invoke("contest_window_open", { ...context, panelID: "call-history" });
+}
+
+export async function openContestContactEditorWindow(context: ContestSurfaceContext): Promise<void> {
+  if (!contextValid(context)) throw new Error("The Edit Contact window request could not be verified.");
+  if (!isTauri()) throw new Error("Edit Contact requires the native application.");
+  await invoke("contest_contact_editor_open", { operatingContext: context.operatingContext,
+    sessionID: context.sessionID, workspaceGeneration: context.workspaceGeneration });
+}
+
+export async function closeContestContactEditorWindow(): Promise<void> {
+  if (!isTauri()) throw new Error("Edit Contact requires the native application.");
+  await invoke("contest_contact_editor_close");
 }
 
 export async function onContestSurfaceWake(refresh: () => void): Promise<UnlistenFn> {

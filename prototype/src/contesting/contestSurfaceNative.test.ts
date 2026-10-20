@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
-  publishContestSurface, readContestSurfaceSnapshot, submitContestSurfaceAction } from "./contestSurfaceNative";
+  openContestContactEditorWindow, closeContestContactEditorWindow, publishContestSurface, readContestSurfaceSnapshot,
+  submitContestSurfaceAction } from "./contestSurfaceNative";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), tauri: true }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => native.tauri }));
@@ -25,6 +26,17 @@ describe("contest native surface bridge", () => {
     expect(contestSurfaceContextFromSearch(query)).toEqual({ ...context, panelID: "active-qso" });
     expect(() => contestSurfaceContextFromSearch(`${query}&sessionID=${context.sessionID}`)).toThrow("could not be verified");
     expect(() => contestSurfaceContextFromSearch(query.replace("000000000001", "00000000000A"))).toThrow("could not be verified");
+    expect(contestSurfaceContextFromSearch(query.replace("view=active-qso", "view=edit-contact")))
+      .toEqual({ ...context, panelID: "logbook" });
+  });
+
+  it("opens and closes the original Edit Contact native window through bounded commands", async () => {
+    native.invoke.mockResolvedValue(undefined);
+    await openContestContactEditorWindow(context);
+    await closeContestContactEditorWindow();
+    expect(native.invoke.mock.calls).toEqual([
+      ["contest_contact_editor_open", context], ["contest_contact_editor_close"],
+    ]);
   });
 
   it("submits one exact action and rejects a coercible malformed receipt", async () => {

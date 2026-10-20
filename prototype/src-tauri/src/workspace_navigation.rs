@@ -189,10 +189,12 @@ mod tests {
         for label in [
             "contest-setup",
             "contest--call-history",
+            "contest--qrz-details",
             "contest--group-chat",
             "contest--active-qso",
             "contest--propagation",
             "contest--logbook",
+            "contest--edit-contact",
             "contest--callsign-intelligence",
             "contest--monitor",
             "contest--awards",

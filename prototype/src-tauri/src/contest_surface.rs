@@ -492,6 +492,7 @@ fn require_context(state: &State, context: &ContestWindowContext) -> Result<(), 
 }
 
 fn contest_panel(label: &str) -> Result<String, String> {
+    if label == "contest--edit-contact" { return Ok("logbook".into()); }
     let identity = WorkspaceWindowIdentity::parse_native_label(label)?;
     if identity.scope != WorkspaceWindowScope::Contesting {
         return Err("Only a contest native window can use contest surfaces.".into());
@@ -2289,6 +2290,7 @@ mod tests {
     #[test]
     fn action_schema_rejects_unknown_fields_coercion_wrong_panel_and_old_numeric_frequency() {
         assert_eq!(contest_panel("contest--active-qso").unwrap(), "active-qso");
+        assert_eq!(contest_panel("contest--edit-contact").unwrap(), "logbook");
         assert!(contest_panel("active-qso").is_err());
         assert!(contest_panel("contest--unknown").is_err());
         let params = json!({"draftID":"draft","expectedDraftRevision":2,"value":""});
