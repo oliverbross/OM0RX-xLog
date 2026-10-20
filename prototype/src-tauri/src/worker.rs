@@ -226,6 +226,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_history_query_cancel",
         "contest_history_select",
         "contest_history_apply",
+        "contest_history_activate",
         "workspace_status",
         "workspace_create",
         "workspace_preferences_load",
@@ -1566,6 +1567,17 @@ mod tests {
             assert!(validate_surface("main", &request).is_err(), "{method}");
             assert!(validate_surface("monitor", &request).is_err(), "{method}");
             assert!(validate_surface("settings", &request).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn contest_history_activation_is_admitted_without_expanding_renderer_authority() {
+        let request = json!({"id":"history-activate", "method":"contest_history_activate",
+            "params":{"sessionID":"contest", "workspaceGeneration":"workspace"}});
+        // The typed Call History manager dispatches directly through request validation.
+        assert!(validate_request(&request).is_ok());
+        assert!(validate_surface("contest-setup", &request).is_ok());
+        for label in ["contest--call-history", "main", "settings", "monitor", "unknown"] {
+            assert!(validate_surface(label, &request).is_err(), "{label}");
         }
     }
     #[test]
