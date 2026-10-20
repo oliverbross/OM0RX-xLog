@@ -77,8 +77,19 @@ function Surface({ context }: { context: Context }) {
         const existing=snapshotRef.current?.receipts.find(item=>item.requestID===requestID&&
           (item.status==="applied"||item.status==="rejected"));
         const terminal=existing??await new Promise<ContestSurfaceTerminalReceipt|null>(resolve=>{
-          const timer=window.setTimeout(()=>{receiptWaiters.current.delete(requestID);resolve(null);},20_000);
-          receiptWaiters.current.set(requestID,{resolve,timer});
+          let settled=false;
+          const finish=(receipt:ContestSurfaceTerminalReceipt|null)=>{if(settled)return;settled=true;
+            const waiter=receiptWaiters.current.get(requestID);if(waiter)window.clearTimeout(waiter.timer);
+            receiptWaiters.current.delete(requestID);resolve(receipt);};
+          const timer=window.setTimeout(()=>finish(null),20_000);
+          receiptWaiters.current.set(requestID,{resolve:finish,timer});
+          if(currentAction.action==="log_export_cabrillo")void (async()=>{while(receiptWaiters.current.has(requestID)){
+              await new Promise(done=>window.setTimeout(done,250));
+              if(!receiptWaiters.current.has(requestID))return;
+              const current=await refresh(),receipt=current?.receipts.find(item=>item.requestID===requestID&&
+                (item.status==="applied"||item.status==="rejected"));
+              if(receipt){finish(receipt);return;}
+            }})();
         });
         if(!terminal)setActionError("The action outcome is still unresolved. Refresh before continuing.");
         return {applied:terminal?.status==="applied",projectionRevision:terminal?.status==="applied"?terminal.projectionRevision:null};

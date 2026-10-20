@@ -295,6 +295,32 @@ it("routes Cabrillo export from the detached Log window to its contest owner",as
   }));
 });
 
+it("confirms a successful modal Cabrillo save by rereading its receipt when the terminal wake is missed",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false};
+  let current:any={...snapshot,panelID:"logbook",projection:view,receipts:[]},requestID="";
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){
+      requestID=args.requestID;current={...current,projection:{...view,busy:true},
+        receipts:[{requestID,status:"uncertain",message:null,projectionRevision:6}]};
+      queueMicrotask(()=>{current={...current,projection:view,
+        receipts:[{requestID,status:"applied",message:null,projectionRevision:7}]};});
+      return {requestID,status:"queued"};
+    }
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const button=await screen.findByRole("button",{name:"Export Cabrillo…"});
+  fireEvent.click(button);
+  await waitFor(()=>expect((button as HTMLButtonElement).disabled).toBe(true));
+  await waitFor(()=>expect((button as HTMLButtonElement).disabled).toBe(false),{timeout:2000});
+  expect(screen.queryByText(/outcome is uncertain|still unresolved/i)).toBeNull();
+  expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action")).toHaveLength(1);
+  expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot").length).toBeGreaterThan(2);
+});
+
 it("uses supplied full-log and cluster calls in their manual Check Partial columns",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=callsign-intelligence"));
   const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,inputCallsign:"DL1",loggedCalls:["DL1ABC"],clusterCalls:["DL1XYZ"],scp:{source:null,candidates:[]},history:{source:null,rows:[]},busy:false};
