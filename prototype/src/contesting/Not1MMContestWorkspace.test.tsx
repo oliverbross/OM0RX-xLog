@@ -584,8 +584,9 @@ it.each([
   let current={...projection(3,{sent:"59",receive:"59",other_1:other1,other_2:other2}),pluginID,
     pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
-  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"="normal",recoverAttempts=0,
-    refreshMode:"hang"|"update"="hang",logged=false,releaseStale:Array<()=>void>=[];
+  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"|"uncertain"="normal",recoverAttempts=0,
+    refreshMode:"hang"|"update"="hang",logged=false,releaseStale:Array<()=>void>=[],mutationMode:"normal"|"hold"|"hold-fail"="normal",
+    releaseMutation:(()=>void)|null=null,rejectMutation:(()=>void)|null=null,mutationRevisions:number[]=[];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -602,6 +603,7 @@ it.each([
         score:{...current.score,qsos:99,total:99},matrices:{},statistics:statisticsFor(current)}}))) : {id:crypto.randomUUID(),ok:true,
       result:{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{},statistics:statisticsFor(current)}};
     else if(method==="contest_function_key"||method==="contest_esm"){
+      mutationRevisions.push(params.expectedRevision);
       if(params.expectedRevision!==current.revision)throw new Error(`stale expectedRevision ${params.expectedRevision}; current ${current.revision}`);
       current={...current,revision:current.revision+1};
       if(method==="contest_esm"){
@@ -614,10 +616,22 @@ it.each([
         sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:current.sourceRevision,mode:"S",key,label,template:payload},
         sessionID:current.sessionID,draftID:current.draftID}];
       result={operationID:params.operationID,revision:current.revision,projection:current,actions:lastActions,messages:[],replayed:false};
+      if(mutationMode!=="normal"){
+        const fail=mutationMode==="hold-fail";mutationMode="normal";return new Promise((resolve,reject)=>{
+          releaseMutation=()=>resolve({id:crypto.randomUUID(),ok:true,result});
+          if(fail)rejectMutation=()=>reject(new Error("The original mutation outcome is uncertain."));
+        });
+      }
     } else if(method==="contest_output_claim"){
       if(claimMode==="stop")return new Promise(()=>{});
       if(claimMode==="recover"){
         recoverAttempts+=1;if(recoverAttempts===1)return new Promise(()=>{});
+        return{id:crypto.randomUUID(),ok:false,error:{code:"output_consumed",
+          message:"Output was already consumed; do not replay",outcome:"confirmed"}};
+      }
+      if(claimMode==="uncertain"){
+        recoverAttempts+=1;if(recoverAttempts===1)return{id:crypto.randomUUID(),ok:false,error:{code:"contest_host_timeout",
+          message:"Claim confirmation was lost",outcome:"uncertain"}};
         return{id:crypto.randomUUID(),ok:false,error:{code:"output_consumed",
           message:"Output was already consumed; do not replay",outcome:"confirmed"}};
       }
@@ -677,6 +691,57 @@ it.each([
   expect(recoverAttempts).toBeGreaterThanOrEqual(2);
   expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({busy:false,operator:{pending:null,status:"armed"}});
   expect(surfaceOwner.current.projections["active-qso"].operator.trace).toHaveLength(3);
+
+  claimMode="uncertain";recoverAttempts=0;
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F6",focusedField:"callsign"}}));
+  expect(recoverAttempts).toBe(2);
+  expect(surfaceOwner.current.projections["active-qso"].operator.trace).toHaveLength(4);
+
+  claimMode="normal";mutationMode="hold";
+  entry=surfaceOwner.current.projections["active-qso"];
+  let interrupted:Promise<void>;
+  act(()=>{interrupted=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F4",focusedField:"callsign"}});});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe("waiting"));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
+  await act(async()=>interrupted!);
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  const mutationsBefore=mutationRevisions.length;
+  let afterRecovery:Promise<void>;
+  act(()=>{afterRecovery=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F5",focusedField:"callsign"}});});
+  await act(async()=>Promise.resolve());
+  expect(mutationRevisions).toHaveLength(mutationsBefore);
+  await act(async()=>releaseMutation?.());
+  await act(async()=>afterRecovery!);
+  expect(mutationRevisions.at(-1)).toBe(current.revision-1);
+  expect(surfaceOwner.current.projections["active-qso"].operator.trace).toHaveLength(5);
+
+  mutationMode="hold-fail";
+  entry=surfaceOwner.current.projections["active-qso"];
+  act(()=>{interrupted=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F7",focusedField:"callsign"}});});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe("waiting"));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
+  await act(async()=>interrupted!);
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  const uncertainBefore=mutationRevisions.length;
+  let blocked:Promise<void>;
+  act(()=>{blocked=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F8",focusedField:"callsign"}});});
+  const blockedAssertion=expect(blocked!).rejects.toThrow("Reopen the contest session to reconcile its revision");
+  await act(async()=>Promise.resolve());expect(mutationRevisions).toHaveLength(uncertainBefore);
+  await act(async()=>rejectMutation?.());
+  await act(async()=>{await blockedAssertion;});
+  expect(mutationRevisions).toHaveLength(uncertainBefore);
 });
 
 it.each([
