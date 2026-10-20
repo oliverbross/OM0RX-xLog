@@ -282,6 +282,17 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var statusHex: String
     public var bandHex: String
     public var modeHex: String
+
+    /// Refresh only the live derived mode. Historical observations retain the
+    /// classification captured when they were received.
+    @discardableResult
+    mutating func refreshInferredMode(palette: ClusterPalette) -> Bool {
+        let inferred = SpotLogic.mode(comment: comment, band: band, khz: frequencyKHz)
+        guard inferred != mode else { return false }
+        mode = inferred
+        modeHex = palette.mode[inferred] ?? "#B0B0B0"
+        return true
+    }
 }
 
 public struct ClusterSessionSnapshot: Codable, Sendable {
@@ -565,6 +576,12 @@ public actor ClusterSessionService {
     }
 
     public func snapshot() -> ClusterSessionSnapshot {
+        // A worker can outlive a renderer/package replacement. Repair stale
+        // in-memory derived modes before either normal xLog or Contest Cluster
+        // filters and displays the shared projection.
+        for index in spots.indices where spots[index].refreshInferredMode(palette: configuration.palette) {
+            reclassifySpot(at: index)
+        }
         let filter = configuration.filter
         var visible = spots.filter { spot in
             (filter.query.isEmpty || spot.callsign.localizedCaseInsensitiveContains(filter.query)
@@ -717,30 +734,35 @@ public actor ClusterSessionService {
 
     private func reclassify() {
         for index in spots.indices {
-            let country = countries.resolve(spots[index].callsign)
-            let result = classify(call: spots[index].callsign, band: spots[index].band,
-                                  mode: spots[index].mode, adif: country?.adif)
-            spots[index].country = country?.name ?? "Unknown"
-            spots[index].adif = country?.adif
-            spots[index].continent = country?.continent ?? ""
-            spots[index].cqZone = country?.cqZone
-            spots[index].ituZone = country?.ituZone
-            spots[index].latitude = country?.latitude
-            spots[index].longitude = country?.longitude
-            spots[index].callStatus = result.callStatus
-            spots[index].dxccStatus = result.dxccStatus
-            spots[index].workedBefore = result.workedBefore
-            spots[index].specialTags = specialTags(comment: spots[index].comment, source: spots[index].source)
-            let (score, reasons) = SpotLogic.score(callStatus: result.callStatus, dxccStatus: result.dxccStatus,
-                                                   specials: spots[index].specialTags, source: spots[index].source)
-            spots[index].score = score
-            spots[index].scoreReasons = reasons
-            spots[index].statusHex = configuration.palette.status[result.callStatus]
-                ?? ClusterPalette.originalDefaults.status[result.callStatus] ?? "#777F8C"
-            spots[index].bandHex = configuration.palette.band[spots[index].band] ?? "#B0B0B0"
-            spots[index].modeHex = configuration.palette.mode[spots[index].mode] ?? "#B0B0B0"
+            spots[index].refreshInferredMode(palette: configuration.palette)
+            reclassifySpot(at: index)
         }
         publish()
+    }
+
+    private func reclassifySpot(at index: Int) {
+        let country = countries.resolve(spots[index].callsign)
+        let result = classify(call: spots[index].callsign, band: spots[index].band,
+                              mode: spots[index].mode, adif: country?.adif)
+        spots[index].country = country?.name ?? "Unknown"
+        spots[index].adif = country?.adif
+        spots[index].continent = country?.continent ?? ""
+        spots[index].cqZone = country?.cqZone
+        spots[index].ituZone = country?.ituZone
+        spots[index].latitude = country?.latitude
+        spots[index].longitude = country?.longitude
+        spots[index].callStatus = result.callStatus
+        spots[index].dxccStatus = result.dxccStatus
+        spots[index].workedBefore = result.workedBefore
+        spots[index].specialTags = specialTags(comment: spots[index].comment, source: spots[index].source)
+        let (score, reasons) = SpotLogic.score(callStatus: result.callStatus, dxccStatus: result.dxccStatus,
+                                               specials: spots[index].specialTags, source: spots[index].source)
+        spots[index].score = score
+        spots[index].scoreReasons = reasons
+        spots[index].statusHex = configuration.palette.status[result.callStatus]
+            ?? ClusterPalette.originalDefaults.status[result.callStatus] ?? "#777F8C"
+        spots[index].bandHex = configuration.palette.band[spots[index].band] ?? "#B0B0B0"
+        spots[index].modeHex = configuration.palette.mode[spots[index].mode] ?? "#B0B0B0"
     }
 
     private func specialTags(comment: String, source: String) -> [String] {

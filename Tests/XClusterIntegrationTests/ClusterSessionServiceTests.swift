@@ -263,6 +263,24 @@ final class ClusterSessionServiceTests: XCTestCase {
         await service.disconnect()
     }
 
+    func testRetainedCWProjectionRefreshesFromExplicitFT8Comment() {
+        var spot = ClassifiedClusterSpot(
+            id: UUID(), receivedAt: Date(), clusterName: "Fixture", spotter: "DO2HQS",
+            frequencyKHz: 28088.0, frequencyText: "28088.0", callsign: "7P8GE",
+            comment: "FT-8 TNX 73s", band: "10m", mode: "CW", country: "Lesotho", adif: 432,
+            continent: "AF", cqZone: 38, ituZone: 57, latitude: nil, longitude: nil,
+            callStatus: "Unknown", dxccStatus: "Unknown", workedBefore: nil, specialTags: [],
+            score: 0, scoreReasons: [], aggregateCount: 1, aggregateSpotters: ["DO2HQS"],
+            source: "cluster", statusHex: "#777F8C", bandHex: "#B0B0B0", modeHex: "#B0B0B0"
+        )
+
+        XCTAssertEqual(spot.mode, "CW")
+        XCTAssertTrue(spot.refreshInferredMode(palette: .originalDefaults))
+        XCTAssertEqual(spot.mode, "FT8")
+        XCTAssertEqual(spot.modeHex, ClusterPalette.originalDefaults.mode["FT8"])
+        XCTAssertFalse(spot.refreshInferredMode(palette: .originalDefaults))
+    }
+
     func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
         let connection = TestClusterTransport()
