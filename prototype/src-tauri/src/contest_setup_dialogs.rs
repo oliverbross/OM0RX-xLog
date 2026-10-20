@@ -9,6 +9,7 @@ pub fn kind(label: &str) -> Option<&'static str> {
         "contest-setup-configuration" => Some("configuration"),
         "contest-setup-digital" => Some("digital"),
         "contest-setup-macros" => Some("macros"),
+        "contest-setup-keys" => Some("keys"),
         "contest-setup-rover" => Some("rover"),
         "contest-setup-about" => Some("about"),
         _ => None,
@@ -21,6 +22,7 @@ pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
         "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 320.0)),
         "digital" => Some(("contest-setup-digital", "Digital Logging Setup", 720.0, 560.0)),
         "macros" => Some(("contest-setup-macros", "Edit Macros", 820.0, 620.0)),
+        "keys" => Some(("contest-setup-keys", "Edit Keys", 880.0, 700.0)),
         "rover" => Some(("contest-setup-rover", "Rover", 382.0, 110.0)),
         "about" => Some(("contest-setup-about", "About Not1MM", 420.0, 500.0)),
         _ => None,
@@ -159,7 +161,7 @@ mod tests {
     }
     #[test]
     fn only_owner_or_main_logging_opon_can_open_dialogs() {
-        for kind in ["operator", "station", "configuration", "digital", "macros", "rover", "about"] {
+        for kind in ["operator", "station", "configuration", "digital", "macros", "keys", "rover", "about"] {
             assert!(can_open("contest-setup", kind));
         }
         assert!(can_open("contest--active-qso", "operator"));
@@ -204,24 +206,26 @@ mod tests {
         assert!(s.request("contest-setup","next",json!({"epoch":"old-owner"})).is_err());
     }
     #[test]
-    fn exposes_three_compact_distinct_windows() {
+    fn exposes_compact_distinct_windows() {
         assert_eq!(spec("operator"),Some(("contest-setup-operator","Operator",420.0,190.0)));
         assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
         assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,320.0)));
         assert_eq!(spec("digital"),Some(("contest-setup-digital","Digital Logging Setup",720.0,560.0)));
         assert_eq!(spec("macros"),Some(("contest-setup-macros","Edit Macros",820.0,620.0)));
+        assert_eq!(spec("keys"),Some(("contest-setup-keys","Edit Keys",880.0,700.0)));
         assert_eq!(spec("rover"),Some(("contest-setup-rover","Rover",382.0,110.0)));
         assert_eq!(spec("about"),Some(("contest-setup-about","About Not1MM",420.0,500.0)));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-operator"),(360.0,170.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-station"),(620.0,480.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-configuration"),(680.0,300.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-macros"),(620.0,420.0));
+        assert_eq!(crate::workspace_windows::native_minimum("contest-setup-keys"),(620.0,420.0));
         assert!(spec("logbook").is_none()); assert!(kind("contest-setup").is_none());
     }
     #[test]
     fn dialogs_have_only_their_finite_core_capability() {
         let capability: Value = serde_json::from_str(include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
-        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration","contest-setup-digital","contest-setup-macros","contest-setup-rover","contest-setup-about"]));
+        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration","contest-setup-digital","contest-setup-macros","contest-setup-keys","contest-setup-rover","contest-setup-about"]));
         assert_eq!(capability["permissions"],json!(["core:default","core:window:allow-set-size"]));
     }
 }

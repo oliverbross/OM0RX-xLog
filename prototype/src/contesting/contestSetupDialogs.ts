@@ -2,7 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import type { ContestSetupDocument } from "./ContestSetupPanel";
 
-export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "macros" | "rover" | "about";
+export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "macros" | "keys" | "rover" | "about";
 export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number };
   running: boolean; status: string; receive_only: boolean };
 export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"]; action: "save" | "start" | "stop" };
@@ -31,6 +31,7 @@ export async function saveContestDigitalDialog(snapshot: SetupDialogSnapshot, di
 export function mergeSetupDialog(current: ContestSetupDocument, requested: ContestSetupDocument, kind: SetupDialogKind): ContestSetupDocument {
   if (kind === "operator") return { ...current, operator: requested.operator };
   if (kind === "macros") return { ...current, macros: structuredClone(requested.macros) };
+  if (kind === "keys") return { ...current, preferences: { ...current.preferences, keyBindings: requested.preferences.keyBindings } };
   return kind === "station" ? { ...current, station: structuredClone(requested.station) } :
     { ...current, preferences: structuredClone(requested.preferences), network: structuredClone(requested.network) };
 }

@@ -39,13 +39,28 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const snapshot = () => ({ epoch: "owner", context: "workspace/session", revision: 2, document: newContestSetup("OM0RX"),
   auxiliary:{roverLocation:"",activeSessionID:"session",effectiveMacros:[{mode:"R" as const,key:"F1",label:"CQ",template:"CQ {MYCALL}"}],
     diagnostics:{engine:"Not1MM Python",plugin:"cq_ww_cw",version:"26.10.11",source:"source",reference:"reference"}} });
-function open(kind: "station" | "configuration" | "macros") {
+function open(kind: "station" | "configuration" | "macros" | "keys") {
   window.history.replaceState({}, "", `?view=contest-setup-${kind}`);
   native.invoke.mockImplementation(async (_command, { method }) => method === "snapshot" ? snapshot() : null);
   return render(<DetachedContestSetupDialog/>);
 }
 it("routes Edit Macros to its independent setup dialog", async () => {
   await expect(loadWindowSurface("?view=contest-setup-macros")).resolves.toBe(DetachedContestSetupDialog);
+});
+it("routes Edit Keys to its independent setup dialog and saves only key bindings", async () => {
+  await expect(loadWindowSurface("?view=contest-setup-keys")).resolves.toBe(DetachedContestSetupDialog);
+  open("keys");
+  fireEvent.change(await screen.findByLabelText("key 1"), { target: { value: "Alt+R" } });
+  native.invoke.mockImplementation(async (_command, { method, params }) => {
+    if (method === "snapshot") return snapshot();
+    if (method === "submit") return { requestID: params.requestID, status: "saved" };
+    return null;
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(native.invoke.mock.calls.some(([,args]) => args.method === "close")).toBe(true));
+  const submit = native.invoke.mock.calls.find(([,args]) => args.method === "submit")?.[1].params;
+  expect(JSON.parse(String(submit.document.preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);
+  expect(submit.document.station).toEqual(snapshot().document.station);
 });
 it("opens isolated Station fields and Cancel closes without submitting", async () => {
   open("station");
@@ -251,6 +266,12 @@ it("merges only each dialog's fields into the owner's latest setup", () => {
   const macros = mergeSetupDialog(current, requested, "macros");
   expect(macros.macros).toEqual(requested.macros); expect(macros.station).toEqual(current.station);
   expect(macros.preferences).toEqual(current.preferences); expect(macros.network).toEqual(current.network);
+  requested.preferences.keyBindings = "[[\"*\",\"Alt+R\",\"TOGGLE_RUN\"]]";
+  requested.preferences.cwSpeed = 99;
+  const keys = mergeSetupDialog(current, requested, "keys");
+  expect(keys.preferences.keyBindings).toBe(requested.preferences.keyBindings);
+  expect(keys.preferences.cwSpeed).toBe(current.preferences.cwSpeed);
+  expect(keys.network).toEqual(current.network);
 });
 it("uses one owner save for a repeated native request after a lost completion", async () => {
   const source = snapshot(), save = vi.fn(async () => {}), report = vi.fn();

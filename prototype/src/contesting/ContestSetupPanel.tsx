@@ -31,10 +31,10 @@ type Props = {
   servicePanels?: Partial<Record<ContestSetupServiceTab, ReactNode>>;
   callHistoryPanel?: ReactNode;
   onOpenCallHistory?: () => void;
-  onOpenDialog?: (kind: "station" | "configuration" | "digital" | "macros") => void | Promise<void>;
+  onOpenDialog?: (kind: "station" | "configuration" | "digital" | "macros" | "keys") => void | Promise<void>;
   onContentChange?: () => void;
   onViewChange?: (view: SetupView | null) => void;
-  detachedDialog?: "station" | "configuration" | "macros";
+  detachedDialog?: "station" | "configuration" | "macros" | "keys";
   onCancel?: () => void | Promise<void>;
 };
 
@@ -255,7 +255,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const configuration = view === "Configuration Settings";
   return <section className="contest-setup" data-setup-view={view ?? "Contest Setup"} aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>
     {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => {
-      const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : name === "Digital Setup" ? "digital" : name === "Edit Macros" ? "macros" : null;
+      const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : name === "Digital Setup" ? "digital" : name === "Edit Macros" ? "macros" : name === "Edit Keys" ? "keys" : null;
       if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
       else open(name);
     }}>{name}</button>)}</div> :

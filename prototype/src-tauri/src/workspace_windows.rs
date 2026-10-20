@@ -154,6 +154,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
     if label == "contest-setup-configuration" { return (680.0, 300.0); }
     if label == "contest-setup-digital" { return (560.0, 440.0); }
     if label == "contest-setup-macros" { return (620.0, 420.0); }
+    if label == "contest-setup-keys" { return (620.0, 420.0); }
     if crate::contest_setup_dialogs::kind(label).is_some() { return (620.0, 480.0); }
     // Contest identities reuse normal panel roles, but have compact tools of
     // their own. Match the canvas minimum for the four connected panels;

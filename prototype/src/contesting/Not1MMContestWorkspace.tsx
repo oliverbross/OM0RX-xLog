@@ -1259,10 +1259,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
-      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-macros", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
-        if (route === "contest-dialog-macros" && !projectionRef.current) { setManager(true); setError("Open a contest session before editing macros."); return true; }
+      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-macros", "contest-dialog-keys", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
+        if (["contest-dialog-macros", "contest-dialog-keys"].includes(route) && !projectionRef.current) { setManager(true); setError(`Open a contest session before editing ${route === "contest-dialog-keys" ? "keys" : "macros"}.`); return true; }
         await openContestSetupDialog(route === "contest-dialog-operator" ? "operator" : route === "contest-dialog-station" ? "station" :
-          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-digital" ? "digital" : route === "contest-dialog-macros" ? "macros" : route === "contest-dialog-rover" ? "rover" : "about");
+          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-digital" ? "digital" : route === "contest-dialog-macros" ? "macros" : route === "contest-dialog-keys" ? "keys" : route === "contest-dialog-rover" ? "rover" : "about");
         return true;
       }
       if (route === "contest-setup") {

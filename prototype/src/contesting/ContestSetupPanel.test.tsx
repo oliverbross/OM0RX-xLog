@@ -39,6 +39,16 @@ it("opens Edit Macros as a separate native dialog when Contest Setup owns window
   await waitFor(() => expect(onOpenDialog).toHaveBeenCalledExactlyOnceWith("macros"));
   expect(screen.queryByLabelText("Run F1 template")).toBeNull();
 });
+it("opens Edit Keys as a separate native dialog while preserving the in-Setup editor", async () => {
+  const p = props(), onOpenDialog = vi.fn();
+  const view = render(<ContestSetupPanel {...p} onOpenDialog={onOpenDialog}/>);
+  open("Edit Keys");
+  await waitFor(() => expect(onOpenDialog).toHaveBeenCalledExactlyOnceWith("keys"));
+  expect(screen.queryByLabelText("key 1")).toBeNull();
+  view.rerender(<ContestSetupPanel {...p}/>);
+  open("Edit Keys");
+  expect(screen.getByLabelText("key 1")).toBeTruthy();
+});
 it("matches station row order, saves upstream field names, and preserves unknown existing data", async () => {
   const p = props(); p.value.station.UniqueStationField = "keep"; p.value.preferences.futureSetting = true;
   render(<ContestSetupPanel {...p}/>); open("Station Settings");

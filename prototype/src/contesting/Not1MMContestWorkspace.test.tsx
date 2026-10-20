@@ -1320,6 +1320,8 @@ it("defers a native contest window command until the saved session is fully rest
   await waitFor(async () => expect(await route!("contest-window-active-qso")).toBe(true));
   expect(surfaceWindow.open).toHaveBeenCalledTimes(1);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
+  await expect(route!("contest-dialog-keys")).resolves.toBe(true);
+  expect(surfaceWindow.openDialog).toHaveBeenLastCalledWith("keys");
   await expect(route!("contest-window-call-history")).resolves.toBe(true);
   expect(surfaceWindow.openHistory).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}));
   await expect(route!("contest-window-group-chat")).resolves.toBe(true);
