@@ -6,7 +6,7 @@ the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WPX CW, ARRL Sweepstakes CW, ICWC MST, CWT,
-CWOPS Open, K1USN SST, Trans Tasman CW and Oceania DX CW.
+CWOPS Open, K1USN SST, Trans Tasman CW, Oceania DX CW and Oceania DX SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -64,6 +64,16 @@ import time and fails if the pinned source differs:
    duplicates remain retained in the log. These compatibility corrections do
    not claim organizer certification or installed-app acceptance.
 
+9. Oceania DX SSB's unchanged `oceania_dx_ssb.py` comes from the same pinned
+   revision (Git blob `30f1d5f9a59104bfa17837c99b39ee5182e33aa6`).
+   Its scoring and prefix SQL have the exact same compatibility anchors as
+   the CW sibling, so it shares only those overlays. Original exchange, ESM,
+   multiplier and Cabrillo callbacks still execute. The host defaults reports
+   to 59, reserves serials, projects SSB and stores conventional USB/LSB modes
+   for the original Cabrillo PH conversion. SSB ESM can log but emits no CW
+   actions; CW context acquisition fails. The frontend retains Run/S&P and
+   ESM while hiding CW output controls and uses xLog's station tune service.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -72,6 +82,7 @@ Original SHA-256:
 | plugins/icwc_mst.py | 4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca |
 | plugins/cwo.py | e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e |
 | plugins/oceania_dx_cw.py | 51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664 |
+| plugins/oceania_dx_ssb.py | f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |

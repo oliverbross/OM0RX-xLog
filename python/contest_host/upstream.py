@@ -120,7 +120,7 @@ def load_plugin(plugin_id="cq_ww_cw"):
             ("from PyQt6 import QtWidgets", "from contest_host.qt_compat import QtWidgets"),
             ("str(Path.home())", "str(self.export_directory)"),
         ]
-        if plugin_id == "oceania_dx_cw":
+        if plugin_id in {"oceania_dx_cw", "oceania_dx_ssb"}:
             # SQLite stores Band as REAL; the pinned plugin indexes string keys.
             # Ordered host replay already computed each row's duplicate points.
             replacements.extend([

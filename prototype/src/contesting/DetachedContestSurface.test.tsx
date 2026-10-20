@@ -379,6 +379,20 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
 });
 
+it("keeps SSB Run and S&P while hiding CW output controls",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"xlog-native",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;throw new Error(command);});
+  render(<DetachedContestSurface/>);
+  await screen.findByRole("region",{name:"Main Logging"});
+  expect(screen.getByRole("radio",{name:"Run"})).toBeTruthy();
+  expect(screen.queryByRole("group",{name:"CW speed"})).toBeNull();
+  expect(screen.queryByRole("group",{name:"Function key macros"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Arm CW"})).toBeNull();
+});
+
 it("executes saved finite Not1MM key bindings and stops using the replaced chord",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],

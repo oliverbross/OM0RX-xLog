@@ -487,6 +487,10 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
 });
 
 it.each([
+  { pluginID:"oceania_dx_ssb", pluginName:"Oceania DX SSB",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
+    row:{ID:"oc-ssb-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
+    receivedExchange:"123", multiplierLabels:["VK4"], values:["2026-10-20 11:00:00","VK4ABC","14250","59","59","1","123","✓","1"] },
   { pluginID:"oceania_dx_cw", pluginName:"Oceania DX CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     row:{ID:"oc-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
@@ -521,6 +525,35 @@ it.each([
     pluginRows:[{qsoID:row.ID,values}],pluginPartialRows:[],page:{rows:[{receivedExchange,...(multiplierLabels ? {multiplierLabels} : {})}]}});
   expect(logbook).not.toHaveProperty("manualRows");
   expect(validContestSurfaceProjection("logbook",logbook)).toBe(true);
+});
+
+it("creates an SSB session from catalog metadata and runs ESM without native CW admission", async () => {
+  const current={...projection(3,{sent:"59",receive:"59",other_1:"001",other_2:"012"}),pluginID:"oceania_dx_ssb",
+    pluginName:"Oceania DX SSB",mode:"SSB",supportedModes:["SSB"],reservedSerial:1,allowDuplicateCommit:true,matrixTrackers:[]};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW",modes:["CW"]},
+      {id:"oceania_dx_ssb",name:"Oceania DX SSB",modes:["SSB"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"||method==="contest_esm"?{projection:current,actions:[],messages:[]}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:"oceania_dx_ssb"}});
+  expect((screen.getByLabelText("Mode") as HTMLSelectElement).value).toBe("SSB");
+  expect((screen.getByLabelText("Mode") as HTMLSelectElement).disabled).toBe(true);
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.mode).toBe("SSB"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry).toMatchObject({descriptor:{modes:["SSB"],reportsVisible:true},
+    draft:{sentReport:"59",receivedReport:"59"},operator:{armed:false,functionKeys:[],readiness:{canSendCQ:false}}});
+  expect(request.mock.calls.find(([method])=>method==="contest_create")?.[1]?.settings).toMatchObject({ModeCategory:"SSB"});
+  await act(async()=>{await surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:3,key:"Enter",focusedField:"other_2"}});});
+  expect(request.mock.calls.some(([method])=>method==="contest_esm")).toBe(true);
+  expect(nativeCW.execute).not.toHaveBeenCalled();
 });
 
 it("projects only configured bands into detached Main Logging", async () => {

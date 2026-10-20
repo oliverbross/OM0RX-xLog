@@ -27,6 +27,7 @@ PLUGIN_REGISTRY = MappingProxyType({
     "trans_tasman": Plugin("Trans Tasman CW", serial=True, bands=("160m", "80m", "40m"),
                             allow_duplicate_commit=True),
     "oceania_dx_cw": Plugin("Oceania DX CW", serial=True, allow_duplicate_commit=True),
+    "oceania_dx_ssb": Plugin("Oceania DX SSB", serial=True, modes=("SSB",), allow_duplicate_commit=True),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)

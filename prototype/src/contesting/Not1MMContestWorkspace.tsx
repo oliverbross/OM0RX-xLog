@@ -147,7 +147,7 @@ function receivedExchange(row: Data, pluginID?: string): string {
   if (pluginID === "icwc_mst") return `${row.Name ?? ""} ${row.NR ?? ""}`.trim();
   if (pluginID === "cwo") return `${row.NR ?? ""} ${row.Name ?? ""}`.trim();
   if (pluginID === "arrl_ss_cw") return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
-  return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
+  return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" || pluginID === "oceania_dx_ssb" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
 }
 function correctionExchangeValues(row: Data, pluginID?: string) {
   if (pluginID === "cwt") {
@@ -164,7 +164,7 @@ function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
     band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
     points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" || pluginID === "cwo" ? []
-      : pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
+      : pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" || pluginID === "oceania_dx_ssb" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
       : pluginID === "arrl_ss_cw" ? [row.Sect ? `Section ${row.Sect}` : ""].filter(Boolean)
       : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));
@@ -467,6 +467,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   };
   const hostAction = (method: string, extra: Record<string, unknown> = {}, throwFailures = false) => runMutation(async base => {
     if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before using ESM.");
+    if (base.mode !== "CW")
+      return mutate(method, base, { fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra });
     const operationID = crypto.randomUUID();
     const native = await cw.controller.executeContest({ operation: method === "contest_esm" ? "esm" : "function_key",
       operationID, sessionID: base.sessionID, expectedContestRevision: base.revision, draftID: base.draftID,
@@ -547,7 +549,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       return;
     }
     const next = await runMutation(async base => {
-      await stationTune(frequencyHz, "CW");
+      await stationTune(frequencyHz, base.mode);
       return mutate("contest_draft_apply", base, {
         fields: { ...fieldsRef.current, callsign: String(spot.callsign ?? "").toUpperCase() }, frequencyHz,
       });
@@ -691,13 +693,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           : { requirement: "requiredForCommit", allocatedFieldID: "other_1", reservedSerial },
       },
       operator: {
-        output: "xlog-native", armed: cw.state.armed, style: projection.run ? "run" : "search-and-pounce",
+        output: "xlog-native", armed: projection.mode === "CW" && cw.state.armed, style: projection.run ? "run" : "search-and-pounce",
         status: cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
         pending: cw.state.pending ? "send" : null,
         focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
-        functionKeys: projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })),
-        readiness: { canSendCQ: cw.state.armed, canSendCall: cw.state.armed, canSendDuplicate: cw.state.armed,
+        functionKeys: projection.mode === "CW" ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
+        readiness: { canSendCQ: projection.mode === "CW" && cw.state.armed, canSendCall: projection.mode === "CW" && cw.state.armed, canSendDuplicate: projection.mode === "CW" && cw.state.armed,
           canReserveCall: false, canReserveCommit: false, canCommit: true },
         trace: [],
       },
@@ -853,6 +855,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
           true, true, false, true); return;
       case "entry_operator_arm":
+        if (active.mode !== "CW") throw new Error("This contest does not support CW output.");
         if (action.params.armed) await cw.controller.arm(); else await cw.controller.stop();
         return;
       case "entry_operator_style":
@@ -860,6 +863,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           true, false, true);
         return;
       case "entry_set_cw_speed": {
+        if (active.mode !== "CW") throw new Error("This contest does not support CW output.");
         await setContestCWSpeed(action.params.value);
         const document = { ...setup, preferences: { ...setup.preferences, cwSpeed: action.params.value } };
         const saved = await mutate("contest_setup_save", active, { setup: document }) as MutationResult & { setup: ContestSetupDocument };
@@ -1029,7 +1033,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
-      catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
+      catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name),
+        modes: item.modes, sentExchangeHint: item.sentExchangeHint, overlayChoices: item.overlayChoices }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }

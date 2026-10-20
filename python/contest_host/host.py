@@ -171,7 +171,7 @@ class Desk:
         self.current_widget = state["focus"]
         self.esm_call_sent = state.get("esmCallSent", "")
         self.current_sn, self.contact_is_dupe = state["draft"].get("serial", 0), 0
-        self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": "CW"}
+        self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": state["settings"]["ModeCategory"]}
         self.contact = self.database.get_empty().copy()
         self.contest.init_contest(self)
         if state["pluginID"] in SERIAL_PLUGINS:
@@ -200,6 +200,8 @@ class Desk:
 
     def process_function_key(self, button):
         require(button.name in {f"F{i}" for i in range(1, 13)}, "Unknown function key")
+        if self.state["settings"]["ModeCategory"] != "CW":
+            return  # Original SSB ESM may log; it cannot request CW output.
         macro = self.cw_macros[("R" if self.state["run"] else "S", button.name)]
         if not macro["template"].strip():
             return
@@ -235,7 +237,10 @@ class Desk:
             "CountryPrefix": info.get("primary_pfx", ""), "Continent": info.get("continent", ""),
             "ZN": info.get("cq", 0), "WPXPrefix": calculate_wpx_prefix(call)})
         if base is None:
-            self.contact.update({"QSXFreq": frequency / 1000, "Mode": "CW", "ContestNR": 1,
+            # Original phone Cabrillo converts USB/LSB to PH.
+            mode = self.state["settings"]["ModeCategory"]
+            radio_mode = ("LSB" if frequency < 10000000 else "USB") if mode == "SSB" else mode
+            self.contact.update({"QSXFreq": frequency / 1000, "Mode": radio_mode, "ContestNR": 1,
                 "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
                 "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
         self.contact_is_dupe = int(self.is_dupe(call, band, timestamp, self.contact["Mode"]))
@@ -318,7 +323,7 @@ class Desk:
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
-                "frequencyHz": self.state["draft"]["frequencyHz"], "mode": "CW", "band": band,
+                "frequencyHz": self.state["draft"]["frequencyHz"], "mode": self.state["settings"]["ModeCategory"], "band": band,
                 "operator": self.state["operator"], "cwSpeedWpm": speed,
                 "callContext": {"callsign": call, "entity": country.get("entity"), "country": country.get("entity"),
                     "continent": country.get("continent"), "cqZone": country.get("cq"), "ituZone": country.get("itu"),
@@ -355,7 +360,7 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "sections": sections,
                     "multipliers": sections, "total": self.contest.calc_score(self)}
-        if self.state["pluginID"] in {"cq_wpx_cw", "oceania_dx_cw"}:
+        if self.state["pluginID"] in {"cq_wpx_cw", "oceania_dx_cw", "oceania_dx_ssb"}:
             prefixes = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "prefixes": prefixes,
@@ -523,6 +528,7 @@ class Host:
         if method in {"session_open", "projection"}:
             return {"projection": desk.projection()}
         if method == "cw_context":
+            require(state["settings"]["ModeCategory"] == "CW", "This contest does not support CW output", "unsupported_mode")
             return {"sessionID": session_id, "revision": state["revision"],
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
@@ -703,10 +709,11 @@ class Host:
                     validate_cwo_names(setup["station"], setup["settings"].get("SentExchange"))
                 if state["pluginID"] in {"cwt", "k1usn_sst"}:
                     validate_name_sent_exchange(setup["settings"].get("SentExchange"))
-                require(setup["settings"].get("ModeCategory", "CW") == "CW", "Selected plugin requires CW mode")
+                mode = PLUGIN_REGISTRY[state["pluginID"]].modes[0]
+                require(setup["settings"].get("ModeCategory", mode) == mode, f"Selected plugin requires {mode} mode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
-                setup["settings"].setdefault("ModeCategory", "CW")
+                setup["settings"].setdefault("ModeCategory", mode)
                 setup["settings"].setdefault("OverlayCategory", "N/A")
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
@@ -890,8 +897,9 @@ class Host:
             validate_cwo_names(station, settings["SentExchange"])
         if plugin_id in {"cwt", "k1usn_sst"}:
             validate_name_sent_exchange(settings["SentExchange"])
-        settings.setdefault("ModeCategory", "CW")
-        require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
+        mode = PLUGIN_REGISTRY[plugin_id].modes[0]
+        settings.setdefault("ModeCategory", mode)
+        require(settings["ModeCategory"] == mode, f"Selected plugin requires {mode} mode")
         settings.setdefault("OverlayCategory", "N/A")
         report = "59" if settings["ModeCategory"] == "SSB" else "599"
         return {"sessionID": session_id, "workspaceGeneration": workspace,
@@ -980,7 +988,7 @@ class Host:
         if desk.state["pluginID"] == "cq_ww_cw":
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
-        elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman", "oceania_dx_cw"}:
+        elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
                         "Sent and received serials must be positive SQLite integers")
@@ -1025,7 +1033,7 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
-        if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw"}:
+        if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)

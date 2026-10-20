@@ -310,11 +310,11 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     <div className="contest-surface-run-strip"><span className="contest-surface-signal" aria-label="Transmit state unavailable"><span>●</span><span>●</span></span>
       <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
-      <div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
+      {projection.draft.mode==="CW"&&<div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm-1}},projectionRevision)}>−</button>
-        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm+1}},projectionRevision)}>+</button></div></div>
-    <div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
-      disabled={disabled||!item} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>
+        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm+1}},projectionRevision)}>+</button></div>}</div>
+    {projection.draft.mode==="CW"&&<div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
+      disabled={disabled||!item} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>}
     </div></div>
     <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
     <details className="contest-surface-entry-options"><summary>Entry controls</summary>
@@ -329,7 +329,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       retry={()=>intents.retry("frequency")} discard={()=>intents.discard("frequency")}/>
     {projection.schemaVersion===2&&<>
       {projection.descriptor.serial.requirement==="requiredForCommit"&&<p>Serial: {projection.descriptor.serial.reservedSerial??"not reserved"}</p>}
-      {operator&&<section aria-label={operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
+      {operator&&projection.draft.mode==="CW"&&<section aria-label={operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
         <button type="button" aria-pressed={operator.armed} disabled={disabled||operator.pending!==null}
           onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>
         <button type="button" disabled={!operator.armed} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>

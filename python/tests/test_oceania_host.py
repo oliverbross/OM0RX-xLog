@@ -13,6 +13,10 @@ uid = fixtures.uid
 
 
 class OceaniaHostTests(unittest.TestCase):
+    plugin_id = "oceania_dx_cw"
+    report = "599"
+    mode = "CW"
+    source_hash = "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664"
     call = fixtures.HostTests.call
     mutate = fixtures.HostTests.mutate
     read = fixtures.HostTests.read
@@ -29,7 +33,7 @@ class OceaniaHostTests(unittest.TestCase):
                                "continent": "OC", "cq": 30, "itu": 55,
                                "primary_pfx": "VK" if call.startswith("VK") else "ZL"}
         self.create = {"sessionID": self.session, "workspaceGeneration": self.workspace,
-                       "operationID": uid(), "expectedRevision": 0, "pluginID": "oceania_dx_cw",
+                       "operationID": uid(), "expectedRevision": 0, "pluginID": self.plugin_id,
                        "station": {"Call": "OM0RX"}, "frequencyHz": 14025000,
                        "settings": {}, "reference": {"id": "test-cty-v1", "countries": countries}}
         self.call("session_create", self.create)
@@ -41,12 +45,15 @@ class OceaniaHostTests(unittest.TestCase):
         return qso
 
     def test_original_source_layout_serial_validation_and_macros(self):
-        source = VENDOR / "not1mm/plugins/oceania_dx_cw.py"
+        source = VENDOR / f"not1mm/plugins/{self.plugin_id}.py"
         self.assertEqual(sha256(source.read_bytes()).hexdigest(),
-                         "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664")
-        self.assertEqual(load_plugin("oceania_dx_cw").__file__, str(source))
+                         self.source_hash)
+        self.assertEqual(load_plugin(self.plugin_id).__file__, str(source))
         view = self.read("projection")["projection"]
         fields = {row["id"]: row for row in view["fields"]}
+        self.assertEqual(view["mode"], self.mode)
+        self.assertEqual(view["supportedModes"], [self.mode])
+        self.assertEqual((fields["sent"]["value"], fields["receive"]["value"]), (self.report, self.report))
         self.assertEqual((fields["other_1"]["label"], fields["other_2"]["label"]), ("SentNR", "RcvNR"))
         self.assertEqual(fields["other_1"]["value"], "001")
         self.assertTrue(fields["other_1"]["readOnly"])
@@ -55,8 +62,11 @@ class OceaniaHostTests(unittest.TestCase):
         self.assertTrue(view["allowDuplicateCommit"])
         for run in (True, False):
             self.mutate("run_state", run=run)
-            action = self.mutate("function_key", key="F3")["actions"][0]
-            self.assertEqual((action["template"], action["sentSerial"]), ("{RST} {SENTNR}", "001"))
+            actions = self.mutate("function_key", key="F3")["actions"]
+            if self.mode == "CW":
+                self.assertEqual((actions[0]["template"], actions[0]["sentSerial"]), ("{RST} {SENTNR}", "001"))
+            else:
+                self.assertEqual(actions, [])
         for received in ("", "ABC", "0", "-1", " 12", "１２", "9223372036854775808"):
             with self.subTest(received=received), self.assertRaises(HostError):
                 self.mutate("qso_commit", fields={"callsign": "VK4ABC", "other_2": received})
@@ -96,12 +106,12 @@ class OceaniaHostTests(unittest.TestCase):
         with self.assertRaises(HostError):
             self.mutate("qso_correct", qsoID=later, fields={"other_2": "0"})
         content = self.read("export")["content"]
-        self.assertIn("CONTEST: OCEANIA-DX-CW\r\n", content)
+        self.assertIn(f"CONTEST: OCEANIA-DX-{self.mode}\r\n", content)
         self.assertIn("CLAIMED-SCORE: 4\r\n", content)
         lines = [line.split() for line in content.splitlines() if line.startswith("QSO:")]
         self.assertEqual(len(lines), 2)
-        self.assertEqual(lines[0][1:3], ["14025", "CW"])
-        self.assertEqual(lines[0][5:], ["OM0RX", "599", "1", "ZL1ABC", "599", "123"])
+        self.assertEqual(lines[0][1:3], ["14025", "CW" if self.mode == "CW" else "PH"])
+        self.assertEqual(lines[0][5:], ["OM0RX", self.report, "1", "ZL1ABC", self.report, "123"])
         self.host.close()
         self.host = Host(self.root)
         self.assertEqual(self.read("score")["score"]["total"], 4)
@@ -110,8 +120,9 @@ class OceaniaHostTests(unittest.TestCase):
     def test_original_esm_run_sandp_and_replay_serial_authority(self):
         self.mutate("run_state", run=True)
         result = self.mutate("esm", field="callsign", fields={"callsign": "VK4ABC"})
-        self.assertEqual([action["key"] for action in result["actions"]], ["F2", "F3"])
-        self.assertEqual(result["actions"][-1]["sentSerial"], "001")
+        self.assertEqual([action["key"] for action in result["actions"]], ["F2", "F3"] if self.mode == "CW" else [])
+        if self.mode == "CW":
+            self.assertEqual(result["actions"][-1]["sentSerial"], "001")
         params = {"sessionID": self.session, "operationID": uid(), "expectedRevision": self.revision,
                   "field": "other_2", "fields": {"other_2": "12"}}
         self.call("esm", params)
@@ -121,8 +132,9 @@ class OceaniaHostTests(unittest.TestCase):
         self.assertEqual(self.read("projection")["projection"]["reservedSerial"], 2)
         self.mutate("run_state", run=False)
         result = self.mutate("esm", field="other_2", fields={"callsign": "ZL1ABC", "other_2": "99"})
-        self.assertEqual([action["key"] for action in result["actions"]], ["F3"])
-        self.assertEqual(result["actions"][0]["sentSerial"], "002")
+        self.assertEqual([action["key"] for action in result["actions"]], ["F3"] if self.mode == "CW" else [])
+        if self.mode == "CW":
+            self.assertEqual(result["actions"][0]["sentSerial"], "002")
         self.assertEqual(self.read("projection")["projection"]["reservedSerial"], 3)
 
     def test_same_timestamp_prefix_is_counted_once(self):
@@ -131,6 +143,34 @@ class OceaniaHostTests(unittest.TestCase):
         self.assertEqual(self.read("score")["score"]["total"], 2)
         self.mutate("qso_delete", qsoID=first)
         self.assertEqual(self.read("score")["score"]["total"], 1)
+
+
+class OceaniaSSBHostTests(OceaniaHostTests):
+    plugin_id = "oceania_dx_ssb"
+    report = "59"
+    mode = "SSB"
+    source_hash = "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee"
+
+    def test_phone_reports_sidebands_mode_setup_and_cw_output_guard(self):
+        with self.assertRaisesRegex(HostError, "does not support CW"):
+            self.read("cw_context")
+        setup = self.read("setup_get")["setup"]
+        self.assertEqual(setup["settings"]["ModeCategory"], "SSB")
+        self.mutate("setup_save", setup=setup)
+        setup["settings"]["ModeCategory"] = "CW"
+        with self.assertRaisesRegex(HostError, "requires SSB"):
+            self.mutate("setup_save", setup=setup)
+        self.mutate("draft_apply", fields={"sent": "57", "receive": "58"})
+        self.log(frequency=7100000)
+        self.log("ZL1ABC", 1, frequency=14250000)
+        rows = self.read("log")["rows"]
+        low = next(row for row in rows if row["Band"] == 7)
+        high = next(row for row in rows if row["Band"] == 14)
+        self.assertEqual((low["Mode"], low["SNT"], low["RCV"]), ("LSB", "57", "58"))
+        self.assertEqual((high["Mode"], high["SNT"], high["RCV"]), ("USB", "59", "59"))
+        content = self.read("export")["content"]
+        self.assertIn("CATEGORY-MODE: SSB\r\n", content)
+        self.assertTrue(all(line.split()[2] == "PH" for line in content.splitlines() if line.startswith("QSO:")))
 
 
 if __name__ == "__main__":

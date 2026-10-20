@@ -39,7 +39,7 @@ class WPXHostTests(unittest.TestCase):
     def test_catalog_original_plugin_fields_focus_and_partial_validation(self):
         catalog = self.host.dispatch({"id": uid(), "method": "catalog", "params": {}})
         self.assertEqual([item["id"] for item in catalog["plugins"]],
-                         ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw"])
+                         ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"])
         self.assertEqual(load_plugin("cq_wpx_cw").__file__, str(VENDOR / "not1mm/plugins/cq_wpx_cw.py"))
         view = self.read("session_open")["projection"]
         self.assertEqual(view["pluginID"], "cq_wpx_cw")
