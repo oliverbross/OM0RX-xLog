@@ -27,6 +27,15 @@ it("strips worker presentation metadata before invoking the strict native save c
   expect(native.invoke).toHaveBeenCalledWith("contest_export_save", { prepared: expected });
 });
 
+it("forwards an owner action coordinate so native save can acknowledge across the modal boundary", async () => {
+  const expected = nativeSavePrepared(prepared), completion = { operatingContext: "40000000-0000-4000-8000-000000000004",
+    sessionID: prepared.sessionID, workspaceGeneration: prepared.workspaceGeneration,
+    requestID: "50000000-0000-4000-8000-000000000005", projectionRevision: 6 };
+  native.invoke.mockResolvedValue({ status: "saved", artifactID: prepared.artifactID, sha256: prepared.sha256, filename: "log.log" });
+  await nativeContestExportSave(expected, completion);
+  expect(native.invoke).toHaveBeenCalledWith("contest_export_save", { prepared: expected, completion });
+});
+
 it("strictly validates correlated native outcomes", () => {
   const expected = nativeSavePrepared(prepared);
   expect(validateContestExportSaveResult({ status: "saved", artifactID: prepared.artifactID, sha256: prepared.sha256, filename: "log.cbr" }, expected).status).toBe("saved");

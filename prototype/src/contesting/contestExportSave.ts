@@ -11,6 +11,9 @@ export type ContestExportSaveResult =
   | { status: "cancelled"; artifactID: string; sha256: string }
   | { status: "failed"; artifactID: string; sha256: string; filename?: string; message: string };
 export type ContestExportSaveAdapter = (prepared: ContestExportSavePrepared) => Promise<ContestExportSaveResult>;
+export type ContestExportActionCompletion = {
+  operatingContext: string; sessionID: string; workspaceGeneration: string; requestID: string; projectionRevision: number;
+};
 export type ContestExportSaveScope = { sessionID: string; workspaceGeneration: string };
 export type ContestExportSaveSnapshot =
   | { phase: "idle" }
@@ -51,9 +54,9 @@ export function validateContestExportSaveResult(value: unknown, expected: Contes
   throw new Error("Native export save returned a malformed or mismatched result.");
 }
 
-export const nativeContestExportSave: ContestExportSaveAdapter = async prepared => {
+export const nativeContestExportSave = async (prepared: ContestExportSavePrepared, completion?: ContestExportActionCompletion) => {
   const payload = nativeSavePrepared(prepared);
-  return validateContestExportSaveResult(await invoke("contest_export_save", { prepared: payload }), payload);
+  return validateContestExportSaveResult(await invoke("contest_export_save", completion ? { prepared: payload, completion } : { prepared: payload }), payload);
 };
 
 type Release = (prepared: ContestPreparedExport) => Promise<unknown>;

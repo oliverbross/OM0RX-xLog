@@ -1112,10 +1112,36 @@ async fn connection_doctor_export(window: tauri::WebviewWindow, state: tauri::St
         .map_err(|_| "Redacted report could not be saved.".to_string())?
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ContestExportActionCompletion {
+    operating_context: String,
+    #[serde(rename = "sessionID")]
+    session_id: String,
+    workspace_generation: String,
+    #[serde(rename = "requestID")]
+    request_id: String,
+    projection_revision: u64,
+}
+
 #[tauri::command]
-async fn contest_export_save(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
-    prepared: contest_export::PreparedCoordinate) -> Result<contest_export::SaveResult, String> {
-    contest_export::save(window, runtime_profile::isolated(state.path.is_some()), prepared).await
+async fn contest_export_save(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    state: tauri::State<'_, acceptance::Acceptance>, prepared: contest_export::PreparedCoordinate,
+    completion: Option<ContestExportActionCompletion>) -> Result<contest_export::SaveResult, String> {
+    let completion = completion.map(|value| {
+        contest_surface_main_context(&window, &value.operating_context, &value.session_id, &value.workspace_generation)
+            .map(|context| (context, value.request_id, value.projection_revision))
+    }).transpose()?;
+    let result = contest_export::save(window, runtime_profile::isolated(state.path.is_some()), prepared).await;
+    if let Some((context, request_id, projection_revision)) = completion {
+        let (outcome, message) = match &result {
+            Ok(saved) => saved.contest_action_completion(),
+            Err(message) => ("rejected", Some(message.clone())),
+        };
+        contest_surface::complete(&context, &request_id, outcome, message, projection_revision)?;
+        let _ = app.emit("xlog:contest-surface", ());
+    }
+    result
 }
 
 #[tauri::command]

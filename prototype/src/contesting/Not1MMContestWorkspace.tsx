@@ -837,13 +837,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     setNotice(`Loaded ${spot.callsign} after the selected radio confirmed one tune.`);
   };
 
-  const exportCabrillo = async (throwFailures = false) => {
+  const exportCabrillo = async (throwFailures = false, completion?: {
+      operatingContext:string;sessionID:string;workspaceGeneration:string;requestID:string;projectionRevision:number }) => {
     const active = projectionRef.current;
     if (!active || busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
       const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID });
-      const saved = await nativeContestExportSave(prepared);
+      const saved = await nativeContestExportSave(prepared, completion);
       if (saved.status === "saved") setNotice(`Saved ${saved.filename}.`);
       else if (saved.status === "cancelled") setNotice("Cabrillo save cancelled.");
       else { setError(saved.message); if (throwFailures) throw new Error(saved.message); }
@@ -1196,7 +1197,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         else if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
-      case "log_export_cabrillo": await exportCabrillo(true); return;
+      case "log_export_cabrillo": await exportCabrillo(true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
+        workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision }); return;
       case "log_page": await loadLogPage(action.params.offset, true); return;
       case "log_edit_begin": await beginEdit(action.params.qsoID, true); return;
       case "log_edit_cancel": requireEditing(action.params.qsoID); setEditing(null); setConfirmDelete(false); return;

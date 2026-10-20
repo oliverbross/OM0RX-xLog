@@ -59,6 +59,15 @@ pub struct SaveResult {
     message: Option<String>,
 }
 
+impl SaveResult {
+    pub fn contest_action_completion(&self) -> (&'static str, Option<String>) {
+        match self.status {
+            SaveStatus::Saved | SaveStatus::Cancelled => ("applied", None),
+            SaveStatus::Failed => ("rejected", self.message.clone()),
+        }
+    }
+}
+
 trait Admission {
     fn check(&self) -> Result<(), String>;
 }
@@ -659,6 +668,21 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     static LEASE_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn save_outcomes_map_to_terminal_contest_action_receipts() {
+        let result = |status, message| SaveResult {
+            status,
+            artifact_id: "018f0c8a-7b6d-7def-8123-456789abcdef".into(),
+            sha256: "a".repeat(64),
+            filename: None,
+            message,
+        };
+        assert_eq!(result(SaveStatus::Saved, None).contest_action_completion(), ("applied", None));
+        assert_eq!(result(SaveStatus::Cancelled, None).contest_action_completion(), ("applied", None));
+        assert_eq!(result(SaveStatus::Failed, Some("disk full".into())).contest_action_completion(),
+            ("rejected", Some("disk full".into())));
+    }
 
     fn bytes() -> Vec<u8> {
         b"START-OF-LOG: 3.0\r\nEND-OF-LOG:\r\n".to_vec()
