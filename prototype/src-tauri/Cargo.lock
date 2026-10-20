@@ -5502,7 +5502,7 @@ dependencies = [
 
 [[package]]
 name = "xlog-prototype"
-version = "1.2.93"
+version = "1.2.94"
 dependencies = [
  "objc2",
  "objc2-app-kit",
