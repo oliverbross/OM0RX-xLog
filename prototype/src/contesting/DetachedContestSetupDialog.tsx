@@ -27,7 +27,11 @@ export function configurationDialogContentHeight(root: HTMLElement): number {
     .reduce((total, value) => total + (Number.parseFloat(value) || 0), 0);
   if (!(content instanceof HTMLElement)) return root.scrollHeight;
   const contentHeight = Math.max(content.scrollHeight, content.getBoundingClientRect().height);
-  return Math.ceil(contentHeight + inset);
+  const scrollRegion = content.querySelector("fieldset");
+  const visibleScrollRegionHeight = scrollRegion instanceof HTMLElement ? scrollRegion.getBoundingClientRect().height : 0;
+  const concealedContentHeight = scrollRegion instanceof HTMLElement && visibleScrollRegionHeight > 0
+    ? Math.max(0, scrollRegion.scrollHeight - visibleScrollRegionHeight) : 0;
+  return Math.ceil(contentHeight + concealedContentHeight + inset);
 }
 
 export function isManagedConfigurationDialogHeight(height: number, availableHeight = screen.availHeight): boolean {

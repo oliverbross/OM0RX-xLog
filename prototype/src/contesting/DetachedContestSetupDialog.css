@@ -4,16 +4,18 @@
 .contest-setup-dialog .contest-setup>form { flex:1; min-height:0; display:flex; flex-direction:column; }
 .contest-setup-dialog .contest-setup fieldset { flex:1; min-height:0; overflow:auto; }
 .contest-setup-dialog .contest-setup footer { flex:none; }
-.contest-setup-dialog .contest-setup [role=tablist] { flex:none; flex-wrap:wrap; }
+.contest-setup-dialog .contest-setup [role=tablist] { flex:none; }
 .contest-setup-dialog .contest-setup label { flex-direction:row; }
 .contest-setup-dialog .contest-setup label>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .contest-setup-dialog .contest-setup :is(button,input,select,textarea) { font:inherit; }
 .contest-setup-dialog .contest-setup button { min-height:30px; white-space:nowrap; }
 .contest-setup-dialog .contest-setup footer { flex-wrap:wrap; }
-.contest-setup-dialog[data-dialog-kind=configuration] { height:auto; max-height:100dvh; overflow:auto; }
-.contest-setup-dialog[data-dialog-kind=configuration]>.contest-setup { height:auto; }
-.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup>form { flex:none; }
-.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup fieldset { flex:none; overflow:visible; }
+.contest-setup-dialog[data-dialog-kind=configuration] { height:auto; max-height:100dvh; overflow:hidden; }
+.contest-setup-dialog[data-dialog-kind=configuration]>.contest-setup { height:auto; max-height:calc(100dvh - 24px); }
+.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup>form { flex:1; min-height:0; }
+.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup fieldset { flex:1; min-height:0; overflow:auto; }
+.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup [role=tablist] { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:clamp(0px,.2vw,2px); overflow:visible; }
+.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup button[role=tab] { min-width:0; padding-inline:clamp(1px,.3vw,3px); font-size:clamp(8px,1.45vw,12px); }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup fieldset { padding-block:10px; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { gap:8px; }

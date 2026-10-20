@@ -112,6 +112,17 @@ it("measures intrinsic Configuration content instead of its capped scrolling she
   vi.spyOn(content, "getBoundingClientRect").mockReturnValue({ height: 480 } as DOMRect);
   expect(configurationDialogContentHeight(root)).toBe(524);
 });
+it("includes content concealed by the Configuration fieldset scroll region", () => {
+  const root = document.createElement("main"), content = document.createElement("section"), fieldset = document.createElement("fieldset");
+  root.style.paddingTop = "12px";
+  root.style.paddingBottom = "12px";
+  root.append(content); content.append(fieldset);
+  Object.defineProperty(content, "scrollHeight", { value: 300 });
+  Object.defineProperty(fieldset, "scrollHeight", { value: 330 });
+  vi.spyOn(content, "getBoundingClientRect").mockReturnValue({ height: 300 } as DOMRect);
+  vi.spyOn(fieldset, "getBoundingClientRect").mockReturnValue({ height: 150 } as DOMRect);
+  expect(configurationDialogContentHeight(root)).toBe(504);
+});
 it("recognizes its measured fit after reopening and keeps fitting later content", async () => {
   const measured = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(497);
   let current = { width: 820, height: 320 };
@@ -265,7 +276,11 @@ it("uses compact content-fit bounds while keeping dense configuration tabs fully
   expect(isManagedConfigurationDialogHeight(836, 900)).toBe(true);
   expect(isManagedConfigurationDialogHeight(600, 900)).toBe(false);
   expect(styles).toContain("data-dialog-kind=configuration");
-  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*max-height:100dvh[^}]*overflow:auto/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*max-height:100dvh[^}]*overflow:hidden/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup fieldset[^}]*flex:1[^}]*min-height:0[^}]*overflow:auto/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\[role=tablist\][^}]*display:grid[^}]*grid-template-columns:repeat\(10,minmax\(0,1fr\)\)[^}]*overflow:visible/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*button\[role=tab\][^}]*min-width:0[^}]*font-size:clamp\(8px,1\.45vw,12px\)/);
+  expect(styles).not.toMatch(/\[role=tablist\][^{]*\{[^}]*flex-wrap/);
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }");
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-stack { gap:6px; }");
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup :is\(input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),select,textarea\)[^}]*min-height:28px/);
