@@ -4,7 +4,7 @@ import BandMaps, { type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
-import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupMacro } from "./ContestSetupPanel";
+import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupMacro, type SetupView } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
@@ -52,6 +52,7 @@ type Props = {
   cluster: any;
   selectedSpotId?: string | null;
   onSelectedSpot?: (id: string) => void;
+  onSetupViewChange?: (view: SetupView | null) => void;
   registerTransition?: (controller: ContestTransitionController | null) => void;
   registerMenuRoute?: (handler: ((route: string) => boolean | Promise<boolean>) | null) => void;
   setupOnly?: boolean;
@@ -237,7 +238,7 @@ function multiplierMatrix(title: string, values: Data[], busy: boolean) {
 }
 
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
-  selectedSpotId, onSelectedSpot, registerTransition, registerMenuRoute, setupOnly = false }: Props) {
+  selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
@@ -1030,7 +1031,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
-      onOpenDialog={setupOnly ? openContestSetupDialog : undefined}
+      onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable

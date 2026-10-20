@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LogicalSize } from "@tauri-apps/api/dpi";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { operatingModuleStatus } from "../operatingModule";
 import { workerRequest, framedWorkerRequest } from "../worker";
 import { connectWorkspaceNavigation, isContestMenuRoute } from "../live/workspaceNavigation";
 import { loadStationSession, type RadioID, type StationSession } from "../live/stationSession";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+import type { SetupView } from "./ContestSetupPanel";
 import { tuneContestSpot } from "./contestSpotTune";
 
 type Data = Record<string, any>;
@@ -15,6 +18,13 @@ const request = async (method: string, params: Record<string, unknown> = {}) =>
   (await workerRequest(method, params)).result as Data;
 
 type LoadStationSession = (radioId: RadioID) => Promise<StationSession>;
+
+export function contestSetupWindowSize(view: SetupView | null): { width: number; height: number } {
+  if (view === "New Contest" || view === "Edit Current Contest") return { width: 560, height: 640 };
+  if (view === "Choose a Contest") return { width: 560, height: 420 };
+  if (view === "Edit Macros" || view === "Edit Keys") return { width: 880, height: 700 };
+  return { width: 600, height: 360 };
+}
 
 /** Read the active radio through xLog's retained native station owner. Contest
  * Setup must not bypass that owner with an unscoped worker station_snapshot. */
@@ -36,6 +46,10 @@ export function DetachedContestSetupSurface() {
   const registerMenuRoute = useCallback((handler: MenuHandler | null) => {
     menuHandler.current = handler;
     if (handler) for (const retry of readiness.current) retry();
+  }, []);
+  const resizeForSetupView = useCallback((view: SetupView | null) => {
+    const size = contestSetupWindowSize(view);
+    void getCurrentWindow().setSize(new LogicalSize(size.width, size.height)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -87,7 +101,7 @@ export function DetachedContestSetupSurface() {
     serviceRequest={request} stationTune={tuneContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
-    registerMenuRoute={registerMenuRoute}/>;
+    registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
 }
 
 export default DetachedContestSetupSurface;

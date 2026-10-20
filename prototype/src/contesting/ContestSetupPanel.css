@@ -1,5 +1,5 @@
 .contest-setup { --contest-setup-label-width:100px; min-width:0; max-width:880px; color:var(--color,#e6edf6); background:var(--panel,#0b1728); border:1px solid var(--border,#243a55); border-radius:9px; font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-.contest-setup>header { padding:14px 16px 10px; }
+.contest-setup>header { padding:11px 16px 7px; }
 .contest-setup h2 { margin:0; font-size:14px; }
 .contest-setup p { color:var(--secondary,#a6b6ca); }
 .contest-setup>p { padding:0 16px; }
@@ -21,14 +21,14 @@
 .contest-manual-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .contest-manual-row>label:only-child { grid-column:1/-1; }
 .contest-station-form .contest-manual-row:nth-child(1)>label,.contest-station-form .contest-manual-row:nth-child(6)>label,.contest-station-form .contest-manual-row:nth-child(11)>label,.contest-station-form .contest-manual-row:nth-child(12)>label { grid-column:1; }
-.contest-parameters { display:flex; flex-direction:column; gap:6px; max-width:470px; margin:0 auto; width:100%; }
-.contest-parameters>p { text-align:center; margin:0 0 4px; }
-.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) fieldset { padding-block:10px; }
+.contest-parameters { display:flex; flex-direction:column; gap:4px; max-width:470px; margin:0 auto; width:100%; }
+.contest-parameters>p { text-align:center; margin:0 0 2px; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) fieldset { padding:7px 14px; }
 .contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) .contest-manual-content { gap:0; min-height:0; }
-.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) :is(input:not([type=checkbox]):not([type=radio]),select) { min-height:28px; padding-block:3px; }
-.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) textarea { height:54px; min-height:54px; resize:none; }
-.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) footer { padding-block:8px; }
-.contest-setup hr { border:0; border-top:1px solid var(--border,#304b68); width:100%; margin:4px 0; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) :is(input:not([type=checkbox]):not([type=radio]),select) { min-height:26px; padding-block:2px; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) textarea { height:46px; min-height:46px; resize:none; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) footer { padding-block:6px; }
+.contest-setup hr { border:0; border-top:1px solid var(--border,#304b68); width:100%; margin:2px 0; }
 .contest-exchange-row { display:flex; align-items:center; gap:8px; }
 .contest-exchange-row>label { flex:1; }
 .contest-exchange-row>span { white-space:nowrap; }

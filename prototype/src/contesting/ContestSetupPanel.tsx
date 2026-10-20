@@ -17,7 +17,7 @@ export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Clust
 export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
 export type ContestAudioOutput = { deviceID: string; label: string };
-type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Edit Macros" | "Edit Keys";
+export type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Edit Macros" | "Edit Keys";
 const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Edit Macros", "Edit Keys"];
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
@@ -33,6 +33,7 @@ type Props = {
   onOpenCallHistory?: () => void;
   onOpenDialog?: (kind: "station" | "configuration") => void | Promise<void>;
   onContentChange?: () => void;
+  onViewChange?: (view: SetupView | null) => void;
   detachedDialog?: "station" | "configuration";
   onCancel?: () => void | Promise<void>;
 };
@@ -76,7 +77,7 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
-  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, detachedDialog, onCancel }: Props) {
+  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
   const macroDraft = () => ({ ...setupDraft(value), macros: structuredClone(effectiveMacros ?? value.macros) });
   const [draft, setDraft] = useState<ContestSetupDocument>(() => initialTab === "Macros" ? macroDraft() : setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
@@ -98,6 +99,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
       .catch(cause => { if (current) { setAudioOutputs([]); setAudioOutputError(cause instanceof Error ? cause.message : "Audio outputs could not be listed."); } });
     return () => { current = false; };
   }, [view, tab, audioOutputs]);
+  useEffect(() => { onViewChange?.(view); }, [view, onViewChange]);
   const disabled = busy || pending;
   const selectConfigurationTab = (next: ContestSetupTab) => { setTab(next); onContentChange?.(); };
   const update = (section: "station" | "settings" | "preferences" | "network", key: string, next: string | number | boolean | string[]) =>

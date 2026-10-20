@@ -112,7 +112,7 @@ pub fn scoped_spec(identity: WorkspaceWindowIdentity<'_>) -> Option<&'static Win
     }
 }
 pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f64)], (f64, f64))> {
-    if label == "contest-setup" { return Some((&[(980.0, 760.0), (920.0, 720.0), (600.0, 820.0)], (600.0, 740.0))); }
+    if label == "contest-setup" { return Some((&[(980.0, 760.0), (920.0, 720.0), (600.0, 820.0), (600.0, 740.0)], (600.0, 360.0))); }
     if label == "contest-setup-configuration" { return Some((&[(820.0, 620.0), (820.0, 520.0)], (820.0, 320.0))); }
     let identity = WorkspaceWindowIdentity::parse_native_label(label).ok()?;
     if identity.scope != WorkspaceWindowScope::Contesting { return None; }
@@ -143,7 +143,7 @@ pub fn band_map_band(label: &str) -> Option<&str> {
 pub fn surface_role(label: &str) -> &str { if band_map_band(label).is_some() { "band-maps" } else { label } }
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == surface_role(label)) }
 pub fn native_minimum(label: &str) -> (f64, f64) {
-    if label == "contest-setup" { return (520.0, 620.0); }
+    if label == "contest-setup" { return (520.0, 320.0); }
     if label == "contest-setup-configuration" { return (680.0, 300.0); }
     if crate::contest_setup_dialogs::kind(label).is_some() { return (620.0, 480.0); }
     // Contest identities reuse normal panel roles, but have compact tools of
@@ -506,12 +506,12 @@ mod tests {
         }
         assert_eq!(native_minimum("monitor"), (640.0, 480.0));
         assert_eq!(native_minimum("rotor"), (640.0, 480.0));
-        assert_eq!(native_minimum("contest-setup"), (520.0, 620.0));
+        assert_eq!(native_minimum("contest-setup"), (520.0, 320.0));
         assert_eq!(native_minimum("contest--unknown"), (640.0, 480.0));
     }
     #[test]
     fn contest_default_size_migrations_are_exact_and_do_not_touch_shared_tools() {
-        assert_eq!(contest_default_size_migrations("contest-setup"), Some((&[(980.0, 760.0), (920.0, 720.0), (600.0, 820.0)][..], (600.0, 740.0))));
+        assert_eq!(contest_default_size_migrations("contest-setup"), Some((&[(980.0, 760.0), (920.0, 720.0), (600.0, 820.0), (600.0, 740.0)][..], (600.0, 360.0))));
         assert_eq!(contest_default_size_migrations("contest-setup-configuration"), Some((&[(820.0, 620.0), (820.0, 520.0)][..], (820.0, 320.0))));
         assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0)][..], (800.0, 480.0))));
         assert_eq!(contest_default_size_migrations("contest--call-history"), Some((&[(900.0, 720.0), (840.0, 640.0)][..], (840.0, 360.0))));

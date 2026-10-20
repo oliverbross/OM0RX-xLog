@@ -2,7 +2,7 @@
 import React from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadContestStationSnapshot } from "./DetachedContestSetupSurface";
+import { contestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
 import type { RadioID, StationSession } from "../live/stationSession";
 
 const mocks = vi.hoisted(() => ({
@@ -40,6 +40,13 @@ const session = (radioId: RadioID, activeRadio: RadioID, frequencyHz?: number): 
 });
 
 describe("Contest Setup station projection", () => {
+  it("uses compact PDF-shaped sizes for setup workflows", () => {
+    expect(contestSetupWindowSize(null)).toEqual({ width: 600, height: 360 });
+    expect(contestSetupWindowSize("New Contest")).toEqual({ width: 560, height: 640 });
+    expect(contestSetupWindowSize("Edit Current Contest")).toEqual({ width: 560, height: 640 });
+    expect(contestSetupWindowSize("Choose a Contest")).toEqual({ width: 560, height: 420 });
+    expect(contestSetupWindowSize("Edit Macros")).toEqual({ width: 880, height: 700 });
+  });
   it("reads the active xLog radio through the native station session", async () => {
     const load = vi.fn(async (radioId: RadioID) => radioId === "radio1"
       ? session("radio1", "radio2") : session("radio2", "radio2", 14_025_000));
