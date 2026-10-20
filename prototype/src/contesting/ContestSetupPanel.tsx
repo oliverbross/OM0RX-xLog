@@ -45,7 +45,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
     preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
-      spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, darkMode: true,
+      spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, showQRZDetails: false, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
       n1mmHost: "127.0.0.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062, n1mmRadio: false, n1mmContact: false,
       n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmOperatorName: "", multicastGroup: "224.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
@@ -195,7 +195,10 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "Choose a Contest") content = <table className="contest-choose-table"><thead><tr><th>Contest Name</th><th>Contest Start</th></tr></thead><tbody>{sessions.map(session => <tr key={session.sessionID} aria-selected={selectedSession === session.sessionID} onClick={() => setSelectedSession(session.sessionID)}><td><label><input type="radio" name="contest-session" checked={selectedSession === session.sessionID} onChange={() => setSelectedSession(session.sessionID)}/>{session.name}</label></td><td>{session.startUTC ?? "—"}</td></tr>)}</tbody></table>;
   else if (view === "Configuration Settings") {
     switch (tab) {
-      case "Lookup": content = managed("QRZ", "Configure QRZ XML lookup and save its credentials securely there."); break;
+      case "Lookup": content = <div className="contest-manual-stack">
+        {check("preferences", "showQRZDetails", "Show QRZ details")}
+        {managed("QRZ", "Configure QRZ XML lookup and save its credentials securely there.")}
+      </div>; break;
       case "Sound": {
         const saved = String(draft.preferences.soundDevice ?? "");
         const savedAvailable = !saved || audioOutputs?.some(output => output.deviceID === saved);

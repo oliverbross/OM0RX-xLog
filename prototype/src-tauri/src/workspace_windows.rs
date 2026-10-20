@@ -84,9 +84,10 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 13] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 14] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 480.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
+    WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — QRZ Details", width: 520.0, height: 420.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 500.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 500.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
@@ -154,6 +155,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
             return match identity.panel_id {
                 "active-qso" => (560.0, 360.0),
                 "call-history" => (620.0, 280.0),
+                "qrz-details" => (420.0, 260.0),
                 "callsign-intelligence" => (480.0, 420.0),
                 "logbook" => (760.0, 480.0),
         "propagation" => (400.0, 140.0),
@@ -375,7 +377,7 @@ mod tests {
 
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
-        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "callsign-intelligence",
+        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "qrz-details", "callsign-intelligence",
             "chaser-dx", "dx-cluster", "logbook", "monitor", "propagation", "rotor", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
@@ -489,7 +491,7 @@ mod tests {
     #[test]
     fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
         let expected = [
-            ("active-qso", (560.0, 360.0)), ("call-history", (620.0, 280.0)),
+            ("active-qso", (560.0, 360.0)), ("call-history", (620.0, 280.0)), ("qrz-details", (420.0, 260.0)),
             ("callsign-intelligence", (480.0, 420.0)), ("logbook", (760.0, 480.0)),
             ("propagation", (400.0, 140.0)), ("alerts", (320.0, 220.0)),
             ("band-maps", (420.0, 420.0)), ("dx-cluster", (720.0, 420.0)),

@@ -28,11 +28,12 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 15] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 16] = [
     ("contest-setup", "Contest Setup"),
     ("contest-dialog-station", "Station Settings…"),
     ("contest-dialog-configuration", "Configuration Settings…"),
     ("contest-window-call-history", "Call History"),
+    ("contest-window-qrz-details", "QRZ Details"),
     ("contest-window-active-qso", "Main Logging"),
     ("contest-window-propagation", "Stats"),
     ("contest-window-logbook", "Logbook"),
@@ -151,9 +152,9 @@ mod tests {
         // dependency and fences the old lifetime's delayed retirement task.
         assert!(!contest_owner_can_retire(false, false, ["contest-setup-station"]));
         assert!(contest_owner_can_retire(false, false, ["rotor", "station-control"]));
-        assert_eq!(windows, ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
-            ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"),
+            ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"), ("contest-window-qrz-details", "QRZ Details"),
             ("contest-dialog-station", "Station Settings…"), ("contest-dialog-configuration", "Configuration Settings…"),
             ("contest-window-active-qso", "Main Logging"), ("contest-window-propagation", "Stats"),
             ("contest-window-logbook", "Logbook"), ("contest-window-band-maps", "Band Map"),

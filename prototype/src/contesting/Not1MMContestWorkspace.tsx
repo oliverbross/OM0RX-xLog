@@ -707,6 +707,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       dirty: !sameFields(currentFields, projectionFields(projection)) || frequencyHz !== projection.frequencyHz,
       uncertain: false,
     };
+    unavailable["qrz-details"] = unavailable["active-qso"];
     const partialRows = partial?.sessionID===projection.sessionID && partial.revision===projection.revision && partial.query===partialQuery
       ? partial.rows : [];
     const pluginColumns = not1mmLogColumns(projection.columns);
@@ -960,6 +961,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await openContestCallHistoryWindow(surfaceContext);
         return true;
       }
+      if (route === "contest-window-qrz-details" && setup.preferences.showQRZDetails !== true) {
+        setManager(true);
+        setError("Enable Show QRZ details in Contest Configuration → Lookup before opening this window.");
+        return true;
+      }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;
       if (!panelID || !contestSurfacePanelIDs.includes(panelID)) return false;
       if (startupPending) return false;
@@ -976,7 +982,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     registerMenuRoute(handle);
     return () => registerMenuRoute(null);
   }, [registerMenuRoute, detachedAvailable, surfaceContext?.operatingContext, surfaceContext?.sessionID,
-    surfaceContext?.workspaceGeneration, startupPending]);
+    surfaceContext?.workspaceGeneration, startupPending, setup.preferences.showQRZDetails]);
 
   const applyAssistanceCallsign = (callsign: string, selection: SCPSelectionScope) => {
     const active = projectionRef.current;

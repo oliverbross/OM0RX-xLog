@@ -223,13 +223,22 @@ it("hands shared services to xLog without duplicate editable settings and keeps 
     fireEvent.click(screen.getByRole("tab", { name: tab }));
     expect(screen.getByRole("status").textContent).toContain(`Managed by xLog ${service} settings`);
     expect(screen.getByRole("button", { name: `Open xLog ${service} settings` })).toBeTruthy();
-    expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
+    if (tab === "Lookup") expect(screen.getByRole("checkbox", { name: "Show QRZ details" })).toBeTruthy();
+    else expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
   }
   fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
   expect(screen.queryByRole("button", { name: /Open xLog/ })).toBeNull();
   expect(screen.getByLabelText("Sound Output")).toBeTruthy();
   expect(p.onOpenSettings).not.toHaveBeenCalled();
   expect(p.onSave).not.toHaveBeenCalled();
+});
+
+it("persists the optional Contest QRZ details preference through the existing setup save", async () => {
+  const p = props(); render(<ContestSetupPanel {...p} initialTab="Lookup"/>);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show QRZ details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(p.onSave).toHaveBeenCalledTimes(1));
+  expect(p.onSave.mock.calls[0][0].preferences.showQRZDetails).toBe(true);
 });
 
 it("omits inert service defaults from new documents and preserves saved fields without applying them", async () => {

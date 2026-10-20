@@ -13,7 +13,7 @@ const context: ContestSurfaceContext = {
 
 describe("Contest shared service windows", () => {
   beforeEach(() => { native.invoke.mockReset(); native.tauri = true; });
-  it.each(["band-maps", "dx-cluster", "rotor", "station-control"] as const)(
+  it.each(["qrz-details", "band-maps", "dx-cluster", "rotor", "station-control"] as const)(
     "opens %s through contest context admission", async panelID => {
       await openContestSurfaceWindow(context, panelID);
       expect(native.invoke).toHaveBeenCalledExactlyOnceWith("contest_window_open", { ...context, panelID });

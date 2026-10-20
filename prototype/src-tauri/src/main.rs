@@ -68,6 +68,7 @@ static HISTORY_PREVIEW_ACTIVE: AtomicBool = AtomicBool::new(false);
 const OPERATOR_DRAFT_CHANGED: &str = "xlog:operator-draft-changed";
 const CONTEST_SETUP_WINDOW: &str = "contest-setup";
 const CONTEST_CALL_HISTORY_WINDOW: &str = "contest--call-history";
+const CONTEST_QRZ_DETAILS_WINDOW: &str = "contest--qrz-details";
 static SPOT_ACTIVATION: OnceLock<Arc<spot_activation::Coordinator>> = OnceLock::new();
 pub(crate) fn activation_owner(app: &tauri::AppHandle) -> Arc<spot_activation::Coordinator> {
     SPOT_ACTIVATION.get_or_init(|| Arc::new(spot_activation::Coordinator::new(
@@ -1231,6 +1232,71 @@ async fn contest_history_manager_request(window: tauri::WebviewWindow, operating
         contest_window_context::admit(&context)?;
         Ok(response)
     }).await.map_err(|_| "Call History worker task failed.".to_string())?
+}
+
+fn contest_qrz_details_context(window: &tauri::WebviewWindow, operating_context: &str,
+    session_id: &str, workspace_generation: &str) -> Result<contest_window_context::ContestWindowContext, String> {
+    validate_contest_qrz_details_caller(window.label())?;
+    let context = contest_window_context::resolve(session_id, workspace_generation)?;
+    if context.operating_context != operating_context {
+        return Err("That QRZ Details window belongs to an expired operating context.".into());
+    }
+    Ok(context)
+}
+
+fn validate_contest_qrz_details_caller(label: &str) -> Result<(), String> {
+    (label == CONTEST_QRZ_DETAILS_WINDOW).then_some(())
+        .ok_or_else(|| "QRZ Details lookup is unavailable in this window.".into())
+}
+
+fn contest_qrz_callsign(call: &str) -> Result<String, String> {
+    let normalized = call.trim().to_ascii_uppercase();
+    if !(3..=32).contains(&normalized.len()) ||
+        !normalized.bytes().all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || matches!(byte, b'/' | b'-')) {
+        return Err("Enter a valid callsign before requesting QRZ details.".into());
+    }
+    Ok(normalized)
+}
+
+fn require_current_contest_qrz_call(context: &contest_window_context::ContestWindowContext, call: &str) -> Result<(), String> {
+    let snapshot = contest_surface::snapshot(CONTEST_QRZ_DETAILS_WINDOW, context)?;
+    let current = snapshot["projection"]["draft"]["callsign"].as_str()
+        .ok_or("The current contest callsign is unavailable for QRZ Details.")?;
+    if contest_qrz_callsign(current)? != call {
+        return Err("The contest callsign changed before QRZ Details lookup completed.".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn contest_qrz_details_lookup(window: tauri::WebviewWindow, operating_context: String,
+    session_i_d: String, workspace_generation: String, call: String) -> Result<serde_json::Value, String> {
+    let context = contest_qrz_details_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    let call = contest_qrz_callsign(&call)?;
+    require_current_contest_qrz_call(&context, &call)?;
+    if APP_EXITING.load(Ordering::Acquire) {
+        return Err("QRZ Details is unavailable while the application is closing.".into());
+    }
+    let generation = worker::existing_generation()?;
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let request = serde_json::json!({"id":request_id,"method":"lookup_call","params":{"call":call.clone()}});
+    tauri::async_runtime::spawn_blocking(move || {
+        contest_window_context::admit(&context)?;
+        let response = worker::request_existing_generation(request, generation)?;
+        if worker::generation() != generation || APP_EXITING.load(Ordering::Acquire) {
+            return Err("QRZ Details changed while the lookup was running.".into());
+        }
+        contest_window_context::admit(&context)?;
+        require_current_contest_qrz_call(&context, &call)?;
+        if response["id"].as_str() != Some(request_id.as_str()) {
+            return Err("The QRZ Details response did not match its request.".into());
+        }
+        if response["ok"] != true {
+            return Err(response["error"]["message"].as_str().unwrap_or("QRZ lookup failed.").into());
+        }
+        response.get("result").filter(|value| value.is_object()).cloned()
+            .ok_or_else(|| "The QRZ Details response could not be verified.".into())
+    }).await.map_err(|_| "QRZ Details worker task failed.".to_string())?
 }
 
 #[cfg(target_os = "macos")]
@@ -2720,7 +2786,7 @@ fn main() {
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
              acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
@@ -2779,6 +2845,18 @@ mod workspace_layout_tests {
         }
         for panel in ["alerts", "cw", "settings", "contest--logbook", ""] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_err());
+        }
+    }
+
+    #[test]
+    fn contest_qrz_details_accepts_only_a_bounded_normalized_callsign() {
+        assert!(super::validate_contest_qrz_details_caller("contest--qrz-details").is_ok());
+        for label in ["contest-setup", "contest--active-qso", "qrz-details", "main"] {
+            assert!(super::validate_contest_qrz_details_caller(label).is_err(), "accepted {label:?}");
+        }
+        assert_eq!(super::contest_qrz_callsign(" om0rx/p ").unwrap(), "OM0RX/P");
+        for invalid in ["", "K1", "EA7EU?", "CALL SIGN", "123456789012345678901234567890123"] {
+            assert!(super::contest_qrz_callsign(invalid).is_err(), "accepted {invalid:?}");
         }
     }
 

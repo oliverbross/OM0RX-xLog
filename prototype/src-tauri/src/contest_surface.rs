@@ -721,8 +721,8 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         return Err("The contest surface projection status is invalid.".into());
     }
     match panel_id {
-        "active-qso" if schema_version == 1 => validate_entry_projection(projection),
-        "active-qso" if schema_version == 2 => validate_entry_projection_v2(projection),
+        "active-qso" | "qrz-details" if schema_version == 1 => validate_entry_projection(projection),
+        "active-qso" | "qrz-details" if schema_version == 2 => validate_entry_projection_v2(projection),
         "callsign-intelligence" if schema_version == 1 => {
             validate_assistance_projection(projection)
         }
@@ -735,7 +735,7 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
         "band-maps" | "dx-cluster" if schema_version == 1 => validate_spot_projection(projection),
-        "active-qso" | "callsign-intelligence" | "propagation" | "monitor" | "awards"
+        "active-qso" | "qrz-details" | "callsign-intelligence" | "propagation" | "monitor" | "awards"
         | "chaser-dx" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }

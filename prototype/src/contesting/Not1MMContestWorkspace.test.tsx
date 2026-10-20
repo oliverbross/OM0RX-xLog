@@ -812,6 +812,9 @@ it("defers a native contest window command until the saved session is fully rest
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
   await expect(route!("contest-window-call-history")).resolves.toBe(true);
   expect(surfaceWindow.openHistory).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}));
+  await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
+  expect(surfaceWindow.open).not.toHaveBeenCalledWith(expect.anything(), "qrz-details");
+  expect((await screen.findByRole("alert")).textContent).toContain("Enable Show QRZ details");
 });
 
 it("acknowledges a native contest window command with Setup after startup finds no session", async () => {

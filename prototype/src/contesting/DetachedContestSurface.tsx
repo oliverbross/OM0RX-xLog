@@ -9,6 +9,7 @@ import { contestKeyChord, resolveContestKeyBinding, type ContestKeyBindingAction
 import BandMaps from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import "./DetachedContestSurface.css";
+import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
@@ -441,7 +442,12 @@ function Log({projection,disabled,sending,projectionRevision,receipts,send}:{pro
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }
 
-export function DetachedContestSurface() {
+function SharedContestSurface() {
   const context = useMemo(() => contestSurfaceContextFromSearch(window.location.search), []);
   return <div className="app live contest-detached-surface"><Surface context={context}/></div>;
+}
+
+export function DetachedContestSurface() {
+  return new URLSearchParams(window.location.search).get("view") === "qrz-details"
+    ? <ContestQRZDetailsSurface/> : <SharedContestSurface/>;
 }

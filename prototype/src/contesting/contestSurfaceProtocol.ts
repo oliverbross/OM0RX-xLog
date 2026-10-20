@@ -1,6 +1,6 @@
 import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
 
-export const contestSurfacePanelIDs = ["active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation",
+export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "callsign-intelligence", "monitor", "propagation",
   "alerts", "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
 export const contestInputFieldIDs = ["callsign", "sent", "receive", "other_1", "other_2"] as const;
@@ -371,12 +371,12 @@ function validSpotProjection(value: Record<string, unknown>) {
 export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, value: unknown): value is ContestSurfaceProjection {
   const projection = record(value) ? value : undefined;
   if (!projection || typeof projection.status !== "string") return false;
-  if (panelID === "active-qso" && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
+  if ((panelID === "active-qso" || panelID === "qrz-details") && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
   if (panelID === "propagation" && projection.schemaVersion === 3 && projection.status === "ready") return validStatisticsProjectionV3(projection);
   if (projection.schemaVersion !== 1) return false;
   if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
   if (projection.status !== "ready") return false;
-  if (panelID === "active-qso") return validEntryProjection(projection);
+  if (panelID === "active-qso" || panelID === "qrz-details") return validEntryProjection(projection);
   if (panelID === "callsign-intelligence") return validCheckProjection(projection);
   if (panelID === "propagation") return validStatisticsProjection(projection);
   if (panelID === "monitor") return validRatesProjection(projection);
