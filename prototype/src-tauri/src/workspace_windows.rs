@@ -96,7 +96,7 @@ pub const CONTEST_WINDOWS: [WindowSpec; 14] = [
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 300.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 300.0 },
     WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 620.0, height: 420.0 },
-    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 900.0, height: 680.0 },
+    WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 680.0, height: 420.0 },
     WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log Display", width: 1120.0, height: 480.0 },
     WindowSpec { id: "dx-cluster", title: "OM0RX-xLog Contest — Cluster", width: 1040.0, height: 420.0 },
 ];
@@ -125,7 +125,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
         "monitor" => &[(780.0, 600.0)],
         "propagation" => &[(800.0, 480.0), (520.0, 380.0), (520.0, 220.0)],
         "rotor" => &[(700.0, 600.0)],
-        "station-control" => &[(900.0, 700.0)],
+        "station-control" => &[(900.0, 700.0), (900.0, 680.0)],
         "awards" => &[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0)],
         "chaser-dx" => &[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0)],
         "logbook" => &[(1280.0, 800.0), (1120.0, 700.0)],
@@ -164,7 +164,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "dx-cluster" => (720.0, 420.0),
                 "rotor" => (420.0, 360.0),
                 "monitor" => (300.0, 240.0),
-                "station-control" => (520.0, 420.0),
+                "station-control" => (420.0, 300.0),
                 "awards" => (560.0, 240.0),
                 "chaser-dx" => (520.0, 240.0),
                 _ => unreachable!("validated contest window identity"),
@@ -496,7 +496,7 @@ mod tests {
             ("propagation", (400.0, 140.0)), ("alerts", (320.0, 220.0)),
             ("band-maps", (420.0, 420.0)), ("dx-cluster", (720.0, 420.0)),
             ("rotor", (420.0, 360.0)), ("monitor", (300.0, 240.0)),
-            ("station-control", (520.0, 420.0)), ("awards", (560.0, 240.0)),
+            ("station-control", (420.0, 300.0)), ("awards", (560.0, 240.0)),
             ("chaser-dx", (520.0, 240.0)),
         ];
         assert_eq!(expected.len(), CONTEST_WINDOWS.len());
@@ -521,7 +521,7 @@ mod tests {
         assert_eq!(contest_default_size_migrations("contest--monitor"), Some((&[(780.0, 600.0)][..], (340.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--propagation"), Some((&[(800.0, 480.0), (520.0, 380.0), (520.0, 220.0)][..], (520.0, 140.0))));
         assert_eq!(contest_default_size_migrations("contest--rotor"), Some((&[(700.0, 600.0)][..], (620.0, 420.0))));
-        assert_eq!(contest_default_size_migrations("contest--station-control"), Some((&[(900.0, 700.0)][..], (900.0, 680.0))));
+        assert_eq!(contest_default_size_migrations("contest--station-control"), Some((&[(900.0, 700.0), (900.0, 680.0)][..], (680.0, 420.0))));
         assert_eq!(contest_default_size_migrations("contest--awards"), Some((&[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0)][..], (920.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--chaser-dx"), Some((&[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0)][..], (760.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--logbook"), Some((&[(1280.0, 800.0), (1120.0, 700.0)][..], (1120.0, 480.0))));
@@ -535,7 +535,7 @@ mod tests {
         use crate::window_geometry::{Bounds, Display, Position, SavedWindow, migrate_logical_size};
         let display = Display { name: Some("External".into()), scale: 2.0,
             work: Bounds { x: -3840, y: 28, width: 3840, height: 2104 } };
-        for panel in ["logbook", "dx-cluster", "awards", "chaser-dx", "band-maps", "call-history"] {
+        for panel in ["logbook", "dx-cluster", "awards", "chaser-dx", "band-maps", "call-history", "station-control"] {
             let label = format!("contest--{panel}");
             let (old_sizes, target) = contest_default_size_migrations(&label).unwrap();
             let migrate = |saved: SavedWindow| old_sizes.iter().fold(saved, |saved, from|

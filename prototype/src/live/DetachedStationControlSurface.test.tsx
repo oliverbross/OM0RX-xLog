@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DetachedStationControlSurface, StationControlSurface } from "./DetachedStationControlSurface";
 import { AgentConnectionSetup } from "./AgentConnectionSetup";
+import { ManualSimplexTune } from "./ManualSimplexTune";
 import type { StationSession } from "./stationSession";
 import { ManualRotorGotoSession } from "./manualRotorGoto";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
@@ -22,7 +23,7 @@ beforeEach(() => {
   native.invoke.mockImplementation(async command => { if (command === "dock_detached_window") return; if (command !== "monitor_context_snapshot") throw new Error(`Unexpected native command: ${command}`); return syntheticMonitorContext(); });
   native.listen.mockResolvedValue(vi.fn());
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); document.documentElement.style.zoom = ""; vi.useRealTimers(); });
 function setup(value = syntheticMonitorContext()) {
   const refresh = vi.fn(), dispose = vi.fn();
   const connect = (accept: typeof changed, reject: typeof failed) => { changed = accept; failed = reject; accept(value); return { refresh, dispose }; };
@@ -138,15 +139,38 @@ it("contest Remote VFO reuses observations and manual tune without connection or
     throw new Error(`Unexpected authority: ${command}`);
   });
   render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(screen.getByRole("main", { name: "Remote VFO" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Remote VFO" })).toBeTruthy();
   expect(screen.getByText("14.074000 MHz")).toBeTruthy();
-  expect(within(screen.getByLabelText("Station observations")).getByText("USB")).toBeTruthy();
+  expect(within(screen.getByLabelText("Remote VFO observations")).getByText("USB")).toBeTruthy();
   expect(screen.getByText("Observed live")).toBeTruthy();
   expect(screen.getByLabelText("Shared manual simplex tune")).toBeTruthy();
   expect(screen.getByLabelText("Remote VFO controls")).toBeTruthy();
   expect(screen.queryByLabelText("Radio connections")).toBeNull();
   expect(screen.queryByLabelText(/Rotor/i)).toBeNull();
+  expect(screen.queryByText("Transmit frequency")).toBeNull();
+  expect(screen.queryByText("PTT")).toBeNull();
+  expect(screen.queryByText("Retained station safety")).toBeNull();
   expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args.params.action === "snapshot")).toBe(true);
   expect(native.worker).not.toHaveBeenCalled();
+});
+it.each([100, 125, 150, 175, 200])("keeps the compact Remote VFO outer shell scrollbar-free at %i%% interface scale", scale => {
+  document.documentElement.style.zoom = `${scale}%`;
+  const context = syntheticMonitorContext();
+  const connect = (accept: (value: MonitorContext) => void) => { accept(context); return { refresh: vi.fn(), dispose: vi.fn() }; };
+  const view = render(<StationControlSurface connect={connect} contestRemoteVfo configuration={<ManualSimplexTune radioId="radio1" provider="direct_agent" context={context} />} configurationLabel="Remote VFO controls" />);
+  expect(screen.getByRole("main", { name: "Remote VFO" })).toBeTruthy();
+  expect(view.container.querySelector(".contest-remote-vfo-app")).toBeTruthy();
+  expect(detachedStyles.match(/\.contest-remote-vfo-app > main\s*\{[^}]*\}/)?.[0]).toContain("overflow: hidden");
+  expect(screen.getByLabelText("Simplex frequency MHz")).toBeTruthy();
+});
+it("keeps ordinary Station Control on the full observation presentation", () => {
+  setup();
+  expect(screen.getByRole("main", { name: "Detached Station Control" })).toBeTruthy();
+  expect(screen.getByText("Transmit frequency")).toBeTruthy();
+  expect(screen.getByText("PTT")).toBeTruthy();
+  expect(screen.getByText("Retained station safety")).toBeTruthy();
+  expect(screen.queryByLabelText("Remote VFO observations")).toBeNull();
 });
 it("labels isolated observations and remains passive even when actions are advertised", () => {
   const value = syntheticMonitorContext(); value.acceptance = { synthetic: true, source: "synthetic_memory", externalOwners: false, readOnly: true };
