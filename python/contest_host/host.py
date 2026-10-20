@@ -14,6 +14,7 @@ import uuid
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
 from .plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS
+from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
 PLUGIN_ID = "cq_ww_cw"
@@ -485,6 +486,26 @@ class Host:
                         "limit": limit, "total": total, "rows": rows}
             finally:
                 store.conn.rollback()
+        if method == "score":
+            # Score, matrices and statistics must describe one revision and one
+            # complete current-contest DXLOG snapshot.
+            store.conn.execute("BEGIN")
+            try:
+                state = store.state(session_id)
+                self.verify_engine(state)
+                expected = params.get("expectedRevision")
+                require(expected is None or type(expected) is int and expected == state["revision"],
+                        "Contest changed before score read", "stale_revision")
+                desk = Desk(store, state, self.commit)
+                rows = store.exec_sql_mult(
+                    "SELECT Band,Call,Mode,WPXPrefix,Points FROM DXLOG WHERE ContestNR=?",
+                    (store.current_contest,),
+                )
+                return {"sessionID": session_id, "revision": state["revision"],
+                        "score": desk.score(), "matrices": self.matrices(store),
+                        "statistics": calculate_statistics(rows)}
+            finally:
+                store.conn.rollback()
         desk = Desk(store, state, self.commit)
         if method in {"session_open", "projection"}:
             return {"projection": desk.projection()}
@@ -516,8 +537,6 @@ class Host:
             except BaseException:
                 store.finish(False)
                 raise
-        if method == "score":
-            return {"sessionID": session_id, "revision": state["revision"], "score": desk.score(), "matrices": self.matrices(store)}
         if method == "log":
             offset, limit = params.get("offset", 0), params.get("limit", 50)
             require(type(offset) is int and offset >= 0 and type(limit) is int and 1 <= limit <= 100, "Invalid page")
@@ -1076,8 +1095,9 @@ class Host:
 
     @staticmethod
     def matrices(store):
-        return {"countries": store.exec_sql_mult("SELECT CountryPrefix AS value,Band AS band,count(*) AS qsos FROM DXLOG GROUP BY CountryPrefix,Band ORDER BY CountryPrefix,Band"),
-                "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG GROUP BY ZN,Band ORDER BY ZN,Band")}
+        params = (store.current_contest,)
+        return {"countries": store.exec_sql_mult("SELECT CountryPrefix AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY CountryPrefix,Band ORDER BY CountryPrefix,Band", params),
+                "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY ZN,Band ORDER BY ZN,Band", params)}
 
     @staticmethod
     def export_artifact(desk, maximum):

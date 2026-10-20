@@ -49,6 +49,28 @@ it("renders validated manual main context without manufacturing headings or dist
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("42/17 2142");
 });
 
+it("renders Statistics v3 as the original compact table with TOTAL last", async () => {
+  window.history.replaceState({}, "", search.replace("view=active-qso", "view=propagation"));
+  const view = { schemaVersion:3, status:"ready", score:{qsos:6,points:21,multipliers:8,claimedScore:168,
+    multiplierLabels:["K","W"],multiplierDisplayLabels:["United States","United States"],sourceVerification:"verified"},
+    rows:[{band:"20m",qsos:4,calls:3,cw:2,phone:1,digital:1,wpx:2,points:15},
+      {band:"40m",qsos:2,calls:2,cw:2,phone:0,digital:0,wpx:1,points:6}],
+    total:{band:"TOTAL",qsos:6,calls:4,cw:4,phone:1,digital:1,wpx:3,points:21},busy:false } as const;
+  expect(validContestSurfaceProjection("propagation", view)).toBe(true);
+  native.invoke.mockResolvedValue({...snapshot,panelID:"propagation",projection:view}); render(<DetachedContestSurface/>);
+  const table = await screen.findByRole("table", {name:"Contest statistics"});
+  expect(screen.getByRole("region", {name:"Scrollable contest statistics"}).getAttribute("tabindex")).toBe("0");
+  expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(["BAND","QSO","CALLS","CW","PH","DI","WPX","PTS"]);
+  expect(Array.from(table.querySelectorAll("tbody tr")).map(row=>Array.from(row.children).map(cell=>cell.textContent))).toEqual([
+    ["20m","4","3","2","1","1","2","15"], ["40m","2","2","2","0","0","1","6"],
+    ["TOTAL","6","4","4","1","1","3","21"],
+  ]);
+  expect(screen.queryByRole("heading")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(document.querySelector("canvas")).toBeNull();
+  expect(document.querySelector("dl")).toBeNull();
+});
+
 it("renders ICWC original name/serial input while omitting hidden report fields", async()=>{
   const view={...projection,schemaVersion:2,session:{name:"ICWC MST",ruleName:"ICWC Medium Speed Test",mode:"CW"},
     draft:{...projection.draft,reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]},

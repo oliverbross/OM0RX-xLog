@@ -719,6 +719,7 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         }
         "propagation" if schema_version == 1 => validate_statistics_projection(projection),
         "propagation" if schema_version == 2 => validate_statistics_projection_v2(projection),
+        "propagation" if schema_version == 3 => validate_statistics_projection_v3(projection),
         "monitor" if schema_version == 1 => validate_rate_projection(projection),
         "awards" | "chaser-dx" if schema_version == 1 => {
             validate_matrix_projection(projection)
@@ -1422,6 +1423,116 @@ fn validate_statistics_projection_v2(value: &Map<String, Value>) -> Result<(), S
         }
     }
     Ok(())
+}
+
+fn validate_statistics_projection_v3(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &["schemaVersion", "status", "score", "rows", "total", "busy"],
+        "statistics projection",
+    )?;
+    boolean(&value["busy"], "statistics busy")?;
+    validate_statistics_score_v3(&value["score"])?;
+    let rows = array(&value["rows"], 64, "statistics rows")?;
+    let mut bands = BTreeSet::new();
+    let mut sums = [0_u64; 6];
+    let mut points = 0_i64;
+    for row in rows {
+        let row = validate_statistics_row_v3(row, false)?;
+        if !bands.insert(row.0) {
+            return Err("The statistics bands are not unique.".into());
+        }
+        for (sum, value) in sums.iter_mut().zip(row.1) {
+            *sum = sum
+                .checked_add(value)
+                .ok_or("The statistics band totals overflow.")?;
+        }
+        points = points
+            .checked_add(row.2)
+            .ok_or("The statistics points overflow.")?;
+    }
+    let total = validate_statistics_row_v3(&value["total"], true)?;
+    if sums[0] != total.1[0]
+        || sums[2] != total.1[2]
+        || sums[3] != total.1[3]
+        || sums[4] != total.1[4]
+        || sums[5] != total.1[5]
+        || total.1[1] > sums[1]
+        || total.1[1] > total.1[0]
+        || points != total.2
+    {
+        return Err("The statistics totals do not match the band rows.".into());
+    }
+    let score = object(&value["score"], "contest score")?;
+    if uint_value(&score["qsos"], MAX_SAFE_INTEGER, "contest score QSOs")? != total.1[0]
+        || integer_value(&score["points"], "contest score points")? != total.2
+    {
+        return Err("The contest score does not match the statistics total.".into());
+    }
+    Ok(())
+}
+
+fn validate_statistics_score_v3(value: &Value) -> Result<(), String> {
+    let score = object(value, "contest score")?;
+    exact(
+        score,
+        &[
+            "qsos",
+            "points",
+            "multipliers",
+            "claimedScore",
+            "multiplierLabels",
+            "multiplierDisplayLabels",
+            "sourceVerification",
+        ],
+        "contest score",
+    )?;
+    uint_value(&score["qsos"], MAX_SAFE_INTEGER, "contest score QSOs")?;
+    integer_value(&score["points"], "contest score points")?;
+    for key in ["multipliers", "claimedScore"] {
+        uint_value(&score[key], MAX_SAFE_INTEGER, "contest score value")?;
+    }
+    string_array(&score["multiplierLabels"], 10_000, 160, "multiplier labels")?;
+    string_array(
+        &score["multiplierDisplayLabels"],
+        10_000,
+        160,
+        "multiplier display labels",
+    )?;
+    enum_value(
+        &score["sourceVerification"],
+        &["verified", "provisional", "unverified"],
+        "score source verification",
+    )?;
+    Ok(())
+}
+
+fn validate_statistics_row_v3(value: &Value, total: bool) -> Result<(String, [u64; 6], i64), String> {
+    let row = object(value, "statistics row")?;
+    exact(
+        row,
+        &["band", "qsos", "calls", "cw", "phone", "digital", "wpx", "points"],
+        "statistics row",
+    )?;
+    let band = text_value(&row["band"], 16, false, "statistics band")?;
+    if (band == "TOTAL") != total {
+        return Err("The statistics band identifier is invalid.".into());
+    }
+    let counts = ["qsos", "calls", "cw", "phone", "digital", "wpx"]
+        .map(|key| uint_value(&row[key], MAX_SAFE_INTEGER, "statistics count"))
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
+    let counts: [u64; 6] = counts
+        .try_into()
+        .map_err(|_| String::from("The statistics row is invalid."))?;
+    let classified = counts[2]
+        .checked_add(counts[3])
+        .and_then(|value| value.checked_add(counts[4]))
+        .ok_or("The statistics mode counts overflow.")?;
+    if counts[1] > counts[0] || counts[5] > counts[0] || classified > counts[0] {
+        return Err("The statistics row counts exceed its QSOs.".into());
+    }
+    Ok((band.to_owned(), counts, integer_value(&row["points"], "statistics points")?))
 }
 
 fn validate_rate_fields(value: &Map<String, Value>) -> Result<(), String> {
@@ -2241,6 +2352,7 @@ mod tests {
         missing_display["score"]["multiplierDisplayLabels"] = json!(too_many);
         assert!(validate_projection("propagation", &missing_display).is_err());
         assert!(validate_projection("propagation", &statistics_v2()).is_ok());
+        assert!(validate_projection("propagation", &statistics_v3()).is_ok());
         let native_rates = json!({"schemaVersion":1,"status":"ready","lastHourQsoPerHour":null,
             "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceHourUTC":19,"sinceHourQso":2,
             "runQso":2,"searchAndPounceQso":1,"hourRunQso":1,"hourSearchAndPounceQso":0,"busy":false});
@@ -2297,6 +2409,57 @@ mod tests {
             "modes":{"cw":0,"phone":0,"digital":0,"other":0},"distinctWPXPrefixes":0,"creditedPoints":0
         })).collect::<Vec<_>>());
         assert!(validate_projection("propagation", &statistics).is_err());
+    }
+
+    #[test]
+    fn statistics_v3_is_exact_bounded_and_matches_the_not1mm_table() {
+        let statistics = statistics_v3();
+        assert!(validate_projection("propagation", &statistics).is_ok());
+
+        let mut empty = statistics.clone();
+        empty["rows"] = json!([]);
+        empty["total"] = json!({"band":"TOTAL","qsos":0,"calls":0,"cw":0,"phone":0,"digital":0,"wpx":0,"points":0});
+        empty["score"]["qsos"] = json!(0);
+        empty["score"]["points"] = json!(0);
+        assert!(validate_projection("propagation", &empty).is_ok());
+
+        let mut signed_points = statistics.clone();
+        signed_points["rows"][0]["points"] = json!(-3);
+        signed_points["total"]["points"] = json!(-1);
+        signed_points["score"]["points"] = json!(-1);
+        assert!(validate_projection("propagation", &signed_points).is_ok());
+
+        let mut extra = statistics.clone();
+        extra["rows"][0]["extra"] = json!(true);
+        assert!(validate_projection("propagation", &extra).is_err());
+
+        let mut duplicate = statistics.clone();
+        let row = duplicate["rows"][0].clone();
+        duplicate["rows"].as_array_mut().unwrap().push(row);
+        assert!(validate_projection("propagation", &duplicate).is_err());
+
+        let mut boolean = statistics.clone();
+        boolean["rows"][0]["qsos"] = json!(true);
+        assert!(validate_projection("propagation", &boolean).is_err());
+
+        let mut overflow = statistics.clone();
+        overflow["rows"][0]["qsos"] = json!(MAX_SAFE_INTEGER + 1);
+        assert!(validate_projection("propagation", &overflow).is_err());
+
+        let mut mismatch = statistics.clone();
+        mismatch["total"]["cw"] = json!(2);
+        assert!(validate_projection("propagation", &mismatch).is_err());
+
+        let mut score_mismatch = statistics.clone();
+        score_mismatch["score"]["points"] = json!(4);
+        assert!(validate_projection("propagation", &score_mismatch).is_err());
+
+        let mut too_many = statistics;
+        too_many["rows"] = json!((0..65).map(|index| json!({
+            "band":format!("{index}.0"),"qsos":0,"calls":0,"cw":0,"phone":0,
+            "digital":0,"wpx":0,"points":0
+        })).collect::<Vec<_>>());
+        assert!(validate_projection("propagation", &too_many).is_err());
     }
 
     #[test]
@@ -2922,6 +3085,18 @@ mod tests {
             "total":{"band":"total","loggedQSOs":2,"acceptedQSOs":1,"distinctCallsigns":1,
                 "modes":{"cw":2,"phone":0,"digital":0,"other":0},"distinctWPXPrefixes":1,
                 "creditedPoints":3}})
+    }
+
+    fn statistics_v3() -> Value {
+        json!({"schemaVersion":3,"status":"ready","score":{"qsos":3,"points":5,"multipliers":2,
+                "claimedScore":10,"multiplierLabels":["prefix:DL","prefix:K"],
+                "multiplierDisplayLabels":["DL","K"],"sourceVerification":"verified"},
+            "rows":[
+                {"band":"14.0","qsos":2,"calls":1,"cw":1,"phone":1,"digital":0,"wpx":1,"points":3},
+                {"band":"0.0","qsos":1,"calls":1,"cw":0,"phone":0,"digital":0,"wpx":1,"points":2}
+            ],
+            "total":{"band":"TOTAL","qsos":3,"calls":1,"cw":1,"phone":1,"digital":0,"wpx":2,"points":5},
+            "busy":false})
     }
 
     fn entry_v2() -> Value {

@@ -78,9 +78,16 @@ export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready";
   inputCallsign: string; scp: { source: string | null; candidates: { candidateID: string; callsign: string }[] };
   history: { source: string | null; rows: { candidateID: string; callsign: string;
     fields: { id: string; label: string; value: string }[] }[] }; busy: boolean };
-export type ContestStatisticsSurfaceProjection = { schemaVersion: 1; status: "ready"; score: null | {
+export type ContestStatisticsScore = null | {
   qsos: number; points: number; multipliers: number; claimedScore: number; multiplierLabels: string[];
-  multiplierDisplayLabels: string[]; sourceVerification: "verified" | "provisional" | "unverified" }; busy: boolean };
+  multiplierDisplayLabels: string[]; sourceVerification: "verified" | "provisional" | "unverified" };
+export type ContestStatisticsSurfaceProjectionV1 = { schemaVersion: 1; status: "ready";
+  score: ContestStatisticsScore; busy: boolean };
+export type ContestStatisticsRow = { band: string; qsos: number; calls: number; cw: number; phone: number;
+  digital: number; wpx: number; points: number };
+export type ContestStatisticsSurfaceProjectionV3 = { schemaVersion: 3; status: "ready";
+  score: ContestStatisticsScore; rows: ContestStatisticsRow[]; total: ContestStatisticsRow; busy: boolean };
+export type ContestStatisticsSurfaceProjection = ContestStatisticsSurfaceProjectionV1 | ContestStatisticsSurfaceProjectionV3;
 // Rates are computed from the full Python-owned contest log, never a displayed log page.
 export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
@@ -243,13 +250,39 @@ function validCheckProjection(value: Record<string, unknown>) {
         exact(field, ["id", "label", "value"]) && text(field.id, 64) && text(field.label, 160) && text(field.value, 1024, true); }); }) &&
     typeof value.busy === "boolean";
 }
-function validStatisticsProjection(value: Record<string, unknown>) {
-  const score = record(value.score) ? value.score : undefined;
-  return exact(value, ["schemaVersion", "status", "score", "busy"]) && typeof value.busy === "boolean" && (value.score === null || !!score &&
+function validStatisticsScore(value: unknown, signedPoints = false) {
+  const score = record(value) ? value : undefined;
+  return value === null || !!score &&
     exact(score, ["qsos", "points", "multipliers", "claimedScore", "multiplierLabels", "multiplierDisplayLabels", "sourceVerification"]) &&
-    uint(score.qsos) && uint(score.points) && uint(score.multipliers) && uint(score.claimedScore) && texts(score.multiplierLabels, 10_000, 160) &&
-    texts(score.multiplierDisplayLabels, 10_000, 160) &&
-    oneOf(score.sourceVerification, ["verified", "provisional", "unverified"]));
+    uint(score.qsos) && (signedPoints ? Number.isSafeInteger(score.points) : uint(score.points)) && uint(score.multipliers) &&
+    uint(score.claimedScore) && texts(score.multiplierLabels, 10_000, 160) && texts(score.multiplierDisplayLabels, 10_000, 160) &&
+    oneOf(score.sourceVerification, ["verified", "provisional", "unverified"]);
+}
+function validStatisticsProjection(value: Record<string, unknown>) {
+  return exact(value, ["schemaVersion", "status", "score", "busy"]) && typeof value.busy === "boolean" && validStatisticsScore(value.score);
+}
+function validStatisticsRow(value: unknown, total: boolean): value is ContestStatisticsRow {
+  if (!record(value) || !exact(value, ["band", "qsos", "calls", "cw", "phone", "digital", "wpx", "points"]) ||
+      !text(value.band, 16) || (total ? value.band !== "TOTAL" : value.band === "TOTAL") ||
+      !uint(value.qsos) || !uint(value.calls) || !uint(value.cw) || !uint(value.phone) || !uint(value.digital) || !uint(value.wpx) ||
+      !Number.isSafeInteger(value.points)) return false;
+  return (value.calls as number) <= (value.qsos as number) && (value.wpx as number) <= (value.qsos as number) &&
+    (value.cw as number) + (value.phone as number) + (value.digital as number) <= (value.qsos as number);
+}
+function validStatisticsProjectionV3(value: Record<string, unknown>) {
+  if (!exact(value, ["schemaVersion", "status", "score", "rows", "total", "busy"]) || typeof value.busy !== "boolean" ||
+      !validStatisticsScore(value.score, true) || !Array.isArray(value.rows) || value.rows.length > 64 ||
+      !value.rows.every(row => validStatisticsRow(row, false)) || !validStatisticsRow(value.total, true)) return false;
+  const rows = value.rows as ContestStatisticsRow[], total = value.total as ContestStatisticsRow;
+  if (new Set(rows.map(row => row.band)).size !== rows.length) return false;
+  const sums = rows.reduce((result, row) => ({ qsos: result.qsos + row.qsos, calls: result.calls + row.calls,
+    cw: result.cw + row.cw, phone: result.phone + row.phone, digital: result.digital + row.digital,
+    wpx: result.wpx + row.wpx, points: result.points + row.points }),
+    { qsos: 0, calls: 0, cw: 0, phone: 0, digital: 0, wpx: 0, points: 0 });
+  if (Object.values(sums).some(sum => !Number.isSafeInteger(sum)) || total.calls > sums.calls ||
+      !(["qsos", "cw", "phone", "digital", "wpx", "points"] as const).every(key => total[key] === sums[key])) return false;
+  const score = value.score as Exclude<ContestStatisticsScore, null> | null;
+  return !!score && score.qsos === total.qsos && score.points === total.points;
 }
 function validLogProjection(value: Record<string, unknown>) {
   const page = record(value.page) ? value.page : undefined, editing = record(value.editing) ? value.editing : undefined;
@@ -324,6 +357,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   const projection = record(value) ? value : undefined;
   if (!projection || typeof projection.status !== "string") return false;
   if (panelID === "active-qso" && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
+  if (panelID === "propagation" && projection.schemaVersion === 3 && projection.status === "ready") return validStatisticsProjectionV3(projection);
   if (projection.schemaVersion !== 1) return false;
   if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
   if (projection.status !== "ready") return false;

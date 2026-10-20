@@ -130,6 +130,11 @@ const checkProjection = { schemaVersion: 1, status: "ready", draftID: "draft-1",
     fields: [{ id: "section", label: "Section", value: "DX" }] }] }, busy: false } as const;
 const statisticsProjection = { schemaVersion: 1, status: "ready", score: { qsos: 6, points: 21, multipliers: 8, claimedScore: 168,
   multiplierLabels: ["K", "W"], multiplierDisplayLabels: ["United States", "United States"], sourceVerification: "verified" }, busy: false } as const;
+const statisticsProjectionV3 = { schemaVersion: 3, status: "ready", score: { qsos: 6, points: 21, multipliers: 8, claimedScore: 168,
+  multiplierLabels: ["K", "W"], multiplierDisplayLabels: ["United States", "United States"], sourceVerification: "verified" },
+  rows: [{ band: "20m", qsos: 4, calls: 3, cw: 2, phone: 1, digital: 1, wpx: 2, points: 15 },
+    { band: "40m", qsos: 2, calls: 2, cw: 2, phone: 0, digital: 0, wpx: 1, points: 6 }],
+  total: { band: "TOTAL", qsos: 6, calls: 4, cw: 4, phone: 1, digital: 1, wpx: 3, points: 21 }, busy: false } as const;
 const ratesProjection = { schemaVersion: 1, status: "ready", lastHourQsoPerHour: 48, last10QsoPerHour: 72.5,
   last100QsoPerHour: null, sinceHourUTC: 19, sinceHourQso: 2, runQso: 210, searchAndPounceQso: 70, hourRunQso: 30,
   hourSearchAndPounceQso: 18, busy: false } as const;
@@ -148,6 +153,7 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("active-qso", entryProjectionV2)).toBe(true);
     expect(validContestSurfaceProjection("callsign-intelligence", checkProjection)).toBe(true);
     expect(validContestSurfaceProjection("propagation", statisticsProjection)).toBe(true);
+    expect(validContestSurfaceProjection("propagation", statisticsProjectionV3)).toBe(true);
     expect(validContestSurfaceProjection("logbook", logProjection)).toBe(true);
     expect(validContestSurfaceProjection("monitor", ratesProjection)).toBe(true);
     expect(validContestSurfaceProjection("awards", matrixProjection)).toBe(true);
@@ -157,6 +163,21 @@ describe("contest native surface projection v1", () => {
     for (const panelID of contestSurfacePanelIDs)
       expect(validContestSurfaceProjection(panelID, { schemaVersion: 1, status: "unavailable" })).toBe(true);
     expect(validContestSurfaceProjection("logbook", entryProjection)).toBe(false);
+  });
+
+  it.each([
+    { ...statisticsProjectionV3, extra: true },
+    { ...statisticsProjectionV3, rows: [...statisticsProjectionV3.rows, { ...statisticsProjectionV3.rows[0] }] },
+    { ...statisticsProjectionV3, rows: [{ ...statisticsProjectionV3.rows[0], calls: 5 }, statisticsProjectionV3.rows[1]] },
+    { ...statisticsProjectionV3, total: { ...statisticsProjectionV3.total, qsos: 7 } },
+    { ...statisticsProjectionV3, total: { ...statisticsProjectionV3.total, calls: 6 } },
+    { ...statisticsProjectionV3, score: { ...statisticsProjectionV3.score, points: 20 } },
+    { ...statisticsProjectionV3, rows: Array.from({ length: 65 }, (_, index) => ({
+      band: `${index}m`, qsos: 0, calls: 0, cw: 0, phone: 0, digital: 0, wpx: 0, points: 0 })),
+      total: { band: "TOTAL", qsos: 0, calls: 0, cw: 0, phone: 0, digital: 0, wpx: 0, points: 0 },
+      score: { ...statisticsProjectionV3.score, qsos: 0, points: 0 } },
+  ])("rejects malformed Statistics v3 projection %#", value => {
+    expect(validContestSurfaceProjection("propagation", value)).toBe(false);
   });
 
   it.each([

@@ -10,7 +10,8 @@ import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextFi
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
-  type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow } from "./contestSurfaceProtocol";
+  type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
+  type ContestStatisticsRow, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
@@ -23,6 +24,7 @@ type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
 type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; total: number };
+type StatisticsState = { sessionID: string; revision: number; rows: ContestStatisticsRow[]; total: ContestStatisticsRow };
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
@@ -111,6 +113,16 @@ async function payloadDigest(payload: Record<string, unknown>) {
 
 function projectionFields(projection: Projection | null) {
   return Object.fromEntries((projection?.fields ?? []).map(field => [field.id, field.value]));
+}
+
+function scoreSummary(score: Score | null) {
+  if (!score) return null;
+  const multiplierLabels = score.uniqueCalls !== undefined ? [`${score.uniqueCalls} unique calls`]
+    : score.prefixes !== undefined ? [`${score.prefixes} prefixes`] : score.sections !== undefined ? [`${score.sections} sections`]
+    : [`${score.countries} countries`, `${score.zones} zones`];
+  return { claimedScore: score.total, qsos: score.qsos, points: score.points,
+    multipliers: score.multipliers ?? score.countries + score.zones, multiplierLabels,
+    multiplierDisplayLabels: multiplierLabels, sourceVerification: "verified" as const };
 }
 
 function sameFields(left: Record<string, string>, right: Record<string, string>) {
@@ -214,6 +226,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
   const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({});
+  const [statistics, setStatistics] = useState<StatisticsState | null | undefined>(null);
   const [rates, setRates] = useState<Data | null>(null);
   const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
@@ -273,7 +286,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   };
   const acceptSessionProjection = (next: Projection) => {
     if (projectionRef.current?.sessionID !== next.sessionID) {
-      setRows([]); setLogOffset(0); setLogTotal(0); setPartial(null); setScore(null);
+      setRows([]); setLogOffset(0); setLogTotal(0); setPartial(null); setScore(null); setStatistics(null);
       setMatrices({}); setRates(null); setEditing(null);
     }
     acceptProjection(next);
@@ -283,6 +296,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (current?.sessionID !== sessionID || current.revision !== revision ||
         next.sessionID !== sessionID || next.revision !== revision) return false;
     setRates(next);
+    return true;
+  };
+  const admitStatistics = (next: Data, sessionID: string, revision: number) => {
+    const current = projectionRef.current;
+    if (current?.sessionID !== sessionID || current.revision !== revision) return false;
+    if (next.sessionID !== sessionID || next.revision !== revision) return false;
+    const raw = next.statistics;
+    if (raw === undefined) { setStatistics(undefined); return true; }
+    const exactStatistics = !!raw && typeof raw === "object" && !Array.isArray(raw) &&
+      Object.keys(raw).length === 2 && "rows" in raw && "total" in raw;
+    const candidate = { schemaVersion: 3 as const, status: "ready" as const, score: scoreSummary(next.score as Score),
+      rows: raw?.rows, total: raw?.total, busy: false };
+    if (!exactStatistics || !validContestSurfaceProjection("propagation", candidate)) {
+      setStatistics(null); return false;
+    }
+    setStatistics({ sessionID, revision, rows: candidate.rows, total: candidate.total });
     return true;
   };
   const refresh = async (sessionID: string, next?: Projection, offset = 0) => {
@@ -297,6 +326,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (next && projectionRef.current?.sessionID !== next.sessionID) return;
     setRows(Array.isArray(log.rows) ? log.rows : []); setLogOffset(Number(log.offset ?? offset)); setLogTotal(Number(log.total ?? 0));
     setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? {});
+    admitStatistics(scoreResult, sessionID, expected.revision);
     admitRates(rateResult, sessionID, expected.revision);
   };
   useEffect(() => {
@@ -560,12 +590,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const remove = () => { if (!editing || !confirm(`Delete ${editing.Call} from this contest?`)) return;
     void deleteQSO(deletionReason).catch(cause => setError(errorMessage(cause))); };
 
-  const multiplierLabels = score ? score.uniqueCalls !== undefined ? [`${score.uniqueCalls} unique calls`]
-    : score.prefixes !== undefined ? [`${score.prefixes} prefixes`] : score.sections !== undefined ? [`${score.sections} sections`]
-    : [`${score.countries} countries`, `${score.zones} zones`] : [];
-  const scoreView = score ? { claimedScore: score.total, qsos: score.qsos, points: score.points,
-    multipliers: score.multipliers ?? score.countries + score.zones, multiplierLabels,
-    multiplierDisplayLabels: multiplierLabels, sourceVerification: "verified" as const } : null;
+  const scoreView = scoreSummary(score);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
   const changeField = (field: string, value: string) => {
     editVersionRef.current += 1;
@@ -696,7 +721,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:1,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,spots:sharedSpots,busy:busy||retiring};
-    unavailable.propagation = { schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring };
+    if (statistics?.sessionID === projection.sessionID && statistics.revision === projection.revision) {
+      unavailable.propagation = { schemaVersion: 3, status: "ready", score: scoreView,
+        rows: statistics.rows, total: statistics.total, busy: busy || retiring };
+    }
+    else if (statistics === undefined) unavailable.propagation = {
+      schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring,
+    };
     if (rates) unavailable.monitor = { schemaVersion: 1, status: "ready",
       lastHourQsoPerHour: rates.lastHourQsoPerHour ?? null, last10QsoPerHour: rates.last10QsoPerHour ?? null,
       last100QsoPerHour: rates.last100QsoPerHour ?? null, sinceHourUTC: Number(rates.sinceHourUTC),
@@ -714,7 +745,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, partial, partialQuery, spots, cluster, configuredBands]);
+    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,

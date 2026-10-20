@@ -142,6 +142,12 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
     ["other_1", "", false, "15"], ["other_2", "CQ Zone", true, ""],
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
+const statisticsFor = (current: ReturnType<typeof projection>) => ({
+  rows: current.score.qsos ? [{band:"20m",qsos:current.score.qsos,calls:current.score.qsos,cw:current.score.qsos,
+    phone:0,digital:0,wpx:current.score.qsos,points:current.score.points}] : [],
+  total:{band:"TOTAL",qsos:current.score.qsos,calls:current.score.qsos,cw:current.score.qsos,
+    phone:0,digital:0,wpx:current.score.qsos,points:current.score.points},
+});
 
 it.each([false, true])("publishes ready empty CQ WW trackers and preserves populated matrices (worked=%s)", async worked => {
   const current = projection();
@@ -207,6 +213,49 @@ it("refreshes the current contest Rates snapshot every ten seconds", async () =>
   expect(rateCalls.at(-1)?.[1]).toEqual({sessionID:current.sessionID});
 });
 
+it("publishes exact Statistics v3 once per score refresh without adding a statistics timer", async () => {
+  const current={...projection(4),score:{qsos:2,points:6,countries:1,zones:1,total:12}};
+  let poll:(()=>void)|undefined;
+  vi.spyOn(window,"setInterval").mockImplementation(((handler:TimerHandler,timeout?:number)=>{
+    if(timeout===10_000&&typeof handler==="function")poll=handler as()=>void;return 1;
+  }) as typeof window.setInterval);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,
+        score:current.score,matrices:{countries:[],zones:[]},statistics:statisticsFor(current)}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections.propagation).toEqual({schemaVersion:3,status:"ready",
+    score:{claimedScore:12,qsos:2,points:6,multipliers:2,multiplierLabels:["1 countries","1 zones"],
+      multiplierDisplayLabels:["1 countries","1 zones"],sourceVerification:"verified"},
+    ...statisticsFor(current),busy:false}));
+  expect(request.mock.calls.filter(([method])=>method==="contest_score")).toHaveLength(1);
+  await act(async()=>poll?.());
+  expect(request.mock.calls.filter(([method])=>method==="contest_score")).toHaveLength(1);
+});
+
+it.each(["wrong session","stale revision","malformed"])("fails closed on a Statistics response with a %s",async mismatch=>{
+  const current={...projection(4),score:{qsos:2,points:6,countries:1,zones:1,total:12}};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{
+        sessionID:mismatch==="wrong session"?crypto.randomUUID():current.sessionID,
+        revision:mismatch==="stale revision"?current.revision-1:current.revision,score:current.score,matrices:{countries:[],zones:[]},
+        statistics:mismatch==="malformed"?{...statisticsFor(current),extra:true}:statisticsFor(current)}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.context.sessionID).toBe(current.sessionID));
+  expect(surfaceOwner.current.projections.propagation).toEqual({schemaVersion:1,status:"unavailable"});
+});
+
 it.each(["wrong session", "stale revision"])("rejects an initial Rates snapshot with a %s", async mismatch => {
   const current = projection(4);
   const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
@@ -244,7 +293,7 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
     if(method==="contest_scp_status")return unavailableSCP(); if(method==="contest_history_status")return unavailableHistory();
     const result=method==="contest_catalog"?{plugins:[{id:"icwc_mst",name:"ICWC Medium Speed Test"}]}:
       method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
-      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:null;
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{countries:[],zones:[]}}:null;
     if(!result)throw new Error(method); return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
@@ -283,7 +332,7 @@ it("projects CWOPS Open serial/name exchange, retained dupes and unique-call sco
     if(method==="contest_scp_status")return unavailableSCP(); if(method==="contest_history_status")return unavailableHistory();
     const result=method==="contest_catalog"?{plugins:[{id:"cwo",name:"CWOPS - Open"}]}:
       method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
-      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score}:null;
     if(!result)throw new Error(method); return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
@@ -319,7 +368,7 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
     const result=method==="contest_catalog"?{plugins:[{id:"trans_tasman",name:"Trans Tasman CW"}]}:
       method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
-      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score}:null;
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={7_025_000}/>);
@@ -542,7 +591,8 @@ it("clears prior-session log rows when a newly opened session cannot refresh its
       if(params.sessionID===first.sessionID)return{id:crypto.randomUUID(),ok:true,result:{rows:[oldRow],offset:0,total:1}};
       throw new Error("Second contest log is temporarily unavailable.");
     }
-    if(method==="contest_score")return{id:crypto.randomUUID(),ok:true,result:{score:(params.sessionID===first.sessionID?first:second).score,matrices:{countries:[],zones:[]}}};
+    if(method==="contest_score"){const active=params.sessionID===first.sessionID?first:second;return{id:crypto.randomUUID(),ok:true,result:{
+      sessionID:active.sessionID,revision:active.revision,score:active.score,matrices:{countries:[],zones:[]},statistics:statisticsFor(active)}};}
     if(method==="contest_rates")return{id:crypto.randomUUID(),ok:true,result:{lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,
       sinceHourUTC:0,sinceHourQso:0,runQso:0,searchAndPounceQso:0,hourRunQso:0,hourSearchAndPounceQso:0}};
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -552,6 +602,7 @@ it("clears prior-session log rows when a newly opened session cannot refresh its
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.pluginRows).toEqual([
     {qsoID:"old-qso",values:[oldRow.TS,oldRow.Call,"14025","599","599","1","14","3"]},
   ]));
+  expect(surfaceOwner.current.projections.propagation.schemaVersion).toBe(3);
   await userEvent.click(screen.getByRole("button",{name:"Select contest"}));
   await userEvent.click(screen.getByRole("button",{name:"Choose a Contest"}));
   await userEvent.click(screen.getByRole("radio",{name:"Second contest"}));
@@ -560,6 +611,7 @@ it("clears prior-session log rows when a newly opened session cannot refresh its
   expect(surfaceOwner.current.context.sessionID).toBe(second.sessionID);
   expect(surfaceOwner.current.projections.logbook).toMatchObject({pluginColumns:second.columns,pluginRows:[],pluginPartialRows:[],
     page:{offset:0,total:0,rows:[]}});
+  expect(surfaceOwner.current.projections.propagation).toEqual({schemaVersion:1,status:"unavailable"});
 });
 
 it("defers a native contest window command until the saved session is fully restored", async () => {

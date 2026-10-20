@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
-  type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
+  type ContestStatisticsSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import BandMaps from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
@@ -95,7 +96,7 @@ function Surface({ context }: { context: Context }) {
           projectionRevision={snapshot.projectionRevision} send={send} refresh={refresh} settle={()=>queueRef.current} reportConflict={setActionError}/>
       : snapshot.panelID === "callsign-intelligence" ? <Check projection={projection as Extract<typeof projection, { scp: unknown }>} disabled={projection.busy}
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
-      : snapshot.panelID === "propagation" ? <Statistics projection={projection as Extract<typeof projection, { score: unknown }>}/>
+      : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
       : snapshot.panelID === "monitor" ? <Rates projection={projection as ContestRatesSurfaceProjection}/>
       : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
       : snapshot.panelID === "logbook" ? <Log projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
@@ -335,7 +336,20 @@ function Check({ projection, disabled, projectionRevision, receipts, send }: { p
         detail:row.fields.map((field:any)=>`${field.label}: ${field.value}`).join(" · ")}))}
       onSelect={candidateID=>void send({action:"assistance_select",params:{...base,kind:"history",candidateID}},projectionRevision)}/></details></section>;
 }
-function Statistics({projection}:{projection:any}) { return <section className="contest-surface-statistics"><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>; }
+function Statistics({ projection }: { projection: ContestStatisticsSurfaceProjection }) {
+  if (projection.schemaVersion === 1)
+    return <section className="contest-surface-statistics"><h1>Statistics</h1><ContestScoreSummary score={projection.score} detached/></section>;
+  const rows = [...projection.rows, projection.total];
+  return <section className="contest-surface-statistics contest-surface-statistics-v3" aria-label="Statistics" aria-busy={projection.busy}>
+    <div className="contest-surface-statistics-scroll" role="region" aria-label="Scrollable contest statistics" tabIndex={0}><table aria-label="Contest statistics"><thead><tr>
+      {(["BAND", "QSO", "CALLS", "CW", "PH", "DI", "WPX", "PTS"] as const).map(label => <th key={label} scope="col">{label}</th>)}
+    </tr></thead><tbody>{rows.map(row => <tr key={row.band} className={row.band === "TOTAL" ? "contest-surface-statistics-total" : undefined}>
+      <th scope="row">{row.band}</th><td>{row.qsos.toLocaleString()}</td><td>{row.calls.toLocaleString()}</td>
+      <td>{row.cw.toLocaleString()}</td><td>{row.phone.toLocaleString()}</td><td>{row.digital.toLocaleString()}</td>
+      <td>{row.wpx.toLocaleString()}</td><td>{row.points.toLocaleString()}</td>
+    </tr>)}</tbody></table></div>
+  </section>;
+}
 function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
   const rates = [["Last hour", projection.lastHourQsoPerHour], ["10 Last QSO", projection.last10QsoPerHour],
     ["100 Last QSO", projection.last100QsoPerHour]] as const;

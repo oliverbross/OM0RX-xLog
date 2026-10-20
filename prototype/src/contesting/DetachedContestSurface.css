@@ -91,6 +91,16 @@
 .contest-surface-check-columns button { text-align:left; border:0; border-radius:0; padding:4px; min-height:24px; }
 .contest-surface-statistics { max-width:520px; }
 .contest-surface-statistics .contest-surface-results > span { color:var(--amber); background:var(--control); }
+.contest-surface-statistics-v3 { max-width:none; gap:0; overflow:hidden; }
+.contest-surface-statistics-scroll { width:100%; min-width:0; overflow:auto; border:1px solid var(--border); background:var(--panel); }
+.contest-surface-statistics-scroll:focus-visible { outline:2px solid var(--cyan); outline-offset:-2px; }
+.contest-surface-statistics-v3 table { width:100%; min-width:430px; border-collapse:collapse; font:12px ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.contest-surface-statistics-v3 :is(th,td) { padding:3px 7px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.contest-surface-statistics-v3 thead th { position:sticky; top:0; color:var(--secondary); background:var(--control); font-size:11px; font-weight:600; }
+.contest-surface-statistics-v3 :is(th,td):not(:first-child) { text-align:right; }
+.contest-surface-statistics-v3 tbody th { color:var(--text); text-align:left; font-weight:500; }
+.contest-surface-statistics-v3 tbody td { color:var(--text); }
+.contest-surface-statistics-v3 .contest-surface-statistics-total :is(th,td) { border-top:1px solid var(--teal); border-bottom:0; color:var(--teal); font-weight:700; }
 .contest-surface-rates { width:100%; max-width:340px; font-family:ui-monospace,monospace; }
 .contest-surface-rates .contest-surface-rate-scope { text-align:center; font-size:12px; color:var(--secondary); }
 .contest-surface-rates dl { display:flex; flex-direction:column; gap:2px; margin:0; }
