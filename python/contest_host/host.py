@@ -80,6 +80,13 @@ def validate_cwo_names(station, sent_exchange):
             "CW Open Station Name must begin with the Sent Exchange name")
 
 
+def validate_name_sent_exchange(sent_exchange):
+    require(isinstance(sent_exchange, str)
+            and sent_exchange == sent_exchange.strip()
+            and 0 < len(sent_exchange) <= 64,
+            "Sent exchange must be non-empty text without surrounding whitespace")
+
+
 def now():
     return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -688,6 +695,8 @@ class Host:
                     require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "ICWC sent exchange must be one name")
                 if state["pluginID"] == "cwo":
                     validate_cwo_names(setup["station"], setup["settings"].get("SentExchange"))
+                if state["pluginID"] in {"cwt", "k1usn_sst"}:
+                    validate_name_sent_exchange(setup["settings"].get("SentExchange"))
                 require(setup["settings"].get("ModeCategory", "CW") == "CW", "Selected plugin requires CW mode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
@@ -873,10 +882,7 @@ class Host:
         if plugin_id == "cwo":
             validate_cwo_names(station, settings["SentExchange"])
         if plugin_id in {"cwt", "k1usn_sst"}:
-            require(isinstance(settings["SentExchange"], str)
-                    and settings["SentExchange"] == settings["SentExchange"].strip()
-                    and 0 < len(settings["SentExchange"]) <= 64,
-                    "Sent exchange must be non-empty text without surrounding whitespace")
+            validate_name_sent_exchange(settings["SentExchange"])
         settings.setdefault("ModeCategory", "CW")
         require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
         return {"sessionID": session_id, "workspaceGeneration": workspace,
@@ -1017,6 +1023,8 @@ class Host:
         desk.state["draft"]["id"] = str(uuid.uuid4())
         for name in ("callsign", "other_2"):
             getattr(desk, name).setText("")
+        if desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
+            desk.other_1.setText("")
         if desk.state["pluginID"] in SERIAL_PLUGINS:
             self.reserve_serial(desk.database, desk.state)
             desk.current_sn = desk.state["draft"]["serial"]
@@ -1057,7 +1065,11 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
-            if desk.state["pluginID"] not in {"cwt", "k1usn_sst"}:
+            if desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
+                # Received-name edits must not replace the exchange actually
+                # sent with the session's current setup value.
+                after["SentNr"] = before["SentNr"]
+            else:
                 # The first four supported plugins expose an operator-correctable
                 # numeric sent exchange in other_1; name/SPC plugins do not.
                 after["SentNr"] = int(updated["other_1"])

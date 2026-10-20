@@ -58,6 +58,63 @@ class PluginHostMixin:
         self.assertFalse(fields["receive"]["visible"])
         self.assertEqual((fields["other_1"]["label"], fields["other_2"]["label"]),
                          ("Name", self.exchange_label))
+        self.assertFalse(fields["other_1"]["readOnly"])
+        self.assertTrue(fields["other_1"]["enabled"])
+        self.mutate("draft_apply", fields={"other_1": "ALICE"})
+        self.assertEqual(self.fields()["other_1"]["value"], "ALICE")
+
+    def test_direct_commit_clears_received_name_for_next_draft_and_reopen(self):
+        previous_draft = self.read("projection")["projection"]["draftID"]
+        self.log()
+        self.assertNotEqual(self.read("projection")["projection"]["draftID"], previous_draft)
+        for field in ("callsign", "other_1", "other_2"):
+            self.assertEqual(self.fields()[field]["value"], "")
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.fields()["other_1"]["value"], "")
+        with self.assertRaises(HostError):
+            self.mutate("qso_commit", fields={"callsign": "DL1ABC", "other_2": self.dx_exchange})
+        self.assertEqual(self.read("log")["total"], 1)
+
+    def test_setup_save_validates_sent_exchange_atomically(self):
+        before = self.read("setup_get")["setup"]
+        for invalid in ("", " ", " ALICE CT", "ALICE CT ", "A" * 65, 123, None):
+            with self.subTest(sent_exchange=invalid):
+                setup = deepcopy(before)
+                if invalid is None:
+                    del setup["settings"]["SentExchange"]
+                else:
+                    setup["settings"]["SentExchange"] = invalid
+                revision = self.revision
+                with self.assertRaises(HostError):
+                    self.mutate("setup_save", setup=setup)
+                self.assertEqual(self.read("projection")["projection"]["revision"], revision)
+                self.assertEqual(self.read("setup_get")["setup"], before)
+
+    def test_correction_preserves_historical_sent_exchange_after_setup_change(self):
+        first = self.log()
+        before = self.read("log")["rows"][0]
+        setup = self.read("setup_get")["setup"]
+        setup["settings"]["SentExchange"] = "BOB MA"
+        self.mutate("setup_save", setup=setup)
+        self.mutate("draft_apply", fields={"callsign": "DL1ABC", "other_1": "HANS",
+                                            "other_2": self.dx_exchange})
+        self.mutate("qso_correct", qsoID=first, fields={"other_1": "ROB"},
+                    reason="Correct received name")
+        row = self.read("log")["rows"][0]
+        self.assertEqual(row["Name"], "ROB")
+        self.assertEqual(row["SentNr"], before["SentNr"])
+        self.assertEqual(self.fields()["other_1"]["value"], "HANS")
+        self.mutate("qso_correct", qsoID=first, frequencyHz=7025000,
+                    reason="Correct band")
+        self.assertEqual(self.read("log")["rows"][0]["SentNr"], before["SentNr"])
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("log")["rows"][0]["SentNr"], before["SentNr"])
+        qso_lines = [line for line in self.read("export")["content"].splitlines() if line.startswith("QSO:")]
+        self.assertEqual(len(qso_lines), 1)
+        self.assertIn(str(before["SentNr"]).upper(), qso_lines[0])
+        self.assertNotIn("BOB MA", qso_lines[0])
 
     def test_scoring_dupes_rebuild_export_and_reopen(self):
         first = self.log()
@@ -97,6 +154,9 @@ class PluginHostMixin:
                              fields={"other_1": "ALICE", "other_2": self.first_exchange})
         self.assertEqual([action["key"] for action in result["actions"]], ["F4"])
         self.assertEqual(self.read("log")["total"], 1)
+        self.assertEqual({field: self.fields()[field]["value"]
+                          for field in ("callsign", "other_1", "other_2")},
+                         {"callsign": "", "other_1": "", "other_2": ""})
         for fields in ({"callsign": "DL1ABC", "other_1": "", "other_2": self.dx_exchange},
                        {"callsign": "DL1ABC", "other_1": "HANS", "other_2": " "}):
             revision = self.revision
