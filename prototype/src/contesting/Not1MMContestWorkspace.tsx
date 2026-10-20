@@ -148,6 +148,15 @@ function receivedExchange(row: Data, pluginID?: string): string {
   if (pluginID === "arrl_ss_cw") return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
   return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
 }
+function correctionExchangeValues(row: Data, pluginID?: string) {
+  if (pluginID === "cwt") {
+    const name = String(row.Name ?? ""), packed = String(row.NR ?? "");
+    const prefix = `${name} `;
+    return { other_1: name, other_2: name && packed.toUpperCase().startsWith(prefix.toUpperCase()) ? packed.slice(prefix.length) : packed };
+  }
+  if (pluginID === "k1usn_sst") return { other_1: String(row.Name ?? ""), other_2: String(row.Sect ?? "") };
+  return { other_1: String(row.SentNr ?? ""), other_2: receivedExchange(row, pluginID) };
+}
 function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
   return rows.map(row => ({
     qsoID: String(row.ID ?? ""), workedAt: canonicalWorkedAt(row.TS), callsign: String(row.Call ?? ""),
@@ -570,10 +579,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     busyRef.current = true; setBusy(true); setError("");
     try {
       await flushDraftRef.current();
-      setEditing(row); setEditCall(String(row.Call ?? "")); setEditZone(receivedExchange(row, active?.pluginID));
+      const exchange = correctionExchangeValues(row, active?.pluginID);
+      setEditing(row); setEditCall(String(row.Call ?? "")); setEditZone(exchange.other_2);
       setEditTimestamp(String(row.TS ?? "")); setEditFrequencyMHz((Number(row.Freq ?? 0) / 1000).toFixed(6));
       setEditOperator(String(row.Operator ?? "")); setEditSent(String(row.SNT ?? "")); setEditReceived(String(row.RCV ?? ""));
-      setEditSentExchange(String(row.SentNr ?? "")); setCorrectionReason("Operator correction");
+      setEditSentExchange(exchange.other_1); setCorrectionReason("Operator correction");
       setDeletionReason("Operator deletion"); setConfirmDelete(false);
     } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }

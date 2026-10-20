@@ -327,6 +327,55 @@ it("projects CWT Name as received input and admits edits through the detached ow
   expect(entry.draft.receivedFields[0].value).toBe("BOB");
 });
 
+it.each([
+  { pluginID:"cwt", pluginName:"CWT", exchangeLabel:"Number or State", exchangeColumn:"RcvNr",
+    row:{Name:"ALICE",NR:"ALICE 123",Sect:"",ZN:5}, expectedOther2:"123" },
+  { pluginID:"k1usn_sst", pluginName:"K1USN SLOW SPEED TEST", exchangeLabel:"SPC", exchangeColumn:"Sect",
+    row:{Name:"ALICE",NR:"",Sect:"CT",ZN:5}, expectedOther2:"CT" },
+])("opens $pluginID corrections with received Name/exchange instead of historical sent exchange or CQ zone",
+  async ({pluginID,pluginName,exchangeLabel,exchangeColumn,row:exchangeRow,expectedOther2}) => {
+    let current:any={...projection(3),pluginID,pluginName,matrixTrackers:[],
+      columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name",exchangeColumn,"PTS"]};
+    current.fields=current.fields.map((field:any)=>({...field,visible:!["sent","receive"].includes(field.id),readOnly:false,
+      label:field.id==="other_1"?"Name":field.id==="other_2"?exchangeLabel:field.label}));
+    const row={ID:`${pluginID}-qso`,TS:"2026-10-20 09:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",
+      SNT:"599",RCV:"599",SentNr:"OLIVER",Operator:"OM0RX",Points:1,...exchangeRow};
+    let corrected:Record<string,any>|null=null;
+    const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+      const support=workspaceSupport(method,params,current);if(support)return support;
+      if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+      let result:any;
+      if(method==="contest_catalog")result={plugins:[{id:pluginID,name:pluginName}]};
+      else if(method==="contest_sessions")result={sessions:[]};
+      else if(method==="contest_create")result={projection:current};
+      else if(method==="contest_log_page")result={rows:[row],offset:0,limit:20,total:1};
+      else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+      else if(method==="contest_qso_correct"){
+        corrected=params;current={...current,revision:current.revision+1};result={projection:current,actions:[],messages:[]};
+      }else throw new Error(method);
+      return{id:crypto.randomUUID(),ok:true,result};
+    });
+    render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+    await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+    fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:pluginID}});
+    fireEvent.change(screen.getByLabelText("Sent Exchange"),{target:{value:"CHANGED"}});
+    await userEvent.click(screen.getByRole("button",{name:"OK"}));
+    await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
+    const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+      panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+    await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_edit_begin",params:{qsoID:row.ID}}));
+    expect(surfaceOwner.current.projections.logbook.editing.receivedFields).toEqual([
+      {id:"other_1",label:"Name",value:"ALICE",required:true,maximumUTF8Bytes:32},
+      {id:"other_2",label:exchangeLabel,value:expectedOther2,required:true,maximumUTF8Bytes:128},
+    ]);
+    await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_save",
+      params:{qsoID:row.ID,expectedSessionRevision:current.revision}}));
+    expect(corrected).toMatchObject({qsoID:row.ID,fields:{other_1:"ALICE",other_2:expectedOther2}});
+    const correctedFields=(corrected as Record<string,any>|null)?.fields;
+    expect(correctedFields.other_1).not.toBe("OLIVER");
+    expect(correctedFields.other_2).not.toBe("5");
+  });
+
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3, matrixTrackers:[],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name","RcvNr","PTS"],
