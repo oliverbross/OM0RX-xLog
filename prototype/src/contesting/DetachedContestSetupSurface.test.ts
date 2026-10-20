@@ -9,6 +9,7 @@ import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-se
 const mocks = vi.hoisted(() => ({
   worker: vi.fn(),
   station: vi.fn(),
+  workspace: vi.fn((_props: Record<string, unknown>) => null),
 }));
 
 vi.mock("../worker", () => ({ workerRequest: mocks.worker, framedWorkerRequest: vi.fn() }));
@@ -18,7 +19,7 @@ vi.mock("../live/stationSession", async importOriginal => {
   return { ...original, loadStationSession: mocks.station };
 });
 vi.mock("../live/workspaceNavigation", () => ({ connectWorkspaceNavigation: () => () => {}, isContestMenuRoute: () => false }));
-vi.mock("./Not1MMContestWorkspace", () => ({ Not1MMContestWorkspace: () => null }));
+vi.mock("./Not1MMContestWorkspace", () => ({ Not1MMContestWorkspace: mocks.workspace }));
 vi.mock("./contestSpotTune", () => ({ tuneContestSpot: vi.fn() }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -107,6 +108,8 @@ describe("Contest Setup station projection", () => {
     });
     render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
     await waitFor(() => expect(mocks.worker).toHaveBeenCalledWith("settings_load", {}));
+    await waitFor(() => expect(mocks.workspace).toHaveBeenCalled());
+    expect(mocks.workspace.mock.calls.at(-1)?.[0]).toMatchObject({ contestingTest: true });
     expect(mocks.station).not.toHaveBeenCalled();
     expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("cluster_snapshot");
   });

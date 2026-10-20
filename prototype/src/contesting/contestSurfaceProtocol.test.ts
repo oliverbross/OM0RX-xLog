@@ -172,6 +172,16 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("logbook", entryProjection)).toBe(false);
   });
 
+  it("admits bounded original phone macro labels and payloads in the simulation trace", () => {
+    const phone = { ...entryProjectionV2, operator: { ...entryProjectionV2.operator,
+      trace: [{ operationID:"operation-1:0", mode:"SSB", macro:"Their call", text:"K1ABC", status:"confirmed" }] } };
+    expect(validContestSurfaceProjection("active-qso", phone)).toBe(true);
+    expect(validContestSurfaceProjection("active-qso", { ...phone, operator:{...phone.operator,
+      trace:[{...phone.operator.trace[0],macro:"x".repeat(161)}]} })).toBe(false);
+    expect(validContestSurfaceProjection("active-qso", { ...phone, operator:{...phone.operator,
+      trace:[{...phone.operator.trace[0],text:"x".repeat(4097)}]} })).toBe(false);
+  });
+
   it.each([
     { ...statisticsProjectionV3, extra: true },
     { ...statisticsProjectionV3, rows: [...statisticsProjectionV3.rows, { ...statisticsProjectionV3.rows[0] }] },

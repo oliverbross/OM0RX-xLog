@@ -438,6 +438,22 @@ it("keeps SSB Run and S&P while hiding CW output controls",async()=>{
   expect(screen.queryByRole("button",{name:"Arm CW"})).toBeNull();
 });
 
+it("makes CQ WW SSB Contesting Test intent simulation unmistakable without CW controls",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"test-simulation",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ"},{key:"F12",macro:"His call TU"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
+        canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[{operationID:"operation-1:0",mode:"SSB",macro:"Their call",text:"K1ABC",status:"confirmed"}]}}};
+  native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;throw new Error(command);});
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByText(/simulated SSB voice-keyer intent only · no audio playback, RF, PTT, radio, or network output/i)).toBeTruthy();
+  expect(screen.getByRole("button",{name:"F1 CQ"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"F12 His call TU"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Enter / ESM"})).toBeTruthy();
+  expect(screen.queryByRole("group",{name:"CW speed"})).toBeNull();
+  expect(screen.getByRole("region",{name:"Run and S&P test simulation"}).textContent).toContain("Their call K1ABC confirmed");
+});
+
 it("makes the contesting-test nontransmitting CW simulator unmistakable",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"CW"},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},

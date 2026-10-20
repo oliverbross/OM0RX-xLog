@@ -69,7 +69,7 @@ export async function loadContestStationSnapshot(load: LoadStationSession = load
 }
 
 export function DetachedContestSetupSurface() {
-  const [context, setContext] = useState<{ operatingContext: string; workspaceGeneration: string; stationCall: string } | null>(null);
+  const [context, setContext] = useState<{ operatingContext: string; workspaceGeneration: string; stationCall: string; contestingTest: boolean } | null>(null);
   const [station, setStation] = useState<Data | null>(null), [cluster, setCluster] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const menuHandler = useRef<MenuHandler | null>(null), readiness = useRef(new Set<() => void>());
@@ -132,7 +132,8 @@ export function DetachedContestSetupSurface() {
       const generation = typeof settings.generation === "string" ? settings.generation : "";
       if (!workspace.workspace_exists || !generation) throw new Error("Reconnect the xLog workspace before opening Contest Setup.");
       setContext({ operatingContext: operating.context, workspaceGeneration: generation,
-        stationCall: typeof settings.settings?.stationCall === "string" ? settings.settings.stationCall : "" });
+        stationCall: typeof settings.settings?.stationCall === "string" ? settings.settings.stationCall : "",
+        contestingTest: isolated });
       setStation(nextStation); setCluster(nextCluster); setError(""); ready = true;
     };
     const poll = async () => {
@@ -170,7 +171,7 @@ export function DetachedContestSetupSurface() {
   </main>;
   return <Not1MMContestWorkspace setupOnly request={(method, params = {}) => framedWorkerRequest(method, params)}
     serviceRequest={request} stationTune={tuneContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
-    stationCall={context.stationCall} radioFrequencyHz={station?.radio?.frequency_hz}
+    stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
     registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;
 }

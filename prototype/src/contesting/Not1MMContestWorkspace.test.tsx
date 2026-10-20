@@ -558,6 +558,75 @@ it("creates an SSB session from catalog metadata and runs ESM without native CW 
   expect(nativeCW.execute).not.toHaveBeenCalled();
 });
 
+it("simulates only claimed CQ WW SSB voice-keyer intents in Contesting Test", async () => {
+  let current={...projection(3,{sent:"59",receive:"59",other_1:"15",other_2:"5"}),pluginID:"cq_ww_ssb",
+    pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:null,matrixTrackers:[] as Array<"countries"|"zones">};
+  current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
+  let lastActions:any[]=[];
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB",modes:["SSB"]}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],total:0};
+    else if(method==="contest_score")result={score:current.score};
+    else if(method==="contest_function_key"||method==="contest_esm"){
+      current={...current,revision:current.revision+1};
+      const key=method==="contest_esm"?"F3":String(params.key),label=method==="contest_esm"?"Exchange":key==="F12"?"His call TU":`Message ${key.slice(1)}`;
+      const payload=method==="contest_esm"?"59 15":"K1ABC rr tu";
+      lastActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key,label,payload,
+        payloadUTF8Bytes:new TextEncoder().encode(payload).byteLength,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),
+        sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:current.sourceRevision,mode:"S",key,label,template:payload},
+        sessionID:current.sessionID,draftID:current.draftID}];
+      result={operationID:params.operationID,revision:current.revision,projection:current,actions:lastActions,messages:[],replayed:false};
+    } else if(method==="contest_output_claim")result={claimed:true,operationID:params.operationID,actions:lastActions};
+    else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestingTest/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.functionKeys).toHaveLength(12));
+  let entry=surfaceOwner.current.projections["active-qso"];
+  const envelope={operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm"} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.armed).toBe(true));
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F12",focusedField:"callsign"}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.trace[0]).toMatchObject({mode:"SSB",macro:"His call TU",text:"K1ABC rr tu",status:"confirmed"}));
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}));
+  expect(request.mock.calls.filter(([method])=>method==="contest_output_claim")).toHaveLength(2);
+  expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(true);
+  expect(request.mock.calls.some(([method])=>method==="contest_esm")).toBe(true);
+  expect(nativeCW.execute).not.toHaveBeenCalled();
+  expect(workspaceProps.stationTune).not.toHaveBeenCalled();
+});
+
+it("keeps production CQ WW SSB voice intents inert before the worker mutation", async () => {
+  const current={...projection(3,{sent:"59",receive:"59",other_1:"15"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",
+    mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:null,matrixTrackers:[] as Array<"countries"|"zones">};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB",modes:["SSB"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.operator.functionKeys).toEqual([]);
+  await expect(surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign"}})).rejects.toThrow("unavailable in production");
+  expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(false);
+  expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+});
+
 it("projects only configured bands into detached Main Logging", async () => {
   const current = projection();
   const saved = newContestSetup("OM0RX");

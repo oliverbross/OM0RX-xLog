@@ -39,7 +39,8 @@ type Projection = {
   history: string; score: Score; operator?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
-type MutationResult = { projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
+type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
+type PhoneSimulationTrace = { operationID: string; mode: "SSB"; macro: string; text: string; status: "confirmed" };
 type Props = {
   request: Request;
   serviceRequest: Request;
@@ -47,6 +48,7 @@ type Props = {
   operatingContext: string;
   workspaceGeneration: string;
   stationCall: string;
+  contestingTest?: boolean;
   radioFrequencyHz?: number;
   spots: BandMapSpot[];
   cluster: any;
@@ -239,7 +241,7 @@ function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[
 }
 
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
-  selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false }: Props) {
+  selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
@@ -258,6 +260,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return setupBandChoices.filter(band => selected.includes(band) && supported.includes(band));
   }, [setup.preferences.bands, projection?.supportedBands]);
   const [effectiveMacros, setEffectiveMacros] = useState<ContestSetupMacro[] | undefined>();
+  const [phoneSimulationArmed, setPhoneSimulationArmed] = useState(false);
+  const [phoneSimulationPending, setPhoneSimulationPending] = useState(false);
+  const [phoneSimulationTrace, setPhoneSimulationTrace] = useState<PhoneSimulationTrace[]>([]);
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
@@ -276,6 +281,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+  const phoneSimulationAvailable = contestingTest && projection?.pluginID === "cq_ww_ssb" && projection.mode === "SSB";
+  useEffect(() => {
+    setPhoneSimulationArmed(false); setPhoneSimulationPending(false); setPhoneSimulationTrace([]);
+  }, [contestingTest, projection?.sessionID, projection?.pluginID, projection?.mode]);
   const rememberSetup = (document: ContestSetupDocument) => {
     setSetup(document);
     try { localStorage.setItem(setupDraftKey, JSON.stringify(document)); } catch { /* storage is optional */ }
@@ -445,7 +454,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   };
   flushDraftRef.current = () => flushDraft();
   const runMutation = async (operation: (base: Projection) => Promise<MutationResult>, refreshViews = true,
-    flushBuffered = true, preserveConcurrentEdits = false, throwFailures = false) => {
+    flushBuffered = true, preserveConcurrentEdits = false, throwFailures = false,
+    consumeOutput?: (changed: MutationResult) => Promise<MutationResult>) => {
     let base = projectionRef.current;
     if (!base || busyRef.current || retiring) {
       if (throwFailures) throw new Error(!base ? "Open a contest session before editing it." : "The contest owner is busy.");
@@ -456,7 +466,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     try {
       if (flushBuffered) base = await flushDraft(base);
       if (!base) throw new Error("Open a contest session before editing it.");
-      const changed = await operation(base);
+      let changed = await operation(base);
+      if (changed.actions?.length && consumeOutput) changed = await consumeOutput(changed);
       acceptProjection(changed.projection, preserveConcurrentEdits ? inputVersion : undefined);
       if (refreshViews) await refresh(changed.projection.sessionID, changed.projection);
       for (const item of changed.messages ?? []) setNotice(item);
@@ -466,7 +477,42 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; return null; }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const hostAction = (method: string, extra: Record<string, unknown> = {}, throwFailures = false) => runMutation(async base => {
+  const consumeContestPhoneSimulation = async (changed: MutationResult): Promise<MutationResult> => {
+    const operationID = changed.operationID;
+    const actions = changed.actions ?? [];
+    if (!operationID || changed.replayed !== false || changed.revision !== changed.projection.revision || !actions.length || actions.length > 12)
+      throw new Error("The contest phone simulation result could not be verified; no output was replayed.");
+    const traces: PhoneSimulationTrace[] = actions.map((action, index) => {
+      const payload = typeof action.payload === "string" ? action.payload : "";
+      const bytes = new TextEncoder().encode(payload).byteLength;
+      const source = action.sourceMacro;
+      if (action.actionID !== `${operationID}:${index}` || action.sessionID !== changed.projection.sessionID ||
+          action.draftID !== changed.projection.draftID || action.kind !== "voice_keyer" || action.signal !== "phone" ||
+          action.mode !== "SSB" || !/^F(?:[1-9]|1[0-2])$/.test(action.key) || typeof action.label !== "string" ||
+          new TextEncoder().encode(action.label).byteLength > 160 || bytes > 4_096 || action.payloadUTF8Bytes !== bytes ||
+          !/^[0-9a-f]{64}$/.test(action.payloadSHA256) || !/^[0-9a-f]{64}$/.test(action.sourceMacroSHA256) ||
+          !source || typeof source !== "object" || source.key !== action.key || source.label !== action.label ||
+          source.revision !== changed.projection.sourceRevision)
+        throw new Error("The contest phone voice-keyer intent could not be verified; no audio or PTT action was taken.");
+      return { operationID: action.actionID, mode: "SSB", macro: action.label, text: payload, status: "confirmed" };
+    });
+    const claimed = await result<Data>("contest_output_claim", { sessionID: changed.projection.sessionID,
+      operationID, revision: changed.projection.revision });
+    if (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions))
+      throw new Error("The contest phone simulation claim could not be verified; do not retry the key.");
+    setPhoneSimulationTrace(items => [...items, ...traces].slice(-24));
+    return { ...changed, actions: [] };
+  };
+  const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false) => {
+    const phoneAction = projectionRef.current?.pluginID === "cq_ww_ssb" && projectionRef.current.mode === "SSB";
+    if (phoneAction && (!phoneSimulationAvailable || !phoneSimulationArmed)) {
+      const failure = new Error(phoneSimulationAvailable
+        ? "Arm the nontransmitting phone simulation before using CQ WW SSB messages."
+        : "CQ WW SSB voice output is unavailable in production; no audio or PTT action was taken.");
+      setError(failure.message); if (throwFailures) throw failure; return null;
+    }
+    if (phoneAction) setPhoneSimulationPending(true);
+    try { return await runMutation(async base => {
     if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before using ESM.");
     if (base.mode !== "CW")
       return mutate(method, base, { fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra });
@@ -477,7 +523,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
-  }, true, false, false, throwFailures);
+    }, true, false, false, throwFailures, phoneAction ? consumeContestPhoneSimulation : undefined); }
+    finally { if (phoneAction) setPhoneSimulationPending(false); }
+  };
 
   useEffect(() => {
     if (!projection || editing) return;
@@ -694,16 +742,21 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           : { requirement: "requiredForCommit", allocatedFieldID: "other_1", reservedSerial },
       },
       operator: {
-        output: cw.state.canonical?.provider === "test-simulation" ? "test-simulation" : "xlog-native",
-        armed: projection.mode === "CW" && cw.state.armed, style: projection.run ? "run" : "search-and-pounce",
-        status: cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
-        pending: cw.state.pending ? "send" : null,
+        output: phoneSimulationAvailable || cw.state.canonical?.provider === "test-simulation" ? "test-simulation" : "xlog-native",
+        armed: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
+        style: projection.run ? "run" : "search-and-pounce",
+        status: phoneSimulationAvailable ? phoneSimulationPending ? "waiting" : phoneSimulationArmed ? "armed" : "disarmed"
+          : cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
+        pending: phoneSimulationAvailable && phoneSimulationPending || !phoneSimulationAvailable && cw.state.pending ? "send" : null,
         focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
-        functionKeys: projection.mode === "CW" ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
-        readiness: { canSendCQ: projection.mode === "CW" && cw.state.armed, canSendCall: projection.mode === "CW" && cw.state.armed, canSendDuplicate: projection.mode === "CW" && cw.state.armed,
+        functionKeys: projection.mode === "CW" || phoneSimulationAvailable
+          ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
+        readiness: { canSendCQ: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
+          canSendCall: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
+          canSendDuplicate: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
           canReserveCall: false, canReserveCommit: false, canCommit: true },
-        trace: [],
+        trace: phoneSimulationAvailable ? phoneSimulationTrace : [],
       },
       busy: busy || retiring,
       dirty: !sameFields(currentFields, projectionFields(projection)) || frequencyHz !== projection.frequencyHz,
@@ -781,7 +834,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands,
+    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
+    phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands,
     setup.settings.SentExchange, setup.preferences.keyBindings]);
 
   const surfaceContext = detachedAvailable && projection ? {
@@ -793,6 +847,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         action.workspaceGeneration !== active.workspaceGeneration || action.operatingContext !== operatingContext)
       throw new Error("This detached panel no longer belongs to the active contest session.");
     if (action.action === "entry_operator_key" && action.params.key === "Escape") {
+      if (phoneSimulationAvailable) { setPhoneSimulationArmed(false); setPhoneSimulationPending(false); return; }
       await cw.controller.stop(); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
@@ -862,7 +917,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
           true, true, false, true); return;
       case "entry_operator_arm":
-        if (active.mode !== "CW") throw new Error("This contest does not support CW output.");
+        if (phoneSimulationAvailable) { setPhoneSimulationArmed(action.params.armed); return; }
+        if (active.mode !== "CW") throw new Error("This contest does not support admitted output.");
         if (action.params.armed) await cw.controller.arm(); else await cw.controller.stop();
         return;
       case "entry_operator_style":

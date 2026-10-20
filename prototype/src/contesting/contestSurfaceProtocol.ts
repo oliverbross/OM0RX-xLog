@@ -72,8 +72,8 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
       macro: string }[];
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
       canReserveCommit: boolean; canCommit: boolean };
-    trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: "CQ" | "EXCH" | "QRZ" | "AGN" |
-      "HISCALL" | "MYCALL" | "QSOB4"; text: string; status: "pending" | "confirmed" | "failed" | "stopped" }[] } };
+    trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: string;
+      text: string; status: "pending" | "confirmed" | "failed" | "stopped" }[] } };
 export type ContestCallCandidate = { candidateID: string; callsign: string };
 export type ContestCheckSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
   loggedCalls?: string[]; clusterCalls?: string[];
@@ -233,8 +233,8 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     Object.values(readiness).every(item => typeof item === "boolean") && Array.isArray(operator.trace) && operator.trace.length <= 24 &&
     operator.trace.every(item => { const trace = record(item) ? item : undefined; return !!trace &&
       exact(trace, ["operationID", "mode", "macro", "text", "status"]) && text(trace.operationID, 160) &&
-      oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && oneOf(trace.macro, ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"]) &&
-      text(trace.text, 1024, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
+      oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && text(trace.macro, 160, true) &&
+      text(trace.text, 4096, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
     validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "keyBindings"]) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
