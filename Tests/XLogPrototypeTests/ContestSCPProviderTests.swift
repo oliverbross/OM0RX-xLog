@@ -84,6 +84,55 @@ final class ContestSCPProviderTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: cache), saved)
     }
 
+    func testPythonAssistanceAdmitsDownloadAndReturnsOfficialSuccessAlreadyCurrentAndFailure() async throws {
+        XCTAssertTrue(LiveWorker.isPythonContestAssistanceMethod("contest_scp_download"))
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-python-scp-provider-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let contestingRoot = root.appendingPathComponent("Application/Contesting", isDirectory: true)
+        let bytes = Data("K1ABC\nOM0RX\n".utf8)
+        let digest = ContestSCPIndex.sha256(bytes)
+        let metadata = ContestSCPProviderMetadata(name: "MASTER.SCP", size: bytes.count, etag: digest,
+                                                  modified: "2026-10-16T00:03:36Z")
+        let recorder = DigestRecorder()
+        let lane = try PythonContestAssistanceLane(contestingRoot: contestingRoot, providerFetch: { prior in
+            await recorder.append(prior)
+            let attempt = await recorder.count()
+            if attempt == 3 {
+                return ContestSCPProviderResult(
+                    metadata: .init(name: "master.scp", size: bytes.count, etag: digest,
+                                    modified: "2026-10-16T00:03:36Z"),
+                    modifiedAt: Date(timeIntervalSince1970: 1_792_109_016), bytes: bytes)
+            }
+            return ContestSCPProviderResult(metadata: metadata,
+                modifiedAt: Date(timeIntervalSince1970: 1_792_109_016), bytes: prior == digest ? nil : bytes)
+        }, validateScope: { _ in })
+
+        let first = try await lane.handle(method: "contest_scp_download", params: [:])
+        XCTAssertEqual(first["updated"] as? Bool, true)
+        let firstDataset = try XCTUnwrap(first["dataset"] as? [String: Any])
+        XCTAssertEqual(firstDataset["sourceID"] as? String, "supercheckpartial-official")
+        XCTAssertEqual(firstDataset["sha256"] as? String, digest)
+        XCTAssertEqual(firstDataset["digestVerification"] as? String, "matchedExpectedSHA256")
+
+        let current = try await lane.handle(method: "contest_scp_download", params: [:])
+        XCTAssertEqual(current["updated"] as? Bool, false)
+        XCTAssertEqual((current["dataset"] as? [String: Any])?["sha256"] as? String, digest)
+
+        do {
+            _ = try await lane.handle(method: "contest_scp_download", params: [:])
+            XCTFail("Invalid official metadata must fail without replacing the active dataset.")
+        } catch let error as ContestLaneError {
+            XCTAssertEqual(error.code, "invalid_scp_download")
+            XCTAssertEqual(error.outcome, "confirmed")
+        }
+        let status = try await lane.handle(method: "contest_scp_status", params: [:])
+        XCTAssertEqual((status["dataset"] as? [String: Any])?["sha256"] as? String, digest)
+        let requests = await recorder.values()
+        XCTAssertEqual(requests, [nil, digest, digest])
+    }
+
     func testLiveOfficialDownloadIntoDisposableCacheWhenEnabled() async throws {
         guard ProcessInfo.processInfo.environment["XLOG_SCP_LIVE_TEST"] == "1" else {
             throw XCTSkip("Set XLOG_SCP_LIVE_TEST=1 for the explicit provider acceptance check.")
@@ -106,6 +155,7 @@ private actor DigestRecorder {
     private var recorded: [String?] = []
     func append(_ value: String?) { recorded.append(value) }
     func values() -> [String?] { recorded }
+    func count() -> Int { recorded.count }
 }
 
 private func XCTAssertThrowsErrorAsync<T>(_ expression: @autoclosure () async throws -> T) async {

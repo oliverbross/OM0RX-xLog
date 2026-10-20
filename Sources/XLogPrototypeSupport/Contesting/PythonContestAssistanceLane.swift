@@ -10,6 +10,13 @@ actor PythonContestAssistanceLane {
     private let service: ContestSCPService
 
     init(contestingRoot: URL, validateScope: @escaping ScopeValidator) throws {
+        try self.init(contestingRoot: contestingRoot,
+                      providerFetch: { try await ContestSCPProvider.fetchLatest(ifNoneMatch: $0) },
+                      validateScope: validateScope)
+    }
+
+    init(contestingRoot: URL, providerFetch: @escaping ContestSCPService.ProviderFetch,
+         validateScope: @escaping ScopeValidator) throws {
         let cacheURL = contestingRoot.appendingPathComponent("SuperCheckPartial", isDirectory: true)
             .appendingPathComponent("current.json")
         let applicationRoot = contestingRoot.deletingLastPathComponent()
@@ -19,7 +26,7 @@ actor PythonContestAssistanceLane {
         service = try ContestSCPService(cacheURL: cacheURL, validatePrivateRoot: {
             try Self.validateCache(cacheURL, root: contestingRoot,
                 applicationRoot: applicationRoot, protected: protected)
-        }, validateScope: validateScope)
+        }, providerFetch: providerFetch, validateScope: validateScope)
     }
 
     func shutdown() async { await service.shutdown() }
@@ -37,6 +44,10 @@ actor PythonContestAssistanceLane {
                 let dataset = try await service.importFile(path: try Self.text(params, "path", maximum: 4_096),
                     sourceName: try Self.text(params, "sourceName", maximum: 256), retrievedAt: Date())
                 return ["dataset": Self.datasetWire(dataset)]
+            case "contest_scp_download":
+                try Self.exact(params, [])
+                let downloaded = try await service.downloadLatest()
+                return ["dataset": Self.datasetWire(downloaded.dataset), "updated": downloaded.updated]
             case "contest_scp_query":
                 try Self.exact(params, ["sessionID", "workspaceGeneration", "requestID", "query"])
                 let context = try Self.context(params)
@@ -54,8 +65,8 @@ actor PythonContestAssistanceLane {
             }
         } catch let error as ContestLaneError { throw error }
           catch let error as ContestAssistanceLaneError { throw Self.map(error) }
-          catch is ContestSCPServiceError {
-            throw ContestLaneError.confirmed("scp_import_failed", "The selected SCP file could not be imported.")
+          catch let error as ContestSCPServiceError {
+            throw Self.map(error)
         } catch is ContestSCPError {
             throw ContestLaneError.confirmed("invalid_scp", "The SCP dataset or query is invalid.")
         }
@@ -117,6 +128,21 @@ actor PythonContestAssistanceLane {
         case .stopped: return .confirmed("scp_unavailable", "Callsign assistance is shut down.")
         case .resultUnavailable, .unknownMatch: return .confirmed("selection_unavailable", "The callsign suggestion is no longer available.")
         case .unverifiedDataset, .invalidLimits: return .confirmed("scp_unavailable", "The local SCP dataset is unavailable.")
+        }
+    }
+
+    private static func map(_ error: ContestSCPServiceError) -> ContestLaneError {
+        switch error {
+        case .invalidImport, .invalidCache:
+            return .confirmed("scp_import_failed", "The selected SCP file could not be imported safely.")
+        case .importInProgress:
+            return .confirmed("scp_busy", "An SCP import or download is already in progress.")
+        case .downloadFailed:
+            return .confirmed("scp_download_failed", "The official SCP service could not be reached. Existing data was retained; try Download Latest again.")
+        case .invalidProviderResponse:
+            return .confirmed("invalid_scp_download", "The official SCP download failed validation. Existing data was retained; try again later or import a local MASTER.SCP file.")
+        case .stopped:
+            return .confirmed("scp_unavailable", "Callsign assistance is shut down.")
         }
     }
 

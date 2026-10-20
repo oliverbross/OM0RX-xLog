@@ -437,8 +437,7 @@ public actor LiveWorker {
                     guard let pythonContestLane else {
                         throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")
                     }
-                    if ["contest_scp_status", "contest_scp_query", "contest_scp_cancel",
-                        "contest_scp_select", "contest_scp_import_private"].contains(method) {
+                    if Self.isPythonContestAssistanceMethod(method) {
                         result = try await pythonContestLane.handleAssistance(method: method, params: params)
                     } else if ["contest_history_status", "contest_history_preview_private",
                                "contest_history_preview_page", "contest_history_preview_cancel",
@@ -644,6 +643,11 @@ public actor LiveWorker {
             || method.hasPrefix("workspace_") || method.hasPrefix("logbook_")
             || method.hasPrefix("settings_") || method.hasPrefix("backup_")
             || method.hasPrefix("contest_")
+    }
+
+    static func isPythonContestAssistanceMethod(_ method: String) -> Bool {
+        ["contest_scp_status", "contest_scp_download", "contest_scp_query", "contest_scp_cancel",
+         "contest_scp_select", "contest_scp_import_private"].contains(method)
     }
 
     static func fencesOnlineLogDelivery(method: String, params: [String: Any]) -> Bool {
