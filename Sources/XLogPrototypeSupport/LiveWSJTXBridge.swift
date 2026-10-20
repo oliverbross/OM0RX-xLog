@@ -188,6 +188,11 @@ private struct WSJTXBridgeConfiguration: Codable, Equatable {
     var port: UInt16 = 2_237
 }
 
+public enum WSJTXLoggingRoute: String, Sendable {
+    case normalLogging = "normal_logging"
+    case contestSurfaceOrdinaryLogbook = "active_contest_surface"
+}
+
 public actor LiveWSJTXBridge {
     public static let shared = LiveWSJTXBridge()
 
@@ -260,11 +265,12 @@ public actor LiveWSJTXBridge {
         stopReceiver(); status = "Worker stopped"
     }
 
-    public func handle(method: String, params: [String: Any]) throws -> [String: Any] {
+    public func handle(method: String, params: [String: Any],
+                       route: WSJTXLoggingRoute = .normalLogging) throws -> [String: Any] {
         switch method {
         case "wsjtx_snapshot":
             try require(params, allowed: [])
-            return try snapshot()
+            return try snapshot(route: route)
         case "wsjtx_configure":
             try require(params, allowed: ["configuration"], required: ["configuration"])
             try requireStartAvailable()
@@ -274,7 +280,7 @@ public actor LiveWSJTXBridge {
             try save(next); configuration = next
             if !next.enabled { stopReceiver(); status = "Off" }
             else if receiver != nil { stopReceiver(); status = "Settings saved; restart the listener." }
-            return try snapshot()
+            return try snapshot(route: route)
         case "wsjtx_start":
             try require(params, allowed: [])
             try requireStartAvailable()
@@ -282,14 +288,14 @@ public actor LiveWSJTXBridge {
             let config = try load()
             guard config.enabled else { throw WorkerFailure("wsjtx_disabled", "Enable WSJT-X logging before starting the listener.") }
             try startReceiver(config)
-            return try snapshot()
+            return try snapshot(route: route)
         case "wsjtx_stop":
             try require(params, allowed: [])
             var config = try load(); config.enabled = false
             stopReceiver()
             if (try? workspaceAvailable()) == true { try save(config) }
             configuration = config; status = "Off"
-            return try snapshot()
+            return try snapshot(route: route)
         default:
             throw WorkerFailure("method_not_allowed", "Unknown WSJT-X logging method.")
         }
@@ -368,7 +374,7 @@ public actor LiveWSJTXBridge {
         if event.hasPrefix("UDP listener failed") { stopReceiver(); status = "WSJT-X UDP listener failed and stopped." }
     }
 
-    private func snapshot() throws -> [String: Any] {
+    private func snapshot(route: WSJTXLoggingRoute = .normalLogging) throws -> [String: Any] {
         let config = try load()
         let now = UInt64(Date().timeIntervalSince1970 * 1000)
         let inputs = activity.classificationInputs(now: now)
@@ -395,6 +401,8 @@ public actor LiveWSJTXBridge {
             }
         }
         return ["configuration": ["enabled": config.enabled, "address": config.address, "port": Int(config.port)],
+                "logging_destination": "ordinary_logbook", "request_origin": route.rawValue,
+                "contest_target_supported": false, "mutation_available": true,
                 "running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "duplicate_count": duplicateCount, "ignored_count": ignoredCount, "rejected_count": rejectedCount,
                 "dropped_count": ingress.droppedCount, "status": status, "receive_only": true,

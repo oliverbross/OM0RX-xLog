@@ -225,12 +225,15 @@ final class AppRuntimeProfileTests: XCTestCase {
         let logbook = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
         let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
-        let request = try JSONSerialization.data(withJSONObject: [
-            "id": "blocked", "method": "cluster_connect", "params": [:],
-        ])
-        let response = await worker.response(to: request)
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
-        XCTAssertEqual(object["ok"] as? Bool, false)
-        XCTAssertEqual((object["error"] as? [String: Any])?["code"] as? String, "external_io_disabled")
+        for method in ["cluster_connect", "contest_scp_download", "wsjtx_start"] {
+            let request = try JSONSerialization.data(withJSONObject: [
+                "id": "blocked-\(method)", "method": method, "params": [:],
+            ])
+            let response = await worker.response(to: request)
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
+            XCTAssertEqual(object["ok"] as? Bool, false, method)
+            XCTAssertEqual((object["error"] as? [String: Any])?["code"] as? String,
+                           "external_io_disabled", method)
+        }
     }
 }

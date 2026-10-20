@@ -132,6 +132,17 @@ mod contesting_test_native_admission_tests {
     }
 
     #[test]
+    fn group_chat_mutations_stop_before_socket_owner_in_contesting_test() {
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let result = super::with_contest_group_chat_external_io(|| {
+            calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0);
+    }
+
+    #[test]
     fn scp_path_import_is_native_only() {
         let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
         assert!(super::native_only_worker_method("contest_scp_import_private"));
@@ -2380,13 +2391,19 @@ fn contest_group_chat_context(window: &tauri::WebviewWindow, operating_context: 
     Ok(context)
 }
 
+fn with_contest_group_chat_external_io<T>(operation: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    runtime_profile::require_external_io_disabled()?;
+    operation()
+}
+
 #[tauri::command]
 fn contest_group_chat_configure(window: tauri::WebviewWindow,
     state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
     session_i_d: String, workspace_generation: String,
     configuration: contest_group_chat::Configuration) -> Result<contest_group_chat::Snapshot, String> {
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
-    state.configure(format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), configuration)
+    with_contest_group_chat_external_io(|| state.configure(
+        format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), configuration))
 }
 
 #[tauri::command]
@@ -2402,7 +2419,8 @@ fn contest_group_chat_send(window: tauri::WebviewWindow,
     state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
     session_i_d: String, workspace_generation: String, message: String) -> Result<(), String> {
     let context = contest_group_chat_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
-    state.send(&format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), &message)
+    with_contest_group_chat_external_io(|| state.send(
+        &format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), &message))
 }
 
 fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), String> {

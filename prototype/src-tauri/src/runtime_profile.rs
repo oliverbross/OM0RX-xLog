@@ -34,8 +34,9 @@ pub(crate) fn validate_contesting_test_cw(label: &str, action: &str) -> Result<(
 pub(crate) fn allows_worker_method(method: &str, local_acceptance: bool) -> bool {
     local_acceptance || !CONTESTING_TEST || matches!(method,
         "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify")
-        || CONTESTING_TEST && ["workspace_", "logbook_", "settings_", "backup_", "contest_"]
-            .iter().any(|prefix| method.starts_with(prefix))
+        || CONTESTING_TEST && method != "contest_scp_download"
+            && ["workspace_", "logbook_", "settings_", "backup_", "contest_"]
+                .iter().any(|prefix| method.starts_with(prefix))
 }
 
 #[cfg(test)]
@@ -56,7 +57,7 @@ mod tests {
     #[cfg(feature = "contesting-test")]
     fn test_build_blocks_external_worker_methods() {
         for method in ["sync_status", "station_snapshot", "station_connect", "cluster_snapshot", "cluster_connect", "lookup_call", "reference_refresh",
-            "rotor_connect", "rotor_park", "rotor_stop", "hamlib_connect", "wsjtx_start"] {
+            "rotor_connect", "rotor_park", "rotor_stop", "hamlib_connect", "wsjtx_start", "contest_scp_download"] {
             assert!(!allows_worker_method(method, false), "{method}");
         }
         for method in ["health", "workspace_status", "workspace_create", "logbook_stats", "contest_catalog"] {

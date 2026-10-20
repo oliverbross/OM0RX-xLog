@@ -611,10 +611,9 @@ public actor LiveWorker {
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
                 } else if method.hasPrefix("wsjtx_") {
-                    if operatingModule != .normalLogging && ["wsjtx_configure", "wsjtx_start"].contains(method) {
-                        throw WorkerFailure("inactive_operating_module", "WSJT-X logging belongs to the inactive Normal Logging module.")
-                    }
-                    result = try await LiveWSJTXBridge.shared.handle(method: method, params: params)
+                    let route = Self.wsjtxRoute(for: operatingModule)
+                    result = try await LiveWSJTXBridge.shared.handle(
+                        method: method, params: params, route: route)
                 } else {
                     result = try await services.handle(method: method, params: params)
                 }
@@ -642,12 +641,16 @@ public actor LiveWorker {
         ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify"].contains(method)
             || method.hasPrefix("workspace_") || method.hasPrefix("logbook_")
             || method.hasPrefix("settings_") || method.hasPrefix("backup_")
-            || method.hasPrefix("contest_")
+            || method.hasPrefix("contest_") && method != "contest_scp_download"
     }
 
     static func isPythonContestAssistanceMethod(_ method: String) -> Bool {
         ["contest_scp_status", "contest_scp_download", "contest_scp_query", "contest_scp_cancel",
          "contest_scp_select", "contest_scp_import_private"].contains(method)
+    }
+
+    static func wsjtxRoute(for module: WorkerOperatingModule) -> WSJTXLoggingRoute {
+        module == .normalLogging ? .normalLogging : .contestSurfaceOrdinaryLogbook
     }
 
     static func fencesOnlineLogDelivery(method: String, params: [String: Any]) -> Bool {

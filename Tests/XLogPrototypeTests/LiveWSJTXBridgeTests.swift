@@ -99,6 +99,32 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         XCTAssertNil(receiver.started)
     }
 
+    func testContestSurfaceUsesOrdinaryLogRouteForAllVisibleCommands() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-contest-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let receiver = FakeWSJTXReceiver()
+        let bridge = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
+            workspaceAvailable: { true }, importer: { _ in (1, 0) },
+            receiverFactory: { _, _ in receiver })
+
+        let snapshot = try await bridge.handle(method: "wsjtx_snapshot", params: [:], route: .contestSurfaceOrdinaryLogbook)
+        XCTAssertEqual(snapshot["logging_destination"] as? String, "ordinary_logbook")
+        XCTAssertEqual(snapshot["request_origin"] as? String, "active_contest_surface")
+        XCTAssertEqual(snapshot["contest_target_supported"] as? Bool, false)
+        XCTAssertEqual(snapshot["mutation_available"] as? Bool, true)
+
+        let configuration = ["enabled": true, "address": "239.255.0.1", "port": 2_237] as [String: Any]
+        let configured = try await bridge.handle(method: "wsjtx_configure",
+            params: ["configuration": configuration], route: .contestSurfaceOrdinaryLogbook)
+        XCTAssertEqual(configured["logging_destination"] as? String, "ordinary_logbook")
+        _ = try await bridge.handle(method: "wsjtx_start", params: [:], route: .contestSurfaceOrdinaryLogbook)
+        XCTAssertEqual(receiver.started?.0, "239.255.0.1")
+        let stopped = try await bridge.handle(method: "wsjtx_stop", params: [:], route: .contestSurfaceOrdinaryLogbook)
+        XCTAssertEqual(stopped["running"] as? Bool, false)
+        XCTAssertEqual(receiver.stopCount, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("wsjtx.json").path))
+    }
+
     func testNestedWorkspaceSuspensionPreventsLateStartsAndRestartsOnlyAfterFinalResume() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-wsjtx-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: directory) }

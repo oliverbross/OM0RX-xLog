@@ -34,6 +34,8 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "contest-setup" {
         return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot")) {
             Ok(())
+        } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop")) {
+            Ok(())
         } else { Err("Contest Setup can only read shared station context and own contest sessions.".into()) };
     }
     if label == "cw" { return Err("CW can only use the typed shared CW session.".into()); }
@@ -214,6 +216,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_export_read",
         "contest_export_release",
         "contest_scp_status",
+        "contest_scp_download",
         "contest_scp_import_private",
         "contest_scp_query",
         "contest_scp_cancel",
@@ -1579,7 +1582,7 @@ mod tests {
             "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
             "contest_operation_receipt", "contest_log_page", "contest_score", "contest_rates", "contest_check_partial",
             "contest_setup_get", "contest_setup_save", "contest_rover_location", "contest_statistics",
-            "contest_export_prepare", "contest_export_read", "contest_export_release",
+            "contest_export_prepare", "contest_export_read", "contest_export_release", "contest_scp_download",
         ] {
             let request = json!({"id":"contest", "method":method, "params":{}});
             assert!(validate_request(&request).is_ok(), "{method}");
@@ -1587,6 +1590,15 @@ mod tests {
             assert!(validate_surface("main", &request).is_err(), "{method}");
             assert!(validate_surface("monitor", &request).is_err(), "{method}");
             assert!(validate_surface("settings", &request).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn contest_setup_routes_the_visible_digital_logging_commands_only_to_its_owner() {
+        for method in ["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop"] {
+            let request = json!({"id":"contest-digital", "method":method, "params":{}});
+            assert!(validate_request(&request).is_ok(), "{method}");
+            assert!(validate_surface("contest-setup", &request).is_ok(), "{method}");
+            assert!(validate_surface("monitor", &request).is_err(), "{method}");
         }
     }
     #[test]

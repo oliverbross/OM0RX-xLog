@@ -36,17 +36,9 @@ final class WorkerStartupTests: XCTestCase {
     }
 
     #if os(macOS)
-    func testContestingWorkerRejectsWSJTXIngressStartupAtWorkerAuthority() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-worker-wsjtx-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: root) }
-        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root,
-            inheritNativePreferences: false), runtimeProfile: .production,
-            operatingModule: .contesting)
-        let reply = try await response(worker, id: "contest-wsjtx", method: "wsjtx_start")
-        XCTAssertEqual(reply["ok"] as? Bool, false)
-        XCTAssertEqual((reply["error"] as? [String: Any])?["code"] as? String,
-                       "inactive_operating_module")
-        await worker.shutdown()
+    func testContestingWorkerRoutesWSJTXToOrdinaryLogContract() {
+        XCTAssertEqual(LiveWorker.wsjtxRoute(for: .normalLogging), .normalLogging)
+        XCTAssertEqual(LiveWorker.wsjtxRoute(for: .contesting), .contestSurfaceOrdinaryLogbook)
     }
 
     func testContestingSharedOnlineSettingsTransitionCannotResumeBackgroundDelivery() async throws {
