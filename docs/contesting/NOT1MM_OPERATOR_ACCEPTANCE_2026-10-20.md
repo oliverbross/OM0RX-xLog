@@ -6,15 +6,18 @@ port or a public macOS release is finished.
 
 ## Candidate identity and installation
 
-- Installed version/build: `1.2.92`.
-- Exact application source: `20102a5297dfc3abc2f1c87ded18312d30b951d9`
+- Installed version/build: `1.2.93`.
+- Exact application source: `307fe4a7d663a6c4baee8cbd05292f50c4118ebd`
   on `codex/not1mm-contesting`, pushed to GitHub with a clean working tree.
 - The production and isolated Contesting Test bundles both embed that exact
   source commit in their distribution metadata.
 - `codesign --verify --deep --strict` accepted both bundles. The production app
   is signed by Developer ID team `4WCMQ4U946`.
 - `/Applications/OM0RX-xLog.app` was replaced with the exact production bundle.
-  Version 1.2.91 remains recoverable at
+  The earlier 1.2.93 candidate from `a8b33760` remains recoverable at
+  `/Applications/OM0RX-xLog-1.2.93-a8b33760-pre-307fe4a7-20261021.app`;
+  version 1.2.92 remains recoverable at
+  `/Applications/OM0RX-xLog-1.2.92-pre-1.2.93-20261021.app`; version 1.2.91 remains recoverable at
   `/Applications/OM0RX-xLog-1.2.91-pre-1.2.92-20261021.app`; version 1.2.90
   remains recoverable at
   `/Applications/OM0RX-xLog-1.2.90-pre-1.2.91-20261021.app`; version 1.2.89
@@ -34,18 +37,18 @@ port or a public macOS release is finished.
 
 Acceptance hashes:
 
-- Production executable: `eddf172a22e99253efcd889d6169e7eb6c77bc8b8832cfb55c455e0cdbf5fc4b`
-- Production Swift worker: `594c3cf2ef7864d656f72c9816486d64e6309edae4d2c94e4b665f11c4ffb3f8`
-- Production Not1MM source manifest: `b3d1adb3984f5a8a7863b8ebdff92e00fc05201710bf4b378f8e7ad5f3e1e761`
-- Contesting Test executable: `c0ea8ffc455699130b4f56a7f0418cbc2cc21cd6e7c721ce5e9af86faa64f20d`
-- Contesting Test Swift worker: `d6807bbdc83e3b3f5d9022dfe0e290496ae086dd71d644e04f5f6411c62ce53d`
-- Contesting Test Not1MM source manifest: `b3d1adb3984f5a8a7863b8ebdff92e00fc05201710bf4b378f8e7ad5f3e1e761`
+- Production executable: `2017127fccb6b6b64b1a5f443a6f1bd406c83fff29632c0ca22d7be8b7e8090a`
+- Production Swift worker: `2043aa21672f97333e5258783524dc40a1a4fe3454395b44d25c40eef09c7b8c`
+- Production Not1MM source manifest: `985cb6cb49617180a7f658b51c74194e0767a0885f8e1303201adfda351f7958`
+- Contesting Test executable: `e7502d9e025751408a9f7da1ae12a7a814e19c1ff543929d39f118f9306d5e45`
+- Contesting Test Swift worker: `84c06942213c260620b2ec6d9f828ededd8787d3cb9b599677f1bd14674ae2b4`
+- Contesting Test Not1MM source manifest: `985cb6cb49617180a7f658b51c74194e0767a0885f8e1303201adfda351f7958`
 
 ## Packaged native acceptance
 
-The actual packaged 1.2.92 Contesting Test executable completed its native
+The actual packaged 1.2.93 Contesting Test executable completed its native
 acceptance harness with exit code zero. The fresh report at
-`/private/tmp/om0rx-xlog-1.2.92-not1mm-acceptance-20102a52-20261021.json` records schema 1,
+`/private/tmp/om0rx-xlog-1.2.93-not1mm-acceptance-307fe4a7-20261021.json` records schema 1,
 status `passed`, `embeddedUi: true`, `worker: true`, `station_io: false`, and all
 35 checks true.
 
@@ -92,6 +95,17 @@ F1–F12, heading and score visible. Standard macOS close, minimize and zoom
 controls were present. Focused validation passed 21 native tests and 207 frontend
 tests; the real installed application, not those supporting checks, established
 the final operator-visible result.
+
+The 1.2.93 pass restored that same active backend session directly at startup;
+Main Logging reopened as a separate CQ WPX CW window at 14.348 MHz with the
+preserved `VK8R` draft, reports, serials and S&P state. The packaged-app check
+then exposed a frontend menu whitelist which had not been extended when Group
+Chat and QRZ Details were added. `307fe4a7` admits both retained native routes.
+From the real installed Contest menu, Group Chat opened as a separate 620×420
+native window with standard close, minimize and zoom controls and correctly
+reported that group networking was disabled. QRZ Details reached its intended
+Configuration → Lookup preference guard rather than being rejected as an
+unknown route.
 
 ## Demonstrated contest workflows
 
@@ -181,8 +195,13 @@ The findings from the independent reviews were rechecked against current source:
   the active cache was not overwritten by the test.
 - Contest context resets now queue the saved-window refresh only after the reset
   completes, preventing a refresh from being discarded by the reset itself.
-- The full executable Python suite passed 175 tests, and the xCluster integration
-  suite passed 73 tests.
+- The full executable Python suite passed 185 tests. After the comment-mode
+  changes, the selected xCluster parser/session/integration set passed 51 tests,
+  including the exact 7P8GE FT-8 regression and stale-projection refresh cases.
+- A clean full frontend rerun passed 3,739 tests across 270 files plus both Node
+  acceptance tests. The full Rust suite exited zero. After the installed-app
+  Group Chat failure exposed the menu whitelist omission, 73 focused navigation
+  and contest-workspace tests passed with the repair.
 
 ## Cluster mode intelligence
 
@@ -203,35 +222,44 @@ a current 7P8GE spot at 24.902 MHz with comment `up.4 gl still` remained CW.
 
 ## Original plugin catalog growth
 
-Eleven more byte-pinned original Not1MM plugins now execute through the accepted
+Fifteen more byte-pinned original Not1MM plugins now execute through the accepted
 Python/SQLite host: ARRL DX CW, NAQP CW, SAC CW, SAC SSB, IARU Region 1 Field Day
 CW, IARU Region 1 Field Day SSB, CQ WPX RTTY, NAQP RTTY, Weekly RTTY, JIDX CW and
-JIDX Phone. Their
+JIDX Phone, All Asian DX CW, All Asian DX SSB, CQ 160 CW and CQ 160 SSB. Their
 source provenance and byte hashes are
 validated with the existing relocation checks; no contest rules were translated
 into Swift or JSON. The RTTY plugins share the bounded nontransmitting digital
 output sink and preserve each plugin's distinct exchange/scoring behavior. The
-executable catalog now contains 32 of the 94 upstream
+executable catalog now contains 36 of the 94 upstream
 plugins.
 
 ## Installed-app preservation smoke
 
-The installed 1.2.92 production app opened the existing workspace successfully:
+The installed 1.2.93 production app opened the existing workspace successfully:
 
-- 68,390 normal-log contacts were visible.
+- 68,395 normal-log contacts were visible.
 - The requested C5R contact was present at 09:41 UTC on 20 October 2026, 12 m SSB,
   24.950 MHz. A later C5R contact at 09:55 UTC on 15 m was also present.
 - Existing station identity `OM0RX / JN88TQ`, the connected rotor projection,
   cluster connection and saved Traditional layout were retained.
 - The native Contest menu exposed Contest Setup, Operator, Station Settings,
-  Configuration Settings, Rover, Call History, QRZ Details, Main Logging, Stats,
+  Configuration Settings, Digital Logging Setup, Rover, Call History, QRZ
+  Details, Group Chat, Main Logging, Stats,
   Logbook, Band Map, Cluster, Check Partial, Rates, DXCC, Zone, Rotator and
   Remote VFO, plus About Not1MM.
 - Remote VFO opened as its own contest window, rather than activating ordinary
   Station Control, and Configuration Settings showed all ten tabs in one row.
 - Rover and About Not1MM opened as separate xLog-styled native windows. Main
-  Logging recovered from its saved native-window state after selecting the
-  preserved contest, instead of remaining on `Panel unavailable`.
+  Logging recovered automatically from the backend's active session and its
+  saved native-window state, instead of requiring the operator to select the
+  preserved contest or remaining on `Panel unavailable`.
+- Group Chat opened separately from the installed Contest menu. With Group
+  disabled in the saved setup it bound no socket, disabled Message/Send and
+  displayed the truthful disabled status. No second live multicast peer was
+  used in this pass.
+- The existing QRZ-details tickbox guard was exercised from the installed menu:
+  with the preference off, Contest Setup displayed the exact action needed to
+  enable the separate details window.
 
 This smoke establishes local retention and display. It does not by itself prove a
 remote Wavelog upload receipt for C5R.
@@ -247,14 +275,19 @@ remote Wavelog upload receipt for C5R.
 - Original RTTY plugins now have a bounded nontransmitting sink, but no live
   modem, audio, PTT or digital-station path has end-to-end acceptance.
 - Auto CQ now has a bounded runtime consumer with Stop, focus and replay
-  protections. N1MM packet/RTC, group/multi-operator networking and Group Chat
-  remain absent or inert.
-- The executable catalog contains 32 pinned original plugins out of 94; 62
+  protections. Group Chat has a bounded multicast owner and separate saved
+  window, but no second live peer was available for end-to-end packet exchange;
+  broader N1MM packet/RTC and multi-operator workflows remain incomplete.
+- Digital Logging Setup now accepts bounded receive-only WSJT-X/JTDX Logged ADIF
+  UDP input, but no external WSJT-X/JTDX instance, fldigi modem, digital audio,
+  PTT or RF path was exercised.
+- The reported 7P8GE 28.088 MHz `FT-8 TNX 73s` row had aged out before this
+  installed-app pass. Its exact parser/session behavior and stale-row refresh are
+  regression-tested, but that exact live cluster observation was not repeated.
+- The executable catalog contains 36 pinned original plugins out of 94; 58
   original plugins still need to be brought through this same Python host.
-- Normal-log transfer/finalization remains incomplete. The saved-window refresh
-  ordering and child reconnection are fixed, but the operator still explicitly
-  chooses the saved contest before its remembered contest windows reopen;
-  automatic active-contest selection at application startup remains incomplete.
+- Normal-log transfer/finalization remains incomplete. Saved-window refresh,
+  child reconnection and automatic active-contest restoration are fixed.
 - Some original configuration windows and workflows remain to be reproduced.
 - Setup still exposes broader VHF/UHF choices than the current HF contest host,
   and Cabrillo export remains limited to the connected contest exporters.
