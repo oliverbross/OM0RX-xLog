@@ -3,6 +3,57 @@ import XCTest
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
+    func testContestingTestWorkerUsesPythonLaneInsideIsolatedSupportRoot() async throws {
+        let repository = repositoryRoot()
+        let applicationSupport = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/"), isDirectory: true)
+            .appendingPathComponent("xlog-python-contest-profile-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: applicationSupport) }
+        let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: applicationSupport)
+        guard case .contestingTest(let supportRoot) = profile else {
+            return XCTFail("Expected Contesting Test profile")
+        }
+        let dataRoot = supportRoot.appendingPathComponent("Contesting/Python", isDirectory: true)
+        let configuration = PythonContestHostConfiguration(
+            executableURL: try python312(),
+            launcherURL: repository.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: dataRoot)
+        let logbook = LiveLogbookMethods(supportDirectory: supportRoot,
+            inheritNativePreferences: false, runtimeProfile: profile)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: profile,
+            operatingModule: .contesting, pythonContestConfiguration: configuration)
+
+        let catalogReply = await worker.response(to: try JSONSerialization.data(withJSONObject: [
+            "id": "catalog", "method": "contest_catalog", "params": [:],
+        ]))
+        let catalogEnvelope = try XCTUnwrap(JSONSerialization.jsonObject(with: catalogReply) as? [String: Any])
+        let catalog = try XCTUnwrap(catalogEnvelope["result"] as? [String: Any],
+            String(data: catalogReply, encoding: .utf8) ?? "Invalid catalog response")
+        let plugins = try XCTUnwrap(catalog["plugins"] as? [[String: Any]])
+        XCTAssertTrue(plugins.contains { $0["engine"] as? String == "not1mm-python" })
+        XCTAssertTrue(dataRoot.standardizedFileURL.path.hasPrefix(supportRoot.standardizedFileURL.path + "/"))
+        XCTAssertFalse(dataRoot.standardizedFileURL.path.contains("/OM0RX-xLog/Contesting/Python"))
+
+        let healthReply = await worker.response(to: try JSONSerialization.data(withJSONObject: [
+            "id": "health", "method": "health", "params": [:],
+        ]))
+        let healthEnvelope = try XCTUnwrap(JSONSerialization.jsonObject(with: healthReply) as? [String: Any])
+        let health = try XCTUnwrap(healthEnvelope["result"] as? [String: Any])
+        XCTAssertEqual(health["mode"] as? String, "contesting_test")
+        XCTAssertEqual(health["contesting_engine"] as? String, "not1mm-python")
+        XCTAssertEqual(health["isolated_workspace"] as? Bool, true)
+
+        let blockedReply = await worker.response(to: try JSONSerialization.data(withJSONObject: [
+            "id": "station", "method": "station_snapshot", "params": [:],
+        ]))
+        let blockedEnvelope = try XCTUnwrap(JSONSerialization.jsonObject(with: blockedReply) as? [String: Any])
+        XCTAssertEqual((blockedEnvelope["error"] as? [String: Any])?["code"] as? String,
+                       "external_io_disabled")
+        await worker.shutdown()
+    }
+
     func testCWOPSOpenOriginalPluginSerialDupeAndScoreThroughNativeBridge() async throws {
         let root = repositoryRoot()
         let temporary = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path

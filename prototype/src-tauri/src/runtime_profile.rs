@@ -33,17 +33,21 @@ mod tests {
     #[test]
     fn production_build_does_not_claim_test_identity() {
         #[cfg(not(feature = "contesting-test"))]
-        assert!(!CONTESTING_TEST);
+        {
+            assert!(!CONTESTING_TEST);
+            assert!(allows_worker_method("station_snapshot"));
+            assert!(allows_worker_method("cluster_snapshot"));
+        }
     }
 
     #[test]
     #[cfg(feature = "contesting-test")]
     fn test_build_blocks_external_worker_methods() {
-        for method in ["sync_status", "station_connect", "cluster_connect", "lookup_call", "reference_refresh",
+        for method in ["sync_status", "station_snapshot", "station_connect", "cluster_snapshot", "cluster_connect", "lookup_call", "reference_refresh",
             "rotor_connect", "rotor_park", "rotor_stop", "hamlib_connect", "wsjtx_start"] {
             assert!(!allows_worker_method(method), "{method}");
         }
-        for method in ["health", "workspace_status", "workspace_create", "logbook_stats"] {
+        for method in ["health", "workspace_status", "workspace_create", "logbook_stats", "contest_catalog"] {
             assert!(allows_worker_method(method), "{method}");
         }
         assert!(isolated(false));

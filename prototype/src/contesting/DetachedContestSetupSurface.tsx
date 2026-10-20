@@ -118,11 +118,15 @@ export function DetachedContestSetupSurface() {
   useEffect(() => () => window.cancelAnimationFrame(resizeFrame.current), []);
 
   useEffect(() => {
-    let active = true, ready = false, inFlight = false;
+    let active = true, ready = false, inFlight = false, isolated = false;
     const refresh = async () => {
-      const [operating, workspace, settings, nextStation, nextCluster] = await Promise.all([
-        operatingModuleStatus(true), request("workspace_status"), request("settings_load"),
-        loadContestStationSnapshot(), request("cluster_snapshot"),
+      const health = await request("health");
+      isolated = health.mode === "contesting_test";
+      const observations = isolated
+        ? Promise.resolve([{}, { snapshot: { spots: [] } }] as [Data, Data])
+        : Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
+      const [operating, workspace, settings, [nextStation, nextCluster]] = await Promise.all([
+        operatingModuleStatus(true), request("workspace_status"), request("settings_load"), observations,
       ]);
       if (!active) return;
       const generation = typeof settings.generation === "string" ? settings.generation : "";
@@ -132,7 +136,9 @@ export function DetachedContestSetupSurface() {
       setStation(nextStation); setCluster(nextCluster); setError(""); ready = true;
     };
     const poll = async () => {
-      const [nextStation, nextCluster] = await Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
+      const [nextStation, nextCluster] = isolated
+        ? [{}, { snapshot: { spots: [] } }]
+        : await Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
       if (active) { setStation(nextStation); setCluster(nextCluster); setError(""); }
     };
     const run = async () => {

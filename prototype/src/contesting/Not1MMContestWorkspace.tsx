@@ -1039,7 +1039,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>}
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
-    {showSetup && !setupOnly && observedFrequencyHz === null && <div className="contest-entry-context">
+    {showSetup && observedFrequencyHz === null && <div className="contest-entry-context">
       <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}

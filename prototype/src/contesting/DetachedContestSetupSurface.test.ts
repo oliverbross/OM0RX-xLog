@@ -87,6 +87,7 @@ describe("Contest Setup station projection", () => {
     mocks.station.mockResolvedValue(session("radio1", "radio1", 14_025_000));
     mocks.worker.mockImplementation(async (method: string) => {
       if (method === "station_snapshot") throw new Error("raw station snapshot is forbidden");
+      if (method === "health") return { result: { mode: "integrated" } };
       if (method === "workspace_status") return { result: { workspace_exists: true } };
       if (method === "settings_load") return { result: { generation: "workspace", settings: { stationCall: "OM0RX" } } };
       if (method === "cluster_snapshot") return { result: { snapshot: { spots: [] } } };
@@ -95,5 +96,18 @@ describe("Contest Setup station projection", () => {
     render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
     await waitFor(() => expect(mocks.station).toHaveBeenCalledWith("radio1"));
     expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("station_snapshot");
+  });
+
+  it("uses empty retained observations in Contesting Test without polling blocked station or cluster services", async () => {
+    mocks.worker.mockImplementation(async (method: string) => {
+      if (method === "health") return { result: { mode: "contesting_test" } };
+      if (method === "workspace_status") return { result: { workspace_exists: true } };
+      if (method === "settings_load") return { result: { generation: "workspace", settings: { stationCall: "OM0RX" } } };
+      throw new Error(`blocked service called: ${method}`);
+    });
+    render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
+    await waitFor(() => expect(mocks.worker).toHaveBeenCalledWith("settings_load", {}));
+    expect(mocks.station).not.toHaveBeenCalled();
+    expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("cluster_snapshot");
   });
 });

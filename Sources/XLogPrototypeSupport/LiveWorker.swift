@@ -109,6 +109,7 @@ public actor LiveWorker {
     private let pythonContestLane: PythonContestLane?
     private let pythonContestLaneInitializationError: ContestLaneError?
     private let pythonContestAvailable: Bool
+    private let usesPythonContestLane: Bool
     let remoteBackup: LiveRemoteBackupService
     private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
@@ -149,7 +150,13 @@ public actor LiveWorker {
         self.powerDelivery = powerDelivery
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
         logbookLane = createdLogbookLane
-        if case .contestingTest = runtimeProfile {
+        // The packaged Contesting Test process owns a real bundled Python lane.
+        // Keep the retired Swift lane only as a compatibility fixture for
+        // disposable unit workers that do not own process services.
+        let selectsPythonContestLane = runtimeProfile == .production || ownsProcessSessions
+            || pythonContestConfiguration != nil
+        usesPythonContestLane = selectsPythonContestLane
+        if case .contestingTest = runtimeProfile, !selectsPythonContestLane {
             let contestURL = logbook.workspaceDirectoryURL.deletingLastPathComponent()
                 .appendingPathComponent("Contesting", isDirectory: true).appendingPathComponent("contests.sqlite")
             do {
@@ -169,11 +176,13 @@ public actor LiveWorker {
             contestLane = nil
             contestLaneInitializationError = nil
         }
-        if runtimeProfile == .production {
+        if selectsPythonContestLane {
             do {
+                let applicationSupport = runtimeProfile.supportDirectory
+                    ?? logbook.workspaceDirectoryURL.deletingLastPathComponent()
                 let configuration = try pythonContestConfiguration
                     ?? PythonContestHostConfiguration.bundled(
-                        applicationSupport: logbook.workspaceDirectoryURL.deletingLastPathComponent())
+                        applicationSupport: applicationSupport)
                 pythonContestLane = try PythonContestLane(configuration: configuration)
                 pythonContestLaneInitializationError = nil
                 pythonContestAvailable = true
@@ -402,10 +411,10 @@ public actor LiveWorker {
                     health["mode"] = "contesting"
                     health["isolated_workspace"] = false
                 }
-                if runtimeProfile == .production && !localAcceptance {
+                if usesPythonContestLane && !localAcceptance {
                     health["contesting_engine"] = "not1mm-python"
                     health["contesting_available"] = pythonContestAvailable
-                    health["isolated_workspace"] = false
+                    if runtimeProfile == .production { health["isolated_workspace"] = false }
                 }
                 return encode(["id": id, "ok": true, "result": health])
             }
@@ -423,7 +432,7 @@ public actor LiveWorker {
             #endif
             let result: [String: Any]
             if method.hasPrefix("contest_") {
-                if runtimeProfile == .production {
+                if usesPythonContestLane {
                     if let pythonContestLaneInitializationError { throw pythonContestLaneInitializationError }
                     guard let pythonContestLane else {
                         throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")

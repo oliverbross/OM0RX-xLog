@@ -702,7 +702,7 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
     else throw new Error(`Unexpected ${method}`);
     return { id:crypto.randomUUID(), ok:true, result };
   });
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}/>);
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}/>);
   fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:initial}});
   await createContestThroughSetup();
   expect(await screen.findByText("Connect the selected radio or enter a valid HF contest frequency before creating a contest.")).toBeTruthy();
@@ -711,9 +711,9 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   expect(screen.getByRole("button", {name:"OK"})).toBeTruthy();
   fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:"7.025125"}});
   await userEvent.click(screen.getByRole("button", {name:"OK"}));
-  await screen.findByText("Contest windows are ready");
+  await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(true));
   expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz:7_025_125});
-  expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready");
+  expect(screen.getByRole("heading", { name:"Contest Setup", level:1 })).toBeTruthy();
 });
 
 it("restores the saved manual frequency when reopening a session without CAT", async () => {
