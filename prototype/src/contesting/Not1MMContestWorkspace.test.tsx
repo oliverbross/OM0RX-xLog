@@ -482,6 +482,45 @@ it.each([
   expect(summary.getAllByText(String(score.multipliers)).length).toBeGreaterThan(0);
 });
 
+it.each([
+  ["euhfc", "EUHFC"], ["iaru_hf", "IARU HF"], ["arrl_10m", "ARRL 10M"],
+])("changes $1 current operating mode without rewriting the MIXED entry category", async (pluginID, pluginName) => {
+  const saved=newContestSetup("OM0RX");saved.pluginID=pluginID;saved.name=pluginName;saved.settings.ModeCategory="MIXED";
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
+  let current:any={...projection(2),pluginID,pluginName,supportedModes:["CW","SSB"],matrixTrackers:[]};
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName,modes:["CW","SSB"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score}:null;
+    if(method==="contest_draft_apply"){
+      const mode=params.mode??current.mode,report=mode==="SSB"?"59":"599";
+      current={...current,revision:current.revision+1,mode,fields:current.fields.map((field:any)=>({...field,
+        value:field.id==="sent"||field.id==="receive"?report:params.fields?.[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestingTest/>);
+  await createContestThroughSetup();
+  let entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_mode",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:"SSB"}}));
+  const phoneTransition=request.mock.calls.find(([method,params])=>method==="contest_draft_apply"&&params?.mode==="SSB")?.[1];
+  expect(phoneTransition).toMatchObject({mode:"SSB"});
+  expect(phoneTransition?.fields).not.toHaveProperty("sent");expect(phoneTransition?.fields).not.toHaveProperty("receive");
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({session:{mode:"SSB"},draft:{mode:"SSB",sentReport:"59",receivedReport:"59"}});
+  expect(setupDialogOwner.current.document.settings.ModeCategory).toBe("MIXED");
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:2,requestID:crypto.randomUUID(),action:"entry_set_mode",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,value:"CW"}}));
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({session:{mode:"CW"},draft:{mode:"CW",sentReport:"599",receivedReport:"599"}});
+  expect(setupDialogOwner.current.document.settings.ModeCategory).toBe("MIXED");
+});
+
 it("projects CWOPS Open serial/name exchange, retained dupes and unique-call score", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"12 ALICE"}), pluginID:"cwo", pluginName:"CWOPS - Open",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","Name","M1","PTS"],
@@ -675,16 +714,19 @@ it.each([
     else if(method==="contest_function_key"||method==="contest_esm"){
       mutationRevisions.push(params.expectedRevision);
       if(params.expectedRevision!==current.revision)throw new Error(`stale expectedRevision ${params.expectedRevision}; current ${current.revision}`);
-      const next={...current,revision:current.revision+1};
+      const origin=current;
+      const next:any={...current,revision:current.revision+1};
       if(method==="contest_esm"){
         logged=true;next.score={...next.score,qsos:1,points:1,total:1};
+        next.draftID="99999999-9999-4999-8999-999999999999";
+        next.fields=next.fields.map((field:any)=>({...field,value:field.id==="sent"||field.id==="receive"?"59":""}));
       }
       const key=method==="contest_esm"?"F3":String(params.key),label=method==="contest_esm"?"Exchange":key==="F12"?"His call TU":`Message ${key.slice(1)}`;
       const payload=method==="contest_esm"?esmPayload:"K1ABC rr tu";
       lastActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key,label,payload,
         payloadUTF8Bytes:new TextEncoder().encode(payload).byteLength,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),
         sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:next.sourceRevision,mode:"S",key,label,template:payload},
-        sessionID:next.sessionID,draftID:next.draftID}];
+        sessionID:origin.sessionID,draftID:origin.draftID}];
       result={operationID:params.operationID,revision:next.revision,projection:next,actions:lastActions,messages:[],replayed:false};
       if(mutationMode!=="normal"){
         const fail=mutationMode==="hold-fail",late=mutationMode==="hold-late";mutationMode="normal";
@@ -747,6 +789,8 @@ it.each([
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}));
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.trace[1]).toMatchObject({
     mode:"SSB",macro:"Exchange",text:esmPayload,status:"confirmed"}));
+  expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({
+    draftID:"99999999-9999-4999-8999-999999999999",callsign:"",sentReport:"59",receivedReport:"59"});
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.total).toBe(1));
   expect(surfaceOwner.current.projections.propagation.score).toMatchObject({qsos:1,points:1,claimedScore:1});
   const firstStale=releaseStale.splice(0,2);await act(async()=>firstStale.forEach(release=>release()));
@@ -1046,7 +1090,7 @@ it.each(["log", "cluster"])("applies %s Check Partial only through the revision-
 
 it("applies a contest-window spot only to the active Not1MM draft and tunes exactly once",async()=>{
   let current=projection();
-  const tune=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
   const spot={id:"spot-1",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
@@ -1073,6 +1117,49 @@ it("applies a contest-window spot only to the active Not1MM draft and tunes exac
   expect(tune).toHaveBeenCalledExactlyOnceWith(14_025_000,"CW");
   expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(1);
   expect(request.mock.calls.some(([method])=>method==="activate_spot")).toBe(false);
+});
+
+it("steps through distinct displayed spots from the last mouse selection and reconciles a changed list",async()=>{
+  let current=projection();
+  const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));
+  const spots=[
+    {id:"spot-1",callsign:"DL1AAA",frequencyKHz:14021,band:"20m",mode:"CW"},
+    {id:"spot-2",callsign:"DL2BBB",frequencyKHz:14022,band:"20m",mode:"CW"},
+    {id:"spot-3",callsign:"DL3CCC",frequencyKHz:14023,band:"20m",mode:"CW"},
+  ];
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:null;
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,frequencyHz:params.frequencyHz,
+        fields:current.fields.map((field:any)=>({...field,value:params.fields[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const selected=vi.fn((_id:string)=>{});
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}
+    spots={spots as any} selectedSpotId="spot-1" onSelectedSpot={selected}/>);
+  await createContestThroughSetup();
+  const action=async(action:string,params:Record<string,unknown>)=>{
+    const entry=surfaceOwner.current.projections["active-qso"];
+    await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+      panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action,
+      params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,...params}}));
+  };
+  await action("entry_step_spot",{direction:"next"});
+  await action("entry_step_spot",{direction:"next"});
+  await action("spot_select",{spotID:"spot-1"});
+  await action("entry_step_spot",{direction:"next"});
+  expect(tune.mock.calls.map(([frequency])=>frequency)).toEqual([14_022_000,14_023_000,14_021_000,14_022_000]);
+  expect(selected.mock.calls.map(([id])=>id)).toEqual(["spot-2","spot-3","spot-1","spot-2"]);
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}
+    spots={[spots[2]] as any} selectedSpotId={null} onSelectedSpot={selected}/>);
+  await action("entry_step_spot",{direction:"next"});
+  expect(tune).toHaveBeenLastCalledWith(14_023_000,"CW");
 });
 
 it.each(["band-maps","dx-cluster"])("returns tune and draft failures to the originating detached %s action",async panelID=>{

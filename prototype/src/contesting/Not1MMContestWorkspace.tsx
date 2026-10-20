@@ -41,6 +41,7 @@ type Projection = {
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
+type PhoneIntentOrigin = Pick<Projection, "sessionID" | "workspaceGeneration" | "draftID" | "revision" | "sourceRevision">;
 type PhoneSimulationTrace = { operationID: string; mode: "SSB"; macro: string; text: string; status: "confirmed" };
 class PhoneSimulationStopped extends Error {
   constructor() { super("The contest phone simulation was stopped."); this.name = "PhoneSimulationStopped"; }
@@ -86,7 +87,7 @@ const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
 const setupBandChoices = [...contestBands, "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
-const contestPhoneIntentPlugins = new Set(["arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb"]);
+const contestPhoneIntentPlugins = new Set(["arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "euhfc", "iaru_hf", "arrl_10m"]);
 const serialPrefixPlugins = new Set(["cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"]);
 const sweepstakesPlugins = new Set(["arrl_ss_cw", "arrl_ss_phone"]);
 const contestInputFieldID = (value: unknown): value is ContestInputFieldID =>
@@ -318,6 +319,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [scpSurface, setSCPSurface] = useState<ContestSCPPanelSurface | null>(null);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusRef = useRef("callsign");
+  const spotCursorRef = useRef<{ context: string; spotID: string | null }>({ context: "", spotID: null });
   const editVersionRef = useRef(0);
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
@@ -325,6 +327,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+  const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
+  const spotIDSignature = spots.map(spot => String(spot.id)).join("\u001f");
+  useEffect(() => {
+    const available = new Set(spots.map(spot => String(spot.id)));
+    const selected = selectedSpotId == null ? null : String(selectedSpotId);
+    const cursor = spotCursorRef.current;
+    if (cursor.context !== spotSelectionContext) {
+      spotCursorRef.current = { context: spotSelectionContext, spotID: selected !== null && available.has(selected) ? selected : null };
+    } else if (selected !== null && available.has(selected) && selected !== cursor.spotID) {
+      spotCursorRef.current = { context: spotSelectionContext, spotID: selected };
+    } else if (cursor.spotID !== null && !available.has(cursor.spotID)) {
+      spotCursorRef.current = { context: spotSelectionContext, spotID: null };
+    }
+  }, [spotSelectionContext, spotIDSignature, selectedSpotId]);
   const configuredAutoCQDelay = Number(setup.preferences.autoCQDelay ?? 15);
   const autoCQDelaySeconds = Number.isFinite(configuredAutoCQDelay) ? Math.min(3600, Math.max(1, configuredAutoCQDelay)) : 15;
   const phoneSimulationAvailable = Boolean(contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
@@ -511,7 +527,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   flushDraftRef.current = () => flushDraft();
   const runMutation = async (operation: (base: Projection) => Promise<MutationResult>, refreshViews = true,
     flushBuffered = true, preserveConcurrentEdits = false, throwFailures = false,
-    consumeOutput?: (changed: MutationResult) => Promise<MutationResult>, signal?: AbortSignal,
+    consumeOutput?: (changed: MutationResult, origin: Projection) => Promise<MutationResult>, signal?: AbortSignal,
     recoverStopped?: (recovery: Promise<boolean>) => void) => {
     let base = projectionRef.current;
     if (!base || busyRef.current || retiring) {
@@ -528,7 +544,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       changed = await (signal ? abortPhoneWait(operationPromise, signal) : operationPromise);
       committed = changed;
       if (changed.actions?.length && consumeOutput)
-        changed = await (signal ? abortPhoneWait(consumeOutput(changed), signal) : consumeOutput(changed));
+        changed = await (signal ? abortPhoneWait(consumeOutput(changed, base), signal) : consumeOutput(changed, base));
       acceptProjection(changed.projection, preserveConcurrentEdits ? inputVersion : undefined);
       if (refreshViews) await refresh(changed.projection.sessionID, changed.projection);
       for (const item of changed.messages ?? []) setNotice(item);
@@ -559,7 +575,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const consumeContestPhoneSimulation = async (changed: MutationResult): Promise<MutationResult> => {
+  const consumeContestPhoneSimulation = async (changed: MutationResult, origin: PhoneIntentOrigin): Promise<MutationResult> => {
     const controller = phoneSimulationControllerRef.current;
     if (!controller || controller.signal.aborted) throw new PhoneSimulationStopped();
     const operationID = changed.operationID;
@@ -570,13 +586,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const payload = typeof action.payload === "string" ? action.payload : "";
       const bytes = new TextEncoder().encode(payload).byteLength;
       const source = action.sourceMacro;
-      if (action.actionID !== `${operationID}:${index}` || action.sessionID !== changed.projection.sessionID ||
-          action.draftID !== changed.projection.draftID || action.kind !== "voice_keyer" || action.signal !== "phone" ||
+      if (action.actionID !== `${operationID}:${index}` || action.sessionID !== origin.sessionID ||
+          action.draftID !== origin.draftID || action.kind !== "voice_keyer" || action.signal !== "phone" ||
           action.mode !== "SSB" || !/^F(?:[1-9]|1[0-2])$/.test(action.key) || typeof action.label !== "string" ||
           new TextEncoder().encode(action.label).byteLength > 160 || bytes > 4_096 || action.payloadUTF8Bytes !== bytes ||
           !/^[0-9a-f]{64}$/.test(action.payloadSHA256) || !/^[0-9a-f]{64}$/.test(action.sourceMacroSHA256) ||
           !source || typeof source !== "object" || source.key !== action.key || source.label !== action.label ||
-          source.revision !== changed.projection.sourceRevision)
+          source.revision !== origin.sourceRevision)
         throw new Error("The contest phone voice-keyer intent could not be verified; no audio or PTT action was taken.");
       return { operationID: action.actionID, mode: "SSB", macro: action.label, text: payload, status: "confirmed" };
     });
@@ -814,6 +830,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       });
     }, false, false, false, throwFailures);
     if (!next) return;
+    spotCursorRef.current = { context: spotSelectionContext, spotID: String(spot.id) };
     setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
     onSelectedSpot?.(String(spot.id));
     setNotice(`Loaded ${spot.callsign} after the selected radio confirmed one tune.`);
@@ -1105,8 +1122,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           throw new Error("Band follows the admitted contest frequency.");
         return;
       case "entry_set_mode":
-        if (action.params.value !== active.mode) throw new Error("This Python contest session does not support changing mode.");
-        return;
+        { const nextMode = action.params.value as NonNullable<Projection["supportedModes"]>[number];
+        if (!active.supportedModes?.includes(nextMode)) throw new Error("This contest does not support that operating mode.");
+        if (nextMode !== active.mode) {
+          const previousDefault = active.mode === "SSB" ? "59" : "599";
+          const modeFields = Object.fromEntries(Object.entries(fieldsRef.current).filter(([fieldID, value]) =>
+            !((fieldID === "sent" || fieldID === "receive") && value === previousDefault)));
+          await runMutation(base => mutate("contest_draft_apply", base, { fields: modeFields,
+            frequencyHz: operationFrequencyHz ?? base.frequencyHz, mode: nextMode }), false, false, false, true);
+        }
+        return; }
       case "entry_reserve_serial": throw new Error("Serial numbers are allocated automatically by the contest host.");
       case "entry_clear": {
         const defaultReport = active.mode === "SSB" ? "59" : "599";
@@ -1120,7 +1145,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       }
       case "entry_step_spot": {
         if (!spots.length) throw new Error("No shared contest spots are available.");
-        const current = selectedSpotId == null ? -1 : spots.findIndex(spot => String(spot.id) === String(selectedSpotId));
+        const cursor = spotCursorRef.current.context === spotSelectionContext ? spotCursorRef.current.spotID : null;
+        const current = cursor == null ? -1 : spots.findIndex(spot => String(spot.id) === cursor);
         const nextIndex = action.params.direction === "next"
           ? current < 0 || current + 1 >= spots.length ? 0 : current + 1
           : current <= 0 ? spots.length - 1 : current - 1;

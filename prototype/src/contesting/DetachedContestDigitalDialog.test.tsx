@@ -19,6 +19,8 @@ it("shows the pinned Not1MM hierarchy without claiming fldigi integration", asyn
   expect(screen.getByRole("heading",{name:"fldigi"})).toBeTruthy();
   expect(screen.getByText("Not integrated")).toBeTruthy(); expect(screen.getByText("CALL EXCHANGE")).toBeTruthy();
   expect(screen.getByText(/cannot claim a connection/)).toBeTruthy();
+  expect(screen.getByText(/ordinary xLog log, not the open Not1MM contest log/)).toBeTruthy();
+  expect(screen.getByText(/saved by Normal Logging/)).toBeTruthy();
 });
 
 it("submits a bounded owner request and never invokes the worker directly", async () => {

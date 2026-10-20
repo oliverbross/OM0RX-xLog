@@ -8,11 +8,12 @@ import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-se
 
 const mocks = vi.hoisted(() => ({
   worker: vi.fn(),
+  framed: vi.fn(),
   station: vi.fn(),
   workspace: vi.fn((_props: Record<string, unknown>) => null),
 }));
 
-vi.mock("../worker", () => ({ workerRequest: mocks.worker, framedWorkerRequest: vi.fn() }));
+vi.mock("../worker", () => ({ workerRequest: mocks.worker, framedWorkerRequest: mocks.framed }));
 vi.mock("../operatingModule", () => ({ operatingModuleStatus: vi.fn(async () => ({ context: "normal_logging" })) }));
 vi.mock("../live/stationSession", async importOriginal => {
   const original = await importOriginal<typeof import("../live/stationSession")>();
@@ -92,11 +93,16 @@ describe("Contest Setup station projection", () => {
       if (method === "workspace_status") return { result: { workspace_exists: true } };
       if (method === "settings_load") return { result: { generation: "workspace", settings: { stationCall: "OM0RX" } } };
       if (method === "cluster_snapshot") return { result: { snapshot: { spots: [] } } };
+      if (method === "wsjtx_snapshot") return { result: { configuration:{enabled:false,address:"127.0.0.1",port:2237},running:false } };
       throw new Error(`unexpected method ${method}`);
     });
     render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
     await waitFor(() => expect(mocks.station).toHaveBeenCalledWith("radio1"));
     expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("station_snapshot");
+    const props=mocks.workspace.mock.calls.at(-1)?.[0] as {serviceRequest:(method:string)=>Promise<unknown>};
+    await expect(props.serviceRequest("wsjtx_snapshot")).resolves.toMatchObject({configuration:{address:"127.0.0.1",port:2237}});
+    expect(mocks.worker).toHaveBeenCalledWith("wsjtx_snapshot",{});
+    expect(mocks.framed).not.toHaveBeenCalledWith("wsjtx_snapshot",expect.anything());
   });
 
   it("uses empty retained observations in Contesting Test without polling blocked station or cluster services", async () => {

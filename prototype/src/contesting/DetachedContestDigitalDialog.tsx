@@ -32,10 +32,10 @@ export function DetachedContestDigitalDialog() {
   };
   const digital = snapshot?.auxiliary.digital;
   return <main className="contest-digital-dialog" aria-label="Digital logging setup">
-    <header><div><h1>Digital logging</h1><p>Configure the existing xLog receive path used while a Not1MM contest is open.</p></div>
+    <header><div><h1>Digital logging</h1><p>Configure xLog’s native receive-only WSJT-X service. Logged contacts go to the ordinary xLog log, not the open Not1MM contest log.</p></div>
       <span className={digital?.running ? "is-listening" : "is-inactive"}>{digital?.running ? "Listening" : digital ? "Stopped" : "Unavailable"}</span></header>
     <section aria-labelledby="wsjtx-heading">
-      <div className="digital-section-heading"><div><h2 id="wsjtx-heading">WSJT-X / JTDX</h2><p>Logged contacts arrive over UDP after you accept the external app’s Log QSO dialog.</p></div><strong>Receive only</strong></div>
+      <div className="digital-section-heading"><div><h2 id="wsjtx-heading">WSJT-X / JTDX</h2><p>Logged contacts arrive over UDP after you accept the external app’s Log QSO dialog and are saved by Normal Logging.</p></div><strong>Ordinary log · receive only</strong></div>
       {draft ? <div className="digital-fields"><label><span>Multicast or loopback address</span><input autoFocus aria-label="WSJT-X UDP address" value={draft.address}
         onChange={event => setDraft({...draft,address:event.target.value.trim()})}/></label><label><span>UDP port</span><input aria-label="WSJT-X UDP port" type="number" min="1" max="65535" value={draft.port}
         onChange={event => setDraft({...draft,port:Number(event.target.value)})}/></label></div>
