@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestSetupPanel, contestSetupTabs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
-afterEach(cleanup);
+afterEach(() => { cleanup(); document.documentElement.style.removeProperty("zoom"); });
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
     activeSessionID: "session", catalog: [{ id: "cq_ww_cw", name: "CQ WW CW", modes: ["CW"], sentExchangeHint: "Sent Exchange", overlayChoices: ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"] }],
@@ -181,10 +181,21 @@ it("retains draft edits on failed save and prevents concurrent submissions", asy
 it("uses the original Edit Keys table and saves key changes", async () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Edit Keys");
   expect(screen.getAllByRole("columnheader").map(item => item.textContent)).toEqual(["Context", "Key", "Action", "Description"]);
+  expect(document.querySelector(".contest-binding-table")).toBeTruthy();
+  expect(screen.getByLabelText("description 1").getAttribute("title")).toBe(screen.getByLabelText("description 1").textContent);
   open("Add"); expect(screen.getByLabelText("key 7")).toBeTruthy(); open("Remove"); expect(screen.queryByLabelText("key 7")).toBeNull();
   fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+R" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);
+});
+it.each([100, 125, 150, 175, 200])("keeps all Edit Keys columns available at %i%% interface scale", scale => {
+  document.documentElement.style.zoom = `${scale}%`;
+  render(<ContestSetupPanel {...props()}/>); open("Edit Keys");
+  expect(screen.getAllByRole("columnheader").map(item => item.textContent)).toEqual(["Context", "Key", "Action", "Description"]);
+  expect(screen.getByLabelText("context 1")).toBeTruthy();
+  expect(screen.getByLabelText("key 1")).toBeTruthy();
+  expect(screen.getByLabelText("action 1")).toBeTruthy();
+  expect(screen.getByLabelText("description 1")).toBeTruthy();
 });
 
 it("edits Run and S&P F1–F12 macros in the durable setup document without sending output", async () => {

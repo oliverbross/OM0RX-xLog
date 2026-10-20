@@ -51,6 +51,14 @@ describe("ContestWorkspace responsive contract", () => {
     expect(setupCSS).not.toMatch(/flex-basis:\s*(?:65|90)px/);
   });
 
+  it("fits Edit Keys into the initial Contest Setup width while retaining intentional macro scrolling", () => {
+    expect(setupCSS).toContain(".contest-key-table { table-layout:fixed; }");
+    expect(setupCSS).toContain(".contest-macro-table { min-width:650px; }");
+    expect(setupCSS).toContain(".contest-binding-table { min-width:0; }");
+    expect(setupCSS).toContain(".contest-binding-table :is(th,td,output) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }");
+    expect(setupCSS).not.toMatch(/\.contest-key-table\s*\{[^}]*min-width:650px/);
+  });
+
   it("keeps the original compact horizontal New Contest form without vertical auto spacing", () => {
     expect(setupCSS).toContain(".contest-workspace .contest-setup label { display:flex; flex-direction:row;");
     expect(setupCSS).toContain(".contest-parameters { display:flex; flex-direction:column; gap:4px; max-width:470px; margin:0 auto;");
