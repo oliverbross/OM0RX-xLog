@@ -11,6 +11,11 @@ import { tuneContestSpot } from "./contestSpotTune";
 
 type Data = Record<string, any>;
 type MenuHandler = (route: string) => boolean | Promise<boolean>;
+type WindowSize = { width: number; height: number };
+
+const CONTEST_SETUP_AUTO_FIT_SIZE_KEY = "xlog.contest.setup.auto-fit-size.v1";
+const sameWindowSize = (one: WindowSize, other: WindowSize) =>
+  Math.abs(one.width - other.width) < 0.5 && Math.abs(one.height - other.height) < 0.5;
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest Setup could not load.";
@@ -36,6 +41,16 @@ export function fittedContestSetupWindowSize(view: SetupView | null, contentHeig
   return { width: preferred.width, height: Math.min(Math.max(preferred.height, measured), limit) };
 }
 
+/** Only untouched xLog defaults and the last size applied by this fitter are
+ * managed. Any other geometry belongs to the operator and must survive view
+ * changes, close/reopen, and application restarts. */
+export function isManagedContestSetupWindowSize(current: WindowSize, rememberedAutoFit: WindowSize | null): boolean {
+  if (rememberedAutoFit && sameWindowSize(current, rememberedAutoFit)) return true;
+  return [null, "New Contest", "Choose a Contest", "Edit Current Contest", "Edit Macros", "Edit Keys"]
+    .map(view => contestSetupWindowSize(view as SetupView | null))
+    .some(size => sameWindowSize(current, size));
+}
+
 /** Read the active radio through xLog's retained native station owner. Contest
  * Setup must not bypass that owner with an unscoped worker station_snapshot. */
 export async function loadContestStationSnapshot(load: LoadStationSession = loadStationSession): Promise<Data> {
@@ -54,6 +69,7 @@ export function DetachedContestSetupSurface() {
   const [error, setError] = useState("");
   const menuHandler = useRef<MenuHandler | null>(null), readiness = useRef(new Set<() => void>());
   const resizeFrame = useRef(0);
+  const autoFitSize = useRef<WindowSize | null>(null), operatorSized = useRef(false);
   const registerMenuRoute = useCallback((handler: MenuHandler | null) => {
     menuHandler.current = handler;
     if (handler) for (const retry of readiness.current) retry();
@@ -65,10 +81,26 @@ export function DetachedContestSetupSurface() {
         const panel = document.querySelector<HTMLElement>(".contest-workspace.is-setup-only > .contest-setup");
         const appWindow = getCurrentWindow();
         const [innerSize, outerSize, scaleFactor] = await Promise.all([appWindow.innerSize(), appWindow.outerSize(), appWindow.scaleFactor()]);
-        const logicalInnerHeight = scaleFactor > 0 ? innerSize.height / scaleFactor : innerSize.height;
+        const logicalInner = scaleFactor > 0 ? innerSize.toLogical(scaleFactor) : innerSize;
+        const logicalInnerHeight = logicalInner.height;
         const nativeChromeHeight = scaleFactor > 0 ? Math.max(0, (outerSize.height - innerSize.height) / scaleFactor) : 0;
+        if (!autoFitSize.current) {
+          try {
+            const stored = JSON.parse(localStorage.getItem(CONTEST_SETUP_AUTO_FIT_SIZE_KEY) ?? "null") as Partial<WindowSize> | null;
+            autoFitSize.current = stored && Number.isFinite(stored.width) && Number.isFinite(stored.height)
+              ? { width: Number(stored.width), height: Number(stored.height) } : null;
+          } catch { autoFitSize.current = null; }
+        }
+        if (operatorSized.current || !isManagedContestSetupWindowSize(logicalInner, autoFitSize.current)) {
+          operatorSized.current = true;
+          try { localStorage.removeItem(CONTEST_SETUP_AUTO_FIT_SIZE_KEY); } catch { /* geometry remains best effort */ }
+          return;
+        }
         const contentScale = window.innerHeight > 0 ? logicalInnerHeight / window.innerHeight : 1;
         const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight, contentScale, nativeChromeHeight);
+        autoFitSize.current = size;
+        try { localStorage.setItem(CONTEST_SETUP_AUTO_FIT_SIZE_KEY, JSON.stringify(size)); } catch { /* geometry remains best effort */ }
+        if (sameWindowSize(logicalInner, size)) return;
         await appWindow.setSize(new LogicalSize(size.width, size.height));
       };
       void fit().then(() => {

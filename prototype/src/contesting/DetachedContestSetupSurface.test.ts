@@ -2,7 +2,7 @@
 import React from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { contestSetupWindowSize, fittedContestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
+import { contestSetupWindowSize, fittedContestSetupWindowSize, isManagedContestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
 import type { RadioID, StationSession } from "../live/stationSession";
 import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-setup-owner.json";
 
@@ -56,6 +56,13 @@ describe("Contest Setup station projection", () => {
   it("admits native resizing only for the detached Contest Setup owner", () => {
     expect(contestSetupOwnerCapability.windows).toEqual(["contest-setup"]);
     expect(contestSetupOwnerCapability.permissions).toEqual(["core:window:allow-set-size"]);
+  });
+  it("auto-fits only untouched defaults or its own last fitted size", () => {
+    expect(isManagedContestSetupWindowSize({ width: 600, height: 360 }, null)).toBe(true);
+    expect(isManagedContestSetupWindowSize({ width: 560, height: 640 }, null)).toBe(true);
+    expect(isManagedContestSetupWindowSize({ width: 560, height: 870 }, { width: 560, height: 870 })).toBe(true);
+    expect(isManagedContestSetupWindowSize({ width: 900, height: 640 }, { width: 560, height: 870 })).toBe(false);
+    expect(isManagedContestSetupWindowSize({ width: 600.6, height: 360 }, null)).toBe(false);
   });
   it("reads the active xLog radio through the native station session", async () => {
     const load = vi.fn(async (radioId: RadioID) => radioId === "radio1"
