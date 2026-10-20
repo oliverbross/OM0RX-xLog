@@ -20,6 +20,7 @@ PLUGIN_REGISTRY = MappingProxyType({
     "cq_ww_ssb": Plugin("CQ WW SSB", modes=("SSB",), matrix_trackers=("countries", "zones"),
                         sent_exchange_hint="CQ Zone No."),
     "cq_wpx_cw": Plugin("CQ WPX CW", serial=True),
+    "cq_wpx_ssb": Plugin("CQ WPX SSB", serial=True, modes=("SSB",)),
     "arrl_ss_cw": Plugin("ARRL Sweepstakes CW", serial=True,
                          sent_exchange_hint="Prec Call Check Section", overlay_choices=("N/A",)),
     "icwc_mst": Plugin("ICWC Medium Speed Test", serial=True, sent_exchange_hint="Name"),

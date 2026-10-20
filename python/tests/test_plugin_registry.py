@@ -26,6 +26,7 @@ class PluginRegistryTests(unittest.TestCase):
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_cw"].matrix_trackers, ("countries", "zones"))
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].matrix_trackers, ("countries", "zones"))
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].modes, ("SSB",))
+        self.assertEqual(PLUGIN_REGISTRY["cq_wpx_ssb"].modes, ("SSB",))
         self.assertEqual(PLUGIN_REGISTRY["oceania_dx_ssb"].modes, ("SSB",))
         self.assertTrue(all(not plugin.matrix_trackers for key, plugin in PLUGIN_REGISTRY.items()
                             if key not in {"cq_ww_cw", "cq_ww_ssb"}))
@@ -43,6 +44,9 @@ class PluginRegistryTests(unittest.TestCase):
                 cq_ww_ssb = next(item for item in catalog["plugins"] if item["id"] == "cq_ww_ssb")
                 self.assertEqual((cq_ww_ssb["name"], cq_ww_ssb["modes"], cq_ww_ssb["sentExchangeHint"]),
                                  ("CQ WW SSB", ["SSB"], "CQ Zone No."))
+                cq_wpx_ssb = next(item for item in catalog["plugins"] if item["id"] == "cq_wpx_ssb")
+                self.assertEqual((cq_wpx_ssb["name"], cq_wpx_ssb["modes"], cq_wpx_ssb["sentExchangeHint"]),
+                                 ("CQ WPX SSB", ["SSB"], "Sent Exchange"))
             finally:
                 host.close()
         for plugin_id in PLUGIN_REGISTRY:

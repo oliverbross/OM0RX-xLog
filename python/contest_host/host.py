@@ -373,7 +373,7 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "sections": sections,
                     "multipliers": sections, "total": self.contest.calc_score(self)}
-        if self.state["pluginID"] in {"cq_wpx_cw", "oceania_dx_cw", "oceania_dx_ssb"}:
+        if self.state["pluginID"] in {"cq_wpx_cw", "cq_wpx_ssb", "oceania_dx_cw", "oceania_dx_ssb"}:
             prefixes = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "prefixes": prefixes,
@@ -1008,7 +1008,7 @@ class Host:
         if desk.state["pluginID"] in CQ_WW_PLUGINS:
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
-        elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
+        elif desk.state["pluginID"] in {"cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
                         "Sent and received serials must be positive SQLite integers")
