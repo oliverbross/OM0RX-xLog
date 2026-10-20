@@ -26,6 +26,14 @@ export function contestSetupWindowSize(view: SetupView | null): { width: number;
   return { width: 600, height: 360 };
 }
 
+export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableHeight: number): { width: number; height: number } {
+  const preferred = contestSetupWindowSize(view);
+  const measured = Number.isFinite(contentHeight) && contentHeight > 0 ? Math.ceil(contentHeight + 24) : preferred.height;
+  const limit = Number.isFinite(availableHeight) && availableHeight > 0
+    ? Math.max(preferred.height, Math.floor(availableHeight - 64)) : measured;
+  return { width: preferred.width, height: Math.min(Math.max(preferred.height, measured), limit) };
+}
+
 /** Read the active radio through xLog's retained native station owner. Contest
  * Setup must not bypass that owner with an unscoped worker station_snapshot. */
 export async function loadContestStationSnapshot(load: LoadStationSession = loadStationSession): Promise<Data> {
@@ -43,14 +51,20 @@ export function DetachedContestSetupSurface() {
   const [station, setStation] = useState<Data | null>(null), [cluster, setCluster] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const menuHandler = useRef<MenuHandler | null>(null), readiness = useRef(new Set<() => void>());
+  const resizeFrame = useRef(0);
   const registerMenuRoute = useCallback((handler: MenuHandler | null) => {
     menuHandler.current = handler;
     if (handler) for (const retry of readiness.current) retry();
   }, []);
   const resizeForSetupView = useCallback((view: SetupView | null) => {
-    const size = contestSetupWindowSize(view);
-    void getCurrentWindow().setSize(new LogicalSize(size.width, size.height)).catch(() => {});
+    window.cancelAnimationFrame(resizeFrame.current);
+    resizeFrame.current = window.requestAnimationFrame(() => {
+      const panel = document.querySelector<HTMLElement>(".contest-workspace.is-setup-only > .contest-setup");
+      const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight);
+      void getCurrentWindow().setSize(new LogicalSize(size.width, size.height)).catch(() => {});
+    });
   }, []);
+  useEffect(() => () => window.cancelAnimationFrame(resizeFrame.current), []);
 
   useEffect(() => {
     let active = true, ready = false, inFlight = false;
