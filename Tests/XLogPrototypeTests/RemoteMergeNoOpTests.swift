@@ -158,6 +158,25 @@ final class RemoteMergeNoOpTests: XCTestCase {
         }
     }
 
+    func testGridCaseOnlyRemoteEchoDoesNotConflictWithDirtyLocalEdit() throws {
+        try withDatabase { db in
+            var baseline = remote()
+            baseline.gridSquare = "IK13pk"
+            try db.save(baseline, markDirty: false)
+
+            var edited = try XCTUnwrap(db.lookup(localID: baseline.id))
+            edited.comment = "local pending edit"
+            try db.save(edited)
+
+            var remoteEcho = baseline
+            remoteEcho.id = UUID()
+            remoteEcho.gridSquare = "IK13PK"
+            XCTAssertFalse(try db.mergeRemote(remoteEcho))
+            XCTAssertTrue(try db.conflicts().isEmpty)
+            XCTAssertEqual(try db.pending().map(\.comment), ["local pending edit"])
+        }
+    }
+
     func testDirtyEchoConflictAndCleanTombstoneResurrectionKeepExistingSemantics() throws {
         try withDatabase { db in
             let value = remote()

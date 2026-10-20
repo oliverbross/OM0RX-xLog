@@ -3371,9 +3371,9 @@ public final class LogbookDatabase: @unchecked Sendable {
             guard sqlite3_step(statement) == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { return false }
             let baseline = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))
             if invalidBaselineIsMismatch {
-                return (try? decoder.decode(SyncedQSOState.self, from: baseline)) == SyncedQSOState(remote)
+                return (try? decoder.decode(SyncedQSOState.self, from: baseline))?.matches(SyncedQSOState(remote)) == true
             }
-            return try decoder.decode(SyncedQSOState.self, from: baseline) == SyncedQSOState(remote)
+            return try decoder.decode(SyncedQSOState.self, from: baseline).matches(SyncedQSOState(remote))
         }
     }
 
@@ -3484,7 +3484,7 @@ private struct SyncedQSOState: Codable, Equatable {
     let rstSent: String
     let rstReceived: String
     let name: String
-    let gridSquare: String
+    var gridSquare: String
     let cqZone: String
     let ituZone: String
     let state: String
@@ -3530,6 +3530,13 @@ private struct SyncedQSOState: Codable, Equatable {
         txPower = value.txPower
         propagationMode = value.propagationMode
         qslVia = value.qslVia
+    }
+
+    func matches(_ other: Self) -> Bool {
+        guard gridSquare.uppercased() == other.gridSquare.uppercased() else { return false }
+        var normalized = self
+        normalized.gridSquare = other.gridSquare
+        return normalized == other
     }
 }
 
