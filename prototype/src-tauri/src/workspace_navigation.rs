@@ -69,12 +69,12 @@ pub fn contest_window_panel(panel_id: &str) -> Option<&'static str> {
         .find(|panel| *panel == panel_id)
 }
 
-/// These station-control tools remain shared service owners in Contest. Spot
-/// presentation is contest scoped so it cannot target the normal logging draft.
+/// The Rotator keeps the shared xLog service window. Remote VFO has a
+/// contest-specific presentation and lifetime while reusing the same station
+/// observation and tune services underneath.
 pub fn contest_shared_window(panel_id: &str) -> Option<&'static str> {
     match panel_id {
         "rotor" => Some("rotor"),
-        "station-control" => Some("station-control"),
         _ => None,
     }
 }
@@ -139,7 +139,7 @@ mod tests {
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
             state.acknowledge("contest-setup", pending.revision).unwrap();
         }
-        for label in ["contest--active-qso", "contest--monitor", "contest-setup-station", "contest-setup-configuration"] {
+        for label in ["contest--active-qso", "contest--monitor", "contest--station-control", "contest-setup-station", "contest-setup-configuration"] {
             assert!(contest_owner_dependent_window(label));
         }
         for label in ["contest-setup", "main", "rotor", "station-control", "contest-window-active-qso"] {
@@ -189,6 +189,7 @@ mod tests {
             "contest--chaser-dx",
             "contest--band-maps",
             "contest--dx-cluster",
+            "contest--station-control",
         ] {
             assert!(
                 windows.iter().any(|candidate| candidate == label),
