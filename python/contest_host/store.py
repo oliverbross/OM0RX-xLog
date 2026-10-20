@@ -130,6 +130,14 @@ class Store(DataBase):
             )
         return super().fetch_country_band_count()
 
+    def fetch_state_band_count(self):
+        return int(self.exec_sql(
+            "SELECT count(DISTINCT(q.Exchange1 || ':' || q.Band)) AS spc_count "
+            "FROM DXLOG AS q WHERE q.ContestNR=? AND q.Exchange1 <> 'DX' AND "
+            f"{self.cq_ww_multiplier_filter()}",
+            (self.current_contest,),
+        ).get("spc_count", 0))
+
     def begin(self):
         self.conn.execute("BEGIN IMMEDIATE")
         self.atomic = True

@@ -26,11 +26,13 @@ class PluginRegistryTests(unittest.TestCase):
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_cw"].matrix_trackers, ("countries", "zones"))
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].matrix_trackers, ("countries", "zones"))
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].modes, ("SSB",))
+        self.assertEqual(PLUGIN_REGISTRY["cq_ww_rtty"].matrix_trackers, ("countries", "zones", "states"))
+        self.assertIn("USB-D", PLUGIN_REGISTRY["cq_ww_rtty"].modes)
         self.assertEqual(PLUGIN_REGISTRY["cq_wpx_ssb"].modes, ("SSB",))
         self.assertEqual(PLUGIN_REGISTRY["arrl_ss_phone"].modes, ("SSB",))
         self.assertEqual(PLUGIN_REGISTRY["oceania_dx_ssb"].modes, ("SSB",))
         self.assertTrue(all(not plugin.matrix_trackers for key, plugin in PLUGIN_REGISTRY.items()
-                            if key not in {"cq_ww_cw", "cq_ww_ssb"}))
+                            if key not in {"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"}))
         with TemporaryDirectory() as root:
             host = Host(Path(root).resolve())
             try:
@@ -49,6 +51,9 @@ class PluginRegistryTests(unittest.TestCase):
                 cq_ww_ssb = next(item for item in catalog["plugins"] if item["id"] == "cq_ww_ssb")
                 self.assertEqual((cq_ww_ssb["name"], cq_ww_ssb["modes"], cq_ww_ssb["sentExchangeHint"]),
                                  ("CQ WW SSB", ["SSB"], "CQ Zone No."))
+                cq_ww_rtty = next(item for item in catalog["plugins"] if item["id"] == "cq_ww_rtty")
+                self.assertEqual((cq_ww_rtty["name"], cq_ww_rtty["modes"][0], cq_ww_rtty["sentExchangeHint"]),
+                                 ("CQ WW RTTY", "RTTY", "CQ Zone + (state/VE area)"))
                 cq_wpx_ssb = next(item for item in catalog["plugins"] if item["id"] == "cq_wpx_ssb")
                 self.assertEqual((cq_wpx_ssb["name"], cq_wpx_ssb["modes"], cq_wpx_ssb["sentExchangeHint"]),
                                  ("CQ WPX SSB", ["SSB"], "Sent Exchange"))

@@ -19,6 +19,14 @@ PLUGIN_REGISTRY = MappingProxyType({
     "cq_ww_cw": Plugin("CQ WW CW", matrix_trackers=("countries", "zones")),
     "cq_ww_ssb": Plugin("CQ WW SSB", modes=("SSB",), matrix_trackers=("countries", "zones"),
                         sent_exchange_hint="CQ Zone No."),
+    "cq_ww_rtty": Plugin(
+        "CQ WW RTTY",
+        bands=("80m", "40m", "20m", "15m", "10m"),
+        modes=("RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
+               "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"),
+        matrix_trackers=("countries", "zones", "states"),
+        sent_exchange_hint="CQ Zone + (state/VE area)",
+    ),
     "cq_wpx_cw": Plugin("CQ WPX CW", serial=True),
     "cq_wpx_ssb": Plugin("CQ WPX SSB", serial=True, modes=("SSB",)),
     "arrl_ss_cw": Plugin("ARRL Sweepstakes CW", serial=True,
@@ -39,6 +47,6 @@ PLUGIN_REGISTRY = MappingProxyType({
     "10_10_summer_phone": Plugin("10 10 SUMMER PHONE", bands=("10m",), modes=("SSB",)),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
-CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb"})
+CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)
 TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"})

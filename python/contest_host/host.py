@@ -94,6 +94,13 @@ def validate_ten_ten_sent_exchange(sent_exchange):
             "10-10 sent exchange must be NAME 10-10# SPC")
 
 
+def validate_cq_ww_rtty_sent_exchange(sent_exchange):
+    parts = str(sent_exchange).split()
+    require(1 <= len(parts) <= 2 and parts[0].isdigit() and 1 <= int(parts[0]) <= 40
+            and (len(parts) == 1 or re.fullmatch(r"[A-Za-z]{1,4}", parts[1]) is not None),
+            "CQ WW RTTY sent exchange must be CQ zone plus optional state/VE area")
+
+
 def now():
     return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -108,11 +115,11 @@ def workspace_generation(state):
 
 class Field:
     """Only the audited plugin field API; Python rejects unknown attributes."""
-    __slots__ = ("name", "value", "maximum", "visible", "accessible_name", "read_only", "enabled", "focused")
+    __slots__ = ("name", "value", "maximum", "visible", "accessible_name", "read_only", "enabled", "focused", "tooltip")
 
     def __init__(self, name, value="", maximum=512):
         self.name, self.value, self.maximum, self.visible = name, "", maximum, True
-        self.accessible_name, self.read_only, self.enabled, self.focused = "", False, True, False
+        self.accessible_name, self.read_only, self.enabled, self.focused, self.tooltip = "", False, True, False, ""
         self.setText(value)
 
     def text(self):
@@ -140,6 +147,16 @@ class Field:
 
     def setFocus(self):
         self.focused = True
+
+    def toolTip(self):
+        return self.tooltip
+
+
+class DigitalOutputSink:
+    """Finite compatibility target for original digital ESM without hardware output."""
+
+    def send_string(self, _value):
+        return None
 
 
 class Desk:
@@ -173,7 +190,9 @@ class Desk:
         self.field0, self.field1, self.field2, self.field3, self.field4 = [Field(f"field{i}") for i in range(5)]
         self.inputs_dict = {getattr(self, name): name for name in INPUTS}
         for i in range(1, 13):
-            setattr(self, f"F{i}", Field(f"F{i}"))
+            button = Field(f"F{i}")
+            button.tooltip = self.cw_macros[("R" if state["run"] else "S", f"F{i}")]["template"]
+            setattr(self, f"F{i}", button)
         self.esm_dict = {role: None if esm[key] == "DISABLED" else getattr(self, esm[key])
                          for role, key in ESM_ROLES.items()}
         self.current_widget = state["focus"]
@@ -181,6 +200,8 @@ class Desk:
         self.current_sn, self.contact_is_dupe = state["draft"].get("serial", 0), 0
         self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": state["settings"]["ModeCategory"]}
         self.contact = self.database.get_empty().copy()
+        if state["pluginID"] == "cq_ww_rtty":
+            self.fldigi_util = DigitalOutputSink()
         self.contest.init_contest(self)
         if state["pluginID"] in SERIAL_PLUGINS:
             # Older hosts allowed this visible field to drift from the durable
@@ -219,6 +240,22 @@ class Desk:
                              "fields": self.values(), "stationCall": self.station["Call"],
                              "sentExchange": str(self.contest_settings["SentExchange"]),
                              "sentSerial": self.other_1.text() if self.state["pluginID"] in SERIAL_PLUGINS else ""})
+
+    def process_macro(self, template):
+        values = {
+            "MYCALL": self.station["Call"],
+            "CALL": self.callsign.text(),
+            "HISCALL": self.callsign.text(),
+            "RST": self.sent.text(),
+            "SNT": self.sent.text(),
+            "EXCHANGE": str(self.contest_settings["SentExchange"]),
+            "EXCH": str(self.contest_settings["SentExchange"]),
+            "SENTNR": (str(self.contest_settings["SentExchange"])
+                       if self.state["pluginID"] == "cq_ww_rtty" else self.other_1.text()),
+        }
+        for token, value in values.items():
+            template = template.replace("{" + token + "}", value)
+        return template
 
     def save_contact(self):
         self._commit(self)
@@ -353,6 +390,13 @@ class Desk:
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] == "cq_ww_rtty":
+            combined, zone = self.contest.show_mults(self, rtc=True)
+            states = self.database.fetch_state_band_count()
+            country = combined - states
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": country, "zones": zone, "states": states,
+                    "multipliers": combined + zone, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] in TEN_TEN_PLUGINS:
             points = self.database.fetch_points().get("Points") or 0
             return {"qsos": self.contest.show_qso(self), "points": points,
@@ -714,7 +758,9 @@ class Host:
                 operator = text(setup["operator"], 32)
                 require(bool(operator.strip()), "Operator is required")
                 zone = str(setup["settings"].get("SentExchange", ""))
-                if state["pluginID"] in CQ_WW_PLUGINS:
+                if state["pluginID"] == "cq_ww_rtty":
+                    validate_cq_ww_rtty_sent_exchange(setup["settings"].get("SentExchange", ""))
+                elif state["pluginID"] in CQ_WW_PLUGINS:
                     require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
                 if state["pluginID"] == "icwc_mst":
                     require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "ICWC sent exchange must be one name")
@@ -724,8 +770,11 @@ class Host:
                     validate_name_sent_exchange(setup["settings"].get("SentExchange"))
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     validate_ten_ten_sent_exchange(setup["settings"].get("SentExchange"))
-                mode = PLUGIN_REGISTRY[state["pluginID"]].modes[0]
-                require(setup["settings"].get("ModeCategory", mode) == mode, f"Selected plugin requires {mode} mode")
+                modes = PLUGIN_REGISTRY[state["pluginID"]].modes
+                mode = modes[0]
+                require(setup["settings"].get("ModeCategory", mode) in modes,
+                        f"Selected plugin requires {mode} mode" if len(modes) == 1 else
+                        f"Selected plugin requires a supported {mode} submode")
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
                 setup["settings"].setdefault("ModeCategory", mode)
@@ -737,7 +786,7 @@ class Host:
                 # the projection, and rescore if the station country changed.
                 previous_station = desk.station
                 desk = Desk(store, state, self.commit)
-                if state["pluginID"] in CQ_WW_PLUGINS:
+                if state["pluginID"] in CQ_WW_PLUGINS and state["pluginID"] != "cq_ww_rtty":
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -904,7 +953,9 @@ class Host:
             require(isinstance(value, (str, int)) and not isinstance(value, bool), "Station/settings values must be text or integer")
             text(str(value), 512)
         settings.setdefault("SentExchange", "")
-        if plugin_id in CQ_WW_PLUGINS:
+        if plugin_id == "cq_ww_rtty":
+            validate_cq_ww_rtty_sent_exchange(settings["SentExchange"])
+        elif plugin_id in CQ_WW_PLUGINS:
             require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
         if plugin_id == "icwc_mst":
             require(isinstance(settings["SentExchange"], str)
@@ -916,9 +967,12 @@ class Host:
             validate_name_sent_exchange(settings["SentExchange"])
         if plugin_id in TEN_TEN_PLUGINS:
             validate_ten_ten_sent_exchange(settings["SentExchange"])
-        mode = PLUGIN_REGISTRY[plugin_id].modes[0]
+        modes = PLUGIN_REGISTRY[plugin_id].modes
+        mode = modes[0]
         settings.setdefault("ModeCategory", mode)
-        require(settings["ModeCategory"] == mode, f"Selected plugin requires {mode} mode")
+        require(settings["ModeCategory"] in modes,
+                f"Selected plugin requires {mode} mode" if len(modes) == 1 else
+                f"Selected plugin requires a supported {mode} submode")
         settings.setdefault("OverlayCategory", "N/A")
         report = "59" if settings["ModeCategory"] == "SSB" else "599"
         return {"sessionID": session_id, "workspaceGeneration": workspace,
@@ -928,7 +982,8 @@ class Host:
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
                 "fields": dict(zip(INPUTS, ("", report, report,
-                    str(settings["SentExchange"]) if plugin_id in CQ_WW_PLUGINS or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
+                    str(settings["SentExchange"]) if (plugin_id in CQ_WW_PLUGINS and plugin_id != "cq_ww_rtty")
+                    or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if state["pluginID"] not in SERIAL_PLUGINS:
@@ -1005,7 +1060,15 @@ class Host:
 
     @staticmethod
     def validate_exchange(desk, fields):
-        if desk.state["pluginID"] in CQ_WW_PLUGINS:
+        if desk.state["pluginID"] == "cq_ww_rtty":
+            require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40,
+                    "CQ zone must be 1 to 40")
+            country = desk.cty_lookup(desk.callsign.text())
+            continent = next(iter(country.values())).get("continent", "") if country else ""
+            require((continent != "NA" and fields["other_2"] == "")
+                    or re.fullmatch(r"[A-Za-z]{1,4}", fields["other_2"]) is not None,
+                    "CQ WW RTTY state/VE area is required for North America and must contain letters")
+        elif desk.state["pluginID"] in CQ_WW_PLUGINS:
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
         elif desk.state["pluginID"] in {"cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
@@ -1065,7 +1128,7 @@ class Host:
         desk.sent.setText(report)
         desk.receive.setText(report)
         desk.other_2.setText("")
-        if desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
+        if desk.state["pluginID"] in {"cwt", "k1usn_sst", "cq_ww_rtty"}:
             desk.other_1.setText("")
         if desk.state["pluginID"] in SERIAL_PLUGINS:
             self.reserve_serial(desk.database, desk.state)
@@ -1156,8 +1219,16 @@ class Host:
         params = (store.current_contest,)
         if store.plugin_id in CQ_WW_PLUGINS:
             eligible = store.cq_ww_multiplier_filter()
-            return {"countries": store.exec_sql_mult(f"SELECT q.CountryPrefix AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.CountryPrefix,q.Band ORDER BY q.CountryPrefix,q.Band", params),
-                    "zones": store.exec_sql_mult(f"SELECT q.ZN AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.ZN,q.Band ORDER BY q.ZN,q.Band", params)}
+            result = {"countries": store.exec_sql_mult(f"SELECT q.CountryPrefix AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.CountryPrefix,q.Band ORDER BY q.CountryPrefix,q.Band", params),
+                      "zones": store.exec_sql_mult(f"SELECT q.ZN AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.ZN,q.Band ORDER BY q.ZN,q.Band", params)}
+            if store.plugin_id == "cq_ww_rtty":
+                result["states"] = store.exec_sql_mult(
+                    "SELECT q.Exchange1 AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q "
+                    f"WHERE q.ContestNR=? AND q.Exchange1 <> 'DX' AND {eligible} "
+                    "GROUP BY q.Exchange1,q.Band ORDER BY q.Exchange1,q.Band",
+                    params,
+                )
+            return result
         return {"countries": store.exec_sql_mult("SELECT CountryPrefix AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY CountryPrefix,Band ORDER BY CountryPrefix,Band", params),
                 "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY ZN,Band ORDER BY ZN,Band", params)}
 

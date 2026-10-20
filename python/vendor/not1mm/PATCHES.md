@@ -5,7 +5,8 @@ Copied from the supplied Not1MM reset feasibility archive. `upstream/` preserves
 the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 The source is executed, not translated into contest definitions. The finite
-registry supports CQ WW CW, CQ WPX CW, ARRL Sweepstakes CW, ICWC MST, CWT,
+registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
+ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ICWC MST, CWT,
 CWOPS Open, K1USN SST, Trans Tasman CW, Oceania DX CW and Oceania DX SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
@@ -26,7 +27,7 @@ import time and fails if the pinned source differs:
 4. CQ WW's empty `recalculate_mults` callback does not recompute duplicate points.
    The adapter replays retained contacts chronologically through actual plugin
    `points` calls after correction/deletion, then calls `recalculate_mults`.
-5. The original `cwmacros.txt` remains byte-identical. The finite output adapter
+5. The original `cwmacros.txt` and `rttymacros.txt` remain byte-identical. The finite output adapter
    maps its four Not1MM substitution names (`HISCALL`, `SNT`, `EXCH`, `SENTNR`)
    to xLog's native CW context tokens; xLog still validates, arms and transmits.
 6. ICWC MST's unchanged `icwc_mst.py` was read directly from the repository above
@@ -74,11 +75,24 @@ import time and fails if the pinned source differs:
    actions; CW context acquisition fails. The frontend retains Run/S&P and
    ESM while hiding CW output controls and uses xLog's station tune service.
 
+10. CQ WW RTTY's unchanged `cq_ww_rtty.py` comes from the same pinned
+    revision. Its original zone/state exchange, point calculation, three
+    multiplier families, per-band duplicate rule, ESM decisions, macro
+    expansion and Cabrillo callbacks execute through the Python/SQLite host.
+    The registry exposes the original Cabrillo-recognized RTTY submodes. The
+    host validates the plugin's zone plus optional state/VE sent exchange,
+    keeps the received zone and state fields distinct, and applies the existing
+    CQ WW duplicate-eligibility filter to the original state multiplier query.
+    A finite non-transmitting digital sink lets original Run/S&P ESM commit
+    contacts without manufacturing CW output or claiming an external digital
+    modem integration. Country, zone and state matrices remain separate.
+
 Original SHA-256:
 
 | Source | SHA-256 |
 |---|---|
 | plugins/cq_ww_cw.py | 08f383e8ddb6f02fede9149f5490a1042b71a5cd5e2591ac76b0cf1ba460c3e2 |
+| plugins/cq_ww_rtty.py | 38f63367317c92850ae112ba51931a8db477467a18baca5d7d242ef36f66deb5 |
 | plugins/icwc_mst.py | 4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca |
 | plugins/cwo.py | e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e |
 | plugins/oceania_dx_cw.py | 51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664 |
@@ -87,3 +101,4 @@ Original SHA-256:
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
 | data/cwmacros.txt | 373b6e7ec5fa479da000eed5c89d801ebef03a1e35a494f01ca8792dcb37d9db |
+| data/rttymacros.txt | 150d819c00a15c5e70fadce632704e13c220bef88012c7777269b3e1bf0638f9 |

@@ -52,7 +52,8 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
     """Return the pinned Not1MM Run/S&P macro text through a finite token adapter."""
     verify_source()
     result = {}
-    source = VENDOR / "not1mm/data/cwmacros.txt"
+    source = VENDOR / ("not1mm/data/rttymacros.txt" if plugin_id == "cq_ww_rtty"
+                       else "not1mm/data/cwmacros.txt")
     for line in source.read_text(encoding="utf-8").splitlines():
         parts = line.split("|", 3)
         if len(parts) != 4 or parts[0] not in {"S", "R"} or re.fullmatch(r"F(?:[1-9]|1[0-2])", parts[1]) is None:
@@ -120,6 +121,14 @@ def load_plugin(plugin_id="cq_ww_cw"):
             ("from PyQt6 import QtWidgets", "from contest_host.qt_compat import QtWidgets"),
             ("str(Path.home())", "str(self.export_directory)"),
         ]
+        if plugin_id == "cq_ww_rtty":
+            # Apply the CQ WW duplicate-eligibility rule to its third multiplier
+            # family; the original query otherwise counts a duplicate's state.
+            replacements.append((
+                "res3_query = f\"select count(DISTINCT(Exchange1 || ':' || Band)) as spc_count from dxlog where ContestNR = {self.database.current_contest} and Exchange1 != 'DX';\"\n"
+                "    result3 = self.database.exec_sql(res3_query)",
+                "result3 = {\"spc_count\": self.database.fetch_state_band_count()}",
+            ))
         if plugin_id in {"oceania_dx_cw", "oceania_dx_ssb"}:
             # SQLite stores Band as REAL; the pinned plugin indexes string keys.
             # Ordered host replay already computed each row's duplicate points.
