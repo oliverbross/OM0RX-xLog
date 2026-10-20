@@ -502,6 +502,8 @@ it("keeps a CWT keyboard burst and its Name tab target live while the owner pers
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),name=screen.getByLabelText("Name");
+  expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
+    .toBe("minmax(130px,1.3fr) minmax(110px,.8fr) minmax(120px,1fr) minmax(120px,1fr)");
   fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
   current={...current,projection:{...current.projection,busy:true}};await act(async()=>{native.wake!();});
   expect((callsign as HTMLInputElement).disabled).toBe(false);expect((name as HTMLInputElement).disabled).toBe(false);

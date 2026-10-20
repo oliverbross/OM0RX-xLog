@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
@@ -211,6 +211,9 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const sentOperatorField=projection.schemaVersion===2&&contestInputFieldIDs.includes(projection.descriptor.sentFields[0]?.id as ContestInputFieldID)
     ? projection.descriptor.sentFields[0].id as ContestInputFieldID:null;
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
+  const reportsVisible=projection.descriptor?.reportsVisible!==false;
+  const entryFieldColumns=["minmax(130px,1.3fr)",...(reportsVisible?["minmax(60px,.55fr)","minmax(60px,.55fr)"]:[]),
+    "minmax(110px,.8fr)",...Array.from({length:Math.max(1,projection.draft.receivedFields.length)},()=>"minmax(120px,1fr)")].join(" ");
   // The owner reports busy while it persists the first character. These
   // inputs are locally journalled, so disabling them would drop the rest of
   // a real keyboard burst before the queued intent can drain.
@@ -284,11 +287,11 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
     <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{displayedBands.map((band:string)=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
     <div className="contest-surface-logging-controls">
-    <div className="contest-surface-main-fields">
+    <div className="contest-surface-main-fields" style={{"--contest-entry-field-columns":entryFieldColumns} as CSSProperties}>
     <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={entryBufferDisabled}
       operatorField="callsign" inputRef={setFieldRef("callsign")} onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
       unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>
-    {projection.descriptor?.reportsVisible!==false&&(["sentReport","receivedReport"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
+    {reportsVisible&&(["sentReport","receivedReport"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
       label={["SNT","RCV"][index]} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={160}
       disabled={entryBufferDisabled} operatorField={index===0?"sent":"receive"} inputRef={setFieldRef(index===0?"sent":"receive")} onFocus={()=>focusField(index===0?"sent":"receive")}
       onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}

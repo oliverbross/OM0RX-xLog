@@ -64,7 +64,7 @@
 .contest-surface-band-ladder { display:flex; flex:0 0 30px; flex-direction:column; align-items:center; justify-content:space-between; padding:18px 0 2px; font:12px ui-monospace,monospace; }
 .contest-surface-band-ladder [aria-current="true"] { border:1px solid var(--amber); border-radius:3px; padding:0 3px; color:var(--amber); background:color-mix(in srgb,var(--amber) 10%,transparent); }
 .contest-surface-logging-controls { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
-.contest-surface-entry .contest-surface-main-fields { display:grid; grid-template-columns:minmax(100px,1fr) 60px 60px minmax(80px,1fr) minmax(80px,1fr); gap:8px; }
+.contest-surface-entry .contest-surface-main-fields { display:grid; grid-template-columns:var(--contest-entry-field-columns); gap:8px; }
 .contest-surface-entry .contest-surface-main-fields > * { min-width:0; }
 .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child { grid-column:auto; }
 .contest-surface-entry .contest-surface-main-fields input, .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child input { min-height:34px; height:34px; font-size:21px; letter-spacing:0; }

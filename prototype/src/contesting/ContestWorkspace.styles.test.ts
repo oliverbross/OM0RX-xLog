@@ -24,6 +24,7 @@ describe("ContestWorkspace responsive contract", () => {
     expect(detachedCSS).toContain(".contest-detached-surface,.contest-detached-surface * { box-sizing:border-box; }");
     expect(detachedCSS).toContain("grid-template-columns:repeat(3,minmax(0,1fr))");
     expect(detachedCSS).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
+    expect(detachedCSS).toContain("grid-template-columns:var(--contest-entry-field-columns)");
     expect(detachedCSS).toContain(".contest-field-label");
     expect(detachedCSS).toContain(".contest-detached-surface button { font:inherit; white-space:nowrap; }");
     expect(setupDialogCSS).toContain("text-overflow:ellipsis; white-space:nowrap");
