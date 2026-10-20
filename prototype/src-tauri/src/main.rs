@@ -1885,7 +1885,10 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if native_only_worker_method(method) {
         return Err("Use the native SCP file chooser.".into());
     }
-    if !runtime_profile::allows_worker_method(method) { runtime_profile::require_external_io_disabled()?; }
+    // Local acceptance has already passed its narrower synthetic-only request
+    // whitelist above. Do not reject those admitted reads a second time merely
+    // because this package also carries the Contesting Test runtime profile.
+    if !runtime_profile::allows_worker_method(method, state.path.is_some()) { runtime_profile::require_external_io_disabled()?; }
     if method == "station_action" && requires_durable_station_action(request["params"]["action"].as_str().unwrap_or("")) {
         return Err("Use the shared durable radio and amplifier owners.".into());
     }

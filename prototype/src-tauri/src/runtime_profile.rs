@@ -31,8 +31,8 @@ pub(crate) fn validate_contesting_test_cw(label: &str, action: &str) -> Result<(
     Ok(())
 }
 
-pub(crate) fn allows_worker_method(method: &str) -> bool {
-    !CONTESTING_TEST || matches!(method,
+pub(crate) fn allows_worker_method(method: &str, local_acceptance: bool) -> bool {
+    local_acceptance || !CONTESTING_TEST || matches!(method,
         "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify")
         || CONTESTING_TEST && ["workspace_", "logbook_", "settings_", "backup_", "contest_"]
             .iter().any(|prefix| method.starts_with(prefix))
@@ -47,8 +47,8 @@ mod tests {
         #[cfg(not(feature = "contesting-test"))]
         {
             assert!(!CONTESTING_TEST);
-            assert!(allows_worker_method("station_snapshot"));
-            assert!(allows_worker_method("cluster_snapshot"));
+            assert!(allows_worker_method("station_snapshot", false));
+            assert!(allows_worker_method("cluster_snapshot", false));
         }
     }
 
@@ -57,11 +57,13 @@ mod tests {
     fn test_build_blocks_external_worker_methods() {
         for method in ["sync_status", "station_snapshot", "station_connect", "cluster_snapshot", "cluster_connect", "lookup_call", "reference_refresh",
             "rotor_connect", "rotor_park", "rotor_stop", "hamlib_connect", "wsjtx_start"] {
-            assert!(!allows_worker_method(method), "{method}");
+            assert!(!allows_worker_method(method, false), "{method}");
         }
         for method in ["health", "workspace_status", "workspace_create", "logbook_stats", "contest_catalog"] {
-            assert!(allows_worker_method(method), "{method}");
+            assert!(allows_worker_method(method, false), "{method}");
         }
+        assert!(!allows_worker_method("spot_history_status", false));
+        assert!(allows_worker_method("spot_history_status", true));
         assert!(isolated(false));
         assert!(validate_host(TEST_IDENTIFIER).is_ok());
         assert!(validate_host(PRODUCTION_IDENTIFIER).is_err());
