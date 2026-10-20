@@ -20,6 +20,16 @@ export function fittedConfigurationDialogHeight(contentHeight: number, available
   return Math.max(320, Math.min(configurationDialogCeiling(availableHeight), Math.ceil(contentHeight)));
 }
 
+export function configurationDialogContentHeight(root: HTMLElement): number {
+  const content = root.firstElementChild;
+  const style = getComputedStyle(root);
+  const inset = [style.paddingTop, style.paddingBottom, style.borderTopWidth, style.borderBottomWidth]
+    .reduce((total, value) => total + (Number.parseFloat(value) || 0), 0);
+  if (!(content instanceof HTMLElement)) return root.scrollHeight;
+  const contentHeight = Math.max(content.scrollHeight, content.getBoundingClientRect().height);
+  return Math.ceil(contentHeight + inset);
+}
+
 export function isManagedConfigurationDialogHeight(height: number, availableHeight = screen.availHeight): boolean {
   return [320, 463, 476, 520, 620, 680, 900, configurationDialogCeiling(availableHeight)]
     .some(managed => Math.abs(height - managed) < 0.5);
@@ -31,6 +41,7 @@ export function DetachedContestSetupDialog() {
   const kind = new URLSearchParams(window.location.search).get("view") === "contest-setup-station" ? "station" : "configuration";
   const [snapshot, setSnapshot] = useState<SetupDialogSnapshot | null>(null), [error, setError] = useState("");
   const shell = useRef<HTMLElement>(null);
+  const requestConfigurationFit = useRef<() => void>(() => {});
   useEffect(() => {
     let active = true, retry: ReturnType<typeof setTimeout>;
     const load = async () => {
@@ -53,7 +64,7 @@ export function DetachedContestSetupDialog() {
     let inFlight: { target: DialogSize } | null = null, restoreInFlight: { target: DialogSize; generation: number } | null = null;
     let operatorSize: DialogSize | null = null, operatorGeneration = 0, restoreTimer: ReturnType<typeof setTimeout> | undefined;
     const programmaticTargets: DialogSize[] = [];
-    let observer: ResizeObserver | undefined, stopResize: (() => void) | undefined;
+    let observer: ResizeObserver | undefined, contentObserver: MutationObserver | undefined, stopResize: (() => void) | undefined;
     const nativeWindow = getCurrentWindow();
     const storedAutoFitSize = (() => {
       try {
@@ -132,6 +143,7 @@ export function DetachedContestSetupDialog() {
       pendingFit = false;
       cancelAnimationFrame(frame);
       observer?.disconnect();
+      contentObserver?.disconnect();
       scheduleOperatorRestore();
     };
     const fit = () => {
@@ -141,7 +153,7 @@ export function DetachedContestSetupDialog() {
         const root = shell.current;
         if (!active || !autoFit || !root) return;
         if (inFlight) { pendingFit = true; return; }
-        const height = fittedConfigurationDialogHeight(root.scrollHeight);
+        const height = fittedConfigurationDialogHeight(configurationDialogContentHeight(root));
         void Promise.all([nativeWindow.innerSize(), nativeWindow.scaleFactor()])
           .then(async ([size, scale]) => {
             if (!active || !autoFit || inFlight) { if (inFlight) pendingFit = true; return; }
@@ -164,6 +176,7 @@ export function DetachedContestSetupDialog() {
           .catch(() => {});
       });
     };
+    requestConfigurationFit.current = fit;
     void Promise.all([nativeWindow.innerSize(), nativeWindow.scaleFactor()]).then(async ([size, initialScale]) => {
       scale = initialScale;
       const initial = size.toLogical(scale);
@@ -183,15 +196,18 @@ export function DetachedContestSetupDialog() {
         observer.observe(shell.current);
         const content = shell.current.firstElementChild;
         if (content instanceof HTMLElement) observer.observe(content);
+        contentObserver = new MutationObserver(fit);
+        contentObserver.observe(shell.current, { childList: true, subtree: true });
       }
       fit();
     }).catch(() => {});
-    return () => { active = false; clearTimeout(restoreTimer); cancelAnimationFrame(frame); observer?.disconnect(); stopResize?.(); };
+    return () => { active = false; requestConfigurationFit.current = () => {}; clearTimeout(restoreTimer); cancelAnimationFrame(frame); observer?.disconnect(); contentObserver?.disconnect(); stopResize?.(); };
   }, [kind, snapshot]);
   return <main ref={shell} className="contest-workspace contest-setup-dialog" data-dialog-kind={kind} aria-label={kind === "station" ? "Station Settings" : "Configuration Settings"}>
     {error && <><p role="alert">{error}</p><button type="button" onClick={() => void closeContestSetupDialog()}>Cancel</button></>}
     {snapshot ? <ContestSetupPanel value={snapshot.document} sessions={[]} catalog={[]} detachedDialog={kind}
       initialTab={kind === "station" ? "Station" : "Lookup"} onCancel={closeContestSetupDialog}
+      onContentChange={() => requestConfigurationFit.current()}
       onSave={async document => { await saveContestSetupDialog(snapshot, document); await closeContestSetupDialog(); }}
       onCreate={async () => { throw new Error("Create contests in Contest Setup."); }}
       onOpen={async () => { throw new Error("Choose contests in Contest Setup."); }} onOpenSettings={openContestSetupService}/>

@@ -39,6 +39,7 @@ type Props = {
   callHistoryPanel?: ReactNode;
   onOpenCallHistory?: () => void;
   onOpenDialog?: (kind: "station" | "configuration") => void | Promise<void>;
+  onContentChange?: () => void;
   detachedDialog?: "station" | "configuration";
   onCancel?: () => void | Promise<void>;
 };
@@ -81,7 +82,7 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
-  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, detachedDialog, onCancel }: Props) {
+  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, detachedDialog, onCancel }: Props) {
   const macroDraft = () => ({ ...setupDraft(value), macros: structuredClone(effectiveMacros ?? value.macros) });
   const [draft, setDraft] = useState<ContestSetupDocument>(() => initialTab === "Macros" ? macroDraft() : setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
@@ -104,6 +105,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     return () => { current = false; };
   }, [view, tab, audioOutputs]);
   const disabled = busy || pending;
+  const selectConfigurationTab = (next: ContestSetupTab) => { setTab(next); onContentChange?.(); };
   const update = (section: "station" | "settings" | "preferences" | "network", key: string, next: string | number | boolean | string[]) =>
     setDraft(current => ({ ...current, [section]: { ...current[section], [key]: next } }));
   const field = (section: "station" | "settings" | "preferences" | "network", key: string, label: string, type = "text", choices?: string[]) => {
@@ -240,7 +242,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
       else open(name);
     }}>{name}</button>)}</div> :
-      <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections">{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); setTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
+      <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections">{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => selectConfigurationTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); selectConfigurationTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
         <fieldset disabled={disabled}><div id={id + "-panel"} role={configuration ? "tabpanel" : undefined} aria-labelledby={configuration ? id + "-tab-" + contestSetupTabs.indexOf(tab) : undefined} className="contest-manual-content">{content}</div></fieldset>
         <footer><button type="button" disabled={disabled} onClick={() => { if (detachedDialog) void onCancel?.(); else close(); }}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : detachedDialog || configuration ? "Save" : "OK"}</button></footer>
       </form>}

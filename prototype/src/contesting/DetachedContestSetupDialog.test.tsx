@@ -2,18 +2,33 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
-import { DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedConfigurationDialogHeight } from "./DetachedContestSetupDialog";
+import { configurationDialogContentHeight, DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedConfigurationDialogHeight } from "./DetachedContestSetupDialog";
 import { newContestSetup, contestSetupTabs } from "./ContestSetupPanel";
 import { mergeSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), setSize: vi.fn(), innerSize: vi.fn(), scaleFactor: vi.fn(async () => 2),
   onResized: vi.fn(), observedTargets: [] as Element[],
+  mutationHandler: null as MutationCallback | null,
+  resizeObserverHandler: null as ResizeObserverCallback | null,
   resizeHandler: null as null | ((event: { payload: { toLogical: (scale: number) => { width: number; height: number } } }) => void) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ setSize: native.setSize, innerSize: native.innerSize, scaleFactor: native.scaleFactor, onResized: native.onResized }) }));
-vi.stubGlobal("ResizeObserver", class { observe(target: Element) { native.observedTargets.push(target); } disconnect() {} });
+vi.stubGlobal("ResizeObserver", class {
+  constructor(callback: ResizeObserverCallback) { native.resizeObserverHandler = callback; }
+  observe(target: Element) { native.observedTargets.push(target); }
+  disconnect() {}
+  unobserve() {}
+});
+vi.stubGlobal("MutationObserver", class {
+  constructor(callback: MutationCallback) { native.mutationHandler = callback; }
+  observe() {}
+  disconnect() {}
+  takeRecords() { return []; }
+});
 beforeEach(() => {
   localStorage.clear();
   native.resizeHandler = null;
+  native.mutationHandler = null;
+  native.resizeObserverHandler = null;
   native.observedTargets = [];
   native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 820, height: 320 }) }));
   native.onResized.mockImplementation(async handler => { native.resizeHandler = handler; return vi.fn(); });
@@ -58,6 +73,44 @@ it("auto-fits a managed Configuration default to its measured content", async ()
   await waitFor(() => expect(native.setSize).toHaveBeenCalled());
   expect(native.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ width: 820, height: 476 });
   expect(native.observedTargets).toHaveLength(2);
+});
+it("re-fits a managed Configuration window when a tab replaces its content", async () => {
+  let measuredHeight = 340, current = { width: 820, height: 320 };
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+    return this.classList.contains("contest-setup") ? measuredHeight : 320;
+  });
+  native.innerSize.mockImplementation(async () => ({ toLogical: () => current }));
+  native.setSize.mockImplementation(async size => {
+    current = { width: size.width, height: size.height };
+    queueMicrotask(() => native.resizeHandler?.({ payload: { toLogical: () => current } }));
+  });
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.mutationHandler).toBeTypeOf("function"));
+  await waitFor(() => expect(native.setSize).toHaveBeenCalled());
+  await waitFor(() => expect(localStorage.getItem("xlog.contest.configuration.auto-fit-size.v1")).toContain('"height":340'));
+  native.setSize.mockClear();
+  measuredHeight = 520;
+  fireEvent.click(screen.getByRole("tab", { name: "Options" }));
+  await waitFor(() => expect(native.setSize).toHaveBeenCalled());
+  const grown = native.setSize.mock.calls.at(-1)?.[0].height;
+  expect(grown).toBeGreaterThanOrEqual(520);
+  native.setSize.mockClear();
+  measuredHeight = 390;
+  fireEvent.click(screen.getByRole("tab", { name: "CAT" }));
+  await act(async () => native.resizeObserverHandler?.([], {} as ResizeObserver));
+  await waitFor(() => expect(native.setSize).toHaveBeenCalled());
+  expect(native.setSize.mock.calls.at(-1)?.[0].height).toBeLessThan(grown);
+});
+it("measures intrinsic Configuration content instead of its capped scrolling shell", () => {
+  const root = document.createElement("main"), content = document.createElement("section");
+  root.style.paddingTop = "12px";
+  root.style.paddingBottom = "12px";
+  root.append(content);
+  Object.defineProperty(root, "scrollHeight", { value: 320 });
+  Object.defineProperty(content, "scrollHeight", { value: 500 });
+  vi.spyOn(content, "getBoundingClientRect").mockReturnValue({ height: 480 } as DOMRect);
+  expect(configurationDialogContentHeight(root)).toBe(524);
 });
 it("recognizes its measured fit after reopening and keeps fitting later content", async () => {
   const measured = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(497);
@@ -217,5 +270,5 @@ it("uses compact content-fit bounds while keeping dense configuration tabs fully
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-stack { gap:6px; }");
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup :is\(input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),select,textarea\)[^}]*min-height:28px/);
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*padding-block:8px/);
-  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*position:sticky[^}]*bottom:0/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*position:static/);
 });
