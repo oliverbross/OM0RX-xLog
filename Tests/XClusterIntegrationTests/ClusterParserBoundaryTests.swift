@@ -78,6 +78,21 @@ final class ClusterParserBoundaryTests: XCTestCase {
         XCTAssertEqual(SpotLogic.band(for: 100), "OTHER")
     }
 
+    func testExplicitDigitalCommentModeOutranksFrequencyWithBoundedAliases() throws {
+        let raw = try XCTUnwrap(parse("DX de DO2HQS: 28088.0 7P8GE FT-8 TNX 73s"))
+        let band = SpotLogic.band(for: raw.frequencyKHz)
+
+        XCTAssertEqual(raw.callsign, "7P8GE")
+        XCTAssertEqual(raw.comment, "FT-8 TNX 73s")
+        XCTAssertEqual(band, "10m")
+        XCTAssertEqual(SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz), "FT8")
+        XCTAssertEqual(SpotLogic.mode(comment: "FT-4", band: band, khz: raw.frequencyKHz), "FT4")
+        XCTAssertEqual(SpotLogic.mode(comment: "FT-2", band: band, khz: raw.frequencyKHz), "FT2")
+        XCTAssertEqual(SpotLogic.mode(comment: "DIGITAL", band: band, khz: raw.frequencyKHz), "DIGI")
+        XCTAssertEqual(SpotLogic.mode(comment: "SOFT-8", band: band, khz: raw.frequencyKHz), "CW")
+        XCTAssertEqual(SpotLogic.mode(comment: "DIG", band: band, khz: raw.frequencyKHz), "CW")
+    }
+
     func testTwentyMeterSegmentInferenceKeepsExplicitModes() throws {
         let raw = try XCTUnwrap(parse("DX de OM0RX: 14023.700 OK2BUH PHASE 2"))
         let band = SpotLogic.band(for: raw.frequencyKHz)

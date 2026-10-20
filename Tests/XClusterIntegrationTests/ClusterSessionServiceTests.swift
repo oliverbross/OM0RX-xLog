@@ -237,6 +237,32 @@ final class ClusterSessionServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.spots[0].comment, "RBN · FT8 -17 dB 1096 Hz")
     }
 
+    func testExplicitHyphenatedFT8CommentOutranksCWFrequencyThroughSession() async throws {
+        let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-13")
+        let connection = TestClusterTransport()
+        let service = ClusterSessionService(
+            configuration: .init(servers: [server], requestRecentSpotsOnConnect: false),
+            transportFactory: { _, _, _, _, onState, onLine in
+                connection.onState = onState
+                connection.onLine = onLine
+                return connection
+            }
+        )
+        try await service.connect()
+        try await waitFor { await service.snapshot().connectedClusters == 1 }
+
+        connection.emit("DX de DO2HQS: 28088.0 7P8GE FT-8 TNX 73s")
+        try await waitFor { await service.snapshot().loadedSpots == 1 }
+
+        let snapshot = await service.snapshot()
+        let spot = try XCTUnwrap(snapshot.spots.first)
+        XCTAssertEqual(spot.callsign, "7P8GE")
+        XCTAssertEqual(spot.frequencyKHz, 28088.0)
+        XCTAssertEqual(spot.comment, "FT-8 TNX 73s")
+        XCTAssertEqual(spot.mode, "FT8")
+        await service.disconnect()
+    }
+
     func testJTTYCommentSurvivesDisplayAndUsesDigitalClassification() async throws {
         let server = ClusterServerConfiguration(name: "Fixture", host: "example.invalid", port: 7300, callsign: "OM0RX-12")
         let connection = TestClusterTransport()

@@ -25,7 +25,17 @@ public enum SpotLogic {
 
     public static func mode(comment: String, band: String, khz: Double) -> String {
         let text = comment.uppercased()
-        for token in ["FT8", "FT4", "FT2", "RTTY", "JTTY", "OLIVIA", "PSK", "JT65", "JT9", "HELL", "MFSK", "SSTV"] where text.contains(token) { return token }
+        let explicitDigitalModes: [(pattern: String, mode: String)] = [
+            (#"\bFT-?8\b"#, "FT8"), (#"\bFT-?4\b"#, "FT4"), (#"\bFT-?2\b"#, "FT2"),
+            (#"\bRTTY\b"#, "RTTY"), (#"\bJTTY\b"#, "JTTY"), (#"\bOLIVIA\b"#, "OLIVIA"),
+            (#"\bPSK(?:\d+)?\b"#, "PSK"), (#"\bJT65\b"#, "JT65"), (#"\bJT9\b"#, "JT9"),
+            (#"\bHELL\b"#, "HELL"), (#"\bMFSK\b"#, "MFSK"), (#"\bSSTV\b"#, "SSTV"),
+            (#"\b(?:DIGI|DIGITAL)\b"#, "DIGI"),
+        ]
+        for candidate in explicitDigitalModes
+            where text.range(of: candidate.pattern, options: .regularExpression) != nil {
+            return candidate.mode
+        }
         if text.range(of: #"(^|\s)AM($|\s)"#, options: .regularExpression) != nil { return "AM" }
         if text.range(of: #"(^|\s)FM($|\s)"#, options: .regularExpression) != nil { return "FM" }
         if text.range(of: #"\b(SSB|USB|LSB|PHONE|PH)\b"#, options: .regularExpression) != nil { return "SSB" }
