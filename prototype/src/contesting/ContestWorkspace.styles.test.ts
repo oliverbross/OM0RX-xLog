@@ -39,6 +39,14 @@ describe("ContestWorkspace responsive contract", () => {
     expect(setupCSS).not.toMatch(/flex-basis:\s*(?:65|90)px/);
   });
 
+  it("keeps the original compact horizontal New Contest form without vertical auto spacing", () => {
+    expect(setupCSS).toContain(".contest-workspace .contest-setup label { display:flex; flex-direction:row;");
+    expect(setupCSS).toContain(".contest-parameters { display:flex; flex-direction:column; gap:6px; max-width:470px; margin:0 auto;");
+    expect(setupCSS).toContain('[data-setup-view="New Contest"]');
+    expect(setupCSS).toContain(".contest-manual-content { gap:0; min-height:0; }");
+    expect(setupCSS).toContain("textarea { height:54px; min-height:54px; resize:none; }");
+  });
+
   it("mounts every main or detached surface inside the shared interface scale provider", () => {
     expect(entrypoint).toContain("<UiScaleProvider><App /></UiScaleProvider>");
   });

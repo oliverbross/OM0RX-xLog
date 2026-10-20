@@ -10,7 +10,7 @@
 .contest-setup button:focus-visible,.contest-setup input:focus-visible,.contest-setup select:focus-visible,.contest-setup textarea:focus-visible { outline:2px solid var(--cyan,#35c8f5); outline-offset:2px; }
 .contest-setup fieldset { border:0; margin:0; padding:16px; min-width:0; }
 .contest-manual-content { display:flex; flex-direction:column; gap:12px; min-height:280px; }
-.contest-setup label { display:flex; align-items:center; gap:8px; min-width:0; }
+.contest-workspace .contest-setup label { display:flex; flex-direction:row; align-items:center; gap:8px; min-width:0; }
 .contest-setup label:not(.contest-setup-check)>span { flex:0 0 var(--contest-setup-label-width); min-width:0; overflow:hidden; color:var(--secondary,#a6b6ca); text-align:right; text-overflow:ellipsis; white-space:nowrap; }
 .contest-setup input,.contest-setup select,.contest-setup textarea { box-sizing:border-box; width:100%; min-width:0; min-height:30px; padding:5px 8px; color:inherit; background:var(--control,#102137); border:1px solid var(--border,#304b68); border-radius:5px; font:inherit; }
 .contest-setup textarea { resize:vertical; }
@@ -21,8 +21,13 @@
 .contest-manual-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .contest-manual-row>label:only-child { grid-column:1/-1; }
 .contest-station-form .contest-manual-row:nth-child(1)>label,.contest-station-form .contest-manual-row:nth-child(6)>label,.contest-station-form .contest-manual-row:nth-child(11)>label,.contest-station-form .contest-manual-row:nth-child(12)>label { grid-column:1; }
-.contest-parameters { display:flex; flex-direction:column; gap:8px; max-width:470px; margin:auto; width:100%; }
+.contest-parameters { display:flex; flex-direction:column; gap:6px; max-width:470px; margin:0 auto; width:100%; }
 .contest-parameters>p { text-align:center; margin:0 0 4px; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) fieldset { padding-block:10px; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) .contest-manual-content { gap:0; min-height:0; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) :is(input:not([type=checkbox]):not([type=radio]),select) { min-height:28px; padding-block:3px; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) textarea { height:54px; min-height:54px; resize:none; }
+.contest-setup:is([data-setup-view="New Contest"],[data-setup-view="Edit Current Contest"]) footer { padding-block:8px; }
 .contest-setup hr { border:0; border-top:1px solid var(--border,#304b68); width:100%; margin:4px 0; }
 .contest-exchange-row { display:flex; align-items:center; gap:8px; }
 .contest-exchange-row>label { flex:1; }

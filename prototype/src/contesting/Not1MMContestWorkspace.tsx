@@ -1011,18 +1011,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
   const showSetup = setupOnly || manager;
-  return <main className="contest-workspace">
-    <header className="contest-header"><div><h1>{setupOnly ? "Contest Setup" : "Contest Manager / Desk"}</h1><p>{projection
+  return <main className={`contest-workspace${setupOnly ? " is-setup-only" : ""}`}>
+    {setupOnly && <h1 className="contest-visually-hidden">Contest Setup</h1>}
+    {!setupOnly && <header className="contest-header"><div><h1>Contest Manager / Desk</h1><p>{projection
       ? `${sessions.find(session => session.sessionID === projection.sessionID)?.name ?? projection.pluginID} · actual Not1MM Python plugin · xLog station services`
-      : "Actual Not1MM Python plugins · xLog station services"}</p></div><div className="contest-header-actions">{!setupOnly && projection && <button type="button" disabled={busy} onClick={() => {
+      : "Actual Not1MM Python plugins · xLog station services"}</p></div><div className="contest-header-actions">{projection && <button type="button" disabled={busy} onClick={() => {
       if (manager) { setManager(false); return; }
       busyRef.current = true; setBusy(true); setError("");
       void flushDraftRef.current().then(() => setManager(true)).catch(cause => setError(errorMessage(cause)))
         .finally(() => { busyRef.current = false; setBusy(false); });
-    }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>
+    }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>}
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
-    {showSetup && observedFrequencyHz === null && <div className="contest-entry-context">
+    {showSetup && !setupOnly && observedFrequencyHz === null && <div className="contest-entry-context">
       <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}

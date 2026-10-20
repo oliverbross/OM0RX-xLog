@@ -36,7 +36,7 @@ const unavailableHistory = () => ({ id: "history-status", ok: true,
   result: { dataset: null, pendingPreview: null, unavailableReason: "not_imported",
     activation: { state: "not_imported", generation: null, digest: null, rowCount: null, message: null } } });
 
-it("keeps the detached owner on Contest Setup instead of embedding a contest desk", async () => {
+it("keeps the detached owner on the compact Contest Setup panel instead of embedding a contest desk", async () => {
   const request = vi.fn(async (method: string) => {
     if (method === "contest_catalog") return { id:crypto.randomUUID(), ok:true, result:{plugins:[]} };
     if (method === "contest_sessions") return { id:crypto.randomUUID(), ok:true, result:{sessions:[]} };
@@ -44,6 +44,7 @@ it("keeps the detached owner on Contest Setup instead of embedding a contest des
   });
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
   expect(await screen.findByRole("heading", { name: "Contest Setup", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Contest Setup", level: 2 })).toBeTruthy();
   expect(screen.queryByRole("heading", { name:"Contest Manager / Desk" })).toBeNull();
   expect(screen.queryByRole("button", { name:"Back to desk" })).toBeNull();
 });
