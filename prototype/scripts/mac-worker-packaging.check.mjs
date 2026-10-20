@@ -31,6 +31,7 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
     '/Contents/Resources/OM0RXXLogPrototype_XContestCore.bundle',
   ]);
   assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.check\.mjs/);
+  assert.match(script, /cargo clean --manifest-path "\$root\/prototype\/src-tauri\/Cargo\.toml" -p xlog-prototype/);
   assert.match(script, /bash "\$root\/prototype\/scripts\/stage-contest-python-macos\.sh" "\$bundle"/);
   assert.match(script, /find "\$bundle\/Contents\/Frameworks\/Python\.framework" -type f -print0/);
   assert.match(script, /security find-identity -v -p codesigning/);
@@ -45,6 +46,7 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
 test('isolated contest packaging stages and signs the complete Python lane', () => {
   const script = source('package-contesting-test-macos.sh');
   assert.match(script, /stage-contest-python-macos\.sh" "\$bundle" "package-contesting-test-macos\.sh"/);
+  assert.match(script, /cargo clean --manifest-path "\$root\/prototype\/src-tauri\/Cargo\.toml" -p xlog-prototype/);
   const helper = source('relocate-contest-python.py');
   assert.match(helper, /Contents\/Frameworks\/Python\.framework/);
   assert.match(helper, /Contents\/Resources\/Not1MM\/python"/);

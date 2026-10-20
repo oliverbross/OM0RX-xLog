@@ -11,6 +11,9 @@ bash prototype/scripts/build-worker.sh -j "$build_jobs"
 node prototype/scripts/stage-worker.mjs
 bash prototype/scripts/stage-hamlib-macos.sh
 node prototype/scripts/distribution-metadata.mjs
+# Force the application crate to re-embed the frontend selected by this source
+# checkout even when the bundler reuses a content chunk filename.
+cargo clean --manifest-path "$root/prototype/src-tauri/Cargo.toml" -p xlog-prototype
 cd prototype
 npx tauri build --features contesting-test --config src-tauri/tauri.contesting-test.conf.json --bundles app
 

@@ -8,6 +8,9 @@ bash prototype/scripts/build-worker.sh
 node prototype/scripts/stage-worker.mjs
 bash prototype/scripts/stage-hamlib-macos.sh
 node prototype/scripts/distribution-metadata.mjs
+# Tauri embeds the built frontend in the application crate. Cargo can otherwise
+# reuse a release executable when a content-changed chunk keeps the same name.
+cargo clean --manifest-path "$root/prototype/src-tauri/Cargo.toml" -p xlog-prototype
 cd prototype
 npx tauri build --bundles app
 
