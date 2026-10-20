@@ -6,7 +6,7 @@ export const workspaceScreens = screens;
 export const workspaceMenuScreens = screens.filter(screen => !screen.hidden);
 type Navigation = { revision: number; screen: string };
 export const workspaceModeRoutes = { "workspace-mode-canvas": "Workspace Mode: Canvas", "workspace-mode-windows": "Workspace Mode: Separate Windows" } as const;
-export const contestMenuPanelIDs = ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster",
+export const contestMenuPanelIDs = ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster",
   "awards", "chaser-dx", "station-control"] as const;
 export const contestSetupDialogRoutes = ["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-rover", "contest-dialog-about"] as const;
 /** Native contest menu intents stay distinct from ordinary screen titles. The
