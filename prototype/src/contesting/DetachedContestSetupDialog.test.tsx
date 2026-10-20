@@ -6,12 +6,14 @@ import { DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedC
 import { newContestSetup, contestSetupTabs } from "./ContestSetupPanel";
 import { mergeSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), setSize: vi.fn(), innerSize: vi.fn(), scaleFactor: vi.fn(async () => 2),
-  onResized: vi.fn(), resizeHandler: null as null | ((event: { payload: { toLogical: (scale: number) => { width: number; height: number } } }) => void) }));
+  onResized: vi.fn(), observedTargets: [] as Element[],
+  resizeHandler: null as null | ((event: { payload: { toLogical: (scale: number) => { width: number; height: number } } }) => void) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ setSize: native.setSize, innerSize: native.innerSize, scaleFactor: native.scaleFactor, onResized: native.onResized }) }));
-vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+vi.stubGlobal("ResizeObserver", class { observe(target: Element) { native.observedTargets.push(target); } disconnect() {} });
 beforeEach(() => {
   native.resizeHandler = null;
+  native.observedTargets = [];
   native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 820, height: 320 }) }));
   native.onResized.mockImplementation(async handler => { native.resizeHandler = handler; return vi.fn(); });
   native.setSize.mockImplementation(async size => { queueMicrotask(() => native.resizeHandler?.({ payload: { toLogical: () => ({ width: size.width, height: size.height }) } })); });
@@ -54,6 +56,7 @@ it("auto-fits a managed Configuration default to its measured content", async ()
   await screen.findByRole("tab", { name: "Lookup" });
   await waitFor(() => expect(native.setSize).toHaveBeenCalled());
   expect(native.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ width: 820, height: 476 });
+  expect(native.observedTargets).toHaveLength(2);
 });
 it("preserves a user-restored Configuration size instead of auto-fitting it", async () => {
   native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 900, height: 600 }) }));

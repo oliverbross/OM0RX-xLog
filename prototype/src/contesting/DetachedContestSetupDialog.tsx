@@ -153,7 +153,11 @@ export function DetachedContestSetupDialog() {
       });
       if (!active) { stopResize(); return; }
       observer = new ResizeObserver(fit);
-      if (shell.current) observer.observe(shell.current);
+      if (shell.current) {
+        observer.observe(shell.current);
+        const content = shell.current.firstElementChild;
+        if (content instanceof HTMLElement) observer.observe(content);
+      }
       fit();
     }).catch(() => {});
     return () => { active = false; clearTimeout(restoreTimer); cancelAnimationFrame(frame); observer?.disconnect(); stopResize?.(); };
