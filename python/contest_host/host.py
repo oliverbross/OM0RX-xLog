@@ -414,8 +414,11 @@ class Host:
         method = aliases.get(method, method)
         if method == "catalog":
             verify_source()
-            return {"plugins": [{"id": key, "name": name, "engine": "not1mm-python", "sourceRevision": SOURCE_REVISION}
-                                for key, name in PLUGINS.items()], "protocolVersion": 1}
+            return {"plugins": [{"id": key, "name": plugin.name, "engine": "not1mm-python",
+                                  "sourceRevision": SOURCE_REVISION, "modes": list(plugin.modes),
+                                  "sentExchangeHint": plugin.sent_exchange_hint,
+                                  "overlayChoices": list(plugin.overlay_choices)}
+                                 for key, plugin in PLUGIN_REGISTRY.items()], "protocolVersion": 1}
         if method == "sessions":
             sessions = []
             for directory in sorted(self.root.iterdir()):
@@ -704,6 +707,7 @@ class Host:
                 setup["station"]["Call"] = call
                 setup["settings"].setdefault("SentExchange", "")
                 setup["settings"].setdefault("ModeCategory", "CW")
+                setup["settings"].setdefault("OverlayCategory", "N/A")
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
                 self.reserve_serial(store, state)
@@ -888,6 +892,7 @@ class Host:
             validate_name_sent_exchange(settings["SentExchange"])
         settings.setdefault("ModeCategory", "CW")
         require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
+        settings.setdefault("OverlayCategory", "N/A")
         report = "59" if settings["ModeCategory"] == "SSB" else "599"
         return {"sessionID": session_id, "workspaceGeneration": workspace,
                 "name": text(params.get("name", PLUGINS[plugin_id]), 128),

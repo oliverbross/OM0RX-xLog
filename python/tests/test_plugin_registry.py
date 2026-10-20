@@ -30,6 +30,10 @@ class PluginRegistryTests(unittest.TestCase):
             try:
                 catalog = host.dispatch({"id": "catalog", "method": "catalog", "params": {}})
                 self.assertEqual([(item["id"], item["name"]) for item in catalog["plugins"]], list(PLUGINS.items()))
+                sweepstakes = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_cw")
+                self.assertEqual(sweepstakes["modes"], ["CW"])
+                self.assertEqual(sweepstakes["sentExchangeHint"], "Prec Call Check Section")
+                self.assertEqual(sweepstakes["overlayChoices"], ["N/A"])
             finally:
                 host.close()
         for plugin_id in PLUGIN_REGISTRY:

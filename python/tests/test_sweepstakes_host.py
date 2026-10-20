@@ -43,6 +43,9 @@ class SweepstakesHostTests(unittest.TestCase):
         self.assertEqual(sha256(Path(plugin.__file__).read_bytes()).hexdigest(),
                          manifest["sha256"]["not1mm/plugins/arrl_ss_cw.py"])
         projection = self.read("projection")["projection"]
+        setup = self.read("setup_get")["setup"]
+        self.assertEqual((setup["settings"]["ModeCategory"], setup["settings"]["OverlayCategory"]),
+                         ("CW", "N/A"))
         self.assertEqual(projection["tabNext"]["receive"], "other_1")
         self.assertEqual(projection["tabPrevious"]["callsign"], "other_2")
         self.assertEqual(projection["nextField"], "other_2")

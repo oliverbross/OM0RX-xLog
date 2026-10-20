@@ -336,7 +336,8 @@ it("renders the owner projection and forwards raw edits with exact revision fenc
 });
 
 it("renders Entry v2 sent and simulation state and forwards an exact style action",async()=>{
-  const v2={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000},
+  const v2={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,
+      receivedFields:[{...projection.draft.receivedFields[0],label:"sn prec ck sec"}]},
     descriptor:{bands:["20m","40m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
     operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
@@ -357,7 +358,8 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   expect((screen.getByLabelText("Increase CW speed") as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("—/— —");
   expect(Array.from(document.querySelectorAll(".contest-surface-main-fields > *")).map(field=>field.querySelector("label")?.firstChild?.textContent??field.firstChild?.textContent))
-    .toEqual(["Callsign","SNT","RCV","Power","RcvNR"]);
+    .toEqual(["Callsign","SNT","RCV","Power","sn prec ck sec"]);
+  expect(screen.getByLabelText("Received exchange 1")).toHaveProperty("value","100");
   expect(screen.getAllByRole("radio").map(input=>input.parentElement?.textContent)).toEqual(["Run","S&P"]);
   expect(screen.queryByLabelText("Operating style")).toBeNull();
   expect(document.querySelector(".contest-surface-entry > footer")).toBeNull();

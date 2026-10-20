@@ -22,7 +22,7 @@ const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Co
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
   effectiveMacros?: ContestSetupMacro[];
-  catalog: Array<{ id: string; name: string }>;
+  catalog: Array<{ id: string; name: string; modes?: string[]; sentExchangeHint?: string; overlayChoices?: string[] }>;
   busy?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
@@ -40,7 +40,7 @@ type Props = {
 export function newContestSetup(stationCall = ""): ContestSetupDocument {
   return { name: "CQ WW CW", operator: stationCall, pluginID: "cq_ww_cw",
     station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "", LicenseClass: "", Latitude: "", Longitude: "", STXeq: "", SPowe: "", SAnte: "", SAntH1: "", SAntH2: "", ARRLSection: "", RoverQTH: "", Club: "" },
-    settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "", Soapbox: "" },
+    settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "N/A", Soapbox: "" },
     preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
@@ -66,6 +66,7 @@ export async function loadContestAudioOutputs(enumerateDevices?: () => Promise<M
 function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
   const defaults = newContestSetup(String(value.station.Call ?? ""));
   const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...restoredESMPreferences(value.preferences) }, network: { ...defaults.network, ...value.network } });
+  if (!String(result.settings.OverlayCategory ?? "").trim()) result.settings.OverlayCategory = "N/A";
   for (const kind of ["Radio", "Contact", "Lookup", "Score"]) {
     const key = "n1mm" + kind + "Destinations";
     if (result.network[key] === undefined) result.network[key] = String(value.network.n1mmHost ?? "127.0.0.1") + ":" + String(value.network["n1mm" + kind + "Port"] ?? 12060);
@@ -101,9 +102,9 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   const selectConfigurationTab = (next: ContestSetupTab) => { setTab(next); onContentChange?.(); };
   const update = (section: "station" | "settings" | "preferences" | "network", key: string, next: string | number | boolean | string[]) =>
     setDraft(current => ({ ...current, [section]: { ...current[section], [key]: next } }));
-  const field = (section: "station" | "settings" | "preferences" | "network", key: string, label: string, type = "text", choices?: string[]) => {
+  const field = (section: "station" | "settings" | "preferences" | "network", key: string, label: string, type = "text", choices?: string[], locked = false) => {
     const current = draft[section][key];
-    return <label key={`${section}-${key}`}><span>{label}</span>{choices ? <select value={String(current ?? "")} onChange={event => update(section, key, event.target.value)}>{choices.map(choice => <option key={choice} value={choice}>{choice || "None"}</option>)}</select>
+    return <label key={`${section}-${key}`}><span>{label}</span>{choices ? <select value={String(current ?? "")} disabled={locked} onChange={event => update(section, key, event.target.value)}>{choices.map(choice => <option key={choice} value={choice}>{choice || "None"}</option>)}</select>
       : <input type={type} value={String(current ?? "")} maxLength={512} min={type === "number" ? 0 : undefined} max={type === "number" ? 65535 : undefined}
         onChange={event => update(section, key, type === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)}/> }</label>;
   };
@@ -148,6 +149,9 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const choice = (section: "settings" | "preferences", key: string, label: string, values: string[]) => field(section, key, label, "text", selectValues(values, draft[section][key]));
   const bindingValue = readContestKeyBindings(draft.preferences.keyBindings);
   const setBindings = (next: ContestKeyBinding[]) => update("preferences", "keyBindings", encodeContestKeyBindings(next));
+  const selectedPlugin = catalog.find(plugin => plugin.id === draft.pluginID);
+  const modeChoices = selectedPlugin?.modes?.length ? selectedPlugin.modes : ["CW", "SSB", "RTTY", "MIXED", "DIGI"];
+  const overlayChoices = selectedPlugin?.overlayChoices?.length ? selectedPlugin.overlayChoices : ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"];
   let content: ReactNode = null;
   if (view === "Station Settings") content = <div className="contest-station-form">
     {row(field("station", "Call", "Call"))}
@@ -168,19 +172,21 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   </div>;
   else if (view === "New Contest" || view === "Edit Current Contest") content = <div className="contest-parameters">
     <p>Select Contest Type for {view === "New Contest" ? "New" : "Current"} Log</p>
-    <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => setDraft(current => ({ ...current, pluginID: event.target.value,
-      settings: { ...current.settings, SentExchange: "" } }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
+    <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => { const plugin = catalog.find(item => item.id === event.target.value);
+      setDraft(current => ({ ...current, pluginID: event.target.value, settings: { ...current.settings, SentExchange: "",
+        ModeCategory: plugin?.modes?.length === 1 ? plugin.modes[0] : current.settings.ModeCategory,
+        OverlayCategory: plugin?.overlayChoices?.[0] ?? "N/A" } })); }}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
     <hr/>
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}
     {choice("settings", "BandCategory", "Band", ["ALL", "160M", "80M", "40M", "20M", "15M", "10M", "6M", "2M", "1.25M", "70CM", "33CM", "23CM"])}
     {choice("settings", "PowerCategory", "Power", ["HIGH", "LOW", "QRP"])}
-    {choice("settings", "ModeCategory", "Mode", ["CW", "SSB", "RTTY", "MIXED", "DIGI"])}
-    {choice("settings", "OverlayCategory", "Overlay", ["", "N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"])}
+    {field("settings", "ModeCategory", "Mode", "text", selectValues(modeChoices, draft.settings.ModeCategory), modeChoices.length === 1)}
+    {choice("settings", "OverlayCategory", "Overlay", overlayChoices)}
     {choice("settings", "StationCategory", "Station", ["FIXED", "MOBILE", "PORTABLE", "ROVER", "EXPEDITION", "HQ", "SCHOOL"])}
     {choice("settings", "AssistedCategory", "Assisted", ["ASSISTED", "NON-ASSISTED"])}
     {choice("settings", "TransmitterCategory", "Transmitter", ["ONE", "TWO", "LIMITED", "UNLIMITED", "SWL"])}
-    <div className="contest-exchange-row">{field("settings", "SentExchange", ["icwc_mst", "cwo"].includes(draft.pluginID) ? "Name" : "Sent Exchange")}<span>Exclude RST</span></div>
+    <div className="contest-exchange-row">{field("settings", "SentExchange", selectedPlugin?.sentExchangeHint ?? (["icwc_mst", "cwo"].includes(draft.pluginID) ? "Name" : "Sent Exchange"))}<span>Exclude RST</span></div>
     <label><span>Operators</span><input value={draft.operator} onChange={event => setDraft(current => ({ ...current, operator: event.target.value.toUpperCase() }))}/></label>
     {textArea("settings", "Soapbox", "Soapbox")}
   </div>;

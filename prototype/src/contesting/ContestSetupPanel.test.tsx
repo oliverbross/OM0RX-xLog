@@ -5,13 +5,14 @@ import { ContestSetupPanel, contestSetupTabs, loadContestAudioOutputs, newContes
 afterEach(cleanup);
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
-    activeSessionID: "session", catalog: [{ id: "cq_ww_cw", name: "CQ WW CW" }],
+    activeSessionID: "session", catalog: [{ id: "cq_ww_cw", name: "CQ WW CW", modes: ["CW"], sentExchangeHint: "Sent Exchange", overlayChoices: ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"] }],
     onSave: vi.fn(async (_value: ContestSetupDocument) => {}), onCreate: vi.fn(async (_value: ContestSetupDocument) => {}), onOpen: vi.fn(async (_session: ContestSetupSession) => {}), onOpenSettings: vi.fn() };
 }
 function open(name: string) { fireEvent.click(screen.getByRole("button", { name })); }
 it("uses upstream ESM defaults for new contests and explicit compatibility defaults only for missing saved fields", () => {
   const preferences = newContestSetup("OM0RX").preferences;
   expect(newContestSetup("OM0RX").settings.SentExchange).toBe("");
+  expect(newContestSetup("OM0RX").settings.OverlayCategory).toBe("N/A");
   expect(preferences.useESM).toBe(false);
   expect(preferences.sendCorrectedCall).toBe(false);
   for (const key of ["esmCQ", "esmHisCall", "esmExchange", "esmAGN", "esmMyCall", "esmQRZ", "esmQsoB4"]) expect(preferences[key]).toBe("DISABLED");
@@ -61,13 +62,24 @@ it("uses separate new and edit forms in original order, including UTC start and 
   open("Edit Current Contest"); expect((screen.getByLabelText("Log Type") as HTMLSelectElement).disabled).toBe(true);
 });
 it("clears the CQ WW exchange and asks for the operator name when ICWC is selected", async () => {
-  const p = props(); p.catalog.push({ id: "icwc_mst", name: "ICWC Medium Speed Test" });
+  const p = props(); p.catalog.push({ id: "icwc_mst", name: "ICWC Medium Speed Test", modes: ["CW"],
+    sentExchangeHint: "Name", overlayChoices: ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"] });
   render(<ContestSetupPanel {...p}/>); open("New Contest");
   fireEvent.change(screen.getByLabelText("Log Type"), { target: { value: "icwc_mst" } });
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("");
   expect(screen.queryByLabelText("Sent Exchange")).toBeNull();
   fireEvent.change(screen.getByLabelText("Name"), { target: { value: "OLIVER" } }); open("OK");
   await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ pluginID: "icwc_mst", name: "ICWC Medium Speed Test", settings: expect.objectContaining({ SentExchange: "OLIVER" }) })));
+});
+it("uses Sweepstakes metadata to lock CW, omit unsupported overlays and label the exchange", () => {
+  const p = props(); p.catalog.push({ id: "arrl_ss_cw", name: "ARRL Sweepstakes CW", modes: ["CW"],
+    sentExchangeHint: "Prec Call Check Section", overlayChoices: ["N/A"] });
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  fireEvent.change(screen.getByLabelText("Log Type"), { target: { value: "arrl_ss_cw" } });
+  const mode = screen.getByLabelText("Mode") as HTMLSelectElement;
+  expect(mode.value).toBe("CW"); expect(mode.disabled).toBe(true);
+  expect(Array.from((screen.getByLabelText("Overlay") as HTMLSelectElement).options).map(option => option.value)).toEqual(["N/A"]);
+  expect(screen.getByLabelText("Prec Call Check Section")).toBeTruthy();
 });
 it("selects an existing contest using a name/start table and commits only with OK", async () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Choose a Contest");

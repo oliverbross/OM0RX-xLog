@@ -164,6 +164,7 @@ function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
     points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" || pluginID === "cwo" ? []
       : pluginID === "trans_tasman" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
+      : pluginID === "arrl_ss_cw" ? [row.Sect ? `Section ${row.Sect}` : ""].filter(Boolean)
       : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));
 }

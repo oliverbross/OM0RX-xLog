@@ -493,8 +493,8 @@ it.each([
   { pluginID:"arrl_ss_cw", pluginName:"ARRL Sweepstakes CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","CK","Prec","Sect","M1","PTS"],
     row:{ID:"ss-qso",TS:"2026-10-20 12:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,CK:67,Prec:"A",Sect:"CT",IsMultiplier1:1,Points:2},
-    receivedExchange:"123 A K1ABC 67 CT", values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"] },
-])("projects the actual $pluginName log columns and exchange", async ({pluginID,pluginName,columns,row,receivedExchange,values}) => {
+    receivedExchange:"123 A K1ABC 67 CT", multiplierLabels:["Section CT"], values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"] },
+])("projects the actual $pluginName log columns and exchange", async ({pluginID,pluginName,columns,row,receivedExchange,multiplierLabels,values}) => {
   const current={...projection(3,{other_1:"002"}),pluginID,pluginName,columns,matrixTrackers:[],
     reservedSerial:2,score:{qsos:1,points:row.Points,countries:0,zones:0,multipliers:1,total:row.Points}};
   current.fields=current.fields.map(field=>({...field,readOnly:field.id==="other_1"}));
@@ -513,7 +513,7 @@ it.each([
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.rows).toHaveLength(1));
   const logbook=surfaceOwner.current.projections.logbook;
   expect(logbook).toMatchObject({exchangeLayout:"plugin",pluginColumns:columns,
-    pluginRows:[{qsoID:row.ID,values}],pluginPartialRows:[],page:{rows:[{receivedExchange}]}});
+    pluginRows:[{qsoID:row.ID,values}],pluginPartialRows:[],page:{rows:[{receivedExchange,...(multiplierLabels ? {multiplierLabels} : {})}]}});
   expect(logbook).not.toHaveProperty("manualRows");
   expect(validContestSurfaceProjection("logbook",logbook)).toBe(true);
 });
