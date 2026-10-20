@@ -31,14 +31,19 @@ export function contestSetupWindowSize(view: SetupView | null): { width: number;
   return { width: 600, height: 360 };
 }
 
-export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableHeight: number, contentScale = 1, nativeChromeHeight = 0): { width: number; height: number } {
+export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableWidth: number, availableHeight: number, contentScale = 1, nativeChromeHeight = 0): { width: number; height: number } {
   const preferred = contestSetupWindowSize(view);
   const scale = Number.isFinite(contentScale) && contentScale > 0 ? contentScale : 1;
   const chrome = Number.isFinite(nativeChromeHeight) && nativeChromeHeight > 0 ? nativeChromeHeight : 0;
   const measured = Number.isFinite(contentHeight) && contentHeight > 0 ? Math.ceil((contentHeight + 24) * scale + chrome) : preferred.height;
-  const limit = Number.isFinite(availableHeight) && availableHeight > 0
-    ? Math.max(preferred.height, Math.floor(availableHeight - 64)) : measured;
-  return { width: preferred.width, height: Math.min(Math.max(preferred.height, measured), limit) };
+  const widthLimit = Number.isFinite(availableWidth) && availableWidth > 0
+    ? Math.max(520, Math.floor(availableWidth - 64)) : preferred.width;
+  const heightLimit = Number.isFinite(availableHeight) && availableHeight > 0
+    ? Math.max(320, Math.floor(availableHeight - 64)) : Math.max(preferred.height, measured);
+  return {
+    width: Math.min(preferred.width, widthLimit),
+    height: Math.min(Math.max(preferred.height, measured), heightLimit),
+  };
 }
 
 /** Only untouched xLog defaults and the last size applied by this fitter are
@@ -97,7 +102,7 @@ export function DetachedContestSetupSurface() {
           return;
         }
         const contentScale = window.innerHeight > 0 ? logicalInnerHeight / window.innerHeight : 1;
-        const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight, contentScale, nativeChromeHeight);
+        const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availWidth, window.screen.availHeight, contentScale, nativeChromeHeight);
         autoFitSize.current = size;
         try { localStorage.setItem(CONTEST_SETUP_AUTO_FIT_SIZE_KEY, JSON.stringify(size)); } catch { /* geometry remains best effort */ }
         if (sameWindowSize(logicalInner, size)) return;

@@ -23,8 +23,9 @@ export async function lookupContestQRZDetails(context: ContestSurfaceContext, ca
   return value as Profile;
 }
 
-export function fittedQRZDetailsHeight(contentHeight: number, availableHeight: number, chromeHeight = 0): number {
-  const measured = Math.ceil(Math.max(260, contentHeight + 24 + Math.max(0, chromeHeight)));
+export function fittedQRZDetailsHeight(contentHeight: number, availableHeight: number, contentScale = 1, chromeHeight = 0): number {
+  const scale = Number.isFinite(contentScale) && contentScale > 0 ? contentScale : 1;
+  const measured = Math.ceil(Math.max(260, (contentHeight + 24) * scale + Math.max(0, chromeHeight)));
   return Math.min(measured, Math.max(260, Math.floor(availableHeight - 64)));
 }
 
@@ -46,8 +47,10 @@ function useAutoFit(dependency: unknown) {
         operatorSized.current = true;
         return;
       }
+      const logicalInnerHeight = logical.height;
       const chrome = scale > 0 ? (outer.height - inner.height) / scale : 0;
-      const next = { width: logical.width, height: fittedQRZDetailsHeight(document.documentElement.scrollHeight, window.screen.availHeight, chrome) };
+      const contentScale = window.innerHeight > 0 ? logicalInnerHeight / window.innerHeight : 1;
+      const next = { width: logical.width, height: fittedQRZDetailsHeight(document.documentElement.scrollHeight, window.screen.availHeight, contentScale, chrome) };
       managed.current = next;
       try { localStorage.setItem(AUTO_FIT_KEY, JSON.stringify(next)); } catch { /* geometry remains best effort */ }
       if (!sameSize(logical, next)) await appWindow.setSize(new LogicalSize(next.width, next.height));

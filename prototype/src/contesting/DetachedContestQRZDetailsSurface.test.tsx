@@ -55,6 +55,8 @@ it("discards an old lookup when the contest draft callsign changes", async () =>
 });
 
 it("fits content to the available screen height", () => {
-  expect(fittedQRZDetailsHeight(300, 900, 30)).toBe(354);
-  expect(fittedQRZDetailsHeight(1200, 700, 30)).toBe(636);
+  expect(fittedQRZDetailsHeight(300, 900, 1, 30)).toBe(354);
+  expect(fittedQRZDetailsHeight(1200, 700, 1, 30)).toBe(636);
+  expect(fittedQRZDetailsHeight(300, 900, 1.5, 30)).toBe(516);
+  expect(fittedQRZDetailsHeight(300, 1_400, 2, 30)).toBe(678);
 });

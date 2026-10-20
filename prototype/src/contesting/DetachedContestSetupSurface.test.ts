@@ -47,11 +47,16 @@ describe("Contest Setup station projection", () => {
     expect(contestSetupWindowSize("Edit Current Contest")).toEqual({ width: 560, height: 640 });
     expect(contestSetupWindowSize("Choose a Contest")).toEqual({ width: 560, height: 420 });
     expect(contestSetupWindowSize("Edit Macros")).toEqual({ width: 880, height: 700 });
-    expect(fittedContestSetupWindowSize(null, 300, 1_400)).toEqual({ width: 600, height: 360 });
-    expect(fittedContestSetupWindowSize("New Contest", 846, 1_400)).toEqual({ width: 560, height: 870 });
-    expect(fittedContestSetupWindowSize("New Contest", 846, 2_160, 1.5)).toEqual({ width: 560, height: 1_305 });
-    expect(fittedContestSetupWindowSize("New Contest", 846, 2_160, 1.5, 32)).toEqual({ width: 560, height: 1_337 });
-    expect(fittedContestSetupWindowSize("Edit Keys", 1_600, 1_000)).toEqual({ width: 880, height: 936 });
+    expect(fittedContestSetupWindowSize(null, 300, 1_800, 1_400)).toEqual({ width: 600, height: 360 });
+    expect(fittedContestSetupWindowSize("New Contest", 846, 1_800, 1_400)).toEqual({ width: 560, height: 870 });
+    expect(fittedContestSetupWindowSize("New Contest", 846, 1_800, 2_160, 1.5)).toEqual({ width: 560, height: 1_305 });
+    expect(fittedContestSetupWindowSize("New Contest", 846, 1_800, 2_160, 1.5, 32)).toEqual({ width: 560, height: 1_337 });
+    expect(fittedContestSetupWindowSize("Edit Keys", 1_600, 1_800, 1_000)).toEqual({ width: 880, height: 936 });
+  });
+  it("caps automatic setup fit to a small screen without violating native minimums", () => {
+    expect(fittedContestSetupWindowSize("Edit Keys", 1_600, 760, 1_000)).toEqual({ width: 696, height: 936 });
+    expect(fittedContestSetupWindowSize("New Contest", 846, 1_800, 600)).toEqual({ width: 560, height: 536 });
+    expect(fittedContestSetupWindowSize("Edit Keys", 1_600, 500, 300)).toEqual({ width: 520, height: 320 });
   });
   it("admits native resizing only for the detached Contest Setup owner", () => {
     expect(contestSetupOwnerCapability.windows).toEqual(["contest-setup"]);
