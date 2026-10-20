@@ -113,6 +113,7 @@ pub fn scoped_spec(identity: WorkspaceWindowIdentity<'_>) -> Option<&'static Win
 }
 pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f64)], (f64, f64))> {
     if label == "contest-setup" { return Some((&[(980.0, 760.0)], (920.0, 720.0))); }
+    if label == "contest-setup-configuration" { return Some((&[(820.0, 620.0)], (820.0, 520.0))); }
     let identity = WorkspaceWindowIdentity::parse_native_label(label).ok()?;
     if identity.scope != WorkspaceWindowScope::Contesting { return None; }
     let old: &'static [(f64, f64)] = match identity.panel_id {
@@ -508,6 +509,7 @@ mod tests {
     #[test]
     fn contest_default_size_migrations_are_exact_and_do_not_touch_shared_tools() {
         assert_eq!(contest_default_size_migrations("contest-setup"), Some((&[(980.0, 760.0)][..], (920.0, 720.0))));
+        assert_eq!(contest_default_size_migrations("contest-setup-configuration"), Some((&[(820.0, 620.0)][..], (820.0, 520.0))));
         assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0)][..], (800.0, 480.0))));
         assert_eq!(contest_default_size_migrations("contest--band-maps"), Some((&[(380.0, 760.0)][..], (520.0, 700.0))));
         assert_eq!(contest_default_size_migrations("contest--monitor"), Some((&[(780.0, 600.0)][..], (340.0, 300.0))));

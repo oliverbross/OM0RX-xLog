@@ -771,8 +771,9 @@ fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow,
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
     if workspace_navigation::contest_route(&screen).is_some() {
         app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
+        let foreground = workspace_navigation::contest_owner_foreground(&screen);
         return tauri::async_runtime::spawn_blocking(move || {
-            ensure_contest_setup_window(&app)?;
+            ensure_contest_setup_window(&app, foreground)?;
             app.emit_to("contest-setup", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
         }).await.map_err(|_| "Contest Setup window task failed".to_string())?;
     } else if screen.starts_with("workspace-mode-") {
@@ -805,7 +806,7 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
     }).await.map_err(|_| "Main workspace task failed".to_string())?
 }
 
-fn ensure_contest_setup_window(app: &tauri::AppHandle) -> Result<(), String> {
+fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Result<(), String> {
     let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window("contest-setup"), || {
         let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
         let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
@@ -813,7 +814,11 @@ fn ensure_contest_setup_window(app: &tauri::AppHandle) -> Result<(), String> {
             .title("OM0RX-xLog Contest — Setup")
             .inner_size(920.0, 720.0)
             .min_inner_size(720.0, 520.0)
-            .focused(true)
+            // Direct child-dialog menu items still need the mounted setup
+            // authority, but must not surface an unsolicited Setup window.
+            .visible(foreground)
+            .focused(foreground)
+            .skip_taskbar(!foreground)
             .always_on_top(false)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
@@ -823,10 +828,39 @@ fn ensure_contest_setup_window(app: &tauri::AppHandle) -> Result<(), String> {
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
         Ok(window)
     })?;
-    window.unminimize().map_err(|error| error.to_string())?;
-    window.show().map_err(|error| error.to_string())?;
-    window.set_focus().map_err(|error| error.to_string())?;
+    if foreground {
+        window.set_skip_taskbar(false).map_err(|error| error.to_string())?;
+        window.unminimize().map_err(|error| error.to_string())?;
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+    }
     Ok(())
+}
+
+fn retire_hidden_contest_owner(app: &tauri::AppHandle) -> Result<(), String> {
+    let _creation = MAIN_CREATION.lock().map_err(|_| "Contest controller retirement unavailable")?;
+    let Some(owner) = app.get_webview_window(CONTEST_SETUP_WINDOW) else { return Ok(()); };
+    let visible = owner.is_visible().unwrap_or(true);
+    let pending = app.state::<workspace_navigation::WorkspaceNavigation>()
+        .snapshot(CONTEST_SETUP_WINDOW)?.is_some();
+    // The delayed Destroyed callback must count every window registered now,
+    // including a same-label replacement created since the old lifetime ended.
+    let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
+    if !workspace_navigation::contest_owner_can_retire(visible, pending, labels.iter().map(String::as_str)) { return Ok(()); }
+    detached_geometry::flush(&owner);
+    owner.destroy().map_err(|error| error.to_string())
+}
+
+fn schedule_hidden_contest_owner_retirement(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn_blocking(move || {
+        // Let an IPC acknowledgement reach the renderer before retiring the
+        // controller that issued it. Child destruction does not need the delay,
+        // but sharing this path keeps route and close races serialized.
+        std::thread::sleep(Duration::from_millis(25));
+        if let Err(error) = retire_hidden_contest_owner(&app) {
+            eprintln!("Could not retire hidden Contest Setup controller: {error}");
+        }
+    });
 }
 
 fn workspace_mode_ready() -> Result<(), String> {
@@ -877,8 +911,13 @@ fn workspace_navigation_snapshot(window: tauri::WebviewWindow, state: tauri::Sta
     state.snapshot(window.label())
 }
 #[tauri::command]
-fn workspace_navigation_ack(window: tauri::WebviewWindow, state: tauri::State<'_, workspace_navigation::WorkspaceNavigation>, revision: u64) -> Result<(), String> {
-    state.acknowledge(window.label(), revision)
+fn workspace_navigation_ack(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    state: tauri::State<'_, workspace_navigation::WorkspaceNavigation>, revision: u64) -> Result<(), String> {
+    state.acknowledge(window.label(), revision)?;
+    if window.label() == CONTEST_SETUP_WINDOW {
+        schedule_hidden_contest_owner_retirement(app);
+    }
+    Ok(())
 }
 
 // Presentation follows a fresh SQLite-owned revision. The renderer supplies only
@@ -2403,6 +2442,10 @@ fn main() {
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed)
+                && workspace_navigation::contest_owner_dependent_window(window.label()) {
+                schedule_hidden_contest_owner_retirement(window.app_handle().clone());
+            }
             if window.label() == "cw" {
                 // The renderer requests the typed asynchronous Stop/guard path.
                 // A missing listener or renderer crash must not bypass it.

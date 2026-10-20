@@ -48,6 +48,18 @@ pub const CONTEST_MENU_ITEMS: [(&str, &str); 15] = [
 pub fn contest_route(id: &str) -> Option<&'static str> {
     CONTEST_MENU_ITEMS.iter().find_map(|(route, _)| (*route == id).then_some(*route))
 }
+/// The setup renderer owns session mutation for all contest routes. Only an
+/// explicit Contest Setup request is allowed to surface that owner window;
+/// direct child/tool routes use it as a hidden controller.
+pub fn contest_owner_foreground(id: &str) -> bool { id == "contest-setup" }
+pub fn contest_owner_dependent_window(label: &str) -> bool {
+    label.starts_with("contest--")
+        || matches!(label, "contest-setup-station" | "contest-setup-configuration")
+}
+pub fn contest_owner_can_retire<'a>(visible: bool, pending: bool,
+    labels: impl IntoIterator<Item = &'a str>) -> bool {
+    !visible && !pending && !labels.into_iter().any(contest_owner_dependent_window)
+}
 pub fn contest_menu_route(id: &str) -> Option<&'static str> {
     contest_route(id.strip_prefix("contest_menu_")?)
 }
@@ -111,6 +123,7 @@ mod tests {
             assert!(routes.insert(route));
             assert!(titles.insert(title));
             assert_eq!(contest_menu_route(&format!("contest_menu_{route}")), Some(route));
+            assert_eq!(contest_owner_foreground(route), route == "contest-setup");
             if let Some(panel) = route.strip_prefix("contest-window-") {
                 assert!(crate::workspace_windows::supports_panel(crate::workspace_windows::WorkspaceWindowScope::Contesting, panel));
                 assert_eq!(contest_window_panel(panel), Some(panel));
@@ -125,6 +138,19 @@ mod tests {
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
             state.acknowledge("contest-setup", pending.revision).unwrap();
         }
+        for label in ["contest--active-qso", "contest--monitor", "contest-setup-station", "contest-setup-configuration"] {
+            assert!(contest_owner_dependent_window(label));
+        }
+        for label in ["contest-setup", "main", "rotor", "station-control", "contest-window-active-qso"] {
+            assert!(!contest_owner_dependent_window(label));
+        }
+        assert!(contest_owner_can_retire(false, false, std::iter::empty()));
+        assert!(!contest_owner_can_retire(true, false, std::iter::empty()));
+        assert!(!contest_owner_can_retire(false, true, std::iter::empty()));
+        // A replacement registered under the just-destroyed label is a live
+        // dependency and fences the old lifetime's delayed retirement task.
+        assert!(!contest_owner_can_retire(false, false, ["contest-setup-station"]));
+        assert!(contest_owner_can_retire(false, false, ["rotor", "station-control"]));
         assert_eq!(windows, ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
             ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"),

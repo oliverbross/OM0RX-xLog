@@ -8,7 +8,7 @@ pub fn kind(label: &str) -> Option<&'static str> {
 pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
     match kind {
         "station" => Some(("contest-setup-station", "Station Settings", 760.0, 660.0)),
-        "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 620.0)),
+        "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 520.0)),
         _ => None,
     }
 }
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn only_exposes_two_compact_distinct_windows() {
         assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
-        assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,620.0)));
+        assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,520.0)));
         for label in ["contest-setup-station", "contest-setup-configuration"] { assert_eq!(crate::workspace_windows::native_minimum(label),(620.0,480.0)); }
         assert!(spec("logbook").is_none()); assert!(kind("contest-setup").is_none());
     }
