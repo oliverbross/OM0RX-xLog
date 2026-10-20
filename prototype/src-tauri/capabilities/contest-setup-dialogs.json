@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "contest-setup-dialogs",
-  "description": "Three bundled setup editors; mutation authority remains in Contest Setup.",
-  "windows": ["contest-setup-operator", "contest-setup-station", "contest-setup-configuration"],
+  "description": "Bundled contest dialogs; mutation authority remains in Contest Setup.",
+  "windows": ["contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-rover", "contest-setup-about"],
   "permissions": ["core:default", "core:window:allow-set-size"]
 }

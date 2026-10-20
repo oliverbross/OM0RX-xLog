@@ -8,6 +8,8 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
     return (await import("./contesting/ContestOperatorDialog")).ContestOperatorDialog;
   if (view === "contest-setup-station" || view === "contest-setup-configuration")
     return (await import("./contesting/DetachedContestSetupDialog")).DetachedContestSetupDialog;
+  if (view === "contest-setup-rover" || view === "contest-setup-about")
+    return (await import("./contesting/DetachedContestAuxiliaryDialog")).DetachedContestAuxiliaryDialog;
   if (view === "contest-setup")
     return (await import("./contesting/DetachedContestSetupSurface")).DetachedContestSetupSurface;
   if (query.get("scope") === "contesting" && view === "call-history")

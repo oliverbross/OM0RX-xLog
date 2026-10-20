@@ -36,7 +36,7 @@ type Projection = {
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
   supportedBands?: string[]; supportedModes?: Array<"CW" | "SSB" | "RTTY" | "AM" | "FM">; allowDuplicateCommit?: boolean;
   columns?: string[];
-  history: string; score: Score; operator?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
+  history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
@@ -681,10 +681,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
   useContestSetupDialogs({ enabled: setupOnly, context: `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`,
-    document: setup, save: async document => {
+    document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", diagnostics: {
+      engine: "Not1MM Python", plugin: projection?.pluginID ?? "No open contest",
+      version: projection?.ruleIdentity?.version ?? "26.10.11", source: projection?.sourceRevision ?? "7c8b499225a73f7f8f792246881bd7aefc05452f",
+      reference: projection?.referenceID ?? "No active reference" } }, save: async document => {
       if (busyRef.current || retiring) throw new Error("Contest Setup is busy. Try again after it finishes.");
       await saveSetup(document);
-    }, report: setError });
+    }, saveRover: async location => { await hostAction("contest_rover_location", { location }, true); }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Escape") { event.preventDefault(); if (phoneSimulationAvailable) stopPhoneSimulation(); else void cw.controller.stop(); return; }
@@ -694,6 +697,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         target.dataset.contestField === "callsign" && (fieldsRef.current.callsign ?? "").trim().toUpperCase() === "OPON") {
       event.preventDefault(); changeField("callsign", "");
       void openContestSetupDialog("operator").catch(cause => setError(errorMessage(cause))); return;
+    }
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === " " &&
+        target.dataset.contestField === "callsign" && (fieldsRef.current.callsign ?? "").trim().toUpperCase() === "ROVE") {
+      event.preventDefault(); changeField("callsign", "");
+      void openContestSetupDialog("rover").catch(cause => setError(errorMessage(cause))); return;
     }
     if (/^F(?:[1-9]|1[0-2])$/.test(event.key)) { event.preventDefault(); void hostAction("contest_function_key", { key: event.key }); return; }
     if (event.key === "Enter") { event.preventDefault(); void hostAction("contest_esm", { field: focusRef.current }); return; }
@@ -1117,8 +1125,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
-      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration"].includes(route)) {
-        await openContestSetupDialog(route === "contest-dialog-operator" ? "operator" : route === "contest-dialog-station" ? "station" : "configuration");
+      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
+        await openContestSetupDialog(route === "contest-dialog-operator" ? "operator" : route === "contest-dialog-station" ? "station" :
+          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-rover" ? "rover" : "about");
         return true;
       }
       if (route === "contest-setup") {

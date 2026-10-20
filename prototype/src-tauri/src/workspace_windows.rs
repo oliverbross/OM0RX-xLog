@@ -146,6 +146,8 @@ pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| win
 pub fn native_minimum(label: &str) -> (f64, f64) {
     if label == "contest-setup" { return (520.0, 320.0); }
     if label == "contest-setup-operator" { return (360.0, 170.0); }
+    if label == "contest-setup-rover" { return (340.0, 90.0); }
+    if label == "contest-setup-about" { return (345.0, 376.0); }
     if label == "contest-setup-configuration" { return (680.0, 300.0); }
     if crate::contest_setup_dialogs::kind(label).is_some() { return (620.0, 480.0); }
     // Contest identities reuse normal panel roles, but have compact tools of

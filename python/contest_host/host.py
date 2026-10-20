@@ -309,8 +309,10 @@ class Desk:
         band = self.band(frequency)
         self.contact = deepcopy(base) if base is not None else self.database.get_empty().copy()
         from not1mm.lib.ham_utility import calculate_wpx_prefix
+        rover_location = self.state.get("roverLocation") or self.state["station"].get("RoverQTH", "")
         self.contact.update({"ID": qso_id, "Call": call, "TS": timestamp, "Freq": frequency / 1000,
             "Band": band, "Operator": operator or self.state["operator"],
+            "RoverLocation": str(rover_location).upper(),
             "CountryPrefix": info.get("primary_pfx", ""), "Continent": info.get("continent", ""),
             "ZN": info.get("cq", 0), "WPXPrefix": calculate_wpx_prefix(call)})
         if base is None:
@@ -410,6 +412,7 @@ class Desk:
                 "draftID": self.state["draft"]["id"], "fields": fields,
                 "frequencyHz": self.state["draft"]["frequencyHz"], "mode": self.state["settings"]["ModeCategory"], "band": band,
                 "operator": self.state["operator"], "cwSpeedWpm": speed,
+                "roverLocation": self.state.get("roverLocation", ""),
                 "callContext": {"callsign": call, "entity": country.get("entity"), "country": country.get("entity"),
                     "continent": country.get("continent"), "cqZone": country.get("cq"), "ituZone": country.get("itu"),
                     "primaryPrefix": country.get("primary_pfx"), "headingDegrees": None,
@@ -484,7 +487,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save"}
+    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save", "rover_location"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -848,6 +851,10 @@ class Host:
                     self.prefill(desk)
                 if previous_station["Call"] != call:
                     self.rebuild(desk)
+            elif method == "rover_location":
+                location = text(params.get("location", ""), 10).strip().upper()
+                require(bool(location), "Enter the current rover location")
+                state["roverLocation"] = location
             elif method == "esm":
                 if "fields" in params:
                     self.apply_fields(desk, params)
@@ -985,6 +992,9 @@ class Host:
                 and isinstance(state["station"].get("Call"), str)
                 and "SentExchange" in state["settings"],
                 "Incomplete persisted session state", "invalid_session")
+        rover_location = state.get("roverLocation", "")
+        require(isinstance(rover_location, str) and len(rover_location.encode("utf-8")) <= 10,
+                "Invalid persisted rover location", "invalid_session")
 
     def new_state(self, session_id, params):
         plugin_id = params.get("pluginID", PLUGIN_ID)
@@ -1037,6 +1047,7 @@ class Host:
                 "name": text(params.get("name", PLUGINS[plugin_id]), 128),
                 "revision": 0, "engine": "not1mm-python", "pluginID": plugin_id,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
+                "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
                 "fields": dict(zip(INPUTS, ("", report, report,

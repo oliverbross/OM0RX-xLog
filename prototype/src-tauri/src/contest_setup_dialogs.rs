@@ -7,6 +7,8 @@ pub fn kind(label: &str) -> Option<&'static str> {
         "contest-setup-operator" => Some("operator"),
         "contest-setup-station" => Some("station"),
         "contest-setup-configuration" => Some("configuration"),
+        "contest-setup-rover" => Some("rover"),
+        "contest-setup-about" => Some("about"),
         _ => None,
     }
 }
@@ -15,6 +17,8 @@ pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
         "operator" => Some(("contest-setup-operator", "Operator", 420.0, 190.0)),
         "station" => Some(("contest-setup-station", "Station Settings", 760.0, 660.0)),
         "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 320.0)),
+        "rover" => Some(("contest-setup-rover", "Rover", 382.0, 110.0)),
+        "about" => Some(("contest-setup-about", "About Not1MM", 420.0, 500.0)),
         _ => None,
     }
 }
@@ -28,6 +32,10 @@ fn text(value: &Value) -> bool { value.as_str().is_some_and(|s| !s.is_empty() &&
 fn document(value: &Value) -> bool {
     value.is_object() && ["station", "settings", "preferences", "network"].iter().all(|key| value[key].is_object())
         && value["macros"].is_array() && value.to_string().len() <= 65_536
+}
+fn auxiliary(value: &Value) -> bool {
+    value.is_object() && value["roverLocation"].as_str().is_some_and(|s| s.len() <= 10)
+        && value["diagnostics"].is_object() && value["diagnostics"].to_string().len() <= 4_096
 }
 fn owner(label: &str) -> Result<(), String> {
     if label == "contest-setup" { Ok(()) } else { Err("Only Contest Setup owns setup changes.".into()) }
@@ -43,14 +51,14 @@ impl State {
         match method {
             "publish" => {
                 owner(label)?;
-                if !text(&params["epoch"]) || !text(&params["context"]) || !document(&params["document"]) {
+                if !text(&params["epoch"]) || !text(&params["context"]) || !document(&params["document"]) || !auxiliary(&params["auxiliary"]) {
                     return Err("Invalid setup owner snapshot.".into());
                 }
-                let unchanged = self.snapshot.as_ref().is_some_and(|s| s["epoch"] == params["epoch"] && s["context"] == params["context"] && s["document"] == params["document"]);
+                let unchanged = self.snapshot.as_ref().is_some_and(|s| s["epoch"] == params["epoch"] && s["context"] == params["context"] && s["document"] == params["document"] && s["auxiliary"] == params["auxiliary"]);
                 if !unchanged {
                     let revision = self.snapshot.as_ref().and_then(|s| s["revision"].as_u64()).unwrap_or(0) + 1;
                     if let Some(pending) = self.pending.take() { self.settle(pending, false, "Setup changed. Reopen the dialog before saving."); }
-                    self.snapshot = Some(json!({"epoch":params["epoch"],"context":params["context"],"revision":revision,"document":params["document"]}));
+                    self.snapshot = Some(json!({"epoch":params["epoch"],"context":params["context"],"revision":revision,"document":params["document"],"auxiliary":params["auxiliary"]}));
                 }
                 Ok(self.snapshot.clone().unwrap())
             }
@@ -85,7 +93,11 @@ impl State {
             }
             "submit" => {
                 let dialog = kind(label).ok_or("This window cannot save setup.")?;
-                if !text(&params["requestID"]) || !document(&params["document"]) { return Err("Invalid setup save request.".into()); }
+                if dialog == "about" { return Err("The About window is read-only.".into()); }
+                let valid_payload = if dialog == "rover" {
+                    params["roverLocation"].as_str().is_some_and(|s| !s.trim().is_empty() && s.len() <= 10)
+                } else { document(&params["document"]) };
+                if !text(&params["requestID"]) || !valid_payload { return Err("Invalid setup save request.".into()); }
                 let mut request = params; request["kind"] = json!(dialog);
                 if let Some((_, original, receipt)) = self.receipts.iter().find(|(_,p,_)| p["requestID"] == request["requestID"]) {
                     return if *original == request { Ok(receipt.clone()) } else { Err("Setup request ID was reused.".into()) };
@@ -119,7 +131,8 @@ pub fn request(label: &str, method: &str, params: Value) -> Result<Value, String
 mod tests {
     use super::*;
     fn doc() -> Value { json!({"station":{},"settings":{},"preferences":{},"network":{},"macros":[]}) }
-    fn publish(s: &mut State) -> Value { s.request("contest-setup", "publish", json!({"epoch":"owner-1","context":"workspace-1","document":doc()})).unwrap() }
+    fn auxiliary() -> Value { json!({"roverLocation":"","diagnostics":{"engine":"Not1MM Python"}}) }
+    fn publish(s: &mut State) -> Value { s.request("contest-setup", "publish", json!({"epoch":"owner-1","context":"workspace-1","document":doc(),"auxiliary":auxiliary()})).unwrap() }
     fn submission(snapshot: &Value) -> Value { let mut p = snapshot.clone(); p["requestID"] = json!("save-1"); p }
     #[test]
     fn admits_only_owner_and_dialog_operations() {
@@ -133,7 +146,7 @@ mod tests {
     }
     #[test]
     fn only_owner_or_main_logging_opon_can_open_dialogs() {
-        for kind in ["operator", "station", "configuration"] {
+        for kind in ["operator", "station", "configuration", "rover", "about"] {
             assert!(can_open("contest-setup", kind));
         }
         assert!(can_open("contest--active-qso", "operator"));
@@ -171,6 +184,8 @@ mod tests {
         assert_eq!(spec("operator"),Some(("contest-setup-operator","Operator",420.0,190.0)));
         assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
         assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,320.0)));
+        assert_eq!(spec("rover"),Some(("contest-setup-rover","Rover",382.0,110.0)));
+        assert_eq!(spec("about"),Some(("contest-setup-about","About Not1MM",420.0,500.0)));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-operator"),(360.0,170.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-station"),(620.0,480.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-configuration"),(680.0,300.0));
@@ -179,7 +194,7 @@ mod tests {
     #[test]
     fn dialogs_have_only_their_finite_core_capability() {
         let capability: Value = serde_json::from_str(include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
-        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration"]));
+        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration","contest-setup-rover","contest-setup-about"]));
         assert_eq!(capability["permissions"],json!(["core:default","core:window:allow-set-size"]));
     }
 }

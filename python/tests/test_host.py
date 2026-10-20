@@ -101,6 +101,25 @@ class HostTests(unittest.TestCase):
         self.assertEqual((fields["callsign"], fields["sent"], fields["receive"], fields["other_2"]),
                          ("", "599", "599", ""))
 
+    def test_rover_location_is_persisted_for_future_contacts_only(self):
+        first = self.log(minute=0)
+        changed = self.mutate("rover_location", location="fn20")
+        self.assertEqual(changed["projection"]["roverLocation"], "FN20")
+        second = self.log(minute=1)
+        rows = {row["ID"]: row for row in self.read("log", offset=0, limit=10)["rows"]}
+        self.assertEqual(rows[first]["RoverLocation"], "")
+        self.assertEqual(rows[second]["RoverLocation"], "FN20")
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("session_open")["projection"]["roverLocation"], "FN20")
+
+    def test_rover_location_rejects_blank_and_overlong_values_without_revision_change(self):
+        before = self.revision
+        for value in ("", " ", "ABCDEFGHIJK"):
+            with self.subTest(value=value), self.assertRaises(HostError):
+                self.mutate("rover_location", location=value)
+            self.assertEqual(self.read("projection")["projection"]["revision"], before)
+
     def save_esm(self, **preferences):
         setup = self.read("setup_get")["setup"]
         setup["preferences"].update(preferences)

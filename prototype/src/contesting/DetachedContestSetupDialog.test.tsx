@@ -35,7 +35,8 @@ beforeEach(() => {
   native.setSize.mockImplementation(async size => { queueMicrotask(() => native.resizeHandler?.({ payload: { toLogical: () => ({ width: size.width, height: size.height }) } })); });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
-const snapshot = () => ({ epoch: "owner", context: "workspace/session", revision: 2, document: newContestSetup("OM0RX") });
+const snapshot = () => ({ epoch: "owner", context: "workspace/session", revision: 2, document: newContestSetup("OM0RX"),
+  auxiliary:{roverLocation:"",diagnostics:{engine:"Not1MM Python",plugin:"cq_ww_cw",version:"26.10.11",source:"source",reference:"reference"}} });
 function open(kind: "station" | "configuration") {
   window.history.replaceState({}, "", `?view=contest-setup-${kind}`);
   native.invoke.mockImplementation(async (_command, { method }) => method === "snapshot" ? snapshot() : null);
@@ -236,7 +237,7 @@ it("uses one owner save for a repeated native request after a lost completion", 
     if (method === "complete") { completions++; if (completions === 1) throw new Error("Lost reply"); }
     return source;
   });
-  function Owner() { useContestSetupDialogs({ enabled: true, context: source.context, document: source.document, save, report }); return null; }
+  function Owner() { useContestSetupDialogs({ enabled: true, context: source.context, document: source.document, auxiliary:source.auxiliary, save, saveRover:vi.fn(), report }); return null; }
   render(<Owner/>);
   await waitFor(() => expect(completions).toBe(2));
   expect(save).toHaveBeenCalledTimes(1);
@@ -249,7 +250,7 @@ it("rejects a dialog save when owner context changes while the request is being 
     return source;
   });
   function Owner({ context }: { context: string }) {
-    useContestSetupDialogs({ enabled: true, context, document: source.document, save, report }); return null;
+    useContestSetupDialogs({ enabled: true, context, document: source.document, auxiliary:source.auxiliary, save, saveRover:vi.fn(), report }); return null;
   }
   const view = render(<Owner context={source.context}/>);
   await waitFor(() => expect(deliver).toBeTypeOf("function"));
