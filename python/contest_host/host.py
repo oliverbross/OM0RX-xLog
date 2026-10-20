@@ -16,6 +16,7 @@ from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
+                      DISPLAY_SENTNR_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, RTTY_PLUGINS, SERIAL_PLUGINS,
@@ -355,6 +356,8 @@ class Desk:
                 self.radio_state["mode"] = previous_mode
         if self.contest.dupe_type == 1:
             return bool(self.database.check_dupe(call).get("isdupe"))
+        if self.contest.dupe_type == 3:
+            return bool(self.database.check_dupe_on_band_mode(call, band, mode).get("isdupe"))
         return bool(self.database.check_dupe_on_band(call, band).get("isdupe"))
 
     def contest_band(self, frequency):
@@ -430,10 +433,16 @@ class Desk:
                 ) if enabled],
                 "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights,
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
-                "dupe": bool(call and self.is_dupe(call, band)),
+                "dupe": bool(call and self.is_dupe(
+                    call, band, mode=("LSB" if self.state["draft"]["frequencyHz"] < 10000000 else "USB")
+                    if self.state["settings"]["ModeCategory"] == "SSB"
+                    else self.state["settings"]["ModeCategory"],
+                )),
                 "dupeExplanation": ("Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."
                                     if self.contest.dupe_type == 5 else
-                                    "Worked in this contest." if self.contest.dupe_type == 1 else "Worked on this band."),
+                                    "Worked in this contest." if self.contest.dupe_type == 1 else
+                                    "Worked on this band and mode." if self.contest.dupe_type == 3 else
+                                    "Worked on this band."),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "columns": self.contest.columns, "score": self.score()}
 
@@ -486,6 +495,11 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "multipliers": multipliers,
                     "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] == "iaru_hf":
+            headquarters, zones = self.contest.show_mults(self, rtc=True)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": zones, "headquarters": headquarters,
+                    "multipliers": headquarters + zones, "total": self.contest.calc_score(self)}
         country, zone = self.contest.show_mults(self, rtc=True)
         return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                 "countries": country, "zones": zone, "multipliers": country + zone, "total": self.contest.calc_score(self)}
@@ -890,6 +904,15 @@ class Host:
                 if state["pluginID"] in CQ_160_PLUGINS:
                     require(re.fullmatch(r"[A-Za-z0-9]{1,6}", zone) is not None,
                             "CQ 160 sent exchange must be a state, province or CQ zone")
+                if state["pluginID"] == "euhfc":
+                    require(re.fullmatch(r"[0-9]{2}", zone) is not None,
+                            "EUHFC sent license year must be two digits")
+                if state["pluginID"] == "iaru_hf":
+                    require(zone.isdigit() and 1 <= int(zone) <= 90,
+                            "IARU HF sent ITU zone must be 1 to 90")
+                    iaru_zone = setup["station"].get("IARUZone")
+                    require(str(iaru_zone).isdigit() and 1 <= int(iaru_zone) <= 90,
+                            "IARU HF station IARU zone must be 1 to 90")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 require(setup["settings"].get("ModeCategory", mode) in modes,
@@ -907,7 +930,8 @@ class Host:
                 previous_station = desk.station
                 desk = Desk(store, state, self.commit)
                 if (state["pluginID"] in CQ_WW_PLUGINS and state["pluginID"] != "cq_ww_rtty"
-                        or state["pluginID"] in AADX_PLUGINS):
+                        or state["pluginID"] in AADX_PLUGINS
+                        or state["pluginID"] in DISPLAY_SENTNR_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1111,6 +1135,16 @@ class Host:
         if plugin_id in CQ_160_PLUGINS:
             require(re.fullmatch(r"[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
                     "CQ 160 sent exchange must be a state, province or CQ zone")
+        if plugin_id == "euhfc":
+            require(re.fullmatch(r"[0-9]{2}", str(settings["SentExchange"])) is not None,
+                    "EUHFC sent license year must be two digits")
+        if plugin_id == "iaru_hf":
+            require(str(settings["SentExchange"]).isdigit()
+                    and 1 <= int(settings["SentExchange"]) <= 90,
+                    "IARU HF sent ITU zone must be 1 to 90")
+            iaru_zone = station.get("IARUZone")
+            require(str(iaru_zone).isdigit() and 1 <= int(iaru_zone) <= 90,
+                    "IARU HF station IARU zone must be 1 to 90")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1130,7 +1164,8 @@ class Host:
                     str(settings["SentExchange"]) if (plugin_id in CQ_WW_PLUGINS and plugin_id != "cq_ww_rtty")
                     or plugin_id in JIDX_PLUGINS
                     or plugin_id in AADX_PLUGINS
-                    or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
+                     or plugin_id in TEN_TEN_PLUGINS
+                     or plugin_id in DISPLAY_SENTNR_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if state["pluginID"] not in SERIAL_PLUGINS:
@@ -1218,6 +1253,16 @@ class Host:
         elif desk.state["pluginID"] in CQ_WW_PLUGINS:
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
+        elif desk.state["pluginID"] == "euhfc":
+            require(re.fullmatch(r"[0-9]{2}", fields["other_1"]) is not None
+                    and re.fullmatch(r"[0-9]{2}", fields["other_2"]) is not None,
+                    "EUHFC sent and received license years must be two digits")
+        elif desk.state["pluginID"] == "iaru_hf":
+            require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 90,
+                    "IARU HF sent ITU zone must be 1 to 90")
+            require((fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 90)
+                    or re.fullmatch(r"[A-Z]{2,8}", fields["other_2"]) is not None,
+                    "IARU HF received exchange must be ITU zone 1 to 90 or an HQ abbreviation")
         elif desk.state["pluginID"] in {"cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty",
                                          "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
             for name in ("other_1", "other_2"):
@@ -1347,7 +1392,7 @@ class Host:
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
             if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS,
                                            *NAME_SPC_ENTRY_PLUGINS, *ARRL_DX_PLUGINS,
-                                           *CQ_160_PLUGINS}:
+                                           *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS}:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]

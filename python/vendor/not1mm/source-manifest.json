@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb"],
+  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb", "euhfc", "iaru_hf"],
   "sha256": {
     "not1mm/plugins/oceania_dx_ssb.py": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee",
     "not1mm/plugins/oceania_dx_cw.py": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664",
@@ -39,6 +39,8 @@
     "not1mm/plugins/aadx_ssb.py": "5d6d4a6a9dff5f07bb533041ba259bf901ef33a74e31f0a4091a9235333b0bdc",
     "not1mm/plugins/cq_160_cw.py": "45dce6c2caa3ee05e56137e2fee226dae5e1f2434b327b0d3506ae17b804379c",
     "not1mm/plugins/cq_160_ssb.py": "db03be688702e523a3d532fabc59e84e689668438e3c3038501a0d82a8b55804",
+    "not1mm/plugins/euhfc.py": "2bec874fc12149a4ab76683b30459141c49f13f5d8423b2dd7c7e263ff68b683",
+    "not1mm/plugins/iaru_hf.py": "f8697ee440ee60b85ab88ea499f749294cf379130fa5a4b90fe7ccdb63bc3cde",
     "not1mm/lib/database.py": "855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8",
     "not1mm/lib/plugin_common.py": "09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737",
     "not1mm/lib/ham_utility.py": "dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2",

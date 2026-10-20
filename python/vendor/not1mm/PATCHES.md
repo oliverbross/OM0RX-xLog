@@ -13,6 +13,8 @@ Phone Weekly Test, Weekly RTTY Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans
 Oceania DX CW, Oceania DX SSB, SAC CW, SAC SSB, and IARU Region 1
 Field Day CW and SSB, plus JIDX CW and JIDX Phone, AADX CW and AADX SSB,
 and CQ 160 CW and CQ 160 SSB.
+EU HF Championship and IARU HF Championship are also registered as their
+original mixed-mode modules.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -182,6 +184,20 @@ import time and fails if the pinned source differs:
     to timestamp-only multiplier queries. SSB remains non-transmitting and adds
     no audio/PTT authority.
 
+18. EU HF Championship and IARU HF Championship execute unchanged modules
+    from the same pinned revision (Git blobs
+    `4cdc89218ba78be158f0dff8d8e64d7dde79db85` and
+    `0f2d6999865b5b24872c0e6fd53b6994b1842b11`). The host validates EUHFC's
+    two-digit license-year exchanges and IARU HF's ITU-zone or headquarters
+    exchange before invoking the original setters. Original continental point
+    rules, license-year and zone/HQ multipliers, mixed-mode duplicate rule,
+    ESM decisions and Cabrillo callbacks remain authoritative. The generic host
+    duplicate adapter now dispatches Not1MM `dupe_type = 3` through its original
+    band-and-mode database query, so a session may work a call once in CW and
+    once in phone on the same band. Both modules need only the common Qt import
+    and private export-directory relocation overlays. Phone ESM can commit but
+    remains non-transmitting and adds no audio/PTT authority.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -210,6 +226,8 @@ Original SHA-256:
 | plugins/aadx_ssb.py | 5d6d4a6a9dff5f07bb533041ba259bf901ef33a74e31f0a4091a9235333b0bdc |
 | plugins/cq_160_cw.py | 45dce6c2caa3ee05e56137e2fee226dae5e1f2434b327b0d3506ae17b804379c |
 | plugins/cq_160_ssb.py | db03be688702e523a3d532fabc59e84e689668438e3c3038501a0d82a8b55804 |
+| plugins/euhfc.py | 2bec874fc12149a4ab76683b30459141c49f13f5d8423b2dd7c7e263ff68b683 |
+| plugins/iaru_hf.py | f8697ee440ee60b85ab88ea499f749294cf379130fa5a4b90fe7ccdb63bc3cde |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
