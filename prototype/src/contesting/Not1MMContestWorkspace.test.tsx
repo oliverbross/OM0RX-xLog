@@ -1127,6 +1127,44 @@ it.each(["log", "cluster"])("applies %s Check Partial only through the revision-
   expect(nativeCW.execute).not.toHaveBeenCalled();
 });
 
+it("publishes imported plugin history to Check Partial and clears it with the next QSO",async()=>{
+  let current={...projection(9,{callsign:"DL1ABC",other_2:"14"}),history:"DL1ABC, 14, imported"};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:
+      method==="contest_score"?{score:current.score}:method==="contest_check_partial"?{rows:[]}:null;
+    if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,fields:current.fields.map(field=>
+        ({...field,value:(params.fields as Record<string,string>)[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }else if(method==="contest_qso_commit"){
+      current={...current,revision:current.revision+1,history:"",fields:current.fields.map(field=>
+        ({...field,value:field.id==="callsign"||field.id==="other_2"?"":field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    }
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  const expected={candidateID:"history:DL1ABC",callsign:"DL1ABC",
+    fields:[{id:"not1mm-history",label:"Not1MM",value:"DL1ABC, 14, imported"}]};
+  await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].history)
+    .toEqual({source:"Imported Call History",rows:[expected]}));
+  const check=surfaceOwner.current.projections["callsign-intelligence"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"callsign-intelligence",projectionRevision:1,requestID:crypto.randomUUID(),action:"assistance_select",
+    params:{draftID:current.draftID,expectedDraftRevision:check.draftRevision,kind:"history",candidateID:expected.candidateID}}));
+  expect(request.mock.calls.find(([method])=>method==="contest_draft_apply")?.[1]).toMatchObject({fields:{callsign:"DL1ABC"}});
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action:"entry_commit",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"].history)
+    .toEqual({source:null,rows:[]}));
+});
+
 it("applies a contest-window spot only to the active Not1MM draft and tunes exactly once",async()=>{
   let current=projection();
   const tune=vi.fn(async(_frequencyHz:number,_mode:string)=>({accepted:true,confirmed:true}));

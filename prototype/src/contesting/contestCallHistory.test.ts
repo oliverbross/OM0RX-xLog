@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { historyProjectedFields, historyQueryAll, historyQueryPage, historySelectAll, type HistoryQueryCoordinates, type HistorySelection } from "./contestCallHistory";
+import { historyProjectedFields, historyQueryAll, historyQueryPage, historySelectAll, not1mmHistoryCandidate, type HistoryQueryCoordinates, type HistorySelection } from "./contestCallHistory";
 import type { ContestDraftSnapshot, ContestRequest } from "./types";
 
 const base:Omit<ContestDraftSnapshot,"fields">={draftID:"d",sessionID:"s",workspaceGeneration:"g",revision:1,reservedSerial:null,validation:{errors:[],warnings:[]},dupe:{state:"clear",reason:""},updatedAt:"2026-10-18T00:00:00.000Z"};
@@ -25,6 +25,13 @@ const header=(name:string)=>({originalName:name,canonicalName:name.toLowerCase()
 const context=(ruleIdentity:Record<string,string>=coordinates.ruleIdentity)=>({sessionID:coordinates.sessionID,workspaceGeneration:coordinates.workspaceGeneration,sessionRevision:coordinates.expectedRevision,draftID:coordinates.draftID,draftRevision:coordinates.expectedDraftRevision,inputCallsign:coordinates.callsign,requestID:coordinates.requestID,ruleIdentity,referenceDataVersion:coordinates.referenceDataVersion});
 const queryResult=(overrides:Record<string,unknown>={})=>({context:context(),normalizedCallsign:"K1ABC",dataset:historyDataset,totalRecords:1,recordOffset:0,recordLimit:20,valueOffset:0,valueLimit:128,records:[{recordID:`${historyDataset.sha256}:0`,sourceOrdinal:0,sourceLine:2,normalizedCallsign:"K1ABC",indexingIssue:null,values:[{header:header("Call"),value:"K1ABC"}]}],next:null,...overrides});
 const framed=(result:unknown)=>({id:"x",ok:true as const,result});
+
+it("adapts only the active Not1MM plugin history line for Check Partial",()=>{
+  expect(not1mmHistoryCandidate(" k1abc ","K1ABC, 5, Minnesota")).toEqual({candidateID:"history:K1ABC",callsign:"K1ABC",
+    fields:[{id:"not1mm-history",label:"Not1MM",value:"K1ABC, 5, Minnesota"}]});
+  expect(not1mmHistoryCandidate("K1ABC","")).toBeNull();
+  expect(not1mmHistoryCandidate("", "stale history")).toBeNull();
+});
 
 it("accepts a valid rule identity regardless of JSON key order",async()=>{
   const reordered={sourceRevision:"fixture",edition:"2026",version:"1",id:"cq-ww-cw"};

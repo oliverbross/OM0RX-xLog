@@ -8,6 +8,7 @@ import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type Contes
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
+import { not1mmHistoryCandidate } from "./contestCallHistory";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
@@ -358,6 +359,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
 
   const result = async <T,>(method: string, params: Record<string, unknown> = {}) => unwrap<T>(await request(method, params));
   const partialQuery = (fields.callsign ?? "").trim().toUpperCase();
+  const historyCandidate = useMemo(() => not1mmHistoryCandidate(fields.callsign ?? "", projection?.history ?? ""),
+    [fields.callsign, projection?.history]);
   const loggedCandidates = partialCandidates("log",
     partial?.sessionID === projection?.sessionID && partial?.revision === projection?.revision && partial?.query === partialQuery
       ? partial?.rows.map(row => row.Call) ?? [] : [], partialQuery);
@@ -1029,7 +1032,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       clusterCalls:clusterCandidates.map(candidate => candidate.callsign),
       loggedCandidates, clusterCandidates,
       scp: { source: scpSurface?.source ?? null, candidates: scpSurface?.candidates ?? [] },
-      history: { source: null, rows: [] },
+      history: { source: historyCandidate ? "Imported Call History" : null,
+        rows: historyCandidate ? [historyCandidate] : [] },
       busy: !!scpSurface?.busy,
     };
     const sharedSpots=contestSurfaceSpots(spots);
@@ -1073,7 +1077,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
-    phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands,
+    phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz]);
 
   const surfaceContext = detachedAvailable && projection ? {
@@ -1201,6 +1205,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           await persistFields("callsign", candidate.callsign);
         }
         else if (action.params.kind === "scp" && scpSurface) await scpSurface.selectCandidate(action.params.candidateID);
+        else if (action.params.kind === "history" && historyCandidate?.candidateID === action.params.candidateID)
+          await persistFields("callsign", historyCandidate.callsign);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
       case "log_export_cabrillo": await exportLog("cabrillo", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,

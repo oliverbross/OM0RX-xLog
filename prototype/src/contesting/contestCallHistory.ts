@@ -14,6 +14,7 @@ export type HistoryRecord = {recordID:string;sourceOrdinal:number;sourceLine:num
 export type HistoryProjection = {id:string;sourceKey:string;target:"legacyReceivedExchange"|"receivedField";fieldID:string|null;label:string;rawValue:string;normalizedValue:string};
 export type HistorySelection = {context:HistoryContext;dataset:HistoryDataset;record:HistoryRecord;projections:HistoryProjection[]};
 export type HistoryActivation = {state:"not_imported"|"unavailable"|"active"|"failed";generation:string|null;digest:string|null;rowCount:number|null;message:string|null};
+export type Not1MMHistoryCandidate = {candidateID:string;callsign:string;fields:{id:string;label:string;value:string}[]};
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const digest=/^[0-9a-f]{64}$/;
@@ -22,6 +23,12 @@ const text=(v:unknown,max:number,empty=false):v is string=>typeof v==="string"&&
 const uint=(v:unknown)=>Number.isSafeInteger(v)&&Number(v)>=0;
 const object=(v:unknown):Record<string,unknown>|null=>v!==null&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
 const exact=(v:Record<string,unknown>,keys:string[])=>Object.keys(v).length===keys.length&&keys.every(k=>k in v);
+export function not1mmHistoryCandidate(callsign:string,history:string):Not1MMHistoryCandidate|null{
+  const normalized=callsign.trim().toUpperCase();
+  if(!call.test(normalized)||!history)return null;
+  return {candidateID:`history:${normalized}`,callsign:normalized,
+    fields:[{id:"not1mm-history",label:"Not1MM",value:history}]};
+}
 function frame(value:unknown){const f=object(value);if(!f||!text(f.id,128)||typeof f.ok!=="boolean")throw new Error("Malformed call-history response.");if(f.ok){if(!exact(f,["id","ok","result"]))throw new Error("Malformed call-history response.");return f.result;}const e=object(f.error);throw new Error(e&&typeof e.message==="string"?e.message:"Call history is unavailable.");}
 function validHeader(v:unknown):v is HistoryHeader{const x=object(v);return !!x&&exact(x,["originalName","canonicalName","knownKey"])&&text(x.originalName,64)&&text(x.canonicalName,64)&&(x.knownKey===null||text(x.knownKey,32));}
 function validDataset(v:unknown):v is HistoryDataset{const x=object(v);return !!x&&exact(x,["generation","sha256","sourceName","importedAtUTC","byteCount","recordCount","indexableRecordCount","unindexableRecordCount","duplicateCallCount"])&&uuid.test(String(x.generation))&&digest.test(String(x.sha256))&&text(x.sourceName,256)&&text(x.importedAtUTC,32)&&Number.isFinite(Date.parse(String(x.importedAtUTC)))&&[x.byteCount,x.recordCount,x.indexableRecordCount,x.unindexableRecordCount,x.duplicateCallCount].every(uint)&&Number(x.byteCount)<=16*1024*1024&&Number(x.recordCount)<=100000&&Number(x.indexableRecordCount)+Number(x.unindexableRecordCount)===Number(x.recordCount);}

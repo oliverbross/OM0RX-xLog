@@ -125,6 +125,49 @@ final class PythonContestCallHistoryLaneTests: XCTestCase {
         XCTAssertLessThanOrEqual(stats.maximumBytes, PrototypeWorker.maxRequestBytes)
     }
 
+    func testCommitReportsActivationFailureAndPersistedDatasetRecoversOnReopen() async throws {
+        let root = try temporaryContestingRoot("activation-recovery")
+        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent().deletingLastPathComponent()) }
+        let scope = PythonContestCallHistoryScope(
+            sessionID: id(31), workspaceGeneration: id(32), revision: 1, draftID: id(33),
+            callsign: "K1ABC", ruleIdentity: CQWWCWRule.identity,
+            referenceDataVersion: "not1mm-reference-1")
+        let source = root.deletingLastPathComponent().appendingPathComponent("recoverable-history.txt")
+        try Data("!!Order!!,Call,CqZone,UserText\nK1ABC,05,persisted\n".utf8).write(to: source)
+        let failing = try PythonContestCallHistoryLane(
+            contestingRoot: root,
+            hostRequest: { _, _ in
+                throw ContestLaneError.confirmed("history_activation_failed", "Fixture activation failed.")
+            }, activeScope: { scope })
+        let preview = try await failing.handle(method: "contest_history_preview_private", params: [
+            "path": source.path, "sourceName": source.lastPathComponent,
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
+        ])
+        let committed = try await failing.handle(method: "contest_history_preview_commit", params: [
+            "previewID": try XCTUnwrap(preview["previewID"] as? String),
+            "sha256": try XCTUnwrap(preview["sha256"] as? String),
+            "sessionID": scope.sessionID, "workspaceGeneration": scope.workspaceGeneration,
+            "confirmAdvisories": false,
+        ])
+        let dataset = try XCTUnwrap(committed["dataset"] as? [String: Any])
+        let failed = try XCTUnwrap(committed["activation"] as? [String: Any])
+        XCTAssertEqual(dataset["recordCount"] as? Int, 1)
+        XCTAssertEqual(failed["state"] as? String, "failed")
+        XCTAssertEqual(failed["message"] as? String, "Fixture activation failed.")
+
+        let recorder = PythonHistoryHostRecorder()
+        let reopened = try PythonContestCallHistoryLane(
+            contestingRoot: root,
+            hostRequest: { method, params in try await recorder.request(method, params) },
+            activeScope: { scope })
+        let status = try await reopened.handle(method: "contest_history_status",
+                                               params: managerParams(scope))
+        XCTAssertEqual((status["dataset"] as? [String: Any])?["generation"] as? String,
+                       dataset["generation"] as? String)
+        XCTAssertEqual((status["activation"] as? [String: Any])?["state"] as? String, "active")
+        XCTAssertEqual((status["activation"] as? [String: Any])?["rowCount"] as? Int, 1)
+    }
+
     private func queryParams(_ scope: PythonContestCallHistoryScope,
                              requestID: String) -> [String: Any] {
         baseParams(scope, requestID: requestID).merging([

@@ -91,6 +91,18 @@ class CallHistoryHostTests(unittest.TestCase):
         self.assertEqual(disabled_again["history"], "")
         self.assertEqual(next(item["value"] for item in disabled_again["fields"] if item["id"] == "other_2"), "5")
 
+    def test_plugin_history_is_cleared_for_the_next_qso(self):
+        self.activate(uid(), "8" * 64, [row("K1ABC", "5", "current contact")])
+        populated = self.mutate(
+            "draft_apply", fields={"callsign": "K1ABC", "other_2": ""}
+        )["projection"]
+        self.assertEqual(populated["history"], "K1ABC, 5, current contact")
+
+        next_qso = self.mutate("qso_commit")["projection"]
+
+        self.assertEqual(next(item["value"] for item in next_qso["fields"] if item["id"] == "callsign"), "")
+        self.assertEqual(next_qso["history"], "")
+
     def test_restart_status_and_failed_replacement_retain_active_generation(self):
         generation, digest = uid(), "b" * 64
         self.activate(generation, digest, [row("K1ABC", "5", "kept")])
