@@ -1,6 +1,7 @@
 """Original source-pinned CQ WW SSB plugin through the production host."""
 from copy import deepcopy
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -59,6 +60,24 @@ class CQWWSSBHostTests(unittest.TestCase):
 
     def read(self, method, **kwargs):
         return self.call(method, {"sessionID": self.session, **kwargs})
+
+    def assert_voice(self, action, key, payload, macro_mode):
+        self.assertEqual((action["kind"], action["signal"], action["mode"]),
+                         ("voice_keyer", "phone", "SSB"))
+        self.assertEqual((action["key"], action["payload"]), (key, payload))
+        self.assertEqual(action["payloadUTF8Bytes"], len(payload.encode("utf-8")))
+        self.assertEqual(action["payloadSHA256"], sha256(payload.encode("utf-8")).hexdigest())
+        source = action["sourceMacro"]
+        self.assertEqual((source["origin"], source["path"], source["revision"],
+                          source["mode"], source["key"]),
+                         ("pinned_not1mm", "not1mm/data/cwmacros.txt",
+                          "7c8b499225a73f7f8f792246881bd7aefc05452f", macro_mode, key))
+        encoded = json.dumps(source, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        self.assertEqual(action["sourceMacroSHA256"], sha256(encoded).hexdigest())
+        self.assertNotEqual(action["kind"], "function_key")
+        self.assertNotIn("cw", action)
+        self.assertNotIn("audio", action)
+        self.assertNotIn("ptt", action)
 
     def log(self, call="K1ABC", zone="5", minute=0, frequency=14250000):
         qso = uid()
@@ -208,21 +227,98 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertIn("CLAIMED-SCORE: 6\r\n", export)
         self.assertEqual(sum(line.startswith("QSO:") for line in export.splitlines()), 2)
 
-    def test_ssb_esm_commits_without_cw_output_and_guards_cw_context(self):
-        self.assertEqual(self.mutate("function_key", key="F1")["actions"], [])
+    def test_ssb_function_keys_emit_bounded_source_evidenced_voice_intents(self):
+        expected = {
+            "F1": "cq test OM0RX OM0RX test", "F2": "K1ABC", "F3": "59 15", "F4": None,
+            "F5": "OM0RX", "F6": "?", "F7": "rr", "F8": "73", "F9": "agn",
+            "F10": "cl?", "F11": "NR?", "F12": "tu",
+        }
+        first = None
+        for key, payload in expected.items():
+            result = self.mutate("function_key", key=key, fields={"callsign": "K1ABC"})
+            if payload is None:
+                self.assertEqual(result["actions"], [])
+                continue
+            self.assert_voice(result["actions"][0], key, payload, "S")
+            first = first or result["actions"][0]
+        self.assertEqual(first["sourceMacro"]["template"],
+                         "cq test {MYCALL} {MYCALL} test")
+        self.assertEqual(self.mutate("function_key", key="F4")["actions"], [])
+        self.mutate("run_state", run=True)
+        expected.update(F4="tu OM0RX qrz", F6="15", F7="?", F8="rr", F10="cl?", F11="NR?",
+                        F12="K1ABC rr tu")
+        for key, payload in expected.items():
+            run = self.mutate("function_key", key=key, fields={"callsign": "K1ABC"})
+            self.assert_voice(run["actions"][0], key, payload, "R")
+
+    def test_ssb_run_and_s_and_p_esm_emit_voice_intents_and_commit(self):
         with self.assertRaisesRegex(HostError, "does not support CW"):
             self.read("cw_context")
         sandp_call = self.mutate("esm", field="callsign", fields={"callsign": "K1ABC"})
-        self.assertEqual(sandp_call["actions"], [])
+        self.assert_voice(sandp_call["actions"][0], "F5", "OM0RX", "S")
         sandp_exchange = self.mutate("esm", field="other_2", fields={"other_2": "5"})
-        self.assertEqual(sandp_exchange["actions"], [])
+        self.assert_voice(sandp_exchange["actions"][0], "F3", "59 15", "S")
+        self.assertEqual(sandp_exchange["actions"][0]["fields"]["callsign"], "K1ABC")
         self.assertEqual(self.read("log")["total"], 1)
         self.mutate("run_state", run=True)
+        run_cq = self.mutate("esm", field="callsign")
+        self.assert_voice(run_cq["actions"][0], "F1", "cq test OM0RX OM0RX test", "R")
         run_call = self.mutate("esm", field="callsign", fields={"callsign": "DL1ABC"})
-        self.assertEqual(run_call["actions"], [])
+        self.assertEqual([action["key"] for action in run_call["actions"]], ["F2", "F3"])
+        self.assert_voice(run_call["actions"][0], "F2", "DL1ABC", "R")
+        self.assert_voice(run_call["actions"][1], "F3", "59 15", "R")
         run_exchange = self.mutate("esm", field="other_2", fields={"other_2": "14"})
-        self.assertEqual(run_exchange["actions"], [])
+        self.assert_voice(run_exchange["actions"][0], "F4", "tu OM0RX qrz", "R")
         self.assertEqual(self.read("log")["total"], 2)
+
+    def test_ssb_voice_claim_is_revision_fenced_at_most_once_and_never_replayed(self):
+        result = self.mutate("function_key", key="F2", fields={"callsign": "K1ABC"})
+        action = result["actions"][0]
+        self.assert_voice(action, "F2", "K1ABC", "S")
+        claimed = self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
+        self.assertEqual(claimed["actions"], [action])
+        with self.assertRaises(HostError) as consumed:
+            self.read("output_claim", operationID=result["operationID"], revision=result["revision"])
+        self.assertEqual(consumed.exception.code, "output_consumed")
+        self.assertEqual(self.read("receipt", operationID=result["operationID"])["result"]["actions"], [])
+
+        stale = self.mutate("function_key", key="F1")
+        self.mutate("draft_apply", fields={"callsign": "DL1ABC"})
+        with self.assertRaises(HostError) as error:
+            self.read("output_claim", operationID=stale["operationID"], revision=stale["revision"])
+        self.assertEqual(error.exception.code, "stale_revision")
+
+    def test_ssb_saved_macro_evidence_and_expansion_bound_are_atomic(self):
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F2", "label": "Their call",
+                            "template": "voice {CALL}"}]
+        self.mutate("setup_save", setup=setup)
+        result = self.mutate("function_key", key="F2", fields={"callsign": "K1ABC"})
+        action = result["actions"][0]
+        self.assertEqual(action["payload"], "voice K1ABC")
+        self.assertEqual((action["sourceMacro"]["origin"], action["sourceMacro"]["path"],
+                          action["sourceMacro"]["template"]),
+                         ("session_setup", None, "voice {CALL}"))
+
+        setup = self.read("setup_get")["setup"]
+        setup["macros"] = [{"mode": "S", "key": "F2", "label": "Bounded",
+                            "template": "{CALL}" * 170}]
+        self.mutate("setup_save", setup=setup)
+        revision = self.revision
+        operation = uid()
+        with self.assertRaisesRegex(HostError, "Text exceeds field bound"):
+            self.call("function_key", {"sessionID": self.session, "operationID": operation,
+                                       "expectedRevision": revision, "key": "F2",
+                                       "fields": {"callsign": "K" * 32}})
+        self.assertEqual(self.read("projection")["projection"]["revision"], revision)
+        self.assertFalse(self.read("receipt", operationID=operation)["found"])
+
+    def test_ssb_voice_intents_do_not_change_scoring_or_export(self):
+        before = (self.read("score")["score"], self.read("export")["content"])
+        result = self.mutate("function_key", key="F1")
+        self.assert_voice(result["actions"][0], "F1", "cq test OM0RX OM0RX test", "S")
+        after = (self.read("score")["score"], self.read("export")["content"])
+        self.assertEqual(after, before)
 
     def test_correction_delete_restart_and_cabrillo_ph_output(self):
         self.mutate("draft_apply", fields={"sent": "57", "receive": "58"})

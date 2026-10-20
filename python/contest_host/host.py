@@ -22,6 +22,8 @@ SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
+VOICE_INTENT_PLUGINS = {"cq_ww_ssb"}
+VOICE_PAYLOAD_MAXIMUM = 4_096
 ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmAGN",
              "HISCALL": "esmHisCall", "MYCALL": "esmMyCall", "QSOB4": "esmQsoB4"}
 # Pre-settings host sessions always used these assignments. Materialize only
@@ -165,11 +167,14 @@ class Desk:
         self.database.plugin_id = state["pluginID"]
         self.contest = load_plugin(state["pluginID"])
         self.cw_macros = load_cw_macros(state["pluginID"])
+        self.macro_origins = {identity: "pinned_not1mm" for identity in self.cw_macros}
         for macro in state.get("setup", {}).get("macros", []):
-            self.cw_macros[(macro["mode"], macro["key"])] = {
+            identity = (macro["mode"], macro["key"])
+            self.cw_macros[identity] = {
                 "label": macro["label"],
                 "template": adapt_cw_template(state["pluginID"], macro["template"]),
             }
+            self.macro_origins[identity] = "session_setup"
         self.station, self.contest_settings = state["station"], state["settings"]
         esm = esm_preferences(state.get("setup", {}).get("preferences", {}))
         self.use_esm = esm["useESM"]
@@ -229,17 +234,40 @@ class Desk:
 
     def process_function_key(self, button):
         require(button.name in {f"F{i}" for i in range(1, 13)}, "Unknown function key")
-        if self.state["settings"]["ModeCategory"] != "CW":
-            return  # Original SSB ESM may log; it cannot request CW output.
-        macro = self.cw_macros[("R" if self.state["run"] else "S", button.name)]
+        macro_mode = "R" if self.state["run"] else "S"
+        identity = (macro_mode, button.name)
+        macro = self.cw_macros[identity]
         if not macro["template"].strip():
+            return
+        mode = self.state["settings"]["ModeCategory"]
+        context = {"sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
+                   "fields": self.values(), "stationCall": self.station["Call"],
+                   "sentExchange": str(self.contest_settings["SentExchange"]),
+                   "sentSerial": self.other_1.text() if self.state["pluginID"] in SERIAL_PLUGINS else ""}
+        if mode == "SSB":
+            if self.state["pluginID"] not in VOICE_INTENT_PLUGINS:
+                return
+            payload = text(self.process_macro(macro["template"]), VOICE_PAYLOAD_MAXIMUM)
+            source_macro = {"origin": self.macro_origins[identity],
+                            "path": ("not1mm/data/cwmacros.txt"
+                                     if self.macro_origins[identity] == "pinned_not1mm" else None),
+                            "revision": SOURCE_REVISION, "mode": macro_mode, "key": button.name,
+                            "label": macro["label"], "template": macro["template"]}
+            payload_bytes = payload.encode("utf-8")
+            self.actions.append({"kind": "voice_keyer", "signal": "phone", "mode": "SSB",
+                                 "key": button.name, "label": macro["label"], "payload": payload,
+                                 "payloadUTF8Bytes": len(payload_bytes),
+                                 "payloadSHA256": hashlib.sha256(payload_bytes).hexdigest(),
+                                 "sourceMacro": source_macro,
+                                 "sourceMacroSHA256": hashlib.sha256(
+                                     canonical(source_macro).encode("utf-8")).hexdigest(),
+                                 **context})
+            return
+        if mode != "CW":
             return
         self.actions.append({"kind": "function_key", "key": button.name,
                              "label": macro["label"], "template": macro["template"],
-                             "sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
-                             "fields": self.values(), "stationCall": self.station["Call"],
-                             "sentExchange": str(self.contest_settings["SentExchange"]),
-                             "sentSerial": self.other_1.text() if self.state["pluginID"] in SERIAL_PLUGINS else ""})
+                             **context})
 
     def process_macro(self, template):
         values = {
