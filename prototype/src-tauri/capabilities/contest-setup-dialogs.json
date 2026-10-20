@@ -3,5 +3,5 @@
   "identifier": "contest-setup-dialogs",
   "description": "Two bundled setup editors; mutation authority remains in Contest Setup.",
   "windows": ["contest-setup-station", "contest-setup-configuration"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-set-size"]
 }

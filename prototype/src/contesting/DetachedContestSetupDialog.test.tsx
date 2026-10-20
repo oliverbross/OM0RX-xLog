@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { DetachedContestSetupDialog } from "./DetachedContestSetupDialog";
+import { readFileSync } from "node:fs";
+import { DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedConfigurationDialogHeight } from "./DetachedContestSetupDialog";
 import { newContestSetup, contestSetupTabs } from "./ContestSetupPanel";
 import { mergeSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
-const native = vi.hoisted(() => ({ invoke: vi.fn() }));
+const native = vi.hoisted(() => ({ invoke: vi.fn(), setSize: vi.fn(), innerSize: vi.fn(), scaleFactor: vi.fn(async () => 2),
+  onResized: vi.fn(), resizeHandler: null as null | ((event: { payload: { toLogical: (scale: number) => { width: number; height: number } } }) => void) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ setSize: native.setSize, innerSize: native.innerSize, scaleFactor: native.scaleFactor, onResized: native.onResized }) }));
+vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+beforeEach(() => {
+  native.resizeHandler = null;
+  native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 820, height: 320 }) }));
+  native.onResized.mockImplementation(async handler => { native.resizeHandler = handler; return vi.fn(); });
+  native.setSize.mockImplementation(async size => { queueMicrotask(() => native.resizeHandler?.({ payload: { toLogical: () => ({ width: size.width, height: size.height }) } })); });
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const snapshot = () => ({ epoch: "owner", context: "workspace/session", revision: 2, document: newContestSetup("OM0RX") });
 function open(kind: "station" | "configuration") {
   window.history.replaceState({}, "", `?view=contest-setup-${kind}`);
@@ -37,6 +47,41 @@ it("keeps the original Configuration tab order and fields", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   expect(screen.getByLabelText("160m")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Edit Keys" })).toBeNull();
+});
+it("auto-fits a managed Configuration default to its measured content", async () => {
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(476);
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.setSize).toHaveBeenCalled());
+  expect(native.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ width: 820, height: 476 });
+});
+it("preserves a user-restored Configuration size instead of auto-fitting it", async () => {
+  native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 900, height: 600 }) }));
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.innerSize).toHaveBeenCalled());
+  expect(native.setSize).not.toHaveBeenCalled();
+});
+it("keeps the operator's final drag size when fit and restore writes arrive late", async () => {
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(476);
+  let current = { width: 820, height: 320 }, finishFit!: () => void, finishRestore!: () => void;
+  native.innerSize.mockImplementation(async () => ({ toLogical: () => current }));
+  native.setSize
+    .mockImplementationOnce(size => new Promise<void>(resolve => { finishFit = () => { current = { width: size.width, height: size.height }; resolve(); }; }))
+    .mockImplementationOnce(size => new Promise<void>(resolve => { finishRestore = () => { current = { width: size.width, height: size.height }; resolve(); }; }));
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.setSize).toHaveBeenCalledTimes(1));
+  current = { width: 900, height: 600 };
+  await act(async () => native.resizeHandler?.({ payload: { toLogical: () => ({ width: 900, height: 600 }) } }));
+  await act(async () => finishFit());
+  await waitFor(() => expect(native.setSize).toHaveBeenCalledTimes(2));
+  expect(native.setSize.mock.calls[1]?.[0]).toMatchObject({ width: 900, height: 600 });
+  current = { width: 940, height: 640 };
+  await act(async () => native.resizeHandler?.({ payload: { toLogical: () => ({ width: 940, height: 640 }) } }));
+  await act(async () => finishRestore());
+  await waitFor(() => expect(native.setSize).toHaveBeenCalledTimes(3));
+  expect(native.setSize.mock.calls[2]?.[0]).toMatchObject({ width: 940, height: 640 });
 });
 it("submits once while pending and closes only after a saved receipt", async () => {
   open("station");
@@ -127,4 +172,17 @@ it("rejects a dialog save when owner context changes while the request is being 
     method: "complete", params: expect.objectContaining({requestID:"stale-save",ok:false,message:expect.stringContaining("Setup changed")}),
   }));
   expect(save).not.toHaveBeenCalled();
+});
+it("uses compact content-fit bounds while keeping dense configuration tabs fully visible", () => {
+  const styles = readFileSync("src/contesting/DetachedContestSetupDialog.css", "utf8");
+  expect(fittedConfigurationDialogHeight(180)).toBe(320);
+  expect(fittedConfigurationDialogHeight(476)).toBe(476);
+  expect(fittedConfigurationDialogHeight(900)).toBe(680);
+  expect(isManagedConfigurationDialogHeight(320)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(520)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(620)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(600)).toBe(false);
+  expect(styles).toContain("data-dialog-kind=configuration");
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto/);
+  expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }");
 });

@@ -8,7 +8,7 @@ pub fn kind(label: &str) -> Option<&'static str> {
 pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
     match kind {
         "station" => Some(("contest-setup-station", "Station Settings", 760.0, 660.0)),
-        "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 520.0)),
+        "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 320.0)),
         _ => None,
     }
 }
@@ -151,14 +151,15 @@ mod tests {
     #[test]
     fn only_exposes_two_compact_distinct_windows() {
         assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
-        assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,520.0)));
-        for label in ["contest-setup-station", "contest-setup-configuration"] { assert_eq!(crate::workspace_windows::native_minimum(label),(620.0,480.0)); }
+        assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,320.0)));
+        assert_eq!(crate::workspace_windows::native_minimum("contest-setup-station"),(620.0,480.0));
+        assert_eq!(crate::workspace_windows::native_minimum("contest-setup-configuration"),(680.0,300.0));
         assert!(spec("logbook").is_none()); assert!(kind("contest-setup").is_none());
     }
     #[test]
     fn dialogs_have_only_their_finite_core_capability() {
         let capability: Value = serde_json::from_str(include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
         assert_eq!(capability["windows"],json!(["contest-setup-station","contest-setup-configuration"]));
-        assert_eq!(capability["permissions"],json!(["core:default"]));
+        assert_eq!(capability["permissions"],json!(["core:default","core:window:allow-set-size"]));
     }
 }

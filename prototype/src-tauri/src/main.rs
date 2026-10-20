@@ -1990,11 +1990,12 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
 async fn contest_setup_dialog_open(window: tauri::WebviewWindow, app: tauri::AppHandle, kind: String) -> Result<(), String> {
     if window.label() != CONTEST_SETUP_WINDOW { return Err("Only Contest Setup opens its dialogs.".into()); }
     let (label, title, width, height) = contest_setup_dialogs::spec(&kind).ok_or("Unknown setup dialog.")?;
+    let (minimum_width, minimum_height) = workspace_windows::native_minimum(label);
     let dialog = recover_singleton(&MAIN_CREATION, || app.get_webview_window(label), || {
         let mut builder = tauri::WebviewWindowBuilder::new(&app, label,
             tauri::WebviewUrl::App(format!("index.html?view={label}").into()))
             .title(format!("OM0RX-xLog Contest — {title}"))
-            .inner_size(width, height).min_inner_size(620.0, 480.0).focused(true)
+            .inner_size(width, height).min_inner_size(minimum_width, minimum_height).focused(true)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
         let dialog = builder.build().map_err(|error| error.to_string())?;
