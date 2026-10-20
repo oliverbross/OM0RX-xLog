@@ -1,10 +1,14 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"],
+  "registeredPlugins": ["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"],
   "sha256": {
     "not1mm/plugins/oceania_dx_ssb.py": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee",
     "not1mm/plugins/oceania_dx_cw.py": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664",
+    "not1mm/plugins/10_10_fall_cw.py": "c7e0c822a75ba2354d20c58269dd1e2fb8df543ec8ec66ad304915d2562f63b4",
+    "not1mm/plugins/10_10_spring_cw.py": "a0abdb0269d9ca5938cd5784bfae8eab756369f0a2dc2c8e2c5f72c2e836fcd3",
+    "not1mm/plugins/10_10_winter_phone.py": "b07011970d2c56d2e1400c5035c78bcac4e3435fc20dcef842a547164f0660de",
+    "not1mm/plugins/10_10_summer_phone.py": "a15484dc4e954bd4ca014e351d3f96c9e5a6345d158279c6b10fc31b3f5275f4",
     "not1mm/plugins/trans_tasman.py": "e077c5bc1f77d7f4ef75c7591cf4a0d5f984a26997fbd6831ddd7f92093e3344",
     "not1mm/plugins/icwc_mst.py": "4fcf5971b539a3f7634fea21a752d1a5915d8d11f08c14d0a608a62d57ffb8ca",
     "not1mm/plugins/cq_ww_cw.py": "08f383e8ddb6f02fede9149f5490a1042b71a5cd5e2591ac76b0cf1ba460c3e2",

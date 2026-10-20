@@ -13,7 +13,7 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS
+from .plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS, TEN_TEN_PLUGINS
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
@@ -85,6 +85,13 @@ def validate_name_sent_exchange(sent_exchange):
             and sent_exchange == sent_exchange.strip()
             and 0 < len(sent_exchange) <= 64,
             "Sent exchange must be non-empty text without surrounding whitespace")
+
+
+def validate_ten_ten_sent_exchange(sent_exchange):
+    """Bound setup to the same three-token shape as the original plugin exchange."""
+    parts = sent_exchange.upper().split() if isinstance(sent_exchange, str) else []
+    require(len(parts) == 3 and parts[0].isalpha() and parts[1].isdigit() and parts[2].isalpha(),
+            "10-10 sent exchange must be NAME 10-10# SPC")
 
 
 def now():
@@ -345,6 +352,11 @@ class Desk:
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] in TEN_TEN_PLUGINS:
+            points = self.database.fetch_points().get("Points") or 0
+            return {"qsos": self.contest.show_qso(self), "points": points,
+                    "countries": 0, "zones": 0, "multipliers": 0,
+                    "total": self.contest.calc_score(self)}
         if self.state["pluginID"] == "trans_tasman":
             prefixes = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -709,6 +721,8 @@ class Host:
                     validate_cwo_names(setup["station"], setup["settings"].get("SentExchange"))
                 if state["pluginID"] in {"cwt", "k1usn_sst"}:
                     validate_name_sent_exchange(setup["settings"].get("SentExchange"))
+                if state["pluginID"] in TEN_TEN_PLUGINS:
+                    validate_ten_ten_sent_exchange(setup["settings"].get("SentExchange"))
                 mode = PLUGIN_REGISTRY[state["pluginID"]].modes[0]
                 require(setup["settings"].get("ModeCategory", mode) == mode, f"Selected plugin requires {mode} mode")
                 setup["station"]["Call"] = call
@@ -724,6 +738,8 @@ class Host:
                 desk = Desk(store, state, self.commit)
                 if state["pluginID"] == "cq_ww_cw":
                     desk.other_1.setText(zone)
+                if state["pluginID"] in TEN_TEN_PLUGINS:
+                    self.prefill(desk)
                 if previous_station["Call"] != call:
                     self.rebuild(desk)
             elif method == "esm":
@@ -897,6 +913,8 @@ class Host:
             validate_cwo_names(station, settings["SentExchange"])
         if plugin_id in {"cwt", "k1usn_sst"}:
             validate_name_sent_exchange(settings["SentExchange"])
+        if plugin_id in TEN_TEN_PLUGINS:
+            validate_ten_ten_sent_exchange(settings["SentExchange"])
         mode = PLUGIN_REGISTRY[plugin_id].modes[0]
         settings.setdefault("ModeCategory", mode)
         require(settings["ModeCategory"] == mode, f"Selected plugin requires {mode} mode")
@@ -908,7 +926,8 @@ class Host:
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
-                "fields": dict(zip(INPUTS, ("", report, report, str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" else "", "")))}}
+                "fields": dict(zip(INPUTS, ("", report, report,
+                    str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if state["pluginID"] not in SERIAL_PLUGINS:
@@ -1007,6 +1026,8 @@ class Host:
         elif desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
             require(all(value and value == value.strip() for value in (fields["other_1"], fields["other_2"])),
                     "Received name and exchange must be non-empty without surrounding whitespace")
+        elif desk.state["pluginID"] in TEN_TEN_PLUGINS:
+            require(desk.contest.validate(desk), "Received exchange must be NAME 10-10# SPC")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1085,7 +1106,7 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
-            if desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
+            if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS}:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]
@@ -1113,6 +1134,10 @@ class Host:
         for row in rows:
             desk.contact = row
             desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
+            if desk.state["pluginID"] in TEN_TEN_PLUGINS:
+                # The original points() reads the active exchange widget. During
+                # ordered replay, make that widget represent the row being scored.
+                desk.other_2.setText(row["NR"])
             row["Points"] = desk.contest.points(desk)
             points[row["ID"]] = row["Points"]
             desk.database.log_contact(row)
