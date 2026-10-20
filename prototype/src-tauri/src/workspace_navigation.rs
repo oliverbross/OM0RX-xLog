@@ -28,7 +28,7 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 20] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 21] = [
     ("contest-setup", "Contest Setup"),
     ("contest-dialog-operator", "Operator…"),
     ("contest-dialog-station", "Station Settings…"),
@@ -37,6 +37,7 @@ pub const CONTEST_MENU_ITEMS: [(&str, &str); 20] = [
     ("contest-dialog-rover", "Rover…"),
     ("contest-window-call-history", "Call History"),
     ("contest-window-qrz-details", "QRZ Details"),
+    ("contest-window-group-chat", "Group Chat"),
     ("contest-window-active-qso", "Main Logging"),
     ("contest-window-propagation", "Stats"),
     ("contest-window-logbook", "Logbook"),
@@ -143,7 +144,7 @@ mod tests {
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
             state.acknowledge("contest-setup", pending.revision).unwrap();
         }
-        for label in ["contest--active-qso", "contest--monitor", "contest--station-control", "contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-digital", "contest-setup-rover", "contest-setup-about"] {
+        for label in ["contest--active-qso", "contest--group-chat", "contest--monitor", "contest--station-control", "contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-digital", "contest-setup-rover", "contest-setup-about"] {
             assert!(contest_owner_dependent_window(label));
         }
         for label in ["contest-setup", "main", "rotor", "station-control", "contest-window-active-qso"] {
@@ -156,9 +157,10 @@ mod tests {
         // dependency and fences the old lifetime's delayed retirement task.
         assert!(!contest_owner_can_retire(false, false, ["contest-setup-station"]));
         assert!(contest_owner_can_retire(false, false, ["rotor", "station-control"]));
-        assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
+        assert_eq!(windows, ["active-qso", "qrz-details", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
             ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"), ("contest-window-qrz-details", "QRZ Details"),
+            ("contest-window-group-chat", "Group Chat"),
             ("contest-dialog-operator", "Operator…"),
             ("contest-dialog-station", "Station Settings…"), ("contest-dialog-configuration", "Configuration Settings…"),
             ("contest-dialog-digital", "Digital Logging Setup…"),
@@ -187,6 +189,7 @@ mod tests {
         for label in [
             "contest-setup",
             "contest--call-history",
+            "contest--group-chat",
             "contest--active-qso",
             "contest--propagation",
             "contest--logbook",

@@ -84,15 +84,16 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 14] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 15] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 480.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — QRZ Details", width: 520.0, height: 420.0 },
+    WindowSpec { id: "group-chat", title: "OM0RX-xLog Contest — Group Chat", width: 620.0, height: 420.0 },
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 500.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 500.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 140.0 },
-    WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Group Chat", width: 780.0, height: 600.0 },
+    WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Alerts", width: 780.0, height: 600.0 },
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 300.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 300.0 },
     WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 620.0, height: 420.0 },
@@ -120,6 +121,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
     let old: &'static [(f64, f64)] = match identity.panel_id {
         "active-qso" => &[(800.0, 620.0)],
         "call-history" => &[(900.0, 720.0), (840.0, 640.0)],
+        "group-chat" => &[],
         "band-maps" => &[(380.0, 760.0), (520.0, 700.0)],
         "callsign-intelligence" => &[(700.0, 620.0)],
         "monitor" => &[(780.0, 600.0)],
@@ -160,6 +162,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "active-qso" => (560.0, 360.0),
                 "call-history" => (620.0, 280.0),
                 "qrz-details" => (420.0, 260.0),
+                "group-chat" => (360.0, 240.0),
                 "callsign-intelligence" => (480.0, 420.0),
                 "logbook" => (760.0, 480.0),
         "propagation" => (400.0, 140.0),
@@ -381,7 +384,7 @@ mod tests {
 
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
-        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "qrz-details", "callsign-intelligence",
+        assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
             "chaser-dx", "dx-cluster", "logbook", "monitor", "propagation", "rotor", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
@@ -390,7 +393,8 @@ mod tests {
             ("logbook", "OM0RX-xLog Contest — Log Display"),
             ("monitor", "OM0RX-xLog Contest — Rates"),
             ("station-control", "OM0RX-xLog Contest — Remote VFO"),
-            ("alerts", "OM0RX-xLog Contest — Group Chat"),
+            ("alerts", "OM0RX-xLog Contest — Alerts"),
+            ("group-chat", "OM0RX-xLog Contest — Group Chat"),
         ] { assert_eq!(titles.get(panel), Some(&title)); }
     }
     #[test]
@@ -496,6 +500,7 @@ mod tests {
     fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
         let expected = [
             ("active-qso", (560.0, 360.0)), ("call-history", (620.0, 280.0)), ("qrz-details", (420.0, 260.0)),
+            ("group-chat", (360.0, 240.0)),
             ("callsign-intelligence", (480.0, 420.0)), ("logbook", (760.0, 480.0)),
             ("propagation", (400.0, 140.0)), ("alerts", (320.0, 220.0)),
             ("band-maps", (420.0, 420.0)), ("dx-cluster", (720.0, 420.0)),

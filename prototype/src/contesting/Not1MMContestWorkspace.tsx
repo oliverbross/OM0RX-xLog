@@ -19,6 +19,7 @@ import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
 import { setContestCWSpeed } from "./contestStationControl";
+import { configureContestGroupChat, openContestGroupChatWindow } from "./contestGroupChat";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
@@ -1213,6 +1214,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const reportSurfaceError = useCallback((message: string) => setError(message), []);
   const waitForSurfacePublication = useContestSurfaceOwner({ context: surfaceContext, projections: surfaceProjections,
     handle: handleSurfaceAction, report: reportSurfaceError });
+  useEffect(() => {
+    if (!setupOnly || !surfaceContext) return;
+    void configureContestGroupChat(surfaceContext, {
+      enabled: setup.network.multiEnabled === true,
+      multicastGroup: String(setup.network.multicastGroup ?? "239.1.1.1"),
+      multicastPort: Number(setup.network.multicastPort ?? 2239),
+      interface: String(setup.network.interface ?? "0.0.0.0"),
+      operator: setup.operator.trim().toUpperCase(),
+    }).catch(cause => setError(errorMessage(cause)));
+  }, [setupOnly, surfaceContext?.operatingContext, surfaceContext?.sessionID, surfaceContext?.workspaceGeneration,
+    setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface, setup.operator]);
 
   useEffect(() => {
     if (!registerMenuRoute) return;
@@ -1234,6 +1246,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         }
         await flushDraftRef.current();
         await openContestCallHistoryWindow(surfaceContext);
+        return true;
+      }
+      if (route === "contest-window-group-chat") {
+        if (startupPending) return false;
+        if (!projectionRef.current || !detachedAvailable || !surfaceContext) {
+          setManager(true); setError("Open a contest session before opening Group Chat."); return true;
+        }
+        await openContestGroupChatWindow(surfaceContext);
         return true;
       }
       if (route === "contest-window-qrz-details" && setup.preferences.showQRZDetails !== true) {

@@ -11,6 +11,7 @@ vi.mock("./contestStationControl", () => ({ setContestCWSpeed: stationControl.sp
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any, waitForPublication: vi.fn(async () => {}) }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
+const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: vi.fn(async () => {}) }));
 const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => {
@@ -20,6 +21,7 @@ vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWind
   openContestCallHistoryWindow: surfaceWindow.openHistory }));
 vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog,
   useContestSetupDialogs: (owner: unknown) => { setupDialogOwner.current = owner; } }));
+vi.mock("./contestGroupChat", () => ({ configureContestGroupChat: groupChat.configure, openContestGroupChatWindow: groupChat.open }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
@@ -1203,6 +1205,10 @@ it("defers a native contest window command until the saved session is fully rest
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
   await expect(route!("contest-window-call-history")).resolves.toBe(true);
   expect(surfaceWindow.openHistory).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}));
+  await expect(route!("contest-window-group-chat")).resolves.toBe(true);
+  expect(groupChat.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}));
+  await waitFor(() => expect(groupChat.configure).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}),
+    expect.objectContaining({enabled:false,multicastGroup:"224.1.1.1",multicastPort:2239,interface:"0.0.0.0"})));
   await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
   expect(surfaceWindow.open).not.toHaveBeenCalledWith(expect.anything(), "qrz-details");
   expect((await screen.findByRole("alert")).textContent).toContain("Enable Show QRZ details");

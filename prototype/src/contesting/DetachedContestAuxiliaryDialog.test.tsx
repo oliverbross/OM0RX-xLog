@@ -36,4 +36,9 @@ describe("DetachedContestAuxiliaryDialog", () => {
     const { DetachedContestDigitalDialog } = await import("./DetachedContestDigitalDialog");
     expect(await loadWindowSurface("?view=contest-setup-digital")).toBe(DetachedContestDigitalDialog);
   });
+  it("routes Group Chat to its dedicated contest window", async () => {
+    const { DetachedContestGroupChat } = await import("./DetachedContestGroupChat");
+    expect(await loadWindowSurface("?view=group-chat&scope=contesting&operatingContext=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&sessionID=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb&workspaceGeneration=cccccccc-cccc-4ccc-8ccc-cccccccccccc"))
+      .toBe(DetachedContestGroupChat);
+  });
 });

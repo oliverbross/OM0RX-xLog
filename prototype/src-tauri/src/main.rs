@@ -55,6 +55,7 @@ mod contest_window_state;
 mod contest_surface;
 mod contest_setup_services;
 mod contest_setup_dialogs;
+mod contest_group_chat;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -2327,6 +2328,39 @@ async fn contest_window_open(window: tauri::WebviewWindow, app: tauri::AppHandle
         .await.map_err(|_| "Contest window task failed".to_string())?
 }
 
+fn contest_group_chat_context(window: &tauri::WebviewWindow, operating_context: &str,
+    session_id: &str, workspace_generation: &str) -> Result<contest_window_context::ContestWindowContext, String> {
+    if window.label() != "contest--group-chat" { return Err("Only the Group Chat window can use the chat runtime.".into()); }
+    let context = contest_window_context::resolve(session_id, workspace_generation)?;
+    if context.operating_context != operating_context { return Err("That Group Chat window belongs to an expired contest context.".into()); }
+    Ok(context)
+}
+
+#[tauri::command]
+fn contest_group_chat_configure(window: tauri::WebviewWindow,
+    state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
+    session_i_d: String, workspace_generation: String,
+    configuration: contest_group_chat::Configuration) -> Result<contest_group_chat::Snapshot, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    state.configure(format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), configuration)
+}
+
+#[tauri::command]
+fn contest_group_chat_snapshot(window: tauri::WebviewWindow,
+    state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
+    session_i_d: String, workspace_generation: String) -> Result<contest_group_chat::Snapshot, String> {
+    let context = contest_group_chat_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    state.snapshot(&format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation))
+}
+
+#[tauri::command]
+fn contest_group_chat_send(window: tauri::WebviewWindow,
+    state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
+    session_i_d: String, workspace_generation: String, message: String) -> Result<(), String> {
+    let context = contest_group_chat_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    state.send(&format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), &message)
+}
+
 fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), String> {
     validate_contest_surface_main_caller(label)?;
     workspace_navigation::contest_window_panel(panel_id)
@@ -2335,12 +2369,15 @@ fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), Strin
 
 #[tauri::command]
 async fn contest_surface_context_close(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    group_chat: tauri::State<'_, contest_group_chat::GroupChat>,
     operating_context: String, session_i_d: String, workspace_generation: String) -> Result<(), String> {
     if window.label() != "contest-setup" { return Err("Only the detached Contest Setup owner can close the contest window context.".into()); }
     let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
     if context.operating_context != operating_context { return Err("That contest window belongs to an expired operating context.".into()); }
-    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_closed(&app, context))
-        .await.map_err(|_| "Contest window context task failed".to_string())?
+    let result = tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_closed(&app, context))
+        .await.map_err(|_| "Contest window context task failed".to_string())?;
+    if result.is_ok() { group_chat.shutdown(); }
+    result
 }
 
 fn contest_surface_main_context(window: &tauri::WebviewWindow, operating_context: &str,
@@ -2747,6 +2784,7 @@ fn main() {
     builder
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
+        .manage(contest_group_chat::GroupChat::default())
         .setup(|app| {
             let module_path = app.path().app_data_dir().map_err(std::io::Error::other)?;
             operating_module::install(module_path).map_err(std::io::Error::other)?;
@@ -2827,6 +2865,7 @@ fn main() {
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close, contest_setup_service_open,
             contest_setup_dialog_open, contest_setup_dialog_request,
+            contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
@@ -2852,6 +2891,7 @@ fn main() {
                 auto_rotor_reconcile::shutdown();
                 logbook_events::shutdown();
                 workspace_window_runtime::shutdown();
+                app.state::<contest_group_chat::GroupChat>().shutdown();
                 detached_geometry::shutdown(app);
             }
             #[cfg(target_os = "macos")]
@@ -2880,7 +2920,7 @@ mod workspace_layout_tests {
 
     #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
-        for panel in ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
+        for panel in ["active-qso", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
             for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());
