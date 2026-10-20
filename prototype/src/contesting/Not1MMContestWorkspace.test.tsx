@@ -367,15 +367,17 @@ it("projects CWT Name as received input and admits edits through the detached ow
 
 it.each([
   { pluginID:"cwt", pluginName:"CWT", exchangeLabel:"Number or State", exchangeColumn:"RcvNr",
-    row:{Name:"ALICE",NR:"ALICE 123",Sect:"",ZN:5}, expectedOther2:"123" },
+    row:{Name:"ALICE",NR:"ALICE 123",Sect:"",ZN:5}, expectedOther1:"ALICE", expectedOther2:"123" },
   { pluginID:"k1usn_sst", pluginName:"K1USN SLOW SPEED TEST", exchangeLabel:"SPC", exchangeColumn:"Sect",
-    row:{Name:"ALICE",NR:"",Sect:"CT",ZN:5}, expectedOther2:"CT" },
-])("opens $pluginID corrections with received Name/exchange instead of historical sent exchange or CQ zone",
-  async ({pluginID,pluginName,exchangeLabel,exchangeColumn,row:exchangeRow,expectedOther2}) => {
+    row:{Name:"ALICE",NR:"",Sect:"CT",ZN:5}, expectedOther1:"ALICE", expectedOther2:"CT" },
+  { pluginID:"euhfc", pluginName:"EU HF Championship", exchangeLabel:"Lic Year", exchangeColumn:"RcvNr",
+    row:{SentNr:"82",NR:"30",ZN:14}, expectedOther1:"82", expectedOther2:"30" },
+])("opens $pluginID corrections with the plugin-owned historical exchanges",
+  async ({pluginID,pluginName,exchangeLabel,exchangeColumn,row:exchangeRow,expectedOther1,expectedOther2}) => {
     let current:any={...projection(3),pluginID,pluginName,matrixTrackers:[],
       columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name",exchangeColumn,"PTS"]};
     current.fields=current.fields.map((field:any)=>({...field,visible:!["sent","receive"].includes(field.id),readOnly:false,
-      label:field.id==="other_1"?"Name":field.id==="other_2"?exchangeLabel:field.label}));
+      label:field.id==="other_1"?(pluginID==="euhfc"?"":"Name"):field.id==="other_2"?exchangeLabel:field.label}));
     const row={ID:`${pluginID}-qso`,TS:"2026-10-20 09:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",
       SNT:"599",RCV:"599",SentNr:"OLIVER",Operator:"OM0RX",Points:1,...exchangeRow};
     let corrected:Record<string,any>|null=null;
@@ -403,15 +405,12 @@ it.each([
       panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
     await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_edit_begin",params:{qsoID:row.ID}}));
     expect(surfaceOwner.current.projections.logbook.editing.receivedFields).toEqual([
-      {id:"other_1",label:"Name",value:"ALICE",required:true,maximumUTF8Bytes:32},
+      {id:"other_1",label:pluginID==="euhfc"?"Sent exchange":"Name",value:expectedOther1,required:true,maximumUTF8Bytes:32},
       {id:"other_2",label:exchangeLabel,value:expectedOther2,required:true,maximumUTF8Bytes:128},
     ]);
     await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_save",
       params:{qsoID:row.ID,expectedSessionRevision:current.revision}}));
-    expect(corrected).toMatchObject({qsoID:row.ID,fields:{other_1:"ALICE",other_2:expectedOther2}});
-    const correctedFields=(corrected as Record<string,any>|null)?.fields;
-    expect(correctedFields.other_1).not.toBe("OLIVER");
-    expect(correctedFields.other_2).not.toBe("5");
+    expect(corrected).toMatchObject({qsoID:row.ID,fields:{other_1:expectedOther1,other_2:expectedOther2}});
   });
 
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {

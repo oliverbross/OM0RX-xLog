@@ -172,6 +172,7 @@ function canonicalWorkedAt(value: unknown) {
 }
 
 function receivedExchange(row: Data, pluginID?: string): string {
+  if (pluginID === "euhfc") return String(row.NR ?? "");
   if (pluginID === "icwc_mst") return `${row.Name ?? ""} ${row.NR ?? ""}`.trim();
   if (pluginID === "cwo") return `${row.NR ?? ""} ${row.Name ?? ""}`.trim();
   if (pluginID && sweepstakesPlugins.has(pluginID)) return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
