@@ -94,6 +94,15 @@ PLUGIN_REGISTRY = MappingProxyType({
     "rsgb_commonwealth_beru": Plugin("RSGB Commonwealth BERU", serial=True,
                                      bands=("80m", "40m", "20m", "15m", "10m"),
                                      sent_exchange_hint="Serial number (optional HQ)"),
+    "es_field_day": Plugin("ES FIELD DAY", serial=True, modes=("CW", "SSB"),
+                           allow_duplicate_commit=True,
+                           sent_exchange_hint="Serial + Estonian region"),
+    "es_ll_kv": Plugin("ES LL KV", serial=True, modes=("CW", "SSB"),
+                       allow_duplicate_commit=True, sent_exchange_hint="Serial number"),
+    "es_manual_key": Plugin("ES MANUAL KEY", serial=True, allow_duplicate_commit=True,
+                            sent_exchange_hint="Seniority + serial"),
+    "es_open": Plugin("ES OPEN", serial=True, modes=("CW", "SSB"),
+                      allow_duplicate_commit=True, sent_exchange_hint="Serial number"),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -115,7 +124,8 @@ CQ_160_PLUGINS = frozenset({"cq_160_cw", "cq_160_ssb"})
 EA_MAJESTAD_PLUGINS = frozenset({"ea_majestad_cw", "ea_majestad_ssb"})
 REF_PLUGINS = frozenset({"ref_cw", "ref_ssb"})
 RSGB_PLUGINS = frozenset({"rsgb_80m_cc", "rsgb_commonwealth_beru"})
+ESTONIAN_PLUGINS = frozenset({"es_field_day", "es_ll_kv", "es_manual_key", "es_open"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
     "euhfc", "arrl_10m", "arrl_160m",
-}) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS | REF_PLUGINS | RSGB_PLUGINS
+}) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS | REF_PLUGINS | RSGB_PLUGINS | ESTONIAN_PLUGINS

@@ -37,7 +37,7 @@ class PluginRegistryTests(unittest.TestCase):
             host = Host(Path(root).resolve())
             try:
                 catalog = host.dispatch({"id": "catalog", "method": "catalog", "params": {}})
-                self.assertEqual(len(catalog["plugins"]), 46)
+                self.assertEqual(len(catalog["plugins"]), 50)
                 self.assertEqual([(item["id"], item["name"]) for item in catalog["plugins"]], list(PLUGINS.items()))
                 sweepstakes = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_cw")
                 self.assertEqual(sweepstakes["modes"], ["CW"])
@@ -66,6 +66,18 @@ class PluginRegistryTests(unittest.TestCase):
                     {
                         "euhfc": ("EUHFC", ["CW", "SSB"], "Lic. Year (2 digits)"),
                         "iaru_hf": ("IARU HF", ["CW", "SSB"], "ITU Zone"),
+                    },
+                )
+                estonian = {item["id"]: item for item in catalog["plugins"]
+                            if item["id"] in {"es_field_day", "es_ll_kv", "es_manual_key", "es_open"}}
+                self.assertEqual(
+                    {key: (item["name"], item["modes"], item["sentExchangeHint"])
+                     for key, item in estonian.items()},
+                    {
+                        "es_field_day": ("ES FIELD DAY", ["CW", "SSB"], "Serial + Estonian region"),
+                        "es_ll_kv": ("ES LL KV", ["CW", "SSB"], "Serial number"),
+                        "es_manual_key": ("ES MANUAL KEY", ["CW"], "Seniority + serial"),
+                        "es_open": ("ES OPEN", ["CW", "SSB"], "Serial number"),
                     },
                 )
                 single_band = {item["id"]: item for item in catalog["plugins"]

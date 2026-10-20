@@ -198,6 +198,22 @@ import time and fails if the pinned source differs:
     and private export-directory relocation overlays. Phone ESM can commit but
     remains non-transmitting and adds no audio/PTT authority.
 
+19. ES Field Day, ES LL KV, ES Manual Key and ES Open execute unchanged modules
+    from the same pinned revision, bound by the SHA-256 values below. The host
+    requires their upstream `#` serial setup plus an explicit UTC contest start,
+    reserves every serial durably, and validates each received exchange before
+    invoking the original setters. Field Day adds the configured Estonian region;
+    Manual Key adds the configured two-digit seniority. Original point tables,
+    region/prefix multiplier SQL, ESM decisions and Cabrillo callbacks remain
+    authoritative. A finite import overlay evaluates the original period-based
+    duplicate checks against each QSO timestamp so replay and back-dated logging
+    are deterministic, and repairs the Field Day/Manual Key independent-`if`
+    fall-through that overwrote early-period results. Manual Key also restores
+    the five-digit exchange shape after SQLite's pinned INTEGER columns strip a
+    leading seniority zero. Mixed-mode plugins support CW and phone scoring;
+    phone ESM remains non-transmitting and adds no audio/PTT authority. This host
+    admission does not claim organizer certification or installed-app acceptance.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -228,6 +244,10 @@ Original SHA-256:
 | plugins/cq_160_ssb.py | db03be688702e523a3d532fabc59e84e689668438e3c3038501a0d82a8b55804 |
 | plugins/euhfc.py | 2bec874fc12149a4ab76683b30459141c49f13f5d8423b2dd7c7e263ff68b683 |
 | plugins/iaru_hf.py | f8697ee440ee60b85ab88ea499f749294cf379130fa5a4b90fe7ccdb63bc3cde |
+| plugins/es_field_day.py | b0dbe23dc1d41aa313eaa76955a7999be3a2066f404daacb66a9cd33dd9d94b4 |
+| plugins/es_ll_kv.py | 68996afb0fd28d9f7e0f31481bea7644e9a2a7391ad384301e7cff43edf37a61 |
+| plugins/es_manual_key.py | 785c7367ea9f3d19b11c40bc2d890564e13f1e34dd91c61ba5739b875a9ac9db |
+| plugins/es_open.py | 5b9563e0df2cb275ee1e13ac3d6d8653d566c74d922fdab9d6f4779b03618333 |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |

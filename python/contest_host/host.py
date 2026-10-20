@@ -18,6 +18,7 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
+                      ESTONIAN_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
@@ -31,7 +32,11 @@ INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb"}
-MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m"}
+MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "es_field_day", "es_ll_kv", "es_open"}
+ESTONIAN_REGIONS = frozenset({
+    "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
+    "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
+})
 VOICE_PAYLOAD_MAXIMUM = 4_096
 ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmAGN",
              "HISCALL": "esmHisCall", "MYCALL": "esmMyCall", "QSOB4": "esmQsoB4"}
@@ -84,6 +89,15 @@ def requires_serial(state):
             and "#" in str(state["settings"].get("SentExchange", "")))
 
 
+def reserved_sent_exchange(state, serial):
+    value = str(serial).zfill(3)
+    if state["pluginID"] == "es_field_day":
+        return f'{value} {str(state["station"].get("State", "")).upper()}'
+    if state["pluginID"] == "es_manual_key":
+        return f'{str(state["station"].get("LicenseClass", "")).upper()}{value}'
+    return value
+
+
 def validate_cwo_names(station, sent_exchange):
     """Match cwo.py's ASCII name parser and station-name export token."""
     require(isinstance(sent_exchange, str)
@@ -117,6 +131,21 @@ def validate_cq_ww_rtty_sent_exchange(sent_exchange):
     require(1 <= len(parts) <= 2 and parts[0].isdigit() and 1 <= int(parts[0]) <= 40
             and (len(parts) == 1 or re.fullmatch(r"[A-Za-z]{1,4}", parts[1]) is not None),
             "CQ WW RTTY sent exchange must be CQ zone plus optional state/VE area")
+
+
+def validate_estonian_setup(plugin_id, station, settings):
+    start = settings.get("StartDate")
+    try:
+        require(datetime.strptime(start, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == start,
+                "Estonian contest start must be UTC YYYY-MM-DD HH:MM:SS")
+    except (TypeError, ValueError) as error:
+        raise HostError("invalid_request", "Estonian contest start must be UTC YYYY-MM-DD HH:MM:SS") from error
+    if plugin_id == "es_field_day":
+        require(str(station.get("State", "")).upper() in ESTONIAN_REGIONS,
+                "ES Field Day station State must be an Estonian region")
+    if plugin_id == "es_manual_key":
+        require(re.fullmatch(r"[0-9]{2}", str(station.get("LicenseClass", ""))) is not None,
+                "ES Manual Key License Class must be two seniority digits")
 
 
 def now():
@@ -237,7 +266,7 @@ class Desk:
             # Older hosts allowed this visible field to drift from the durable
             # reservation. Reconcile it on every load before any projection,
             # mutation, direct commit, or reopen can consume the stale value.
-            expected = str(state["draft"]["serial"]).zfill(3)
+            expected = reserved_sent_exchange(state, state["draft"]["serial"])
             self.other_1.setText(expected)
             state["draft"]["fields"]["other_1"] = expected
             self.other_1.setReadOnly(True)
@@ -951,6 +980,10 @@ class Host:
                 if state["pluginID"] in REF_PLUGINS:
                     require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", zone) is not None,
                             "REF sent exchange must be #, a department or a prefix")
+                if state["pluginID"] in ESTONIAN_PLUGINS:
+                    require(setup["settings"].get("SentExchange") == "#",
+                            "Estonian contests require # as the serial exchange")
+                    validate_estonian_setup(state["pluginID"], setup["station"], setup["settings"])
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
@@ -1208,6 +1241,10 @@ class Host:
         if plugin_id in REF_PLUGINS:
             require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
                     "REF sent exchange must be #, a department or a prefix")
+        if plugin_id in ESTONIAN_PLUGINS:
+            require(settings["SentExchange"] == "#",
+                    "Estonian contests require # as the serial exchange")
+            validate_estonian_setup(plugin_id, station, settings)
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1252,7 +1289,7 @@ class Host:
             store.conn.execute("INSERT INTO xlog_serial(draft_id,serial,operation_id,scope) VALUES(?,?,?,?)",
                                (state["draft"]["id"], serial, self._operation, scope))
         state["draft"]["serial"] = serial
-        state["draft"]["fields"]["other_1"] = str(serial).zfill(3)
+        state["draft"]["fields"]["other_1"] = reserved_sent_exchange(state, serial)
 
     @staticmethod
     def countries(countries):
@@ -1295,7 +1332,7 @@ class Host:
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
         if not allow_reserved_serial_change and requires_serial(desk.state) and "other_1" in fields:
-            expected = str(desk.state["draft"].get("serial", "")).zfill(3)
+            expected = reserved_sent_exchange(desk.state, desk.state["draft"].get("serial", ""))
             require(fields["other_1"] == expected,
                     "The sent serial is reserved by the contest host and cannot be changed", "serial_conflict")
         for name, value in fields.items():
@@ -1310,7 +1347,7 @@ class Host:
                 self.reserve_serial(desk.database, desk.state)
                 if requires_serial(desk.state):
                     desk.current_sn = desk.state["draft"]["serial"]
-                    desk.other_1.setText(str(desk.current_sn).zfill(3))
+                    desk.other_1.setText(reserved_sent_exchange(desk.state, desk.current_sn))
 
     @staticmethod
     def prefill(desk):
@@ -1444,6 +1481,31 @@ class Host:
             require(fields["other_1"].isdigit()
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
                     "RSGB sent serial must be a positive SQLite integer")
+        elif desk.state["pluginID"] in ESTONIAN_PLUGINS:
+            if desk.state["pluginID"] == "es_field_day":
+                require(re.fullmatch(r"[0-9]+ [A-Z]{2}", fields["other_1"]) is not None,
+                        "ES Field Day sent exchange must contain its serial and region")
+            elif desk.state["pluginID"] == "es_manual_key":
+                require(re.fullmatch(r"[0-9]{5}", fields["other_1"]) is not None,
+                        "ES Manual Key sent exchange must contain seniority and serial")
+            else:
+                require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0,
+                        "Estonian sent serial must be positive")
+            received = fields["other_2"]
+            if desk.state["pluginID"] == "es_field_day":
+                match = re.fullmatch(r"([0-9]+)(?: ([A-Z]{2}))?", received)
+                require(match is not None and 0 < int(match[1]) <= 9223372036854775807,
+                        "ES Field Day exchange must be a positive serial and optional region")
+                country = desk.cty_lookup(desk.callsign.text())
+                prefix = next(iter(country.values())).get("primary_pfx", "") if country else ""
+                require(prefix != "ES" or match[2] in ESTONIAN_REGIONS,
+                        "ES Field Day contacts in Estonia require a valid region")
+            elif desk.state["pluginID"] == "es_manual_key":
+                require(re.fullmatch(r"[0-9]{5}", received) is not None,
+                        "ES Manual Key exchange must be two seniority digits plus a three-digit serial")
+            else:
+                require(received.isdigit() and 0 < int(received) <= 9223372036854775807,
+                        "Estonian received serial must be a positive SQLite integer")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1471,7 +1533,7 @@ class Host:
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
-                                       *AADX_PLUGINS, *CQ_160_PLUGINS}:
+                                       *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1549,7 +1611,9 @@ class Host:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]
-            elif desk.state["pluginID"] in EA_MAJESTAD_PLUGINS or desk.state["pluginID"] in REF_PLUGINS:
+            elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
+                  or desk.state["pluginID"] in REF_PLUGINS
+                  or desk.state["pluginID"] in ESTONIAN_PLUGINS):
                 after["SentNr"] = (int(updated["other_1"]) if updated["other_1"].isdigit()
                                    else updated["other_1"].upper())
             else:

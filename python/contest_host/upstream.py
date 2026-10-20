@@ -249,6 +249,49 @@ def load_plugin(plugin_id="cq_ww_cw"):
                  'f" (TS < \'{time_stamp}\' OR (TS = \'{time_stamp}\' AND rowid < "\n'
                  '        f"(SELECT rowid FROM dxlog WHERE ID = \'{contact_id}\'))) "'),
             ])
+        if plugin_id in {"es_field_day", "es_ll_kv", "es_open"}:
+            # The original desktop plugins compare against wall-clock time.
+            # Replay and back-dated imports must instead classify the contact
+            # timestamp supplied by the host.
+            replacements.append((
+                "iso_current_time = datetime.now(timezone.utc)",
+                "iso_current_time = datetime.fromisoformat(self.dupe_timestamp).replace(tzinfo=timezone.utc)",
+            ))
+        if plugin_id == "es_manual_key":
+            replacements.append((
+                "iso_current_time = datetime.datetime.now(datetime.timezone.utc)",
+                "iso_current_time = datetime.datetime.fromisoformat(self.dupe_timestamp).replace(tzinfo=datetime.timezone.utc)",
+            ))
+            # DXLOG declares NR/SentNr as INTEGER, so SQLite strips the leading
+            # seniority zero on replay and export. Restore the original five-
+            # digit exchange shape before the plugin reads or formats it.
+            replacements.extend([
+                ('call_result = str(self.contact.get("NR", "")).strip()',
+                 'call_result = str(self.contact.get("NR", "")).strip().zfill(5)'),
+                ("str(contact.get('SentNr', '')).ljust(6)",
+                 "str(contact.get('SentNr', '')).zfill(5).ljust(6)"),
+                ("str(contact.get('NR', '')).ljust(6)",
+                 "str(contact.get('NR', '')).zfill(5).ljust(6)"),
+            ])
+        if plugin_id == "es_field_day":
+            # Three independent if-statements leave the final else attached
+            # only to period four, overwriting period-one through period-three
+            # duplicate results. Preserve the intended mutually exclusive bins.
+            replacements.extend([
+                ("\n    if (\n        time_period_1 is not None\n        and time_period_2 is not None",
+                 "\n    elif (\n        time_period_1 is not None\n        and time_period_2 is not None"),
+                ("\n    if (\n        time_period_2 is not None\n        and time_period_3 is not None",
+                 "\n    elif (\n        time_period_2 is not None\n        and time_period_3 is not None"),
+                ("\n    if (\n        time_period_3 is not None\n        and time_period_4 is not None",
+                 "\n    elif (\n        time_period_3 is not None\n        and time_period_4 is not None"),
+            ])
+        if plugin_id == "es_manual_key":
+            replacements.extend([
+                ("\n    if (\n        time_period_2 is not None\n        and time_period_1 is not None",
+                 "\n    elif (\n        time_period_2 is not None\n        and time_period_1 is not None"),
+                ("\n    if (\n        time_period_3 is not None\n        and time_period_2 is not None",
+                 "\n    elif (\n        time_period_3 is not None\n        and time_period_2 is not None"),
+            ])
         if plugin_id == "trans_tasman":
             # Explicit compatibility fixes; original pinned bytes stay intact.
             replacements.extend([
