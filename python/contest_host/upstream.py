@@ -144,6 +144,27 @@ def load_plugin(plugin_id="cq_ww_cw"):
                  "elif self.other_1.text().isnumeric() and self.other_2.text().isnumeric():\n"
                  "                self.make_button_green(self.esm_dict[\"EXCH\"])")
             ])
+        if plugin_id == "jidx_cw":
+            # The CW sibling targets older container-label and cty_lookup
+            # shapes; the pinned phone sibling already uses both current APIs.
+            replacements.extend([
+                (
+                    'label = self.field3.findChild(QtWidgets.QLabel)\n'
+                    '    label.setText("SentNR")\n'
+                    '    self.field3.setAccessibleName("Sent Number")\n'
+                    '    label = self.field4.findChild(QtWidgets.QLabel)\n'
+                    '    label.setText("RcvNR")\n'
+                    '    self.field4.setAccessibleName("Received Number")',
+                    'self.other_label.setText("SentNR")\n'
+                    '    self.other_1.setAccessibleName("Sent Number")\n'
+                    '    self.exch_label.setText("RcvNR")\n'
+                    '    self.other_2.setAccessibleName("Received Number")',
+                ),
+                (
+                    'mycountry = item[1].get("entity", "")',
+                    'mycountry = item.get("entity", "")',
+                ),
+            ])
         if plugin_id in {"oceania_dx_cw", "oceania_dx_ssb"}:
             # SQLite stores Band as REAL; the pinned plugin indexes string keys.
             # Ordered host replay already computed each row's duplicate points.

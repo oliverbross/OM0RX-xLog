@@ -14,6 +14,7 @@ import uuid
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
 from .plugins import (ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_WW_PLUGINS,
+                      JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, RTTY_PLUGINS, SERIAL_PLUGINS,
                       SIMPLE_MULTIPLIER_PLUGINS, TEN_TEN_PLUGINS)
@@ -1035,6 +1036,10 @@ class Host:
             validate_name_sent_exchange(settings["SentExchange"])
         if plugin_id in TEN_TEN_PLUGINS:
             validate_ten_ten_sent_exchange(settings["SentExchange"])
+        if plugin_id in JIDX_PLUGINS:
+            require(re.fullmatch(r"[0-9]+", str(settings["SentExchange"])) is not None
+                    and 0 < int(settings["SentExchange"]) <= 9223372036854775807,
+                    "JIDX sent prefecture/CQ zone must be a positive SQLite integer")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1052,6 +1057,7 @@ class Host:
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
                 "fields": dict(zip(INPUTS, ("", report, report,
                     str(settings["SentExchange"]) if (plugin_id in CQ_WW_PLUGINS and plugin_id != "cq_ww_rtty")
+                    or plugin_id in JIDX_PLUGINS
                     or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
@@ -1170,6 +1176,11 @@ class Host:
             require(bool(fields["other_2"].strip()), "Received power/state/province is required")
         elif desk.state["pluginID"] in TEN_TEN_PLUGINS:
             require(desk.contest.validate(desk), "Received exchange must be NAME 10-10# SPC")
+        elif desk.state["pluginID"] in JIDX_PLUGINS:
+            for name in ("other_1", "other_2"):
+                require(re.fullmatch(r"[0-9]+", fields[name]) is not None
+                        and 0 < int(fields[name]) <= 9223372036854775807,
+                        "JIDX sent and received prefecture/CQ zones must be positive SQLite integers")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,

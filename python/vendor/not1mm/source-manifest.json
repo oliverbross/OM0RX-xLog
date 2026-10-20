@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"],
+  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph"],
   "sha256": {
     "not1mm/plugins/oceania_dx_ssb.py": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee",
     "not1mm/plugins/oceania_dx_cw.py": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664",
@@ -33,6 +33,8 @@
     "not1mm/plugins/cwt.py": "12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64",
     "not1mm/plugins/cwo.py": "e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e",
     "not1mm/plugins/k1usn_sst.py": "73cf9b72f53c6bd65d1f804f28b4ea80f6bf82d2b8b08406b2153691fd1d8120",
+    "not1mm/plugins/jidx_cw.py": "457e6ba45da31a90c06fc9508dee8d1dccf053b0676083c2472082dd61c18e53",
+    "not1mm/plugins/jidx_ph.py": "20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860",
     "not1mm/lib/database.py": "855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8",
     "not1mm/lib/plugin_common.py": "09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737",
     "not1mm/lib/ham_utility.py": "dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2",

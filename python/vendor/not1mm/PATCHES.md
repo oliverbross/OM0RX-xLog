@@ -11,7 +11,7 @@ ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX CW, ARRL DX SSB,
 NAQP CW, NAQP SSB, NAQP RTTY,
 Phone Weekly Test, Weekly RTTY Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
 Oceania DX CW, Oceania DX SSB, SAC CW, SAC SSB, and IARU Region 1
-Field Day CW and SSB.
+Field Day CW and SSB, plus JIDX CW and JIDX Phone.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -141,6 +141,21 @@ import time and fails if the pinned source differs:
     duplicate, multiplier and scoring callbacks authoritative. No digital
     transmission or external modem integration is introduced.
 
+15. JIDX CW and JIDX Phone execute unchanged modules from the same pinned
+    revision (Git blobs `e236d5158af9498c64bde2f4ba318ca9edcef5a8` and
+    `5ba7c6865fb4e6c598dc0e964c88f75bb7eed693`). The host seeds the configured
+    prefecture/CQ-zone exchange into the original SentNR field and validates
+    both visible exchange fields as positive SQLite integers before invoking
+    the original setters. Their original per-band duplicate checks, band-point
+    tables, received-number multipliers, ESM decisions, ordered multiplier
+    rebuilds and Cabrillo callbacks remain authoritative and distinct from the
+    other multiplier families. A CW-only import overlay adapts its obsolete
+    visual-container label calls and tuple-style country lookup to the field
+    and mapping APIs already used by the pinned phone sibling.
+    Phone ESM remains non-transmitting and adds no audio/PTT authority. Both
+    modules and their manifest verification remain relocatable with the Python
+    host/vendor tree.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -163,6 +178,8 @@ Original SHA-256:
 | plugins/cq_wpx_rtty.py | 71d8ee0996f91ce3ad0dabaa524aae49bd1197b5313bfeb3d709c15e7b84a351 |
 | plugins/naqp_rtty.py | f74bc7f40d257e0f3db7270c8e7b4bec00d6c50c11af37baa8aaa8a7f3f131c1 |
 | plugins/weekly_rtty.py | 595cc4514d88fd3c7d8568bf695366a700b4d08c2a491334958e42702df6d02a |
+| plugins/jidx_cw.py | 457e6ba45da31a90c06fc9508dee8d1dccf053b0676083c2472082dd61c18e53 |
+| plugins/jidx_ph.py | 20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860 |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
