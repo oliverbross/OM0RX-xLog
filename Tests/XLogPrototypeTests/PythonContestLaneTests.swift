@@ -152,8 +152,10 @@ final class PythonContestLaneTests: XCTestCase {
 
         let catalog = try await lane.handle(method: "contest_catalog", params: [:])
         let plugins = try XCTUnwrap(catalog["plugins"] as? [[String: Any]])
-        XCTAssertEqual(Set(plugins.compactMap { $0["id"] as? String }),
-                Set(["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw"]))
+        let pluginIDs = Set(plugins.compactMap { $0["id"] as? String })
+        XCTAssertTrue(pluginIDs.isSuperset(of:
+                Set(["cq_ww_cw", "cq_wpx_cw", "arrl_ss_cw", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw"])),
+            "The actual-host bridge must retain the established pinned plugins while allowing the catalog to grow.")
         let cqww = try XCTUnwrap(plugins.first { $0["id"] as? String == "cq_ww_cw" })
         XCTAssertEqual(cqww["engine"] as? String, "not1mm-python")
 
