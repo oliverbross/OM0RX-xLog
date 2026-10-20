@@ -26,10 +26,11 @@ export function contestSetupWindowSize(view: SetupView | null): { width: number;
   return { width: 600, height: 360 };
 }
 
-export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableHeight: number, contentScale = 1): { width: number; height: number } {
+export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableHeight: number, contentScale = 1, nativeChromeHeight = 0): { width: number; height: number } {
   const preferred = contestSetupWindowSize(view);
   const scale = Number.isFinite(contentScale) && contentScale > 0 ? contentScale : 1;
-  const measured = Number.isFinite(contentHeight) && contentHeight > 0 ? Math.ceil((contentHeight + 24) * scale) : preferred.height;
+  const chrome = Number.isFinite(nativeChromeHeight) && nativeChromeHeight > 0 ? nativeChromeHeight : 0;
+  const measured = Number.isFinite(contentHeight) && contentHeight > 0 ? Math.ceil((contentHeight + 24) * scale + chrome) : preferred.height;
   const limit = Number.isFinite(availableHeight) && availableHeight > 0
     ? Math.max(preferred.height, Math.floor(availableHeight - 64)) : measured;
   return { width: preferred.width, height: Math.min(Math.max(preferred.height, measured), limit) };
@@ -63,10 +64,11 @@ export function DetachedContestSetupSurface() {
       const fit = async () => {
         const panel = document.querySelector<HTMLElement>(".contest-workspace.is-setup-only > .contest-setup");
         const appWindow = getCurrentWindow();
-        const [innerSize, scaleFactor] = await Promise.all([appWindow.innerSize(), appWindow.scaleFactor()]);
+        const [innerSize, outerSize, scaleFactor] = await Promise.all([appWindow.innerSize(), appWindow.outerSize(), appWindow.scaleFactor()]);
         const logicalInnerHeight = scaleFactor > 0 ? innerSize.height / scaleFactor : innerSize.height;
+        const nativeChromeHeight = scaleFactor > 0 ? Math.max(0, (outerSize.height - innerSize.height) / scaleFactor) : 0;
         const contentScale = window.innerHeight > 0 ? logicalInnerHeight / window.innerHeight : 1;
-        const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight, contentScale);
+        const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight, contentScale, nativeChromeHeight);
         await appWindow.setSize(new LogicalSize(size.width, size.height));
       };
       void fit().then(() => {
