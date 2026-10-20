@@ -1043,6 +1043,9 @@ it("restores the saved manual frequency when reopening a session without CAT", a
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}
     registerTransition={value => {transition = value;}}/>);
   await screen.findByText("Contest windows are ready");
+  expect(request.mock.calls.find(([method]) => method === "contest_open")?.[1]).toMatchObject({
+    sessionID: current.sessionID, workspaceGeneration: current.workspaceGeneration,
+  });
   await act(async () => { await expect(transition.prepare()).resolves.toBeUndefined(); });
   expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
 });

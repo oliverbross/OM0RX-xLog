@@ -18,12 +18,19 @@ static STOPPED: AtomicBool = AtomicBool::new(false);
 static SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static OWNER: OnceLock<Mutex<Option<Arc<Owner>>>> = OnceLock::new();
 static LIFETIMES: OnceLock<Mutex<BTreeMap<String, u64>>> = OnceLock::new();
+static RETIRING_CONTEST_WINDOWS: OnceLock<Mutex<BTreeMap<String, u64>>> = OnceLock::new();
 
 fn registry() -> &'static Mutex<Option<Arc<Owner>>> {
     OWNER.get_or_init(|| Mutex::new(None))
 }
 fn lifetimes() -> &'static Mutex<BTreeMap<String, u64>> {
     LIFETIMES.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+fn retiring_contest_windows() -> &'static Mutex<BTreeMap<String, u64>> {
+    RETIRING_CONTEST_WINDOWS.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+fn contest_window_state_directory(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path().app_config_dir().map_err(|error| error.to_string())
 }
 fn active() -> Result<(), String> {
     if STOPPED.load(Ordering::Acquire) {
@@ -249,8 +256,13 @@ impl Owner {
                         let _ = open.reply.send(result);
                         continue;
                     }
+                    let remember = open.scope == WorkspaceWindowScope::Contesting
+                        && open.label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX);
                     let mut host = NativeHost { app: self.app.clone(), scope: open.scope, contest_context: open.contest_context };
-                    let result = engine.open(&mut host, &open.label);
+                    let result = engine.open(&mut host, &open.label).and_then(|_| {
+                        if remember { crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &open.label, true)?; }
+                        Ok(())
+                    });
                     let _ = open.reply.send(result);
                 }
                 Some(Work::Refresh(refresh)) => {
@@ -260,7 +272,11 @@ impl Owner {
                     let mut host = NativeHost { app: self.app.clone(), scope: refresh.scope, contest_context: refresh.contest_context.clone() };
                     engine.begin(refresh.attempt);
                     self.publish(refresh.scope, refresh.contest_context.clone(), engine.outcome.clone());
-                    let _ = engine.reconcile(&mut host, refresh.force);
+                    let restored = if refresh.scope == WorkspaceWindowScope::Contesting {
+                        contest_window_state_directory(&self.app).and_then(|directory| crate::contest_window_state::labels(&directory))
+                            .and_then(|labels| engine.restore_manual(&mut host, &labels))
+                    } else { Ok(()) };
+                    let _ = restored.and_then(|_| engine.reconcile(&mut host, refresh.force)).or_else(|error| engine.fail(error));
                     self.publish(refresh.scope, refresh.contest_context, engine.outcome.clone());
                 }
                 Some(Work::Destroyed(label, token)) => {
@@ -444,7 +460,15 @@ fn close_contest_windows(app: &AppHandle) -> Result<(), String> {
     if let Some(main) = app.get_webview_window("main") { main.show().map_err(|error| error.to_string())?; }
     let labels = contest_window_labels();
     for label in &labels {
-        if let Some(window) = app.get_webview_window(label) { window.close().map_err(|error| error.to_string())?; }
+        if let Some(window) = app.get_webview_window(label) {
+            let token = lifetimes().lock().map_err(|_| "Contest window lifetime unavailable")?.get(label).copied()
+                .ok_or("Contest window lifetime unavailable")?;
+            retiring_contest_windows().lock().map_err(|_| "Contest window retirement unavailable")?.insert(label.clone(), token);
+            if let Err(error) = window.close() {
+                if let Ok(mut retiring) = retiring_contest_windows().lock() { retiring.remove(label); }
+                return Err(error.to_string());
+            }
+        }
     }
     let deadline = Instant::now() + CONTEST_RETIRE_TIMEOUT;
     while labels.iter().any(|label| app.get_webview_window(label).is_some()) {
@@ -525,6 +549,7 @@ pub fn created(window: &WebviewWindow) {
         return;
     }
     let label = window.label().to_owned();
+    let app = window.app_handle().clone();
     let token = SEQUENCE.fetch_add(1, Ordering::Relaxed);
     if let Ok(mut current) = lifetimes().lock() {
         current.insert(label.clone(), token);
@@ -540,6 +565,14 @@ pub fn created(window: &WebviewWindow) {
             current.remove(&label);
         } else {
             return;
+        }
+        let retiring = retiring_contest_windows().lock().is_ok_and(|mut labels|
+            labels.get(&label) == Some(&token) && labels.remove(&label).is_some());
+        if !retiring && !STOPPED.load(Ordering::Acquire) && label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX) {
+            if let Err(error) = contest_window_state_directory(&app)
+                .and_then(|directory| crate::contest_window_state::remember(&directory, &label, false)) {
+                eprintln!("Contest window state was not saved: {error}");
+            }
         }
         let owner = registry()
             .lock()
@@ -723,6 +756,13 @@ impl Engine {
             // queued while this manual replacement is built. Ownership must
             // never pass through the reused label to the fresh manual window.
             self.planner.forget_destroyed(label);
+        }
+        Ok(())
+    }
+    fn restore_manual<H: Host>(&mut self, host: &mut H, labels: &[String]) -> Result<(), String> {
+        for label in labels {
+            host.active()?;
+            if host.show(label, false)? { self.planner.forget_destroyed(label); }
         }
         Ok(())
     }
@@ -1385,6 +1425,18 @@ mod tests {
         engine.open(&mut host, "contest--callsign-intelligence").unwrap();
         assert_eq!(host.operations, ["show:contest--callsign-intelligence:true"]);
         assert_eq!(host.layouts.len(), 1);
+    }
+    #[test]
+    fn remembered_manual_contest_windows_reopen_without_becoming_layout_owned() {
+        let mut engine = Engine::for_scope(WorkspaceWindowScope::Contesting);
+        let mut host = FakeHost::new(vec![contest_layout(1, &[])]);
+        engine.restore_manual(&mut host, &["contest--active-qso".into(), "contest--logbook".into()]).unwrap();
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert_eq!(host.operations, ["show:contest--active-qso:false", "show:contest--logbook:false"]);
+        host.operations.clear();
+        host.last = contest_layout(2, &[]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert!(host.operations.is_empty(), "manual restore must remain outside portable layout ownership");
     }
 
     #[test]

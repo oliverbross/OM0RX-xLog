@@ -51,6 +51,7 @@ mod workspace_window_runtime;
 mod canvas_close;
 mod operating_module;
 mod contest_window_context;
+mod contest_window_state;
 mod contest_surface;
 mod contest_setup_services;
 mod contest_setup_dialogs;
