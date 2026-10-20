@@ -85,12 +85,35 @@ final class ClusterParserBoundaryTests: XCTestCase {
         XCTAssertEqual(raw.callsign, "7P8GE")
         XCTAssertEqual(raw.comment, "FT-8 TNX 73s")
         XCTAssertEqual(band, "10m")
-        XCTAssertEqual(SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz), "FT8")
-        XCTAssertEqual(SpotLogic.mode(comment: "FT-4", band: band, khz: raw.frequencyKHz), "FT4")
-        XCTAssertEqual(SpotLogic.mode(comment: "FT-2", band: band, khz: raw.frequencyKHz), "FT2")
-        XCTAssertEqual(SpotLogic.mode(comment: "DIGITAL", band: band, khz: raw.frequencyKHz), "DIGI")
+        let cases: [(comment: String, frequencyKHz: Double, expected: String)] = [
+            (raw.comment, raw.frequencyKHz, "FT8"),
+            ("SSB FT8", 14_250, "FT8"),
+            ("CW FT-8", raw.frequencyKHz, "FT8"),
+            ("FT4", 14_250, "FT4"),
+            ("FT-4", raw.frequencyKHz, "FT4"),
+            ("FT-2", raw.frequencyKHz, "FT2"),
+            ("PHONE RTTY", 14_250, "RTTY"),
+            ("PSK", 14_250, "PSK"),
+            ("PSK31", raw.frequencyKHz, "PSK"),
+            ("PSK-31", 14_250, "PSK"),
+            ("JT65", raw.frequencyKHz, "JT65"),
+            ("JT-65", 14_250, "JT65"),
+            ("JT9", raw.frequencyKHz, "JT9"),
+            ("JT-9", 14_250, "JT9"),
+            ("DIGITAL", raw.frequencyKHz, "DIGI"),
+            ("DATA", 14_250, "DIGI"),
+        ]
+        for testCase in cases {
+            let testBand = SpotLogic.band(for: testCase.frequencyKHz)
+            XCTAssertEqual(
+                SpotLogic.mode(comment: testCase.comment, band: testBand, khz: testCase.frequencyKHz),
+                testCase.expected,
+                testCase.comment
+            )
+        }
         XCTAssertEqual(SpotLogic.mode(comment: "SOFT-8", band: band, khz: raw.frequencyKHz), "CW")
         XCTAssertEqual(SpotLogic.mode(comment: "DIG", band: band, khz: raw.frequencyKHz), "CW")
+        XCTAssertEqual(SpotLogic.mode(comment: "DATABASE", band: band, khz: raw.frequencyKHz), "CW")
     }
 
     func testTwentyMeterSegmentInferenceKeepsExplicitModes() throws {

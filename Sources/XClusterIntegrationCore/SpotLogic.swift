@@ -28,9 +28,9 @@ public enum SpotLogic {
         let explicitDigitalModes: [(pattern: String, mode: String)] = [
             (#"\bFT-?8\b"#, "FT8"), (#"\bFT-?4\b"#, "FT4"), (#"\bFT-?2\b"#, "FT2"),
             (#"\bRTTY\b"#, "RTTY"), (#"\bJTTY\b"#, "JTTY"), (#"\bOLIVIA\b"#, "OLIVIA"),
-            (#"\bPSK(?:\d+)?\b"#, "PSK"), (#"\bJT65\b"#, "JT65"), (#"\bJT9\b"#, "JT9"),
+            (#"\bPSK(?:-?\d+)?\b"#, "PSK"), (#"\bJT-?65\b"#, "JT65"), (#"\bJT-?9\b"#, "JT9"),
             (#"\bHELL\b"#, "HELL"), (#"\bMFSK\b"#, "MFSK"), (#"\bSSTV\b"#, "SSTV"),
-            (#"\b(?:DIGI|DIGITAL)\b"#, "DIGI"),
+            (#"\b(?:DIGI|DIGITAL|DATA)\b"#, "DIGI"),
         ]
         for candidate in explicitDigitalModes
             where text.range(of: candidate.pattern, options: .regularExpression) != nil {
