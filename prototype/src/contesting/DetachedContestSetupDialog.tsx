@@ -9,7 +9,7 @@ import "./ContestWorkspace.css";
 import "./DetachedContestSetupDialog.css";
 
 export function fittedConfigurationDialogHeight(contentHeight: number): number {
-  return Math.max(320, Math.min(680, Math.ceil(contentHeight)));
+  return Math.max(320, Math.min(900, Math.ceil(contentHeight)));
 }
 
 export function isManagedConfigurationDialogHeight(height: number): boolean {

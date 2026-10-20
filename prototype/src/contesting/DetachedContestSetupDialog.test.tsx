@@ -180,12 +180,12 @@ it("uses compact content-fit bounds while keeping dense configuration tabs fully
   const styles = readFileSync("src/contesting/DetachedContestSetupDialog.css", "utf8");
   expect(fittedConfigurationDialogHeight(180)).toBe(320);
   expect(fittedConfigurationDialogHeight(476)).toBe(476);
-  expect(fittedConfigurationDialogHeight(900)).toBe(680);
+  expect(fittedConfigurationDialogHeight(1200)).toBe(900);
   expect(isManagedConfigurationDialogHeight(320)).toBe(true);
   expect(isManagedConfigurationDialogHeight(520)).toBe(true);
   expect(isManagedConfigurationDialogHeight(620)).toBe(true);
   expect(isManagedConfigurationDialogHeight(600)).toBe(false);
   expect(styles).toContain("data-dialog-kind=configuration");
-  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*overflow:auto/);
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }");
 });
