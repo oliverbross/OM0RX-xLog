@@ -75,6 +75,8 @@ class HostTests(unittest.TestCase):
         self.assertEqual(view["tabNext"], {"callsign": "sent", "sent": "receive", "receive": "other_2", "other_1": "callsign", "other_2": "callsign"})
         self.assertEqual(view["tabPrevious"]["callsign"], "other_2")
         fields = {row["id"]: row for row in view["fields"]}
+        self.assertEqual({key: fields[key]["value"] for key in ("callsign", "sent", "receive", "other_1", "other_2")},
+                         {"callsign": "", "sent": "599", "receive": "599", "other_1": "15", "other_2": ""})
         self.assertFalse(fields["other_1"]["visible"])
         self.assertEqual(fields["other_2"]["label"], "CQ Zone")
         self.assertEqual(fields["other_2"]["accessibleName"], "C Q Zone")
@@ -83,6 +85,21 @@ class HostTests(unittest.TestCase):
         self.assertEqual(partial["fields"][0]["value"], "K")
         with self.assertRaises(AttributeError):
             Field("callsign").silentlyIgnoreMissingQtMethod()
+
+    def test_new_session_requires_explicit_sent_exchange(self):
+        params = deepcopy(self.create)
+        params["sessionID"] = uid()
+        params["workspaceGeneration"] = uid()
+        params["settings"].pop("SentExchange")
+        with self.assertRaisesRegex(HostError, "Sent CQ zone must be 1 to 40"):
+            self.host.new_state(params["sessionID"], params)
+
+    def test_commit_restores_default_reports_for_next_draft(self):
+        self.mutate("draft_apply", fields={"sent": "579", "receive": "589"})
+        self.log()
+        fields = {row["id"]: row["value"] for row in self.read("projection")["projection"]["fields"]}
+        self.assertEqual((fields["callsign"], fields["sent"], fields["receive"], fields["other_2"]),
+                         ("", "599", "599", ""))
 
     def save_esm(self, **preferences):
         setup = self.read("setup_get")["setup"]

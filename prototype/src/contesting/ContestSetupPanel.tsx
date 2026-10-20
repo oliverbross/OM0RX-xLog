@@ -40,7 +40,7 @@ type Props = {
 export function newContestSetup(stationCall = ""): ContestSetupDocument {
   return { name: "CQ WW CW", operator: stationCall, pluginID: "cq_ww_cw",
     station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "", LicenseClass: "", Latitude: "", Longitude: "", STXeq: "", SPowe: "", SAnte: "", SAntH1: "", SAntH2: "", ARRLSection: "", RoverQTH: "", Club: "" },
-    settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "15", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "", Soapbox: "" },
+    settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "", Soapbox: "" },
     preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
@@ -122,7 +122,11 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     finally { pendingRef.current = false; setPending(false); }
   }
   function close() { setDraft(setupDraft(value)); setMessage(""); setView(null); }
-  function open(next: SetupView) { setDraft(next === "Edit Macros" ? macroDraft() : setupDraft(value)); setMessage(""); setView(next); setSelectedSession(activeSessionID ?? ""); }
+  function open(next: SetupView) {
+    const source = next === "Edit Macros" ? macroDraft() : setupDraft(value);
+    setDraft(next === "New Contest" ? { ...source, settings: { ...source.settings, SentExchange: "" } } : source);
+    setMessage(""); setView(next); setSelectedSession(activeSessionID ?? "");
+  }
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
@@ -165,7 +169,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "New Contest" || view === "Edit Current Contest") content = <div className="contest-parameters">
     <p>Select Contest Type for {view === "New Contest" ? "New" : "Current"} Log</p>
     <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => setDraft(current => ({ ...current, pluginID: event.target.value,
-      settings: { ...current.settings, SentExchange: event.target.value === "cq_ww_cw" ? String(current.station.CQZone || "15") : "" } }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
+      settings: { ...current.settings, SentExchange: "" } }))}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
     <hr/>
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}

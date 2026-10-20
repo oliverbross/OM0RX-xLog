@@ -682,9 +682,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         bands: configuredBands, modes: projection.supportedModes?.length ? projection.supportedModes : ["CW"], reportsVisible,
         allowDuplicateCommit: projection.allowDuplicateCommit ?? false, automaticSerial: reservedSerial !== null,
         keyBindings: activeContestKeyBindings(setup.preferences.keyBindings),
-        sentFields: sentExchangeFields.length ? sentExchangeFields.map(field => ({ id: field.id, label: field.label,
-          value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: 32 })) : [{ id: "sent-exchange",
-          label: "Sent exchange", value: String(setup.settings.SentExchange ?? ""), required: true, maximumUTF8Bytes: 64 }],
+        sentFields: sentExchangeFields.map(field => ({ id: field.id, label: field.label,
+          value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: 32 })),
         serial: reservedSerial === null ? { requirement: "none", allocatedFieldID: null, reservedSerial: null }
           : { requirement: "requiredForCommit", allocatedFieldID: "other_1", reservedSerial },
       },
@@ -830,8 +829,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         return;
       case "entry_reserve_serial": throw new Error("Serial numbers are allocated automatically by the contest host.");
       case "entry_clear": {
+        const defaultReport = active.mode === "SSB" ? "59" : "599";
         const cleared = Object.fromEntries(active.fields.map(field => [field.id,
-          field.id === "callsign" ? "" : field.id === "sent" || field.id === "receive" ? "599"
+          field.id === "callsign" ? "" : field.id === "sent" || field.id === "receive" ? defaultReport
             : field.readOnly || field.id === "other_1" && active.reservedSerial !== null ? field.value : ""]));
         fieldsRef.current = cleared; setFields(cleared); editVersionRef.current += 1;
         await runMutation(base => mutate("contest_draft_apply", base, { fields: cleared,

@@ -314,7 +314,7 @@ it("projects CWT Name as received input and admits edits through the detached ow
   await userEvent.click(screen.getByRole("button",{name:"OK"}));
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
   let entry:any=surfaceOwner.current.projections["active-qso"];
-  expect(entry.descriptor.sentFields).toEqual([{id:"sent-exchange",label:"Sent exchange",value:"OLIVER",required:true,maximumUTF8Bytes:64}]);
+  expect(entry.descriptor.sentFields).toEqual([]);
   expect(entry.draft.receivedFields).toEqual([
     {id:"other_1",label:"Name",value:"ALICE",required:true,maximumUTF8Bytes:32},
     {id:"other_2",label:"Member No./SPC",value:"1234",required:true,maximumUTF8Bytes:128},

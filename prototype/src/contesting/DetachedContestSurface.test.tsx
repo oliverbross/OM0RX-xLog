@@ -492,8 +492,7 @@ it("keeps a CWT keyboard burst and its Name tab target live while the owner pers
     draft:{...projection.draft,callsign:"",receivedFields:[
       {id:"other_1",label:"Name",value:"",required:true,maximumUTF8Bytes:32},
       {id:"other_2",label:"Member No./SPC",value:"",required:true,maximumUTF8Bytes:128}]},
-    descriptor:{reportsVisible:false,bands:["20m"],modes:["CW"],sentFields:[
-      {id:"sent-exchange",label:"Sent exchange",value:"OLIVER",required:true,maximumUTF8Bytes:64}],
+    descriptor:{reportsVisible:false,bands:["20m"],modes:["CW"],sentFields:[],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
@@ -503,14 +502,15 @@ it("keeps a CWT keyboard burst and its Name tab target live while the owner pers
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),name=screen.getByLabelText("Name");
   expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
-    .toBe("minmax(130px,1.3fr) minmax(110px,.8fr) minmax(120px,1fr) minmax(120px,1fr)");
+    .toBe("minmax(130px,1.3fr) minmax(120px,1fr) minmax(120px,1fr)");
+  expect(screen.queryByLabelText("Sent exchange")).toBeNull();
   fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
   current={...current,projection:{...current.projection,busy:true}};await act(async()=>{native.wake!();});
   expect((callsign as HTMLInputElement).disabled).toBe(false);expect((name as HTMLInputElement).disabled).toBe(false);
   expect((callsign as HTMLInputElement).value).toBe("K");fireEvent.change(callsign,{target:{value:"K2XYZ"}});
   fireEvent.keyDown(callsign,{key:"Tab"});expect(document.activeElement).toBe(name);
   expect((callsign as HTMLInputElement).value).toBe("K2XYZ");
-  expect(document.activeElement).not.toBe(screen.getByLabelText("Sent exchange"));
+  expect(document.activeElement).toBe(name);
 });
 
 it("flushes true multi-keystroke callsign and exchange intent before detached Enter and waits for terminal receipts",async()=>{

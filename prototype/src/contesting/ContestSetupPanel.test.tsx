@@ -11,6 +11,7 @@ function props() {
 function open(name: string) { fireEvent.click(screen.getByRole("button", { name })); }
 it("uses upstream ESM defaults for new contests and explicit compatibility defaults only for missing saved fields", () => {
   const preferences = newContestSetup("OM0RX").preferences;
+  expect(newContestSetup("OM0RX").settings.SentExchange).toBe("");
   expect(preferences.useESM).toBe(false);
   expect(preferences.sendCorrectedCall).toBe(false);
   for (const key of ["esmCQ", "esmHisCall", "esmExchange", "esmAGN", "esmMyCall", "esmQRZ", "esmQsoB4"]) expect(preferences[key]).toBe("DISABLED");
@@ -50,8 +51,9 @@ it("cancels isolated edits and restores the source when a dialog reopens", () =>
   expect(p.onSave).not.toHaveBeenCalled();
 });
 it("uses separate new and edit forms in original order, including UTC start and station category", async () => {
-  const p = props(); render(<ContestSetupPanel {...p}/>); open("New Contest");
+  const p = props(); p.value.settings.SentExchange = "ACCEPTANCE TEST"; render(<ContestSetupPanel {...p}/>); open("New Contest");
   expect(Array.from(document.querySelectorAll(".contest-parameters label>span")).map(item => item.textContent)).toEqual(["Log Type", "Start UTC", "Operator", "Band", "Power", "Mode", "Overlay", "Station", "Assisted", "Transmitter", "Sent Exchange", "Operators", "Soapbox"]);
+  expect((screen.getByLabelText("Sent Exchange") as HTMLInputElement).value).toBe("");
   fireEvent.change(screen.getByLabelText("Start UTC"), { target: { value: "2026-10-24T00:00:00" } });
   fireEvent.change(screen.getByLabelText("Station"), { target: { value: "PORTABLE" } });
   open("OK");

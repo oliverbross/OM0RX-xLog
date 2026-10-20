@@ -872,7 +872,7 @@ class Host:
         for value in [*station.values(), *settings.values()]:
             require(isinstance(value, (str, int)) and not isinstance(value, bool), "Station/settings values must be text or integer")
             text(str(value), 512)
-        settings.setdefault("SentExchange", str(countries[call]["cq"]) if plugin_id == "cq_ww_cw" else "")
+        settings.setdefault("SentExchange", "")
         if plugin_id == "cq_ww_cw":
             require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
         if plugin_id == "icwc_mst":
@@ -885,13 +885,14 @@ class Host:
             validate_name_sent_exchange(settings["SentExchange"])
         settings.setdefault("ModeCategory", "CW")
         require(settings["ModeCategory"] == "CW", "Selected plugin requires CW mode")
+        report = "59" if settings["ModeCategory"] == "SSB" else "599"
         return {"sessionID": session_id, "workspaceGeneration": workspace,
                 "name": text(params.get("name", PLUGINS[plugin_id]), 128),
                 "revision": 0, "engine": "not1mm-python", "pluginID": plugin_id,
                 "sourceRevision": SOURCE_REVISION, "schemaVersion": 1, "station": station, "settings": settings,
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
-                "fields": dict(zip(INPUTS, ("", "599", "599", str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" else "", "")))}}
+                "fields": dict(zip(INPUTS, ("", report, report, str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" else "", "")))}}
 
     def reserve_serial(self, store, state):
         if state["pluginID"] not in SERIAL_PLUGINS:
@@ -1021,8 +1022,11 @@ class Host:
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
         desk.state["draft"]["id"] = str(uuid.uuid4())
-        for name in ("callsign", "other_2"):
-            getattr(desk, name).setText("")
+        report = "59" if desk.state["settings"].get("ModeCategory") == "SSB" else "599"
+        desk.callsign.setText("")
+        desk.sent.setText(report)
+        desk.receive.setText(report)
+        desk.other_2.setText("")
         if desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
             desk.other_1.setText("")
         if desk.state["pluginID"] in SERIAL_PLUGINS:
