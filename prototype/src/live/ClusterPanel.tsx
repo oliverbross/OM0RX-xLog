@@ -328,7 +328,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       </div>)}</div>
       <div className="live-cluster-column-actions"><span>Drag column edges or use arrow keys. Widths scale to fit the window.</span><button type="button" onClick={() => setColumnPreferences(defaultColumns())}>Reset columns</button><button type="button" onClick={() => setColumnsOpen(false)}>Done</button></div>
     </section>}
-    <div className="table-scroll live-cluster-table"><table aria-label="Live cluster spots"><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
+    <div className="table-scroll live-cluster-table"><table aria-label="Live cluster spots" style={presentationOnly ? { minWidth: totalColumnWidth } : undefined}><colgroup>{columnPreferences.columns.map(id => <col key={id} style={{ width: `${columnPreferences.widths[id] / totalColumnWidth * 100}%` }} />)}</colgroup><thead><tr>
       {compactClusterColumns.filter(([id]) => visibleColumns.has(id)).map(([id, label]) => <th key={id} aria-label={id === "callStatus" || id === "dxccStatus" ? label : undefined}
         className={id === "callStatus" || id === "dxccStatus" ? "live-cluster-status-column" : undefined}><span title={label}>{compactClusterHeader(id)}</span>
         <span className="live-cluster-column-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize ${label} column`} aria-valuemin={48} aria-valuemax={480} aria-valuenow={columnPreferences.widths[id]}

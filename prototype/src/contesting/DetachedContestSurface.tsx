@@ -114,7 +114,7 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
     projectionRevision:number;send:Send}) {
   const select=(spotID:string)=>void send({action:"spot_select",params:{draftID:projection.draftID,
     expectedDraftRevision:projection.draftRevision,spotID}},projectionRevision);
-  if(panelID==="band-maps")return <BandMaps spots={projection.spots} radioFrequencyHz={projection.radioFrequencyHz??undefined}
+  if(panelID==="band-maps")return <BandMaps compact spots={projection.spots} radioFrequencyHz={projection.radioFrequencyHz??undefined}
     storageNamespace="contest" onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
@@ -384,7 +384,9 @@ function PluginLogTable({columns,rows,disabled,onEdit,label}:{columns:string[];r
     <tbody>{rows.map(row=><tr key={row.qsoID}>{row.values.map((value,index)=><td key={`${columns[index]}-${index}`}>{index===callIndex
       ? <button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{value}</button>:value}</td>)}</tr>)}</tbody></table></div>;
 }
-function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) { const editing=projection.editing; return <section className="contest-surface-log"><header><h1>Log Display</h1>
+function Log({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) {
+  const editing=projection.editing, partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[];
+  return <section className="contest-surface-log"><header><h1>Log Display</h1>
   <button disabled={disabled||sending||!projection.canExportCabrillo} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button></header>
   {editing&&<div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <IntentInput label="TimeStamp (UTC)" value={editing.workedAt??""} identity={`${editing.qsoID}/timestamp`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"timestamp",value}})}/>
@@ -402,10 +404,10 @@ function Log({projection,disabled,sending,projectionRevision,receipts,send}:{pro
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void send({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Delete contact</button></div>}</div>}
   {projection.exchangeLayout==="plugin" ? <><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log"
       onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
-    <PluginLogTable columns={projection.pluginColumns} rows={projection.pluginPartialRows} disabled={disabled} label="Callsign partial matches"
-      onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/></>
+    {pluginPartialRows.length>0&&<PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches"
+      onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>}</>
     : <><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>
-      <ManualLogTable rows={projection.partialRows??[]} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/></>}
+      {partialRows.length>0&&<ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void send({action:"log_edit_begin",params:{qsoID}},projectionRevision)}/>}</>}
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }

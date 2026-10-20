@@ -90,7 +90,7 @@ pub const CONTEST_WINDOWS: [WindowSpec; 13] = [
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 700.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 500.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
-    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 220.0 },
+    WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 140.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Group Chat", width: 780.0, height: 600.0 },
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 460.0 },
     WindowSpec { id: "chaser-dx", title: "OM0RX-xLog Contest — Zone", width: 760.0, height: 460.0 },
@@ -122,7 +122,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
         "band-maps" => &[(380.0, 760.0)],
         "callsign-intelligence" => &[(700.0, 620.0)],
         "monitor" => &[(780.0, 600.0)],
-        "propagation" => &[(800.0, 480.0), (520.0, 380.0)],
+        "propagation" => &[(800.0, 480.0), (520.0, 380.0), (520.0, 220.0)],
         "rotor" => &[(700.0, 600.0)],
         "station-control" => &[(900.0, 700.0)],
         "awards" => &[(1280.0, 800.0), (920.0, 720.0)],
@@ -514,7 +514,7 @@ mod tests {
         assert_eq!(contest_default_size_migrations("contest--active-qso"), Some((&[(800.0, 620.0)][..], (800.0, 480.0))));
         assert_eq!(contest_default_size_migrations("contest--band-maps"), Some((&[(380.0, 760.0)][..], (520.0, 700.0))));
         assert_eq!(contest_default_size_migrations("contest--monitor"), Some((&[(780.0, 600.0)][..], (340.0, 300.0))));
-        assert_eq!(contest_default_size_migrations("contest--propagation"), Some((&[(800.0, 480.0), (520.0, 380.0)][..], (520.0, 220.0))));
+        assert_eq!(contest_default_size_migrations("contest--propagation"), Some((&[(800.0, 480.0), (520.0, 380.0), (520.0, 220.0)][..], (520.0, 140.0))));
         assert_eq!(contest_default_size_migrations("contest--rotor"), Some((&[(700.0, 600.0)][..], (620.0, 420.0))));
         assert_eq!(contest_default_size_migrations("contest--station-control"), Some((&[(900.0, 700.0)][..], (900.0, 680.0))));
         assert_eq!(contest_default_size_migrations("contest--awards"), Some((&[(1280.0, 800.0), (920.0, 720.0)][..], (920.0, 460.0))));

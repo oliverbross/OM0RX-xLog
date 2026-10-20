@@ -184,6 +184,29 @@ describe("cluster toolbar panels", () => {
     expect(screen.getByRole("checkbox", { name: "Show Callsign column" }).hasAttribute("disabled")).toBe(true);
   });
 
+  it("keeps normal xLog cluster columns scaling to fit the window", () => {
+    localStorage.setItem(fullClusterColumnsKey, JSON.stringify({ version: 1, columns: ["callsign", "comment"], widths: { callsign: 200, comment: 300 } }));
+    render(<ClusterPanel passive snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
+    const table = screen.getByRole("table", { name: "Live cluster spots" });
+    expect(table.style.minWidth).toBe("");
+    expect(Array.from(table.querySelectorAll("col")).map(column => column.style.width)).toEqual(["40%", "60%"]);
+    fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Callsign column" }), { key: "ArrowRight" });
+    expect(table.style.minWidth).toBe("");
+  });
+
+  it("preserves contest presentation column widths for horizontal scrolling", () => {
+    const preferenceStorageKey = "xlog.test.contest-cluster-columns";
+    localStorage.setItem(preferenceStorageKey, JSON.stringify({ version: 1, columns: ["callsign", "comment"], widths: { callsign: 200, comment: 300, country: 480 } }));
+    render(<ClusterPanel passive presentationOnly preferenceStorageKey={preferenceStorageKey} snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
+    const table = screen.getByRole("table", { name: "Live cluster spots" });
+    expect(table.parentElement?.classList.contains("table-scroll")).toBe(true);
+    expect(table.style.minWidth).toBe("500px");
+    expect(Array.from(table.querySelectorAll("col")).map(column => column.style.width)).toEqual(["40%", "60%"]);
+    fireEvent.keyDown(screen.getByRole("separator", { name: "Resize Callsign column" }), { key: "ArrowRight" });
+    expect(table.style.minWidth).toBe("510px");
+    expect(localStorage.getItem(fullClusterColumnsKey)).toBeNull();
+  });
+
   it("lets operators finish typing a width before bounding and saving it", () => {
     render(<ClusterPanel passive snapshot={response()} onRequest={vi.fn()} onSelect={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));

@@ -120,6 +120,22 @@ it("keeps Trans Tasman duplicates loggable and presents the original period expl
   expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040");
 });
 
+it.each(["legacy", "manual", "plugin"])("lets the %s log use the full pane when partial matches are empty",async layout=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const row={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentExchange:"599",receivedExchange:"599",points:2,multiplierLabels:[]};
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:1,rows:[row]},editing:null,busy:false,
+    ...(layout==="plugin"?{exchangeLayout:"plugin",pluginColumns:["Call"],pluginRows:[{qsoID:row.qsoID,values:[row.callsign]}],pluginPartialRows:[]}
+      :layout==="manual"?{manualRows:[{qsoID:row.qsoID,TS:"2026-10-20 12:00:00",Call:row.callsign,Freq:"14025",SNT:"599",RCV:"599",ZN:"5",SentNr:"1",prefix:"K1",Points:"2"}],partialRows:[]}:{})};
+  expect(validContestSurfaceProjection("logbook",view)).toBe(true);
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("table",{name:"Contest log"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"K1ABC"})).toBeTruthy();
+  expect(screen.queryByRole("table",{name:"Callsign partial matches"})).toBeNull();
+  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(1);
+});
+
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"outside-current-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"};
@@ -130,6 +146,7 @@ it("renders authoritative raw DXLOG values in the log and full-log partial table
   await screen.findByRole("heading",{name:"Log Display"});
   for(const name of ["Contest log","Callsign partial matches"])
     expect(Array.from(screen.getByRole("table",{name}).querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual([row.TS,row.Call,row.Freq,row.SNT,row.RCV,row.ZN,row.SentNr,row.prefix,row.Points]);
+  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(2);
 });
 
 it("renders the exact plugin log columns for both paged and partial rows",async()=>{
@@ -152,9 +169,10 @@ it("renders the exact plugin log columns for both paged and partial rows",async(
     expect(Array.from(table.querySelectorAll("thead th")).map(cell=>cell.textContent)).toEqual(columns);
     expect(Array.from(table.querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual(expected);
   }
-  fireEvent.click(screen.getByRole("button",{name:"K1ABC"}));
+  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button",{name:"K1ABD"}));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
-    panelID:"logbook",projectionRevision:6,action:"log_edit_begin",params:{qsoID:"ss-qso"},
+    panelID:"logbook",projectionRevision:6,action:"log_edit_begin",params:{qsoID:"ss-partial"},
   }));
 });
 
@@ -223,6 +241,7 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   expect(native.invoke.mock.calls.some(([command])=>command==="activate_spot")).toBe(false);
   expect(localStorage.getItem("xlog.integration.bandMaps.workspace.bands")).toBe("normal-band-map-sentinel");
   expect(localStorage.getItem("xlog.integration.full-cluster-columns.v1")).toBe("normal-cluster-sentinel");
+  if(panelID==="band-maps")expect(document.querySelector(".band-maps-compact")).not.toBeNull();
   await waitFor(()=>expect(localStorage.getItem(panelID==="band-maps"
     ? "xlog.integration.bandMaps.contest.bands":"xlog.integration.contest.cluster-columns.v1")).not.toBeNull());
 });
@@ -367,15 +386,15 @@ it("retains the manual Check Partial Log, Master and Telnet columns with explici
   expect(screen.getByRole("button",{name:"OM0RX"})).toBeTruthy();
 });
 
-it("retains both manual log table structures even when the log is empty",async()=>{
+it("retains the main log headings without an empty partial pane when the log is empty",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:{schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
     page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false}});
   render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
-  for(const name of ["Contest log","Callsign partial matches"]){
-    const table=screen.getByRole("table",{name});
-    expect(Array.from(table.querySelectorAll("th")).map(cell=>cell.textContent)).toEqual(["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"]);
-  }
+  const table=screen.getByRole("table",{name:"Contest log"});
+  expect(Array.from(table.querySelectorAll("th")).map(cell=>cell.textContent)).toEqual(["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"]);
+  expect(screen.queryByRole("table",{name:"Callsign partial matches"})).toBeNull();
+  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(1);
 });
 
 it("serializes rapid Python tab-map focus changes and sends exact report focus to ESM",async()=>{

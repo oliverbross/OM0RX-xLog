@@ -214,5 +214,8 @@ it("uses compact content-fit bounds while keeping dense configuration tabs fully
   expect(styles).toContain("data-dialog-kind=configuration");
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*max-height:100dvh[^}]*overflow:auto/);
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }");
+  expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-stack { gap:6px; }");
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup :is\(input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),select,textarea\)[^}]*min-height:28px/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*padding-block:8px/);
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*position:sticky[^}]*bottom:0/);
 });
