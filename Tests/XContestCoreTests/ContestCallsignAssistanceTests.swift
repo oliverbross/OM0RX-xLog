@@ -5,7 +5,7 @@ import XCTest
 final class ContestCallsignAssistanceTests: XCTestCase {
     private let context = ContestAssistanceContext(sessionID: "session-a", workspaceGeneration: "generation-a", requestID: "request-a")
     private let provenance = ContestSCPProvenance(sourceID: "fixture-master-scp", version: "7c8b499-oracle",
-        sourceURL: "https://www.supercheckpartial.com/MASTER.SCP", retrievedAtUTC: Date(timeIntervalSince1970: 1_760_745_600))
+        sourceURL: "https://www.supercheckpartial.com/downloads/MASTER.SCP", retrievedAtUTC: Date(timeIntervalSince1970: 1_760_745_600))
 
     private func fixtureData() throws -> Data {
         try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("SourceFixtures/master-scp-focused.txt"))

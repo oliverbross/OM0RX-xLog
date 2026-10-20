@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ContestCandidates } from "./ContestPresentation";
-import { nativeSCPImport, scpCancel, scpQuery, scpSelect, scpStatus, validateSCPImportResponse,
+import { nativeSCPImport, scpCancel, scpDownload, scpQuery, scpSelect, scpStatus, validateSCPImportResponse,
   type AssistanceRequest, type SCPContext, type SCPDataset, type SCPImport, type SCPMatch, type SCPResult } from "./contestAssistance";
 import "./ContestAssistancePanel.css";
 
@@ -13,7 +13,7 @@ type Props = { request: AssistanceRequest; ownerLeaseID: number; sessionID: stri
 
 export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspaceGeneration,draftID,callsign,disabled=false,onSelect,importDataset=nativeSCPImport,onSurfaceChange}:Props) {
   const [dataset,setDataset]=useState<SCPDataset|null>(null), [unavailable,setUnavailable]=useState<string|null>(null);
-  const [result,setResult]=useState<SCPResult|null>(null), [error,setError]=useState("");
+  const [result,setResult]=useState<SCPResult|null>(null), [error,setError]=useState(""), [notice,setNotice]=useState("");
   const [importing,setImporting]=useState(false), [querying,setQuerying]=useState(false), [selecting,setSelecting]=useState(false);
   const [recoveryRequired,setRecoveryRequired]=useState(false);
   const mounted=useRef(true), statusTicket=useRef(0), datasetTicket=useRef(0), queryTicket=useRef(0), selectTicket=useRef(0);
@@ -44,7 +44,7 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
     if(disabled||importing)return;
     const ticket=++datasetTicket.current;statusTicket.current+=1;queryTicket.current+=1;selectTicket.current+=1;
     const context=currentQuery.current;if(context)void scpCancel(request,context);currentQuery.current=null;
-    setImporting(true);setQuerying(false);setSelecting(false);setResult(null);setError("");
+    setImporting(true);setQuerying(false);setSelecting(false);setResult(null);setError("");setNotice("");
     try{
       const response=await importDataset();
       if(response===null)return;
@@ -61,6 +61,24 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
       }
     }
     finally{if(mounted.current&&datasetTicket.current===ticket)setImporting(false);}
+  }
+  async function download(){
+    if(disabled||importing||recoveryRequired)return;
+    const ticket=++datasetTicket.current;statusTicket.current+=1;queryTicket.current+=1;selectTicket.current+=1;
+    const context=currentQuery.current;if(context)void scpCancel(request,context);currentQuery.current=null;
+    setImporting(true);setQuerying(false);setSelecting(false);setResult(null);setError("");setNotice("");
+    try{
+      const announced=await scpDownload(request), status=await scpStatus(request);
+      if(!status.dataset||status.dataset.sha256!==announced.dataset.sha256)throw new Error("The downloaded SCP dataset could not be confirmed.");
+      if(mounted.current&&datasetTicket.current===ticket){setDataset(status.dataset);setUnavailable(status.unavailableReason);setRecoveryRequired(false);setNotice(announced.updated?"Latest official MASTER.SCP downloaded and activated.":"Official MASTER.SCP is already up to date.");}
+    }catch(cause){
+      try{
+        const status=await scpStatus(request);
+        if(mounted.current&&datasetTicket.current===ticket){setDataset(status.dataset);setUnavailable(status.unavailableReason);setRecoveryRequired(false);setError(message(cause));}
+      }catch{
+        if(mounted.current&&datasetTicket.current===ticket){setDataset(null);setUnavailable(null);setRecoveryRequired(true);setError("The download outcome could not be confirmed. Check local status before trying again.");}
+      }
+    }finally{if(mounted.current&&datasetTicket.current===ticket)setImporting(false);}
   }
   async function recover(){
     if(disabled||importing)return;const ticket=++datasetTicket.current;statusTicket.current+=1;setImporting(true);setError("");
@@ -86,8 +104,9 @@ export function ContestAssistancePanel({request,ownerLeaseID,sessionID,workspace
     selectCandidate:async candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);
       if(!match)throw new Error("The SCP candidate no longer matches the current query.");await select(match);}};
     onSurfaceChange(current);return()=>onSurfaceChange(null);},[onSurfaceChange,dataset?.version,result,busy]);
-  return <section className="contest-scp" aria-label="Super Check Partial"><header><strong>Super Check Partial</strong><button type="button" disabled={disabled||importing||selecting} onClick={()=>void (recoveryRequired?recover():choose())}>{recoveryRequired?"Check local status":dataset?"Replace local file":"Import local file"}</button></header>
-    {!dataset?<p>{recoveryRequired?"Local SCP status must be checked before another import.":unavailable==="invalid_cache"?"The saved local SCP index is invalid. Import the source file again.":"No local MASTER.SCP file imported."}</p>:<><small>{dataset.version} · {dataset.recordCount.toLocaleString()} calls · local computed digest</small>{busy&&<p>Checking…</p>}<ContestCandidates className="contest-scp-matches" disabled={disabled||selecting||importing} candidates={result?.matches.map(match=>({id:match.matchID,label:match.callsign,detail:Math.round(match.score)}))??[]} onSelect={candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);if(match)void select(match);}}/>{result?.isPartial&&<small>Results cover the bounded catalog prefix.</small>}</>}{error&&<p role="alert">{error}</p>}
+  const official=dataset?.sourceID==="supercheckpartial-official", date=dataset?.retrievedAtUTC?.slice(0,10), digest=dataset?.sha256.slice(0,12);
+  return <section className="contest-scp" aria-label="Super Check Partial"><header><strong>Super Check Partial</strong><button type="button" disabled={disabled||importing||selecting||recoveryRequired} onClick={()=>void download()}>Download latest</button><button type="button" disabled={disabled||importing||selecting} onClick={()=>void (recoveryRequired?recover():choose())}>{recoveryRequired?"Check local status":dataset?"Replace local file":"Import local file"}</button></header>
+    {!dataset?<p>{recoveryRequired?"Local SCP status must be checked before another import or download.":unavailable==="invalid_cache"?"The saved local SCP index is invalid. Download the latest official file or import a local source file.":"No MASTER.SCP dataset is active. Download the latest official file or import a local file."}</p>:<><small>{dataset.version} · {dataset.recordCount.toLocaleString()} calls · {official?"official provider":"local import"}{date?` · ${date} UTC`:""} · SHA-256 {digest}… · {dataset.digestVerification==="matchedExpectedSHA256"?"verified digest":"computed digest"}</small>{busy&&<p>Checking…</p>}<ContestCandidates className="contest-scp-matches" disabled={disabled||selecting||importing} candidates={result?.matches.map(match=>({id:match.matchID,label:match.callsign,detail:Math.round(match.score)}))??[]} onSelect={candidateID=>{const match=result?.matches.find(item=>item.matchID===candidateID);if(match)void select(match);}}/>{result?.isPartial&&<small>Results cover the bounded catalog prefix.</small>}</>}{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}
   </section>;
 }
 

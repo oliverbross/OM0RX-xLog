@@ -1,10 +1,9 @@
 # Offline callsign assistance backend contract
 
 This backend slice exposes the accepted Super Check Partial engine through a
-small read-only actor. It ships no `MASTER.SCP` bytes, resource, downloader, or
-provider updater. Packaged-dataset redistribution has not been evaluated. The
-operator-managed import below may populate private workspace reference data;
-an official provider-update flow remains later work.
+small read-only actor. It ships no `MASTER.SCP` bytes or resource. An explicit
+operator action may either import a local file or download the current official
+`MASTER.SCP`; neither path performs an automatic launch-time update.
 
 The actor accepts either no dataset or an already imported `ContestSCPIndex`.
 The caller must explicitly admit that index through one of two trust paths. An
@@ -88,6 +87,27 @@ does not change a typed exchange. Selection is also bound to the active owner
 lease, session, workspace generation, draft identity and original typed
 callsign. It patches the current fields after those checks, preserving later
 exchange edits and a reserved serial.
+
+## Official provider download
+
+`Download latest` uses the native Swift worker transport. It discovers the
+current file and metadata from `https://www.supercheckpartial.com/api/v1/files`,
+requires exactly one case-sensitive `MASTER.SCP` entry, and downloads only
+`https://www.supercheckpartial.com/downloads/MASTER.SCP`. The transport accepts
+HTTPS GET to that fixed host only, refuses redirects, cookies, credentials and
+URL caching, and bounds the catalog to 64 KiB and dataset to 16 MiB. It sends an
+identifying User-Agent and uses `If-None-Match` when the active official digest
+matches discovery metadata.
+
+A 200 response must agree with the catalog on byte count and ETag. The ETag is
+treated as the expected lowercase SHA-256 and the unchanged raw bytes must pass
+the core importer before provider admission. A 304 is accepted only when the
+active official dataset already owns that exact digest. Provider, HTTP, size,
+digest, format, storage or admission failure retains the active dataset and
+cache. A successful replacement is atomically written before the old query
+lane is retired. The UI reports the provider release date, abbreviated digest,
+verification status, whether a new release was activated or the cache was
+already current, and a retryable error without hiding the retained dataset.
 
 Status, query, cancellation and selection are bounded non-retiring worker
 reads. Import is a state-changing operation. The native chooser pins the

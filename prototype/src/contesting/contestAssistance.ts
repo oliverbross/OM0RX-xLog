@@ -8,6 +8,7 @@ export type SCPMatch = { matchID: string; callsign: string; score: number; isPre
 export type SCPResult = SCPContext & { normalizedQuery: string; matches: SCPMatch[]; dataset: SCPDataset;
   evaluatedRecordCount: number; isPartial: boolean };
 export type SCPStatus = { dataset: SCPDataset | null; unavailableReason: "not_imported" | "invalid_cache" | "replacing" | "stopped" | null };
+export type SCPDownloadResult = { dataset: SCPDataset; updated: boolean };
 export type AssistanceRequest = ContestRequest;
 type RawRequest = <T>(method: string, params?: Record<string, unknown>) => Promise<ContestWorkerResponse<T>>;
 export type SCPImport = () => Promise<unknown | null>;
@@ -53,6 +54,12 @@ export function validateSCPImportResponse(response: unknown): SCPDataset {
   const value=object(unwrap(response));
   if(!value||!exact(value,["dataset"])||!validDataset(value.dataset))throw new Error("Malformed SCP import response.");
   return value.dataset;
+}
+export async function scpDownload(request: AssistanceRequest): Promise<SCPDownloadResult> {
+  const value=object(unwrap(await (request as RawRequest)<SCPDownloadResult>("contest_scp_download", {})));
+  if(!value||!exact(value,["dataset","updated"])||!validDataset(value.dataset)||typeof value.updated!=="boolean")
+    throw new Error("Malformed SCP download response.");
+  return value as unknown as SCPDownloadResult;
 }
 export async function scpStatus(request: AssistanceRequest): Promise<SCPStatus> {
   const value = object(unwrap(await (request as RawRequest)<SCPStatus>("contest_scp_status", {})));

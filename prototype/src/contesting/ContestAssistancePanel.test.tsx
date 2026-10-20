@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestAssistancePanel } from "./ContestAssistancePanel";
 import { scpQuery, scpSelect, validateSCPImportResponse } from "./contestAssistance";
+import type { SCPDataset } from "./contestAssistance";
 import type { ContestRequest, ContestWorkerResponse } from "./types";
 
 afterEach(cleanup);
@@ -21,12 +22,47 @@ it("shows honest unavailable state then imports, queries, and selects only the a
   }) as ContestRequest;
   const selected=vi.fn();
   render(<ContestAssistancePanel request={request} {...context} callsign="K1" onSelect={selected} importDataset={async()=>{available=true;return {id:"native",ok:true,result:{dataset}} as ContestWorkerResponse<{dataset:typeof dataset}>;}}/>);
-  expect(await screen.findByText("No local MASTER.SCP file imported.")).toBeTruthy();
+  expect(await screen.findByText(/No MASTER\.SCP dataset is active/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button",{name:"Import local file"}));
   expect(await screen.findByText(/tiny\.scp/)).toBeTruthy();
   const candidate=await screen.findByRole("button",{name:/K1ABC/},{timeout:1500}); fireEvent.click(candidate);
   await waitFor(()=>expect(selected).toHaveBeenCalledWith("K1ABC",expect.objectContaining({ownerLeaseID:7,draftID:"draft-1",inputCallsign:"K1"})));
   expect(calls).toContain("contest_scp_query"); expect(calls).toContain("contest_scp_select");
+});
+
+it("downloads and reports verified official metadata while preserving local import",async()=>{
+  const official={sourceID:"supercheckpartial-official",version:"MASTER.SCP",retrievedAtUTC:"2026-10-16T00:03:36.000Z",
+    sha256:"8a1d86a34f130dd4427c6fe62631f443e29608728b5aa14851e710cc26e9df96",byteCount:359667,recordCount:50004,
+    duplicateCount:0,digestVerification:"matchedExpectedSHA256" as const};
+  let current:SCPDataset|null=null;
+  const request=(async(method:string)=>{
+    if(method==="contest_scp_status")return {id:"status",ok:true,result:{dataset:current,unavailableReason:current?null:"not_imported"}};
+    if(method==="contest_scp_download"){current=official;return {id:"download",ok:true,result:{dataset:official,updated:true}};}
+    if(method==="contest_scp_query")return new Promise(()=>{});
+    if(method==="contest_scp_cancel")return {id:"cancel",ok:true,result:{cancelled:true}};
+    throw new Error(method);
+  }) as ContestRequest;
+  render(<ContestAssistancePanel request={request} {...context} callsign="" onSelect={vi.fn()}/>);
+  await screen.findByText(/No MASTER\.SCP dataset is active/);fireEvent.click(screen.getByRole("button",{name:"Download latest"}));
+  expect(await screen.findByText(/50,004 calls · official provider · 2026-10-16 UTC/)).toBeTruthy();
+  expect(screen.getByText(/SHA-256 8a1d86a34f13… · verified digest/)).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toMatch(/downloaded and activated/i);
+  expect(screen.getByRole("button",{name:"Replace local file"})).toBeTruthy();
+});
+
+it("shows retryable provider failure and retains the active dataset",async()=>{
+  const request=(async(method:string)=>{
+    if(method==="contest_scp_status")return {id:"status",ok:true,result:{dataset,unavailableReason:null}};
+    if(method==="contest_scp_download")return {id:"download",ok:false,error:{code:"scp_download_failed",message:"The official SCP service could not be reached. Existing data was retained; try Download Latest again.",outcome:"confirmed"}};
+    if(method==="contest_scp_query")return new Promise(()=>{});
+    if(method==="contest_scp_cancel")return {id:"cancel",ok:true,result:{cancelled:true}};
+    throw new Error(method);
+  }) as ContestRequest;
+  render(<ContestAssistancePanel request={request} {...context} callsign="" onSelect={vi.fn()}/>);
+  await screen.findByText(/tiny\.scp/);fireEvent.click(screen.getByRole("button",{name:"Download latest"}));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/try Download Latest again/);
+  expect(screen.getByText(/tiny\.scp/)).toBeTruthy();
+  expect((screen.getByRole("button",{name:"Download latest"}) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("cancels stale query context on callsign change and never selects implicitly", async()=>{
