@@ -66,6 +66,9 @@ const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
 const setupBandChoices = [...contestBands, "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
+const contestPhoneIntentPlugins = new Set(["arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb"]);
+const serialPrefixPlugins = new Set(["cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"]);
+const sweepstakesPlugins = new Set(["arrl_ss_cw", "arrl_ss_phone"]);
 const contestInputFieldID = (value: unknown): value is ContestInputFieldID =>
   typeof value === "string" && contestInputFieldIDs.includes(value as ContestInputFieldID);
 const contestTabMap = (value: Record<string, string>) => Object.fromEntries(Object.entries(value)
@@ -148,8 +151,8 @@ function canonicalWorkedAt(value: unknown) {
 function receivedExchange(row: Data, pluginID?: string): string {
   if (pluginID === "icwc_mst") return `${row.Name ?? ""} ${row.NR ?? ""}`.trim();
   if (pluginID === "cwo") return `${row.NR ?? ""} ${row.Name ?? ""}`.trim();
-  if (pluginID === "arrl_ss_cw") return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
-  return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" || pluginID === "oceania_dx_ssb" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
+  if (pluginID && sweepstakesPlugins.has(pluginID)) return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
+  return String(pluginID && serialPrefixPlugins.has(pluginID) ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
 }
 function correctionExchangeValues(row: Data, pluginID?: string) {
   if (pluginID === "cwt") {
@@ -166,8 +169,8 @@ function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
     band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
     points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" || pluginID === "cwo" ? []
-      : pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" || pluginID === "oceania_dx_ssb" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
-      : pluginID === "arrl_ss_cw" ? [row.Sect ? `Section ${row.Sect}` : ""].filter(Boolean)
+      : pluginID && serialPrefixPlugins.has(pluginID) ? [String(row.WPXPrefix ?? "")].filter(Boolean)
+      : pluginID && sweepstakesPlugins.has(pluginID) ? [row.Sect ? `Section ${row.Sect}` : ""].filter(Boolean)
       : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));
 }
@@ -281,7 +284,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
-  const phoneSimulationAvailable = contestingTest && projection?.pluginID === "cq_ww_ssb" && projection.mode === "SSB";
+  const phoneSimulationAvailable = Boolean(contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
   useEffect(() => {
     setPhoneSimulationArmed(false); setPhoneSimulationPending(false); setPhoneSimulationTrace([]);
   }, [contestingTest, projection?.sessionID, projection?.pluginID, projection?.mode]);
@@ -504,11 +507,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return { ...changed, actions: [] };
   };
   const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false) => {
-    const phoneAction = projectionRef.current?.pluginID === "cq_ww_ssb" && projectionRef.current.mode === "SSB";
+    const phoneAction = Boolean(projectionRef.current?.pluginID && contestPhoneIntentPlugins.has(projectionRef.current.pluginID) && projectionRef.current.mode === "SSB");
     if (phoneAction && (!phoneSimulationAvailable || !phoneSimulationArmed)) {
       const failure = new Error(phoneSimulationAvailable
-        ? "Arm the nontransmitting phone simulation before using CQ WW SSB messages."
-        : "CQ WW SSB voice output is unavailable in production; no audio or PTT action was taken.");
+        ? "Arm the nontransmitting phone simulation before using phone contest messages."
+        : "Phone contest voice output is unavailable in production; no audio or PTT action was taken.");
       setError(failure.message); if (throwFailures) throw failure; return null;
     }
     if (phoneAction) setPhoneSimulationPending(true);

@@ -492,23 +492,36 @@ it.each([
   { pluginID:"oceania_dx_ssb", pluginName:"Oceania DX SSB",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     row:{ID:"oc-ssb-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
-    receivedExchange:"123", multiplierLabels:["VK4"], values:["2026-10-20 11:00:00","VK4ABC","14250","59","59","1","123","✓","1"] },
+    receivedExchange:"123", multiplierLabels:["VK4"], values:["2026-10-20 11:00:00","VK4ABC","14250","59","59","1","123","✓","1"], correction:undefined },
   { pluginID:"oceania_dx_cw", pluginName:"Oceania DX CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     row:{ID:"oc-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
-    receivedExchange:"123", multiplierLabels:["VK4"], values:["2026-10-20 11:00:00","VK4ABC","14025","599","599","1","123","✓","1"] },
+    receivedExchange:"123", multiplierLabels:["VK4"], values:["2026-10-20 11:00:00","VK4ABC","14025","599","599","1","123","✓","1"], correction:undefined },
   { pluginID:"cq_wpx_cw", pluginName:"CQ WPX CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","WPX","M1","PTS"],
     row:{ID:"wpx-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,WPXPrefix:"K1",IsMultiplier1:1,Points:3},
-    receivedExchange:"123", values:["2026-10-20 11:00:00","K1ABC","14025","599","599","1","123","K1","✓","3"] },
+    receivedExchange:"123", multiplierLabels:["K1"], values:["2026-10-20 11:00:00","K1ABC","14025","599","599","1","123","K1","✓","3"],
+    correction:[{id:"other_1",label:"SentNR",value:"1",required:true,maximumUTF8Bytes:32},{id:"other_2",label:"RcvNR",value:"123",required:true,maximumUTF8Bytes:128}] },
+  { pluginID:"cq_wpx_ssb", pluginName:"CQ WPX SSB",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","WPX","M1","PTS"],
+    row:{ID:"wpx-ssb-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:1,NR:123,WPXPrefix:"K1",IsMultiplier1:1,Points:3},
+    receivedExchange:"123", multiplierLabels:["K1"], values:["2026-10-20 11:00:00","K1ABC","14250","59","59","1","123","K1","✓","3"],
+    correction:[{id:"other_1",label:"SentNR",value:"1",required:true,maximumUTF8Bytes:32},{id:"other_2",label:"RcvNR",value:"123",required:true,maximumUTF8Bytes:128}] },
   { pluginID:"arrl_ss_cw", pluginName:"ARRL Sweepstakes CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","CK","Prec","Sect","M1","PTS"],
     row:{ID:"ss-qso",TS:"2026-10-20 12:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,CK:67,Prec:"A",Sect:"CT",IsMultiplier1:1,Points:2},
-    receivedExchange:"123 A K1ABC 67 CT", multiplierLabels:["Section CT"], values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"] },
-])("projects the actual $pluginName log columns and exchange", async ({pluginID,pluginName,columns,row,receivedExchange,multiplierLabels,values}) => {
+    receivedExchange:"123 A K1ABC 67 CT", multiplierLabels:["Section CT"], values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"],
+    correction:[{id:"other_1",label:"SentNR",value:"1",required:true,maximumUTF8Bytes:32},{id:"other_2",label:"sn: p: cl: ck: sec:",value:"123 A K1ABC 67 CT",required:true,maximumUTF8Bytes:128}] },
+  { pluginID:"arrl_ss_phone", pluginName:"ARRL Sweepstakes Phone",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","CK","Prec","Sect","M1","PTS"],
+    row:{ID:"ss-phone-qso",TS:"2026-10-20 12:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"USB",SNT:"59",RCV:"59",SentNr:1,NR:123,CK:67,Prec:"A",Sect:"CT",IsMultiplier1:1,Points:2},
+    receivedExchange:"123 A K1ABC 67 CT", multiplierLabels:["Section CT"], values:["2026-10-20 12:00:00","K1ABC","14250","59","59","1","123","67","A","CT","✓","2"],
+    correction:[{id:"other_1",label:"SentNR",value:"1",required:true,maximumUTF8Bytes:32},{id:"other_2",label:"sn: p: cl: ck: sec:",value:"123 A K1ABC 67 CT",required:true,maximumUTF8Bytes:128}] },
+])("projects the actual $pluginName log columns, exchange, multiplier and correction prefill", async ({pluginID,pluginName,columns,row,receivedExchange,multiplierLabels,values,correction}) => {
   const current={...projection(3,{other_1:"002"}),pluginID,pluginName,columns,matrixTrackers:[],
     reservedSerial:2,score:{qsos:1,points:row.Points,countries:0,zones:0,multipliers:1,total:row.Points}};
-  current.fields=current.fields.map(field=>({...field,readOnly:field.id==="other_1"}));
+  current.fields=current.fields.map(field=>({...field,readOnly:field.id==="other_1",
+    label:field.id==="other_1"&&correction?correction[0].label:field.id==="other_2"&&correction?correction[1].label:field.label}));
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -527,6 +540,11 @@ it.each([
     pluginRows:[{qsoID:row.ID,values}],pluginPartialRows:[],page:{rows:[{receivedExchange,...(multiplierLabels ? {multiplierLabels} : {})}]}});
   expect(logbook).not.toHaveProperty("manualRows");
   expect(validContestSurfaceProjection("logbook",logbook)).toBe(true);
+  if(correction){
+    await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+      panelID:"logbook",projectionRevision:current.revision,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:row.ID}}));
+    expect(surfaceOwner.current.projections.logbook.editing.receivedFields).toEqual(correction);
+  }
 });
 
 it("creates an SSB session from catalog metadata and runs ESM without native CW admission", async () => {
@@ -558,16 +576,20 @@ it("creates an SSB session from catalog metadata and runs ESM without native CW 
   expect(nativeCW.execute).not.toHaveBeenCalled();
 });
 
-it("simulates only claimed CQ WW SSB voice-keyer intents in Contesting Test", async () => {
-  let current={...projection(3,{sent:"59",receive:"59",other_1:"15",other_2:"5"}),pluginID:"cq_ww_ssb",
-    pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:null,matrixTrackers:[] as Array<"countries"|"zones">};
+it.each([
+  {pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",other1:"15",other2:"5",reservedSerial:null,esmPayload:"59 15"},
+  {pluginID:"cq_wpx_ssb",pluginName:"CQ WPX SSB",other1:"001",other2:"123",reservedSerial:1,esmPayload:"59 001"},
+  {pluginID:"arrl_ss_phone",pluginName:"ARRL Sweepstakes Phone",other1:"001",other2:"123 A K1ABC 67 CT",reservedSerial:1,esmPayload:"K1ABC 001 A OM0RX 67 CT"},
+])("simulates only claimed $pluginName voice-keyer intents in Contesting Test", async ({pluginID,pluginName,other1,other2,reservedSerial,esmPayload}) => {
+  let current={...projection(3,{sent:"59",receive:"59",other_1:other1,other_2:other2}),pluginID,
+    pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
   let lastActions:any[]=[];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
     let result:any;
-    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB",modes:["SSB"]}]};
+    if(method==="contest_catalog")result={plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]};
     else if(method==="contest_sessions")result={sessions:[]};
     else if(method==="contest_create")result={projection:current};
     else if(method==="contest_log_page")result={rows:[],total:0};
@@ -575,7 +597,7 @@ it("simulates only claimed CQ WW SSB voice-keyer intents in Contesting Test", as
     else if(method==="contest_function_key"||method==="contest_esm"){
       current={...current,revision:current.revision+1};
       const key=method==="contest_esm"?"F3":String(params.key),label=method==="contest_esm"?"Exchange":key==="F12"?"His call TU":`Message ${key.slice(1)}`;
-      const payload=method==="contest_esm"?"59 15":"K1ABC rr tu";
+      const payload=method==="contest_esm"?esmPayload:"K1ABC rr tu";
       lastActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key,label,payload,
         payloadUTF8Bytes:new TextEncoder().encode(payload).byteLength,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),
         sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:current.sourceRevision,mode:"S",key,label,template:payload},
@@ -599,6 +621,8 @@ it("simulates only claimed CQ WW SSB voice-keyer intents in Contesting Test", as
   entry=surfaceOwner.current.projections["active-qso"];
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.trace[1]).toMatchObject({
+    mode:"SSB",macro:"Exchange",text:esmPayload,status:"confirmed"}));
   expect(request.mock.calls.filter(([method])=>method==="contest_output_claim")).toHaveLength(2);
   expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(true);
   expect(request.mock.calls.some(([method])=>method==="contest_esm")).toBe(true);
@@ -606,13 +630,17 @@ it("simulates only claimed CQ WW SSB voice-keyer intents in Contesting Test", as
   expect(workspaceProps.stationTune).not.toHaveBeenCalled();
 });
 
-it("keeps production CQ WW SSB voice intents inert before the worker mutation", async () => {
-  const current={...projection(3,{sent:"59",receive:"59",other_1:"15"}),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",
-    mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:null,matrixTrackers:[] as Array<"countries"|"zones">};
+it.each([
+  {pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB"},
+  {pluginID:"cq_wpx_ssb",pluginName:"CQ WPX SSB"},
+  {pluginID:"arrl_ss_phone",pluginName:"ARRL Sweepstakes Phone"},
+])("keeps production $pluginName voice intents inert before the worker mutation", async ({pluginID,pluginName}) => {
+  const current={...projection(3,{sent:"59",receive:"59",other_1:"001"}),pluginID,pluginName,
+    mode:"SSB",supportedModes:["SSB"] as const,reservedSerial:pluginID==="cq_ww_ssb"?null:1,matrixTrackers:[] as Array<"countries"|"zones">};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
-    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB",modes:["SSB"]}]}:
+    const result=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]}:
       method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
       method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
     if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
