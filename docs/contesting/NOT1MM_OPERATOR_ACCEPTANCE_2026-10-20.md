@@ -4,28 +4,49 @@ This checkpoint records demonstrated desktop behavior for the original executabl
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
 port or a public macOS release is finished.
 
-## Independent 1.2.95 candidate review — 21 October
+## Installed 1.2.95 milestone — 21 October
 
-- Reviewed source is `91335503578d3769e90f96676b84ec9e31dec385` on
+- Exact candidate and installed application source:
+  `25259a3f1e8bc6636dc6db01887e44a6f6179ec3` on
   `codex/not1mm-contesting`.
-- The repair lineage is `43986f10` (contest category separated from live QSO
-  mode), `1effbaad` (operator renderer workflows) and `2a6c34ae` (native contest
-  service admission). Version commit `09989ef7` sets `1.2.95`; `2664b290`
-  exposes the mixed setup category; `91335503` forces a fresh frontend embed in
-  the macOS packages.
-- The executable catalog contains 40 of the 94 pinned original plugins.
+- The 21 October review corrections are present in `43986f10`, `1effbaad` and
+  `2a6c34ae`; subsequent reliability fixes include EUHFC historical exchange
+  editing (`1f1afe65`), cold-start Edit Keys ownership (`83e76702`), native
+  Save-panel terminal receipts (`a4538691`) and the dedicated QRZ Details plus
+  read-only Remote VFO projections (`25259a3f`).
+- The executable catalog contains 46 of the 94 byte-pinned original plugins.
+  King of Spain CW/SSB, French REF CW/SSB, RSGB 80m CC and RSGB Commonwealth
+  BERU were added without translating their contest rules into Swift or JSON.
 
-The actual packaged EUHFC mixed workflow demonstrated CW and SSB QSOs, live
-report switching, score updates, separate native windows, traffic-light state
-and replay protection. The fresh native report at
-`/private/tmp/om0rx-xlog-1.2.95-not1mm-acceptance-91335503-20261021.json`
-records all 35 of 35 checks passing.
+The packaged EUHFC workflow demonstrated CW and SSB QSOs in one contest,
+59/599 report switching, Run/S&P and keyboard/function-key operation, score
+updates, historical correction, restart recovery and a valid mixed Cabrillo
+export. `/private/tmp/OM0RX-EUHFC-disposable-a4538691.log` has SHA-256
+`32d1c85cd6b0e0be17acecb24cc68119962328a9fb0e32e86efd87c6cd71e2a2`,
+`CATEGORY-MODE: MIXED`, the preserved sent year 26 and corrected received year
+31. The native Save panel returned to an enabled Export control without an
+uncertain receipt.
 
-This evidence is deliberately bounded. EUHFC correction, restart/recovery and
-export acceptance are still pending. Edit Contact currently exposes a defect:
-the EUHFC dynamic exchange field is not presented correctly; a fix and packaged
-retest are in progress. No physical RF, audio, PTT or live peer was exercised.
-The candidate is unnotarized, and production installation has not been performed.
+The final exact-source Contesting Test report at
+`/private/tmp/om0rx-xlog-1.2.95-not1mm-acceptance-25259a3f-20261021.json`
+records schema 1, status `passed`, `embeddedUi: true`, `station_io: false` and
+all 35 of 35 checks true. The signed test package additionally demonstrated
+Edit Keys from the cold main window, opt-in QRZ Details through its dedicated
+renderer, and the read-only Remote VFO window. No physical RF, audio, PTT or
+live peer was exercised.
+
+The same source was packaged and installed as `/Applications/OM0RX-xLog.app`.
+The replaced 1.2.94 bundle is recoverable at
+`/Applications/OM0RX-xLog-1.2.94-pre-1.2.95-25259a3f-20261021.app`.
+Deep strict code-signature verification passed. Installed hashes are:
+
+- Production executable: `981f93a638628c88711c7aa78ffd6838f1729183f3da0c414d0874372c57b7ac`
+- Production Swift worker: `acd223d1fde1561b2ced94cc1ef1c7864528156bd6516b5d735c1fe518e2d912`
+- Production Not1MM manifest: `979b59c267c44f893e4c7a3f833fe800b3beec01634e66223fa3c78010fd04db`
+- Contesting Test executable: `72d8a28177c794ebf4b9a6b2f03fca11b9b9d15d9d750085832876d983c93344`
+- Contesting Test Swift worker: `5ab2dce9324afdff744b5de09673887db5391967e0718fbe1e95f30dde291867`
+
+The application is still unnotarized and is not a public macOS release.
 
 ## Previous installed 1.2.93 baseline
 
@@ -245,29 +266,28 @@ a current 7P8GE spot at 24.902 MHz with comment `up.4 gl still` remained CW.
 
 ## Original plugin catalog growth
 
-Fifteen more byte-pinned original Not1MM plugins now execute through the accepted
-Python/SQLite host: ARRL DX CW, NAQP CW, SAC CW, SAC SSB, IARU Region 1 Field Day
-CW, IARU Region 1 Field Day SSB, CQ WPX RTTY, NAQP RTTY, Weekly RTTY, JIDX CW and
-JIDX Phone, All Asian DX CW, All Asian DX SSB, CQ 160 CW and CQ 160 SSB. Their
-source provenance and byte hashes are
-validated with the existing relocation checks; no contest rules were translated
-into Swift or JSON. The RTTY plugins share the bounded nontransmitting digital
-output sink and preserve each plugin's distinct exchange/scoring behavior. That
-installed 1.2.93 baseline contains 36 of the 94 upstream plugins. The reviewed
-1.2.95 candidate above raises the executable catalog to 40 of 94.
+The current installed milestone executes 46 of the 94 byte-pinned original
+Not1MM plugins through the accepted Python/SQLite host. Since the 36-plugin
+1.2.93 baseline, the catalog added EUHFC, IARU HF, ARRL 10m, ARRL 160m, King of
+Spain CW/SSB, French REF CW/SSB, RSGB 80m CC and RSGB Commonwealth BERU. Source
+provenance and hashes use the existing relocation checks; no contest rules were
+translated into Swift or JSON. The full Python host suite passes 207 tests and
+the pinned corpus verifies all 94 source modules at upstream revision
+`7c8b499225a73f7f8f792246881bd7aefc05452f`.
 
 ## Installed-app preservation smoke
 
-The installed 1.2.93 production app opened the existing workspace successfully:
+The installed 1.2.95 production app opened the existing workspace successfully:
 
-- 68,395 normal-log contacts were visible.
+- 68,406 normal-log contacts were visible; the installation did not replace the
+  normal log, settings or contest databases.
 - The requested C5R contact was present at 09:41 UTC on 20 October 2026, 12 m SSB,
   24.950 MHz. A later C5R contact at 09:55 UTC on 15 m was also present.
 - Existing station identity `OM0RX / JN88TQ`, the connected rotor projection,
   cluster connection and saved Traditional layout were retained.
 - The native Contest menu exposed Contest Setup, Operator, Station Settings,
-  Configuration Settings, Digital Logging Setup, Rover, Call History, QRZ
-  Details, Group Chat, Main Logging, Stats,
+  Configuration Settings, Digital Logging Setup, Edit Macros, Edit Keys, Rover,
+  Call History, QRZ Details, Group Chat, Main Logging, Stats,
   Logbook, Band Map, Cluster, Check Partial, Rates, DXCC, Zone, Rotator and
   Remote VFO, plus About Not1MM.
 - Remote VFO opened as its own contest window, rather than activating ordinary
@@ -280,9 +300,9 @@ The installed 1.2.93 production app opened the existing workspace successfully:
   disabled in the saved setup it bound no socket, disabled Message/Send and
   displayed the truthful disabled status. No second live multicast peer was
   used in this pass.
-- The existing QRZ-details tickbox guard was exercised from the installed menu:
-  with the preference off, Contest Setup displayed the exact action needed to
-  enable the separate details window.
+- The QRZ-details tickbox guard was exercised in the signed test package: with
+  the preference off, Contest Setup displayed the exact action needed; after
+  enabling it under Configuration → Lookup, QRZ Details opened separately.
 
 This smoke establishes local retention and display. It does not by itself prove a
 remote Wavelog upload receipt for C5R.
@@ -307,13 +327,12 @@ remote Wavelog upload receipt for C5R.
 - The reported 7P8GE 28.088 MHz `FT-8 TNX 73s` row had aged out before this
   installed-app pass. Its exact parser/session behavior and stale-row refresh are
   regression-tested, but that exact live cluster observation was not repeated.
-- The reviewed 1.2.95 candidate contains 40 pinned original plugins out of 94;
-  54 original plugins still need to be brought through this same Python host.
-- EUHFC correction, restart/recovery and export remain pending, and Edit Contact
-  currently presents its dynamic exchange field incorrectly; the fix and
-  packaged retest are in progress.
-- The 1.2.95 candidate has not been installed in production and remains
-  unnotarized.
+- The installed 1.2.95 milestone contains 46 pinned original plugins out of 94;
+  48 original plugins still need to be brought through this same Python host.
+- BERU's original ESM auto-logs numeric exchanges only. Valid `SERIAL HQ`
+  contacts work through direct commit, scoring, correction and export, but still
+  require manual commit rather than Enter-driven ESM.
+- The installed 1.2.95 application remains unnotarized.
 - Normal-log transfer/finalization remains incomplete. Saved-window refresh,
   child reconnection and automatic active-contest restoration are fixed.
 - Some original configuration windows and workflows remain to be reproduced.
