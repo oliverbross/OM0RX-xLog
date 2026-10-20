@@ -15,6 +15,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 MACHO = {bytes.fromhex(value) for value in ("feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
+PACKAGING_SCRIPTS = {"package-macos.sh", "package-contesting-test-macos.sh"}
 
 
 def run(*args, **kwargs):
@@ -29,6 +30,11 @@ def require(condition, message):
 def digest(path):
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def packaging_source_names(packaging_script):
+    require(packaging_script in PACKAGING_SCRIPTS, f"Unexpected packaging script: {packaging_script}")
+    return ("relocate-contest-python.py", "stage-contest-python-macos.sh", packaging_script)
 
 
 def is_macho(path):
@@ -192,7 +198,9 @@ def main():
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--source-framework", type=Path)
     parser.add_argument("--finalize-provenance", action="store_true")
+    parser.add_argument("--packaging-script", default="package-macos.sh")
     args = parser.parse_args()
+    packaging_sources = packaging_source_names(args.packaging_script)
     bundle = args.bundle.absolute()
     parent = ROOT / "prototype/src-tauri/target/release/bundle/macos"
     require(bundle.parent == parent and bundle.suffix == ".app" and not bundle.is_symlink(), "Unexpected candidate bundle")
@@ -205,6 +213,8 @@ def main():
     manifest = bundle / "Contents/Resources/Not1MM/python-runtime.json"
     if args.finalize_provenance:
         data = json.loads(manifest.read_text())
+        require(set(data.get("packagingSources", {})) == set(packaging_sources),
+                "Packaging provenance does not match the finalizing script")
         data["packagedMachO"] = validate(framework, target)
         data["hashPhase"] = "final-component-signatures-before-outer-app-signature"
     else:
@@ -233,8 +243,7 @@ def main():
                 "sourceChanges": run("git", "-C", ROOT, "status", "--porcelain").splitlines(),
                 "createdUTC": datetime.now(UTC).isoformat(), "dependencies": closure, "packagedMachO": validate(framework, target),
                 "acceptance": self_test(framework, host_root), "hashPhase": "staged-ad-hoc-signatures"}
-        data["packagingSources"] = {name: digest(ROOT / "prototype/scripts" / name) for name in
-                                    ("relocate-contest-python.py", "stage-contest-python-macos.sh", "package-macos.sh")}
+        data["packagingSources"] = {name: digest(ROOT / "prototype/scripts" / name) for name in packaging_sources}
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     print(f"Verified bundled Python {data['pythonVersion']}: {len(data['packagedMachO'])} Mach-O files; minimum macOS {target}; {manifest}")

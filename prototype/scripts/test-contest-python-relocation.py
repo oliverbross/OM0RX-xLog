@@ -11,6 +11,14 @@ spec.loader.exec_module(relocation)
 
 
 class RelocationBoundaryTests(unittest.TestCase):
+    def test_packaging_provenance_is_allowlisted_and_exact(self):
+        self.assertEqual(
+            relocation.packaging_source_names("package-contesting-test-macos.sh"),
+            ("relocate-contest-python.py", "stage-contest-python-macos.sh", "package-contesting-test-macos.sh"),
+        )
+        with self.assertRaisesRegex(RuntimeError, "Unexpected packaging script"):
+            relocation.packaging_source_names("arbitrary-local-script.sh")
+
     def test_deployment_target_rejects_incompatible_runtime(self):
         with patch.object(relocation, "run", return_value="cmd LC_BUILD_VERSION\n platform MACOS\n minos 26.0\n"):
             with self.assertRaisesRegex(RuntimeError, "app promises 14.0"):

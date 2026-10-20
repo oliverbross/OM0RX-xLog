@@ -42,11 +42,33 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
   assert.match(script, /--finalize-provenance/);
 });
 
+test('isolated contest packaging stages and signs the complete Python lane', () => {
+  const script = source('package-contesting-test-macos.sh');
+  assert.match(script, /stage-contest-python-macos\.sh" "\$bundle" "package-contesting-test-macos\.sh"/);
+  const helper = source('relocate-contest-python.py');
+  assert.match(helper, /Contents\/Frameworks\/Python\.framework/);
+  assert.match(helper, /Contents\/Resources\/Not1MM\/python"/);
+  assert.match(helper, /Contents\/Resources\/Not1MM\/python-runtime\.json/);
+  assert.match(helper, /"sourceChanges": run\("git", "-C", ROOT, "status", "--porcelain"\)\.splitlines\(\)/);
+  assert.match(helper, /"final-component-signatures-before-outer-app-signature"/);
+  assert.match(script, /find "\$bundle\/Contents\/Frameworks\/Python\.framework" -type f -print0/);
+  assert.match(script, /security find-identity -v -p codesigning/);
+  assert.match(script, /Developer ID Application:/);
+  assert.match(script, /if \[ "\$signing_identity" = - \]; then/);
+  assert.match(script, /--options runtime --timestamp --sign "\$signing_identity"/);
+  for (const identifier of ['python.helper', 'python', 'worker', 'rigctld', 'rotctld']) {
+    assert.match(script, new RegExp(`com\\.oliverbross\\.xlog\\.contesting-test\\.${identifier.replace('.', '\\.')}`));
+  }
+  assert.match(script, /sign_component "\$bundle" "com\.oliverbross\.xlog\.contesting-test"/);
+  assert.match(script, /--finalize-provenance[\s\\]+\n[\s\\]+--packaging-script "package-contesting-test-macos\.sh"/);
+});
+
 test('contest Python staging is application-relative and relocation-checked', () => {
   const script = source('stage-contest-python-macos.sh');
   assert.match(script, /source_framework=\/opt\/local\/Library\/Frameworks\/Python\.framework/);
   assert.match(script, /source_python="\$source_framework\/Versions\/3\.12\/bin\/python3\.12"/);
   assert.match(script, /"\$source_python" -I -B "\$repo_root\/prototype\/scripts\/relocate-contest-python\.py"/);
+  assert.match(script, /--packaging-script "\$packaging_script"/);
   const helper = source('relocate-contest-python.py');
   assert.match(helper, /site-packages/);
   assert.match(helper, /source_dependency/);
@@ -54,4 +76,5 @@ test('contest Python staging is application-relative and relocation-checked', ()
   assert.match(helper, /sqlite3, ssl, lzma, decimal/);
   assert.match(helper, /DYLD_PRINT_LIBRARIES/);
   assert.match(helper, /sourceExecutableSHA256/);
+  assert.match(helper, /PACKAGING_SCRIPTS = \{"package-macos\.sh", "package-contesting-test-macos\.sh"\}/);
 });
