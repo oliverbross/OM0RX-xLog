@@ -2009,7 +2009,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         if response["ok"] == true {
             let context = contest_window_context::complete(ticket, response)?;
             let runtime_app = app.clone();
-            tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_changed(&runtime_app, context))
+            tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_changed_and_refresh(&runtime_app, context))
                 .await.map_err(|_| "Contest window context task failed".to_string())??;
         }
     }

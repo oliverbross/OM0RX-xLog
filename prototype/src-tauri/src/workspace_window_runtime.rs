@@ -415,6 +415,14 @@ pub fn contest_context_changed(app: &AppHandle,
     owner.wake.notify_one();
     received.recv().map_err(|_| "Native workspace window owner unavailable".to_owned())?
 }
+/// Replace the admitted contest session before asking the native owner to load
+/// its saved window set. The reset deliberately completes first: it rejects
+/// any older queued contest work, so pre-queuing this refresh would discard it.
+pub fn contest_context_changed_and_refresh(app: &AppHandle,
+    context: crate::contest_window_context::ContestWindowContext) -> Result<u64, String> {
+    contest_context_changed(app, context.clone())?;
+    contest_refresh(app, context, false)
+}
 pub fn contest_context_closed(app: &AppHandle,
     context: crate::contest_window_context::ContestWindowContext) -> Result<(), String> {
     crate::contest_window_context::admit(&context)?;
@@ -1126,6 +1134,22 @@ mod tests {
         assert_eq!(queue.opens[0].label, "logbook");
         assert!(queue.refresh.contains_key(&WorkspaceWindowScope::NormalLogging));
         assert!(!queue.refresh.contains_key(&WorkspaceWindowScope::Contesting));
+    }
+    #[test]
+    fn saved_contest_refresh_queued_after_reset_survives_the_rejection_boundary() {
+        let mut queue = Queue::default();
+        let stale = contest_context("20000000-0000-4000-8000-000000000001");
+        let current = contest_context("20000000-0000-4000-8000-000000000002");
+        queue.refresh(WorkspaceWindowScope::Contesting, Some(stale), false).unwrap();
+
+        queue.reject_contest_work();
+        let attempt = queue.refresh(
+            WorkspaceWindowScope::Contesting, Some(current.clone()), false).unwrap();
+
+        let Some(Work::Refresh(refresh)) = queue.next() else { panic!("missing restored contest refresh") };
+        assert_eq!(refresh.attempt, attempt);
+        assert_eq!(refresh.contest_context, Some(current));
+        assert!(!refresh.force);
     }
     #[test]
     fn session_replacement_resets_only_the_contest_engine() {
