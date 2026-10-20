@@ -584,7 +584,7 @@ it.each([
   let current={...projection(3,{sent:"59",receive:"59",other_1:other1,other_2:other2}),pluginID,
     pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
-  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"|"uncertain"="normal",recoverAttempts=0,
+  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"|"uncertain"|"double-uncertain"="normal",recoverAttempts=0,
     refreshMode:"hang"|"update"="hang",logged=false,releaseStale:Array<()=>void>=[],mutationMode:"normal"|"hold"|"hold-fail"="normal",
     releaseMutation:(()=>void)|null=null,rejectMutation:(()=>void)|null=null,mutationRevisions:number[]=[];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
@@ -592,8 +592,10 @@ it.each([
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
     let result:any;
     if(method==="contest_catalog")result={plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]};
-    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_sessions")result={sessions:[{sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,
+      name:pluginName,pluginID,sourceRevision:current.sourceRevision,revision:current.revision}]};
     else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_open")result={projection:current};
     else if(method==="contest_log_page")return completedClaims&&refreshMode==="hang" ? new Promise(resolve=>releaseStale.push(()=>resolve({
       id:crypto.randomUUID(),ok:true,result:{rows:[],total:99,offset:0}}))) : {id:crypto.randomUUID(),ok:true,
       result:{rows:logged?[{ID:"qso-1",TS:"2026-10-21 00:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"SSB",SNT:"59",RCV:"59",
@@ -634,6 +636,10 @@ it.each([
           message:"Claim confirmation was lost",outcome:"uncertain"}};
         return{id:crypto.randomUUID(),ok:false,error:{code:"output_consumed",
           message:"Output was already consumed; do not replay",outcome:"confirmed"}};
+      }
+      if(claimMode==="double-uncertain"){
+        recoverAttempts+=1;return{id:crypto.randomUUID(),ok:false,error:{code:"contest_host_timeout",
+          message:"Claim confirmation remains unknown",outcome:"uncertain"}};
       }
       completedClaims+=1;result={claimed:true,operationID:params.operationID,actions:lastActions};
     }
@@ -742,6 +748,48 @@ it.each([
   await act(async()=>rejectMutation?.());
   await act(async()=>{await blockedAssertion;});
   expect(mutationRevisions).toHaveLength(uncertainBefore);
+
+  const reopenCurrentSession=async()=>{
+    const opensBefore=request.mock.calls.filter(([method])=>method==="contest_open").length;
+    refreshMode="update";
+    await userEvent.click(screen.getByRole("button",{name:"Select contest"}));
+    await userEvent.click(screen.getByRole("button",{name:"Choose a Contest"}));
+    await userEvent.click(screen.getByRole("radio",{name:pluginName}));
+    await userEvent.click(screen.getByRole("button",{name:"OK"}));
+    await waitFor(()=>expect(request.mock.calls.filter(([method])=>method==="contest_open")).toHaveLength(opensBefore+1));
+    await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.revision).toBe(current.revision));
+  };
+  await reopenCurrentSession();
+  const firstOpenedRevision=current.revision;
+  claimMode="normal";
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F9",focusedField:"callsign"}}));
+  expect(mutationRevisions.at(-1)).toBe(firstOpenedRevision);
+
+  claimMode="double-uncertain";recoverAttempts=0;
+  entry=surfaceOwner.current.projections["active-qso"];
+  let doubleClaimError:unknown;
+  await act(async()=>{try { await surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F10",focusedField:"callsign"}}); }
+    catch(cause) { doubleClaimError=cause; }});
+  expect(doubleClaimError).toEqual(expect.objectContaining({message:expect.stringContaining("Reopen the contest session to reconcile its revision")}));
+  expect(recoverAttempts).toBe(2);
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.revision).toBe(current.revision));
+  const doubleUncertainBefore=mutationRevisions.length;
+  entry=surfaceOwner.current.projections["active-qso"];
+  await expect(surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F11",focusedField:"callsign"}}))
+    .rejects.toThrow("Reopen the contest session to reconcile its revision");
+  expect(mutationRevisions).toHaveLength(doubleUncertainBefore);
+
+  await reopenCurrentSession();
+  const secondOpenedRevision=current.revision;
+  claimMode="normal";
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F12",focusedField:"callsign"}}));
+  expect(mutationRevisions.at(-1)).toBe(secondOpenedRevision);
 });
 
 it.each([

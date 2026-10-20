@@ -44,6 +44,12 @@ type PhoneSimulationTrace = { operationID: string; mode: "SSB"; macro: string; t
 class PhoneSimulationStopped extends Error {
   constructor() { super("The contest phone simulation was stopped."); this.name = "PhoneSimulationStopped"; }
 }
+class PhoneSimulationClaimUncertain extends Error {
+  constructor() {
+    super("The phone output claim could not be confirmed. Reopen the contest session to reconcile its revision before sending another key.");
+    this.name = "PhoneSimulationClaimUncertain";
+  }
+}
 const phoneClaimReplyTimeoutMs = 2_000;
 function abortPhoneWait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(new PhoneSimulationStopped());
@@ -401,6 +407,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const opened = await result<{ projection: Projection }>("contest_open", {
         sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
       });
+      phoneSimulationRecoveryRef.current = null;
       const setupResult = await result<{ setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] }>("contest_setup_get", { sessionID: session.sessionID });
       setEffectiveMacros(setupResult.effectiveMacros);
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
@@ -484,13 +491,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       return null;
     }
     const inputVersion = editVersionRef.current;
-    let operationPromise: Promise<MutationResult> | null = null, changed: MutationResult | null = null;
+    let operationPromise: Promise<MutationResult> | null = null, committed: MutationResult | null = null, changed: MutationResult | null = null;
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
       if (flushBuffered) base = await flushDraft(base);
       if (!base) throw new Error("Open a contest session before editing it.");
       operationPromise = operation(base);
       changed = await (signal ? abortPhoneWait(operationPromise, signal) : operationPromise);
+      committed = changed;
       if (changed.actions?.length && consumeOutput)
         changed = await (signal ? abortPhoneWait(consumeOutput(changed), signal) : consumeOutput(changed));
       acceptProjection(changed.projection, preserveConcurrentEdits ? inputVersion : undefined);
@@ -500,7 +508,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if (changed.outputError) setError(changed.outputError);
       return changed.projection;
     } catch (cause) {
-      if (cause instanceof PhoneSimulationStopped && base) {
+      if ((cause instanceof PhoneSimulationStopped || cause instanceof PhoneSimulationClaimUncertain) && base) {
         const admitCommittedProjection = (settled: MutationResult) => {
           const current = projectionRef.current, next = settled.projection;
           const admitted = current?.sessionID === base!.sessionID && current.revision === base!.revision &&
@@ -509,8 +517,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
             acceptProjection(next, preserveConcurrentEdits ? inputVersion : undefined);
           return admitted;
         };
-        if (changed) admitCommittedProjection(changed);
-        else if (operationPromise) recoverStopped?.(operationPromise.then(admitCommittedProjection, () => false));
+        if (cause instanceof PhoneSimulationClaimUncertain && committed) admitCommittedProjection(committed);
+        else if (changed) admitCommittedProjection(changed);
+        else if (cause instanceof PhoneSimulationStopped && operationPromise)
+          recoverStopped?.(operationPromise.then(admitCommittedProjection, () => false));
+        if (cause instanceof PhoneSimulationClaimUncertain)
+          recoverStopped?.(Promise.resolve(false));
       }
       if (!(cause instanceof PhoneSimulationStopped)) setError(errorMessage(cause));
       if (throwFailures && !(cause instanceof PhoneSimulationStopped)) throw cause;
@@ -553,6 +565,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if (!retryable) throw cause;
       try { claimed = await result<Data>("contest_output_claim", claimParams); }
       catch (retryCause) {
+        if (retryCause instanceof ContestServerError && retryCause.outcome === "uncertain")
+          throw new PhoneSimulationClaimUncertain();
         if (!(retryCause instanceof ContestServerError) || retryCause.code !== "output_consumed" || retryCause.outcome !== "confirmed")
           throw retryCause;
       }
