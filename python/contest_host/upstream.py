@@ -165,6 +165,22 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     'mycountry = item.get("entity", "")',
                 ),
             ])
+        if plugin_id in {"aadx_cw", "aadx_ssb"}:
+            # The original multiplier rebuild orders contacts only by UTC
+            # second. Use rowid as the stable tie-break already used by the
+            # host so same-second QSOs cannot both claim one multiplier.
+            replacements.extend([
+                (
+                    'f"TS < \'{time_stamp}\' "',
+                    'f"(TS < \'{time_stamp}\' OR (TS = \'{time_stamp}\' AND rowid < "'
+                    '\n        f"(SELECT rowid FROM dxlog WHERE ID = \'{self.contact.get(\"ID\", \"\")}\'))) "',
+                ),
+                (
+                    'f" TS < \'{time_stamp}\' "',
+                    'f" (TS < \'{time_stamp}\' OR (TS = \'{time_stamp}\' AND rowid < "'
+                    '\n        f"(SELECT rowid FROM dxlog WHERE ID = \'{self.contact.get(\"ID\", \"\")}\'))) "',
+                ),
+            ])
         if plugin_id in {"oceania_dx_cw", "oceania_dx_ssb"}:
             # SQLite stores Band as REAL; the pinned plugin indexes string keys.
             # Ordered host replay already computed each row's duplicate points.

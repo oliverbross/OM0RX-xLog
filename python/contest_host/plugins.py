@@ -66,6 +66,8 @@ PLUGIN_REGISTRY = MappingProxyType({
     "10_10_summer_phone": Plugin("10 10 SUMMER PHONE", bands=("10m",), modes=("SSB",)),
     "jidx_cw": Plugin("JIDX CW", sent_exchange_hint="Prefecture or CQ Zone"),
     "jidx_ph": Plugin("JIDX PH", modes=("SSB",), sent_exchange_hint="Prefecture or CQ Zone"),
+    "aadx_cw": Plugin("AADX CW", sent_exchange_hint="Age (or 01)"),
+    "aadx_ssb": Plugin("AADX SSB", modes=("SSB",), sent_exchange_hint="Age (or 01)"),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -74,9 +76,11 @@ TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_p
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test"})
 NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
 RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty"})
-CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty"})
+CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty",
+                                       "aadx_cw", "aadx_ssb"})
 ARRL_DX_PLUGINS = frozenset({"arrl_dx_cw", "arrl_dx_ssb"})
 JIDX_PLUGINS = frozenset({"jidx_cw", "jidx_ph"})
+AADX_PLUGINS = frozenset({"aadx_cw", "aadx_ssb"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
-}) | JIDX_PLUGINS
+}) | JIDX_PLUGINS | AADX_PLUGINS

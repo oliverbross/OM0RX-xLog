@@ -13,7 +13,7 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import (ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_WW_PLUGINS,
+from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_WW_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, RTTY_PLUGINS, SERIAL_PLUGINS,
@@ -830,6 +830,10 @@ class Host:
                     validate_name_sent_exchange(setup["settings"].get("SentExchange"))
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     validate_ten_ten_sent_exchange(setup["settings"].get("SentExchange"))
+                if state["pluginID"] in AADX_PLUGINS:
+                    require(re.fullmatch(r"[0-9]+", zone) is not None
+                            and 0 < int(zone) <= 9223372036854775807,
+                            "AADX sent age must be a positive SQLite integer")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 require(setup["settings"].get("ModeCategory", mode) in modes,
@@ -846,7 +850,8 @@ class Host:
                 # the projection, and rescore if the station country changed.
                 previous_station = desk.station
                 desk = Desk(store, state, self.commit)
-                if state["pluginID"] in CQ_WW_PLUGINS and state["pluginID"] != "cq_ww_rtty":
+                if (state["pluginID"] in CQ_WW_PLUGINS and state["pluginID"] != "cq_ww_rtty"
+                        or state["pluginID"] in AADX_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1040,6 +1045,10 @@ class Host:
             require(re.fullmatch(r"[0-9]+", str(settings["SentExchange"])) is not None
                     and 0 < int(settings["SentExchange"]) <= 9223372036854775807,
                     "JIDX sent prefecture/CQ zone must be a positive SQLite integer")
+        if plugin_id in AADX_PLUGINS:
+            require(re.fullmatch(r"[0-9]+", str(settings["SentExchange"])) is not None
+                    and 0 < int(settings["SentExchange"]) <= 9223372036854775807,
+                    "AADX sent age must be a positive SQLite integer")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1058,6 +1067,7 @@ class Host:
                 "fields": dict(zip(INPUTS, ("", report, report,
                     str(settings["SentExchange"]) if (plugin_id in CQ_WW_PLUGINS and plugin_id != "cq_ww_rtty")
                     or plugin_id in JIDX_PLUGINS
+                    or plugin_id in AADX_PLUGINS
                     or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
@@ -1181,6 +1191,13 @@ class Host:
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None
                         and 0 < int(fields[name]) <= 9223372036854775807,
                         "JIDX sent and received prefecture/CQ zones must be positive SQLite integers")
+        elif desk.state["pluginID"] in AADX_PLUGINS:
+            require(desk.cty_lookup(desk.callsign.text()) is not None,
+                    "Resolve the contact country before logging AADX")
+            for name in ("other_1", "other_2"):
+                require(re.fullmatch(r"[0-9]+", fields[name]) is not None
+                        and 0 < int(fields[name]) <= 9223372036854775807,
+                        "AADX sent and received ages must be positive SQLite integers")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1207,7 +1224,8 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
-        if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:
+        if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
+                                       *AADX_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)

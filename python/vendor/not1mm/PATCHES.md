@@ -11,7 +11,7 @@ ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX CW, ARRL DX SSB,
 NAQP CW, NAQP SSB, NAQP RTTY,
 Phone Weekly Test, Weekly RTTY Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
 Oceania DX CW, Oceania DX SSB, SAC CW, SAC SSB, and IARU Region 1
-Field Day CW and SSB, plus JIDX CW and JIDX Phone.
+Field Day CW and SSB, plus JIDX CW and JIDX Phone, and AADX CW and AADX SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -156,6 +156,18 @@ import time and fails if the pinned source differs:
     modules and their manifest verification remain relocatable with the Python
     host/vendor tree.
 
+16. AADX CW and AADX SSB execute unchanged modules from the same pinned
+    revision (Git blobs `6e8493b8c1bf861da6d0c78b1db0a7b3a39026ee` and
+    `9ddbedac9637f899422d8d48553c3a1840bd7d5b`). The host seeds and validates
+    the configured sent age, validates received ages as positive SQLite
+    integers, and rebuilds the original per-band multiplier assignments after
+    every commit, correction and deletion. Original Asia/non-Asia point tables,
+    prefix-or-DXCC multiplier selection, per-band duplicates, ESM and Cabrillo
+    callbacks remain authoritative. A finite import overlay adds a rowid
+    tie-break to the original timestamp-only multiplier queries so same-second
+    contacts are replayed deterministically. SSB remains non-transmitting and
+    adds no audio/PTT authority.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -180,6 +192,8 @@ Original SHA-256:
 | plugins/weekly_rtty.py | 595cc4514d88fd3c7d8568bf695366a700b4d08c2a491334958e42702df6d02a |
 | plugins/jidx_cw.py | 457e6ba45da31a90c06fc9508dee8d1dccf053b0676083c2472082dd61c18e53 |
 | plugins/jidx_ph.py | 20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860 |
+| plugins/aadx_cw.py | 491affb2e8e1a9f64984f30ca95ec8bbf4a4f89788ffdc24f116356dc84df745 |
+| plugins/aadx_ssb.py | 5d6d4a6a9dff5f07bb533041ba259bf901ef33a74e31f0a4091a9235333b0bdc |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
