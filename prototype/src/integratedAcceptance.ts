@@ -15,6 +15,13 @@ import { verifyEditorFocus } from "./editorFocusAcceptance";
 import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
 import { verifyADIFTransferRoundtrip } from "./adifTransferAcceptance";
 
+export const essentialSettingsLabels = ["General", "Logbook", "Wavelog", "Sync", "Rotator", "Radio spots", "Workspace"] as const;
+
+export function hasEssentialSettingsSections(root: ParentNode = document) {
+  const labels = new Set([...root.querySelectorAll<HTMLElement>('[role="tab"]')].map(tab => tab.textContent?.trim()).filter(Boolean));
+  return essentialSettingsLabels.every(label => labels.has(label));
+}
+
 type Json = Record<string, any>;
 const frame = () => new Promise<void>(resolve => {
   let settled = false;
@@ -142,11 +149,9 @@ async function main(report: Json) {
   report.details.workspaceStability = { position: getComputedStyle(feedback).position, pointerEvents: getComputedStyle(feedback).pointerEvents };
   check("workspace_feedback_overlay", report.details.workspaceStability.position === "absolute" && report.details.workspaceStability.pointerEvents === "none");
   await navigate("Settings");
-  const essentialSettings = ["Station", "Logbook", "Wavelog", "Sync", "Rotator", "Radio spots", "Workspace"];
-  await waitForAcceptance("essential settings sections", () => essentialSettings.every(name =>
-    [...document.querySelectorAll<HTMLElement>('[role="tab"]')].some(tab => tab.textContent?.trim() === name)));
+  await waitForAcceptance("essential settings sections", () => hasEssentialSettingsSections());
   report.details.settingsSections = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(tab => tab.textContent?.trim()).filter(Boolean);
-  check("settings_sections", essentialSettings.every(name => report.details.settingsSections.includes(name)));
+  check("settings_sections", essentialSettingsLabels.every(name => report.details.settingsSections.includes(name)));
   report.details.workspaceSettings = await verifyWorkspaceSettings({ worker, navigate, fill, click });
   check("workspace_settings_presets", report.details.workspaceSettings.savedInactive && report.details.workspaceSettings.activated && report.details.workspaceSettings.renamed && report.details.workspaceSettings.remount && report.details.workspaceSettings.sameDraft);
   for (const method of ["self_test", "integration_self_test"]) {

@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { validIsolatedHealth, validSavedContact } from "../src/integratedAcceptance";
+import { essentialSettingsLabels, hasEssentialSettingsSections, validIsolatedHealth, validSavedContact } from "../src/integratedAcceptance";
 
 describe("current integrated UI evidence", () => {
   it("requires the isolated real logbook with every external service disabled", () => {
@@ -17,5 +18,16 @@ describe("current integrated UI evidence", () => {
     expect(validSavedContact({ total: 0, qsos: [] })).toBe(false);
     expect(validSavedContact({ total: 2, qsos: [row, row] })).toBe(false);
     for (const key of Object.keys(row)) expect(validSavedContact({ total: 1, qsos: [{ ...row, [key]: "wrong" }] })).toBe(false);
+  });
+  it("requires every essential Settings tab by its accessible label", () => {
+    const root = document.createElement("div");
+    for (const label of essentialSettingsLabels) {
+      const tab = document.createElement("button");
+      tab.setAttribute("role", "tab"); tab.textContent = label; root.append(tab);
+    }
+    expect(essentialSettingsLabels).toEqual(["General", "Logbook", "Wavelog", "Sync", "Rotator", "Radio spots", "Workspace"]);
+    expect(hasEssentialSettingsSections(root)).toBe(true);
+    root.querySelector('[role="tab"]')?.remove();
+    expect(hasEssentialSettingsSections(root)).toBe(false);
   });
 });
