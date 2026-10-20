@@ -407,11 +407,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const opened = await result<{ projection: Projection }>("contest_open", {
         sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration,
       });
-      phoneSimulationRecoveryRef.current = null;
       const setupResult = await result<{ setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] }>("contest_setup_get", { sessionID: session.sessionID });
       setEffectiveMacros(setupResult.effectiveMacros);
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
-      acceptSessionProjection(opened.projection); rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
+      acceptSessionProjection(opened.projection); phoneSimulationRecoveryRef.current = null;
+      rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
       localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
