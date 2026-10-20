@@ -4,7 +4,30 @@ This checkpoint records demonstrated desktop behavior for the original executabl
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
 port or a public macOS release is finished.
 
-## Candidate identity and installation
+## Independent 1.2.95 candidate review — 21 October
+
+- Reviewed source is `91335503578d3769e90f96676b84ec9e31dec385` on
+  `codex/not1mm-contesting`.
+- The repair lineage is `43986f10` (contest category separated from live QSO
+  mode), `1effbaad` (operator renderer workflows) and `2a6c34ae` (native contest
+  service admission). Version commit `09989ef7` sets `1.2.95`; `2664b290`
+  exposes the mixed setup category; `91335503` forces a fresh frontend embed in
+  the macOS packages.
+- The executable catalog contains 40 of the 94 pinned original plugins.
+
+The actual packaged EUHFC mixed workflow demonstrated CW and SSB QSOs, live
+report switching, score updates, separate native windows, traffic-light state
+and replay protection. The fresh native report at
+`/private/tmp/om0rx-xlog-1.2.95-not1mm-acceptance-91335503-20261021.json`
+records all 35 of 35 checks passing.
+
+This evidence is deliberately bounded. EUHFC correction, restart/recovery and
+export acceptance are still pending. Edit Contact currently exposes a defect:
+the EUHFC dynamic exchange field is not presented correctly; a fix and packaged
+retest are in progress. No physical RF, audio, PTT or live peer was exercised.
+The candidate is unnotarized, and production installation has not been performed.
+
+## Previous installed 1.2.93 baseline
 
 - Installed version/build: `1.2.93`.
 - Exact application source: `307fe4a7d663a6c4baee8cbd05292f50c4118ebd`
@@ -229,9 +252,9 @@ JIDX Phone, All Asian DX CW, All Asian DX SSB, CQ 160 CW and CQ 160 SSB. Their
 source provenance and byte hashes are
 validated with the existing relocation checks; no contest rules were translated
 into Swift or JSON. The RTTY plugins share the bounded nontransmitting digital
-output sink and preserve each plugin's distinct exchange/scoring behavior. The
-executable catalog now contains 36 of the 94 upstream
-plugins.
+output sink and preserve each plugin's distinct exchange/scoring behavior. That
+installed 1.2.93 baseline contains 36 of the 94 upstream plugins. The reviewed
+1.2.95 candidate above raises the executable catalog to 40 of 94.
 
 ## Installed-app preservation smoke
 
@@ -284,8 +307,13 @@ remote Wavelog upload receipt for C5R.
 - The reported 7P8GE 28.088 MHz `FT-8 TNX 73s` row had aged out before this
   installed-app pass. Its exact parser/session behavior and stale-row refresh are
   regression-tested, but that exact live cluster observation was not repeated.
-- The executable catalog contains 36 pinned original plugins out of 94; 58
-  original plugins still need to be brought through this same Python host.
+- The reviewed 1.2.95 candidate contains 40 pinned original plugins out of 94;
+  54 original plugins still need to be brought through this same Python host.
+- EUHFC correction, restart/recovery and export remain pending, and Edit Contact
+  currently presents its dynamic exchange field incorrectly; the fix and
+  packaged retest are in progress.
+- The 1.2.95 candidate has not been installed in production and remains
+  unnotarized.
 - Normal-log transfer/finalization remains incomplete. Saved-window refresh,
   child reconnection and automatic active-contest restoration are fixed.
 - Some original configuration windows and workflows remain to be reproduced.
