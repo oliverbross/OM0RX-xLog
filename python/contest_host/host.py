@@ -145,6 +145,7 @@ class Field:
 class Desk:
     def __init__(self, store, state, commit):
         self.database, self.state, self._commit = store, state, commit
+        self.database.plugin_id = state["pluginID"]
         self.contest = load_plugin(state["pluginID"])
         self.cw_macros = load_cw_macros(state["pluginID"])
         for macro in state.get("setup", {}).get("macros", []):
@@ -1153,6 +1154,10 @@ class Host:
     @staticmethod
     def matrices(store):
         params = (store.current_contest,)
+        if store.plugin_id in CQ_WW_PLUGINS:
+            eligible = store.cq_ww_multiplier_filter()
+            return {"countries": store.exec_sql_mult(f"SELECT q.CountryPrefix AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.CountryPrefix,q.Band ORDER BY q.CountryPrefix,q.Band", params),
+                    "zones": store.exec_sql_mult(f"SELECT q.ZN AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=? AND {eligible} GROUP BY q.ZN,q.Band ORDER BY q.ZN,q.Band", params)}
         return {"countries": store.exec_sql_mult("SELECT CountryPrefix AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY CountryPrefix,Band ORDER BY CountryPrefix,Band", params),
                 "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY ZN,Band ORDER BY ZN,Band", params)}
 

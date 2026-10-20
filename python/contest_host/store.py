@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 
 from .upstream import VENDOR, load_cqww
+from .plugins import CQ_WW_PLUGINS
 
 load_cqww()
 from not1mm.lib.database import DataBase
@@ -36,6 +37,7 @@ def canonical(value):
 class Store(DataBase):
     def __init__(self, path):
         self.atomic = False
+        self.plugin_id = None
         super().__init__(str(path), VENDOR / "not1mm/data", 1)
         self.conn.executescript("""
             CREATE UNIQUE INDEX IF NOT EXISTS xlog_dxlog_identity ON DXLOG(ID);
@@ -97,6 +99,36 @@ class Store(DataBase):
     def commit_it(self):
         if not self.atomic:
             self.conn.commit()
+
+    @staticmethod
+    def cq_ww_multiplier_filter(alias="q"):
+        return (
+            f"{alias}.CountryPrefix <> '' AND NOT EXISTS ("
+            "SELECT 1 FROM DXLOG AS prior "
+            f"WHERE prior.ContestNR = {alias}.ContestNR "
+            f"AND prior.Call = {alias}.Call AND prior.Band = {alias}.Band "
+            f"AND prior.rowid < {alias}.rowid)"
+        )
+
+    def fetch_zn_band_count(self):
+        if self.plugin_id in CQ_WW_PLUGINS:
+            return self.exec_sql(
+                "select count(DISTINCT(q.ZN || ':' || q.Band)) as zb_count "
+                "from DXLOG as q where q.ContestNR = ? and "
+                f"{self.cq_ww_multiplier_filter()};",
+                (self.current_contest,),
+            )
+        return super().fetch_zn_band_count()
+
+    def fetch_country_band_count(self):
+        if self.plugin_id in CQ_WW_PLUGINS:
+            return self.exec_sql(
+                "select count(DISTINCT(q.CountryPrefix || ':' || q.Band)) as cb_count "
+                "from DXLOG as q where q.ContestNR = ? and "
+                f"{self.cq_ww_multiplier_filter()};",
+                (self.current_contest,),
+            )
+        return super().fetch_country_band_count()
 
     def begin(self):
         self.conn.execute("BEGIN IMMEDIATE")

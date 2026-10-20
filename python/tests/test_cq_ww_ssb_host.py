@@ -114,6 +114,100 @@ class CQWWSSBHostTests(unittest.TestCase):
         self.assertEqual(len(score["matrices"]["countries"]), 3)
         self.assertEqual(len(score["matrices"]["zones"]), 3)
 
+    def test_unresolved_contacts_do_not_create_cq_ww_multipliers(self):
+        self.log("XX1TEST", "10")
+        unresolved = self.read("score")
+        self.assertEqual(unresolved["score"], {
+            "qsos": 1, "points": 0, "countries": 0, "zones": 0,
+            "multipliers": 0, "total": 0,
+        })
+        self.assertEqual(unresolved["matrices"], {"countries": [], "zones": []})
+
+        self.log("K1ABC", "5", minute=1)
+        resolved = self.read("score")
+        self.assertEqual(resolved["score"], {
+            "qsos": 2, "points": 3, "countries": 1, "zones": 1,
+            "multipliers": 2, "total": 6,
+        })
+        self.assertEqual(resolved["matrices"]["countries"], [
+            {"value": "K", "band": 14.0, "qsos": 1},
+        ])
+        self.assertEqual(resolved["matrices"]["zones"], [
+            {"value": 5, "band": 14.0, "qsos": 1},
+        ])
+
+    def test_valid_same_country_zero_point_qso_keeps_both_multipliers(self):
+        self.log("OM1ABC", "15")
+        self.assertEqual(self.read("score")["score"], {
+            "qsos": 1, "points": 0, "countries": 1, "zones": 1,
+            "multipliers": 2, "total": 0,
+        })
+
+    def test_same_band_duplicate_cannot_add_a_mistyped_zone_multiplier(self):
+        first = self.log("K1ABC", "5", minute=1)
+        duplicate = self.log("K1ABC", "4", minute=0)
+        score = self.read("score")
+        self.assertEqual(score["score"], {
+            "qsos": 2, "points": 3, "countries": 1, "zones": 1,
+            "multipliers": 2, "total": 6,
+        })
+        self.assertEqual(score["matrices"]["zones"], [
+            {"value": 5, "band": 14.0, "qsos": 1},
+        ])
+
+        self.mutate("qso_correct", qsoID=duplicate,
+                    fields={"callsign": "DL1ABC", "other_2": "14"}, reason="Correct duplicate")
+        self.assertEqual(self.read("score")["score"]["total"], 16)
+        self.mutate("qso_correct", qsoID=duplicate,
+                    fields={"callsign": "K1ABC", "other_2": "4"}, reason="Restore duplicate")
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+
+        self.mutate("qso_delete", qsoID=first, reason="Promote retained duplicate")
+        promoted = self.read("score")
+        self.assertEqual(promoted["score"], {
+            "qsos": 1, "points": 3, "countries": 1, "zones": 1,
+            "multipliers": 2, "total": 6,
+        })
+        self.assertEqual(promoted["matrices"]["zones"], [
+            {"value": 4, "band": 14.0, "qsos": 1},
+        ])
+
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+        export = self.read("export")["content"]
+        self.assertIn("CLAIMED-SCORE: 6\r\n", export)
+        self.assertEqual(sum(line.startswith("QSO:") for line in export.splitlines()), 1)
+
+    def test_unresolved_correction_transitions_rebuild_delete_restart_and_export(self):
+        unresolved = self.log("XX1TEST", "10")
+        self.mutate("qso_correct", qsoID=unresolved,
+                    fields={"callsign": "K1ABC", "other_2": "5"}, reason="Resolve call")
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+
+        self.mutate("qso_correct", qsoID=unresolved,
+                    fields={"callsign": "XX1TEST", "other_2": "10"}, reason="Restore unresolved call")
+        self.assertEqual(self.read("score")["score"], {
+            "qsos": 1, "points": 0, "countries": 0, "zones": 0,
+            "multipliers": 0, "total": 0,
+        })
+
+        own_country = self.log("OM1ABC", "15", minute=1)
+        self.log("K1ABC", "5", minute=2)
+        self.assertEqual(self.read("score")["score"]["total"], 12)
+        self.mutate("qso_delete", qsoID=own_country, reason="Audit deletion")
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.read("score")["score"], {
+            "qsos": 2, "points": 3, "countries": 1, "zones": 1,
+            "multipliers": 2, "total": 6,
+        })
+        export = self.read("export")["content"]
+        self.assertIn("CLAIMED-SCORE: 6\r\n", export)
+        self.assertEqual(sum(line.startswith("QSO:") for line in export.splitlines()), 2)
+
     def test_ssb_esm_commits_without_cw_output_and_guards_cw_context(self):
         self.assertEqual(self.mutate("function_key", key="F1")["actions"], [])
         with self.assertRaisesRegex(HostError, "does not support CW"):
