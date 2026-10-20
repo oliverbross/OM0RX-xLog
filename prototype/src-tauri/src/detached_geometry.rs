@@ -141,8 +141,8 @@ fn install_inner(window: &tauri::WebviewWindow) -> Result<(), String> {
     let positioning = supports_positioning();
     let current = bounds(window, positioning).ok_or("Window geometry unavailable")?;
     let existing = read(&directory)?.windows.remove(window.label()).map(|saved| {
-        crate::workspace_windows::contest_default_size_migration(window.label()).map_or(saved.clone(), |(from, to)|
-            geometry::migrate_logical_size(saved, from, to))
+        crate::workspace_windows::contest_default_size_migrations(window.label()).map_or(saved.clone(), |(from, to)|
+            from.iter().fold(saved.clone(), |candidate, from| geometry::migrate_logical_size(candidate, *from, to)))
     });
     let saved = existing.clone().or_else(|| if positioning { geometry::capture(current, &topology, false) } else {
         geometry::capture_size(current, window.scale_factor().ok()?, false)
