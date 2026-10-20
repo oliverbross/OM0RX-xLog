@@ -14,7 +14,8 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_WW_PLUGINS,
+from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
+                      CQ_WW_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, RTTY_PLUGINS, SERIAL_PLUGINS,
@@ -364,6 +365,8 @@ class Desk:
                 "Phone Weekly Test supports 160 through 15 metres", "invalid_frequency")
         require(self.state["pluginID"] not in {"cq_wpx_rtty", "weekly_rtty"} or band != 1.8,
                 "Selected RTTY contest supports 80 through 10 metres", "invalid_frequency")
+        require(self.state["pluginID"] not in CQ_160_PLUGINS or band == 1.8,
+                "CQ 160 supports only 160 metres", "invalid_frequency")
         return band
 
     @staticmethod
@@ -884,6 +887,9 @@ class Host:
                     require(re.fullmatch(r"[0-9]+", zone) is not None
                             and 0 < int(zone) <= 9223372036854775807,
                             "AADX sent age must be a positive SQLite integer")
+                if state["pluginID"] in CQ_160_PLUGINS:
+                    require(re.fullmatch(r"[A-Za-z0-9]{1,6}", zone) is not None,
+                            "CQ 160 sent exchange must be a state, province or CQ zone")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 require(setup["settings"].get("ModeCategory", mode) in modes,
@@ -1064,6 +1070,8 @@ class Host:
                 "Trans Tasman supports only 160, 80 and 40 metres", "invalid_frequency")
         require(plugin_id not in {"cq_wpx_rtty", "weekly_rtty"} or Desk.band(frequency) != 1.8,
                 "Selected RTTY contest supports 80 through 10 metres", "invalid_frequency")
+        require(plugin_id not in CQ_160_PLUGINS or Desk.band(frequency) == 1.8,
+                "CQ 160 supports only 160 metres", "invalid_frequency")
         station, reference = deepcopy(params.get("station")), deepcopy(params.get("reference"))
         require(isinstance(station, dict) and isinstance(reference, dict), "Station and reference are required")
         call = text(station.get("Call", ""), 32).upper()
@@ -1100,6 +1108,9 @@ class Host:
             require(re.fullmatch(r"[0-9]+", str(settings["SentExchange"])) is not None
                     and 0 < int(settings["SentExchange"]) <= 9223372036854775807,
                     "AADX sent age must be a positive SQLite integer")
+        if plugin_id in CQ_160_PLUGINS:
+            require(re.fullmatch(r"[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
+                    "CQ 160 sent exchange must be a state, province or CQ zone")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1249,6 +1260,12 @@ class Host:
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None
                         and 0 < int(fields[name]) <= 9223372036854775807,
                         "AADX sent and received ages must be positive SQLite integers")
+        elif desk.state["pluginID"] in CQ_160_PLUGINS:
+            country = desk.cty_lookup(desk.callsign.text())
+            require(country is not None, "Resolve the contact country before logging CQ 160")
+            exchange = fields["other_2"]
+            require(re.fullmatch(r"[A-Za-z0-9]{1,6}", exchange) is not None,
+                    "CQ 160 received exchange must be a state, province or CQ zone")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1276,7 +1293,7 @@ class Host:
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
-                                       *AADX_PLUGINS}:
+                                       *AADX_PLUGINS, *CQ_160_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1329,7 +1346,8 @@ class Host:
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
             if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS,
-                                           *NAME_SPC_ENTRY_PLUGINS, *ARRL_DX_PLUGINS}:
+                                           *NAME_SPC_ENTRY_PLUGINS, *ARRL_DX_PLUGINS,
+                                           *CQ_160_PLUGINS}:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]

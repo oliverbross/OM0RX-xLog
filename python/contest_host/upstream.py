@@ -181,6 +181,36 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     '\n        f"(SELECT rowid FROM dxlog WHERE ID = \'{self.contact.get(\"ID\", \"\")}\'))) "',
                 ),
             ])
+        if plugin_id in {"cq_160_cw", "cq_160_ssb"}:
+            # Preserve the original /MM non-multiplier rule during ordered
+            # replay and make its timestamp-only multiplier queries stable for
+            # contacts logged in the same UTC second.
+            replacements.extend([
+                (
+                    'time_stamp = contact.get("TS", "")',
+                    'time_stamp = contact.get("TS", "")\n'
+                    '        if "/MM" in contact.get("Call", ""):\n'
+                    '            contact["IsMultiplier1"] = 0\n'
+                    '            self.database.change_contact(contact)\n'
+                    '            continue',
+                ),
+                (
+                    'where TS < \'{time_stamp}\' and CountryPrefix = \'K\'',
+                    'where (TS < \'{time_stamp}\' or (TS = \'{time_stamp}\' and rowid < '
+                    '(select rowid from dxlog where ID = \'{contact.get("ID", "")}\'))) and CountryPrefix = \'K\'',
+                ),
+                (
+                    'where TS < \'{time_stamp}\' and CountryPrefix = \'VE\'',
+                    'where (TS < \'{time_stamp}\' or (TS = \'{time_stamp}\' and rowid < '
+                    '(select rowid from dxlog where ID = \'{contact.get("ID", "")}\'))) and CountryPrefix = \'VE\'',
+                ),
+                (
+                    "where TS < '{time_stamp}' and CountryPrefix = '{contact.get('CountryPrefix', '')}'",
+                    'where (TS < \'{time_stamp}\' or (TS = \'{time_stamp}\' and rowid < '
+                    '(select rowid from dxlog where ID = \'{contact.get("ID", "")}\'))) and CountryPrefix = '
+                    "'{contact.get('CountryPrefix', '')}'",
+                ),
+            ])
         if plugin_id in {"oceania_dx_cw", "oceania_dx_ssb"}:
             # SQLite stores Band as REAL; the pinned plugin indexes string keys.
             # Ordered host replay already computed each row's duplicate points.

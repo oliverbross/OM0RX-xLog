@@ -11,7 +11,8 @@ ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX CW, ARRL DX SSB,
 NAQP CW, NAQP SSB, NAQP RTTY,
 Phone Weekly Test, Weekly RTTY Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
 Oceania DX CW, Oceania DX SSB, SAC CW, SAC SSB, and IARU Region 1
-Field Day CW and SSB, plus JIDX CW and JIDX Phone, and AADX CW and AADX SSB.
+Field Day CW and SSB, plus JIDX CW and JIDX Phone, AADX CW and AADX SSB,
+and CQ 160 CW and CQ 160 SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -168,6 +169,19 @@ import time and fails if the pinned source differs:
     contacts are replayed deterministically. SSB remains non-transmitting and
     adds no audio/PTT authority.
 
+17. CQ 160 CW and CQ 160 SSB execute unchanged modules from the same pinned
+    revision (Git blobs `53dbd58b00610cbc09b7154591dd292a66825efd` and
+    `309eca9e5325c0ce448df851eecb8963375ae491`). The host restricts both to
+    160 metres, validates configured and received state/province/CQ-zone
+    exchanges before the original SQL, and rebuilds original multiplier flags
+    after every commit, correction and deletion. Original contest-wide
+    duplicates, 2/5/10-point country/continent rules, five-point maritime-mobile
+    contacts, K/VE subdivision multipliers, DXCC multipliers, ESM and Cabrillo
+    callbacks remain authoritative. A finite import overlay preserves the
+    original `/MM` non-multiplier rule during replay and adds a rowid tie-break
+    to timestamp-only multiplier queries. SSB remains non-transmitting and adds
+    no audio/PTT authority.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -194,6 +208,8 @@ Original SHA-256:
 | plugins/jidx_ph.py | 20b3e8d7154d51c264817a5755d753c2be4bce9896a64d10cb63478837e06860 |
 | plugins/aadx_cw.py | 491affb2e8e1a9f64984f30ca95ec8bbf4a4f89788ffdc24f116356dc84df745 |
 | plugins/aadx_ssb.py | 5d6d4a6a9dff5f07bb533041ba259bf901ef33a74e31f0a4091a9235333b0bdc |
+| plugins/cq_160_cw.py | 45dce6c2caa3ee05e56137e2fee226dae5e1f2434b327b0d3506ae17b804379c |
+| plugins/cq_160_ssb.py | db03be688702e523a3d532fabc59e84e689668438e3c3038501a0d82a8b55804 |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
