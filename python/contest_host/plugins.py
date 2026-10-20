@@ -50,6 +50,8 @@ PLUGIN_REGISTRY = MappingProxyType({
     "oceania_dx_ssb": Plugin("Oceania DX SSB", serial=True, modes=("SSB",), allow_duplicate_commit=True),
     "sac_cw": Plugin("SAC CW", serial=True),
     "sac_ssb": Plugin("SAC SSB", serial=True, modes=("SSB",)),
+    "iaru_fieldday_r1_cw": Plugin("IARU FIELDDAY R1 DARC CW", serial=True),
+    "iaru_fieldday_r1_ssb": Plugin("IARU FIELDDAY R1 DARC SSB", serial=True, modes=("SSB",)),
     "10_10_fall_cw": Plugin("10 10 FALL CW", bands=("10m",)),
     "10_10_spring_cw": Plugin("10 10 SPRING CW", bands=("10m",)),
     "10_10_winter_phone": Plugin("10 10 WINTER PHONE", bands=("10m",), modes=("SSB",)),
@@ -61,4 +63,6 @@ SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plu
 TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"})
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "phone_weekly_test"})
 ARRL_DX_PLUGINS = frozenset({"arrl_dx_cw", "arrl_dx_ssb"})
-SIMPLE_MULTIPLIER_PLUGINS = frozenset({"sac_cw", "sac_ssb"})
+SIMPLE_MULTIPLIER_PLUGINS = frozenset({
+    "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
+})
