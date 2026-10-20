@@ -1180,7 +1180,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }
   };
   const reportSurfaceError = useCallback((message: string) => setError(message), []);
-  useContestSurfaceOwner({ context: surfaceContext, projections: surfaceProjections, handle: handleSurfaceAction, report: reportSurfaceError });
+  const waitForSurfacePublication = useContestSurfaceOwner({ context: surfaceContext, projections: surfaceProjections,
+    handle: handleSurfaceAction, report: reportSurfaceError });
 
   useEffect(() => {
     if (!registerMenuRoute) return;
@@ -1219,6 +1220,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         return true;
       }
       await flushDraftRef.current();
+      await waitForSurfacePublication();
       await openContestSurfaceWindow(surfaceContext, panelID);
       return true;
     };

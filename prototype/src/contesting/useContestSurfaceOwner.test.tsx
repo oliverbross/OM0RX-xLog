@@ -12,12 +12,28 @@ const context={operatingContext:"00000000-0000-4000-8000-000000000001",sessionID
 const unavailable=()=>Object.fromEntries(contestSurfacePanelIDs.map(id=>[id,{schemaVersion:1,status:"unavailable"}])) as Record<(typeof contestSurfacePanelIDs)[number],ContestSurfaceProjection>;
 const entry:ContestEntrySurfaceProjection={schemaVersion:1,status:"ready",session:{name:"Test",ruleName:"Rule",mode:"CW"},draft:{draftID:"draft-1",revision:5,callsign:"",sentReport:"599",receivedReport:"599",receivedFields:[],frequencyHz:null,frequencyText:"",frequencyError:"",band:"20m",mode:"CW",dupe:{state:"unchecked",reason:""},validation:{errors:[],warnings:[]},reservedSerial:null},busy:false,dirty:false,uncertain:false};
 const action=(revision:number):ContestSurfaceActionEnvelope=>({...context,scope:"contesting",panelID:"active-qso",projectionRevision:revision,requestID:crypto.randomUUID(),action:"entry_commit",params:{draftID:"draft-1",expectedDraftRevision:5}});
-function Harness({projections,handle,report=vi.fn()}:{projections:ReturnType<typeof unavailable>;handle:(value:ContestSurfaceActionEnvelope)=>Promise<void>;report?:(message:string)=>void}){
-  useContestSurfaceOwner({context,projections,handle,report});return null;
+function Harness({projections,handle,report=vi.fn(),capture}:{projections:ReturnType<typeof unavailable>;handle:(value:ContestSurfaceActionEnvelope)=>Promise<void>;
+    report?:(message:string)=>void;capture?:(wait:()=>Promise<void>)=>void}){
+  const wait=useContestSurfaceOwner({context,projections,handle,report});capture?.(wait);return null;
 }
 beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.listen.mockImplementation(async(_name,callback)=>{native.wakes.push(callback);
   native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});});
 afterEach(cleanup);
+
+it("exposes the current native projection publication as an opening barrier",async()=>{
+  let release!:()=>void,waitForPublication:(()=>Promise<void>)|undefined,completed=false;
+  const pending=new Promise<void>(resolve=>{release=resolve;});
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_publish"&&args.panelID==="active-qso")await pending;
+    if(command==="contest_surface_action_next"||command==="contest_surface_escape_next")return null;
+  });
+  render(<Harness projections={{...unavailable(),"active-qso":entry}} handle={vi.fn(async()=>{})}
+    capture={wait=>{waitForPublication=wait;}}/>);
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_surface_publish",expect.objectContaining({panelID:"active-qso"})));
+  const barrier=waitForPublication!().then(()=>{completed=true;});
+  await act(async()=>{await Promise.resolve();});expect(completed).toBe(false);
+  release();await barrier;expect(completed).toBe(true);
+});
 
 it("rejects unavailable and stale actions before the owner side effect, then applies one exact ready action",async()=>{
   const queue:ContestSurfaceActionEnvelope[]=[];const completed:Record<string,unknown>[]=[];

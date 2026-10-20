@@ -9,10 +9,12 @@ import { newContestSetup } from "./ContestSetupPanel";
 const stationControl = vi.hoisted(() => ({ speed: vi.fn(async () => ({accepted:true})) }));
 vi.mock("./contestStationControl", () => ({ setContestCWSpeed: stationControl.speed }));
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
-const surfaceOwner = vi.hoisted(() => ({ current: null as any }));
+const surfaceOwner = vi.hoisted(() => ({ current: null as any, waitForPublication: vi.fn(async () => {}) }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
 
-vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => { surfaceOwner.current = owner; } }));
+vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => {
+  surfaceOwner.current = owner; return surfaceOwner.waitForPublication;
+} }));
 vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWindow.open,
   openContestCallHistoryWindow: surfaceWindow.openHistory }));
 vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog, useContestSetupDialogs: vi.fn() }));
@@ -1175,6 +1177,40 @@ it("defers a native contest window command until the saved session is fully rest
   await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
   expect(surfaceWindow.open).not.toHaveBeenCalledWith(expect.anything(), "qrz-details");
   expect((await screen.findByRole("alert")).textContent).toContain("Enable Show QRZ details");
+});
+
+it("does not open Main Logging until its ready projection is published", async () => {
+  const current = {...projection(),pluginID:"cq_wpx_cw",pluginName:"CQ WPX CW",
+    ruleIdentity:{id:"cq-wpx-cw",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"}};
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", current.sessionID);
+  let releasePublication!: () => void;
+  const publication = new Promise<void>(resolve => { releasePublication = resolve; });
+  surfaceOwner.waitForPublication.mockReturnValueOnce(publication);
+  let route: ((value: string) => boolean | Promise<boolean>) | null = null;
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    if (method === "contest_catalog") return {id:crypto.randomUUID(),ok:true,result:{plugins:[]}};
+    if (method === "contest_sessions") return {id:crypto.randomUUID(),ok:true,
+      result:{sessions:[{...current,name:"CQ WPX CW"}]}};
+    if (method === "contest_open") return {id:crypto.randomUUID(),ok:true,result:{projection:current}};
+    if (method === "contest_log_page") return {id:crypto.randomUUID(),ok:true,result:{rows:[],offset:0,limit:20,total:0}};
+    if (method === "contest_score") return {id:crypto.randomUUID(),ok:true,result:{score:current.score,matrices:{countries:[],zones:[]}}};
+    throw new Error(`Unexpected ${method}`);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    registerMenuRoute={handler => { route = handler; }}/>);
+  await waitFor(() => expect(surfaceOwner.current.context).toMatchObject({sessionID:current.sessionID}));
+  let completed = false;
+  const opening = Promise.resolve(route!("contest-window-active-qso")).then(value => { completed = true; return value; });
+  await act(async () => { await Promise.resolve(); });
+  expect(surfaceOwner.waitForPublication).toHaveBeenCalledOnce();
+  expect(surfaceWindow.open).not.toHaveBeenCalled();
+  expect(completed).toBe(false);
+  releasePublication();
+  await expect(opening).resolves.toBe(true);
+  expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
 });
 
 it("acknowledges a native contest window command with Setup after startup finds no session", async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { closeContestSurfaceContext, completeContestSurfaceAction, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   publishContestSurface, type ContestSurfaceContext } from "./contestSurfaceNative";
 import { ContestMutationUncertain } from "./client";
@@ -22,17 +22,22 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
   const contextRef = useRef(context), projectionsRef = useRef(projections), handleRef = useRef(handle);
   contextRef.current = context; projectionsRef.current = projections; handleRef.current = handle;
   const publishQueue = useRef(Promise.resolve());
+  const currentPublication = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
     const revision = revisionRef.current, snapshot = projections;
-    publishQueue.current = publishQueue.current.then(async () => {
+    const publication = publishQueue.current.then(async () => {
       if (contextRef.current?.sessionID !== context.sessionID || contextRef.current.workspaceGeneration !== context.workspaceGeneration) return;
       await Promise.all(contestSurfacePanelIDs.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
         projectionRevision: revision, projection: snapshot[panelID] })));
-    }).catch(cause => report(boundedMessage(cause)));
+    });
+    currentPublication.current = publication;
+    publishQueue.current = publication.catch(cause => report(boundedMessage(cause)));
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, key, report]);
+
+  const waitForPublication = useCallback(() => currentPublication.current, []);
 
   useEffect(() => {
     if (!context || !validContestSurfaceUUID(context.operatingContext) || !validContestSurfaceUUID(context.sessionID) ||
@@ -108,4 +113,6 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
       .catch(cause => { if (active) report(boundedMessage(cause)); });
     return () => { active = false; stop?.(); };
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, report]);
+
+  return waitForPublication;
 }
