@@ -26,7 +26,7 @@ type Data = Record<string, any>;
 type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
-type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; total: number };
+type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; total: number };
 type StatisticsState = { sessionID: string; revision: number; rows: ContestStatisticsRow[]; total: ContestStatisticsRow };
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; sourceRevision: string; referenceID: string;
@@ -147,10 +147,12 @@ function projectionFields(projection: Projection | null) {
   return Object.fromEntries((projection?.fields ?? []).map(field => [field.id, field.value]));
 }
 
-function scoreSummary(score: Score | null) {
+function scoreSummary(score: Score | null, pluginID?: string) {
   if (!score) return null;
   const multiplierLabels = score.uniqueCalls !== undefined ? [`${score.uniqueCalls} unique calls`]
     : score.prefixes !== undefined ? [`${score.prefixes} prefixes`] : score.sections !== undefined ? [`${score.sections} sections`]
+    : pluginID === "euhfc" ? [`${score.multipliers ?? 0} license years`]
+    : pluginID === "iaru_hf" ? [`${score.headquarters ?? 0} headquarters`, `${score.zones} zones`]
     : [`${score.countries} countries`, `${score.zones} zones`];
   return { claimedScore: score.total, qsos: score.qsos, points: score.points,
     multipliers: score.multipliers ?? score.countries + score.zones, multiplierLabels,
@@ -378,7 +380,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (raw === undefined) { setStatistics(undefined); return true; }
     const exactStatistics = !!raw && typeof raw === "object" && !Array.isArray(raw) &&
       Object.keys(raw).length === 2 && "rows" in raw && "total" in raw;
-    const candidate = { schemaVersion: 3 as const, status: "ready" as const, score: scoreSummary(next.score as Score),
+    const candidate = { schemaVersion: 3 as const, status: "ready" as const, score: scoreSummary(next.score as Score, current.pluginID),
       rows: raw?.rows, total: raw?.total, busy: false };
     if (!exactStatistics || !validContestSurfaceProjection("propagation", candidate)) {
       setStatistics(null); return false;
@@ -869,7 +871,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const remove = () => { if (!editing || !confirm(`Delete ${editing.Call} from this contest?`)) return;
     void deleteQSO(deletionReason).catch(cause => setError(errorMessage(cause))); };
 
-  const scoreView = scoreSummary(score);
+  const scoreView = scoreSummary(score, projection?.pluginID);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
   const changeField = (field: string, value: string) => {
     if (field === "callsign" && autoCQActiveRef.current) void stopAutoCQ();

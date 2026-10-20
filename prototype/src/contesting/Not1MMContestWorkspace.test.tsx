@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { newContestSetup } from "./ContestSetupPanel";
@@ -449,6 +450,36 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
   expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({reportsVisible:false,
     receivedFields:[{id:"other_1",label:"Sent S/N",value:"1"},{id:"other_2",label:"Name + S/N",value:"BOB 12"}]});
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
+});
+
+it.each([
+  { pluginID:"euhfc", pluginName:"EUHFC",
+    score:{qsos:3,points:2,countries:0,zones:0,multipliers:2,total:4},
+    labels:["2 license years"] },
+  { pluginID:"iaru_hf", pluginName:"IARU HF",
+    score:{qsos:3,points:7,countries:0,zones:2,headquarters:1,multipliers:3,total:21},
+    labels:["1 headquarters","2 zones"] },
+])("renders $pluginName host multiplier semantics without country fallbacks", async ({pluginID,pluginName,score,labels}) => {
+  const current={...projection(4),pluginID,pluginName,matrixTrackers:[],score};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{sessionID:current.sessionID,revision:current.revision,rows:[],offset:0,limit:20,total:0}:
+      method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score,matrices:{countries:[],zones:[]}}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:pluginID}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.propagation.score.multiplierDisplayLabels).toEqual(labels));
+  const projected=surfaceOwner.current.projections.propagation.score;
+  const summary=within(render(<ContestScoreSummary score={projected}/>).container);
+  for(const label of labels)expect(summary.getByText(label)).toBeTruthy();
+  expect(summary.queryByText("0 countries")).toBeNull();
+  expect(summary.getAllByText(String(score.multipliers)).length).toBeGreaterThan(0);
 });
 
 it("projects CWOPS Open serial/name exchange, retained dupes and unique-call score", async () => {
