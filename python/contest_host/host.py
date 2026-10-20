@@ -259,7 +259,7 @@ class Desk:
     def parsed_call(self):
         # Sweepstakes' original parser may supply a corrected call inside the
         # packed exchange. Use that result consistently for identity and dupe.
-        if self.state["pluginID"] == "arrl_ss_cw":
+        if self.state["pluginID"] in {"arrl_ss_cw", "arrl_ss_phone"}:
             return self.contest.parse_exchange(self)[4]
         return self.callsign.text().upper()
 
@@ -368,7 +368,7 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "uniqueCalls": calls,
                     "multipliers": calls, "total": self.contest.calc_score(self)}
-        if self.state["pluginID"] in {"arrl_ss_cw", "k1usn_sst"}:
+        if self.state["pluginID"] in {"arrl_ss_cw", "arrl_ss_phone", "k1usn_sst"}:
             sections = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "sections": sections,

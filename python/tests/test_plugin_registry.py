@@ -27,6 +27,7 @@ class PluginRegistryTests(unittest.TestCase):
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].matrix_trackers, ("countries", "zones"))
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].modes, ("SSB",))
         self.assertEqual(PLUGIN_REGISTRY["cq_wpx_ssb"].modes, ("SSB",))
+        self.assertEqual(PLUGIN_REGISTRY["arrl_ss_phone"].modes, ("SSB",))
         self.assertEqual(PLUGIN_REGISTRY["oceania_dx_ssb"].modes, ("SSB",))
         self.assertTrue(all(not plugin.matrix_trackers for key, plugin in PLUGIN_REGISTRY.items()
                             if key not in {"cq_ww_cw", "cq_ww_ssb"}))
@@ -39,6 +40,10 @@ class PluginRegistryTests(unittest.TestCase):
                 self.assertEqual(sweepstakes["modes"], ["CW"])
                 self.assertEqual(sweepstakes["sentExchangeHint"], "Prec Call Check Section")
                 self.assertEqual(sweepstakes["overlayChoices"], ["N/A"])
+                sweepstakes_phone = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_phone")
+                self.assertEqual((sweepstakes_phone["name"], sweepstakes_phone["modes"],
+                                  sweepstakes_phone["sentExchangeHint"], sweepstakes_phone["overlayChoices"]),
+                                 ("ARRL Sweepstakes Phone", ["SSB"], "Prec Call Check Section", ["N/A"]))
                 oceania = next(item for item in catalog["plugins"] if item["id"] == "oceania_dx_ssb")
                 self.assertEqual(oceania["modes"], ["SSB"])
                 cq_ww_ssb = next(item for item in catalog["plugins"] if item["id"] == "cq_ww_ssb")
