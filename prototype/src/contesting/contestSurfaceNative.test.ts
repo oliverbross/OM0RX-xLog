@@ -59,6 +59,25 @@ describe("contest native surface bridge", () => {
     await expect(nextContestSurfaceAction(context)).rejects.toThrow("could not be verified");
   });
 
+  it("retries the exact native completion once when its acknowledgement is lost", async () => {
+    const completion = { ...context, requestID: action.requestID, outcome: "applied" as const, projectionRevision: 5 };
+    native.invoke.mockRejectedValueOnce(new Error("completion reply lost")).mockResolvedValueOnce(undefined);
+    await expect(completeContestSurfaceAction(completion)).resolves.toBeUndefined();
+    expect(native.invoke.mock.calls).toEqual([
+      ["contest_surface_action_complete", completion],
+      ["contest_surface_action_complete", completion],
+    ]);
+  });
+
+  it("surfaces a completion failure after one bounded exact retry", async () => {
+    const completion = { ...context, requestID: action.requestID, outcome: "rejected" as const,
+      message: "Native export save failed.", projectionRevision: 5 };
+    native.invoke.mockRejectedValue(new Error("journal unavailable"));
+    await expect(completeContestSurfaceAction(completion)).rejects.toThrow("journal unavailable");
+    expect(native.invoke).toHaveBeenCalledTimes(2);
+    expect(native.invoke.mock.calls[0]).toEqual(native.invoke.mock.calls[1]);
+  });
+
   it("accepts only an exact same-context Escape from the dedicated priority take", async () => {
     const escape={...action,action:"entry_operator_key" as const,
       params:{draftID:"draft-1",expectedDraftRevision:4,key:"Escape" as const,focusedField:"callsign" as const}};

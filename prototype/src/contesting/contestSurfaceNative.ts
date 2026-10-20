@@ -99,7 +99,13 @@ export async function completeContestSurfaceAction(completion: ContestSurfaceCom
       !["applied", "rejected"].includes(completion.outcome) || completion.message !== undefined &&
       (typeof completion.message !== "string" || new TextEncoder().encode(completion.message).length > 512))
     throw new Error("The contest surface completion could not be verified.");
-  await invoke("contest_surface_action_complete", completion);
+  try { await invoke("contest_surface_action_complete", completion); }
+  catch {
+    // Native completion is an exact idempotent journal write. Retry the same
+    // coordinate once so a lost modal-boundary IPC reply cannot strand a
+    // successfully handled action as uncertain.
+    await invoke("contest_surface_action_complete", completion);
+  }
 }
 
 export async function publishContestSurface(publication: ContestSurfacePublication): Promise<void> {

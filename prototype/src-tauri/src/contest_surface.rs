@@ -321,6 +321,12 @@ fn complete_after_admission(
 ) -> Result<Value, String> {
     let (panel_id, receipt) = find_receipt_mut(state, request_id)?;
     if receipt.status != "uncertain" {
+        if receipt.status == outcome
+            && receipt.message.as_deref() == message.as_deref()
+            && receipt.projection_revision == projection_revision
+        {
+            return Ok(receipt_value(request_id, receipt));
+        }
         return Err("That contest action was not taken by the main controller.".into());
     }
     if projection_revision < receipt.projection_revision {
@@ -3005,13 +3011,59 @@ mod tests {
             complete_after_admission(&mut state, REQUEST, "applied", None, 8).unwrap()["status"],
             "applied"
         );
+        assert_eq!(
+            complete_after_admission(&mut state, REQUEST, "applied", None, 8).unwrap()["status"],
+            "applied"
+        );
         assert!(complete_after_admission(&mut state, REQUEST, "applied", None, 9).is_err());
+        assert!(complete_after_admission(&mut state, REQUEST, "rejected", None, 8).is_err());
         let mut changed = envelope;
         changed["params"]["expectedDraftRevision"] = json!(3);
         assert!(submit_checked(&mut state, "active-qso", &checked, changed).is_err());
         assert_eq!(state.panels["active-qso"].receipts.len(), 1);
         state.panels.get_mut("active-qso").unwrap().receipts.clear();
         assert!(submit_checked(&mut state, "active-qso", &checked, checked_value()).is_err());
+    }
+
+    #[test]
+    fn rejected_completion_replay_requires_the_exact_terminal_coordinate() {
+        let request_id = "00000000-0000-4000-8000-000000000005";
+        let mut state = State {
+            context: Some(context()),
+            panels: BTreeMap::from([(
+                "logbook".into(),
+                PanelState {
+                    projection: Some((7, json!({"status":"ready"}))),
+                    receipts: VecDeque::from([(
+                        request_id.into(),
+                        Receipt {
+                            envelope: json!({"action":"log_export_cabrillo"}),
+                            status: "uncertain",
+                            message: None,
+                            projection_revision: 7,
+                        },
+                    )]),
+                },
+            )]),
+            ..State::default()
+        };
+
+        let message = Some("Native export save failed.".to_string());
+        assert_eq!(
+            complete_after_admission(&mut state, request_id, "rejected", message.clone(), 8)
+                .unwrap()["status"],
+            "rejected"
+        );
+        assert!(complete_after_admission(&mut state, request_id, "rejected", message, 8).is_ok());
+        assert!(complete_after_admission(
+            &mut state,
+            request_id,
+            "rejected",
+            Some("Different failure.".into()),
+            8
+        )
+        .is_err());
+        assert!(complete_after_admission(&mut state, request_id, "applied", None, 8).is_err());
     }
 
     #[test]

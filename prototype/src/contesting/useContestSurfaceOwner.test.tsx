@@ -132,19 +132,19 @@ it("rebases safe presentation edits across a sibling projection update but rejec
   expect(completed[1]).toMatchObject({outcome:"rejected",message:"The contest panel changed before this action reached the owner."});
 });
 
-it("keeps a successful action uncertain when the applied completion reply is lost",async()=>{
+it("confirms a successful action by retrying the exact completion after its first reply is lost",async()=>{
   const queued=action(1),completed:Record<string,unknown>[]=[],report=vi.fn();let delivered=false;
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
     if(command==="contest_surface_escape_next")return null;
     if(command==="contest_surface_action_next"){if(delivered)return null;delivered=true;return queued;}
-    if(command==="contest_surface_action_complete"){completed.push(args);throw new Error("completion reply lost");}
+    if(command==="contest_surface_action_complete"){completed.push(args);if(completed.length===1)throw new Error("completion reply lost");return;}
     throw new Error(command);
   });
   const handle=vi.fn(async()=>{});render(<Harness projections={{...unavailable(),"active-qso":entry}} handle={handle} report={report}/>);
   await waitFor(()=>expect(handle).toHaveBeenCalledOnce());
-  await waitFor(()=>expect(report).toHaveBeenCalledWith("completion reply lost"));
-  expect(completed).toHaveLength(1);expect(completed[0]).toMatchObject({outcome:"applied"});
+  await waitFor(()=>expect(completed).toHaveLength(2));expect(report).not.toHaveBeenCalled();
+  expect(completed[0]).toEqual(completed[1]);expect(completed[0]).toMatchObject({outcome:"applied"});
   expect(completed.some(item=>item.outcome==="rejected")).toBe(false);
 });
 
