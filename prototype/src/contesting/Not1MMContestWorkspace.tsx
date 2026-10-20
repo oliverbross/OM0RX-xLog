@@ -287,6 +287,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [phoneSimulationTrace, setPhoneSimulationTrace] = useState<PhoneSimulationTrace[]>([]);
   const phoneSimulationControllerRef = useRef<AbortController | null>(null);
   const phoneSimulationRecoveryRef = useRef<Promise<boolean> | null>(null);
+  const [autoCQDeadlineMs, setAutoCQDeadlineMs] = useState<number | null>(null);
+  const [autoCQNowMs, setAutoCQNowMs] = useState(() => Date.now());
+  const autoCQActiveRef = useRef(false), autoCQTimerRef = useRef<number | null>(null);
+  const autoCQHostActionRef = useRef<(method: string, extra?: Record<string, unknown>, throwFailures?: boolean,
+    contestSurfaceRequestID?: string) => Promise<unknown>>(async () => null);
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
@@ -305,6 +310,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+  const configuredAutoCQDelay = Number(setup.preferences.autoCQDelay ?? 15);
+  const autoCQDelaySeconds = Number.isFinite(configuredAutoCQDelay) ? Math.min(3600, Math.max(1, configuredAutoCQDelay)) : 15;
   const phoneSimulationAvailable = Boolean(contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
   useEffect(() => {
     phoneSimulationRecoveryRef.current = null;
@@ -627,11 +634,55 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       phoneSimulationControllerRef.current = null; setPhoneSimulationPending(false);
     } }
   };
+  autoCQHostActionRef.current = hostAction;
 
   const stopPhoneSimulation = () => {
     phoneSimulationControllerRef.current?.abort(); phoneSimulationControllerRef.current = null;
     setPhoneSimulationArmed(false); setPhoneSimulationPending(false);
   };
+
+  const clearAutoCQ = () => {
+    autoCQActiveRef.current = false;
+    if (autoCQTimerRef.current !== null) window.clearTimeout(autoCQTimerRef.current);
+    autoCQTimerRef.current = null; setAutoCQDeadlineMs(null);
+  };
+  const stopAutoCQ = async (stopOutput = true) => {
+    clearAutoCQ();
+    if (!stopOutput) return;
+    if (phoneSimulationAvailable) stopPhoneSimulation(); else await cw.controller.stop();
+  };
+  const scheduleAutoCQ = () => {
+    if (!autoCQActiveRef.current) return;
+    const delayMs = autoCQDelaySeconds * 1000;
+    setAutoCQNowMs(Date.now()); setAutoCQDeadlineMs(Date.now() + delayMs);
+    autoCQTimerRef.current = window.setTimeout(() => { void (async () => {
+      if (!autoCQActiveRef.current) return;
+      try { await autoCQHostActionRef.current("contest_function_key", { key: "F1" }, true); }
+      catch { clearAutoCQ(); return; }
+      if (autoCQActiveRef.current) scheduleAutoCQ();
+    })(); }, delayMs);
+  };
+  const startAutoCQ = async (contestSurfaceRequestID?: string) => {
+    const active = projectionRef.current;
+    if (!active) throw new Error("Open a contest before starting Auto CQ.");
+    if (active.mode !== "CW" && !phoneSimulationAvailable) throw new Error("Auto CQ requires admitted CW output or Contesting Test phone simulation.");
+    if (phoneSimulationAvailable ? !phoneSimulationArmed : !cw.state.armed) throw new Error("Arm the contest output before starting Auto CQ.");
+    if (!active.run) await runMutation(base => mutate("contest_run_state", base, { run: true }), false, true, false, true);
+    clearAutoCQ(); autoCQActiveRef.current = true; scheduleAutoCQ();
+    try { await hostAction("contest_function_key", { key: "F1" }, true, contestSurfaceRequestID); }
+    catch (cause) { clearAutoCQ(); throw cause; }
+  };
+
+  useEffect(() => {
+    if (autoCQDeadlineMs === null) return;
+    const ticker = window.setInterval(() => setAutoCQNowMs(Date.now()), 100);
+    return () => window.clearInterval(ticker);
+  }, [autoCQDeadlineMs]);
+  useEffect(() => () => {
+    autoCQActiveRef.current = false;
+    if (autoCQTimerRef.current !== null) window.clearTimeout(autoCQTimerRef.current);
+  }, []);
+  useEffect(() => { clearAutoCQ(); }, [projection?.sessionID, projection?.mode, contestingTest, autoCQDelaySeconds]);
 
   useEffect(() => {
     if (!projection || editing) return;
@@ -690,7 +741,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }, saveRover: async location => { await hostAction("contest_rover_location", { location }, true); }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); if (phoneSimulationAvailable) stopPhoneSimulation(); else void cw.controller.stop(); return; }
+    if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(); return; }
     if (!projection || busy || retiring) return;
     const target = event.target as HTMLInputElement;
     if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === " " &&
@@ -703,7 +754,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       event.preventDefault(); changeField("callsign", "");
       void openContestSetupDialog("rover").catch(cause => setError(errorMessage(cause))); return;
     }
-    if (/^F(?:[1-9]|1[0-2])$/.test(event.key)) { event.preventDefault(); void hostAction("contest_function_key", { key: event.key }); return; }
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && /^F(?:[1-9]|1[0-2])$/.test(event.key)) {
+      if (event.shiftKey && event.key !== "F1") return;
+      event.preventDefault(); if (event.shiftKey) void startAutoCQ().catch(cause => setError(errorMessage(cause)));
+      else void hostAction("contest_function_key", { key: event.key }); return;
+    }
     if (event.key === "Enter") { event.preventDefault(); void hostAction("contest_esm", { field: focusRef.current }); return; }
     if (event.key === "Tab") {
       const target = event.target as HTMLInputElement, current = target.dataset.contestField;
@@ -785,6 +840,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const scoreView = scoreSummary(score);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
   const changeField = (field: string, value: string) => {
+    if (field === "callsign" && autoCQActiveRef.current) void stopAutoCQ();
     editVersionRef.current += 1;
     const next = { ...fieldsRef.current, [field]: value };
     fieldsRef.current = next; setFields(next);
@@ -872,6 +928,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
         functionKeys: projection.mode === "CW" || phoneSimulationAvailable
           ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
+        autoCQ: { active: autoCQDeadlineMs !== null, delaySeconds: autoCQDelaySeconds,
+          remainingMs: autoCQDeadlineMs === null ? null : Math.max(0, autoCQDeadlineMs - autoCQNowMs) },
         readiness: { canSendCQ: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
           canSendCall: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
           canSendDuplicate: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
@@ -956,7 +1014,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands,
-    setup.settings.SentExchange, setup.preferences.keyBindings]);
+    setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -967,8 +1025,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         action.workspaceGeneration !== active.workspaceGeneration || action.operatingContext !== operatingContext)
       throw new Error("This detached panel no longer belongs to the active contest session.");
     if (action.action === "entry_operator_key" && action.params.key === "Escape") {
-      if (phoneSimulationAvailable) { stopPhoneSimulation(); return; }
-      await cw.controller.stop(); return;
+      await stopAutoCQ(); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
     if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action === "spot_select") {
@@ -977,6 +1034,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         throw new Error("The contest entry changed before this action reached the owner.");
     }
     const persistFields = async (fieldID: string, value: string) => {
+      if (fieldID === "callsign" && autoCQActiveRef.current) await stopAutoCQ();
       const next = { ...fieldsRef.current, [fieldID]: value };
       fieldsRef.current = next; setFields(next); editVersionRef.current += 1;
       await runMutation(base => mutate("contest_draft_apply", base, { fields: next,
@@ -1037,6 +1095,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
           true, true, false, true); return;
       case "entry_operator_arm":
+        if (!action.params.armed) clearAutoCQ();
         if (phoneSimulationAvailable) { setPhoneSimulationArmed(action.params.armed); return; }
         if (active.mode !== "CW") throw new Error("This contest does not support admitted output.");
         if (action.params.armed) await cw.controller.arm(action.requestID); else await cw.controller.stop();
@@ -1062,6 +1121,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         if (action.params.key === "Enter") {
           await hostAction("contest_esm", { field: action.params.focusedField ?? active.focus }, true, action.requestID); return;
         }
+        if (action.params.shifted) { await startAutoCQ(action.requestID); return; }
         await hostAction("contest_function_key", { key: action.params.key }, true, action.requestID); return;
       case "assistance_query": await persistFields("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select":
@@ -1184,7 +1244,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
 
   const cwPanel = () => projection && <section className="contest-operator" aria-label="CW controls"><header><div><strong>ESM and CW</strong><p>{cw.state.canonical?.provider === "test-simulation"
     ? "CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output"
-    : "Not1MM chooses the F-key action; xLog owns the armed output lease."}</p></div><span>{cw.state.message}</span></header><div className="contest-operator-controls"><button type="button" disabled={busy || cw.state.pending} onClick={() => void cw.controller.arm()}>{cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button><button type="button" className="contest-danger-secondary" onClick={() => void cw.controller.stop()}>Stop</button><span className={cw.state.armed ? "is-armed" : ""}>{cw.state.armed ? "Armed" : "Disarmed"}</span></div>{cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}<div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div></section>;
+    : "Not1MM chooses the F-key action; xLog owns the armed output lease."}</p></div><span>{cw.state.message}</span></header><div className="contest-operator-controls"><button type="button" disabled={busy || cw.state.pending} onClick={() => void cw.controller.arm()}>{cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button><button type="button" className="contest-danger-secondary" onClick={() => void stopAutoCQ()}>Stop</button><span className={cw.state.armed ? "is-armed" : ""}>{cw.state.armed ? "Armed" : "Disarmed"}</span>{autoCQDeadlineMs !== null&&<span role="status">Auto CQ · {Math.max(0, Math.ceil((autoCQDeadlineMs-autoCQNowMs)/1000))}s</span>}</div>{cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}<div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div></section>;
   const entryPanel: ReactNode = projection && <form className="contest-entry" aria-label={`${projection.pluginName ?? projection.pluginID} entry`} onSubmit={event => { event.preventDefault(); void runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz })); }} onKeyDown={keyDown}>
     <header><div><h2><Radio size={15}/> {projection.pluginName ?? projection.pluginID} · Not1MM</h2><p>Actual pinned Python plugin · {projection.run ? "Run" : "Search & Pounce"}</p></div><span>{busy ? "Working…" : "Ready"}</span></header>
     <ContestEntryFields callsign={visibleFields.slice(0, 1).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} className="contest-call" autoComplete="off" data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } reports={visibleFields.slice(1, 3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value)}/>) } exchange={visibleFields.slice(3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } />

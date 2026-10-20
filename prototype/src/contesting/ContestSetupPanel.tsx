@@ -134,6 +134,10 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     event.preventDefault();
     void run(async () => {
       const document = structuredClone(draft);
+      const autoCQDelay = Number(document.preferences.autoCQDelay ?? 15);
+      if (!Number.isFinite(autoCQDelay) || autoCQDelay < 1 || autoCQDelay > 3600)
+        throw new Error("Auto CQ Delay must be between 1 and 3600 seconds.");
+      document.preferences.autoCQDelay = autoCQDelay;
       if (view === "Edit Keys") document.preferences.keyBindings = encodeContestKeyBindings(
         validateContestKeyBindings(encodeContestKeyBindings(bindingValue)));
       if (view === "Choose a Contest") {
@@ -222,6 +226,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       case "Options": content = <div className="contest-options-columns">
         <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">
+          {field("preferences", "autoCQDelay", "Auto CQ Delay (Seconds)", "number")}
           {check("preferences", "callHistory", "Use Call History")}<hr/>
           {check("preferences", "rtcEnabled", "Use RTC score reporting")}
           {choice("preferences", "rtcURL", "Score reporting URL", ["https://hamscore.com/postxml/", "https://contestsonlinescore.com/postscore.jsp", "https://contest.run/postscore"])}

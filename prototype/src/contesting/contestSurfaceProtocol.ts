@@ -21,7 +21,7 @@ export type ContestSurfaceAction =
   | { action: "entry_set_cw_speed"; params: DraftRevision & { value: number } }
   | { action: "entry_focus"; params: DraftRevision & { fieldID: ContestInputFieldID } }
   | { action: "entry_operator_key"; params: DraftRevision & { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" |
-      "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null } }
+      "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null; shifted?: boolean } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
   | { action: "log_export_cabrillo"; params: Record<string, never> }
@@ -70,6 +70,7 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     tabPrevious: Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
     functionKeys: { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
       macro: string }[];
+    autoCQ?: { active: boolean; delaySeconds: number; remainingMs: number | null };
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
       canReserveCommit: boolean; canCommit: boolean };
     trace: { operationID: string; mode: "CW" | "SSB" | "AM" | "FM"; macro: string;
@@ -154,7 +155,7 @@ const manualContextValid = (value: unknown) => record(value) && exact(value, ["o
   text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
   ["cwSpeedWpm", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm"].every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
   ["qsos", "multipliers", "total"].every(key => uint(value[key]));
-const draft = (value: Record<string, unknown>, extras: string[]) => exact(value, ["draftID", "expectedDraftRevision", ...extras]) &&
+const draft = (value: Record<string, unknown>, extras: string[], optional: string[] = []) => optionalKeys(value, ["draftID", "expectedDraftRevision", ...extras], optional) &&
   text(value.draftID, 160) && uint(value.expectedDraftRevision);
 const qso = (value: Record<string, unknown>, extras: string[]) => exact(value, ["qsoID", ...extras]) && text(value.qsoID, 160);
 const texts = (value: unknown, maximumCount: number, maximumBytes: number) => Array.isArray(value) && value.length <= maximumCount &&
@@ -190,6 +191,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
   const descriptor = record(value.descriptor) ? value.descriptor : undefined;
   const serial = record(descriptor?.serial) ? descriptor.serial : undefined;
   const operator = record(value.operator) ? value.operator : undefined;
+  const autoCQ = record(operator?.autoCQ) ? operator.autoCQ : undefined;
   const readiness = record(operator?.readiness) ? operator.readiness : undefined;
   const draftValue = record(value.draft) ? value.draft : undefined;
   const sentFieldIDs = new Set<string>();
@@ -218,7 +220,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     descriptor.advanceOnSpace.length <= contestInputFieldIDs.length && new Set(descriptor.advanceOnSpace).size === descriptor.advanceOnSpace.length &&
     descriptor.advanceOnSpace.every(item => oneOf(item, contestInputFieldIDs));
   const operatorValid = value.operator === null || !!operator &&
-    exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"]) &&
+    optionalKeys(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"], ["autoCQ"]) &&
     oneOf(operator.output, ["simulation-only", "xlog-native", "test-simulation"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
     oneOf(operator.status, ["disarmed", "armed", "waiting", "uncertain"]) &&
     (operator.pending === null || oneOf(operator.pending, ["reserve-serial", "send", "commit"])) &&
@@ -231,6 +233,9 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(key.key, ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"]) && text(key.macro, 160, true); }) &&
     !!readiness && exact(readiness, ["canSendCQ", "canSendCall", "canSendDuplicate", "canReserveCall", "canReserveCommit", "canCommit"]) &&
     Object.values(readiness).every(item => typeof item === "boolean") && Array.isArray(operator.trace) && operator.trace.length <= 24 &&
+    (operator.autoCQ === undefined || !!autoCQ && exact(autoCQ, ["active", "delaySeconds", "remainingMs"]) && typeof autoCQ.active === "boolean" &&
+      typeof autoCQ.delaySeconds === "number" && Number.isFinite(autoCQ.delaySeconds) && autoCQ.delaySeconds >= 1 && autoCQ.delaySeconds <= 3600 &&
+      (autoCQ.remainingMs === null || uint(autoCQ.remainingMs, 3_600_000))) &&
     operator.trace.every(item => { const trace = record(item) ? item : undefined; return !!trace &&
       exact(trace, ["operationID", "mode", "macro", "text", "status"]) && text(trace.operationID, 160) &&
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && text(trace.macro, 160, true) &&
@@ -418,9 +423,10 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
   if (action === "entry_set_cw_speed") return draft(params, ["value"]) && uint(params.value, 100) && (params.value as number) >= 5;
   if (action === "entry_focus") return draft(params, ["fieldID"]) && oneOf(params.fieldID, contestInputFieldIDs);
-  if (action === "entry_operator_key") return draft(params, ["key", "focusedField"]) &&
+  if (action === "entry_operator_key") return draft(params, ["key", "focusedField"], ["shifted"]) &&
     typeof params.key === "string" && /^(?:F(?:[1-9]|1[0-2])|Enter|Escape)$/.test(params.key) &&
-    (params.focusedField === null || oneOf(params.focusedField, contestInputFieldIDs));
+    (params.focusedField === null || oneOf(params.focusedField, contestInputFieldIDs)) &&
+    (params.shifted === undefined || typeof params.shifted === "boolean" && params.key === "F1");
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);

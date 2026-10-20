@@ -241,7 +241,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const nextFocusable=(from:ContestInputFieldID,direction:"tabNext"|"tabPrevious")=>{let candidate:ContestInputFieldID|undefined=from;
     for(let index=0;index<contestInputFieldIDs.length;index+=1){candidate=operator?.[direction]?.[candidate];if(!candidate)return null;
       const element=fieldRefs.current[candidate];if(element&&!element.disabled&&(!element.readOnly||candidate==="other_1"))return candidate;if(candidate===from)return null;}return null;};
-  const operatorKey=(key:string,focusedField:ContestInputFieldID|null)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key))return false;
+  const operatorKey=(key:string,focusedField:ContestInputFieldID|null,shifted=false)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key)||shifted&&key!=="F1")return false;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
     void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
@@ -253,7 +253,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
           currentProjection.operator?.armed!==intentContext.armed||currentProjection.operator?.style!==intentContext.style)){
         reportConflict("The shared contest entry changed before this operator action. Review it and press the key again.");return;}
       await send({action:"entry_operator_key",params:{draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision,
-        key:key as any,focusedField}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
+        key:key as any,focusedField,...(shifted?{shifted:true}:{})}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
   const bindingContext=(field:ContestInputFieldID|null):ContestKeyBindingContext=>field==="callsign"?"Callsign":field==="sent"||field==="receive"?"Report":
     field==="other_1"?"Other 1":field==="other_2"?"Other 2":"*";
   const runBoundAction=(action:ContestKeyBindingAction)=>{const intended=intents.capture();
@@ -287,8 +287,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     const advanceOnSpace=focusedField&&(projection.descriptor?.advanceOnSpace?.includes(focusedField)??focusedField==="callsign");
     if(!event.shiftKey&&event.key===" "&&advanceOnSpace){const next=nextFocusable(focusedField,"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
-    if(event.shiftKey)return;
-    if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};
+    if(event.shiftKey&&event.key!=="F1")return;
+    if(operatorKey(event.key,focusedField,event.shiftKey)){event.preventDefault();event.stopPropagation();}};
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
@@ -321,7 +321,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
       {projection.draft.mode==="CW"&&<div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm-1}},projectionRevision)}>−</button>
-        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm+1}},projectionRevision)}>+</button></div>}</div>
+        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm+1}},projectionRevision)}>+</button></div>}
+      {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
     {(projection.draft.mode==="CW"||testSimulation&&operator?.functionKeys.length)&&<div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
       disabled={disabled||!item||testSimulation&&!operator?.armed} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>}
     </div></div>

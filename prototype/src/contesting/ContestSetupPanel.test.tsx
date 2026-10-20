@@ -104,9 +104,16 @@ it("preserves legacy N1MM endpoints while offering all four original packet rows
 it("keeps ESM mappings, Call History and score reporting together in Options and networking in Group", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings");
   fireEvent.click(screen.getByRole("tab", { name: "Options" }));
-  for (const label of ["CQ", "His Call", "Exchange", "AGN", "My Call", "QRZ", "QSO B4", "Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  for (const label of ["CQ", "His Call", "Exchange", "AGN", "My Call", "QRZ", "QSO B4", "Auto CQ Delay (Seconds)", "Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)"]) expect(screen.getByLabelText(label)).toBeTruthy();
   fireEvent.click(screen.getByRole("tab", { name: "Group" }));
   for (const label of ["Connect to server", "Be the master", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
+});
+it("rejects an unsafe Auto CQ delay before saving", async () => {
+  const p=props();render(<ContestSetupPanel {...p}/>);open("Configuration Settings");
+  fireEvent.click(screen.getByRole("tab",{name:"Options"}));
+  fireEvent.change(screen.getByLabelText("Auto CQ Delay (Seconds)"),{target:{value:"0"}});open("Save");
+  expect(await screen.findByText("Auto CQ Delay must be between 1 and 3600 seconds.")).toBeTruthy();
+  expect(p.onSave).not.toHaveBeenCalled();
 });
 it.each([false, true])("keeps every detached Options control inside the two-column body with an embedded history panel=%s", async embedded => {
   const p = props(), onOpenCallHistory = vi.fn();
@@ -119,7 +126,7 @@ it.each([false, true])("keeps every detached Options control inside the two-colu
   expect(left.className).toBe("contest-manual-stack");
   expect(right.className).toBe("contest-manual-stack");
   expect(left.contains(screen.getByLabelText("Enable ESM"))).toBe(true);
-  for (const label of ["Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)", "Clear input fields in S&P when the VFO frequency changes"]) {
+  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)", "Clear input fields in S&P when the VFO frequency changes"]) {
     expect(right.contains(screen.getByLabelText(label))).toBe(true);
   }
   const historyControl = screen.getByRole("button", { name: embedded ? "Import local file" : "Open Call History" });

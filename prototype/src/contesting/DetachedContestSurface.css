@@ -88,6 +88,8 @@
 .contest-surface-speed { display:flex; align-items:center; gap:2px; }
 .contest-surface-speed output { min-width:30px; text-align:center; }
 .contest-surface-speed button { min-height:28px; padding:2px 9px; }
+.contest-surface-auto-cq { display:flex; align-items:center; gap:5px; min-width:110px; color:var(--amber); font-size:11px; white-space:nowrap; }
+.contest-surface-auto-cq progress { width:72px; height:6px; accent-color:var(--teal); }
 .contest-surface-entry .contest-surface-macros { grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; }
 .contest-surface-entry .contest-surface-macros button { flex-direction:row; align-items:center; justify-content:center; min-height:28px; gap:3px; padding:4px; overflow:hidden; font:11px ui-monospace,monospace; }
 .contest-surface-entry .contest-surface-macros kbd { flex:none; color:var(--cyan); font:inherit; }

@@ -818,10 +818,28 @@ it("ignores repeated, composing, prevented, and modified detached operator keys"
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
   fireEvent.keyDown(callsign,{key:"Enter",repeat:true});fireEvent.keyDown(callsign,{key:"Enter",isComposing:true});
-  for(const modifier of ["altKey","ctrlKey","metaKey","shiftKey"])
+  for(const modifier of ["altKey","ctrlKey","metaKey"])
     fireEvent.keyDown(callsign,{key:"F1",[modifier]:true});
   const prevented=new KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true});prevented.preventDefault();callsign.dispatchEvent(prevented);
   await act(async()=>{await Promise.resolve();});expect(actions).toHaveLength(0);
+});
+
+it("admits Shift-F1 as Auto CQ from the detached Main Logging window",async()=>{
+  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[{key:"F1",macro:"CQ"}],autoCQ:{active:true,delaySeconds:15,remainingMs:7500},
+    readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const current:any={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");
+  expect(screen.getByText("Auto CQ")).toBeTruthy();
+  expect(screen.getByLabelText("Auto CQ countdown").getAttribute("value")).toBe("7500");
+  fireEvent.keyDown(callsign,{key:"F1",shiftKey:true});
+  await waitFor(()=>expect(actions).toHaveLength(1));
+  expect(actions[0]).toMatchObject({action:"entry_operator_key",params:{key:"F1",focusedField:"callsign",shifted:true}});
 });
 
 it("carries delayed multi-field typing through the real owner drain before one Enter intent",async()=>{

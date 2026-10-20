@@ -868,6 +868,51 @@ it.each([
   expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
 });
 
+it("runs detached Shift-F1 Auto CQ immediately in Run and cancels it on callsign input",async()=>{
+  const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.name="CQ WW SSB";saved.settings.ModeCategory="SSB";
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
+  let current:any={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"],run:false,
+    fields:projection().fields.map(field=>({...field,value:field.id==="sent"||field.id==="receive"?"59":field.value})),matrixTrackers:[]};
+  let outputActions:any[]=[];
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB",modes:["SSB"]}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[],total:0};
+    else if(method==="contest_score")result={sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{},statistics:statisticsFor(current)};
+    else if(method==="contest_run_state"){
+      current={...current,revision:current.revision+1,run:params.run};result={projection:current,actions:[],messages:[]};
+    } else if(method==="contest_function_key"){
+      current={...current,revision:current.revision+1};
+      outputActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key:params.key,label:"CQ",payload:"CQ OM0RX",
+        payloadUTF8Bytes:8,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",
+          revision:current.sourceRevision,mode:"R",key:params.key,label:"CQ",template:"CQ {MYCALL}"},sessionID:current.sessionID,draftID:current.draftID}];
+      result={operationID:params.operationID,revision:current.revision,projection:current,actions:outputActions,messages:[],replayed:false};
+    } else if(method==="contest_output_claim")result={claimed:true,operationID:params.operationID,actions:outputActions};
+    else if(method==="contest_draft_apply"){
+      current={...current,revision:current.revision+1,fields:current.fields.map((field:any)=>({...field,value:params.fields[field.id]??field.value}))};
+      result={projection:current,actions:[],messages:[]};
+    } else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestingTest/>);
+  await createContestThroughSetup();let entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
+    requestID:"auto-cq-start",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign",shifted:true}}));
+  expect(request.mock.calls.filter(([method])=>method==="contest_function_key")).toHaveLength(1);
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({operator:{style:"run",autoCQ:{active:true,delaySeconds:15}}});
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_set_text",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"K1ABC"}}));
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({operator:{armed:false,autoCQ:{active:false}}});
+});
+
 it("projects only configured bands into detached Main Logging", async () => {
   const current = projection();
   const saved = newContestSetup("OM0RX");
