@@ -42,6 +42,7 @@ struct State {
     actions: VecDeque<QueuedAction>,
     escape_actions: VecDeque<QueuedAction>,
     seen_request_ids: BTreeSet<String>,
+    focused_actions: BTreeSet<String>,
 }
 
 fn state() -> &'static Mutex<State> {
@@ -82,7 +83,7 @@ pub fn invalidate_all() {
     }
 }
 
-pub fn submit(label: &str, envelope: Value) -> Result<Value, String> {
+pub fn submit(label: &str, envelope: Value, focused: bool) -> Result<Value, String> {
     let panel_id = contest_panel(label)?;
     let checked = validate_action_envelope(&envelope)?;
     if checked.panel_id != panel_id {
@@ -92,17 +93,31 @@ pub fn submit(label: &str, envelope: Value) -> Result<Value, String> {
         let mut state = state()
             .lock()
             .map_err(|_| "Contest surface state unavailable")?;
-        submit_after_admission(&mut state, &panel_id, &checked, envelope)
+        submit_after_admission_focused(&mut state, &panel_id, &checked, envelope, focused)
     })?
 }
 
+#[cfg(test)]
 fn submit_after_admission(
     state: &mut State,
     panel_id: &str,
     checked: &CheckedAction,
     envelope: Value,
 ) -> Result<Value, String> {
+    submit_after_admission_focused(state, panel_id, checked, envelope, true)
+}
+
+fn submit_after_admission_focused(
+    state: &mut State,
+    panel_id: &str,
+    checked: &CheckedAction,
+    envelope: Value,
+    focused: bool,
+) -> Result<Value, String> {
     require_context(state, &checked.context)?;
+    if requires_focus_admission(&envelope) && !focused {
+        return Err("Focus the contest Entry controls before using them.".into());
+    }
     submit_checked(state, panel_id, checked, envelope)
 }
 
@@ -129,6 +144,7 @@ fn submit_checked(
     if state.seen_request_ids.contains(&checked.request_id) {
         return Err("That contest action receipt was retired and will not be replayed.".into());
     }
+    let focus_admission = requires_focus_admission(&envelope);
     let escape = is_escape_action(&envelope);
     let projection_revision = state
         .panels
@@ -179,7 +195,45 @@ fn submit_checked(
         state.actions.push_back(queued);
     }
     state.seen_request_ids.insert(checked.request_id.clone());
+    if focus_admission {
+        state.focused_actions.insert(checked.request_id.clone());
+    }
     Ok(json!({"requestID":checked.request_id,"status":"queued"}))
+}
+
+fn requires_focus_admission(envelope: &Value) -> bool {
+    envelope["action"] == "entry_operator_arm" && envelope["params"]["armed"] == true
+        || envelope["action"] == "entry_operator_key" && envelope["params"]["key"] != "Escape"
+}
+
+pub fn consume_focus_admission(context: &ContestWindowContext, request_id: &str, action: &str) -> Result<bool, String> {
+    canonical_uuid(request_id, "contest action requestID")?;
+    crate::contest_window_context::with_admitted(context, || {
+        let mut state = state().lock().map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        Ok(consume_focus_admission_in(&mut state, request_id, action))
+    })?
+}
+
+fn consume_focus_admission_in(state: &mut State, request_id: &str, action: &str) -> bool {
+    let admitted = state.panels.get("active-qso").and_then(|panel| panel.receipts.iter()
+        .find(|(candidate, _)| candidate == request_id)).is_some_and(|(_, receipt)| {
+            receipt.status == "uncertain" && requires_focus_admission(&receipt.envelope)
+                && matches!((action, receipt.envelope["action"].as_str()), ("arm", Some("entry_operator_arm")) | ("contest", Some("entry_operator_key")))
+        });
+    admitted && state.focused_actions.remove(request_id)
+}
+
+pub fn revoke_focus_admissions(label: &str) {
+    if label == "contest--active-qso" {
+        if let Ok(mut state) = state().lock() {
+            revoke_focus_admissions_in(&mut state);
+        }
+    }
+}
+
+fn revoke_focus_admissions_in(state: &mut State) {
+    state.focused_actions.clear();
 }
 
 pub fn next(context: &ContestWindowContext) -> Result<Option<Value>, String> {
@@ -280,6 +334,7 @@ fn complete_after_admission(
     receipt.message = message;
     receipt.projection_revision = projection_revision;
     let value = receipt_value(request_id, receipt);
+    state.focused_actions.remove(request_id);
     debug_assert!(!panel_id.is_empty());
     Ok(value)
 }
@@ -2917,6 +2972,32 @@ mod tests {
         assert_eq!(state.panels["active-qso"].receipts.len(), 1);
         state.panels.get_mut("active-qso").unwrap().receipts.clear();
         assert!(submit_checked(&mut state, "active-qso", &checked, checked_value()).is_err());
+    }
+
+    #[test]
+    fn relayed_operator_focus_is_exact_one_shot_and_rejects_unfocused_submission() {
+        let mut state = State { context: Some(context()), ..State::default() };
+        publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
+        let envelope = action("entry_operator_key", "active-qso", json!({
+            "draftID":"draft","expectedDraftRevision":2,"key":"F3","focusedField":"callsign"
+        }));
+        let checked = validate_action_envelope(&envelope).unwrap();
+
+        assert!(submit_after_admission_focused(&mut state, "active-qso", &checked, envelope.clone(), false).is_err());
+        assert!(state.actions.is_empty());
+        assert!(state.focused_actions.is_empty());
+
+        submit_after_admission_focused(&mut state, "active-qso", &checked, envelope.clone(), true).unwrap();
+        assert_eq!(take_next(&mut state).unwrap(), Some(envelope));
+        assert!(!consume_focus_admission_in(&mut state, REQUEST, "arm"));
+        assert!(consume_focus_admission_in(&mut state, REQUEST, "contest"));
+        assert!(!consume_focus_admission_in(&mut state, REQUEST, "contest"));
+        complete_after_admission(&mut state, REQUEST, "rejected", Some("test".into()), 7).unwrap();
+        assert!(state.focused_actions.is_empty());
+
+        state.focused_actions.insert(REQUEST.into());
+        revoke_focus_admissions_in(&mut state);
+        assert!(!consume_focus_admission_in(&mut state, REQUEST, "contest"));
     }
 
     #[test]

@@ -43,7 +43,9 @@ export class SharedCWSession {
   }
   refresh = () => this.action("snapshot").then(() => {});
   pollWinKeyer = () => this.refresh();
-  arm = () => this.action("arm", { expectedRevision: this.state.revision }).then(() => {});
+  arm = (contestSurfaceRequestID?: string) => this.action("arm", {
+    expectedRevision: this.state.revision, ...(contestSurfaceRequestID ? { contestSurfaceRequestID } : {}),
+  }).then(() => {});
   send = (macro: CWMacro, _previewContext?: CWContext) => this.action("send", { expectedRevision: this.state.revision, lease: this.state.lease, macroID: macro.id }).then(() => {});
   executeContest = (params: Data) => this.action("contest", { ...params, expectedRevision: this.state.revision, lease: this.state.lease });
   stop = () => this.action("stop").then(() => {});

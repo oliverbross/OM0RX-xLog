@@ -1841,8 +1841,18 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     cw_session::validate_contest_route(window.label(), &params, contest_context.as_ref().map(|context| context.session_id.as_str()))?;
     let _module_admission = if output_action && !test_simulation { Some(operating_module::owner()?.admit_current()?) } else { None };
     let label = cw_session::control_window(window.label()).to_owned();
-    let focused = cw_session::control_window_focused(window.label(), |label| app.get_webview_window(label).map(|entry|
+    let live_focus = cw_session::control_window_focused(window.label(), |label| app.get_webview_window(label).map(|entry|
         (entry.is_focused().unwrap_or(false), entry.is_visible().unwrap_or(false))));
+    let relayed_focus = match (contest_context.as_ref(), params["contestSurfaceRequestID"].as_str()) {
+        (Some(context), Some(request_id)) if matches!(action, "arm" | "contest") =>
+            contest_surface::consume_focus_admission(context, request_id, action)?,
+        (_, Some(_)) => return Err("That contest focus admission is not valid for this CW action.".into()),
+        _ => false,
+    };
+    // The delayed owner relay may outlive the exact macOS focus sample that
+    // admitted its Entry action. Only the no-I/O test simulator may consume
+    // that one-shot admission; production output still requires live focus.
+    let focused = live_focus || test_simulation && relayed_focus;
     if output_action
         && SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true)) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
@@ -2345,7 +2355,8 @@ fn validate_contest_surface_main_caller(label: &str) -> Result<(), String> {
 #[tauri::command]
 fn contest_surface_action(window: tauri::WebviewWindow, app: tauri::AppHandle,
     envelope: serde_json::Value) -> Result<serde_json::Value, String> {
-    let receipt = contest_surface::submit(window.label(), envelope)?;
+    let focused = window.is_focused().unwrap_or(false) && window.is_visible().unwrap_or(false);
+    let receipt = contest_surface::submit(window.label(), envelope, focused)?;
     let _ = app.emit("xlog:contest-surface", ());
     Ok(receipt)
 }
@@ -2617,6 +2628,7 @@ fn main() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); }
             }
             if matches!(event, tauri::WindowEvent::Focused(false) | tauri::WindowEvent::Destroyed) {
+                contest_surface::revoke_focus_admissions(window.label());
                 if let Some(owner) = cw_session_backend::existing() {
                     if let Ok(clients) = owner.revoke_window_clients(window.label()) {
                         // Pin retiring client identities before dispatch: a late

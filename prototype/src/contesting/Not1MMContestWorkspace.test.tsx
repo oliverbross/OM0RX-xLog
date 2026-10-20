@@ -1236,7 +1236,8 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_set_exchange",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2",value:"5"}}));
   entry=surfaceOwner.current.projections["active-qso"];
-  const esm=act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
+  const esmRequestID=crypto.randomUUID();
+  const esm=act(async()=>surfaceOwner.current.handle({...envelope,requestID:esmRequestID,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}));
   await waitFor(()=>expect(nativeCW.execute).toHaveBeenCalledTimes(1));
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
@@ -1245,7 +1246,7 @@ it("sends one native ESM operation with buffered fields and accepts its confirme
   settle(); await esm;
   expect(nativeCW.execute).toHaveBeenCalledTimes(1);
   expect(nativeCW.execute.mock.calls[0][0]).toMatchObject({operation:"esm",sessionID:current.sessionID,
-    draftID:current.draftID,fields:{callsign:"K1ABC",other_2:"5"},field:"other_2"});
+    draftID:current.draftID,fields:{callsign:"K1ABC",other_2:"5"},field:"other_2",contestSurfaceRequestID:esmRequestID});
   expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("");
   expect(request.mock.calls.some(([method])=>method === "contest_esm")).toBe(false);
 });

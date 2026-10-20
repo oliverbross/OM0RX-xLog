@@ -44,9 +44,12 @@ it("leaves detached Entry focus and shortcuts to the native owner while Setup ho
     return {revision,armed,pending:false,client:armed?client:null,lease:armed?"lease":null,error:"",canonical:{profile:defaultCWProfile}};
   });
   function Harness(){const {controller,state}=useSharedCW("contest",false,true);return <>
-    <button onClick={()=>void controller.arm()}>Arm</button><output>{state.armed?"Armed":"Disarmed"}</output></>;}
+    <button onClick={()=>void controller.arm("40000000-0000-4000-8000-000000000001")}>Arm</button><output>{state.armed?"Armed":"Disarmed"}</output></>;}
   const {unmount}=render(<Harness/>);
   await waitFor(()=>expect(invoke).toHaveBeenCalled());fireEvent.click(screen.getByText("Arm"));await screen.findByText("Armed");
+  expect(invoke.mock.calls.find(call=>call[1].params.action==="arm")?.[1].params).toMatchObject({
+    contestSurfaceRequestID:"40000000-0000-4000-8000-000000000001",
+  });
   await act(async()=>{window.dispatchEvent(new Event("blur"));document.dispatchEvent(new Event("visibilitychange"));});
   fireEvent.keyDown(document.body,{key:"F1"});
   expect(invoke.mock.calls.filter(call=>["unregister","send"].includes(call[1].params.action))).toHaveLength(0);

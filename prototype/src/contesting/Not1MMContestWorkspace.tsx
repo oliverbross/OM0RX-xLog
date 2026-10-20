@@ -582,7 +582,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     setPhoneSimulationTrace(items => [...items, ...traces].slice(-24));
     return { ...changed, actions: [] };
   };
-  const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false) => {
+  const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false,
+      contestSurfaceRequestID?: string) => {
     const phoneAction = Boolean(projectionRef.current?.pluginID && contestPhoneIntentPlugins.has(projectionRef.current.pluginID) && projectionRef.current.mode === "SSB");
     if (phoneAction && (!phoneSimulationAvailable || !phoneSimulationArmed)) {
       const failure = new Error(phoneSimulationAvailable
@@ -609,7 +610,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const operationID = crypto.randomUUID();
     const native = await cw.controller.executeContest({ operation: method === "contest_esm" ? "esm" : "function_key",
       operationID, sessionID: base.sessionID, expectedContestRevision: base.revision, draftID: base.draftID,
-      fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra });
+      fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra,
+      ...(contestSurfaceRequestID ? { contestSurfaceRequestID } : {}) });
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
@@ -1023,7 +1025,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       case "entry_operator_arm":
         if (phoneSimulationAvailable) { setPhoneSimulationArmed(action.params.armed); return; }
         if (active.mode !== "CW") throw new Error("This contest does not support admitted output.");
-        if (action.params.armed) await cw.controller.arm(); else await cw.controller.stop();
+        if (action.params.armed) await cw.controller.arm(action.requestID); else await cw.controller.stop();
         return;
       case "entry_operator_style":
         await runMutation(base => mutate("contest_run_state", base, { run: action.params.value === "run" }), false,
@@ -1044,9 +1046,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         return;
       case "entry_operator_key":
         if (action.params.key === "Enter") {
-          await hostAction("contest_esm", { field: action.params.focusedField ?? active.focus }, true); return;
+          await hostAction("contest_esm", { field: action.params.focusedField ?? active.focus }, true, action.requestID); return;
         }
-        await hostAction("contest_function_key", { key: action.params.key }, true); return;
+        await hostAction("contest_function_key", { key: action.params.key }, true, action.requestID); return;
       case "assistance_query": await persistFields("callsign", action.params.inputCallsign.toUpperCase()); return;
       case "assistance_select":
         if (action.params.kind === "log" || action.params.kind === "cluster") {
