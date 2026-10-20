@@ -116,7 +116,7 @@ const entryProjection = { schemaVersion: 1, status: "ready", session: { name: "A
     band: "20m", mode: "CW", dupe: { state: "clear", reason: "" }, validation: { errors: [], warnings: [] }, reservedSerial: null },
   busy: false, dirty: true, uncertain: false } as const;
 const entryProjectionV2 = { ...entryProjection, schemaVersion: 2,
-  descriptor: { bands: ["20m", "40m"], modes: ["CW"],
+  descriptor: { bands: ["20m", "40m"], modes: ["CW"], advanceOnSpace: ["callsign", "sent", "receive", "other_1", "other_2"],
     sentFields: [{ id: "serial", label: "Serial", value: "001", required: true, maximumUTF8Bytes: 8 }],
     serial: { requirement: "requiredForCommit", allocatedFieldID: "serial", reservedSerial: null } },
   operator: { output: "simulation-only", armed: true, style: "run", status: "armed", pending: null,
@@ -228,6 +228,8 @@ describe("contest native surface projection v1", () => {
       serial: { ...entryProjectionV2.descriptor.serial, reservedSerial: 1 } } },
     { ...entryProjectionV2, descriptor: { ...entryProjectionV2.descriptor,
       sentFields: [{ ...entryProjectionV2.descriptor.sentFields[0], maximumUTF8Bytes: 2, value: "001" }] } },
+    { ...entryProjectionV2, descriptor: { ...entryProjectionV2.descriptor, advanceOnSpace: ["callsign", "callsign"] } },
+    { ...entryProjectionV2, descriptor: { ...entryProjectionV2.descriptor, advanceOnSpace: ["band"] } },
     { ...entryProjectionV2, operator: { ...entryProjectionV2.operator,
       functionKeys: [{ key: "F1", macro: "CQ" }, { key: "F1", macro: "EXCH" }] } },
     { ...entryProjectionV2, operator: { ...entryProjectionV2.operator,

@@ -60,7 +60,7 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   busy: boolean; dirty: boolean; uncertain: boolean };
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
-    allowDuplicateCommit?: boolean; automaticSerial?: boolean; keyBindings?: ContestKeyBinding[];
+    allowDuplicateCommit?: boolean; automaticSerial?: boolean; advanceOnSpace?: ContestInputFieldID[]; keyBindings?: ContestKeyBinding[];
     sentFields: { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number }[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
   operator: null | { output: "simulation-only" | "xlog-native"; armed: boolean; style: "run" | "search-and-pounce";
@@ -209,6 +209,9 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       return !!binding && exact(binding, ["context", "key", "action"]) && oneOf(binding.context, contestKeyBindingContexts) &&
         text(binding.key, 64) && normalizeContestKey(binding.key as string) === binding.key && oneOf(binding.action, contestKeyBindingActions);
     });
+  const advanceOnSpaceValid = descriptor?.advanceOnSpace === undefined || Array.isArray(descriptor.advanceOnSpace) &&
+    descriptor.advanceOnSpace.length <= contestInputFieldIDs.length && new Set(descriptor.advanceOnSpace).size === descriptor.advanceOnSpace.length &&
+    descriptor.advanceOnSpace.every(item => oneOf(item, contestInputFieldIDs));
   const operatorValid = value.operator === null || !!operator &&
     exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"]) &&
     oneOf(operator.output, ["simulation-only", "xlog-native"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
@@ -228,14 +231,14 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && oneOf(trace.macro, ["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"]) &&
       text(trace.text, 1024, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
-    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial", "keyBindings"]) &&
+    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "keyBindings"]) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
     (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
     (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
     texts(descriptor.bands, 32, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&
-    new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && keyBindingsValid && operatorValid;
+    new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && advanceOnSpaceValid && keyBindingsValid && operatorValid;
 }
 function validCallCandidates(value: unknown) {
   if (!Array.isArray(value) || value.length > 500) return false;

@@ -462,6 +462,22 @@ it("serializes rapid Python tab-map focus changes and sends exact report focus t
   expect(document.activeElement).toBe(screen.getByLabelText("Callsign"));
 });
 
+it("uses the pinned plugin space-advance fields instead of limiting space to Callsign",async()=>{
+  const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"sent",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const view={...snapshot,projection:{...projection,schemaVersion:2,
+    descriptor:{bands:["20m"],modes:["CW"],advanceOnSpace:["callsign","sent","receive","other_1","other_2"],
+      sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"queued"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const sent=await screen.findByLabelText("SNT"),receive=screen.getByLabelText("RCV");
+  expect(document.activeElement).toBe(sent);fireEvent.keyDown(sent,{key:" "});
+  expect(document.activeElement).toBe(receive);
+});
+
 it("restores authoritative callsign focus when a logged QSO creates a new draft",async()=>{
   const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"receive",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};

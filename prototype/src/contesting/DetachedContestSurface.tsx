@@ -279,7 +279,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     if(event.altKey||event.ctrlKey||event.metaKey)return;
     if(event.key==="Tab"&&focusedField){const next=nextFocusable(focusedField,event.shiftKey?"tabPrevious":"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
-    if(!event.shiftKey&&event.key===" "&&focusedField==="callsign"){const next=nextFocusable(focusedField,"tabNext");
+    const advanceOnSpace=focusedField&&(projection.descriptor?.advanceOnSpace?.includes(focusedField)??focusedField==="callsign");
+    if(!event.shiftKey&&event.key===" "&&advanceOnSpace){const next=nextFocusable(focusedField,"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     if(event.shiftKey)return;
     if(operatorKey(event.key,focusedField)){event.preventDefault();event.stopPropagation();}};

@@ -45,6 +45,7 @@ class WPXHostTests(unittest.TestCase):
         self.assertEqual(view["pluginID"], "cq_wpx_cw")
         self.assertEqual(view["tabNext"]["receive"], "other_1")
         self.assertEqual(view["nextField"], "other_2")
+        self.assertEqual(view["advanceOnSpace"], ["callsign", "sent", "receive", "other_1", "other_2"])
         fields = {field["id"]: field for field in view["fields"]}
         self.assertEqual((fields["other_1"]["label"], fields["other_2"]["label"]), ("SentNR", "RcvNR"))
         self.assertTrue(fields["other_1"]["visible"])

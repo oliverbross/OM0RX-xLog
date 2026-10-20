@@ -30,7 +30,7 @@ type StatisticsState = { sessionID: string; revision: number; rows: ContestStati
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; sourceRevision: string; referenceID: string;
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
-  focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; run: boolean;
+  focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; advanceOnSpace?: string[]; run: boolean;
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
   matrixTrackers?: Array<"countries" | "zones">;
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
@@ -681,6 +681,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       descriptor: {
         bands: configuredBands, modes: projection.supportedModes?.length ? projection.supportedModes : ["CW"], reportsVisible,
         allowDuplicateCommit: projection.allowDuplicateCommit ?? false, automaticSerial: reservedSerial !== null,
+        advanceOnSpace: (projection.advanceOnSpace ?? ["callsign"]).filter(contestInputFieldID),
         keyBindings: activeContestKeyBindings(setup.preferences.keyBindings),
         sentFields: sentExchangeFields.map(field => ({ id: field.id, label: field.label,
           value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: 32 })),

@@ -942,6 +942,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     let reports_visible = required.remove("reportsVisible");
     let allow_duplicate_commit = required.remove("allowDuplicateCommit");
     let automatic_serial = required.remove("automaticSerial");
+    let advance_on_space = required.remove("advanceOnSpace");
     let key_bindings = required.remove("keyBindings");
     exact(
         &required,
@@ -956,6 +957,15 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     }
     if let Some(automatic_serial) = automatic_serial {
         boolean(&automatic_serial, "automatic serial allocation")?;
+    }
+    if let Some(advance_on_space) = advance_on_space {
+        unique_text_array(
+            &advance_on_space,
+            5,
+            16,
+            Some(&["callsign", "sent", "receive", "other_1", "other_2"]),
+            "space-advance fields",
+        )?;
     }
     unique_text_array(&descriptor["bands"], 32, 16, None, "entry bands")?;
     unique_text_array(
@@ -2537,6 +2547,14 @@ mod tests {
                 assert!(validate_projection("active-qso", &metadata_entry).is_err());
             }
         }
+        let mut space_advance = entry.clone();
+        space_advance["descriptor"]["advanceOnSpace"] =
+            json!(["callsign", "sent", "receive", "other_1", "other_2"]);
+        assert!(validate_projection("active-qso", &space_advance).is_ok());
+        space_advance["descriptor"]["advanceOnSpace"] = json!(["callsign", "callsign"]);
+        assert!(validate_projection("active-qso", &space_advance).is_err());
+        space_advance["descriptor"]["advanceOnSpace"] = json!(["band"]);
+        assert!(validate_projection("active-qso", &space_advance).is_err());
         let mut unknown_metadata = entry.clone();
         unknown_metadata["descriptor"]["unknown"] = json!(false);
         assert!(validate_projection("active-qso", &unknown_metadata).is_err());

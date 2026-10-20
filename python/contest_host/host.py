@@ -327,6 +327,9 @@ class Desk:
                 "focus": self.current_widget, "nextField": self.next_field.name,
                 "tabNext": {a.name: b.name for a, b in self.tab_next.items()},
                 "tabPrevious": {a.name: b.name for a, b in self.tab_prev.items()},
+                "advanceOnSpace": [name for name, enabled in zip(
+                    INPUTS, getattr(self.contest, "advance_on_space", [True, False, False, False, False])
+                ) if enabled],
                 "run": self.pref["run_state"], "functionKeys": [{"id": f"F{i}", "highlighted": f"F{i}" in self.highlights,
                     **self.cw_macros[("R" if self.pref["run_state"] else "S", f"F{i}")]} for i in range(1, 13)],
                 "dupe": bool(call and self.is_dupe(call, band)),

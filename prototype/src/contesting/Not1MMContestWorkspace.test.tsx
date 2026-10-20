@@ -135,7 +135,8 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ruleIdentity:{id:"cq-ww-cw",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"},
   draftID: "22222222-2222-4222-8222-222222222222", frequencyHz: 14025000, mode: "CW", band: 14,
   focus: "callsign", tabNext: { callsign: "sent", sent: "receive", receive: "other_2", other_2: "callsign" },
-  tabPrevious: { callsign: "other_2", sent: "callsign", receive: "sent", other_2: "receive" }, run: false,
+  tabPrevious: { callsign: "other_2", sent: "callsign", receive: "sent", other_2: "receive" },
+  advanceOnSpace: ["callsign", "sent", "receive", "other_1", "other_2"], run: false,
   functionKeys: Array.from({ length: 12 }, (_, index) => ({ id: `F${index + 1}`, highlighted: index === 1 })),
   dupe: false, countryResolved: true, history: "K1ABC United States", columns: [] as string[], matrixTrackers: ["countries", "zones"] as Array<"countries" | "zones">,
   score: { qsos: 0, points: 0, countries: 0, zones: 0, total: 0 },
@@ -835,6 +836,8 @@ it("creates a Python CQ WW session and logs through the actual-host wire", async
   expect(request.mock.calls.find(([method])=>method==="contest_focus")?.[1]).toMatchObject({field:"other_2"});
   expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({ schemaVersion: 2, status: "ready", operator: {
     output:"xlog-native",focusedField:"callsign",tabNext:{callsign:"sent",receive:"other_2"},tabPrevious:{other_2:"receive"} } });
+  expect(surfaceOwner.current.projections["active-qso"].descriptor.advanceOnSpace)
+    .toEqual(["callsign", "sent", "receive", "other_1", "other_2"]);
   expect(surfaceOwner.current.projections.logbook.page.limit).toBe(20);
   expect(validContestSurfaceProjection("active-qso", surfaceOwner.current.projections["active-qso"])).toBe(true);
   expect(validContestSurfaceProjection("logbook", surfaceOwner.current.projections.logbook)).toBe(true);
