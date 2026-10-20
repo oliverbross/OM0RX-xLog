@@ -13,7 +13,7 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS, TEN_TEN_PLUGINS
+from .plugins import CQ_WW_PLUGINS, PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS, TEN_TEN_PLUGINS
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
@@ -713,7 +713,7 @@ class Host:
                 operator = text(setup["operator"], 32)
                 require(bool(operator.strip()), "Operator is required")
                 zone = str(setup["settings"].get("SentExchange", ""))
-                if state["pluginID"] == "cq_ww_cw":
+                if state["pluginID"] in CQ_WW_PLUGINS:
                     require(zone.isdigit() and 1 <= int(zone) <= 40, "Sent CQ zone must be 1 to 40")
                 if state["pluginID"] == "icwc_mst":
                     require(re.fullmatch(r"[A-Za-z][A-Za-z'-]{0,31}", zone) is not None, "ICWC sent exchange must be one name")
@@ -736,7 +736,7 @@ class Host:
                 # the projection, and rescore if the station country changed.
                 previous_station = desk.station
                 desk = Desk(store, state, self.commit)
-                if state["pluginID"] == "cq_ww_cw":
+                if state["pluginID"] in CQ_WW_PLUGINS:
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -903,7 +903,7 @@ class Host:
             require(isinstance(value, (str, int)) and not isinstance(value, bool), "Station/settings values must be text or integer")
             text(str(value), 512)
         settings.setdefault("SentExchange", "")
-        if plugin_id == "cq_ww_cw":
+        if plugin_id in CQ_WW_PLUGINS:
             require(str(settings["SentExchange"]).isdigit() and 1 <= int(settings["SentExchange"]) <= 40, "Sent CQ zone must be 1 to 40")
         if plugin_id == "icwc_mst":
             require(isinstance(settings["SentExchange"], str)
@@ -927,7 +927,7 @@ class Host:
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
                 "fields": dict(zip(INPUTS, ("", report, report,
-                    str(settings["SentExchange"]) if plugin_id == "cq_ww_cw" or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
+                    str(settings["SentExchange"]) if plugin_id in CQ_WW_PLUGINS or plugin_id in TEN_TEN_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if state["pluginID"] not in SERIAL_PLUGINS:
@@ -1004,7 +1004,7 @@ class Host:
 
     @staticmethod
     def validate_exchange(desk, fields):
-        if desk.state["pluginID"] == "cq_ww_cw":
+        if desk.state["pluginID"] in CQ_WW_PLUGINS:
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
         elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"}:

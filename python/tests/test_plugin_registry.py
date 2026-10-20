@@ -24,8 +24,11 @@ class PluginRegistryTests(unittest.TestCase):
         self.assertEqual(SERIAL_PLUGINS, {key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial})
         self.assertEqual(dict(PLUGINS), {key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
         self.assertEqual(PLUGIN_REGISTRY["cq_ww_cw"].matrix_trackers, ("countries", "zones"))
+        self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].matrix_trackers, ("countries", "zones"))
+        self.assertEqual(PLUGIN_REGISTRY["cq_ww_ssb"].modes, ("SSB",))
         self.assertEqual(PLUGIN_REGISTRY["oceania_dx_ssb"].modes, ("SSB",))
-        self.assertTrue(all(not plugin.matrix_trackers for key, plugin in PLUGIN_REGISTRY.items() if key != "cq_ww_cw"))
+        self.assertTrue(all(not plugin.matrix_trackers for key, plugin in PLUGIN_REGISTRY.items()
+                            if key not in {"cq_ww_cw", "cq_ww_ssb"}))
         with TemporaryDirectory() as root:
             host = Host(Path(root).resolve())
             try:
@@ -37,6 +40,9 @@ class PluginRegistryTests(unittest.TestCase):
                 self.assertEqual(sweepstakes["overlayChoices"], ["N/A"])
                 oceania = next(item for item in catalog["plugins"] if item["id"] == "oceania_dx_ssb")
                 self.assertEqual(oceania["modes"], ["SSB"])
+                cq_ww_ssb = next(item for item in catalog["plugins"] if item["id"] == "cq_ww_ssb")
+                self.assertEqual((cq_ww_ssb["name"], cq_ww_ssb["modes"], cq_ww_ssb["sentExchangeHint"]),
+                                 ("CQ WW SSB", ["SSB"], "CQ Zone No."))
             finally:
                 host.close()
         for plugin_id in PLUGIN_REGISTRY:
@@ -80,7 +86,7 @@ class PluginRegistryTests(unittest.TestCase):
         with TemporaryDirectory() as root:
             host = Host(Path(root).resolve())
             try:
-                for plugin_id in ("unsupported", "cq_ww_ssb", "../cq_ww_cw", ""):
+                for plugin_id in ("unsupported", "../cq_ww_cw", ""):
                     with self.subTest(plugin_id=plugin_id), patch.object(upstream, "verify_source") as verify:
                         with self.assertRaisesRegex(ValueError, "Unsupported pinned plugin"):
                             upstream.load_plugin(plugin_id)
