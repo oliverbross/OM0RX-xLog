@@ -1311,7 +1311,9 @@ it("defers a native contest window command until the saved session is fully rest
     registerMenuRoute={handler => { route = handler; }}/>);
   await waitFor(() => expect(route).not.toBeNull());
   await expect(route!("contest-window-active-qso")).resolves.toBe(false);
+  await expect(route!("contest-dialog-keys")).resolves.toBe(false);
   expect(surfaceWindow.open).not.toHaveBeenCalled();
+  expect(surfaceWindow.openDialog).not.toHaveBeenCalled();
   await act(async () => finishOpen?.({id:crypto.randomUUID(),ok:true,result:{projection:current}}));
   await waitFor(() => expect(surfaceOwner.current.context).toMatchObject({sessionID:current.sessionID}));
   await expect(route!("contest-window-active-qso")).resolves.toBe(false);

@@ -56,6 +56,19 @@ pub const CONTEST_MENU_ITEMS: [(&str, &str); 23] = [
 pub fn contest_route(id: &str) -> Option<&'static str> {
     CONTEST_MENU_ITEMS.iter().find_map(|(route, _)| (*route == id).then_some(*route))
 }
+pub fn contest_setup_dialog_kind(route: &str) -> Option<&'static str> {
+    match route {
+        "contest-dialog-operator" => Some("operator"),
+        "contest-dialog-station" => Some("station"),
+        "contest-dialog-configuration" => Some("configuration"),
+        "contest-dialog-digital" => Some("digital"),
+        "contest-dialog-macros" => Some("macros"),
+        "contest-dialog-keys" => Some("keys"),
+        "contest-dialog-rover" => Some("rover"),
+        "contest-dialog-about" => Some("about"),
+        _ => None,
+    }
+}
 /// The setup renderer owns session mutation for all contest routes. Only an
 /// explicit Contest Setup request is allowed to surface that owner window;
 /// direct child/tool routes use it as a hidden controller.
@@ -184,6 +197,18 @@ mod tests {
         for invalid in ["settings", "cw", "alerts", "contest--logbook", "contest-setup", ""] {
             assert!(contest_window_panel(invalid).is_none());
         }
+    }
+    #[test]
+    fn edit_keys_menu_action_resolves_to_its_authorized_native_window() {
+        let route = contest_menu_route("contest_menu_contest-dialog-keys").unwrap();
+        let kind = contest_setup_dialog_kind(route).unwrap();
+        let (label, title, width, height) = crate::contest_setup_dialogs::spec(kind).unwrap();
+        assert_eq!((route, kind, label, title, width, height),
+            ("contest-dialog-keys", "keys", "contest-setup-keys", "Edit Keys", 880.0, 700.0));
+        assert!(contest_owner_dependent_window(label));
+        let capability: serde_json::Value = serde_json::from_str(
+            include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
+        assert!(capability["windows"].as_array().unwrap().iter().any(|window| window == label));
     }
     #[test]
     fn contest_owned_windows_receive_the_default_tauri_capability() {
