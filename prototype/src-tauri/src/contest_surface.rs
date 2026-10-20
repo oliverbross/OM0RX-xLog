@@ -730,7 +730,7 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         "propagation" if schema_version == 2 => validate_statistics_projection_v2(projection),
         "propagation" if schema_version == 3 => validate_statistics_projection_v3(projection),
         "monitor" if schema_version == 1 => validate_rate_projection(projection),
-        "awards" | "chaser-dx" if schema_version == 1 => {
+        "awards" | "chaser-dx" if schema_version == 1 || schema_version == 4 => {
             validate_matrix_projection(projection)
         }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
@@ -1372,12 +1372,61 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
 }
 
 fn validate_matrix_projection(value: &Map<String, Value>) -> Result<(), String> {
+    let version = value["schemaVersion"].as_u64();
+    let keys = if version == Some(4) {
+        vec![
+            "schemaVersion",
+            "status",
+            "title",
+            "tracker",
+            "zoneSystem",
+            "current",
+            "bands",
+            "rows",
+            "total",
+            "busy",
+        ]
+    } else {
+        vec!["schemaVersion", "status", "title", "bands", "rows", "total", "busy"]
+    };
     exact(
         value,
-        &["schemaVersion", "status", "title", "bands", "rows", "total", "busy"],
+        &keys,
         "multiplier matrix projection",
     )?;
     text_value(&value["title"], 160, false, "multiplier matrix title")?;
+    if version == Some(4) {
+        let tracker = text_value(&value["tracker"], 8, false, "multiplier matrix tracker")?;
+        if !matches!(tracker, "dxcc" | "zone") {
+            return Err("The multiplier matrix tracker is invalid.".into());
+        }
+        match tracker {
+            "dxcc" if !value["zoneSystem"].is_null() => {
+                return Err("A DXCC matrix cannot select a zone system.".into())
+            }
+            "zone" => {
+                let zone_system = text_value(
+                    &value["zoneSystem"],
+                    3,
+                    false,
+                    "multiplier matrix zone system",
+                )?;
+                if !matches!(zone_system, "cq" | "itu") {
+                    return Err("The multiplier matrix zone system is invalid.".into());
+                }
+            }
+            _ => {}
+        }
+        let current = object(&value["current"], "multiplier matrix current target")?;
+        exact(
+            current,
+            &["dxcc", "cqZone", "ituZone"],
+            "multiplier matrix current target",
+        )?;
+        nullable_text(&current["dxcc"], 160, "multiplier matrix current DXCC")?;
+        nullable_uint(&current["cqZone"], 90, "multiplier matrix current CQ zone")?;
+        nullable_uint(&current["ituZone"], 90, "multiplier matrix current ITU zone")?;
+    }
     let bands = array(&value["bands"], 32, "multiplier matrix bands")?;
     let mut band_names = BTreeSet::new();
     for band in bands {
@@ -2436,6 +2485,13 @@ mod tests {
             "rows":[{"label":"Germany","counts":{"20m":1,"40m":0},"total":1}],"total":1,"busy":false});
         assert!(validate_projection("awards", &matrix).is_ok());
         assert!(validate_projection("chaser-dx", &matrix).is_ok());
+        let zone_matrix = json!({"schemaVersion":4,"status":"ready","title":"CQ Zones","tracker":"zone","zoneSystem":"cq",
+            "current":{"dxcc":"Germany","cqZone":14,"ituZone":28},"bands":["20m","40m"],
+            "rows":[{"label":"14","counts":{"20m":1,"40m":0},"total":1}],"total":1,"busy":false});
+        assert!(validate_projection("chaser-dx", &zone_matrix).is_ok());
+        let mut malformed_zone_matrix = zone_matrix;
+        malformed_zone_matrix["zoneSystem"] = Value::Null;
+        assert!(validate_projection("chaser-dx", &malformed_zone_matrix).is_err());
     }
 
     #[test]

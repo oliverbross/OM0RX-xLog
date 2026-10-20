@@ -223,7 +223,8 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
   });
 }
 
-function multiplierMatrix(title: string, values: Data[], busy: boolean) {
+function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[], busy: boolean,
+    current: { dxcc: string | null; cqZone: number | null; ituZone: number | null }, zoneSystem: "cq" | "itu" | null) {
   const rows = new Map<string, Record<string, number>>();
   for (const item of values) {
     const label = String(item.value ?? "").trim() || "Unknown";
@@ -232,7 +233,7 @@ function multiplierMatrix(title: string, values: Data[], busy: boolean) {
     const counts = rows.get(label) ?? Object.fromEntries(contestBands.map(value => [value, 0]));
     counts[band] = Number(item.qsos ?? 0); rows.set(label, counts);
   }
-  return { schemaVersion: 1 as const, status: "ready" as const, title, bands: contestBands,
+  return { schemaVersion: 4 as const, status: "ready" as const, title, tracker, zoneSystem, current, bands: contestBands,
     rows: [...rows.entries()].map(([label, counts]) => ({ label, counts,
       total: Object.values(counts).reduce((sum, value) => sum + value, 0) })), total: rows.size, busy };
 }
@@ -767,10 +768,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
     if (projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
-      unavailable.awards = multiplierMatrix("DXCC", matrices.countries, busy || retiring);
+      unavailable.awards = multiplierMatrix("DXCC", "dxcc", matrices.countries, busy || retiring,
+        { dxcc: callContext?.country ?? null, cqZone: callContext?.cqZone ?? null, ituZone: callContext?.ituZone ?? null }, null);
     }
     if (projection.matrixTrackers?.includes("zones") && Array.isArray(matrices.zones)) {
-      unavailable["chaser-dx"] = multiplierMatrix("CQ Zones", matrices.zones, busy || retiring);
+      const zoneLabel = receivedZone?.label.toUpperCase() ?? "";
+      const zoneSystem = zoneLabel.includes("ITU") || zoneLabel.includes("IARU") ? "itu" as const : "cq" as const;
+      unavailable["chaser-dx"] = multiplierMatrix(zoneSystem === "itu" ? "ITU Zones" : "CQ Zones", "zone", matrices.zones, busy || retiring,
+        { dxcc: callContext?.country ?? null, cqZone: callContext?.cqZone ?? null, ituZone: callContext?.ituZone ?? null }, zoneSystem);
     }
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,

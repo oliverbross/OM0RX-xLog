@@ -81,6 +81,13 @@ it("allows the compact Statistics table to fit the supported 400px window minimu
   expect(css).not.toContain(".contest-surface-statistics-v3 table { width:100%; min-width:430px;");
 });
 
+it("contains matrix overflow inside its scroll region", () => {
+  const css = readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`, "utf8");
+  expect(css).toContain(".contest-surface-matrix { overflow:hidden; }");
+  expect(css).toContain(".contest-surface-matrix-scroll { flex:1; width:100%; min-width:0;");
+  expect(css).toContain(".contest-surface-matrix-scroll table { width:max-content; min-width:100%; }");
+});
+
 it("renders ICWC original name/serial input while omitting hidden report fields", async()=>{
   const view={...projection,schemaVersion:2,session:{name:"ICWC MST",ruleName:"ICWC Medium Speed Test",mode:"CW"},
     draft:{...projection.draft,reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]},
@@ -302,6 +309,44 @@ it.each([{ panelID: "awards", title: "DXCC", label: "Slovakia" }, { panelID: "ch
     expect(screen.queryByRole("button")).toBeNull();
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
+
+it("highlights and scrolls to the current zone while preserving the original CQ/ITU choice", async () => {
+  window.history.replaceState({}, "", search.replace("view=active-qso", "view=chaser-dx"));
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable:true, value:scrollIntoView });
+  native.invoke.mockImplementation(async (command: string) => {
+    if (command === "contest_surface_snapshot") return { ...snapshot, panelID:"chaser-dx", projection:{schemaVersion:4,status:"ready",
+      title:"CQ Zones",tracker:"zone",zoneSystem:"cq",current:{dxcc:"Germany",cqZone:14,ituZone:28},bands:["20m"],
+      rows:[{label:"14",counts:{"20m":1},total:1},{label:"28",counts:{"20m":0},total:0}],total:1,busy:false} };
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const cq = await screen.findByRole("radio", { name:"CQ" });
+  expect((cq as HTMLInputElement).checked).toBe(true);
+  expect(screen.getByRole("rowheader", { name:"14" }).closest("tr")?.getAttribute("aria-current")).toBe("true");
+  await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("radio", { name:"ITU" }));
+  expect(screen.getByRole("rowheader", { name:"28" }).closest("tr")?.getAttribute("aria-current")).toBe("true");
+  await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
+  expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+});
+
+it("highlights and scrolls to the current DXCC entity", async () => {
+  window.history.replaceState({}, "", search.replace("view=active-qso", "view=awards"));
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable:true, value:scrollIntoView });
+  native.invoke.mockImplementation(async (command: string) => {
+    if (command === "contest_surface_snapshot") return { ...snapshot, panelID:"awards", projection:{schemaVersion:4,status:"ready",
+      title:"DXCC",tracker:"dxcc",zoneSystem:null,current:{dxcc:"Germany",cqZone:14,ituZone:28},bands:["20m"],
+      rows:[{label:"Germany",counts:{"20m":1},total:1}],total:1,busy:false} };
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const row = (await screen.findByRole("rowheader", { name:"Germany" })).closest("tr");
+  expect(row?.getAttribute("aria-current")).toBe("true");
+  await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
+  expect(screen.queryByRole("radio")).toBeNull();
+});
 
 it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chaser-dx", title: "CQ Zones", column: "Zone" }])(
   "renders an empty $title tracker with its band headings", async ({ panelID, title, column }) => {

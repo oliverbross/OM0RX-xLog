@@ -143,6 +143,9 @@ const ratesProjection = { schemaVersion: 1, status: "ready", lastHourQsoPerHour:
   hourSearchAndPounceQso: 18, busy: false } as const;
 const matrixProjection = { schemaVersion: 1, status: "ready", title: "DXCC", bands: ["20m", "40m"],
   rows: [{ label: "Slovakia", counts: { "20m": 2, "40m": 0 }, total: 2 }], total: 1, busy: false };
+const matrixProjectionV2 = { schemaVersion: 4, status: "ready", title: "CQ Zones", tracker: "zone", zoneSystem: "cq",
+  current: { dxcc: "Slovakia", cqZone: 15, ituZone: 28 }, bands: ["20m", "40m"],
+  rows: [{ label: "15", counts: { "20m": 2, "40m": 0 }, total: 2 }], total: 1, busy: false };
 const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, canExportCabrillo: true, page: { offset: 0, limit: 20, total: 1,
   rows: [{ qsoID: "qso-1", workedAt: "2026-10-18T00:00:00.000Z", callsign: "K1ABC", band: "20m", mode: "CW",
     sentExchange: "599 100", receivedExchange: "599 MA", points: 3, multiplierLabels: ["K"] }] },
@@ -161,6 +164,7 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("monitor", ratesProjection)).toBe(true);
     expect(validContestSurfaceProjection("awards", matrixProjection)).toBe(true);
     expect(validContestSurfaceProjection("chaser-dx", { ...matrixProjection, title: "Zone" })).toBe(true);
+    expect(validContestSurfaceProjection("chaser-dx", matrixProjectionV2)).toBe(true);
     expect(validContestSurfaceProjection("propagation", ratesProjection)).toBe(false);
     expect(validContestSurfaceProjection("monitor", matrixProjection)).toBe(false);
     for (const panelID of contestSurfacePanelIDs)
@@ -219,6 +223,13 @@ describe("contest native surface projection v1", () => {
     { ...matrixProjection, rows: [{ label: "Slovakia", counts: { "20m": -1, "40m": 0 }, total: 0 }] },
     { ...matrixProjection, rows: [matrixProjection.rows[0], matrixProjection.rows[0]] },
   ])("rejects ambiguous or malformed matrix cells %#", value => expect(validContestSurfaceProjection("awards", value)).toBe(false));
+
+  it.each([
+    { ...matrixProjectionV2, zoneSystem: null },
+    { ...matrixProjectionV2, tracker: "dxcc", zoneSystem: "cq" },
+    { ...matrixProjectionV2, current: { ...matrixProjectionV2.current, cqZone: 91 } },
+    { ...matrixProjectionV2, current: { ...matrixProjectionV2.current, extra: true } },
+  ])("rejects malformed current-target matrices %#", value => expect(validContestSurfaceProjection("chaser-dx", value)).toBe(false));
 
   it.each([
     { ...entryProjectionV2, descriptor: { ...entryProjectionV2.descriptor, bands: ["20m", "20m"] } },

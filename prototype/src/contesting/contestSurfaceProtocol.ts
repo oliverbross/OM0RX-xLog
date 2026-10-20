@@ -96,8 +96,13 @@ export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
   sinceHourUTC: number; sinceHourQso: number; runQso: number; searchAndPounceQso: number;
   hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
-export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"; title: string;
+type ContestMatrixSurfaceProjectionV1 = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
+export type ContestMatrixSurfaceProjectionV4 = { schemaVersion: 4; status: "ready"; title: string;
+  tracker: "dxcc" | "zone"; zoneSystem: "cq" | "itu" | null;
+  current: { dxcc: string | null; cqZone: number | null; ituZone: number | null };
+  bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
+export type ContestMatrixSurfaceProjection = ContestMatrixSurfaceProjectionV1 | ContestMatrixSurfaceProjectionV4;
 export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: string; spotter: string;
   spotterContinent: string | null; frequencyKHz: number; frequencyText: string; callsign: string; comment: string;
   band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
@@ -335,9 +340,22 @@ function validRatesProjection(value: Record<string, unknown>) {
 }
 function validMatrixProjection(value: Record<string, unknown>) {
   const bands = value.bands;
-  if (!exact(value, ["schemaVersion", "status", "title", "bands", "rows", "total", "busy"]) || !text(value.title, 160) ||
+  const version = value.schemaVersion;
+  if (version !== 1 && version !== 4) return false;
+  const keys = version === 1 ? ["schemaVersion", "status", "title", "bands", "rows", "total", "busy"] :
+    ["schemaVersion", "status", "title", "tracker", "zoneSystem", "current", "bands", "rows", "total", "busy"];
+  if (!exact(value, keys) || !text(value.title, 160) ||
       !Array.isArray(bands) || bands.length > 32 || !bands.every(band => text(band, 16)) || new Set(bands).size !== bands.length ||
       !Array.isArray(value.rows) || value.rows.length > 10_000 || !uint(value.total) || typeof value.busy !== "boolean") return false;
+  if (version === 4) {
+    const current = record(value.current) ? value.current : undefined;
+    if (!current || !exact(current, ["dxcc", "cqZone", "ituZone"]) ||
+        value.tracker !== "dxcc" && value.tracker !== "zone" ||
+        value.tracker === "dxcc" && value.zoneSystem !== null ||
+        value.tracker === "zone" && value.zoneSystem !== "cq" && value.zoneSystem !== "itu" ||
+        current.dxcc !== null && !text(current.dxcc, 160) ||
+        ![current.cqZone, current.ituZone].every(zone => zone === null || uint(zone, 90))) return false;
+  }
   const labels = new Set<string>();
   return value.rows.every(item => {
     if (!record(item) || !exact(item, ["label", "counts", "total"]) || !text(item.label, 160) ||
@@ -373,6 +391,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (!projection || typeof projection.status !== "string") return false;
   if ((panelID === "active-qso" || panelID === "qrz-details") && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
   if (panelID === "propagation" && projection.schemaVersion === 3 && projection.status === "ready") return validStatisticsProjectionV3(projection);
+  if ((panelID === "awards" || panelID === "chaser-dx") && projection.schemaVersion === 4 && projection.status === "ready") return validMatrixProjection(projection);
   if (projection.schemaVersion !== 1) return false;
   if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
   if (projection.status !== "ready") return false;

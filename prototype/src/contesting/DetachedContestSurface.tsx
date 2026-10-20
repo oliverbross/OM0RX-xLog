@@ -392,12 +392,25 @@ function Rates({ projection }: { projection: ContestRatesSurfaceProjection }) {
   </section>;
 }
 function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) {
+  const rich = projection.schemaVersion === 4 ? projection : null;
+  const [zoneSystem, setZoneSystem] = useState<"cq" | "itu">(rich?.zoneSystem ?? "cq");
+  const rows = useRef(new Map<string, HTMLTableRowElement>());
+  useEffect(() => { if (rich?.tracker === "zone" && rich.zoneSystem) setZoneSystem(rich.zoneSystem); }, [rich?.tracker, rich?.zoneSystem]);
+  const selectedLabel = rich?.tracker === "dxcc" ? rich.current.dxcc : rich?.tracker === "zone"
+    ? String(zoneSystem === "cq" ? rich.current.cqZone ?? "" : rich.current.ituZone ?? "") : null;
+  const selectedKey = selectedLabel?.trim().toLocaleUpperCase() ?? "";
+  useEffect(() => { if (selectedKey) rows.current.get(selectedKey)?.scrollIntoView?.({ block: "center", inline: "nearest" }); }, [selectedKey, projection.rows]);
   return <section aria-label={`Contest ${projection.title}`} aria-busy={projection.busy} className="contest-surface-matrix"><header><h1>{projection.title}</h1>
+    {rich?.tracker === "zone" && <fieldset className="contest-surface-zone-system"><legend>Zone system</legend>
+      {(["cq", "itu"] as const).map(value => <label key={value}><input type="radio" name="contest-zone-system" value={value}
+        checked={zoneSystem === value} onChange={() => setZoneSystem(value)}/>{value.toUpperCase()}</label>)}</fieldset>}
     <span>{projection.total.toLocaleString()} worked</span></header>
       <div className="contest-surface-matrix-scroll"><table aria-label={`${projection.title} by band`}><thead><tr><th scope="col">{projection.title === "DXCC" ? "DXCC" : "Zone"}</th>
         {projection.bands.map(band => <th key={band} scope="col">{band}</th>)}<th scope="col">Total</th></tr></thead><tbody>
-        {projection.rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>{projection.bands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
-          {row.counts[band].toLocaleString()}</td>)}<td>{row.total.toLocaleString()}</td></tr>)}
+        {projection.rows.map(row => { const key = row.label.trim().toLocaleUpperCase(), current = !!selectedKey && key === selectedKey; return <tr key={row.label}
+          ref={element => { if (element) rows.current.set(key, element); else rows.current.delete(key); }} aria-current={current ? "true" : undefined}>
+          <th scope="row">{row.label}</th>{projection.bands.map(band => <td key={band} className={row.counts[band] > 0 ? "contest-surface-worked" : undefined}>
+          {row.counts[band].toLocaleString()}</td>)}<td>{row.total.toLocaleString()}</td></tr>; })}
       </tbody></table></div>
   </section>;
 }

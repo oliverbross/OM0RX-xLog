@@ -48,13 +48,22 @@
 .contest-surface-rates dd { font-variant-numeric:tabular-nums; }
 .contest-surface-rates dd small { font-size:11px; font-weight:400; color:var(--secondary); }
 .contest-surface-rates td, .contest-surface-matrix td { font-variant-numeric:tabular-nums; text-align:right; }
-.contest-surface-matrix-scroll { flex:1; min-height:0; overflow:auto; max-width:100%; border:1px solid var(--border); }
+.contest-surface-matrix { overflow:hidden; }
+.contest-surface-matrix > header { flex:0 0 auto; }
+.contest-surface-zone-system { display:flex; align-items:center; gap:8px; min-width:0; margin:0; padding:3px 7px; border:1px solid var(--border); border-radius:6px; }
+.contest-surface-zone-system legend { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.contest-surface-zone-system label { display:flex; align-items:center; gap:4px; color:var(--secondary); font-size:12px; }
+.contest-surface-zone-system input { margin:0; accent-color:var(--cyan); }
+.contest-surface-matrix-scroll { flex:1; width:100%; min-width:0; min-height:0; overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); }
+.contest-surface-matrix-scroll table { width:max-content; min-width:100%; }
 .contest-surface-matrix th { background:var(--panel); }
 .contest-surface-matrix thead th { position:sticky; top:0; z-index:2; }
 .contest-surface-matrix tr > th:first-child { position:sticky; left:0; z-index:1; }
 .contest-surface-matrix thead tr > th:first-child { z-index:3; }
 .contest-surface-matrix tbody td { background:color-mix(in srgb,var(--error) 12%,transparent); }
 .contest-surface-matrix .contest-surface-worked { color:var(--teal); background:color-mix(in srgb,var(--teal) 16%,transparent); font-weight:600; }
+.contest-surface-matrix tbody tr[aria-current="true"] > * { box-shadow:inset 0 0 0 1px var(--amber); }
+.contest-surface-matrix tbody tr[aria-current="true"] > th { color:var(--amber); }
 .contest-surface-logging-body { display:flex; min-width:0; min-height:0; gap:6px; }
 .contest-surface-entry > header { justify-content:center; gap:6px; font-size:12px; }
 .contest-surface-entry > header h1 { font-size:12px; }

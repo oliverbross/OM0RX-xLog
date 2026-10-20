@@ -173,8 +173,10 @@ it.each([false, true])("publishes ready empty CQ WW trackers and preserves popul
   const bands = ["160m", "80m", "40m", "20m", "15m", "10m"];
   const countries = surfaceOwner.current.projections.awards;
   const zones = surfaceOwner.current.projections["chaser-dx"];
-  expect(countries).toMatchObject({ schemaVersion: 1, status: "ready", title: "DXCC", bands, total: worked ? 1 : 0 });
-  expect(zones).toMatchObject({ schemaVersion: 1, status: "ready", title: "CQ Zones", bands, total: worked ? 1 : 0 });
+  expect(countries).toMatchObject({ schemaVersion: 4, status: "ready", title: "DXCC", tracker:"dxcc", zoneSystem:null,
+    current:{dxcc:null,cqZone:null,ituZone:null}, bands, total: worked ? 1 : 0 });
+  expect(zones).toMatchObject({ schemaVersion: 4, status: "ready", title: "CQ Zones", tracker:"zone", zoneSystem:"cq",
+    current:{dxcc:null,cqZone:null,ituZone:null}, bands, total: worked ? 1 : 0 });
   expect(countries.rows).toEqual(worked ? [{ label: "Slovakia", counts: { "160m": 0, "80m": 0, "40m": 0, "20m": 2, "15m": 0, "10m": 0 }, total: 2 }] : []);
   expect(zones.rows).toEqual(worked ? [{ label: "15", counts: { "160m": 0, "80m": 0, "40m": 1, "20m": 0, "15m": 0, "10m": 0 }, total: 1 }] : []);
   expect(validContestSurfaceProjection("awards", countries)).toBe(true);
