@@ -6,8 +6,9 @@ the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
-ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ICWC MST, CWT,
-CWOPS Open, K1USN SST, Trans Tasman CW, Oceania DX CW and Oceania DX SSB.
+ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX SSB, NAQP SSB,
+Phone Weekly Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
+Oceania DX CW and Oceania DX SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -87,6 +88,19 @@ import time and fails if the pinned source differs:
     contacts without manufacturing CW output or claiming an external digital
     modem integration. Country, zone and state matrices remain separate.
 
+11. ARRL DX SSB, NAQP SSB and Phone Weekly Test execute their unchanged pinned
+    modules (Git blobs `0e8bbf3f36e4180eadc8686985743f93bb979e85`,
+    `f7ff5d4fc24e675132933b9e5f474dfa4a4738a9` and
+    `65376835b6d354b027084a4ccdbda5ef7af719c2`). The host invokes ARRL DX's
+    original `prefill` callback only after constructing the contact because it
+    owns initial per-band multiplier assignment. Original point, multiplier,
+    ESM, duplicate and Cabrillo callbacks remain authoritative. Phone Weekly
+    Test is bounded to its original 160–15 metre band list. SSB ESM can commit
+    contacts but emits no output actions; this port adds no audio or PTT path.
+    The original NAQP/Phone Weekly multiplier SQL counts an empty section as a
+    distinct non-`DX` section, including on a zero-point non-NA contact; that
+    pinned behavior is deliberately preserved rather than silently rewritten.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -97,6 +111,9 @@ Original SHA-256:
 | plugins/cwo.py | e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e |
 | plugins/oceania_dx_cw.py | 51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664 |
 | plugins/oceania_dx_ssb.py | f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee |
+| plugins/arrl_dx_ssb.py | 357f333526a8cda2f654c84245056cf47cc95bbb0be0c1add64b1e53c3474387 |
+| plugins/naqp_ssb.py | 551b57f984cbaf4697a3ae9b146ad6f3519a14cc8df0dc9c3f30a7c5fea7c2bc |
+| plugins/phone_weekly_test.py | 94770e46c5f16dae2d1bb0482f37011ff48678b49fa547c28cb4902f35bdefae |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |

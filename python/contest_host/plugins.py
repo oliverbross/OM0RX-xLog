@@ -33,6 +33,11 @@ PLUGIN_REGISTRY = MappingProxyType({
                          sent_exchange_hint="Prec Call Check Section", overlay_choices=("N/A",)),
     "arrl_ss_phone": Plugin("ARRL Sweepstakes Phone", serial=True, modes=("SSB",),
                             sent_exchange_hint="Prec Call Check Section", overlay_choices=("N/A",)),
+    "arrl_dx_ssb": Plugin("ARRL DX SSB", modes=("SSB",), sent_exchange_hint="Power/State/Province"),
+    "naqp_ssb": Plugin("NAQP SSB", modes=("SSB",), sent_exchange_hint="Name + SPC"),
+    "phone_weekly_test": Plugin("PHONE WEEKLY TEST",
+                                bands=("160m", "80m", "40m", "20m", "15m"),
+                                modes=("SSB",), sent_exchange_hint="Name + SPC"),
     "icwc_mst": Plugin("ICWC Medium Speed Test", serial=True, sent_exchange_hint="Name"),
     "cwt": Plugin("CWT"),
     "cwo": Plugin("CWOPS - Open", serial=True, allow_duplicate_commit=True, sent_exchange_hint="Name"),
@@ -50,3 +55,5 @@ PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)
 TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"})
+NAME_SPC_PLUGINS = frozenset({"naqp_ssb", "phone_weekly_test"})
+ARRL_DX_PLUGINS = frozenset({"arrl_dx_ssb"})

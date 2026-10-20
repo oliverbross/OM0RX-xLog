@@ -13,7 +13,8 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import CQ_WW_PLUGINS, PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS, TEN_TEN_PLUGINS
+from .plugins import (ARRL_DX_PLUGINS, CQ_WW_PLUGINS, NAME_SPC_PLUGINS,
+                      PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS, TEN_TEN_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
@@ -318,6 +319,10 @@ class Desk:
                 "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
         self.contact_is_dupe = int(self.is_dupe(call, band, timestamp, self.contact["Mode"]))
         self.contest.set_contact_vars(self)
+        if self.state["pluginID"] in ARRL_DX_PLUGINS:
+            # The original plugin owns multiplier assignment in prefill().
+            # Invoke it after the contact's band, entity and exchange exist.
+            self.contest.prefill(self)
         self.contact["Points"] = self.contest.points(self)
         return deepcopy(self.contact)
 
@@ -348,6 +353,8 @@ class Desk:
         band = self.band(frequency)
         require(self.state["pluginID"] != "trans_tasman" or band in {1.8, 3.5, 7.0},
                 "Trans Tasman supports only 160, 80 and 40 metres", "invalid_frequency")
+        require(self.state["pluginID"] != "phone_weekly_test" or band != 28.0,
+                "Phone Weekly Test supports 160 through 15 metres", "invalid_frequency")
         return band
 
     @staticmethod
@@ -445,6 +452,16 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "sections": sections,
                     "multipliers": sections, "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] in NAME_SPC_PLUGINS:
+            sections = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": 0, "sections": sections,
+                    "multipliers": sections, "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] in ARRL_DX_PLUGINS:
+            countries, states = self.contest.show_mults(self, rtc=True)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": countries, "zones": 0, "states": states,
+                    "multipliers": countries + states, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] in {"cq_wpx_cw", "cq_wpx_ssb", "oceania_dx_cw", "oceania_dx_ssb"}:
             prefixes = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -1118,6 +1135,14 @@ class Host:
         elif desk.state["pluginID"] in {"cwt", "k1usn_sst"}:
             require(all(value and value == value.strip() for value in (fields["other_1"], fields["other_2"])),
                     "Received name and exchange must be non-empty without surrounding whitespace")
+        elif desk.state["pluginID"] in NAME_SPC_PLUGINS:
+            country = desk.cty_lookup(desk.callsign.text())
+            continent = next(iter(country.values())).get("continent", "") if country else ""
+            require(fields["other_1"].isalpha(), "Received name must contain letters")
+            require(continent != "NA" and fields["other_2"] == "" or fields["other_2"].isalpha(),
+                    "Received SPC is required for North America and must contain letters")
+        elif desk.state["pluginID"] in ARRL_DX_PLUGINS:
+            require(bool(fields["other_2"].strip()), "Received power/state/province is required")
         elif desk.state["pluginID"] in TEN_TEN_PLUGINS:
             require(desk.contest.validate(desk), "Received exchange must be NAME 10-10# SPC")
         else:
@@ -1156,7 +1181,7 @@ class Host:
         desk.sent.setText(report)
         desk.receive.setText(report)
         desk.other_2.setText("")
-        if desk.state["pluginID"] in {"cwt", "k1usn_sst", "cq_ww_rtty"}:
+        if desk.state["pluginID"] in {"cwt", "k1usn_sst", "cq_ww_rtty", *NAME_SPC_PLUGINS}:
             desk.other_1.setText("")
         if desk.state["pluginID"] in SERIAL_PLUGINS:
             self.reserve_serial(desk.database, desk.state)
@@ -1198,7 +1223,8 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
-            if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS}:
+            if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS,
+                                           *NAME_SPC_PLUGINS, *ARRL_DX_PLUGINS}:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]
