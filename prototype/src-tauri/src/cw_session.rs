@@ -151,7 +151,9 @@ impl Session {
             if self.backend.canonical()? != canonical { return Err("CW settings or new-QSO context changed while arming.".into()); }
             let mut state = self.lock()?; self.current(&state, epoch, client)?;
             state.armed_until = (self.clock)() + 60_000; state.owner = Value::Null;
-            state.message = "CW armed for 60 seconds".into(); Ok(())
+            state.message = if target["output"] == "test-simulation" {
+                "TEST SIMULATION · CW armed for 60 seconds · no RF, audio, or PTT".into()
+            } else { "CW armed for 60 seconds".into() }; Ok(())
         })();
         self.complete(epoch, result, false)
     }
@@ -258,7 +260,9 @@ impl Session {
             let cancelled = state.epoch != epoch;
             if let Err(error) = &result { state.error = error.clone(); state.armed_until = 0; }
             if cancelled || result.is_err() && (!sending || state.owner.is_null()) { state.armed_until = 0; state.stopping = true; }
-            if !cancelled && result.is_ok() && sending { state.message = "Macro accepted · RF not verified".into(); }
+            if !cancelled && result.is_ok() && sending { state.message = if state.target["output"] == "test-simulation" {
+                "TEST SIMULATION · CW output consumed · no RF, audio, or PTT".into()
+            } else { "Macro accepted · RF not verified".into() }; }
             state.pending = false; Self::change(&mut state);
             if state.stopping { state.releases += 1; Some(if !state.owner.is_null() { state.owner.clone() } else if state.target["output"] == "winkeyer" { state.target.clone() } else { Value::Null }) } else { None }
         };
@@ -271,7 +275,9 @@ impl Session {
         Ok(())
     }
     fn begin_stop(state: &mut State) -> Option<Value> {
-        state.epoch += 1; state.armed_until = 0; state.lease = None; state.message = "CW disarmed".into();
+        let simulated = state.target["output"] == "test-simulation";
+        state.epoch += 1; state.armed_until = 0; state.lease = None;
+        state.message = if simulated { "TEST SIMULATION · CW stopped · no RF, audio, or PTT".into() } else { "CW disarmed".into() };
         Self::change(state);
         if state.stopping { return None; }
         state.stopping = true; state.releases += 1;

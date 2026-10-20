@@ -209,6 +209,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const focusPending=useRef<Promise<number|null>>(Promise.resolve(null)),desiredFocus=useRef<ContestInputFieldID|null>(null),
     focusDraft=useRef(base.draftID);
   const operator=projection.schemaVersion===2?projection.operator:null;
+  const testSimulation=operator?.output==="test-simulation";
   const sentOperatorField=projection.schemaVersion===2&&contestInputFieldIDs.includes(projection.descriptor.sentFields[0]?.id as ContestInputFieldID)
     ? projection.descriptor.sentFields[0].id as ContestInputFieldID:null;
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
@@ -287,6 +288,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   return <section className="contest-surface-entry" aria-label="Main Logging" onKeyDown={onKeyDown}><header>
     <div className="contest-surface-radio"><output aria-label="Current frequency">{projection.draft.frequencyHz == null ? "—" : (projection.draft.frequencyHz / 1_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<small> kHz</small></output>
       <strong>{projection.draft.mode}</strong></div><span aria-label={projection.manual?.operator?"Current operator":"Current operator unavailable"}>OP {projection.manual?.operator||"—"}</span><h1>{projection.session.name}</h1></header>
+    {testSimulation&&<p role="status" className="contest-alert">CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output</p>}
     <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{displayedBands.map((band:string)=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields" style={{"--contest-entry-field-columns":entryFieldColumns} as CSSProperties}>
@@ -328,13 +330,13 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     <EntryIntentInput label="Frequency Hz" intentKey="frequency" value={intents.values.frequency} maximumUTF8Bytes={11} disabled={entryBufferDisabled}
       onChange={(key,value)=>intents.change(key,value,actionFor(key))} unresolved={intents.unresolved.has("frequency")}
       retry={()=>intents.retry("frequency")} discard={()=>intents.discard("frequency")}/>
-    {projection.schemaVersion===2&&<>
+      {projection.schemaVersion===2&&<>
       {projection.descriptor.serial.requirement==="requiredForCommit"&&<p>Serial: {projection.descriptor.serial.reservedSerial??"not reserved"}</p>}
-      {operator&&projection.draft.mode==="CW"&&<section aria-label={operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
+      {operator&&projection.draft.mode==="CW"&&<section aria-label={testSimulation?"Run and S&P test simulation":operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
         <button type="button" aria-pressed={operator.armed} disabled={disabled||operator.pending!==null}
           onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>
         <button type="button" disabled={!operator.armed} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
-        <span role="status">{operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
+        <span role="status">{testSimulation?"Test simulation":operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
         {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
       </section>}</>}
       <footer>{projection.schemaVersion===2&&projection.descriptor.serial.requirement!=="none"&&!projection.descriptor.automaticSerial&&

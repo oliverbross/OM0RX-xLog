@@ -1073,7 +1073,7 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
     )?;
     enum_value(
         &operator["output"],
-        &["simulation-only", "xlog-native"],
+        &["simulation-only", "xlog-native", "test-simulation"],
         "operator output",
     )?;
     boolean(&operator["armed"], "operator armed state")?;

@@ -438,6 +438,18 @@ it("keeps SSB Run and S&P while hiding CW output controls",async()=>{
   expect(screen.queryByRole("button",{name:"Arm CW"})).toBeNull();
 });
 
+it("makes the contesting-test nontransmitting CW simulator unmistakable",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"CW"},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"test-simulation",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;throw new Error(command);});
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByText(/CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output/i)).toBeTruthy();
+  expect(screen.getByRole("region",{name:"Run and S&P test simulation"})).toBeTruthy();
+  expect(screen.getByText("Test simulation · armed")).toBeTruthy();
+});
+
 it("executes saved finite Not1MM key bindings and stops using the replaced chord",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],

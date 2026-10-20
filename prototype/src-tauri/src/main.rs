@@ -1831,12 +1831,15 @@ async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindo
 #[tauri::command]
 async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
-    runtime_profile::require_external_io_disabled()?;
-    cw_session::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), params["action"].as_str().unwrap_or(""))?;
+    let action = params["action"].as_str().unwrap_or("");
+    let test_simulation = runtime_profile::CONTESTING_TEST;
+    if !test_simulation { runtime_profile::require_external_io_disabled()?; }
+    runtime_profile::validate_contesting_test_cw(window.label(), action)?;
+    cw_session::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()) && !test_simulation, APP_EXITING.load(Ordering::Acquire), action)?;
     let output_action = matches!(params["action"].as_str(), Some("arm" | "send" | "contest"));
     let contest_context = contest_window_context::active().ok();
     cw_session::validate_contest_route(window.label(), &params, contest_context.as_ref().map(|context| context.session_id.as_str()))?;
-    let _module_admission = if output_action { Some(operating_module::owner()?.admit_current()?) } else { None };
+    let _module_admission = if output_action && !test_simulation { Some(operating_module::owner()?.admit_current()?) } else { None };
     let label = cw_session::control_window(window.label()).to_owned();
     let focused = cw_session::control_window_focused(window.label(), |label| app.get_webview_window(label).map(|entry|
         (entry.is_focused().unwrap_or(false), entry.is_visible().unwrap_or(false))));
@@ -1846,7 +1849,7 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     }
     let owner = cw_session_backend::owner(&app);
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
-        let _output=if output_action {Some(carrier_tune::reserve_output()?)}else{None};
+        let _output=if output_action && !test_simulation {Some(carrier_tune::reserve_output()?)}else{None};
         owner.request(&label, &client, sequence, focused, &params)
     })
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?

@@ -19,6 +19,18 @@ pub(crate) fn require_external_io_disabled() -> Result<(), String> {
     }
 }
 
+pub(crate) fn validate_contesting_test_cw(label: &str, action: &str) -> Result<(), String> {
+    if !CONTESTING_TEST {
+        return Ok(());
+    }
+    if label != "contest-setup"
+        || !matches!(action, "snapshot" | "arm" | "contest" | "stop" | "acknowledge" | "unregister")
+    {
+        return Err("Contesting Test permits only the contest owner's nontransmitting CW simulation.".into());
+    }
+    Ok(())
+}
+
 pub(crate) fn allows_worker_method(method: &str) -> bool {
     !CONTESTING_TEST || matches!(method,
         "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify")
@@ -53,5 +65,11 @@ mod tests {
         assert!(isolated(false));
         assert!(validate_host(TEST_IDENTIFIER).is_ok());
         assert!(validate_host(PRODUCTION_IDENTIFIER).is_err());
+        for action in ["snapshot", "arm", "contest", "stop", "acknowledge", "unregister"] {
+            assert!(validate_contesting_test_cw("contest-setup", action).is_ok(), "{action}");
+        }
+        for (label, action) in [("main", "contest"), ("contest-setup", "send"), ("contest--active-qso", "stop")] {
+            assert!(validate_contesting_test_cw(label, action).is_err(), "{label} {action}");
+        }
     }
 }

@@ -63,7 +63,7 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     allowDuplicateCommit?: boolean; automaticSerial?: boolean; advanceOnSpace?: ContestInputFieldID[]; keyBindings?: ContestKeyBinding[];
     sentFields: { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number }[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
-  operator: null | { output: "simulation-only" | "xlog-native"; armed: boolean; style: "run" | "search-and-pounce";
+  operator: null | { output: "simulation-only" | "xlog-native" | "test-simulation"; armed: boolean; style: "run" | "search-and-pounce";
     status: "disarmed" | "armed" | "waiting" | "uncertain"; pending: "reserve-serial" | "send" | "commit" | null;
     focusedField: ContestInputFieldID | null;
     tabNext: Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
@@ -219,7 +219,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     descriptor.advanceOnSpace.every(item => oneOf(item, contestInputFieldIDs));
   const operatorValid = value.operator === null || !!operator &&
     exact(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"]) &&
-    oneOf(operator.output, ["simulation-only", "xlog-native"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
+    oneOf(operator.output, ["simulation-only", "xlog-native", "test-simulation"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
     oneOf(operator.status, ["disarmed", "armed", "waiting", "uncertain"]) &&
     (operator.pending === null || oneOf(operator.pending, ["reserve-serial", "send", "commit"])) &&
     (operator.focusedField === null || oneOf(operator.focusedField, contestInputFieldIDs)) &&

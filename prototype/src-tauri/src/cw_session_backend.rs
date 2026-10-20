@@ -66,6 +66,26 @@ fn radio_request(target: &Value, action: &str, text: Option<&str>) -> Result<Val
     if action == "send" { params["text"] = json!(text.ok_or("CW text unavailable")?); }
     Ok(request(if provider == "hamlib" { "hamlib_control" } else { "station_radio_control" }, params))
 }
+fn contesting_test_target(canonical: &Value) -> Result<Value, String> {
+    if !canonical["contestSessionID"].is_string() {
+        return Err("Contesting Test CW simulation requires an active contest session.".into());
+    }
+    let worker = generation(&canonical["worker"])?;
+    Ok(json!({"output":"test-simulation","provider":"test-simulation","generation":worker,
+        "limit":128,"last_intent":0,"worker":worker,"selection":null}))
+}
+fn simulate_output(target: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
+    if target["output"] != "test-simulation" || target["provider"] != "test-simulation" {
+        return Err("Contesting Test output target is invalid.".into());
+    }
+    generation(&target["generation"])?;
+    match action {
+        "arm" | "stop" if text.is_none() && intent == 0 => {}
+        "send" if text.is_some_and(|value| !value.is_empty()) && intent > 0 => {}
+        _ => return Err("Contesting Test output request is invalid.".into()),
+    }
+    Ok(json!({"accepted":true,"simulated":true,"externalIO":false,"action":action,"intent":intent}))
+}
 impl Backend for Native {
     fn contest_operation(&self, canonical: &Value, params: &Value) -> Result<Value, String> {
         let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
@@ -90,7 +110,9 @@ impl Backend for Native {
         }
         Ok(())
     }
-    fn keyer_snapshot(&self) -> Result<Option<Value>, String> { local("winkeyer_snapshot", json!({})).map(Some) }
+    fn keyer_snapshot(&self) -> Result<Option<Value>, String> {
+        if crate::runtime_profile::CONTESTING_TEST { Ok(None) } else { local("winkeyer_snapshot", json!({})).map(Some) }
+    }
     fn canonical(&self) -> Result<Value, String> {
         let worker = crate::worker::generation(); if worker == 0 { return Err("Open a workspace before using CW.".into()); }
         let settings = call(worker, "settings_load", json!({}))?;
@@ -99,7 +121,14 @@ impl Backend for Native {
         // duplicate shortcuts, labels, placeholders and WinKeyer preferences.
         let profile = saved["cwProfile"].clone();
         if !profile.is_object() || profile["version"] != 1 { return Err("Save valid CW preferences before arming.".into()); }
-        let (provider, selection) = output_selection(&profile, || crate::station_selection::owner(&self.app)?.snapshot())?;
+        let (provider, selection) = if crate::runtime_profile::CONTESTING_TEST {
+            ("test-simulation".into(), Value::Null)
+        } else {
+            output_selection(&profile, || crate::station_selection::owner(&self.app)?.snapshot())?
+        };
+        if crate::runtime_profile::CONTESTING_TEST && crate::contest_window_context::active().is_err() {
+            return Err("Contesting Test CW simulation is available only inside an active contest.".into());
+        }
         if crate::contest_window_context::active().is_ok() {
             let contest = call(worker, "contest_cw_context", json!({}))?;
             let fields = &contest["fields"];
@@ -130,6 +159,7 @@ impl Backend for Native {
             "context":{"MYCALL":mycall,"CALL":qso["call"].as_str().unwrap_or(""),"RST":qso["rstSent"].as_str().unwrap_or(""),"NAME":qso["name"].as_str().unwrap_or(""),"GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":serial,"EXCHANGE":""}}))
     }
     fn inspect(&self, canonical: &Value, capabilities: bool) -> Result<Value, String> {
+        if crate::runtime_profile::CONTESTING_TEST { return contesting_test_target(canonical); }
         let provider = canonical["provider"].as_str().ok_or("CW radio selection unavailable")?;
         let output = canonical["profile"]["output"].as_str().ok_or("CW output unavailable")?;
         // The outer shared acquisition guard makes this durable veto and the
@@ -159,6 +189,7 @@ impl Backend for Native {
         Ok(json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"]}))
     }
     fn output(&self, target: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
+        if crate::runtime_profile::CONTESTING_TEST { return simulate_output(target, action, text, intent); }
         let generation = generation(&target["generation"])?;
         if target["output"] == "winkeyer" {
             let result = match action {
@@ -230,5 +261,17 @@ mod tests {
         assert!(result(&request, json!({"id":"other","ok":true,"result":{}})).is_err());
         assert!(result(&request, json!({"id":"one","ok":true,"result":null})).is_err());
         assert!(result(&request, json!({"id":"one","ok":false,"error":{"message":"Reply lost"}})).is_err());
+    }
+    #[test]
+    fn contesting_test_simulator_accepts_only_bounded_non_external_output_shape() {
+        let target = contesting_test_target(&json!({"contestSessionID":"session","worker":7})).unwrap();
+        assert_eq!(target["output"], "test-simulation");
+        assert_eq!(simulate_output(&target, "arm", None, 0).unwrap()["externalIO"], false);
+        assert_eq!(simulate_output(&target, "send", Some("CQ TEST"), 1).unwrap()["simulated"], true);
+        assert_eq!(simulate_output(&target, "stop", None, 0).unwrap()["action"], "stop");
+        assert!(simulate_output(&target, "send", None, 1).is_err());
+        assert!(simulate_output(&target, "send", Some("CQ"), 0).is_err());
+        assert!(simulate_output(&target, "clear_cw", None, 0).is_err());
+        assert!(contesting_test_target(&json!({"worker":7})).is_err());
     }
 }
