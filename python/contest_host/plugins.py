@@ -11,6 +11,7 @@ RTTY_MODES = ("RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
 class Plugin:
     name: str
     serial: bool = False
+    conditional_serial: bool = False
     bands: tuple[str, ...] = ("160m", "80m", "40m", "20m", "15m", "10m")
     modes: tuple[str, ...] = ("CW",)
     allow_duplicate_commit: bool = False
@@ -74,10 +75,17 @@ PLUGIN_REGISTRY = MappingProxyType({
     "euhfc": Plugin("EUHFC", modes=("CW", "SSB"),
                      sent_exchange_hint="Lic. Year (2 digits)"),
     "iaru_hf": Plugin("IARU HF", modes=("CW", "SSB"), sent_exchange_hint="ITU Zone"),
+    "arrl_10m": Plugin("ARRL 10M", conditional_serial=True, bands=("10m",), modes=("CW", "SSB"),
+                       sent_exchange_hint="State/Province, serial or ITU region"),
+    "arrl_160m": Plugin("ARRL 160-Meter", bands=("160m",),
+                        sent_exchange_hint="ARRL/RAC section or DX CQ zone"),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)
+CONDITIONAL_SERIAL_PLUGINS = frozenset(
+    key for key, plugin in PLUGIN_REGISTRY.items() if plugin.conditional_serial)
+SENTNR_FIELD_PLUGINS = SERIAL_PLUGINS | CONDITIONAL_SERIAL_PLUGINS
 TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"})
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test"})
 NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
@@ -91,5 +99,5 @@ AADX_PLUGINS = frozenset({"aadx_cw", "aadx_ssb"})
 CQ_160_PLUGINS = frozenset({"cq_160_cw", "cq_160_ssb"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
-    "euhfc",
+    "euhfc", "arrl_10m", "arrl_160m",
 }) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS

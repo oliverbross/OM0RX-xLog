@@ -72,7 +72,7 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # CW Open sends the host-reserved serial followed by the configured name.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{SENTNR} {EXCHANGE}"
-    elif PLUGIN_REGISTRY[plugin_id].serial:
+    elif PLUGIN_REGISTRY[plugin_id].serial or PLUGIN_REGISTRY[plugin_id].conditional_serial:
         # Ordinary serial contests send the host-reserved draft serial,
         # independently of any configured exchange text.
         for mode in ("R", "S"):

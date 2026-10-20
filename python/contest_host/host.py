@@ -14,12 +14,13 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
+from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
+                      CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
-                      PLUGINS, RTTY_PLUGINS, SERIAL_PLUGINS,
+                      PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
                       SIMPLE_MULTIPLIER_PLUGINS, TEN_TEN_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
@@ -73,6 +74,13 @@ def text(value, maximum=256):
     require(isinstance(value, str) and len(value.encode("utf-8")) <= maximum, "Text exceeds field bound")
     require(not any(ord(c) < 32 for c in value), "Control characters are not accepted")
     return value
+
+
+def requires_serial(state):
+    plugin_id = state["pluginID"]
+    return (plugin_id in SERIAL_PLUGINS
+            or plugin_id in CONDITIONAL_SERIAL_PLUGINS
+            and "#" in str(state["settings"].get("SentExchange", "")))
 
 
 def validate_cwo_names(station, sent_exchange):
@@ -215,7 +223,7 @@ class Desk:
         if state["pluginID"] in RTTY_PLUGINS:
             self.fldigi_util = DigitalOutputSink()
         self.contest.init_contest(self)
-        if state["pluginID"] in SERIAL_PLUGINS:
+        if requires_serial(state):
             # Older hosts allowed this visible field to drift from the durable
             # reservation. Reconcile it on every load before any projection,
             # mutation, direct commit, or reopen can consume the stale value.
@@ -250,7 +258,7 @@ class Desk:
         context = {"sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                    "fields": self.values(), "stationCall": self.station["Call"],
                    "sentExchange": str(self.contest_settings["SentExchange"]),
-                   "sentSerial": self.other_1.text() if self.state["pluginID"] in SERIAL_PLUGINS else ""}
+                   "sentSerial": self.other_1.text() if self.state["pluginID"] in SENTNR_FIELD_PLUGINS else ""}
         if mode == "SSB":
             if self.state["pluginID"] not in VOICE_INTENT_PLUGINS:
                 return
@@ -370,6 +378,10 @@ class Desk:
                 "Selected RTTY contest supports 80 through 10 metres", "invalid_frequency")
         require(self.state["pluginID"] not in CQ_160_PLUGINS or band == 1.8,
                 "CQ 160 supports only 160 metres", "invalid_frequency")
+        require(self.state["pluginID"] != "arrl_160m" or band == 1.8,
+                "ARRL 160 supports only 160 metres", "invalid_frequency")
+        require(self.state["pluginID"] != "arrl_10m" or band == 28.0,
+                "ARRL 10M supports only 10 metres", "invalid_frequency")
         return band
 
     @staticmethod
@@ -408,7 +420,7 @@ class Desk:
         plugin = PLUGIN_REGISTRY[self.state["pluginID"]]
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
-                "reservedSerial": self.current_sn if self.state["pluginID"] in SERIAL_PLUGINS else None,
+                "reservedSerial": self.current_sn if requires_serial(self.state) else None,
                 "sourceRevision": SOURCE_REVISION,
                 "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"), "version": "26.10.11",
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
@@ -716,7 +728,7 @@ class Host:
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
                     "sentExchange": str(state["settings"]["SentExchange"]),
-                    "sentSerial": desk.other_1.text() if state["pluginID"] in SERIAL_PLUGINS else ""}
+                    "sentSerial": desk.other_1.text() if state["pluginID"] in SENTNR_FIELD_PLUGINS else ""}
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), store) if row else None}
@@ -913,6 +925,12 @@ class Host:
                     iaru_zone = setup["station"].get("IARUZone")
                     require(str(iaru_zone).isdigit() and 1 <= int(iaru_zone) <= 90,
                             "IARU HF station IARU zone must be 1 to 90")
+                if state["pluginID"] == "arrl_10m":
+                    require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", zone) is not None,
+                            "ARRL 10M sent exchange must be #, state, province or ITU region")
+                if state["pluginID"] == "arrl_160m":
+                    require(re.fullmatch(r"[A-Za-z0-9]{1,6}", zone) is not None,
+                            "ARRL 160 sent exchange must be an ARRL/RAC section or CQ zone")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 require(setup["settings"].get("ModeCategory", mode) in modes,
@@ -931,7 +949,8 @@ class Host:
                 desk = Desk(store, state, self.commit)
                 if (state["pluginID"] in CQ_WW_PLUGINS and state["pluginID"] != "cq_ww_rtty"
                         or state["pluginID"] in AADX_PLUGINS
-                        or state["pluginID"] in DISPLAY_SENTNR_PLUGINS):
+                        or state["pluginID"] in DISPLAY_SENTNR_PLUGINS
+                        or state["pluginID"] == "arrl_10m"):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1045,7 +1064,7 @@ class Host:
         # Durable database replay never re-emits a physical output intent.
         result = deepcopy(result)
         projection = result.get("projection")
-        if store and isinstance(projection, dict) and projection.get("pluginID") in SERIAL_PLUGINS:
+        if store and isinstance(projection, dict) and projection.get("reservedSerial") is not None:
             reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=? AND serial=?",
                                          (projection.get("draftID"), projection.get("reservedSerial")))
             if reservation:
@@ -1096,6 +1115,10 @@ class Host:
                 "Selected RTTY contest supports 80 through 10 metres", "invalid_frequency")
         require(plugin_id not in CQ_160_PLUGINS or Desk.band(frequency) == 1.8,
                 "CQ 160 supports only 160 metres", "invalid_frequency")
+        require(plugin_id != "arrl_160m" or Desk.band(frequency) == 1.8,
+                "ARRL 160 supports only 160 metres", "invalid_frequency")
+        require(plugin_id != "arrl_10m" or Desk.band(frequency) == 28.0,
+                "ARRL 10M supports only 10 metres", "invalid_frequency")
         station, reference = deepcopy(params.get("station")), deepcopy(params.get("reference"))
         require(isinstance(station, dict) and isinstance(reference, dict), "Station and reference are required")
         call = text(station.get("Call", ""), 32).upper()
@@ -1145,6 +1168,12 @@ class Host:
             iaru_zone = station.get("IARUZone")
             require(str(iaru_zone).isdigit() and 1 <= int(iaru_zone) <= 90,
                     "IARU HF station IARU zone must be 1 to 90")
+        if plugin_id == "arrl_10m":
+            require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
+                    "ARRL 10M sent exchange must be #, state, province or ITU region")
+        if plugin_id == "arrl_160m":
+            require(re.fullmatch(r"[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
+                    "ARRL 160 sent exchange must be an ARRL/RAC section or CQ zone")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1165,10 +1194,11 @@ class Host:
                     or plugin_id in JIDX_PLUGINS
                     or plugin_id in AADX_PLUGINS
                      or plugin_id in TEN_TEN_PLUGINS
-                     or plugin_id in DISPLAY_SENTNR_PLUGINS else "", "")))}}
+                     or plugin_id in DISPLAY_SENTNR_PLUGINS
+                     or plugin_id == "arrl_10m" else "", "")))}}
 
     def reserve_serial(self, store, state):
-        if state["pluginID"] not in SERIAL_PLUGINS:
+        if not requires_serial(state):
             return
         scope = "contest"
         if state["pluginID"] == "trans_tasman" and state["settings"].get("OperatorCategory", "") != "SINGLE-OP":
@@ -1211,7 +1241,7 @@ class Host:
             current.update(additions)
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
-        if not allow_reserved_serial_change and desk.state["pluginID"] in SERIAL_PLUGINS and "other_1" in fields:
+        if not allow_reserved_serial_change and requires_serial(desk.state) and "other_1" in fields:
             expected = str(desk.state["draft"].get("serial", "")).zfill(3)
             require(fields["other_1"] == expected,
                     "The sent serial is reserved by the contest host and cannot be changed", "serial_conflict")
@@ -1225,7 +1255,7 @@ class Host:
             desk.state["draft"]["frequencyHz"] = frequency
             if not allow_reserved_serial_change:
                 self.reserve_serial(desk.database, desk.state)
-                if desk.state["pluginID"] in SERIAL_PLUGINS:
+                if requires_serial(desk.state):
                     desk.current_sn = desk.state["draft"]["serial"]
                     desk.other_1.setText(str(desk.current_sn).zfill(3))
 
@@ -1311,6 +1341,21 @@ class Host:
             exchange = fields["other_2"]
             require(re.fullmatch(r"[A-Za-z0-9]{1,6}", exchange) is not None,
                     "CQ 160 received exchange must be a state, province or CQ zone")
+        elif desk.state["pluginID"] == "arrl_10m":
+            require(re.fullmatch(r"[A-Za-z0-9]{1,6}", fields["other_2"]) is not None,
+                    "ARRL 10M received exchange must be a state, province, serial or ITU region")
+            if requires_serial(desk.state):
+                require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
+                        and 0 < int(fields["other_1"]) <= 9223372036854775807,
+                        "ARRL 10M sent serial must be a positive SQLite integer")
+            else:
+                require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
+                        "ARRL 10M sent exchange must match contest setup")
+        elif desk.state["pluginID"] == "arrl_160m":
+            require(desk.cty_lookup(desk.callsign.text()) is not None,
+                    "Resolve the contact country before logging ARRL 160")
+            require(re.fullmatch(r"[A-Za-z0-9]{1,6}", fields["other_2"]) is not None,
+                    "ARRL 160 received exchange must be an ARRL/RAC section or CQ zone")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1350,7 +1395,7 @@ class Host:
         desk.other_2.setText("")
         if desk.state["pluginID"] in {"cwt", "k1usn_sst", "cq_ww_rtty", *NAME_SPC_ENTRY_PLUGINS}:
             desk.other_1.setText("")
-        if desk.state["pluginID"] in SERIAL_PLUGINS:
+        if requires_serial(desk.state):
             self.reserve_serial(desk.database, desk.state)
             desk.current_sn = desk.state["draft"]["serial"]
             desk.other_1.setText(desk.state["draft"]["fields"]["other_1"])
@@ -1392,7 +1437,8 @@ class Host:
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
             if desk.state["pluginID"] in {"cwt", "k1usn_sst", *TEN_TEN_PLUGINS,
                                            *NAME_SPC_ENTRY_PLUGINS, *ARRL_DX_PLUGINS,
-                                           *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS}:
+                                           *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS,
+                                           "arrl_10m", "arrl_160m"}:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]
