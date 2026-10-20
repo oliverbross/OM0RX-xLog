@@ -66,7 +66,7 @@ struct SpotDraftActivationTests {
         }
     }
 
-    @Test("A live spot refreshes an automatic idle start but preserves an explicitly edited start")
+    @Test("Successive live spots refresh an automatic start but preserve an explicitly edited start")
     func spotStartProvenance() throws {
         let old = Date(timeIntervalSince1970: 1_700_000_000)
         try fixture { service, _ in
@@ -77,12 +77,25 @@ struct SpotDraftActivationTests {
                 expectedRevision: current.revision, action: .clear)
             let automatic = try db.applyOperatorDraft(clear, nextDraft: reset).draft
             #expect(automatic.automaticStart)
-            let selectedAfter = Date()
-            _ = try service.handle(method: "spot_draft_apply", params: command(try snapshot(service)))
-            let selected = try db.operatorDraft(initial: reset)
-            #expect(selected.qso.start >= selectedAfter)
-            #expect(selected.qso.start != old)
-            #expect(!selected.automaticStart)
+            func decoded(_ request: [String: Any]) throws -> SpotDraftCommand {
+                try JSONDecoder().decode(SpotDraftCommand.self,
+                    from: JSONSerialization.data(withJSONObject: request))
+            }
+            let firstTime = old.addingTimeInterval(60)
+            let firstCommand = try decoded(command(try snapshot(service), call: "N0GRA"))
+            let first = try db.applySpotDraft(firstCommand, now: firstTime)
+            #expect(first.record.receipt.draft.qso.start == firstTime)
+            #expect(first.record.receipt.draft.automaticStart)
+            let firstLease = try #require(first.leaseID)
+            _ = try db.finishSpotDraft(operationID: firstCommand.operationID,
+                generation: firstCommand.generation, leaseID: firstLease, outcome: .failed)
+
+            let secondTime = old.addingTimeInterval(120)
+            let secondCommand = try decoded(command(try snapshot(service), call: "C5R"))
+            let second = try db.applySpotDraft(secondCommand, now: secondTime)
+            #expect(second.record.receipt.draft.qso.call == "C5R")
+            #expect(second.record.receipt.draft.qso.start == secondTime)
+            #expect(second.record.receipt.draft.automaticStart)
         }
 
         try fixture { service, _ in

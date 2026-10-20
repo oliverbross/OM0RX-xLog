@@ -1739,11 +1739,8 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
                 var qso = command.spot.applying(to: current.qso)
-                var automaticStart = current.automaticStart
-                if automaticStart && current.qso.call.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    qso.start = now
-                    automaticStart = false
-                }
+                let automaticStart = current.automaticStart
+                if automaticStart { qso.start = now }
                 var power = current.power
                 if var value = power {
                     qso = try value.reconcileReplacement(current: current.qso, replacement: qso, workspaceID: value.workspaceID)

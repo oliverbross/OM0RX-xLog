@@ -6,8 +6,9 @@ import Foundation
 public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
     public let revision: Int64
     public let qso: QSO
-    /// True only while the start time still belongs to a freshly created blank
-    /// draft. It is draft metadata, never an ADIF/contact field.
+    /// True while the start time belongs to automatic blank/spot capture. An
+    /// explicit operator date/time edit clears it. This is draft metadata, never
+    /// an ADIF/contact field.
     public let automaticStart: Bool
     /// Meter updates have their own revision; they must not race contact typing.
     /// Absent on legacy drafts and receipts until native capture is configured.
