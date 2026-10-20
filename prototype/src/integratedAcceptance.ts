@@ -14,6 +14,7 @@ import { validMonitorContext } from "./live/monitorContext";
 import { verifyEditorFocus } from "./editorFocusAcceptance";
 import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
 import { verifyADIFTransferRoundtrip } from "./adifTransferAcceptance";
+import { framedWorkerRequest } from "./worker";
 
 export const essentialSettingsLabels = ["General", "Logbook", "Wavelog", "Sync", "Rotator", "Radio spots", "Workspace"] as const;
 
@@ -66,11 +67,12 @@ async function fill(selector: string, value: string) {
   control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
   await frame();
 }
-async function worker(method: string, params: Json = {}): Promise<Json> {
-  const response = await invoke<Json>("worker_request", { request: { id: crypto.randomUUID(), method, params } });
+export async function integratedAcceptanceWorker(method: string, params: Json = {}): Promise<Json> {
+  const response = await framedWorkerRequest<Json>(method, params);
   if (!response.ok) throw new Error(`Local acceptance request failed: ${method}`);
   return response;
 }
+const worker = integratedAcceptanceWorker;
 export function validIsolatedHealth(result: Json) {
   return result.mode === "isolated_local_acceptance" && result.isolated_workspace === true &&
     result.local_logbook === true && result.platform_services === false && result.station_io === false &&
