@@ -1646,3 +1646,33 @@ it("clears a stale remembered session and leaves multiple discovered contests fo
   expect(screen.getByText("Second preserved contest")).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+it("prefers the Python host active contest when renderer storage is stale and multiple contests exist", async () => {
+  const current = projection();
+  const other = {...projection(), sessionID:crypto.randomUUID(), workspaceGeneration:crypto.randomUUID()};
+  localStorage.setItem("xlog.contesting.not1mm.active-session.v1", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  const sessions = [
+    {sessionID:other.sessionID,workspaceGeneration:other.workspaceGeneration,name:"Other contest",pluginID:other.pluginID,
+      sourceRevision:other.sourceRevision,revision:other.revision},
+    {sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,name:"Host active contest",pluginID:current.pluginID,
+      sourceRevision:current.sourceRevision,revision:current.revision},
+  ];
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}
+      : method === "contest_sessions" ? {sessions,activeSessionID:current.sessionID}
+      : method === "contest_open" ? {projection:current}
+      : method === "contest_log_page" ? {rows:[],offset:0,limit:20,total:0}
+      : method === "contest_score" ? {score:current.score,matrices:{countries:[],zones:[]}} : null;
+    if (!result) throw new Error(`Unexpected ${method}`);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  await waitFor(() => expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID));
+  expect(request.mock.calls.find(([method]) => method === "contest_open")?.[1]).toMatchObject({
+    sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,
+  });
+  expect(screen.queryByRole("alert")).toBeNull();
+});

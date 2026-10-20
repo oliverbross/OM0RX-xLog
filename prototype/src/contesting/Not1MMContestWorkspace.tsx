@@ -446,14 +446,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     void (async () => {
       try {
         const [available, list] = await Promise.all([
-          result<Data>("contest_catalog"), result<{ sessions: Session[] }>("contest_sessions"),
+          result<Data>("contest_catalog"), result<{ sessions: Session[]; activeSessionID?: string | null }>("contest_sessions"),
         ]);
         if (!active) return;
         setCatalog(Array.isArray(available.plugins) ? available.plugins : []); setSessions(list.sessions);
         const stored = localStorage.getItem(activeSessionKey);
-        const saved = stored ? list.sessions.find(session => session.sessionID === stored)
-          ?? (list.sessions.length === 1 ? list.sessions[0] : undefined) : undefined;
-        if (stored && !saved) localStorage.removeItem(activeSessionKey);
+        const hostActive = list.activeSessionID
+          ? list.sessions.find(session => session.sessionID === list.activeSessionID) : undefined;
+        const storedActive = stored ? list.sessions.find(session => session.sessionID === stored) : undefined;
+        const saved = hostActive ?? storedActive ?? (stored && list.sessions.length === 1 ? list.sessions[0] : undefined);
+        if (stored && !storedActive && !hostActive) localStorage.removeItem(activeSessionKey);
         if (saved) await openSession(saved);
       } catch (cause) {
         if (active) setError(errorMessage(cause));
