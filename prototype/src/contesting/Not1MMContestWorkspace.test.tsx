@@ -585,9 +585,13 @@ it.each([
     pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
   let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"|"uncertain"|"double-uncertain"="normal",recoverAttempts=0,
-    refreshMode:"hang"|"update"="hang",logged=false,releaseStale:Array<()=>void>=[],mutationMode:"normal"|"hold"|"hold-fail"="normal",
-    releaseMutation:(()=>void)|null=null,rejectMutation:(()=>void)|null=null,mutationRevisions:number[]=[];
+    refreshMode:"hang"|"update"="hang",logged=false,releaseStale:Array<()=>void>=[],mutationMode:"normal"|"hold"|"hold-late"|"hold-fail"="normal",
+    releaseMutation:(()=>void)|null=null,rejectMutation:(()=>void)|null=null,mutationRevisions:number[]=[],holdSetup=false,
+    releaseSetup:(()=>void)|null=null,openedProjection:typeof current|null=null;
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    if(method==="contest_setup_get"&&holdSetup){
+      const support=workspaceSupport(method,params,current);return new Promise(resolve=>{releaseSetup=()=>resolve(support);});
+    }
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
     let result:any;
@@ -595,7 +599,7 @@ it.each([
     else if(method==="contest_sessions")result={sessions:[{sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,
       name:pluginName,pluginID,sourceRevision:current.sourceRevision,revision:current.revision}]};
     else if(method==="contest_create")result={projection:current};
-    else if(method==="contest_open")result={projection:current};
+    else if(method==="contest_open")result={projection:openedProjection??current};
     else if(method==="contest_log_page")return completedClaims&&refreshMode==="hang" ? new Promise(resolve=>releaseStale.push(()=>resolve({
       id:crypto.randomUUID(),ok:true,result:{rows:[],total:99,offset:0}}))) : {id:crypto.randomUUID(),ok:true,
       result:{rows:logged?[{ID:"qso-1",TS:"2026-10-21 00:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"SSB",SNT:"59",RCV:"59",
@@ -607,23 +611,26 @@ it.each([
     else if(method==="contest_function_key"||method==="contest_esm"){
       mutationRevisions.push(params.expectedRevision);
       if(params.expectedRevision!==current.revision)throw new Error(`stale expectedRevision ${params.expectedRevision}; current ${current.revision}`);
-      current={...current,revision:current.revision+1};
+      const next={...current,revision:current.revision+1};
       if(method==="contest_esm"){
-        logged=true;current={...current,score:{...current.score,qsos:1,points:1,total:1}};
+        logged=true;next.score={...next.score,qsos:1,points:1,total:1};
       }
       const key=method==="contest_esm"?"F3":String(params.key),label=method==="contest_esm"?"Exchange":key==="F12"?"His call TU":`Message ${key.slice(1)}`;
       const payload=method==="contest_esm"?esmPayload:"K1ABC rr tu";
       lastActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key,label,payload,
         payloadUTF8Bytes:new TextEncoder().encode(payload).byteLength,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),
-        sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:current.sourceRevision,mode:"S",key,label,template:payload},
-        sessionID:current.sessionID,draftID:current.draftID}];
-      result={operationID:params.operationID,revision:current.revision,projection:current,actions:lastActions,messages:[],replayed:false};
+        sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:next.sourceRevision,mode:"S",key,label,template:payload},
+        sessionID:next.sessionID,draftID:next.draftID}];
+      result={operationID:params.operationID,revision:next.revision,projection:next,actions:lastActions,messages:[],replayed:false};
       if(mutationMode!=="normal"){
-        const fail=mutationMode==="hold-fail";mutationMode="normal";return new Promise((resolve,reject)=>{
-          releaseMutation=()=>resolve({id:crypto.randomUUID(),ok:true,result});
+        const fail=mutationMode==="hold-fail",late=mutationMode==="hold-late";mutationMode="normal";
+        if(!late)current=next;
+        return new Promise((resolve,reject)=>{
+          releaseMutation=()=>{if(late)current=next;resolve({id:crypto.randomUUID(),ok:true,result});};
           if(fail)rejectMutation=()=>reject(new Error("The original mutation outcome is uncertain."));
         });
       }
+      current=next;
     } else if(method==="contest_output_claim"){
       if(claimMode==="stop")return new Promise(()=>{});
       if(claimMode==="recover"){
@@ -646,11 +653,24 @@ it.each([
     else throw new Error(method);
     return{id:crypto.randomUUID(),ok:true,result};
   });
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestingTest/>);
+  const view=render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestingTest/>);
   await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.functionKeys).toHaveLength(12));
   let entry=surfaceOwner.current.projections["active-qso"];
   const envelope={operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm"} as const;
+  const beginReopenCurrentSession=async()=>{
+    const opensBefore=request.mock.calls.filter(([method])=>method==="contest_open").length;
+    refreshMode="update";
+    await userEvent.click(screen.getByRole("button",{name:"Select contest"}));
+    await userEvent.click(screen.getByRole("button",{name:"Choose a Contest"}));
+    await userEvent.click(screen.getByRole("radio",{name:pluginName}));
+    await userEvent.click(screen.getByRole("button",{name:"OK"}));
+    await waitFor(()=>expect(request.mock.calls.filter(([method])=>method==="contest_open")).toHaveLength(opensBefore+1));
+  };
+  const reopenCurrentSession=async()=>{
+    await beginReopenCurrentSession();
+    await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.revision).toBe(current.revision));
+  };
   await act(async()=>surfaceOwner.current.handle({...envelope,params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.armed).toBe(true));
   entry=surfaceOwner.current.projections["active-qso"];
@@ -728,6 +748,27 @@ it.each([
   expect(mutationRevisions.at(-1)).toBe(current.revision-1);
   expect(surfaceOwner.current.projections["active-qso"].operator.trace).toHaveLength(5);
 
+  mutationMode="hold-late";
+  entry=surfaceOwner.current.projections["active-qso"];
+  act(()=>{interrupted=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F6",focusedField:"callsign"}});});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe("waiting"));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
+  await act(async()=>interrupted!);
+  openedProjection=current;holdSetup=true;
+  await beginReopenCurrentSession();
+  await waitFor(()=>expect(releaseSetup).toBeTypeOf("function"));
+  await act(async()=>releaseMutation?.());
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.revision).toBe(current.revision));
+  const recoveredRevision=current.revision;
+  await act(async()=>releaseSetup?.());holdSetup=false;openedProjection=null;
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({busy:false,draft:{revision:recoveredRevision}}));
+  expect(request.mock.calls.filter(([method])=>method==="contest_log_page").at(-1)?.[1]).toMatchObject({expectedRevision:recoveredRevision});
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+
   mutationMode="hold-fail";
   entry=surfaceOwner.current.projections["active-qso"];
   act(()=>{interrupted=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
@@ -749,16 +790,6 @@ it.each([
   await act(async()=>{await blockedAssertion;});
   expect(mutationRevisions).toHaveLength(uncertainBefore);
 
-  const reopenCurrentSession=async()=>{
-    const opensBefore=request.mock.calls.filter(([method])=>method==="contest_open").length;
-    refreshMode="update";
-    await userEvent.click(screen.getByRole("button",{name:"Select contest"}));
-    await userEvent.click(screen.getByRole("button",{name:"Choose a Contest"}));
-    await userEvent.click(screen.getByRole("radio",{name:pluginName}));
-    await userEvent.click(screen.getByRole("button",{name:"OK"}));
-    await waitFor(()=>expect(request.mock.calls.filter(([method])=>method==="contest_open")).toHaveLength(opensBefore+1));
-    await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.revision).toBe(current.revision));
-  };
   await reopenCurrentSession();
   const firstOpenedRevision=current.revision;
   claimMode="normal";
@@ -790,6 +821,26 @@ it.each([
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F12",focusedField:"callsign"}}));
   expect(mutationRevisions.at(-1)).toBe(secondOpenedRevision);
+
+  const generationBase=current,nextGeneration="55555555-5555-4555-8555-555555555555";
+  mutationMode="hold";
+  entry=surfaceOwner.current.projections["active-qso"];
+  act(()=>{interrupted=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F2",focusedField:"callsign"}});});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe("waiting"));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:generationBase.draftID,expectedDraftRevision:generationBase.revision,key:"Escape",focusedField:"callsign"}}));
+  await act(async()=>interrupted!);
+  openedProjection={...generationBase,workspaceGeneration:nextGeneration};
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}
+    workspaceGeneration={nextGeneration} contestingTest/>);
+  await beginReopenCurrentSession();
+  await waitFor(()=>expect(surfaceOwner.current).toMatchObject({context:{workspaceGeneration:nextGeneration},
+    projections:{"active-qso":{busy:false,draft:{revision:generationBase.revision}}}}));
+  await act(async()=>releaseMutation?.());
+  await act(async()=>Promise.resolve());
+  expect(surfaceOwner.current).toMatchObject({context:{workspaceGeneration:nextGeneration},
+    projections:{"active-qso":{draft:{revision:generationBase.revision}}}});
 });
 
 it.each([

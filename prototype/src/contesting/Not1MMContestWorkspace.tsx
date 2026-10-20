@@ -410,8 +410,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const setupResult = await result<{ setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] }>("contest_setup_get", { sessionID: session.sessionID });
       setEffectiveMacros(setupResult.effectiveMacros);
       setManualFrequencyMHz((opened.projection.frequencyHz / 1_000_000).toFixed(6));
-      acceptSessionProjection(opened.projection); phoneSimulationRecoveryRef.current = null;
-      rememberSetup(setupResult.setup); await refresh(session.sessionID, opened.projection);
+      const current = projectionRef.current;
+      const admitted = current?.sessionID === opened.projection.sessionID &&
+        current.workspaceGeneration === opened.projection.workspaceGeneration && current.revision > opened.projection.revision
+        ? current : opened.projection;
+      acceptSessionProjection(admitted); phoneSimulationRecoveryRef.current = null;
+      rememberSetup(setupResult.setup); await refresh(session.sessionID, admitted);
       localStorage.setItem(activeSessionKey, session.sessionID); if (!setupOnly) setManager(false); setEditing(null);
       await cw.controller.refresh();
     } catch (cause) { setError(errorMessage(cause)); }
@@ -511,8 +515,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if ((cause instanceof PhoneSimulationStopped || cause instanceof PhoneSimulationClaimUncertain) && base) {
         const admitCommittedProjection = (settled: MutationResult) => {
           const current = projectionRef.current, next = settled.projection;
-          const admitted = current?.sessionID === base!.sessionID && current.revision === base!.revision &&
-            next?.sessionID === base!.sessionID && settled.revision === next.revision;
+          const admitted = current?.sessionID === base!.sessionID && current.workspaceGeneration === base!.workspaceGeneration &&
+            current.revision === base!.revision && next?.sessionID === base!.sessionID &&
+            next.workspaceGeneration === base!.workspaceGeneration && settled.revision === next.revision;
           if (admitted)
             acceptProjection(next, preserveConcurrentEdits ? inputVersion : undefined);
           return admitted;
