@@ -10,6 +10,8 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
     return (await import("./contesting/DetachedContestSetupSurface")).DetachedContestSetupSurface;
   if (query.get("scope") === "contesting" && view === "call-history")
     return (await import("./contesting/DetachedContestCallHistorySurface")).DetachedContestCallHistorySurface;
+  if (view === "station-control")
+    return (await import("./live/DetachedStationControlSurface")).DetachedStationControlSurface;
   if (query.get("scope") === "contesting")
     return (await import("./contesting/DetachedContestSurface")).DetachedContestSurface;
   if (view === "operating-goals") return (await import("./live/DetachedOperatingGoalsSurface")).DetachedOperatingGoalsSurface;
@@ -22,7 +24,6 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   if (view === "connection-doctor") return (await import("./live/DetachedConnectionDoctorSurface")).DetachedConnectionDoctorSurface;
   if (view === "rotor") return (await import("./live/DetachedRotorSurface")).DetachedRotorSurface;
   if (view === "cw") return (await import("./live/DetachedCWSurface")).DetachedCWSurface;
-  if (view === "station-control") return (await import("./live/DetachedStationControlSurface")).DetachedStationControlSurface;
   if (view === "monitor") return (await import("./live/DetachedMonitorSurface")).DetachedMonitorSurface;
   if (view === "callsign-intelligence") return (await import("./live/DetachedCallsignIntelligenceSurface")).DetachedCallsignIntelligenceSurface;
   if (view === "world-map") return (await import("./live/DetachedWorldMapSurface")).DetachedWorldMapSurface;

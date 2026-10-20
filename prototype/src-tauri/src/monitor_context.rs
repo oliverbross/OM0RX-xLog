@@ -10,7 +10,7 @@ pub fn validate(label: &str, isolated: bool) -> Result<(), String> {
 }
 pub fn read(label: &str, isolated: bool, live: impl FnOnce() -> Result<Value, String>, synthetic: impl FnOnce() -> Result<Value, String>) -> Result<Value, String> {
     // Read permission is separate from the monitor-only action permission.
-    if !matches!(label, "monitor" | "station-control") { return Err("Station observations are unavailable in this window.".into()); }
+    if !matches!(label, "monitor" | "station-control" | "contest--station-control") { return Err("Station observations are unavailable in this window.".into()); }
     if isolated { synthetic() } else { live() }
 }
 
@@ -108,6 +108,7 @@ mod tests {
     #[test]
     fn station_control_can_read_but_never_inherits_monitor_actions() {
         assert_eq!(read("station-control", false, || Ok(json!({"retained":true})), || panic!("synthetic")).unwrap(), json!({"retained":true}));
+        assert_eq!(read("contest--station-control", false, || Ok(json!({"retained":true})), || panic!("synthetic")).unwrap(), json!({"retained":true}));
         assert_eq!(read("station-control", true, || panic!("production owner reached"), || Ok(json!({"synthetic":true}))).unwrap(), json!({"synthetic":true}));
         assert!(validate("station-control", false).is_err());
         assert!(validate("station-control", true).is_err());

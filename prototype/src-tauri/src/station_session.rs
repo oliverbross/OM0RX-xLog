@@ -41,7 +41,8 @@ pub struct Session {
 
 pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String> {
     if isolated || !(matches!(label, "main" | "station-control")
-        || label == "contest-setup" && matches!(action, "snapshot" | "receipt" | "manual_tune" | "review")) {
+        || matches!(label, "contest-setup" | "contest--station-control")
+            && matches!(action, "snapshot" | "receipt" | "manual_tune" | "review")) {
         return Err("This window cannot perform that Station Control operation.".into());
     }
     if !matches!(
@@ -58,15 +59,15 @@ pub fn validate(label: &str, isolated: bool, action: &str) -> Result<(), String>
 }
 
 pub fn validate_receipt(label: &str, receipt: &Value) -> Result<(), String> {
-    if label == "contest-setup" && !receipt.is_null() && receipt["request"]["action"] != "manual_tune" {
-        return Err("Contest Setup can only inspect manual tune receipts.".into());
+    if matches!(label, "contest-setup" | "contest--station-control") && !receipt.is_null() && receipt["request"]["action"] != "manual_tune" {
+        return Err("This contest window can only inspect manual tune receipts.".into());
     }
     Ok(())
 }
 
 pub fn validate_review(label: &str, reviewed_action: &str) -> Result<(), String> {
-    if label == "contest-setup" && reviewed_action != "manual_tune" {
-        return Err("Contest Setup can only review a manual tune receipt.".into());
+    if matches!(label, "contest-setup" | "contest--station-control") && reviewed_action != "manual_tune" {
+        return Err("This contest window can only review a manual tune receipt.".into());
     }
     Ok(())
 }
@@ -906,21 +907,25 @@ pub fn reject_duplicate_configuration(app: &tauri::AppHandle, radio_id: &str, pa
 mod tests {
     use super::*;
     #[test]
-    fn contest_setup_admits_only_durable_manual_tune_operations() {
-        for action in ["snapshot", "receipt", "manual_tune", "review"] {
-            assert!(validate("contest-setup", false, action).is_ok(), "{action}");
+    fn contest_windows_admit_only_durable_manual_tune_operations() {
+        for label in ["contest-setup", "contest--station-control"] {
+            for action in ["snapshot", "receipt", "manual_tune", "review"] {
+                assert!(validate(label, false, action).is_ok(), "{label} {action}");
+            }
+            for action in ["save", "connect", "disconnect", "select", "set_active_radio", "receive_frequency", "tci_receive_filter"] {
+                assert!(validate(label, false, action).is_err(), "{label} {action}");
+            }
+            assert!(validate(label, true, "manual_tune").is_err());
         }
-        for action in ["save", "connect", "disconnect", "select", "set_active_radio", "receive_frequency", "tci_receive_filter"] {
-            assert!(validate("contest-setup", false, action).is_err(), "{action}");
-        }
-        assert!(validate("contest-setup", true, "manual_tune").is_err());
         let tune = json!({"request":{"action":"manual_tune"}});
         let filter = json!({"request":{"action":"tci_receive_filter"}});
-        assert!(validate_receipt("contest-setup", &Value::Null).is_ok());
-        assert!(validate_receipt("contest-setup", &tune).is_ok());
-        assert!(validate_receipt("contest-setup", &filter).is_err());
-        assert!(validate_review("contest-setup", "manual_tune").is_ok());
-        assert!(validate_review("contest-setup", "tci_receive_filter").is_err());
+        for label in ["contest-setup", "contest--station-control"] {
+            assert!(validate_receipt(label, &Value::Null).is_ok());
+            assert!(validate_receipt(label, &tune).is_ok());
+            assert!(validate_receipt(label, &filter).is_err());
+            assert!(validate_review(label, "manual_tune").is_ok());
+            assert!(validate_review(label, "tci_receive_filter").is_err());
+        }
         assert!(validate_receipt("station-control", &filter).is_ok());
         assert!(validate_review("station-control", "tci_receive_filter").is_ok());
     }

@@ -1465,6 +1465,7 @@ async fn propagation_session_request(window: tauri::WebviewWindow, app: tauri::A
 
 #[tauri::command]
 async fn monitor_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    admit_contest_remote_vfo(&window)?;
     monitor_context::read(window.label(), runtime_profile::isolated(state.path.is_some()), || monitor_context::snapshot(&app), || {
         state.require()?; monitor_context::acceptance_snapshot()
     })
@@ -1602,9 +1603,31 @@ fn station_session_changes_state(action: &str) -> bool {
     !matches!(action, "snapshot" | "receipt" | "review" | "hamlib_catalogue")
 }
 
+fn contest_remote_vfo_url_context(label: &str, url: &tauri::Url) -> Result<Option<contest_window_context::ContestWindowContext>, String> {
+    if label != "contest--station-control" { return Ok(None); }
+    let mut query = std::collections::BTreeMap::<String, Vec<String>>::new();
+    for (key, value) in url.query_pairs() { query.entry(key.into_owned()).or_default().push(value.into_owned()); }
+    let single = |key: &str| query.get(key).filter(|values| values.len() == 1).map(|values| values[0].as_str());
+    if single("view") != Some("station-control") || single("scope") != Some("contesting") {
+        return Err("The Remote VFO contest context is invalid.".into());
+    }
+    Ok(Some(contest_window_context::ContestWindowContext {
+        operating_context: single("operatingContext").ok_or("The Remote VFO operating context is missing.")?.into(),
+        session_id: single("sessionID").ok_or("The Remote VFO session context is missing.")?.into(),
+        workspace_generation: single("workspaceGeneration").ok_or("The Remote VFO workspace context is missing.")?.into(),
+    }))
+}
+
+fn admit_contest_remote_vfo(window: &tauri::WebviewWindow) -> Result<(), String> {
+    if let Some(context) = contest_remote_vfo_url_context(window.label(), &window.url().map_err(|error| error.to_string())?)? {
+        contest_window_context::admit(&context)?;
+    }
+    Ok(())
+}
+
 fn validate_contest_station_target(label: &str, action: &str, requested_radio: &str, active_radio: &str) -> Result<(), String> {
-    if label == "contest-setup" && action == "manual_tune" && requested_radio != active_radio {
-        return Err("Contest Setup can only tune the active xLog radio.".into());
+    if matches!(label, "contest-setup" | "contest--station-control") && action == "manual_tune" && requested_radio != active_radio {
+        return Err("Contest station controls can only tune the active xLog radio.".into());
     }
     Ok(())
 }
@@ -1683,6 +1706,7 @@ async fn contest_cw_speed_request(app: tauri::AppHandle, window: tauri::WebviewW
 async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     let action = params["action"].as_str().unwrap_or("").to_owned();
+    admit_contest_remote_vfo(&window)?;
     station_session::validate_live(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), &action)?;
     if action == "hamlib_catalogue" {
         return tauri::async_runtime::spawn_blocking(move || station_session::hamlib_catalogue(&params, hamlib::request))
@@ -1694,7 +1718,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
     if action == "set_active_radio" {
         if params.as_object().is_none_or(|value| value.len() != 2) { return Err("Invalid active radio request.".into()); }
         let value = radio_slots::set_active(&app, &radio_id)?;
-        for label in ["main", "station-control"] {
+        for label in ["main", "station-control", "contest--station-control"] {
             let _ = app.emit_to(label, "xlog:station-session", serde_json::json!({"radio_id":radio_id}));
         }
         return Ok(value);
@@ -1724,8 +1748,8 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
         station_session::validate_review(window.label(), params["reviewed_action"].as_str().unwrap())?;
         return owner.review(params["operation_id"].as_str().ok_or("Missing operation identity.")?, params["reviewed_action"].as_str().unwrap());
     }
-    if window.label() == "contest-setup" && action == "manual_tune" {
-        contest_window_context::active()?;
+    if matches!(window.label(), "contest-setup" | "contest--station-control") && action == "manual_tune" {
+        if window.label() == "contest-setup" { contest_window_context::active()?; }
         validate_contest_station_target(window.label(), &action, &radio_id, &radio_slots::active(&app)?)?;
     }
     let selection = station_selection::owner_for(&app, &radio_id)?;
@@ -1767,7 +1791,7 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
         && result.as_ref().is_ok_and(|value| value["status"] == "acknowledged") {
         radio_slots::release_tx(&radio_id);
     }
-    for label in ["main", "station-control"] { let _ = changed.emit_to(label, "xlog:station-session", serde_json::json!({"radio_id":radio_id})); }
+    for label in ["main", "station-control", "contest--station-control"] { let _ = changed.emit_to(label, "xlog:station-session", serde_json::json!({"radio_id":radio_id})); }
     result
 }
 
@@ -2968,8 +2992,25 @@ mod workspace_layout_tests {
     fn contest_manual_tune_is_bounded_to_the_active_radio() {
         assert!(super::validate_contest_station_target("contest-setup", "manual_tune", "radio1", "radio1").is_ok());
         assert!(super::validate_contest_station_target("contest-setup", "manual_tune", "radio2", "radio1").is_err());
+        assert!(super::validate_contest_station_target("contest--station-control", "manual_tune", "radio1", "radio1").is_ok());
+        assert!(super::validate_contest_station_target("contest--station-control", "manual_tune", "radio2", "radio1").is_err());
         assert!(super::validate_contest_station_target("contest-setup", "snapshot", "radio2", "radio1").is_ok());
         assert!(super::validate_contest_station_target("station-control", "manual_tune", "radio2", "radio1").is_ok());
+    }
+
+    #[test]
+    fn remote_vfo_url_requires_one_exact_contest_context() {
+        let operating = "10000000-0000-4000-8000-000000000001";
+        let session = "20000000-0000-4000-8000-000000000001";
+        let workspace = "30000000-0000-4000-8000-000000000001";
+        let url = tauri::Url::parse(&format!("tauri://localhost/index.html?view=station-control&scope=contesting&operatingContext={operating}&sessionID={session}&workspaceGeneration={workspace}")).unwrap();
+        let context = super::contest_remote_vfo_url_context("contest--station-control", &url).unwrap().unwrap();
+        assert_eq!((context.operating_context.as_str(), context.session_id.as_str(), context.workspace_generation.as_str()), (operating, session, workspace));
+        assert!(super::contest_remote_vfo_url_context("station-control", &url).unwrap().is_none());
+        let duplicate = tauri::Url::parse(&format!("{url}&sessionID={session}")).unwrap();
+        assert!(super::contest_remote_vfo_url_context("contest--station-control", &duplicate).is_err());
+        let wrong = tauri::Url::parse(&url.to_string().replace("scope=contesting", "scope=normal_logging")).unwrap();
+        assert!(super::contest_remote_vfo_url_context("contest--station-control", &wrong).is_err());
     }
 
     #[test]

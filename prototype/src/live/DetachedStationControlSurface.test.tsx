@@ -17,6 +17,7 @@ vi.mock("../worker", () => ({ workerRequest: native.worker }));
 let changed: (value: MonitorContext) => void, failed: (message: string) => void;
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-14T00:00:00Z")); vi.clearAllMocks();
+  window.history.replaceState({}, "", "/");
   sessionStorage.clear();
   native.invoke.mockImplementation(async command => { if (command === "dock_detached_window") return; if (command !== "monitor_context_snapshot") throw new Error(`Unexpected native command: ${command}`); return syntheticMonitorContext(); });
   native.listen.mockResolvedValue(vi.fn());
@@ -123,6 +124,27 @@ it("TCI child follows saved selection and exposes only explicit receive tuning",
   expect(screen.getByRole("button", { name: "Tune simplex" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Reconnect|PTT|CW|Operate|Standby/i })).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args.params.action === "snapshot")).toBe(true);
+  expect(native.worker).not.toHaveBeenCalled();
+});
+it("contest Remote VFO reuses observations and manual tune without connection or rotor ownership", async () => {
+  window.history.replaceState({}, "", "/?view=station-control&scope=contesting&operatingContext=10000000-0000-4000-8000-000000000001&sessionID=20000000-0000-4000-8000-000000000001&workspaceGeneration=30000000-0000-4000-8000-000000000001");
+  const context = syntheticMonitorContext();
+  const state: StationSession = { radio_id: "radio1", active_radio: "radio1", tx_owner: null, generation: "remote-vfo", revision: 4, base_url: "", last_receipt: null,
+    selection: { provider: context.selection!.provider, generation: context.selection!.generation, selection_id: context.selection!.selection_id } };
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "monitor_context_snapshot") return context;
+    if (command === "station_session_request" && args.params.action === "snapshot") return state;
+    throw new Error(`Unexpected authority: ${command}`);
+  });
+  render(<DetachedStationControlSurface />); await act(async () => {});
+  expect(screen.getByText("14.074000 MHz")).toBeTruthy();
+  expect(within(screen.getByLabelText("Station observations")).getByText("USB")).toBeTruthy();
+  expect(screen.getByText("Observed live")).toBeTruthy();
+  expect(screen.getByLabelText("Shared manual simplex tune")).toBeTruthy();
+  expect(screen.getByLabelText("Remote VFO controls")).toBeTruthy();
+  expect(screen.queryByLabelText("Radio connections")).toBeNull();
+  expect(screen.queryByLabelText(/Rotor/i)).toBeNull();
   expect(native.invoke.mock.calls.every(([command, args]) => command === "monitor_context_snapshot" || args.params.action === "snapshot")).toBe(true);
   expect(native.worker).not.toHaveBeenCalled();
 });

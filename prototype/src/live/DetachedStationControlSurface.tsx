@@ -11,14 +11,14 @@ import "./StationPanel.css";
 import "./DetachedStationControlSurface.css";
 
 type Connection = { refresh: () => void; dispose: () => void };
-type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode); rotorControls?: boolean; rotorSession?: ManualRotorGotoSession };
+type Props = { connect?: (changed: (value: MonitorContext) => void, failed: (message: string) => void) => Connection; configuration?: ReactNode | ((context: MonitorContext | null) => ReactNode); configurationLabel?: string; rotorControls?: boolean; rotorSession?: ManualRotorGotoSession };
 const frequency = (hz: unknown) => typeof hz === "number" && Number.isFinite(hz) ? `${(hz / 1e6).toFixed(6)} MHz` : "Unavailable";
 const value = (input: unknown) => input == null || input === "" ? "Unavailable" : String(input);
 const providers = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · receive control", hamlib: "Local Hamlib" };
 
 /** Retained observations and optional shared radio connection controls. Mounting never
  * reads credentials, selects a provider, connects a device or sends an action. */
-export function StationControlSurface({ connect = connectMonitorContext, configuration, rotorControls = false, rotorSession = manualRotorGotoSession() }: Props) {
+export function StationControlSurface({ connect = connectMonitorContext, configuration, configurationLabel = "Radio connections", rotorControls = false, rotorSession = manualRotorGotoSession() }: Props) {
   const [context, setContext] = useState<MonitorContext | null>(null);
   const [error, setError] = useState(""), [clock, setClock] = useState(Date.now());
   useEffect(() => {
@@ -30,7 +30,7 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   const fresh = !error && monitorRadioFresh(context, clock), station = monitorStation(context, clock);
   const provider = context?.selection?.provider, radio = station.radio, safety = station.station;
   return <div className="app live detached-station-control-app"><main aria-label="Detached Station Control">
-    {!context?.acceptance && configuration && <section className="detached-station-setup" aria-label="Radio connections">
+    {!context?.acceptance && configuration && <section className="detached-station-setup" aria-label={configurationLabel}>
       {typeof configuration === "function" ? configuration(fresh ? context : null) : configuration}
     </section>}
     {rotorControls && !context?.acceptance && (context?.rotor?.snapshot?.owner
@@ -63,7 +63,8 @@ export function StationControlSurface({ connect = connectMonitorContext, configu
   </main></div>;
 }
 export function DetachedStationControlSurface() {
-  const localAcceptance = new URLSearchParams(location.search).get("acceptance") === "local";
+  const query = new URLSearchParams(location.search), localAcceptance = query.get("acceptance") === "local";
+  const contestRemoteVFO = query.get("scope") === "contesting";
   const [radioId, setRadioId] = useState<RadioID | null>(localAcceptance ? "radio1" : null);
   useEffect(() => {
     if (localAcceptance) return;
@@ -72,6 +73,6 @@ export function DetachedStationControlSurface() {
     void listen("xlog:station-session", refresh).then(dispose => { if (active) { stop = dispose; refresh(); } else dispose(); }).catch(() => {});
     return () => { active = false; stop?.(); };
   }, [localAcceptance]);
-  return <StationControlSurface rotorControls configuration={localAcceptance ? undefined : context => radioId ? <><AgentConnectionSetup key={`${radioId}-setup`} radioId={radioId} connections providers followSelection compact receiveContext={context} />
+  return <StationControlSurface rotorControls={!contestRemoteVFO} configurationLabel={contestRemoteVFO ? "Remote VFO controls" : undefined} configuration={localAcceptance ? undefined : context => radioId ? <>{!contestRemoteVFO && <AgentConnectionSetup key={`${radioId}-setup`} radioId={radioId} connections providers followSelection compact receiveContext={context} />}
     {context?.selection?.provider && <ManualSimplexTune key={`${radioId}-tune`} radioId={radioId} provider={context.selection.provider} context={context} />}</> : <p role="status">Loading active radio routing…</p>} />;
 }
