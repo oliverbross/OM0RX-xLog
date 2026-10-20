@@ -41,6 +41,19 @@ type Projection = {
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
 type PhoneSimulationTrace = { operationID: string; mode: "SSB"; macro: string; text: string; status: "confirmed" };
+class PhoneSimulationStopped extends Error {
+  constructor() { super("The contest phone simulation was stopped."); this.name = "PhoneSimulationStopped"; }
+}
+const phoneClaimReplyTimeoutMs = 2_000;
+function abortPhoneWait<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new PhoneSimulationStopped());
+  return new Promise<T>((resolve, reject) => {
+    const stopped = () => reject(new PhoneSimulationStopped());
+    signal.addEventListener("abort", stopped, { once: true });
+    promise.then(value => { signal.removeEventListener("abort", stopped); resolve(value); },
+      cause => { signal.removeEventListener("abort", stopped); reject(cause); });
+  });
+}
 type Props = {
   request: Request;
   serviceRequest: Request;
@@ -266,6 +279,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [phoneSimulationArmed, setPhoneSimulationArmed] = useState(false);
   const [phoneSimulationPending, setPhoneSimulationPending] = useState(false);
   const [phoneSimulationTrace, setPhoneSimulationTrace] = useState<PhoneSimulationTrace[]>([]);
+  const phoneSimulationControllerRef = useRef<AbortController | null>(null);
   const [manualFrequencyMHz, setManualFrequencyMHz] = useState("");
   const [editing, setEditing] = useState<Data | null>(null), [editCall, setEditCall] = useState(""), [editZone, setEditZone] = useState("");
   const [editTimestamp, setEditTimestamp] = useState(""), [editFrequencyMHz, setEditFrequencyMHz] = useState("");
@@ -458,7 +472,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   flushDraftRef.current = () => flushDraft();
   const runMutation = async (operation: (base: Projection) => Promise<MutationResult>, refreshViews = true,
     flushBuffered = true, preserveConcurrentEdits = false, throwFailures = false,
-    consumeOutput?: (changed: MutationResult) => Promise<MutationResult>) => {
+    consumeOutput?: (changed: MutationResult) => Promise<MutationResult>, signal?: AbortSignal) => {
     let base = projectionRef.current;
     if (!base || busyRef.current || retiring) {
       if (throwFailures) throw new Error(!base ? "Open a contest session before editing it." : "The contest owner is busy.");
@@ -469,18 +483,25 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     try {
       if (flushBuffered) base = await flushDraft(base);
       if (!base) throw new Error("Open a contest session before editing it.");
-      let changed = await operation(base);
-      if (changed.actions?.length && consumeOutput) changed = await consumeOutput(changed);
+      let changed = await (signal ? abortPhoneWait(operation(base), signal) : operation(base));
+      if (changed.actions?.length && consumeOutput)
+        changed = await (signal ? abortPhoneWait(consumeOutput(changed), signal) : consumeOutput(changed));
       acceptProjection(changed.projection, preserveConcurrentEdits ? inputVersion : undefined);
       if (refreshViews) await refresh(changed.projection.sessionID, changed.projection);
       for (const item of changed.messages ?? []) setNotice(item);
       if (changed.actions?.length) throw new Error("Contest output requires native operation admission; no renderer output was sent.");
       if (changed.outputError) setError(changed.outputError);
       return changed.projection;
-    } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; return null; }
+    } catch (cause) {
+      if (!(cause instanceof PhoneSimulationStopped)) setError(errorMessage(cause));
+      if (throwFailures && !(cause instanceof PhoneSimulationStopped)) throw cause;
+      return null;
+    }
     finally { busyRef.current = false; setBusy(false); }
   };
   const consumeContestPhoneSimulation = async (changed: MutationResult): Promise<MutationResult> => {
+    const controller = phoneSimulationControllerRef.current;
+    if (!controller || controller.signal.aborted) throw new PhoneSimulationStopped();
     const operationID = changed.operationID;
     const actions = changed.actions ?? [];
     if (!operationID || changed.replayed !== false || changed.revision !== changed.projection.revision || !actions.length || actions.length > 12)
@@ -499,10 +520,25 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         throw new Error("The contest phone voice-keyer intent could not be verified; no audio or PTT action was taken.");
       return { operationID: action.actionID, mode: "SSB", macro: action.label, text: payload, status: "confirmed" };
     });
-    const claimed = await result<Data>("contest_output_claim", { sessionID: changed.projection.sessionID,
-      operationID, revision: changed.projection.revision });
-    if (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions))
+    const claimParams = { sessionID: changed.projection.sessionID, operationID, revision: changed.projection.revision };
+    const firstClaim = result<Data>("contest_output_claim", claimParams);
+    let timer = 0;
+    let claimed: Data | null = null;
+    try {
+      claimed = await Promise.race([firstClaim, new Promise<never>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error("contest_phone_claim_reply_timeout")), phoneClaimReplyTimeoutMs);
+      })]);
+    } catch (cause) {
+      if (!(cause instanceof Error) || cause.message !== "contest_phone_claim_reply_timeout") throw cause;
+      try { claimed = await result<Data>("contest_output_claim", claimParams); }
+      catch (retryCause) {
+        if (!(retryCause instanceof ContestServerError) || retryCause.code !== "output_consumed" || retryCause.outcome !== "confirmed")
+          throw retryCause;
+      }
+    } finally { if (timer) window.clearTimeout(timer); }
+    if (claimed && (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions)))
       throw new Error("The contest phone simulation claim could not be verified; do not retry the key.");
+    if (controller.signal.aborted || phoneSimulationControllerRef.current !== controller) throw new PhoneSimulationStopped();
     setPhoneSimulationTrace(items => [...items, ...traces].slice(-24));
     return { ...changed, actions: [] };
   };
@@ -514,7 +550,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         : "Phone contest voice output is unavailable in production; no audio or PTT action was taken.");
       setError(failure.message); if (throwFailures) throw failure; return null;
     }
-    if (phoneAction) setPhoneSimulationPending(true);
+    const phoneController = phoneAction ? new AbortController() : null;
+    if (phoneController) { phoneSimulationControllerRef.current = phoneController; setPhoneSimulationPending(true); }
     try { return await runMutation(async base => {
     if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before using ESM.");
     if (base.mode !== "CW")
@@ -526,8 +563,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
-    }, true, false, false, throwFailures, phoneAction ? consumeContestPhoneSimulation : undefined); }
-    finally { if (phoneAction) setPhoneSimulationPending(false); }
+    }, !phoneAction, false, false, throwFailures, phoneAction ? consumeContestPhoneSimulation : undefined, phoneController?.signal); }
+    finally { if (phoneController && phoneSimulationControllerRef.current === phoneController) {
+      phoneSimulationControllerRef.current = null; setPhoneSimulationPending(false);
+    } }
+  };
+
+  const stopPhoneSimulation = () => {
+    phoneSimulationControllerRef.current?.abort(); phoneSimulationControllerRef.current = null;
+    setPhoneSimulationArmed(false); setPhoneSimulationPending(false);
   };
 
   useEffect(() => {
@@ -584,7 +628,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); void cw.controller.stop(); return; }
+    if (event.key === "Escape") { event.preventDefault(); if (phoneSimulationAvailable) stopPhoneSimulation(); else void cw.controller.stop(); return; }
     if (!projection || busy || retiring) return;
     if (/^F(?:[1-9]|1[0-2])$/.test(event.key)) { event.preventDefault(); void hostAction("contest_function_key", { key: event.key }); return; }
     if (event.key === "Enter") { event.preventDefault(); void hostAction("contest_esm", { field: focusRef.current }); return; }
@@ -850,7 +894,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         action.workspaceGeneration !== active.workspaceGeneration || action.operatingContext !== operatingContext)
       throw new Error("This detached panel no longer belongs to the active contest session.");
     if (action.action === "entry_operator_key" && action.params.key === "Escape") {
-      if (phoneSimulationAvailable) { setPhoneSimulationArmed(false); setPhoneSimulationPending(false); return; }
+      if (phoneSimulationAvailable) { stopPhoneSimulation(); return; }
       await cw.controller.stop(); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");

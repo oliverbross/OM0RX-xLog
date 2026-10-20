@@ -584,7 +584,7 @@ it.each([
   let current={...projection(3,{sent:"59",receive:"59",other_1:other1,other_2:other2}),pluginID,
     pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
-  let lastActions:any[]=[];
+  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"="normal",recoverAttempts=0;
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -592,8 +592,8 @@ it.each([
     if(method==="contest_catalog")result={plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]};
     else if(method==="contest_sessions")result={sessions:[]};
     else if(method==="contest_create")result={projection:current};
-    else if(method==="contest_log_page")result={rows:[],total:0};
-    else if(method==="contest_score")result={score:current.score};
+    else if(method==="contest_log_page")return completedClaims ? new Promise(()=>{}) : {id:crypto.randomUUID(),ok:true,result:{rows:[],total:0}};
+    else if(method==="contest_score")return completedClaims ? new Promise(()=>{}) : {id:crypto.randomUUID(),ok:true,result:{score:current.score}};
     else if(method==="contest_function_key"||method==="contest_esm"){
       current={...current,revision:current.revision+1};
       const key=method==="contest_esm"?"F3":String(params.key),label=method==="contest_esm"?"Exchange":key==="F12"?"His call TU":`Message ${key.slice(1)}`;
@@ -603,7 +603,15 @@ it.each([
         sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:current.sourceRevision,mode:"S",key,label,template:payload},
         sessionID:current.sessionID,draftID:current.draftID}];
       result={operationID:params.operationID,revision:current.revision,projection:current,actions:lastActions,messages:[],replayed:false};
-    } else if(method==="contest_output_claim")result={claimed:true,operationID:params.operationID,actions:lastActions};
+    } else if(method==="contest_output_claim"){
+      if(claimMode==="stop")return new Promise(()=>{});
+      if(claimMode==="recover"){
+        recoverAttempts+=1;if(recoverAttempts===1)return new Promise(()=>{});
+        return{id:crypto.randomUUID(),ok:false,error:{code:"output_consumed",
+          message:"Output was already consumed; do not replay",outcome:"confirmed"}};
+      }
+      completedClaims+=1;result={claimed:true,operationID:params.operationID,actions:lastActions};
+    }
     else throw new Error(method);
     return{id:crypto.randomUUID(),ok:true,result};
   });
@@ -628,6 +636,30 @@ it.each([
   expect(request.mock.calls.some(([method])=>method==="contest_esm")).toBe(true);
   expect(nativeCW.execute).not.toHaveBeenCalled();
   expect(workspaceProps.stationTune).not.toHaveBeenCalled();
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({busy:false,operator:{pending:null,status:"armed"}});
+
+  claimMode="stop";
+  entry=surfaceOwner.current.projections["active-qso"];
+  let stopped:Promise<void>;
+  act(()=>{stopped=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F3",focusedField:"callsign"}});});
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.status).toBe("waiting"));
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Escape",focusedField:"callsign"}}));
+  await act(async()=>stopped!);
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({busy:false,operator:{armed:false,pending:null,status:"disarmed"}});
+  expect(surfaceOwner.current.projections["active-qso"].operator.trace).toHaveLength(2);
+
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  claimMode="recover";
+  entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F3",focusedField:"callsign"}}));
+  expect(recoverAttempts).toBeGreaterThanOrEqual(2);
+  expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({busy:false,operator:{pending:null,status:"armed"}});
+  expect(surfaceOwner.current.projections["active-qso"].operator.trace).toHaveLength(3);
 });
 
 it.each([
