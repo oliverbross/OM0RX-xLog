@@ -36,6 +36,24 @@ beforeEach(()=>{vi.resetAllMocks();native.wake=null;native.wakes=[];native.liste
   native.wake=()=>native.wakes.forEach(wake=>wake());return()=>{native.wakes=native.wakes.filter(wake=>wake!==callback);};});window.history.replaceState({},"",search);});
 afterEach(()=>{cleanup();window.history.replaceState({},"","/");});
 
+it("rereads a restored Main Logging window after the replacement context listener is installed",async()=>{
+  const unavailable={...snapshot,projectionRevision:0,projection:{schemaVersion:1,status:"unavailable"}};
+  let registered!:()=>void,ready=false;
+  native.invoke.mockImplementation(async(command:string)=>{
+    if(command!=="contest_surface_snapshot")throw new Error(command);
+    return ready?snapshot:unavailable;
+  });
+  native.listen.mockImplementation(()=>new Promise(resolve=>{registered=()=>resolve(()=>{});}));
+  render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("heading",{name:"Panel unavailable"})).toBeTruthy();
+  // The saved window opened while contest_open reset the native context. Its
+  // first ready publication lands before the asynchronous listener is live.
+  ready=true;registered();
+  expect(await screen.findByLabelText("Callsign")).toHaveProperty("value","OM0RX");
+  expect(screen.queryByRole("heading",{name:"Panel unavailable"})).toBeNull();
+  expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot")).toHaveLength(2);
+});
+
 it("renders validated manual main context without manufacturing headings or distance",async()=>{
   const manual={operator:"OM0RX/P",cwSpeedWpm:27,country:"Germany",cqZone:14,ituZone:28,
     headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null,qsos:42,multipliers:17,total:2142};
@@ -742,7 +760,7 @@ it("admits only Escape across benign refresh churn",async()=>{
   const base:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   let reads=0;const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
-    if(command==="contest_surface_snapshot"){reads+=1;return structuredClone(reads>=3?{...base,projectionRevision:7,
+    if(command==="contest_surface_snapshot"){reads+=1;return structuredClone(reads>=4?{...base,projectionRevision:7,
       projection:{...base.projection,draft:{...base.projection.draft,revision:6}}}:base);}
     if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}throw new Error(command);
   });
