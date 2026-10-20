@@ -483,6 +483,34 @@ it("restores authoritative callsign focus when a logged QSO creates a new draft"
   await act(async()=>{native.wake!();});await waitFor(()=>expect(document.activeElement).toBe(screen.getByLabelText("Callsign")));
 });
 
+it("keeps a CWT keyboard burst and its Name tab target live while the owner persists the first character",async()=>{
+  const cwtTabs={tabNext:{callsign:"other_1",other_1:"other_2",other_2:"callsign"},
+    tabPrevious:{callsign:"other_2",other_1:"callsign",other_2:"other_1"}};
+  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...cwtTabs,
+    functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CWT",ruleName:"CWT",mode:"CW"},
+    draft:{...projection.draft,callsign:"",receivedFields:[
+      {id:"other_1",label:"Name",value:"",required:true,maximumUTF8Bytes:32},
+      {id:"other_2",label:"Member No./SPC",value:"",required:true,maximumUTF8Bytes:128}]},
+    descriptor:{reportsVisible:false,bands:["20m"],modes:["CW"],sentFields:[
+      {id:"sent-exchange",label:"Sent exchange",value:"OLIVER",required:true,maximumUTF8Bytes:64}],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),name=screen.getByLabelText("Name");
+  fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
+  current={...current,projection:{...current.projection,busy:true}};await act(async()=>{native.wake!();});
+  expect((callsign as HTMLInputElement).disabled).toBe(false);expect((name as HTMLInputElement).disabled).toBe(false);
+  expect((callsign as HTMLInputElement).value).toBe("K");fireEvent.change(callsign,{target:{value:"K2XYZ"}});
+  fireEvent.keyDown(callsign,{key:"Tab"});expect(document.activeElement).toBe(name);
+  expect((callsign as HTMLInputElement).value).toBe("K2XYZ");
+  expect(document.activeElement).not.toBe(screen.getByLabelText("Sent exchange"));
+});
+
 it("flushes true multi-keystroke callsign and exchange intent before detached Enter and waits for terminal receipts",async()=>{
   const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};

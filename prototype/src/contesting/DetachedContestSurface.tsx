@@ -211,6 +211,10 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const sentOperatorField=projection.schemaVersion===2&&contestInputFieldIDs.includes(projection.descriptor.sentFields[0]?.id as ContestInputFieldID)
     ? projection.descriptor.sentFields[0].id as ContestInputFieldID:null;
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
+  // The owner reports busy while it persists the first character. These
+  // inputs are locally journalled, so disabling them would drop the rest of
+  // a real keyboard burst before the queued intent can drain.
+  const entryBufferDisabled=false;
   const intents=useEntryIntents(projection,projectionRevision,send);
   const actionFor=(key:EntryIntentKey)=>(value:string):ContestSurfaceAction=>key==="callsign"||key==="sentReport"||key==="receivedReport"
     ?{action:"entry_set_text",params:{...base,field:key,value}}
@@ -281,12 +285,12 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     <div className="contest-surface-logging-body"><aside className="contest-surface-band-ladder" aria-label="Current band and mode"><strong>{projection.draft.mode}</strong>{displayedBands.map((band:string)=><span key={band} aria-current={projection.draft.band===band?"true":undefined}>{band.replace("m","")}</span>)}</aside>
     <div className="contest-surface-logging-controls">
     <div className="contest-surface-main-fields">
-    <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={disabled}
+    <EntryIntentInput label="Callsign" intentKey="callsign" value={intents.values.callsign} maximumUTF8Bytes={32} disabled={entryBufferDisabled}
       operatorField="callsign" inputRef={setFieldRef("callsign")} onFocus={()=>focusField("callsign")} onChange={(key,value)=>intents.change(key,value,actionFor(key))}
       unresolved={intents.unresolved.has("callsign")} retry={()=>intents.retry("callsign")} discard={()=>intents.discard("callsign")}/>
     {projection.descriptor?.reportsVisible!==false&&(["sentReport","receivedReport"] as EntryIntentKey[]).map((key,index)=><EntryIntentInput key={key}
       label={["SNT","RCV"][index]} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={160}
-      disabled={disabled} operatorField={index===0?"sent":"receive"} inputRef={setFieldRef(index===0?"sent":"receive")} onFocus={()=>focusField(index===0?"sent":"receive")}
+      disabled={entryBufferDisabled} operatorField={index===0?"sent":"receive"} inputRef={setFieldRef(index===0?"sent":"receive")} onFocus={()=>focusField(index===0?"sent":"receive")}
       onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
       retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}
     <label className="contest-surface-sent-number"><span>{projection.schemaVersion===2 ? projection.descriptor.sentFields[0]?.label||"SentNR" : "SentNR"}</span><input
@@ -295,7 +299,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       value={projection.schemaVersion===2 ? projection.descriptor.sentFields.map((field:any)=>field.value||"—").join(" ")||"—" : "—"}/></label>
     {projection.draft.receivedFields.length ? projection.draft.receivedFields.map((field:any,index:number)=>{const key=`exchange:${field.id}` as EntryIntentKey,
       fieldID=contestInputFieldIDs.includes(field.id as ContestInputFieldID)?field.id as ContestInputFieldID:index===0?"other_2":undefined;return <EntryIntentInput key={field.id}
-      label={projection.descriptor?.reportsVisible===false?field.label:projection.draft.receivedFields.length===1?"RcvNR":field.label} accessibleLabel={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={disabled}
+      label={projection.descriptor?.reportsVisible===false?field.label:projection.draft.receivedFields.length===1?"RcvNR":field.label} accessibleLabel={field.label} intentKey={key} value={intents.values[key]} maximumUTF8Bytes={field.maximumUTF8Bytes} disabled={entryBufferDisabled}
       operatorField={fieldID} inputRef={fieldID?setFieldRef(fieldID):undefined} onFocus={fieldID?()=>focusField(fieldID):undefined} onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))}
       unresolved={intents.unresolved.has(key)} retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>;}) : <div className="contest-surface-sent-number"><span>RcvNR</span><output>—</output></div>}
     </div>
@@ -316,7 +320,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       <label>Mode<select value={projection.draft.mode} disabled={disabled}
         onChange={event=>void send({action:"entry_set_mode",params:{...base,value:event.target.value}},projectionRevision,{safePresentation:true})}>{projection.descriptor.modes.map((mode:string)=><option key={mode}>{mode}</option>)}</select></label>
     </div>}
-    <EntryIntentInput label="Frequency Hz" intentKey="frequency" value={intents.values.frequency} maximumUTF8Bytes={11} disabled={disabled}
+    <EntryIntentInput label="Frequency Hz" intentKey="frequency" value={intents.values.frequency} maximumUTF8Bytes={11} disabled={entryBufferDisabled}
       onChange={(key,value)=>intents.change(key,value,actionFor(key))} unresolved={intents.unresolved.has("frequency")}
       retry={()=>intents.retry("frequency")} discard={()=>intents.discard("frequency")}/>
     {projection.schemaVersion===2&&<>
