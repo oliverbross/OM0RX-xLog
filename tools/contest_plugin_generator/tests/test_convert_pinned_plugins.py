@@ -113,9 +113,13 @@ class PinnedPluginConversionTests(unittest.TestCase):
                              (ROOT / "docs/contesting/pinned-plugin-conversion-coverage.json").read_bytes())
             archive = convert_pinned_plugins.archive_outputs(outputs)
             generated_authoring, generated_catalog = root / "archive-authoring", root / "catalog"
-            convert_pinned_plugins.write_archive_outputs(archive, generated_authoring, generated_catalog)
             checked_authoring = ROOT / "Tests/XContestCoreTests/SourceFixtures/PackagedContestDefinitions"
             checked_catalog = ROOT / "Sources/XContestCore/Resources/ContestDefinitions"
+            convert_pinned_plugins.write_archive_outputs(
+                archive, generated_authoring, generated_catalog, checked_catalog)
+            self.assertEqual(
+                (generated_catalog / "k1usn_sst.runtime-draft.json").read_bytes(),
+                (checked_catalog / "k1usn_sst.runtime-draft.json").read_bytes())
             for generated_root, checked_root in ((generated_authoring, checked_authoring),
                                                   (generated_catalog, checked_catalog)):
                 self.assertEqual(sorted(path.name for path in generated_root.iterdir()),

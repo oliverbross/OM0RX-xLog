@@ -216,7 +216,7 @@ def archive_outputs(outputs: dict[str, dict[str, Any]]) -> dict[str, dict[str, A
 
 
 def write_archive_outputs(outputs: dict[str, dict[str, Any]], authoring_output: Path,
-                          catalog_output: Path) -> None:
+                          catalog_output: Path, preserved_catalog: Path | None = None) -> None:
     authoring_output.mkdir(parents=True, exist_ok=True)
     catalog_output.mkdir(parents=True, exist_ok=True)
     entries = []
@@ -233,6 +233,28 @@ def write_archive_outputs(outputs: dict[str, dict[str, Any]], authoring_output: 
         entries.append({"file": filename, "sha256": hashlib.sha256(runtime_bytes).hexdigest(),
                         "identity": {"id": item["runtime"]["id"], "version": item["runtime"]["version"],
                                      "edition": item["runtime"]["edition"], "sourceRevision": revision}})
+    generated_files = {entry["file"] for entry in entries}
+    if preserved_catalog is not None:
+        preserved_manifest = validate_definition.load_json(preserved_catalog / "manifest.json")
+        if set(preserved_manifest) != {"schemaVersion", "definitions"} \
+                or preserved_manifest["schemaVersion"] != 1 \
+                or not isinstance(preserved_manifest["definitions"], list):
+            raise ValueError("preserved runtime catalog manifest is malformed")
+        for entry in preserved_manifest["definitions"]:
+            filename = entry.get("file") if isinstance(entry, dict) else None
+            if filename in generated_files:
+                continue
+            if not isinstance(filename, str) or Path(filename).name != filename \
+                    or not filename.endswith(".runtime-draft.json"):
+                raise ValueError("preserved runtime catalog manifest has an unsafe file")
+            source = preserved_catalog / filename
+            runtime_bytes = source.read_bytes()
+            if hashlib.sha256(runtime_bytes).hexdigest() != entry.get("sha256"):
+                raise ValueError(f"preserved runtime catalog hash mismatch for {filename}")
+            if source != catalog_output / filename:
+                catalog_output.joinpath(filename).write_bytes(runtime_bytes)
+            entries.append(copy.deepcopy(entry))
+    entries.sort(key=lambda entry: entry["file"])
     manifest = {"schemaVersion": 1, "definitions": entries}
     catalog_output.joinpath("manifest.json").write_bytes(_bytes(manifest))
 
@@ -394,7 +416,8 @@ def main() -> None:
     mappings = validate_definition.load_json(args.mappings)
     outputs, coverage = convert(inventory, mappings, args.upstream)
     write_outputs(outputs, coverage, args.output, args.coverage)
-    write_archive_outputs(archive_outputs(outputs), args.archive_authoring_output, args.runtime_catalog_output)
+    write_archive_outputs(archive_outputs(outputs), args.archive_authoring_output, args.runtime_catalog_output,
+                          args.runtime_catalog_output)
     print(json.dumps(coverage["summary"], sort_keys=True))
 
 
