@@ -16,6 +16,7 @@ describe("ContestWorkspace responsive contract", () => {
   });
 
   it("retains visible keyboard focus and bounded overflow for long contest values", () => {
+    expect(css).toContain(".contest-workspace { box-sizing:border-box;");
     expect(css).toContain("outline:2px solid var(--cyan,#35c8f5)");
     expect(css).toContain("overflow-wrap:anywhere");
     expect(css).toContain("min-width:0");
@@ -41,10 +42,10 @@ describe("ContestWorkspace responsive contract", () => {
 
   it("keeps the original compact horizontal New Contest form without vertical auto spacing", () => {
     expect(setupCSS).toContain(".contest-workspace .contest-setup label { display:flex; flex-direction:row;");
-    expect(setupCSS).toContain(".contest-parameters { display:flex; flex-direction:column; gap:6px; max-width:470px; margin:0 auto;");
+    expect(setupCSS).toContain(".contest-parameters { display:flex; flex-direction:column; gap:4px; max-width:470px; margin:0 auto;");
     expect(setupCSS).toContain('[data-setup-view="New Contest"]');
     expect(setupCSS).toContain(".contest-manual-content { gap:0; min-height:0; }");
-    expect(setupCSS).toContain("textarea { height:54px; min-height:54px; resize:none; }");
+    expect(setupCSS).toContain("textarea { height:46px; min-height:46px; resize:none; }");
   });
 
   it("mounts every main or detached surface inside the shared interface scale provider", () => {
