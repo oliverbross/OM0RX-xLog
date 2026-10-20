@@ -587,6 +587,46 @@ it("executes saved finite Not1MM key bindings and stops using the replaced chord
     .toMatchObject({action:"entry_operator_style",params:{value:"search-and-pounce"}}));
 });
 
+it("executes saved function-macro and explicit S&P bindings through the existing operator router",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
+      serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},keyBindings:[
+        {context:"*",key:"Ctrl+1",action:"SEND_F2"},{context:"*",key:"Ctrl+Shift+S",action:"SET_S_AND_P"}]},
+    operator:{output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F2",macro:"Exchange"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
+        canReserveCall:true,canReserveCommit:true,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:6};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const region=await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(region,{key:"1",ctrlKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key")?.[1])
+    .toMatchObject({action:"entry_operator_key",params:{key:"F2",focusedField:"callsign"}}));
+  fireEvent.keyDown(region,{key:"s",ctrlKey:true,shiftKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])
+    .toMatchObject({action:"entry_operator_style",params:{value:"search-and-pounce"}}));
+});
+
+it("executes a saved field-navigation binding through authoritative focus",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"Callsign",key:"Ctrl+N",action:"FOCUS_NEXT"}]},
+    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:6};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign");callsign.focus();
+  fireEvent.keyDown(callsign,{key:"n",ctrlKey:true});
+  expect(document.activeElement).toBe(screen.getByLabelText("SNT"));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_focus")?.[1])
+    .toMatchObject({action:"entry_focus",params:{fieldID:"sent"}}));
+});
+
 it("executes a field-context Not1MM key binding",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],

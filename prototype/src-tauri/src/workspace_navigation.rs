@@ -200,7 +200,12 @@ mod tests {
     }
     #[test]
     fn edit_keys_menu_action_resolves_to_its_authorized_native_window() {
+        let navigation = WorkspaceNavigation::default();
         let route = contest_menu_route("contest_menu_contest-dialog-keys").unwrap();
+        let pending = navigation.request(route).unwrap();
+        assert_eq!(navigation.snapshot("main").unwrap(), None,
+            "a cold main renderer must not consume setup-owned Edit Keys intent");
+        assert_eq!(navigation.snapshot("contest-setup").unwrap(), Some(pending.clone()));
         let kind = contest_setup_dialog_kind(route).unwrap();
         let (label, title, width, height) = crate::contest_setup_dialogs::spec(kind).unwrap();
         assert_eq!((route, kind, label, title, width, height),
@@ -209,6 +214,8 @@ mod tests {
         let capability: serde_json::Value = serde_json::from_str(
             include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
         assert!(capability["windows"].as_array().unwrap().iter().any(|window| window == label));
+        navigation.acknowledge("contest-setup", pending.revision).unwrap();
+        assert_eq!(navigation.snapshot("contest-setup").unwrap(), None);
     }
     #[test]
     fn contest_owned_windows_receive_the_default_tauri_capability() {

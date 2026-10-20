@@ -1066,7 +1066,10 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
         if !key.is_ascii() || key.chars().any(char::is_whitespace) {
             return Err("The entry key binding is not canonical.".into());
         }
-        enum_value(&binding["action"], &["TOGGLE_RUN", "LOG_NOW", "CLEAR_INPUTS", "PREV_SPOT", "NEXT_SPOT"],
+        enum_value(&binding["action"], &["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
+            "PREV_SPOT", "NEXT_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+            "SEND_F1", "SEND_F2", "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9",
+            "SEND_F10", "SEND_F11", "SEND_F12"],
             "entry key action")?;
         if !bindings.insert(format!("{context}:{key}")) {
             return Err("The entry key bindings are not unique.".into());
@@ -2760,6 +2763,13 @@ mod tests {
             {"context":"*","key":"Ctrl+R","action":"LOG_NOW"}
         ]);
         assert!(validate_projection("active-qso", &duplicate_binding).is_err());
+        for action in ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS", "PREV_SPOT", "NEXT_SPOT",
+            "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN", "SEND_F1", "SEND_F2",
+            "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6", "SEND_F7", "SEND_F8", "SEND_F9", "SEND_F10", "SEND_F11", "SEND_F12"] {
+            let mut supported_binding = entry.clone();
+            supported_binding["descriptor"]["keyBindings"][0]["action"] = json!(action);
+            assert!(validate_projection("active-qso", &supported_binding).is_ok(), "{action}");
+        }
         let mut unsupported_binding = entry.clone();
         unsupported_binding["descriptor"]["keyBindings"][0]["action"] = json!("SHELL");
         assert!(validate_projection("active-qso", &unsupported_binding).is_err());

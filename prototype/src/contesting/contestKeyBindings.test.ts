@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { contestKeyChord, defaultContestKeyBindings, encodeContestKeyBindings, normalizeContestKey,
+import { contestFunctionKeyActions, contestKeyBindingActions, contestKeyChord, defaultContestKeyBindings, encodeContestKeyBindings,
+  functionKeyForContestAction, normalizeContestKey,
   readContestKeyBindings, resolveContestKeyBinding, validateContestKeyBindings } from "./contestKeyBindings";
 
 describe("contest key bindings", () => {
@@ -7,6 +8,17 @@ describe("contest key bindings", () => {
     const encoded = encodeContestKeyBindings(defaultContestKeyBindings);
     expect(new TextEncoder().encode(encoded).length).toBeLessThanOrEqual(512);
     expect(validateContestKeyBindings(encoded)).toEqual(defaultContestKeyBindings);
+  });
+
+  it("offers only implemented operator actions and maps each function macro exactly", () => {
+    expect(contestKeyBindingActions).toEqual(expect.arrayContaining([
+      "SET_RUN", "SET_S_AND_P", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+    ]));
+    expect(contestFunctionKeyActions.map(functionKeyForContestAction)).toEqual(
+      Array.from({ length: 12 }, (_, index) => `F${index + 1}`),
+    );
+    expect(functionKeyForContestAction("LOG_NOW")).toBeNull();
+    expect(contestKeyBindingActions).not.toEqual(expect.arrayContaining(["SPOT_DX", "MARK_SPOT", "VFO_UP", "ROTATE"]));
   });
 
   it("migrates the old row representation without trusting stored descriptions", () => {

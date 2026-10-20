@@ -8,7 +8,8 @@ import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceActi
   type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
   type ContestStatisticsSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
-import { contestKeyChord, resolveContestKeyBinding, type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
+import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
+  type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
 import BandMaps from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import "./DetachedContestSurface.css";
@@ -281,7 +282,14 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
         key:key as any,focusedField,...(shifted?{shifted:true}:{})}},current.projectionRevision,{bypassQueue:key==="Escape"});})();return true;};
   const bindingContext=(field:ContestInputFieldID|null):ContestKeyBindingContext=>field==="callsign"?"Callsign":field==="sent"||field==="receive"?"Report":
     field==="other_1"?"Other 1":field==="other_2"?"Other 2":"*";
-  const runBoundAction=(action:ContestKeyBindingAction)=>{const intended=intents.capture();
+  const runBoundAction=(action:ContestKeyBindingAction,focusedField:ContestInputFieldID|null)=>{
+    const functionKey=functionKeyForContestAction(action);
+    if(functionKey){operatorKey(functionKey,focusedField);return;}
+    if(action==="FOCUS_CALLSIGN"||action==="FOCUS_NEXT"||action==="FOCUS_PREVIOUS"){
+      const target=action==="FOCUS_CALLSIGN"?"callsign":focusedField?nextFocusable(focusedField,action==="FOCUS_NEXT"?"tabNext":"tabPrevious"):null;
+      if(target)fieldRefs.current[target]?.focus();return;
+    }
+    const intended=intents.capture();
     void (async()=>{const flushed=await intents.flush();if(!flushed.ok)return;const focusProjectionRevision=await focusPending.current;await settle();
       const current=await refresh(),currentProjection=current?.projection as any;
       if(!current||current.panelID!=="active-qso"||currentProjection?.status!=="ready"||currentProjection.draft?.draftID!==base.draftID)return;
@@ -289,11 +297,14 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
           flushed.lastAppliedProjectionRevision??0,focusProjectionRevision??0)){
         reportConflict("The shared contest entry changed before this key action. Review it and press the key again.");return;}
       const params={draftID:base.draftID,expectedDraftRevision:currentProjection.draft.revision};
-      if(action==="TOGGLE_RUN")await send({action:"entry_operator_style",params:{...params,
-        value:currentProjection.operator?.style==="run"?"search-and-pounce":"run"}},current.projectionRevision);
+      if(action==="TOGGLE_RUN"||action==="SET_RUN"||action==="SET_S_AND_P")await send({action:"entry_operator_style",params:{...params,
+        value:action==="SET_RUN"?"run":action==="SET_S_AND_P"?"search-and-pounce":currentProjection.operator?.style==="run"?"search-and-pounce":"run"}},current.projectionRevision);
       else if(action==="LOG_NOW")await send({action:"entry_commit",params},current.projectionRevision);
       else if(action==="CLEAR_INPUTS")await send({action:"entry_clear",params},current.projectionRevision);
-      else await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
+      else if(action==="PREV_SPOT"||action==="NEXT_SPOT")await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
+      else {const speed=currentProjection.manual?.cwSpeedWpm;if(typeof speed!=="number")return;
+        const value=action==="CW_SPEED_UP"?Math.min(100,speed+1):Math.max(5,speed-1);
+        if(value!==speed)await send({action:"entry_set_cw_speed",params:{...params,value}},current.projectionRevision);}
     })();};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
     if(event.defaultPrevented||event.repeat||event.nativeEvent.isComposing)return;
@@ -301,7 +312,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       ? dataField as ContestInputFieldID : operator?.focusedField??null;
     const chord=contestKeyChord(event),bound=projection.descriptor?.keyBindings&&chord
       ? resolveContestKeyBinding(projection.descriptor.keyBindings,bindingContext(focusedField),chord) : null;
-    if(bound){event.preventDefault();event.stopPropagation();runBoundAction(bound);return;}
+    if(bound){event.preventDefault();event.stopPropagation();runBoundAction(bound,focusedField);return;}
     if(event.altKey||event.ctrlKey||event.metaKey)return;
     if(!event.shiftKey&&event.key===" "&&focusedField==="callsign"&&intents.values.callsign.trim().toUpperCase()==="OPON"){
       event.preventDefault();event.stopPropagation();intents.change("callsign","",actionFor("callsign"));

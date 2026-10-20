@@ -210,7 +210,13 @@ it("uses the original Edit Keys table and saves key changes", async () => {
   expect(screen.getAllByRole("columnheader").map(item => item.textContent)).toEqual(["Context", "Key", "Action", "Description"]);
   expect(document.querySelector(".contest-binding-table")).toBeTruthy();
   expect(screen.getByLabelText("description 1").getAttribute("title")).toBe(screen.getByLabelText("description 1").textContent);
-  open("Add"); expect(screen.getByLabelText("key 7")).toBeTruthy(); open("Remove"); expect(screen.queryByLabelText("key 7")).toBeNull();
+  expect(Array.from((screen.getByLabelText("action 1") as HTMLSelectElement).options).map(option => option.value)).toEqual(expect.arrayContaining([
+    "SET_RUN", "SET_S_AND_P", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN", "SEND_F1", "SEND_F12",
+  ]));
+  expect(Array.from((screen.getByLabelText("action 1") as HTMLSelectElement).options).map(option => option.value)).not.toEqual(expect.arrayContaining([
+    "SPOT_DX", "MARK_SPOT", "VFO_UP", "ROTATE",
+  ]));
+  open("Add"); expect(screen.getByLabelText("key 9")).toBeTruthy(); open("Remove"); expect(screen.queryByLabelText("key 9")).toBeNull();
   fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+R" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);

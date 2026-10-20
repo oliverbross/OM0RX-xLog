@@ -1,7 +1,13 @@
 export const contestKeyBindingContexts = ["*", "Callsign", "Report", "Exchange", "Other 1", "Other 2"] as const;
 export type ContestKeyBindingContext = typeof contestKeyBindingContexts[number];
 
-export const contestKeyBindingActions = ["TOGGLE_RUN", "LOG_NOW", "CLEAR_INPUTS", "PREV_SPOT", "NEXT_SPOT"] as const;
+export const contestFunctionKeyActions = ["SEND_F1", "SEND_F2", "SEND_F3", "SEND_F4", "SEND_F5", "SEND_F6",
+  "SEND_F7", "SEND_F8", "SEND_F9", "SEND_F10", "SEND_F11", "SEND_F12"] as const;
+export type ContestFunctionKeyAction = typeof contestFunctionKeyActions[number];
+
+export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
+  "PREV_SPOT", "NEXT_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+  ...contestFunctionKeyActions] as const;
 export type ContestKeyBindingAction = typeof contestKeyBindingActions[number];
 
 export type ContestKeyBinding = {
@@ -12,10 +18,29 @@ export type ContestKeyBinding = {
 
 export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, string> = {
   TOGGLE_RUN: "Toggle between RUN and S&P",
+  SET_RUN: "Switch to RUN",
+  SET_S_AND_P: "Switch to S&P",
   LOG_NOW: "Log the current contact",
   CLEAR_INPUTS: "Clear all input fields",
   PREV_SPOT: "Jump to the previous spot in the bandmap",
   NEXT_SPOT: "Jump to the next spot in the bandmap",
+  FOCUS_CALLSIGN: "Move focus to the callsign field",
+  FOCUS_NEXT: "Move focus to the next contest field",
+  FOCUS_PREVIOUS: "Move focus to the previous contest field",
+  CW_SPEED_UP: "Increase CW sending speed",
+  CW_SPEED_DOWN: "Decrease CW sending speed",
+  SEND_F1: "Send the F1 function macro",
+  SEND_F2: "Send the F2 function macro",
+  SEND_F3: "Send the F3 function macro",
+  SEND_F4: "Send the F4 function macro",
+  SEND_F5: "Send the F5 function macro",
+  SEND_F6: "Send the F6 function macro",
+  SEND_F7: "Send the F7 function macro",
+  SEND_F8: "Send the F8 function macro",
+  SEND_F9: "Send the F9 function macro",
+  SEND_F10: "Send the F10 function macro",
+  SEND_F11: "Send the F11 function macro",
+  SEND_F12: "Send the F12 function macro",
 };
 
 // This is the finite subset of the pinned Not1MM defaults whose behavior is
@@ -27,8 +52,14 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Ctrl+=", action: "LOG_NOW" },
   { context: "Callsign", key: "Up", action: "PREV_SPOT" },
   { context: "Callsign", key: "Down", action: "NEXT_SPOT" },
+  { context: "*", key: "PgUp", action: "CW_SPEED_UP" },
+  { context: "*", key: "PgDown", action: "CW_SPEED_DOWN" },
   { context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },
 ];
+
+export function functionKeyForContestAction(action: ContestKeyBindingAction): `F${number}` | null {
+  return action.startsWith("SEND_F") ? action.slice("SEND_".length) as `F${number}` : null;
+}
 
 const contextSet = new Set<string>(contestKeyBindingContexts);
 const actionSet = new Set<string>(contestKeyBindingActions);
