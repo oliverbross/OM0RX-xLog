@@ -33,6 +33,17 @@ describe("ContestWorkspace responsive contract", () => {
     expect(css).toContain(".contest-history-window { width:100%; height:100dvh; min-height:0; overflow:auto; }");
   });
 
+  it("contains detached table and candidate overflow without an outer horizontal scrollbar", () => {
+    expect(detachedCSS).toContain("overflow-x:hidden; overflow-y:auto");
+    expect(detachedCSS).toContain(".contest-surface-row > * { flex:1 1 120px; min-width:0; }");
+    expect(detachedCSS).toContain(".contest-surface-logging-body { display:flex; min-width:0; min-height:0;");
+    expect(detachedCSS).toContain(".contest-surface-check-columns { display:grid; flex:1 1 0;");
+    expect(detachedCSS).toContain("min-height:0; overflow-x:hidden; overflow-y:auto; border-right:1px solid var(--border)");
+    expect(detachedCSS).toContain("flex-direction:column; flex-wrap:nowrap;");
+    expect(detachedCSS).toContain(".contest-surface-check-columns button { width:100%; min-width:0; overflow:hidden; text-overflow:ellipsis;");
+    expect(detachedCSS).toContain(".contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto;");
+  });
+
   it("uses one compact label-width token for detached Contest Setup fields", () => {
     expect(setupCSS).toContain("--contest-setup-label-width:100px");
     expect(setupCSS).toContain("flex:0 0 var(--contest-setup-label-width)");
