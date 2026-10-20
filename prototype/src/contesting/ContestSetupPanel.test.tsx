@@ -90,6 +90,16 @@ it("uses Sweepstakes metadata to lock CW, omit unsupported overlays and label th
   expect(Array.from((screen.getByLabelText("Overlay") as HTMLSelectElement).options).map(option => option.value)).toEqual(["N/A"]);
   expect(screen.getByLabelText("Prec Call Check Section")).toBeTruthy();
 });
+it("offers the MIXED Cabrillo category when a plugin supports both CW and SSB", () => {
+  const p = props(); p.catalog.push({ id: "euhfc", name: "EUHFC", modes: ["CW", "SSB"], sentExchangeHint: "Lic. Year (2 digits)", overlayChoices: ["N/A"] });
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  fireEvent.change(screen.getByLabelText("Log Type"), { target: { value: "euhfc" } });
+  const mode = screen.getByLabelText("Mode") as HTMLSelectElement;
+  expect(Array.from(mode.options).map(option => option.value)).toEqual(["CW", "SSB", "MIXED"]);
+  fireEvent.change(mode, { target: { value: "MIXED" } });
+  open("OK");
+  expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ pluginID: "euhfc", settings: expect.objectContaining({ ModeCategory: "MIXED" }) }));
+});
 it("selects an existing contest using a name/start table and commits only with OK", async () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Choose a Contest");
   expect(screen.getByRole("columnheader", { name: "Contest Start" })).toBeTruthy();

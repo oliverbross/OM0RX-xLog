@@ -155,7 +155,10 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const bindingValue = readContestKeyBindings(draft.preferences.keyBindings);
   const setBindings = (next: ContestKeyBinding[]) => update("preferences", "keyBindings", encodeContestKeyBindings(next));
   const selectedPlugin = catalog.find(plugin => plugin.id === draft.pluginID);
-  const modeChoices = selectedPlugin?.modes?.length ? selectedPlugin.modes : ["CW", "SSB", "RTTY", "MIXED", "DIGI"];
+  const pluginModes = selectedPlugin?.modes ?? [];
+  const modeChoices = pluginModes.length > 1
+    ? [...pluginModes, ...(pluginModes.includes("MIXED") ? [] : ["MIXED"])]
+    : pluginModes.length ? pluginModes : ["CW", "SSB", "RTTY", "MIXED", "DIGI"];
   const overlayChoices = selectedPlugin?.overlayChoices?.length ? selectedPlugin.overlayChoices : ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"];
   let content: ReactNode = null;
   if (view === "Station Settings") content = <div className="contest-station-form">
