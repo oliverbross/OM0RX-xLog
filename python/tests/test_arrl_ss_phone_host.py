@@ -1,6 +1,7 @@
 """Original source-pinned ARRL Sweepstakes Phone plugin through the production host."""
 from copy import deepcopy
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -60,6 +61,22 @@ class ARRLSweepstakesPhoneHostTests(unittest.TestCase):
     def read(self, method, **kwargs):
         return self.call(method, {"sessionID": self.session, **kwargs})
 
+    def assert_voice(self, action, key, payload, macro_mode):
+        self.assertEqual((action["kind"], action["signal"], action["mode"]),
+                         ("voice_keyer", "phone", "SSB"))
+        self.assertEqual((action["key"], action["payload"]), (key, payload))
+        self.assertEqual(action["payloadUTF8Bytes"], len(payload.encode("utf-8")))
+        self.assertEqual(action["payloadSHA256"], sha256(payload.encode("utf-8")).hexdigest())
+        source = action["sourceMacro"]
+        self.assertEqual((source["origin"], source["path"], source["revision"],
+                          source["mode"], source["key"]),
+                         ("pinned_not1mm", "not1mm/data/cwmacros.txt",
+                          "7c8b499225a73f7f8f792246881bd7aefc05452f", macro_mode, key))
+        encoded = json.dumps(source, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        self.assertEqual(action["sourceMacroSHA256"], sha256(encoded).hexdigest())
+        self.assertNotIn("audio", action)
+        self.assertNotIn("ptt", action)
+
     def log(self, call="K1ABC", exchange="123 A K1ABC 67 CT", minute=0, frequency=14250000):
         qso = uid()
         self.mutate(
@@ -113,35 +130,36 @@ class ARRLSweepstakesPhoneHostTests(unittest.TestCase):
         with self.assertRaisesRegex(HostError, "requires SSB"):
             self.mutate("setup_save", setup=setup)
 
-    def test_run_and_search_and_pounce_esm_commit_without_cw_output(self):
+    def test_phone_f3_and_original_esm_emit_voice_intents_and_commit(self):
         with self.assertRaisesRegex(HostError, "does not support CW"):
             self.read("cw_context")
-        self.assertEqual(self.mutate("function_key", key="F3")["actions"], [])
+        direct = self.mutate("function_key", key="F3", fields={"callsign": "K1ABC"})
+        self.assert_voice(direct["actions"][0], "F3", "K1ABC 001 A OM0RX 67 CT", "S")
+        self.assertEqual(direct["actions"][0]["sourceMacro"]["template"],
+                         "{CALL} {SENTNR} {EXCHANGE}")
         self.assertEqual(
-            self.mutate("esm", field="callsign", fields={"callsign": "K1ABC"})["actions"],
-            [],
+            self.read("output_claim", operationID=direct["operationID"], revision=direct["revision"])["actions"],
+            direct["actions"],
         )
+        self.assertEqual(self.read("receipt", operationID=direct["operationID"])["result"]["actions"], [])
         self.assertEqual(
-            self.mutate(
-                "esm",
-                field="other_2",
-                fields={"other_2": "123 A K1ABC 67 CT"},
-            )["actions"],
-            [],
+            [action["key"] for action in self.mutate(
+                "esm", field="callsign", fields={"callsign": "K1ABC"})["actions"]],
+            ["F5"],
         )
+        sandp_exchange = self.mutate(
+            "esm", field="other_2", fields={"other_2": "123 A K1ABC 67 CT"},
+        )
+        self.assert_voice(sandp_exchange["actions"][0], "F3", "K1ABC 001 A OM0RX 67 CT", "S")
         self.mutate("run_state", run=True)
-        self.assertEqual(
-            self.mutate("esm", field="callsign", fields={"callsign": "DL1ABC"})["actions"],
-            [],
+        run_call = self.mutate("esm", field="callsign", fields={"callsign": "DL1ABC"})
+        self.assertEqual([action["key"] for action in run_call["actions"]], ["F2", "F3"])
+        self.assert_voice(run_call["actions"][0], "F2", "DL1ABC", "R")
+        self.assert_voice(run_call["actions"][1], "F3", "DL1ABC 002 A OM0RX 67 CT", "R")
+        run_exchange = self.mutate(
+            "esm", field="other_2", fields={"other_2": "456 B DL1ABC 72 EMA"},
         )
-        self.assertEqual(
-            self.mutate(
-                "esm",
-                field="other_2",
-                fields={"other_2": "456 B DL1ABC 72 EMA"},
-            )["actions"],
-            [],
-        )
+        self.assert_voice(run_exchange["actions"][0], "F4", "tu OM0RX qrz", "R")
         rows = self.read("log")["rows"]
         self.assertEqual(len(rows), 2)
         self.assertEqual([row["Mode"] for row in rows], ["USB", "USB"])

@@ -1,6 +1,7 @@
 """Original source-pinned CQ WPX SSB plugin through the production host."""
 from copy import deepcopy
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -60,6 +61,22 @@ class CQWPXSSBHostTests(unittest.TestCase):
     def read(self, method, **kwargs):
         return self.call(method, {"sessionID": self.session, **kwargs})
 
+    def assert_voice(self, action, key, payload, macro_mode):
+        self.assertEqual((action["kind"], action["signal"], action["mode"]),
+                         ("voice_keyer", "phone", "SSB"))
+        self.assertEqual((action["key"], action["payload"]), (key, payload))
+        self.assertEqual(action["payloadUTF8Bytes"], len(payload.encode("utf-8")))
+        self.assertEqual(action["payloadSHA256"], sha256(payload.encode("utf-8")).hexdigest())
+        source = action["sourceMacro"]
+        self.assertEqual((source["origin"], source["path"], source["revision"],
+                          source["mode"], source["key"]),
+                         ("pinned_not1mm", "not1mm/data/cwmacros.txt",
+                          "7c8b499225a73f7f8f792246881bd7aefc05452f", macro_mode, key))
+        encoded = json.dumps(source, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        self.assertEqual(action["sourceMacroSHA256"], sha256(encoded).hexdigest())
+        self.assertNotIn("audio", action)
+        self.assertNotIn("ptt", action)
+
     def log(self, call="K1ABC", serial="100", minute=0, frequency=14250000):
         qso = uid()
         self.mutate(
@@ -104,20 +121,29 @@ class CQWPXSSBHostTests(unittest.TestCase):
         with self.assertRaisesRegex(HostError, "requires SSB"):
             self.mutate("setup_save", setup=setup)
 
-    def test_run_and_search_and_pounce_commit_without_cw_output(self):
+    def test_phone_f3_and_original_esm_emit_voice_intents_and_commit(self):
         with self.assertRaisesRegex(HostError, "does not support CW"):
             self.read("cw_context")
-        self.assertEqual(self.mutate("function_key", key="F3")["actions"], [])
+        direct = self.mutate("function_key", key="F3")
+        self.assert_voice(direct["actions"][0], "F3", "59 001", "S")
+        self.assertEqual(direct["actions"][0]["sourceMacro"]["template"], "{RST} {SENTNR}")
+        self.assertEqual(
+            self.read("output_claim", operationID=direct["operationID"], revision=direct["revision"])["actions"],
+            direct["actions"],
+        )
+        self.assertEqual(self.read("receipt", operationID=direct["operationID"])["result"]["actions"], [])
         sandp_call = self.mutate("esm", field="callsign", fields={"callsign": "K1ABC"})
-        self.assertEqual(sandp_call["actions"], [])
+        self.assert_voice(sandp_call["actions"][0], "F5", "OM0RX", "S")
         sandp_exchange = self.mutate("esm", field="other_2", fields={"other_2": "100"})
-        self.assertEqual(sandp_exchange["actions"], [])
+        self.assert_voice(sandp_exchange["actions"][0], "F3", "59 001", "S")
         self.assertEqual(self.read("log")["total"], 1)
         self.mutate("run_state", run=True)
         run_call = self.mutate("esm", field="callsign", fields={"callsign": "DL1ABC"})
-        self.assertEqual(run_call["actions"], [])
+        self.assertEqual([action["key"] for action in run_call["actions"]], ["F2", "F3"])
+        self.assert_voice(run_call["actions"][0], "F2", "DL1ABC", "R")
+        self.assert_voice(run_call["actions"][1], "F3", "59 002", "R")
         run_exchange = self.mutate("esm", field="other_2", fields={"other_2": "101"})
-        self.assertEqual(run_exchange["actions"], [])
+        self.assert_voice(run_exchange["actions"][0], "F4", "tu OM0RX qrz", "R")
         self.assertEqual(self.read("log")["total"], 2)
         self.assertEqual([row["Mode"] for row in self.read("log")["rows"]], ["USB", "USB"])
 
