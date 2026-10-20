@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadWindowSurface } from "../windowSurface";
 
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args), isTauri: () => true }));
@@ -16,6 +17,7 @@ describe("DetachedContestAuxiliaryDialog", () => {
     invoke.mockImplementation(async (command, args:any) => command === "contest_setup_dialog_request" && args.method === "snapshot" ? snapshot :
       command === "contest_setup_dialog_request" && args.method === "submit" ? {requestID:args.params.requestID,status:"saved"} : null);
     const { DetachedContestAuxiliaryDialog } = await import("./DetachedContestAuxiliaryDialog");
+    expect(await loadWindowSurface("?view=contest-setup-rover")).toBe(DetachedContestAuxiliaryDialog);
     render(<DetachedContestAuxiliaryDialog/>);
     const input = await screen.findByLabelText("Location") as HTMLInputElement; expect(input.value).toBe("JN88");
     fireEvent.change(input,{target:{value:"fn20"}}); fireEvent.click(screen.getByRole("button",{name:"OK"}));

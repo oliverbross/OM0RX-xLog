@@ -4,20 +4,10 @@ import type { ComponentType } from "react";
  * station controller as an intermediate screen or as a failed-child fallback. */
 export async function loadWindowSurface(search: string): Promise<ComponentType> {
   const query = new URLSearchParams(search), view = query.get("view");
-  if (view === "contest-setup-operator")
-    return (await import("./contesting/ContestOperatorDialog")).ContestOperatorDialog;
-  if (view === "contest-setup-station" || view === "contest-setup-configuration")
-    return (await import("./contesting/DetachedContestSetupDialog")).DetachedContestSetupDialog;
-  if (view === "contest-setup-rover" || view === "contest-setup-about")
-    return (await import("./contesting/DetachedContestAuxiliaryDialog")).DetachedContestAuxiliaryDialog;
-  if (view === "contest-setup")
-    return (await import("./contesting/DetachedContestSetupSurface")).DetachedContestSetupSurface;
-  if (query.get("scope") === "contesting" && view === "call-history")
-    return (await import("./contesting/DetachedContestCallHistorySurface")).DetachedContestCallHistorySurface;
   if (view === "station-control")
     return (await import("./live/DetachedStationControlSurface")).DetachedStationControlSurface;
-  if (query.get("scope") === "contesting")
-    return (await import("./contesting/DetachedContestSurface")).DetachedContestSurface;
+  if (view?.startsWith("contest-setup") || query.get("scope") === "contesting")
+    return (await import("./contesting/loadContestWindowSurface")).loadContestWindowSurface(query);
   if (view === "operating-goals") return (await import("./live/DetachedOperatingGoalsSurface")).DetachedOperatingGoalsSurface;
   if (view === "previous-qsos") return (await import("./live/DetachedPreviousQSOsSurface")).DetachedPreviousQSOsSurface;
   if (view === "antenna") return (await import("./live/DetachedAntennaSurface")).DetachedAntennaSurface;
