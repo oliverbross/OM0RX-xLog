@@ -16,7 +16,7 @@ public enum IntegrationWorkspaceError: Error, LocalizedError, Equatable {
         switch self {
         case .sourceMissing: return "The source logbook database is missing or is not a regular file."
         case .destinationExists: return "The integration workspace already exists."
-        case .unsafePath: return "The source and integration workspace paths overlap or use a symbolic link."
+        case .unsafePath: return "The source and integration workspace paths overlap or use a symbolic or hard link."
         case let .sqlite(message): return "Could not snapshot the logbook: \(message)"
         case let .invalidSnapshot(message): return "The integration snapshot failed verification: \(message)"
         }
@@ -63,7 +63,9 @@ public enum IntegrationWorkspaceBootstrap {
         let metadata = try JSONDecoder().decode(IntegrationWorkspaceMetadata.self, from: data)
         let databaseURL = directory.appendingPathComponent("OM0RX-xLog.sqlite")
         let databaseValues = try databaseURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        let databaseAttributes = try FileManager.default.attributesOfItem(atPath: databaseURL.path)
         guard databaseValues.isRegularFile == true, databaseValues.isSymbolicLink != true,
+              (databaseAttributes[.referenceCount] as? NSNumber)?.intValue == 1,
               metadata.defaultsSuiteName.hasPrefix(expectedIdentityPrefix),
               metadata.keychainService.hasPrefix(expectedIdentityPrefix) else {
             throw IntegrationWorkspaceError.unsafePath

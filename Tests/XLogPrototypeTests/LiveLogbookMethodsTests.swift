@@ -230,6 +230,9 @@ struct LiveLogbookMethodsTests {
         )
         try FileManager.default.removeItem(at: workspace.databaseURL)
         try FileManager.default.linkItem(at: nativeURL, to: workspace.databaseURL)
+        #expect(throws: IntegrationWorkspaceError.unsafePath) {
+            try IntegrationWorkspaceBootstrap.open(at: workspace.directoryURL)
+        }
         let service = LiveLogbookMethods(supportDirectory: root)
         #expect(throws: WorkerFailure.self) {
             try service.handle(method: "workspace_status", params: [:])
