@@ -6,6 +6,10 @@
 .contest-setup-dialog .contest-setup footer { flex:none; }
 .contest-setup-dialog .contest-setup [role=tablist] { flex:none; flex-wrap:wrap; }
 .contest-setup-dialog .contest-setup label { flex-direction:row; }
+.contest-setup-dialog .contest-setup label>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.contest-setup-dialog .contest-setup :is(button,input,select,textarea) { font:inherit; }
+.contest-setup-dialog .contest-setup button { min-height:30px; white-space:nowrap; }
+.contest-setup-dialog .contest-setup footer { flex-wrap:wrap; }
 .contest-setup-dialog[data-dialog-kind=configuration] { height:auto; max-height:100dvh; overflow:auto; }
 .contest-setup-dialog[data-dialog-kind=configuration]>.contest-setup { height:auto; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup>form { flex:none; }
