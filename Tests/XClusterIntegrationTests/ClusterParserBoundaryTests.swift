@@ -101,7 +101,7 @@ final class ClusterParserBoundaryTests: XCTestCase {
             ("JT9", raw.frequencyKHz, "JT9"),
             ("JT-9", 14_250, "JT9"),
             ("DIGITAL", raw.frequencyKHz, "DIGI"),
-            ("DATA", 14_250, "DIGI"),
+            ("CW DIGITAL", raw.frequencyKHz, "DIGI"),
         ]
         for testCase in cases {
             let testBand = SpotLogic.band(for: testCase.frequencyKHz)
@@ -114,6 +114,8 @@ final class ClusterParserBoundaryTests: XCTestCase {
         XCTAssertEqual(SpotLogic.mode(comment: "SOFT-8", band: band, khz: raw.frequencyKHz), "CW")
         XCTAssertEqual(SpotLogic.mode(comment: "DIG", band: band, khz: raw.frequencyKHz), "CW")
         XCTAssertEqual(SpotLogic.mode(comment: "DATABASE", band: band, khz: raw.frequencyKHz), "CW")
+        XCTAssertEqual(SpotLogic.mode(comment: "DATA", band: "20m", khz: 14_250), "SSB")
+        XCTAssertEqual(SpotLogic.mode(comment: "RTTYING", band: band, khz: raw.frequencyKHz), "CW")
     }
 
     func testTwentyMeterSegmentInferenceKeepsExplicitModes() throws {

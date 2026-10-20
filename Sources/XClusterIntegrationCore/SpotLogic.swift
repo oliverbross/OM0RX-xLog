@@ -30,7 +30,7 @@ public enum SpotLogic {
             (#"\bRTTY\b"#, "RTTY"), (#"\bJTTY\b"#, "JTTY"), (#"\bOLIVIA\b"#, "OLIVIA"),
             (#"\bPSK(?:-?\d+)?\b"#, "PSK"), (#"\bJT-?65\b"#, "JT65"), (#"\bJT-?9\b"#, "JT9"),
             (#"\bHELL\b"#, "HELL"), (#"\bMFSK\b"#, "MFSK"), (#"\bSSTV\b"#, "SSTV"),
-            (#"\b(?:DIGI|DIGITAL|DATA)\b"#, "DIGI"),
+            (#"\b(?:DIGI|DIGITAL)\b"#, "DIGI"),
         ]
         for candidate in explicitDigitalModes
             where text.range(of: candidate.pattern, options: .regularExpression) != nil {
