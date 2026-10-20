@@ -5,6 +5,7 @@ import base64
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -504,6 +505,50 @@ class Host:
             store.close()
         self.stores.clear()
 
+    @property
+    def active_session_path(self):
+        return self.root / "active-session.json"
+
+    def active_session(self):
+        """Return the last admitted session without trusting an unsafe marker."""
+        path = self.active_session_path
+        try:
+            stat = path.lstat()
+            if path.is_symlink() or not path.is_file() or stat.st_nlink != 1 or stat.st_size > 1024:
+                return None
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or set(payload) != {"sessionID"}:
+                return None
+            return identifier(payload["sessionID"])
+        except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError, HostError):
+            return None
+
+    def remember_active_session(self, session_id):
+        """Atomically retain the last real session selection across WebView storage resets."""
+        session_id = identifier(session_id)
+        path = self.active_session_path
+        temporary = self.root / f".active-session-{uuid.uuid4()}.tmp"
+        try:
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                stream.write(canonical({"sessionID": session_id}))
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+            directory = os.open(self.root, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+            return True
+        except OSError:
+            return False
+        finally:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+
     def database(self, session_id, create=False):
         if session_id not in self.stores:
             directory = self.root / session_id
@@ -573,7 +618,9 @@ class Host:
                     # Explicit opens still report the candidate's original error.
                     continue
                 sessions.append(summary)
-            return {"sessions": sessions}
+            active = self.active_session()
+            return {"sessions": sessions,
+                    "activeSessionID": active if active in {item["sessionID"] for item in sessions} else None}
         session_id = identifier(params.get("sessionID"))
         store = self.database(session_id, method == "session_create")
         if method in self.MUTATIONS:
@@ -643,6 +690,8 @@ class Host:
                 store.conn.rollback()
         desk = Desk(store, state, self.commit)
         if method in {"session_open", "projection"}:
+            if method == "session_open":
+                self.remember_active_session(session_id)
             return {"projection": desk.projection()}
         if method == "cw_context":
             require(state["settings"]["ModeCategory"] == "CW", "This contest does not support CW output", "unsupported_mode")
@@ -781,6 +830,7 @@ class Host:
                 require(previous["payload"] == payload, "Operation ID was already used with another payload", "payload_conflict")
                 result = self.replay_result(json.loads(previous["result"]), store)
                 store.finish(True)
+                self.remember_active_session(session_id)
                 return result
             state = store.state(session_id)
             expected = params.get("expectedRevision", 0)
@@ -897,6 +947,7 @@ class Host:
                 action["actionID"] = f"{operation}:{index}"
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
             store.finish(True)
+            self.remember_active_session(session_id)
             return result
         except BaseException:
             store.finish(False)

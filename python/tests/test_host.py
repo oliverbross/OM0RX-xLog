@@ -411,15 +411,37 @@ class HostTests(unittest.TestCase):
         self.assertTrue(accepted["projection"]["countryResolved"])
 
     def test_session_catalog_reopens_owned_python_sessions(self):
-        sessions = self.call("sessions", {})["sessions"]
-        self.assertEqual(sessions, [{"sessionID": self.session, "name": "CQ WW CW",
-                                    "workspaceGeneration": self.workspace,
-                                    "pluginID": "cq_ww_cw",
-                                    "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-                                    "revision": self.revision}])
+        catalog = self.call("sessions", {})
+        self.assertEqual(catalog["sessions"], [{"sessionID": self.session, "name": "CQ WW CW",
+                                               "workspaceGeneration": self.workspace,
+                                               "pluginID": "cq_ww_cw",
+                                               "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+                                               "revision": self.revision}])
+        self.assertEqual(catalog["activeSessionID"], self.session)
         self.host.close()
         self.host = Host(self.root)
-        self.assertEqual(self.call("contest_sessions", {})["sessions"][0]["sessionID"], self.session)
+        reopened = self.call("contest_sessions", {})
+        self.assertEqual(reopened["sessions"][0]["sessionID"], self.session)
+        self.assertEqual(reopened["activeSessionID"], self.session)
+
+    def test_session_catalog_retains_the_last_opened_session_across_restart(self):
+        other = uid()
+        create = {**self.create, "sessionID": other, "workspaceGeneration": uid(),
+                  "operationID": uid(), "expectedRevision": 0}
+        self.call("session_create", create)
+        self.assertEqual(self.call("sessions", {})["activeSessionID"], other)
+        self.call("session_open", {"sessionID": self.session})
+        self.assertEqual(self.call("sessions", {})["activeSessionID"], self.session)
+        self.host.close()
+        self.host = Host(self.root)
+        self.assertEqual(self.call("sessions", {})["activeSessionID"], self.session)
+
+    def test_session_catalog_ignores_a_malformed_active_marker(self):
+        marker = self.root / "active-session.json"
+        marker.write_text('["not", "a", "session"]', encoding="utf-8")
+        catalog = self.call("sessions", {})
+        self.assertEqual([item["sessionID"] for item in catalog["sessions"]], [self.session])
+        self.assertIsNone(catalog["activeSessionID"])
 
     def test_actual_score_dupe_and_band_semantics(self):
         self.log()
