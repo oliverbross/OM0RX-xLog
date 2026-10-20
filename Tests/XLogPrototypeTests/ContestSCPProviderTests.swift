@@ -142,12 +142,23 @@ final class ContestSCPProviderTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let cache = root.appendingPathComponent("SuperCheckPartial/current.json")
         let service = try ContestSCPService(cacheURL: cache, validatePrivateRoot: {}, validateScope: { _ in })
-        let result = try await service.downloadLatest()
-        XCTAssertTrue(result.updated)
-        XCTAssertEqual(result.dataset.provenance.sourceURL, ContestSCPProvider.masterURL.absoluteString)
-        XCTAssertEqual(result.dataset.digestVerification, .matchedExpectedSHA256)
-        XCTAssertGreaterThan(result.dataset.recordCount, 10_000)
+        let downloaded = try await service.downloadLatest()
+        XCTAssertTrue(downloaded.updated)
+        XCTAssertEqual(downloaded.dataset.provenance.sourceURL, ContestSCPProvider.masterURL.absoluteString)
+        XCTAssertEqual(downloaded.dataset.digestVerification, .matchedExpectedSHA256)
+        XCTAssertGreaterThan(downloaded.dataset.recordCount, 10_000)
         XCTAssertTrue(FileManager.default.fileExists(atPath: cache.path))
+
+        let current = try await service.downloadLatest()
+        XCTAssertFalse(current.updated)
+        XCTAssertEqual(current.dataset.sha256, downloaded.dataset.sha256)
+        XCTAssertEqual(current.dataset.recordCount, downloaded.dataset.recordCount)
+
+        let restored = try ContestSCPService(cacheURL: cache, validatePrivateRoot: {}, validateScope: { _ in })
+        let restoredStatus = await restored.status()
+        XCTAssertEqual(restoredStatus.dataset?.sha256, downloaded.dataset.sha256)
+        XCTAssertEqual(restoredStatus.dataset?.digestVerification, .matchedExpectedSHA256)
+        XCTAssertNil(restoredStatus.unavailableReason)
     }
 }
 
