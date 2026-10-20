@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_ssb", "naqp_ssb", "phone_weekly_test", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"],
+  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "phone_weekly_test", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"],
   "sha256": {
     "not1mm/plugins/oceania_dx_ssb.py": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee",
     "not1mm/plugins/oceania_dx_cw.py": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664",
@@ -18,7 +18,9 @@
     "not1mm/plugins/cq_wpx_ssb.py": "7d76fc6506c9fa4599db7ba1ea1e609a42994c79fc77096fbb522a7cb129f10d",
     "not1mm/plugins/arrl_ss_cw.py": "ae6306cbe34df212371989d9c324693b8f88da8e29701f17d8aeb5a32f5b3ce4",
     "not1mm/plugins/arrl_ss_phone.py": "24b9c96dc716769f4c30016b4979d38c33e609ae6ae6af104d10dd66e807a41a",
+    "not1mm/plugins/arrl_dx_cw.py": "50dad8d13b4e782f6a846660f96a96357ae96866dac4ae5787f97818ed00e2d2",
     "not1mm/plugins/arrl_dx_ssb.py": "357f333526a8cda2f654c84245056cf47cc95bbb0be0c1add64b1e53c3474387",
+    "not1mm/plugins/naqp_cw.py": "84da97206ac651638498812dc7867432c883e88650a86571161ca5e3a72b222b",
     "not1mm/plugins/naqp_ssb.py": "551b57f984cbaf4697a3ae9b146ad6f3519a14cc8df0dc9c3f30a7c5fea7c2bc",
     "not1mm/plugins/phone_weekly_test.py": "94770e46c5f16dae2d1bb0482f37011ff48678b49fa547c28cb4902f35bdefae",
     "not1mm/plugins/cwt.py": "12010bc2f8a4822e45444c996f82993aea952916405de8449a3ca6fe68c9de64",

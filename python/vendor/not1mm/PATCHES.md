@@ -6,7 +6,8 @@ the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
-ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX SSB, NAQP SSB,
+ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX CW, ARRL DX SSB,
+NAQP CW, NAQP SSB,
 Phone Weekly Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
 Oceania DX CW and Oceania DX SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
@@ -88,8 +89,10 @@ import time and fails if the pinned source differs:
     contacts without manufacturing CW output or claiming an external digital
     modem integration. Country, zone and state matrices remain separate.
 
-11. ARRL DX SSB, NAQP SSB and Phone Weekly Test execute their unchanged pinned
-    modules (Git blobs `0e8bbf3f36e4180eadc8686985743f93bb979e85`,
+11. ARRL DX CW/SSB, NAQP CW/SSB and Phone Weekly Test execute their unchanged pinned
+    modules (CW Git blobs `0cf81e0cc8a02e85d410a130f10e69e708b04d31` and
+    `d6200061d3f505bb81da47be319442231d2e4dcc`; SSB/weekly Git blobs
+    `0e8bbf3f36e4180eadc8686985743f93bb979e85`,
     `f7ff5d4fc24e675132933b9e5f474dfa4a4738a9` and
     `65376835b6d354b027084a4ccdbda5ef7af719c2`). The host invokes ARRL DX's
     original `prefill` callback only after constructing the contact because it
@@ -112,6 +115,8 @@ Original SHA-256:
 | plugins/oceania_dx_cw.py | 51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664 |
 | plugins/oceania_dx_ssb.py | f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee |
 | plugins/arrl_dx_ssb.py | 357f333526a8cda2f654c84245056cf47cc95bbb0be0c1add64b1e53c3474387 |
+| plugins/arrl_dx_cw.py | 50dad8d13b4e782f6a846660f96a96357ae96866dac4ae5787f97818ed00e2d2 |
+| plugins/naqp_cw.py | 84da97206ac651638498812dc7867432c883e88650a86571161ca5e3a72b222b |
 | plugins/naqp_ssb.py | 551b57f984cbaf4697a3ae9b146ad6f3519a14cc8df0dc9c3f30a7c5fea7c2bc |
 | plugins/phone_weekly_test.py | 94770e46c5f16dae2d1bb0482f37011ff48678b49fa547c28cb4902f35bdefae |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
