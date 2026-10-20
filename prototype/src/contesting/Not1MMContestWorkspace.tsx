@@ -758,7 +758,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     return () => { active = false; window.clearInterval(timer); };
   }, [setupOnly, serviceRequest]);
   useContestSetupDialogs({ enabled: setupOnly, context: `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`,
-    document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", diagnostics: {
+    document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", activeSessionID: projection?.sessionID,
+      effectiveMacros, diagnostics: {
       engine: "Not1MM Python", plugin: projection?.pluginID ?? "No open contest",
       version: projection?.ruleIdentity?.version ?? "26.10.11", source: projection?.sourceRevision ?? "7c8b499225a73f7f8f792246881bd7aefc05452f",
       reference: projection?.referenceID ?? "No active reference" }, digital: digitalSnapshot }, save: async document => {
@@ -1231,9 +1232,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
-      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
+      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-macros", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
+        if (route === "contest-dialog-macros" && !projectionRef.current) { setManager(true); setError("Open a contest session before editing macros."); return true; }
         await openContestSetupDialog(route === "contest-dialog-operator" ? "operator" : route === "contest-dialog-station" ? "station" :
-          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-digital" ? "digital" : route === "contest-dialog-rover" ? "rover" : "about");
+          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-digital" ? "digital" : route === "contest-dialog-macros" ? "macros" : route === "contest-dialog-rover" ? "rover" : "about");
         return true;
       }
       if (route === "contest-setup") {

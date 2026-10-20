@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "contest-setup-dialogs",
   "description": "Bundled contest dialogs; mutation authority remains in Contest Setup.",
-  "windows": ["contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-digital", "contest-setup-rover", "contest-setup-about"],
+  "windows": ["contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-digital", "contest-setup-macros", "contest-setup-rover", "contest-setup-about"],
   "permissions": ["core:default", "core:window:allow-set-size"]
 }

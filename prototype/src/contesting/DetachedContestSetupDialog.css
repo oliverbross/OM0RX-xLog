@@ -23,3 +23,15 @@
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { min-height:28px; padding-block:3px; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup footer { position:static; background:var(--panel,#0b1728); }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup footer { padding-block:8px; }
+.contest-setup-dialog[data-dialog-kind=macros] { padding:10px; }
+.contest-setup-dialog[data-dialog-kind=macros]>.contest-setup { max-width:none; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-manual-content { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; min-height:0; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-manual-content>p { grid-column:1 / -1; margin:0; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-manual-content>section { min-width:0; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-manual-content h3 { margin:0 0 5px; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-macro-table { min-width:0; table-layout:fixed; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-macro-table th:first-child { width:34px; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-macro-table th:nth-child(2) { width:30%; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-macro-table :is(th,td) { padding:3px 4px; }
+.contest-setup-dialog[data-dialog-kind=macros] .contest-macro-table input { min-height:26px; padding-block:2px; }
+@media(max-width:700px) { .contest-setup-dialog[data-dialog-kind=macros] .contest-manual-content { grid-template-columns:minmax(0,1fr); } }

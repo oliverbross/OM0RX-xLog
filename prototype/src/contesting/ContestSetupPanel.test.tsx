@@ -32,6 +32,13 @@ it("separates original File dialogs from Configuration Settings and keeps manual
   fireEvent.keyDown(screen.getByRole("tab", { name: "CAT" }), { key: "ArrowRight" });
   expect(screen.getByRole("tab", { name: "CW" }).getAttribute("aria-selected")).toBe("true");
 });
+it("opens Edit Macros as a separate native dialog when Contest Setup owns window routing", async () => {
+  const p = props(), onOpenDialog = vi.fn();
+  render(<ContestSetupPanel {...p} onOpenDialog={onOpenDialog}/>);
+  open("Edit Macros");
+  await waitFor(() => expect(onOpenDialog).toHaveBeenCalledExactlyOnceWith("macros"));
+  expect(screen.queryByLabelText("Run F1 template")).toBeNull();
+});
 it("matches station row order, saves upstream field names, and preserves unknown existing data", async () => {
   const p = props(); p.value.station.UniqueStationField = "keep"; p.value.preferences.futureSetting = true;
   render(<ContestSetupPanel {...p}/>); open("Station Settings");
@@ -212,10 +219,13 @@ it("edits Run and S&P F1–F12 macros in the durable setup document without send
 
 it("uses effective contest defaults for a label-only edit while preserving the source overrides", async () => {
   const p = props();
-  render(<ContestSetupPanel {...p} effectiveMacros={[{ mode: "R", key: "F1", label: "CQ", template: "CQ {MYCALL}" }]}/>);
+  const effectiveMacros = (["R", "S"] as const).flatMap(mode => Array.from({ length: 12 }, (_, index) => ({
+    mode, key: `F${index + 1}`, label: `${mode} F${index + 1}`, template: `${mode} F${index + 1} {MYCALL}`,
+  })));
+  render(<ContestSetupPanel {...p} effectiveMacros={effectiveMacros}/>);
   open("Edit Macros"); fireEvent.change(screen.getByLabelText("Run F1 label"), { target: { value: "CQ TEST" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
-  expect(p.onSave.mock.calls[0][0].macros).toEqual([{ mode: "R", key: "F1", label: "CQ TEST", template: "CQ {MYCALL}" }]);
+  expect(p.onSave.mock.calls[0][0].macros).toEqual([{ mode: "R", key: "F1", label: "CQ TEST", template: "R F1 {MYCALL}" }]);
   expect(p.value.macros).toEqual([]);
 });
 

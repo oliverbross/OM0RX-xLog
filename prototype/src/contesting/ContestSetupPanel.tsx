@@ -31,10 +31,10 @@ type Props = {
   servicePanels?: Partial<Record<ContestSetupServiceTab, ReactNode>>;
   callHistoryPanel?: ReactNode;
   onOpenCallHistory?: () => void;
-  onOpenDialog?: (kind: "station" | "configuration" | "digital") => void | Promise<void>;
+  onOpenDialog?: (kind: "station" | "configuration" | "digital" | "macros") => void | Promise<void>;
   onContentChange?: () => void;
   onViewChange?: (view: SetupView | null) => void;
-  detachedDialog?: "station" | "configuration";
+  detachedDialog?: "station" | "configuration" | "macros";
   onCancel?: () => void | Promise<void>;
 };
 
@@ -78,8 +78,7 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
   onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
-  const macroDraft = () => ({ ...setupDraft(value), macros: structuredClone(effectiveMacros ?? value.macros) });
-  const [draft, setDraft] = useState<ContestSetupDocument>(() => initialTab === "Macros" ? macroDraft() : setupDraft(value));
+  const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
   const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
   const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
@@ -88,7 +87,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   const [audioOutputError, setAudioOutputError] = useState("");
   const [pending, setPending] = useState(false), pendingRef = useRef(false);
   const id = useId();
-  useEffect(() => { setDraft(view === "Edit Macros" ? macroDraft() : setupDraft(value)); }, [value, effectiveMacros]);
+  useEffect(() => { setDraft(setupDraft(value)); }, [value]);
   useEffect(() => {
     if (contestSetupTabs.includes(initialTab as ContestSetupTab)) { setTab(initialTab as ContestSetupTab); setView("Configuration Settings"); }
   }, [initialTab]);
@@ -126,7 +125,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   }
   function close() { setDraft(setupDraft(value)); setMessage(""); setView(null); }
   function open(next: SetupView) {
-    const source = next === "Edit Macros" ? macroDraft() : setupDraft(value);
+    const source = setupDraft(value);
     setDraft(next === "New Contest" ? { ...source, settings: { ...source.settings, SentExchange: "" } } : source);
     setMessage(""); setView(next); setSelectedSession(activeSessionID ?? "");
   }
@@ -239,10 +238,12 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       </div>; break;
     }
   } else if (view === "Edit Macros") content = <><p>Edit function key labels and CW templates for this contest. Unchanged empty rows use the contest default; clearing an edited template disables that macro. Saving does not send CW.</p>{(["R", "S"] as const).map(mode => <section key={mode} aria-label={mode === "R" ? "Run macros" : "S&P macros"}><h3>{mode === "R" ? "Run" : "S&P"}</h3><div className="contest-key-scroll"><table className="contest-key-table contest-macro-table"><thead><tr><th>Key</th><th>Label</th><th>Template</th></tr></thead><tbody>{Array.from({ length: 12 }, (_, index) => {
-    const key = `F${index + 1}`, macro = draft.macros.find(item => item.mode === mode && item.key === key);
+    const key = `F${index + 1}`, override = draft.macros.find(item => item.mode === mode && item.key === key);
+    const macro = override ?? effectiveMacros?.find(item => item.mode === mode && item.key === key);
     const edit = (property: "label" | "template", text: string) => setDraft(current => {
       const existing = current.macros.find(item => item.mode === mode && item.key === key);
-      const next = { mode, key, label: "", template: "", ...existing, [property]: text };
+      const effective = effectiveMacros?.find(item => item.mode === mode && item.key === key);
+      const next = { mode, key, label: "", template: "", ...effective, ...existing, [property]: text };
       return { ...current, macros: [...current.macros.filter(item => item.mode !== mode || item.key !== key), next] };
     });
     return <tr key={key}><th scope="row">{key}</th><td><input aria-label={`${mode === "R" ? "Run" : "S&P"} ${key} label`} value={macro?.label ?? ""} placeholder={macro ? "" : "Contest default"} maxLength={128} onChange={event => edit("label", event.target.value)}/></td><td><input aria-label={`${mode === "R" ? "Run" : "S&P"} ${key} template`} value={macro?.template ?? ""} placeholder={macro ? "" : "Contest default"} maxLength={1024} onChange={event => edit("template", event.target.value)}/></td></tr>;
@@ -251,7 +252,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const configuration = view === "Configuration Settings";
   return <section className="contest-setup" data-setup-view={view ?? "Contest Setup"} aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>
     {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => {
-      const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : name === "Digital Setup" ? "digital" : null;
+      const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : name === "Digital Setup" ? "digital" : name === "Edit Macros" ? "macros" : null;
       if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
       else open(name);
     }}>{name}</button>)}</div> :

@@ -42,7 +42,8 @@ export function isManagedConfigurationDialogHeight(height: number, availableHeig
 const sameDialogSize = (a: DialogSize, b: DialogSize) => Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
 
 export function DetachedContestSetupDialog() {
-  const kind = new URLSearchParams(window.location.search).get("view") === "contest-setup-station" ? "station" : "configuration";
+  const view = new URLSearchParams(window.location.search).get("view");
+  const kind = view === "contest-setup-station" ? "station" : view === "contest-setup-macros" ? "macros" : "configuration";
   const [snapshot, setSnapshot] = useState<SetupDialogSnapshot | null>(null), [error, setError] = useState("");
   const shell = useRef<HTMLElement>(null);
   const requestConfigurationFit = useRef<() => void>(() => {});
@@ -207,10 +208,12 @@ export function DetachedContestSetupDialog() {
     }).catch(() => {});
     return () => { active = false; requestConfigurationFit.current = () => {}; clearTimeout(restoreTimer); cancelAnimationFrame(frame); observer?.disconnect(); contentObserver?.disconnect(); stopResize?.(); };
   }, [kind, snapshot]);
-  return <main ref={shell} className="contest-workspace contest-setup-dialog" data-dialog-kind={kind} aria-label={kind === "station" ? "Station Settings" : "Configuration Settings"}>
+  const title = kind === "station" ? "Station Settings" : kind === "macros" ? "Edit Macros" : "Configuration Settings";
+  return <main ref={shell} className="contest-workspace contest-setup-dialog" data-dialog-kind={kind} aria-label={title}>
     {error && <><p role="alert">{error}</p><button type="button" onClick={() => void closeContestSetupDialog()}>Cancel</button></>}
     {snapshot ? <ContestSetupPanel value={snapshot.document} sessions={[]} catalog={[]} detachedDialog={kind}
-      initialTab={kind === "station" ? "Station" : "Lookup"} onCancel={closeContestSetupDialog}
+      activeSessionID={snapshot.auxiliary.activeSessionID} effectiveMacros={snapshot.auxiliary.effectiveMacros}
+      initialTab={kind === "station" ? "Station" : kind === "macros" ? "Macros" : "Lookup"} onCancel={closeContestSetupDialog}
       onContentChange={() => requestConfigurationFit.current()}
       onSave={async document => { await saveContestSetupDialog(snapshot, document); await closeContestSetupDialog(); }}
       onCreate={async () => { throw new Error("Create contests in Contest Setup."); }}

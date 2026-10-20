@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
 export async function loadContestWindowSurface(query: URLSearchParams): Promise<ComponentType> {
   const view=query.get("view");
   if(view==="contest-setup-operator")return(await import("./ContestOperatorDialog")).ContestOperatorDialog;
-  if(view==="contest-setup-station"||view==="contest-setup-configuration")
+  if(view==="contest-setup-station"||view==="contest-setup-configuration"||view==="contest-setup-macros")
     return(await import("./DetachedContestSetupDialog")).DetachedContestSetupDialog;
   if(view==="contest-setup-rover"||view==="contest-setup-about")
     return(await import("./DetachedContestAuxiliaryDialog")).DetachedContestAuxiliaryDialog;

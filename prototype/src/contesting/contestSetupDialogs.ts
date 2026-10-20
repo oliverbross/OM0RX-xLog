@@ -2,11 +2,12 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import type { ContestSetupDocument } from "./ContestSetupPanel";
 
-export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "rover" | "about";
+export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "macros" | "rover" | "about";
 export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number };
   running: boolean; status: string; receive_only: boolean };
 export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"]; action: "save" | "start" | "stop" };
-export type SetupDialogAuxiliary = { roverLocation: string; diagnostics: { engine: string; plugin: string; version: string; source: string; reference: string };
+export type SetupDialogAuxiliary = { roverLocation: string; activeSessionID?: string; effectiveMacros?: ContestSetupDocument["macros"];
+  diagnostics: { engine: string; plugin: string; version: string; source: string; reference: string };
   digital?: ContestDigitalSnapshot };
 export type SetupDialogSnapshot = { epoch: string; context: string; revision: number; document: ContestSetupDocument; auxiliary: SetupDialogAuxiliary };
 type SaveRequest = SetupDialogSnapshot & { requestID: string; kind: SetupDialogKind; roverLocation?: string; digital?: ContestDigitalSave };
@@ -29,6 +30,7 @@ export async function saveContestDigitalDialog(snapshot: SetupDialogSnapshot, di
 /** Only apply the fields owned by this form, preserving the other dialog's data. */
 export function mergeSetupDialog(current: ContestSetupDocument, requested: ContestSetupDocument, kind: SetupDialogKind): ContestSetupDocument {
   if (kind === "operator") return { ...current, operator: requested.operator };
+  if (kind === "macros") return { ...current, macros: structuredClone(requested.macros) };
   return kind === "station" ? { ...current, station: structuredClone(requested.station) } :
     { ...current, preferences: structuredClone(requested.preferences), network: structuredClone(requested.network) };
 }

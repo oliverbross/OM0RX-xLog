@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { configurationDialogContentHeight, DetachedContestSetupDialog, fittedConfigurationDialogHeight, isManagedConfigurationDialogHeight } from "./DetachedContestSetupDialog";
 import { newContestSetup, contestSetupTabs } from "./ContestSetupPanel";
 import { mergeSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
+import { loadWindowSurface } from "../windowSurface";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), setSize: vi.fn(), innerSize: vi.fn(), scaleFactor: vi.fn(async () => 2),
   onResized: vi.fn(), observedTargets: [] as Element[],
   mutationHandler: null as MutationCallback | null,
@@ -36,12 +37,16 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const snapshot = () => ({ epoch: "owner", context: "workspace/session", revision: 2, document: newContestSetup("OM0RX"),
-  auxiliary:{roverLocation:"",diagnostics:{engine:"Not1MM Python",plugin:"cq_ww_cw",version:"26.10.11",source:"source",reference:"reference"}} });
-function open(kind: "station" | "configuration") {
+  auxiliary:{roverLocation:"",activeSessionID:"session",effectiveMacros:[{mode:"R" as const,key:"F1",label:"CQ",template:"CQ {MYCALL}"}],
+    diagnostics:{engine:"Not1MM Python",plugin:"cq_ww_cw",version:"26.10.11",source:"source",reference:"reference"}} });
+function open(kind: "station" | "configuration" | "macros") {
   window.history.replaceState({}, "", `?view=contest-setup-${kind}`);
   native.invoke.mockImplementation(async (_command, { method }) => method === "snapshot" ? snapshot() : null);
   return render(<DetachedContestSetupDialog/>);
 }
+it("routes Edit Macros to its independent setup dialog", async () => {
+  await expect(loadWindowSurface("?view=contest-setup-macros")).resolves.toBe(DetachedContestSetupDialog);
+});
 it("opens isolated Station fields and Cancel closes without submitting", async () => {
   open("station");
   fireEvent.change(await screen.findByRole("textbox", { name: "City" }), { target: { value: "Unsaved" } });
@@ -66,6 +71,22 @@ it("keeps the original Configuration tab order and fields", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   expect(screen.getByLabelText("160m")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Edit Keys" })).toBeNull();
+});
+it("edits effective Run and S&P macros through one revision-fenced owner save", async () => {
+  open("macros");
+  expect((await screen.findByLabelText("Run F1 label") as HTMLInputElement).value).toBe("CQ");
+  expect((screen.getByLabelText("Run F1 template") as HTMLInputElement).value).toBe("CQ {MYCALL}");
+  expect(screen.getByLabelText("S&P F12 template")).toBeTruthy();
+  native.invoke.mockImplementation(async (_command, { method, params }) => {
+    if (method === "snapshot") return snapshot();
+    if (method === "submit") return { requestID: params.requestID, status: "saved" };
+    return null;
+  });
+  fireEvent.change(screen.getByLabelText("Run F1 label"), { target: { value: "CQ TEST" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(native.invoke.mock.calls.some(([,args]) => args.method === "close")).toBe(true));
+  const submit = native.invoke.mock.calls.find(([,args]) => args.method === "submit")?.[1].params;
+  expect(submit.document.macros).toEqual(expect.arrayContaining([{mode:"R",key:"F1",label:"CQ TEST",template:"CQ {MYCALL}"}]));
 });
 it("auto-fits a managed Configuration default to its measured content", async () => {
   vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(476);
@@ -227,6 +248,9 @@ it("merges only each dialog's fields into the owner's latest setup", () => {
   expect(station.preferences).toEqual(current.preferences); expect(station.macros).toEqual(current.macros);
   const config = mergeSetupDialog(current, requested, "configuration");
   expect(config.preferences.cwSpeed).toBe(30); expect(config.station).toEqual(current.station); expect(config.macros).toEqual(current.macros);
+  const macros = mergeSetupDialog(current, requested, "macros");
+  expect(macros.macros).toEqual(requested.macros); expect(macros.station).toEqual(current.station);
+  expect(macros.preferences).toEqual(current.preferences); expect(macros.network).toEqual(current.network);
 });
 it("uses one owner save for a repeated native request after a lost completion", async () => {
   const source = snapshot(), save = vi.fn(async () => {}), report = vi.fn();
@@ -318,4 +342,7 @@ it("uses compact content-fit bounds while keeping dense configuration tabs fully
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup :is\(input:not\(\[type=checkbox\]\):not\(\[type=radio\]\),select,textarea\)[^}]*min-height:28px/);
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*padding-block:8px/);
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*position:static/);
+  expect(styles).toMatch(/data-dialog-kind=macros[^}]*\.contest-manual-content[^}]*display:grid[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  expect(styles).toMatch(/data-dialog-kind=macros[^}]*\.contest-macro-table[^}]*min-width:0[^}]*table-layout:fixed/);
+  expect(styles).toMatch(/@media\(max-width:700px\)[^{]*\{[^}]*data-dialog-kind=macros[^}]*grid-template-columns:minmax\(0,1fr\)/);
 });
