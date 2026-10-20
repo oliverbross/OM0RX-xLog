@@ -112,6 +112,8 @@ export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: 
   statusHex: string; bandHex: string; modeHex: string };
 export type ContestSpotSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
   radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; spots: ContestSurfaceSpot[]; busy: boolean };
+export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
+  radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
   canExportCabrillo: boolean;
   exchangeLayout?: "plugin";
@@ -124,7 +126,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
   ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection |
-  ContestLogSurfaceProjection | ContestSpotSurfaceProjection;
+  ContestLogSurfaceProjection | ContestSpotSurfaceProjection | ContestRemoteVFOSurfaceProjection;
 
 export const validContestSurfaceUUID = (value: unknown): value is string => typeof value === "string" &&
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
@@ -390,6 +392,11 @@ function validSpotProjection(value: Record<string, unknown>) {
     ids.add(item.id as string); return true;
   });
 }
+function validRemoteVFOProjection(value: Record<string, unknown>) {
+  return exact(value, ["schemaVersion", "status", "radioFrequencyHz", "contestFrequencyHz", "band", "mode", "busy"]) &&
+    optionalFrequency(value.radioFrequencyHz) && optionalFrequency(value.contestFrequencyHz) &&
+    text(value.band, 16) && text(value.mode, 16) && typeof value.busy === "boolean";
+}
 
 export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, value: unknown): value is ContestSurfaceProjection {
   const projection = record(value) ? value : undefined;
@@ -407,6 +414,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (panelID === "awards" || panelID === "chaser-dx") return validMatrixProjection(projection);
   if (panelID === "logbook") return validLogProjection(projection);
   if (panelID === "band-maps" || panelID === "dx-cluster") return validSpotProjection(projection);
+  if (panelID === "station-control") return validRemoteVFOProjection(projection);
   return false;
 }
 

@@ -797,12 +797,22 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
         "band-maps" | "dx-cluster" if schema_version == 1 => validate_spot_projection(projection),
+        "station-control" if schema_version == 1 => validate_remote_vfo_projection(projection),
         "active-qso" | "qrz-details" | "callsign-intelligence" | "propagation" | "monitor" | "awards"
         | "chaser-dx" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }
         _ => Err("That contest surface has no ready projection schema.".into()),
     }
+}
+
+fn validate_remote_vfo_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(value, &["schemaVersion", "status", "radioFrequencyHz", "contestFrequencyHz", "band", "mode", "busy"], "Remote VFO projection")?;
+    nullable_uint(&value["radioFrequencyHz"], 100_000_000_000, "Remote VFO radio frequency")?;
+    nullable_uint(&value["contestFrequencyHz"], 100_000_000_000, "Remote VFO contest frequency")?;
+    text_value(&value["band"], 16, false, "Remote VFO band")?;
+    text_value(&value["mode"], 16, false, "Remote VFO mode")?;
+    boolean(&value["busy"], "Remote VFO busy state")
 }
 
 fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -2478,6 +2488,12 @@ mod tests {
         )
         .is_ok());
         assert!(validate_projection("monitor", &rate_projection()).is_ok());
+        let remote_vfo = json!({"schemaVersion":1,"status":"ready","radioFrequencyHz":14025000,
+            "contestFrequencyHz":14025000,"band":"20m","mode":"CW","busy":false});
+        assert!(validate_projection("station-control", &remote_vfo).is_ok());
+        let mut unsafe_remote_vfo = remote_vfo.clone();
+        unsafe_remote_vfo.as_object_mut().unwrap().insert("action".into(), json!("tune"));
+        assert!(validate_projection("station-control", &unsafe_remote_vfo).is_err());
         assert!(validate_projection(
             "active-qso",
             &json!({"schemaVersion":1,"status":"unavailable","extra":true})

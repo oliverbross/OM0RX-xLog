@@ -19,6 +19,13 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
 });
+it("validates the read-only Remote VFO projection exactly", () => {
+  const projection = { schemaVersion: 1, status: "ready", radioFrequencyHz: 14_025_000,
+    contestFrequencyHz: 14_025_000, band: "20m", mode: "CW", busy: false };
+  expect(validContestSurfaceProjection("station-control", projection)).toBe(true);
+  expect(validContestSurfaceProjection("station-control", { ...projection, radioFrequencyHz: -1 })).toBe(false);
+  expect(validContestSurfaceProjection("station-control", { ...projection, action: "tune" })).toBe(false);
+});
 it.each(["log", "cluster"])("validates bounded %s candidate selection and projections", kind => {
   const action = {...base, panelID:"callsign-intelligence", action:"assistance_select", params:{...draft,kind,candidateID:`${kind}:K1ABC`}};
   expect(() => validateContestSurfaceActionEnvelope(action)).not.toThrow();

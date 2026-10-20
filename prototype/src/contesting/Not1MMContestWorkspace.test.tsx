@@ -160,6 +160,8 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
   expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"}]);
   expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
+  expect(surfaceOwner.current.projections["station-control"]).toEqual({schemaVersion:1,status:"ready",
+    radioFrequencyHz:14_025_000,contestFrequencyHz:14_025_000,band:"20m",mode:"CW",busy:false});
   for(const panel of contestSurfacePanelIDs)expect(validContestSurfaceProjection(panel,surfaceOwner.current.projections[panel])).toBe(true);
 });
 

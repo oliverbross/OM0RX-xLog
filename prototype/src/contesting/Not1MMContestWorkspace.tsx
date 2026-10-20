@@ -325,7 +325,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;
-  const observedFrequencyHz = cqwwFrequency(radioFrequencyHz);
+  const selectedRadioFrequencyHz = typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
+    radioFrequencyHz >= 0 && radioFrequencyHz <= 100_000_000_000 ? radioFrequencyHz : null;
+  const observedFrequencyHz = cqwwFrequency(selectedRadioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
   const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
@@ -1038,6 +1040,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:1,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,spots:sharedSpots,busy:busy||retiring};
+    unavailable["station-control"] = { schemaVersion: 1, status: "ready",
+      radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
+      band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode, busy: busy || retiring };
     if (statistics?.sessionID === projection.sessionID && statistics.revision === projection.revision) {
       unavailable.propagation = { schemaVersion: 3, status: "ready", score: scoreView,
         rows: statistics.rows, total: statistics.total, busy: busy || retiring };
@@ -1068,7 +1073,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, spots, cluster, configuredBands,
-    setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds]);
+    setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
