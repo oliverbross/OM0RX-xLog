@@ -37,7 +37,7 @@ class PluginRegistryTests(unittest.TestCase):
             host = Host(Path(root).resolve())
             try:
                 catalog = host.dispatch({"id": "catalog", "method": "catalog", "params": {}})
-                self.assertEqual(len(catalog["plugins"]), 44)
+                self.assertEqual(len(catalog["plugins"]), 46)
                 self.assertEqual([(item["id"], item["name"]) for item in catalog["plugins"]], list(PLUGINS.items()))
                 sweepstakes = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_cw")
                 self.assertEqual(sweepstakes["modes"], ["CW"])
@@ -90,6 +90,17 @@ class PluginRegistryTests(unittest.TestCase):
                                            "Province or #"),
                         "ea_majestad_ssb": ("His Maj. King of Spain Contest, SSB", ["SSB"],
                                             "Province or #"),
+                    },
+                )
+                rsgb = {item["id"]: item for item in catalog["plugins"]
+                        if item["id"] in {"rsgb_80m_cc", "rsgb_commonwealth_beru"}}
+                self.assertEqual(
+                    {key: (item["name"], item["modes"], item["sentExchangeHint"])
+                     for key, item in rsgb.items()},
+                    {
+                        "rsgb_80m_cc": ("RSGB 80M CC", ["CW"], "Serial number"),
+                        "rsgb_commonwealth_beru": (
+                            "RSGB Commonwealth BERU", ["CW"], "Serial number (optional HQ)"),
                     },
                 )
             finally:

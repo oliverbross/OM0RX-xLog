@@ -20,7 +20,7 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
-                      PLUGINS, REF_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
+                      PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
                       SIMPLE_MULTIPLIER_PLUGINS, TEN_TEN_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
@@ -392,6 +392,10 @@ class Desk:
                 "ARRL 160 supports only 160 metres", "invalid_frequency")
         require(self.state["pluginID"] != "arrl_10m" or band == 28.0,
                 "ARRL 10M supports only 10 metres", "invalid_frequency")
+        require(self.state["pluginID"] != "rsgb_80m_cc" or band == 3.5,
+                "RSGB 80M CC supports only 80 metres", "invalid_frequency")
+        require(self.state["pluginID"] != "rsgb_commonwealth_beru" or band != 1.8,
+                "RSGB Commonwealth BERU supports only 80 through 10 metres", "invalid_frequency")
         return band
 
     @staticmethod
@@ -1432,6 +1436,14 @@ class Host:
             else:
                 require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
                         "REF sent department/prefix must match contest setup")
+        elif desk.state["pluginID"] in RSGB_PLUGINS:
+            received = fields["other_2"]
+            match = re.fullmatch(r"([0-9]+)(?:\s+[Hh][Qq])?", received)
+            require(match is not None and 0 < int(match[1]) <= 9223372036854775807,
+                    "RSGB received exchange must be a positive serial, optionally followed by HQ")
+            require(fields["other_1"].isdigit()
+                    and 0 < int(fields["other_1"]) <= 9223372036854775807,
+                    "RSGB sent serial must be a positive SQLite integer")
         else:
             require(re.fullmatch(r"[0-9]+", fields["other_1"]) is not None
                     and 0 < int(fields["other_1"]) <= 9223372036854775807,
@@ -1559,11 +1571,13 @@ class Host:
     @staticmethod
     def rebuild(desk):
         rows = desk.database.fetch_all_contacts_asc()
-        points = {}
+        points, duplicate_ids = {}, set()
         desk.database.conn.execute("DELETE FROM DXLOG")
         for row in rows:
             desk.contact = row
             desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
+            if desk.contact_is_dupe:
+                duplicate_ids.add(row["ID"])
             if desk.state["pluginID"] in TEN_TEN_PLUGINS:
                 # The original points() reads the active exchange widget. During
                 # ordered replay, make that widget represent the row being scored.
@@ -1572,10 +1586,17 @@ class Host:
             points[row["ID"]] = row["Points"]
             desk.database.log_contact(row)
         desk.contest.recalculate_mults(desk)
-        # Upstream recalculate_mults calls points with one shared dupe flag.
-        # Restore each contact's plugin-calculated score from the ordered replay.
-        for qso_id, value in points.items():
-            desk.database.conn.execute("UPDATE DXLOG SET Points=? WHERE ID=?", (value, qso_id))
+        if desk.state["pluginID"] == "rsgb_commonwealth_beru":
+            # BERU's original callback deliberately reallocates the first three
+            # per-band bonuses. Preserve those recalculated values while retaining
+            # the ordered replay's duplicate-zero rule.
+            for qso_id in duplicate_ids:
+                desk.database.conn.execute("UPDATE DXLOG SET Points=0 WHERE ID=?", (qso_id,))
+        else:
+            # Most upstream recalculate_mults callbacks call points with one
+            # shared dupe flag. Restore each ordered replay score for those plugins.
+            for qso_id, value in points.items():
+                desk.database.conn.execute("UPDATE DXLOG SET Points=? WHERE ID=?", (value, qso_id))
 
     def audit(self, store, qso_id, kind, before, after, reason=""):
         store.conn.execute("INSERT INTO xlog_qso_audit(operation_id,qso_id,kind,before_json,after_json,reason) VALUES(?,?,?,?,?,?)", (self._operation, qso_id, kind, canonical(before), canonical(after), reason))
