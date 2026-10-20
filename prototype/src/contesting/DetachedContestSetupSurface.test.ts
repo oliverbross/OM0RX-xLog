@@ -4,6 +4,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { contestSetupWindowSize, fittedContestSetupWindowSize, loadContestStationSnapshot } from "./DetachedContestSetupSurface";
 import type { RadioID, StationSession } from "../live/stationSession";
+import contestSetupOwnerCapability from "../../src-tauri/capabilities/contest-setup-owner.json";
 
 const mocks = vi.hoisted(() => ({
   worker: vi.fn(),
@@ -48,7 +49,12 @@ describe("Contest Setup station projection", () => {
     expect(contestSetupWindowSize("Edit Macros")).toEqual({ width: 880, height: 700 });
     expect(fittedContestSetupWindowSize(null, 300, 1_400)).toEqual({ width: 600, height: 360 });
     expect(fittedContestSetupWindowSize("New Contest", 846, 1_400)).toEqual({ width: 560, height: 870 });
+    expect(fittedContestSetupWindowSize("New Contest", 846, 2_160, 1.5)).toEqual({ width: 560, height: 1_305 });
     expect(fittedContestSetupWindowSize("Edit Keys", 1_600, 1_000)).toEqual({ width: 880, height: 936 });
+  });
+  it("admits native resizing only for the detached Contest Setup owner", () => {
+    expect(contestSetupOwnerCapability.windows).toEqual(["contest-setup"]);
+    expect(contestSetupOwnerCapability.permissions).toEqual(["core:window:allow-set-size"]);
   });
   it("reads the active xLog radio through the native station session", async () => {
     const load = vi.fn(async (radioId: RadioID) => radioId === "radio1"

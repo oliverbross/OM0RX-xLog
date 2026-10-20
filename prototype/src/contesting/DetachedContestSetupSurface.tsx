@@ -26,9 +26,10 @@ export function contestSetupWindowSize(view: SetupView | null): { width: number;
   return { width: 600, height: 360 };
 }
 
-export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableHeight: number): { width: number; height: number } {
+export function fittedContestSetupWindowSize(view: SetupView | null, contentHeight: number, availableHeight: number, contentScale = 1): { width: number; height: number } {
   const preferred = contestSetupWindowSize(view);
-  const measured = Number.isFinite(contentHeight) && contentHeight > 0 ? Math.ceil(contentHeight + 24) : preferred.height;
+  const scale = Number.isFinite(contentScale) && contentScale > 0 ? contentScale : 1;
+  const measured = Number.isFinite(contentHeight) && contentHeight > 0 ? Math.ceil((contentHeight + 24) * scale) : preferred.height;
   const limit = Number.isFinite(availableHeight) && availableHeight > 0
     ? Math.max(preferred.height, Math.floor(availableHeight - 64)) : measured;
   return { width: preferred.width, height: Math.min(Math.max(preferred.height, measured), limit) };
@@ -59,9 +60,20 @@ export function DetachedContestSetupSurface() {
   const resizeForSetupView = useCallback((view: SetupView | null) => {
     window.cancelAnimationFrame(resizeFrame.current);
     resizeFrame.current = window.requestAnimationFrame(() => {
-      const panel = document.querySelector<HTMLElement>(".contest-workspace.is-setup-only > .contest-setup");
-      const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight);
-      void getCurrentWindow().setSize(new LogicalSize(size.width, size.height)).catch(() => {});
+      const fit = async () => {
+        const panel = document.querySelector<HTMLElement>(".contest-workspace.is-setup-only > .contest-setup");
+        const appWindow = getCurrentWindow();
+        const [innerSize, scaleFactor] = await Promise.all([appWindow.innerSize(), appWindow.scaleFactor()]);
+        const logicalInnerHeight = scaleFactor > 0 ? innerSize.height / scaleFactor : innerSize.height;
+        const contentScale = window.innerHeight > 0 ? logicalInnerHeight / window.innerHeight : 1;
+        const size = fittedContestSetupWindowSize(view, panel?.scrollHeight ?? 0, window.screen.availHeight, contentScale);
+        await appWindow.setSize(new LogicalSize(size.width, size.height));
+      };
+      void fit().then(() => {
+        // Re-measure after the native width change because wrapping can alter
+        // the form height, especially with xLog's 4K interface scaling.
+        resizeFrame.current = window.requestAnimationFrame(() => void fit().catch(cause => setError(message(cause))));
+      }).catch(cause => setError(message(cause)));
     });
   }, []);
   useEffect(() => () => window.cancelAnimationFrame(resizeFrame.current), []);

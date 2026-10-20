@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "contest-setup-owner",
+  "description": "Allow the detached Contest Setup owner to fit its native window to the active Not1MM form.",
+  "windows": ["contest-setup"],
+  "permissions": ["core:window:allow-set-size"]
+}
