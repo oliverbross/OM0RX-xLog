@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { useMemo, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DetachedContestSurface } from "./DetachedContestSurface";
@@ -69,6 +70,13 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   expect(screen.queryByRole("button")).toBeNull();
   expect(document.querySelector("canvas")).toBeNull();
   expect(document.querySelector("dl")).toBeNull();
+});
+
+it("allows the compact Statistics table to fit the supported 400px window minimum", () => {
+  const css = readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`, "utf8");
+  expect(css).toContain(".contest-surface-statistics-scroll { flex:1; width:100%; min-width:0; min-height:0; overflow:auto;");
+  expect(css).toContain(".contest-surface-statistics-v3 table { width:100%; min-width:0;");
+  expect(css).not.toContain(".contest-surface-statistics-v3 table { width:100%; min-width:430px;");
 });
 
 it("renders ICWC original name/serial input while omitting hidden report fields", async()=>{
