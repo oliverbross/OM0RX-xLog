@@ -20,6 +20,8 @@
 
 The installed bundle's signature and four recorded hashes match the packaged candidate. Embedded `Not1MM/python-runtime.json` records Python 3.12.4, source commit `cfca24ef08e92c36b06739d552449347517010ae`, and `sourceChanges: []`.
 
+After installation, restart acceptance, and hash verification, the reproducible package build directory was removed during the authorized disk-cache cleanup. The package path above records the build origin; the signed installed bundle remains present and retains the recorded hashes and strict signature.
+
 ## Independent-review findings
 
 The findings from the review of `6f308695` were checked against the latest branch before this candidate was packaged.
