@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import sys
 
-from .plugins import PLUGIN_REGISTRY
+from .plugins import PLUGIN_REGISTRY, RTTY_PLUGINS
 
 VENDOR = Path(__file__).resolve().parents[1] / "vendor/not1mm/upstream"
 _verified = False
@@ -52,7 +52,7 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
     """Return the pinned Not1MM Run/S&P macro text through a finite token adapter."""
     verify_source()
     result = {}
-    source = VENDOR / ("not1mm/data/rttymacros.txt" if plugin_id == "cq_ww_rtty"
+    source = VENDOR / ("not1mm/data/rttymacros.txt" if plugin_id in RTTY_PLUGINS
                        else "not1mm/data/cwmacros.txt")
     for line in source.read_text(encoding="utf-8").splitlines():
         parts = line.split("|", 3)
@@ -129,6 +129,21 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 "    result3 = self.database.exec_sql(res3_query)",
                 "result3 = {\"spc_count\": self.database.fetch_state_band_count()}",
             ))
+        if plugin_id == "cq_wpx_rtty":
+            # The pinned RTTY ESM accidentally tests the received serial with
+            # isalpha(), making its LOGIT branch unreachable for valid numeric
+            # exchanges. Correct each distinct Run/S&P anchor without changing
+            # the preserved source bytes or its button/commit decisions.
+            replacements.extend([
+                ("elif self.other_1.text().isnumeric() and self.other_2.text().isalpha():\n"
+                 "                # If the operator corrected a busted callsign",
+                 "elif self.other_1.text().isnumeric() and self.other_2.text().isnumeric():\n"
+                 "                # If the operator corrected a busted callsign"),
+                ("elif self.other_1.text().isnumeric() and self.other_2.text().isalpha():\n"
+                 "                self.make_button_green(self.esm_dict[\"EXCH\"])",
+                 "elif self.other_1.text().isnumeric() and self.other_2.text().isnumeric():\n"
+                 "                self.make_button_green(self.esm_dict[\"EXCH\"])")
+            ])
         if plugin_id in {"oceania_dx_cw", "oceania_dx_ssb"}:
             # SQLite stores Band as REAL; the pinned plugin indexes string keys.
             # Ordered host replay already computed each row's duplicate points.

@@ -6,9 +6,10 @@ the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
+CQ WPX RTTY,
 ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX CW, ARRL DX SSB,
-NAQP CW, NAQP SSB,
-Phone Weekly Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
+NAQP CW, NAQP SSB, NAQP RTTY,
+Phone Weekly Test, Weekly RTTY Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
 Oceania DX CW, Oceania DX SSB, SAC CW, SAC SSB, and IARU Region 1
 Field Day CW and SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
@@ -122,6 +123,24 @@ import time and fails if the pinned source differs:
     original Python behavior. SSB remains non-transmitting and adds no audio/PTT
     authority.
 
+14. CQ WPX RTTY, NAQP RTTY and Weekly RTTY Test execute unchanged modules from
+    the same pinned revision (Git blobs `b7e1f99dee2f87c73833d1f573bfa7f627f422a9`,
+    `9556ed1e7ce5dd04d01d3703794fb9e8aa4ff4ed` and
+    `6f7d0209633f372f8cc99e89445b374ce9bfe8c0`). All registered RTTY plugins
+    use the original byte-identical `rttymacros.txt` through a finite
+    non-transmitting digital sink. CQ WPX RTTY owns a durable reserved serial
+    in `other_1` and retains the original numeric exchange, prefix multiplier,
+    scoring and Cabrillo callbacks. A two-anchor import overlay corrects the
+    plugin's unreachable ESM LOGIT predicate from alphabetic to numeric received
+    serials while retaining its original button and commit decisions. NAQP RTTY stores the configured sent
+    exchange while using the original name/SPC validation, section-per-band
+    multipliers and North-American point rule. Weekly RTTY uses the same entry
+    fields but preserves its distinct one-point contacts, unique-call
+    multiplier and score. Corrections preserve each contact's historical sent
+    exchange for the two name/SPC contests, and ordered rebuilds keep original
+    duplicate, multiplier and scoring callbacks authoritative. No digital
+    transmission or external modem integration is introduced.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -141,6 +160,9 @@ Original SHA-256:
 | plugins/naqp_cw.py | 84da97206ac651638498812dc7867432c883e88650a86571161ca5e3a72b222b |
 | plugins/naqp_ssb.py | 551b57f984cbaf4697a3ae9b146ad6f3519a14cc8df0dc9c3f30a7c5fea7c2bc |
 | plugins/phone_weekly_test.py | 94770e46c5f16dae2d1bb0482f37011ff48678b49fa547c28cb4902f35bdefae |
+| plugins/cq_wpx_rtty.py | 71d8ee0996f91ce3ad0dabaa524aae49bd1197b5313bfeb3d709c15e7b84a351 |
+| plugins/naqp_rtty.py | f74bc7f40d257e0f3db7270c8e7b4bec00d6c50c11af37baa8aaa8a7f3f131c1 |
+| plugins/weekly_rtty.py | 595cc4514d88fd3c7d8568bf695366a700b4d08c2a491334958e42702df6d02a |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |
