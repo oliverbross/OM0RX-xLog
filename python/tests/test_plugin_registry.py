@@ -23,6 +23,8 @@ class PluginRegistryTests(unittest.TestCase):
         self.assertEqual(self.manifest["registeredPlugins"], list(PLUGIN_REGISTRY))
         self.assertEqual(SERIAL_PLUGINS, {key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial})
         self.assertEqual(dict(PLUGINS), {key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
+        self.assertEqual(PLUGIN_REGISTRY["cq_ww_cw"].matrix_trackers, ("countries", "zones"))
+        self.assertTrue(all(not plugin.matrix_trackers for key, plugin in PLUGIN_REGISTRY.items() if key != "cq_ww_cw"))
         with TemporaryDirectory() as root:
             host = Host(Path(root).resolve())
             try:

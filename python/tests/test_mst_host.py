@@ -45,6 +45,7 @@ class MSTHostTests(unittest.TestCase):
         self.assertEqual(load_plugin("icwc_mst").__file__, str(path))
         view = self.read("session_open")["projection"]
         self.assertEqual(view["pluginName"], "ICWC Medium Speed Test")
+        self.assertEqual(view["matrixTrackers"], [])
         self.assertEqual(view["reservedSerial"], 1)
         self.assertEqual(view["nextField"], "other_2")
         self.assertEqual(view["tabNext"], {"callsign": "other_1", "other_1": "other_2", "other_2": "callsign"})

@@ -27,6 +27,7 @@ type Projection = {
   workspaceGeneration: string; revision: number; draftID: string; fields: Field[]; frequencyHz: number; mode: string; band: number;
   focus: string; tabNext: Record<string, string>; tabPrevious: Record<string, string>; run: boolean;
   functionKeys: Array<{ id: string; highlighted: boolean; label?: string; template?: string }>; dupe: boolean; dupeExplanation?: string; countryResolved: boolean;
+  matrixTrackers?: Array<"countries" | "zones">;
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
   supportedBands?: string[]; supportedModes?: Array<"CW" | "SSB" | "RTTY" | "AM" | "FM">; allowDuplicateCommit?: boolean;
   columns?: string[];
@@ -211,7 +212,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
-  const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({ countries: [], zones: [] });
+  const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({});
   const [rates, setRates] = useState<Data | null>(null);
   const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
@@ -272,7 +273,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const acceptSessionProjection = (next: Projection) => {
     if (projectionRef.current?.sessionID !== next.sessionID) {
       setRows([]); setLogOffset(0); setLogTotal(0); setPartial(null); setScore(null);
-      setMatrices({ countries: [], zones: [] }); setRates(null); setEditing(null);
+      setMatrices({}); setRates(null); setEditing(null);
     }
     acceptProjection(next);
   };
@@ -285,7 +286,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     ]);
     if (next && projectionRef.current?.sessionID !== next.sessionID) return;
     setRows(Array.isArray(log.rows) ? log.rows : []); setLogOffset(Number(log.offset ?? offset)); setLogTotal(Number(log.total ?? 0));
-    setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? { countries: [], zones: [] });
+    setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? {});
     setRates(rateResult);
   };
   const openSession = async (session: Session) => {
@@ -670,11 +671,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       last100QsoPerHour: rates?.last100QsoPerHour ?? null, sinceMinuteQsoPerHour: rates?.sinceMinuteQsoPerHour ?? null,
       runQso: Number(rates?.runQso ?? 0), searchAndPounceQso: Number(rates?.searchAndPounceQso ?? 0),
       hourRunQso: Number(rates?.hourRunQso ?? 0), hourSearchAndPounceQso: Number(rates?.hourSearchAndPounceQso ?? 0), busy: busy || retiring };
-    if (Array.isArray(matrices.countries) && matrices.countries.length) {
-      unavailable.awards = multiplierMatrix("DXCC", Array.isArray(matrices.countries) ? matrices.countries : [], busy || retiring);
+    // An empty worker matrix is a valid tracker with no worked multipliers yet.
+    // Missing matrices remain unavailable for plugins that do not expose them.
+    if (projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
+      unavailable.awards = multiplierMatrix("DXCC", matrices.countries, busy || retiring);
     }
-    if (Array.isArray(matrices.zones) && matrices.zones.length) {
-      unavailable["chaser-dx"] = multiplierMatrix("CQ Zones", Array.isArray(matrices.zones) ? matrices.zones : [], busy || retiring);
+    if (projection.matrixTrackers?.includes("zones") && Array.isArray(matrices.zones)) {
+      unavailable["chaser-dx"] = multiplierMatrix("CQ Zones", matrices.zones, busy || retiring);
     }
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,

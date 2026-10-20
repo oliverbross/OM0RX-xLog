@@ -120,7 +120,7 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   focus: "callsign", tabNext: { callsign: "sent", sent: "receive", receive: "other_2", other_2: "callsign" },
   tabPrevious: { callsign: "other_2", sent: "callsign", receive: "sent", other_2: "receive" }, run: false,
   functionKeys: Array.from({ length: 12 }, (_, index) => ({ id: `F${index + 1}`, highlighted: index === 1 })),
-  dupe: false, countryResolved: true, history: "K1ABC United States", columns: [] as string[],
+  dupe: false, countryResolved: true, history: "K1ABC United States", columns: [] as string[], matrixTrackers: ["countries", "zones"] as Array<"countries" | "zones">,
   score: { qsos: 0, points: 0, countries: 0, zones: 0, total: 0 },
   fields: [
     ["callsign", "Call", true, ""], ["sent", "SNT", true, "599"], ["receive", "RCV", true, "599"],
@@ -128,8 +128,36 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it.each([false, true])("publishes ready empty CQ WW trackers and preserves populated matrices (worked=%s)", async worked => {
+  const current = projection();
+  const matrices = { countries: worked ? [{ value: "Slovakia", band: 14, qsos: 2 }] : [],
+    zones: worked ? [{ value: "15", band: 7, qsos: 1 }] : [] };
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? { plugins: [{ id: "cq_ww_cw", name: "CQ WW CW" }] } :
+      method === "contest_sessions" ? { sessions: [] } : method === "contest_create" ? { projection: current } :
+      method === "contest_log_page" ? { rows: [], total: 0 } : method === "contest_score" ? { score: current.score, matrices } : null;
+    if (!result) throw new Error(method);
+    return { id: crypto.randomUUID(), ok: true, result };
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections.awards.status).toBe("ready"));
+  const bands = ["160m", "80m", "40m", "20m", "15m", "10m"];
+  const countries = surfaceOwner.current.projections.awards;
+  const zones = surfaceOwner.current.projections["chaser-dx"];
+  expect(countries).toMatchObject({ schemaVersion: 1, status: "ready", title: "DXCC", bands, total: worked ? 1 : 0 });
+  expect(zones).toMatchObject({ schemaVersion: 1, status: "ready", title: "CQ Zones", bands, total: worked ? 1 : 0 });
+  expect(countries.rows).toEqual(worked ? [{ label: "Slovakia", counts: { "160m": 0, "80m": 0, "40m": 0, "20m": 2, "15m": 0, "10m": 0 }, total: 2 }] : []);
+  expect(zones.rows).toEqual(worked ? [{ label: "15", counts: { "160m": 0, "80m": 0, "40m": 1, "20m": 0, "15m": 0, "10m": 0 }, total: 1 }] : []);
+  expect(validContestSurfaceProjection("awards", countries)).toBe(true);
+  expect(validContestSurfaceProjection("chaser-dx", zones)).toBe(true);
+});
+
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
-  const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3,
+  const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3, matrixTrackers:[],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name","RcvNr","PTS"],
     score:{qsos:2,points:2,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:2} };
   current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
@@ -140,7 +168,7 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
     if(method==="contest_scp_status")return unavailableSCP(); if(method==="contest_history_status")return unavailableHistory();
     const result=method==="contest_catalog"?{plugins:[{id:"icwc_mst",name:"ICWC Medium Speed Test"}]}:
       method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
-      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score}:null;
+      method==="contest_log_page"?{rows:[row],total:1}:method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:null;
     if(!result)throw new Error(method); return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
@@ -154,6 +182,8 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
   expect(entry.descriptor).toMatchObject({reportsVisible:false,serial:{requirement:"requiredForCommit",allocatedFieldID:"other_1",reservedSerial:3}});
   expect(entry.draft).toMatchObject({reservedSerial:3,receivedFields:[{id:"other_2",label:"Name + S/N",value:"BOB 12",required:true,maximumUTF8Bytes:128}]});
   expect(surfaceOwner.current.projections.propagation.score).toMatchObject({multipliers:1,multiplierDisplayLabels:["1 unique calls"]});
+  expect(surfaceOwner.current.projections.awards.status).toBe("unavailable");
+  expect(surfaceOwner.current.projections["chaser-dx"].status).toBe("unavailable");
   expect(surfaceOwner.current.projections.logbook).toMatchObject({exchangeLayout:"plugin",
     pluginColumns:current.columns,pluginRows:[{qsoID:row.ID,values:[row.TS,row.Call,String(row.Freq),"1",row.Name,"12","1"]}],
     page:{rows:[{receivedExchange:"BOB 12",sentExchange:"1"}]}});
@@ -167,7 +197,7 @@ it("projects ICWC serial, original exchange labels, unique calls and editable pa
 it("projects CWOPS Open serial/name exchange, retained dupes and unique-call score", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"12 ALICE"}), pluginID:"cwo", pluginName:"CWOPS - Open",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","Name","M1","PTS"],
-    reservedSerial:3,allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band.",
+    reservedSerial:3,allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band.",matrixTrackers:[],
     score:{qsos:2,points:1,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:1} };
   current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
     readOnly:field.id==="other_1", label:field.id==="other_1"?"SentNR":field.id==="other_2"?"Recd Number and Name":field.label}));
@@ -202,7 +232,7 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
   const current = { ...projection(5, {other_1:"001",other_2:"012"}), pluginID:"trans_tasman", pluginName:"Trans Tasman CW",
     frequencyHz:7_025_000,band:7,reservedSerial:1,supportedBands:["160m","80m","40m"],supportedModes:["CW"],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Mode","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
-    allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14).",
+    allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14).",matrixTrackers:[],
     ruleIdentity:{id:"trans-tasman",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"},
     score:{qsos:1,points:1,countries:0,zones:0,multipliers:1,prefixes:1,total:1} };
   current.fields = current.fields.map(field => ({...field,readOnly:field.id==="other_1",
@@ -244,7 +274,7 @@ it.each([
     row:{ID:"ss-qso",TS:"2026-10-20 12:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,CK:67,Prec:"A",Sect:"CT",IsMultiplier1:1,Points:2},
     receivedExchange:"123 A K1ABC 67 CT", values:["2026-10-20 12:00:00","K1ABC","14025","599","599","1","123","67","A","CT","✓","2"] },
 ])("projects the actual $pluginName log columns and exchange", async ({pluginID,pluginName,columns,row,receivedExchange,values}) => {
-  const current={...projection(3,{other_1:"002"}),pluginID,pluginName,columns,
+  const current={...projection(3,{other_1:"002"}),pluginID,pluginName,columns,matrixTrackers:[],
     reservedSerial:2,score:{qsos:1,points:row.Points,countries:0,zones:0,multipliers:1,total:row.Points}};
   current.fields=current.fields.map(field=>({...field,readOnly:field.id==="other_1"}));
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{

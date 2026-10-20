@@ -306,6 +306,7 @@ class Desk:
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
+                "matrixTrackers": list(plugin.matrix_trackers),
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,

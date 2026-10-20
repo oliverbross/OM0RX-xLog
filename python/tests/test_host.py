@@ -295,6 +295,7 @@ class HostTests(unittest.TestCase):
         self.log()
         view = self.mutate("draft_apply", fields={"callsign": "DL1ABC"})["projection"]
         self.assertEqual((view["operator"], view["cwSpeedWpm"]), ("OM0RX/P", 27))
+        self.assertEqual(view["matrixTrackers"], ["countries", "zones"])
         self.assertEqual(view["score"]["multipliers"], view["score"]["countries"] + view["score"]["zones"])
         self.assertEqual(view["callContext"], {"callsign": "DL1ABC", "entity": "Germany", "country": "Germany",
             "continent": "EU", "cqZone": 14, "ituZone": 28, "primaryPrefix": "DL", "headingDegrees": None,

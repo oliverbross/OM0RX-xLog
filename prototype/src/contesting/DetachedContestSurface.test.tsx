@@ -249,6 +249,25 @@ it.each([{ panelID: "awards", title: "DXCC", label: "Slovakia" }, { panelID: "ch
     expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
   });
 
+it.each([{ panelID: "awards", title: "DXCC", column: "DXCC" }, { panelID: "chaser-dx", title: "CQ Zones", column: "Zone" }])(
+  "renders an empty $title tracker with its band headings", async ({ panelID, title, column }) => {
+    window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
+    const bands = ["160m", "80m", "40m", "20m", "15m", "10m"];
+    native.invoke.mockImplementation(async (command: string) => {
+      if (command === "contest_surface_snapshot") return { ...snapshot, panelID, projection: {
+        schemaVersion: 1, status: "ready", title, bands, rows: [], total: 0, busy: false } };
+      throw new Error(command);
+    });
+    render(<DetachedContestSurface/>);
+    expect(await screen.findByRole("heading", { name: title })).toBeTruthy();
+    expect(screen.getByRole("table", { name: `${title} by band` })).toBeTruthy();
+    expect(screen.getAllByRole("columnheader").map(cell => cell.textContent)).toEqual([column, ...bands, "Total"]);
+    expect(screen.getByText("0 worked")).toBeTruthy();
+    expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
+    expect(screen.queryByText("Panel unavailable")).toBeNull();
+    expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+  });
+
 it("renders the owner projection and forwards raw edits with exact revision fencing",async()=>{
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return snapshot;
