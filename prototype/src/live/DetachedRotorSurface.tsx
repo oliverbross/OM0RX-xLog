@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import RotorCompass from "./RotorCompass";
 import { connectRotorTelemetry } from "./rotorTelemetry";
 import { rotorProjection, type RotorSnapshot } from "./rotorControl";
-import { nativeRotorStop } from "./nativeRotorStop";
 import { useAutoRotor } from "./useAutoRotor";
+import { ManualRotorControl } from "./ManualRotorControl";
+import { rotorCommandParams, validRotorSnapshot } from "./rotorControl";
+import { workerRequest } from "../worker";
 import "./DetachedTaskSurface.css";
 
 /** Retained observations and the existing native automatic-rotor controller.
@@ -11,10 +13,10 @@ import "./DetachedTaskSurface.css";
 export function DetachedRotorSurface() {
   const [snapshot, setSnapshot] = useState<RotorSnapshot | null>(null), [available, setAvailable] = useState(false);
   const [clock, setClock] = useState(Date.now());
-  const automatic = useAutoRotor(), [autoError, setAutoError] = useState(""), [stopError, setStopError] = useState("");
-  const [arming, setArming] = useState(false), [stopping, setStopping] = useState(false);
+  const automatic = useAutoRotor(), [autoError, setAutoError] = useState("");
+  const [arming, setArming] = useState(false);
   const latest = useRef({ snapshot, available }); latest.current = { snapshot, available };
-  const active = useRef(true), armingRef = useRef(false), stoppingRef = useRef(false);
+  const active = useRef(true), armingRef = useRef(false);
   useEffect(() => {
     active.current = true;
     const dispose = connectRotorTelemetry(value => { setSnapshot(value); setAvailable(true); }, () => setAvailable(false));
@@ -38,17 +40,11 @@ export function DetachedRotorSurface() {
     catch (cause) { if (active.current) setAutoError(cause instanceof Error ? cause.message : "Automatic rotor control failed."); }
     finally { if (enabled) { armingRef.current = false; if (active.current) setArming(false); } }
   };
-  const stopCurrent = async () => {
-    const owner = latest.current.snapshot?.owner;
-    if (!owner || stoppingRef.current) return;
-    stoppingRef.current = true; setStopping(true); setStopError("");
-    try {
-      await nativeRotorStop(owner);
-    } catch (cause) {
-      if (active.current) setStopError(cause instanceof Error ? cause.message : "Rotor Stop outcome is unknown. Check the observed state before trying again.");
-    } finally {
-      stoppingRef.current = false; if (active.current) setStopping(false);
-    }
+  const parkCurrent = async (captured: RotorSnapshot) => {
+    const reply = await workerRequest("rotor_park", rotorCommandParams(captured));
+    if (!validRotorSnapshot(reply.result) || reply.result.owner !== captured.owner || reply.result.state !== "active" ||
+        reply.result.backend_available === false || reply.result.generation < captured.generation)
+      throw new Error("Rotor Park acknowledgement could not be verified. Check the observed state before trying again.");
   };
   return <div className="app live detached-task-app detached-rotor-app"><main aria-label="Detached Rotor"><section className="detached-rotor-observation" aria-label="Rotor state">
     <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
@@ -60,10 +56,10 @@ export function DetachedRotorSurface() {
           onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
       <button type="button" aria-label="Turn automatic rotor off" title="Disarm future automatic turns."
         onClick={() => { void changeAutomatic(false); }}>Off</button>
-      <button type="button" aria-label="Stop rotor" disabled={!snapshot?.owner || stopping}
-        title="Stop the current move through the native rotor owner. No move is replayed."
-        onClick={() => { void stopCurrent(); }}>{stopping ? "Stopping…" : "Stop"}</button>
     </div>
-    {(stopError || autoError || automatic.error) && <p className="live-error" role="alert">{stopError || autoError || automatic.error}</p>}</div>
+    {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
+    <ManualRotorControl observation={{ available: current, snapshot }}
+      onManual={() => automatic.state?.armed ? changeAutomatic(false) : undefined}
+      onPark={parkCurrent} hideHeading /></div>
   </section></main></div>;
 }

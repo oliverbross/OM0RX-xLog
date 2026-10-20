@@ -11,9 +11,10 @@ vi.mock("./useAutoRotor", () => ({ useAutoRotor: () => automatic }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
 let event: (value: { payload: unknown }) => void;
-const snapshot = () => ({ owner: "native_dcu1", generation: 7, state: "active", backend_available: true,
-  backend: { connected: true, name: "Existing rotor", azimuth: 123.4, observed_at: Date.now() / 1000, status: "Observed" } });
-const observation = (revision = 1) => ({ revision, available: true, snapshot: snapshot(), received_at_ms: Date.now() });
+const snapshot = (owner: "native_dcu1" | "hamlib" = "native_dcu1"): any => ({ owner, generation: 7, state: "active", backend_available: true,
+  backend: owner === "hamlib" ? { fields: { position: { Azimuth: "123.4" } }, observed_at_ms: Date.now() }
+    : { connected: true, name: "Existing rotor", azimuth: 123.4, observed_at: Date.now() / 1000, status: "Observed" } });
+const observation = (revision = 1, owner: "native_dcu1" | "hamlib" = "native_dcu1") => ({ revision, available: true, snapshot: snapshot(owner), received_at_ms: Date.now() });
 beforeEach(() => {
   vi.useFakeTimers(); vi.resetAllMocks();
   automatic.state = { armed: false }; automatic.error = ""; automatic.set.mockResolvedValue(undefined);
@@ -69,6 +70,7 @@ it("places the bearing under the left compass and automatic controls to its righ
   expect(screen.queryByRole("heading")).toBeNull();
   expect(screen.getByRole("button", { name: "Turn automatic rotor off" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Stop rotor" })).toBeTruthy();
+  expect(screen.getByRole("spinbutton", { name: "Manual rotor bearing degrees" })).toBeTruthy();
   expect(screen.queryByText(/independent of Desk|Connection setup, turning/)).toBeNull();
   for (const diagnostic of ["Rotor", "Connection", "Generation", "Position observed"])
     expect(screen.queryByText(diagnostic, { selector: "dt" })).toBeNull();
@@ -137,4 +139,43 @@ it("reports an uncertain Stop once and does not retry it", async () => {
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Stop rotor" })); });
   expect(screen.getByRole("alert").textContent).toBe("Stop acknowledgement lost");
   expect(native.invoke.mock.calls.filter(([command]) => command === "monitor_rotor_stop")).toHaveLength(1);
+});
+
+it("routes manual Goto through the existing durable admission and never directly invokes rotor_goto", async () => {
+  const retained = observation();
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "rotor_telemetry_snapshot") return retained;
+    if (command === "manual_rotor_request" && args.params.action === "snapshot") return {
+      generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", revision: 4, last_receipt: null, worker_generation: 3,
+      rotor: retained,
+    };
+    if (command === "manual_rotor_request" && args.params.action === "manual_rotor_goto") return {
+      operation_id: args.params.operation_id, request: { action: "manual_rotor_goto" }, status: "acknowledged",
+    };
+    throw new Error(`Unexpected ${command}`);
+  });
+  render(<DetachedRotorSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Manual rotor bearing degrees" }), { target: { value: "212" } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Turn rotor" })); });
+  const admitted = native.invoke.mock.calls.find(([command, args]) => command === "manual_rotor_request" && args.params.action === "manual_rotor_goto");
+  expect(admitted?.[1].params).toMatchObject({ rotor_owner: "native_dcu1", rotor_generation: 7, bearing: 212 });
+  expect(native.invoke.mock.calls.some(([command]) => command === "worker_request")).toBe(false);
+});
+
+it("offers Hamlib Park only and verifies the existing fenced worker acknowledgement", async () => {
+  const retained = observation(1, "hamlib");
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "rotor_telemetry_snapshot") return retained;
+    if (command === "operating_module_status") return { context: "contesting" };
+    if (command === "worker_request") return { id: args.request.id, ok: true, result: snapshot("hamlib") };
+    throw new Error(`Unexpected ${command}`);
+  });
+  render(<DetachedRotorSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Park rotor" })); });
+  expect(native.invoke.mock.calls.find(([command]) => command === "worker_request")?.[1].request).toMatchObject({
+    method: "rotor_park", params: { owner: "hamlib", generation: 7 }, operatingContext: "contesting",
+  });
+  expect(screen.getAllByRole("status").some(item => item.textContent?.includes("Park acknowledged"))).toBe(true);
 });
