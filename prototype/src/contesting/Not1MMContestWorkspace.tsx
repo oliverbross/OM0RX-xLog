@@ -15,6 +15,7 @@ import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
 import { openContestSetupService } from "./contestSetupServices";
+import { openContestSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
@@ -475,6 +476,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       false, true, false, true);
     if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
+  useContestSetupDialogs({ enabled: setupOnly, context: `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`,
+    document: setup, save: async document => {
+      if (busyRef.current || retiring) throw new Error("Contest Setup is busy. Try again after it finishes.");
+      await saveSetup(document);
+    }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Escape") { event.preventDefault(); void cw.controller.stop(); return; }
@@ -854,6 +860,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
+      if (route === "contest-dialog-station" || route === "contest-dialog-configuration") {
+        await openContestSetupDialog(route === "contest-dialog-station" ? "station" : "configuration");
+        return true;
+      }
       if (route === "contest-setup") {
         await flushDraftRef.current();
         setManager(true);
@@ -942,6 +952,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name) }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
+      onOpenDialog={setupOnly ? openContestSetupDialog : undefined}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable

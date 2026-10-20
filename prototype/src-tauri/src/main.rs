@@ -53,6 +53,7 @@ mod operating_module;
 mod contest_window_context;
 mod contest_surface;
 mod contest_setup_services;
+mod contest_setup_dialogs;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -1947,6 +1948,40 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
 }
 
 #[tauri::command]
+async fn contest_setup_dialog_open(window: tauri::WebviewWindow, app: tauri::AppHandle, kind: String) -> Result<(), String> {
+    if window.label() != CONTEST_SETUP_WINDOW { return Err("Only Contest Setup opens its dialogs.".into()); }
+    let (label, title, width, height) = contest_setup_dialogs::spec(&kind).ok_or("Unknown setup dialog.")?;
+    let dialog = recover_singleton(&MAIN_CREATION, || app.get_webview_window(label), || {
+        let mut builder = tauri::WebviewWindowBuilder::new(&app, label,
+            tauri::WebviewUrl::App(format!("index.html?view={label}").into()))
+            .title(format!("OM0RX-xLog Contest — {title}"))
+            .inner_size(width, height).min_inner_size(620.0, 480.0).focused(true)
+            .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+        if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
+        let dialog = builder.build().map_err(|error| error.to_string())?;
+        if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&dialog); }
+        Ok(dialog)
+    })?;
+    dialog.unminimize().map_err(|error| error.to_string())?;
+    dialog.show().map_err(|error| error.to_string())?;
+    dialog.set_focus().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn contest_setup_dialog_request(window: tauri::WebviewWindow, app: tauri::AppHandle, method: String, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    if APP_EXITING.load(Ordering::Acquire) { return Err("The application is closing.".into()); }
+    if method == "close" {
+        contest_setup_dialogs::kind(window.label()).ok_or("Only setup dialogs close themselves here.")?;
+        window.close().map_err(|error| error.to_string())?;
+        return Ok(serde_json::Value::Null);
+    }
+    if window.label() != CONTEST_SETUP_WINDOW && app.get_webview_window(CONTEST_SETUP_WINDOW).is_none() {
+        return Err("Contest Setup is closed. Reopen it and the dialog.".into());
+    }
+    contest_setup_dialogs::request(window.label(), &method, params)
+}
+
+#[tauri::command]
 async fn contest_setup_service_open(window: tauri::WebviewWindow, app: tauri::AppHandle, service: String) -> Result<(), String> {
     let active_radio = (service == "Radio")
         .then(|| radio_slots::active(&app))
@@ -2567,6 +2602,7 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_surface_context_close, contest_setup_service_open,
+            contest_setup_dialog_open, contest_setup_dialog_request,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,

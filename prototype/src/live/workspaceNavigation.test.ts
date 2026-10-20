@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { connectWorkspaceNavigation, contestMenuPanelIDs, isContestMenuRoute, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
+import { connectWorkspaceNavigation, contestMenuPanelIDs, contestSetupDialogRoutes, isContestMenuRoute, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
 import { OperatorDraftSession } from "./operatorDraftSession";
 import { SpotActivationEditor } from "./spotActivation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
@@ -32,7 +32,7 @@ it("subscribes before reading a menu click retained before the renderer started"
   disconnect(); expect(f.stop).toHaveBeenCalledOnce();
 });
 it("accepts only known contest setup and window intents", () => {
-  for (const screen of ["contest-setup", ...contestMenuPanelIDs.map(id => `contest-window-${id}`)]) {
+  for (const screen of ["contest-setup", ...contestSetupDialogRoutes, ...contestMenuPanelIDs.map(id => `contest-window-${id}`)]) {
     expect(isContestMenuRoute(screen)).toBe(true);
     expect(validWorkspaceNavigation({ revision: 1, screen })).toBe(true);
   }

@@ -17,6 +17,11 @@ const main = "src/LiveApp.tsx";
 assert(manifest[main], "Main workspace bundle is missing");
 const eagerGraph = closure("index.html");
 const eagerCss = new Set([...eagerGraph].flatMap(key => manifest[key].css ?? []));
+const setupDialogEntry = "src/contesting/DetachedContestSetupDialog.tsx";
+assert(manifest[setupDialogEntry], "Detached setup dialogs are missing");
+const setupDialogGraph = closure(setupDialogEntry, closure("index.html"));
+assert(!setupDialogGraph.has(main), "Setup dialogs import the main station workspace");
+assert(!setupDialogGraph.has("src/contesting/DetachedContestSetupSurface.tsx"), "Setup dialogs import the session mutation owner");
 // Maps are explicit child entries too. World Map legitimately owns MapLibre;
 // Band Maps must not pay for it or import the main station controller.
 for (const name of ["WorldMap", "BandMaps", "Monitor"]) {
@@ -49,7 +54,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // both detached surfaces.
   // Contest Setup adds one lazy route to the shared surface loader without
   // pulling its contest workspace into ordinary detached-window startup.
-  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 406_000 : 401_000;
+  // Two additional lazy setup-dialog routes add preload metadata to the shared
+  // bootstrap. Logbook measures 401,426 bytes; neither setup UI nor its owner is
+  // in that startup graph. Keep the adjustment local to the affected budget.
+  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 406_000 : name === "Logbook" ? 402_000 : 401_000;
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
 }

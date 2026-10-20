@@ -142,6 +142,7 @@ pub fn band_map_band(label: &str) -> Option<&str> {
 pub fn surface_role(label: &str) -> &str { if band_map_band(label).is_some() { "band-maps" } else { label } }
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == surface_role(label)) }
 pub fn native_minimum(label: &str) -> (f64, f64) {
+    if crate::contest_setup_dialogs::kind(label).is_some() { return (620.0, 480.0); }
     // Contest identities reuse normal panel roles, but have compact tools of
     // their own. Match the canvas minimum for the four connected panels;
     // auxiliary tools must not inherit the normal 640x480 fallback.

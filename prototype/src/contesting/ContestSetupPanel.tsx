@@ -38,6 +38,9 @@ type Props = {
   servicePanels?: Partial<Record<ContestSetupServiceTab, ReactNode>>;
   callHistoryPanel?: ReactNode;
   onOpenCallHistory?: () => void;
+  onOpenDialog?: (kind: "station" | "configuration") => void | Promise<void>;
+  detachedDialog?: "station" | "configuration";
+  onCancel?: () => void | Promise<void>;
 };
 
 export function newContestSetup(stationCall = ""): ContestSetupDocument {
@@ -78,7 +81,7 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
-  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros }: Props) {
+  onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, detachedDialog, onCancel }: Props) {
   const macroDraft = () => ({ ...setupDraft(value), macros: structuredClone(effectiveMacros ?? value.macros) });
   const [draft, setDraft] = useState<ContestSetupDocument>(() => initialTab === "Macros" ? macroDraft() : setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
@@ -134,7 +137,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
         await onOpen(session);
       } else if (view === "New Contest") await onCreate({ ...structuredClone(draft), name: catalog.find(item => item.id === draft.pluginID)?.name ?? draft.name });
       else await onSave(structuredClone(draft));
-      setView(null);
+      if (!detachedDialog) setView(null);
     }, view === "Choose a Contest" ? "Contest opened." : view === "New Contest" ? "Contest created." : "Settings saved.");
   }
 const row = (...items: ReactNode[]) => <div className="contest-manual-row">{items}</div>;
@@ -220,10 +223,14 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "Edit Keys") content = <><div className="contest-key-scroll"><table className="contest-key-table"><thead><tr>{["Context", "Key", "Action", "Description"].map(name => <th key={name}>{name}</th>)}</tr></thead><tbody>{bindingValue.map((binding, index) => <tr key={index} aria-selected={selectedBinding === index} onClick={() => setSelectedBinding(index)}>{(["context", "key", "action", "description"] as const).map(property => <td key={property}>{property === "context" || property === "action" ? <select aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}>{selectValues(property === "context" ? ["*", "Callsign", "Report", "Exchange"] : defaultBindings.map(item => item.action), binding[property]).map(option => <option key={option}>{option}</option>)}</select> : <input aria-label={property + " " + (index + 1)} value={binding[property]} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, [property]: event.target.value } : item))}/>}</td>)}</tr>)}</tbody></table></div><div className="contest-key-actions"><button type="button" onClick={() => { setBindings([...bindingValue, { context: "*", key: "", action: "LOG_NOW", description: "" }]); setSelectedBinding(bindingValue.length); }}>Add</button><button type="button" disabled={!bindingValue.length} onClick={() => { setBindings(bindingValue.filter((_, i) => i !== selectedBinding)); setSelectedBinding(0); }}>Remove</button><button type="button" onClick={() => setBindings(structuredClone(defaultBindings))}>Reset all</button></div></>;
   const configuration = view === "Configuration Settings";
   return <section className="contest-setup" aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>
-    {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => open(name)}>{name}</button>)}</div> :
+    {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => {
+      const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : null;
+      if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
+      else open(name);
+    }}>{name}</button>)}</div> :
       <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections">{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => setTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); setTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
         <fieldset disabled={disabled}><div id={id + "-panel"} role={configuration ? "tabpanel" : undefined} aria-labelledby={configuration ? id + "-tab-" + contestSetupTabs.indexOf(tab) : undefined} className="contest-manual-content">{content}</div></fieldset>
-        <footer><button type="button" disabled={disabled} onClick={close}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : configuration ? "Save" : "OK"}</button></footer>
+        <footer><button type="button" disabled={disabled} onClick={() => { if (detachedDialog) void onCancel?.(); else close(); }}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : detachedDialog || configuration ? "Save" : "OK"}</button></footer>
       </form>}
     {(error || message) && <p role={error ? "alert" : "status"}>{error || message}</p>}
   </section>;

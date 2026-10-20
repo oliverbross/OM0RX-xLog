@@ -8,11 +8,12 @@ import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contest
 import { newContestSetup } from "./ContestSetupPanel";
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any }));
-const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}) }));
+const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => { surfaceOwner.current = owner; } }));
 vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWindow.open,
   openContestCallHistoryWindow: surfaceWindow.openHistory }));
+vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog, useContestSetupDialogs: vi.fn() }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
@@ -49,6 +50,20 @@ it("shows a string rejection from the detached contest owner", async () => {
   const request = vi.fn(async () => Promise.reject("Contest mutations require backend admission."));
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
   expect((await screen.findByRole("alert")).textContent).toContain("Contest mutations require backend admission.");
+});
+
+it("opens both separate setup dialogs from the hub and Contest menu before a session exists", async () => {
+  const request = vi.fn(async (method: string) => ({ id:crypto.randomUUID(), ok:true,
+    result:method === "contest_catalog" ? {plugins:[]} : {sessions:[]} }));
+  let route: ((value: string) => boolean | Promise<boolean>) | null = null;
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    registerMenuRoute={handler => { route = handler; }}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"Station Settings"}));
+  await userEvent.click(screen.getByRole("button", {name:"Configuration Settings"}));
+  await act(async () => { await route!("contest-dialog-station"); await route!("contest-dialog-configuration"); });
+  expect(surfaceWindow.openDialog.mock.calls.map(([kind]) => kind)).toEqual(["station", "configuration", "station", "configuration"]);
+  expect(screen.queryByRole("textbox", {name:"City"})).toBeNull();
+  expect(request.mock.calls.every(([method]) => ["contest_catalog", "contest_sessions"].includes(method))).toBe(true);
 });
 
 it("persists station settings before the first contest exists", async () => {

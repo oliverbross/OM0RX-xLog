@@ -28,8 +28,10 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 13] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 15] = [
     ("contest-setup", "Contest Setup"),
+    ("contest-dialog-station", "Station Settings…"),
+    ("contest-dialog-configuration", "Configuration Settings…"),
     ("contest-window-call-history", "Call History"),
     ("contest-window-active-qso", "Main Logging"),
     ("contest-window-propagation", "Stats"),
@@ -114,7 +116,7 @@ mod tests {
                 assert_eq!(contest_window_panel(panel), Some(panel));
                 windows.insert(panel);
             } else {
-                assert_eq!((route, title), ("contest-setup", "Contest Setup"));
+                assert!(["contest-setup", "contest-dialog-station", "contest-dialog-configuration"].contains(&route));
             }
             let pending = state.request(route).unwrap();
             assert_eq!(state.snapshot("contest-setup").unwrap(), Some(pending.clone()));
@@ -126,6 +128,7 @@ mod tests {
         assert_eq!(windows, ["active-qso", "call-history", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"].into_iter().collect());
         assert_eq!(CONTEST_MENU_ITEMS.iter().copied().collect::<std::collections::HashMap<_, _>>(), std::collections::HashMap::from([
             ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"),
+            ("contest-dialog-station", "Station Settings…"), ("contest-dialog-configuration", "Configuration Settings…"),
             ("contest-window-active-qso", "Main Logging"), ("contest-window-propagation", "Stats"),
             ("contest-window-logbook", "Logbook"), ("contest-window-band-maps", "Band Map"),
             ("contest-window-dx-cluster", "Cluster"), ("contest-window-callsign-intelligence", "Check Partial"),

@@ -4,7 +4,7 @@ pub fn destination(
     service: &str,
     active_radio: Option<&str>,
 ) -> Result<&'static str, String> {
-    if caller != "contest-setup" {
+    if caller != "contest-setup" && crate::contest_setup_dialogs::kind(caller).is_none() {
         return Err("Only Contest Setup can open its shared service settings.".into());
     }
     match service {
@@ -39,6 +39,9 @@ mod tests {
                 super::destination("contest-setup", service, None).unwrap(),
                 route
             );
+            for dialog in ["contest-setup-station", "contest-setup-configuration"] {
+                assert_eq!(super::destination(dialog, service, None).unwrap(), route);
+            }
             for caller in ["main", "settings", "contest--rotor", "rotor", ""] {
                 assert!(super::destination(caller, service, None).is_err());
             }
