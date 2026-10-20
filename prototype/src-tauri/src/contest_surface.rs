@@ -1182,12 +1182,11 @@ fn validate_tab_map(value: &Value) -> Result<(), String> {
 }
 
 fn contest_macro(value: &Value) -> Result<(), String> {
-    enum_value(
-        value,
-        &["CQ", "EXCH", "QRZ", "AGN", "HISCALL", "MYCALL", "QSOB4"],
-        "contest macro",
-    )
-    .map(|_| ())
+    // The Python Not1MM host exposes the actual operator-visible macro label
+    // (for example `Exch`, `73`, `NR??`, or a user-edited label), not the
+    // legacy seven-token Swift pilot enum.  This trace is presentation-only;
+    // execution remains fenced by the admitted F-key action and its hashes.
+    text_value(value, 160, false, "contest macro").map(|_| ())
 }
 
 fn validate_assistance_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -2585,6 +2584,15 @@ mod tests {
         native["operator"]["output"] = json!("xlog-native");
         native["operator"]["functionKeys"][0]["macro"] = json!("Run CQ");
         assert!(validate_projection("active-qso", &native).is_ok());
+        let mut not1mm_phone_trace = entry.clone();
+        not1mm_phone_trace["operator"]["trace"][0]["mode"] = json!("SSB");
+        not1mm_phone_trace["operator"]["trace"][0]["macro"] = json!("Exch");
+        not1mm_phone_trace["operator"]["trace"][0]["text"] = json!("59 001");
+        assert!(validate_projection("active-qso", &not1mm_phone_trace).is_ok());
+        not1mm_phone_trace["operator"]["trace"][0]["macro"] = json!("");
+        assert!(validate_projection("active-qso", &not1mm_phone_trace).is_err());
+        not1mm_phone_trace["operator"]["trace"][0]["macro"] = json!("X".repeat(161));
+        assert!(validate_projection("active-qso", &not1mm_phone_trace).is_err());
         assert!(validate_projection(
             "active-qso",
             &json!({"schemaVersion":2,"status":"unavailable"})
