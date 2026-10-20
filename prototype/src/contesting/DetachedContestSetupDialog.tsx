@@ -8,15 +8,23 @@ import { openContestSetupService } from "./contestSetupServices";
 import "./ContestWorkspace.css";
 import "./DetachedContestSetupDialog.css";
 
-export function fittedConfigurationDialogHeight(contentHeight: number): number {
-  return Math.max(320, Math.min(900, Math.ceil(contentHeight)));
-}
-
-export function isManagedConfigurationDialogHeight(height: number): boolean {
-  return [320, 520, 620].some(managed => Math.abs(height - managed) < 0.5);
-}
-
 type DialogSize = { width: number; height: number };
+const CONFIGURATION_AUTO_FIT_SIZE_KEY = "xlog.contest.configuration.auto-fit-size.v1";
+
+const configurationDialogCeiling = (availableHeight: number): number => {
+  const usableHeight = Number.isFinite(availableHeight) && availableHeight > 0 ? availableHeight : 884;
+  return Math.max(320, Math.min(900, Math.floor(usableHeight - 64)));
+};
+
+export function fittedConfigurationDialogHeight(contentHeight: number, availableHeight = screen.availHeight): number {
+  return Math.max(320, Math.min(configurationDialogCeiling(availableHeight), Math.ceil(contentHeight)));
+}
+
+export function isManagedConfigurationDialogHeight(height: number, availableHeight = screen.availHeight): boolean {
+  return [320, 463, 476, 520, 620, 680, 900, configurationDialogCeiling(availableHeight)]
+    .some(managed => Math.abs(height - managed) < 0.5);
+}
+
 const sameDialogSize = (a: DialogSize, b: DialogSize) => Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
 
 export function DetachedContestSetupDialog() {
@@ -47,6 +55,20 @@ export function DetachedContestSetupDialog() {
     const programmaticTargets: DialogSize[] = [];
     let observer: ResizeObserver | undefined, stopResize: (() => void) | undefined;
     const nativeWindow = getCurrentWindow();
+    const storedAutoFitSize = (() => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(CONFIGURATION_AUTO_FIT_SIZE_KEY) ?? "null") as Partial<DialogSize> | null;
+        return parsed && Number.isFinite(parsed.width) && Number.isFinite(parsed.height)
+          ? { width: Number(parsed.width), height: Number(parsed.height) }
+          : null;
+      } catch { return null; }
+    })();
+    const rememberAutoFitSize = (size: DialogSize) => {
+      try { localStorage.setItem(CONFIGURATION_AUTO_FIT_SIZE_KEY, JSON.stringify(size)); } catch { /* geometry remains best effort */ }
+    };
+    const forgetAutoFitSize = () => {
+      try { localStorage.removeItem(CONFIGURATION_AUTO_FIT_SIZE_KEY); } catch { /* geometry remains best effort */ }
+    };
     const rememberProgrammaticTarget = (size: DialogSize) => {
       if (!programmaticTargets.some(target => sameDialogSize(target, size))) programmaticTargets.push(size);
     };
@@ -84,6 +106,7 @@ export function DetachedContestSetupDialog() {
         inFlight = null;
         acceptedSize = size;
         if (operatorSize) { scheduleOperatorRestore(); return; }
+        rememberAutoFitSize(size);
         if (autoFit && pendingFit) { pendingFit = false; fit(); }
         return;
       }
@@ -101,6 +124,7 @@ export function DetachedContestSetupDialog() {
       }
       if (acceptedSize && sameDialogSize(size, acceptedSize)) return;
       operatorSize = size;
+      forgetAutoFitSize();
       operatorGeneration += 1;
       acceptedSize = size;
       if (!autoFit) { scheduleOperatorRestore(); return; }
@@ -122,7 +146,7 @@ export function DetachedContestSetupDialog() {
           .then(async ([size, scale]) => {
             if (!active || !autoFit || inFlight) { if (inFlight) pendingFit = true; return; }
             const logical = size.toLogical(scale);
-            if (Math.abs(logical.height - height) < 0.5) return;
+            if (Math.abs(logical.height - height) < 0.5) { rememberAutoFitSize(logical); return; }
             const transaction = { target: { width: logical.width, height } };
             inFlight = transaction;
             rememberProgrammaticTarget(transaction.target);
@@ -143,7 +167,9 @@ export function DetachedContestSetupDialog() {
     void Promise.all([nativeWindow.innerSize(), nativeWindow.scaleFactor()]).then(async ([size, initialScale]) => {
       scale = initialScale;
       const initial = size.toLogical(scale);
-      if (!active || !isManagedConfigurationDialogHeight(initial.height)) return;
+      const restoredAutoFit = storedAutoFitSize && sameDialogSize(initial, storedAutoFitSize);
+      const legacyAutoFit = Math.abs(initial.width - 820) < 0.5 && isManagedConfigurationDialogHeight(initial.height);
+      if (!active || (!restoredAutoFit && !legacyAutoFit)) return;
       autoFit = true;
       // Absorb a resize notification already queued by native geometry restore;
       // only a later size different from our current/requested size is user-owned.

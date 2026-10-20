@@ -12,6 +12,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => t
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ setSize: native.setSize, innerSize: native.innerSize, scaleFactor: native.scaleFactor, onResized: native.onResized }) }));
 vi.stubGlobal("ResizeObserver", class { observe(target: Element) { native.observedTargets.push(target); } disconnect() {} });
 beforeEach(() => {
+  localStorage.clear();
   native.resizeHandler = null;
   native.observedTargets = [];
   native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 820, height: 320 }) }));
@@ -57,6 +58,25 @@ it("auto-fits a managed Configuration default to its measured content", async ()
   await waitFor(() => expect(native.setSize).toHaveBeenCalled());
   expect(native.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ width: 820, height: 476 });
   expect(native.observedTargets).toHaveLength(2);
+});
+it("recognizes its measured fit after reopening and keeps fitting later content", async () => {
+  const measured = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(497);
+  let current = { width: 820, height: 320 };
+  native.innerSize.mockImplementation(async () => ({ toLogical: () => current }));
+  native.setSize.mockImplementation(async size => {
+    current = { width: size.width, height: size.height };
+    queueMicrotask(() => native.resizeHandler?.({ payload: { toLogical: () => current } }));
+  });
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ width: 820, height: 497 }));
+  await waitFor(() => expect(localStorage.getItem("xlog.contest.configuration.auto-fit-size.v1")).toContain('"height":497'));
+  cleanup();
+  native.setSize.mockClear();
+  measured.mockReturnValue(530);
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ width: 820, height: 530 }));
 });
 it("preserves a user-restored Configuration size instead of auto-fitting it", async () => {
   native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 900, height: 600 }) }));
@@ -178,14 +198,21 @@ it("rejects a dialog save when owner context changes while the request is being 
 });
 it("uses compact content-fit bounds while keeping dense configuration tabs fully visible", () => {
   const styles = readFileSync("src/contesting/DetachedContestSetupDialog.css", "utf8");
-  expect(fittedConfigurationDialogHeight(180)).toBe(320);
-  expect(fittedConfigurationDialogHeight(476)).toBe(476);
-  expect(fittedConfigurationDialogHeight(1200)).toBe(900);
-  expect(isManagedConfigurationDialogHeight(320)).toBe(true);
-  expect(isManagedConfigurationDialogHeight(520)).toBe(true);
-  expect(isManagedConfigurationDialogHeight(620)).toBe(true);
-  expect(isManagedConfigurationDialogHeight(600)).toBe(false);
+  expect(fittedConfigurationDialogHeight(180, 900)).toBe(320);
+  expect(fittedConfigurationDialogHeight(476, 900)).toBe(476);
+  expect(fittedConfigurationDialogHeight(1200, 1000)).toBe(900);
+  expect(fittedConfigurationDialogHeight(1200, 900)).toBe(836);
+  expect(isManagedConfigurationDialogHeight(320, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(463, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(476, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(520, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(620, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(680, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(900, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(836, 900)).toBe(true);
+  expect(isManagedConfigurationDialogHeight(600, 900)).toBe(false);
   expect(styles).toContain("data-dialog-kind=configuration");
-  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*overflow:auto/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*max-height:100dvh[^}]*overflow:auto/);
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }");
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup footer[^}]*position:sticky[^}]*bottom:0/);
 });

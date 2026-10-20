@@ -6,8 +6,9 @@
 .contest-setup-dialog .contest-setup footer { flex:none; }
 .contest-setup-dialog .contest-setup [role=tablist] { flex:none; flex-wrap:wrap; }
 .contest-setup-dialog .contest-setup label { flex-direction:row; }
-.contest-setup-dialog[data-dialog-kind=configuration] { height:auto; overflow:auto; }
+.contest-setup-dialog[data-dialog-kind=configuration] { height:auto; max-height:100dvh; overflow:auto; }
 .contest-setup-dialog[data-dialog-kind=configuration]>.contest-setup { height:auto; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup>form { flex:none; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup fieldset { flex:none; overflow:visible; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }
+.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup footer { position:sticky; bottom:0; z-index:2; background:var(--panel,#0b1728); }
