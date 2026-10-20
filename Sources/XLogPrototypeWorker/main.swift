@@ -10,11 +10,12 @@ import Glibc
 
 let worker = PrototypeWorker()
 let output = FileHandle.standardOutput
+let workerArguments = Array(CommandLine.arguments.dropFirst())
 
 let runtimeProfile: AppRuntimeProfile
 let operatingModule: WorkerOperatingModule
 do {
-    runtimeProfile = try AppRuntimeProfile.resolve(arguments: Array(CommandLine.arguments.dropFirst()),
+    runtimeProfile = try AppRuntimeProfile.resolve(arguments: workerArguments,
         executableURL: URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL)
     try AppRuntimeProfile.configure(runtimeProfile)
     operatingModule = try WorkerOperatingModule.resolve(environment: ProcessInfo.processInfo.environment)
@@ -77,11 +78,9 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         output.write(Data("{\"id\":\"local-logbook-self-test\",\"ok\":false,\"error\":{\"code\":\"local_self_test_failed\",\"message\":\"Local logbook acceptance failed.\"}}\n".utf8))
         exit(1)
     }
-} else if CommandLine.arguments.count == 1
-            || CommandLine.arguments == [CommandLine.arguments[0], AppRuntimeProfile.contestingArgument]
-            || CommandLine.arguments == [CommandLine.arguments[0], "--local-ui-acceptance"] {
+} else if let localAcceptance = AppRuntimeProfile.workerServiceLocalAcceptance(arguments: workerArguments) {
     let acceptance: LocalAcceptanceSession?
-    do { acceptance = CommandLine.arguments.last == "--local-ui-acceptance" ? try LocalAcceptanceSession() : nil }
+    do { acceptance = localAcceptance ? try LocalAcceptanceSession() : nil }
     catch {
         FileHandle.standardError.write(Data("Could not create isolated local acceptance session.\n".utf8))
         exit(1)
@@ -158,6 +157,6 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         }
     }
 } else {
-    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test | --local-ui-acceptance]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test | [--runtime-profile=contesting-test] [--local-ui-acceptance]]\n".utf8))
     exit(2)
 }

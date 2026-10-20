@@ -35,6 +35,30 @@ final class AppRuntimeProfileTests: XCTestCase {
             arguments: [AppRuntimeProfile.contestingArgument], executableURL: executable) else {
             return XCTFail("Expected bound test profile")
         }
+        guard case .contestingTest = try AppRuntimeProfile.resolve(
+            arguments: [AppRuntimeProfile.contestingArgument, AppRuntimeProfile.localAcceptanceArgument],
+            executableURL: executable) else {
+            return XCTFail("Expected bound test profile during local acceptance")
+        }
+    }
+
+    func testWorkerServiceArgumentsComposeExactlyAndFailClosed() {
+        XCTAssertEqual(AppRuntimeProfile.workerServiceLocalAcceptance(arguments: []), false)
+        XCTAssertEqual(AppRuntimeProfile.workerServiceLocalAcceptance(
+            arguments: [AppRuntimeProfile.contestingArgument]), false)
+        XCTAssertEqual(AppRuntimeProfile.workerServiceLocalAcceptance(
+            arguments: [AppRuntimeProfile.localAcceptanceArgument]), true)
+        XCTAssertEqual(AppRuntimeProfile.workerServiceLocalAcceptance(arguments: [
+            AppRuntimeProfile.contestingArgument, AppRuntimeProfile.localAcceptanceArgument,
+        ]), true)
+        for arguments in [
+            [AppRuntimeProfile.localAcceptanceArgument, AppRuntimeProfile.contestingArgument],
+            [AppRuntimeProfile.localAcceptanceArgument, AppRuntimeProfile.localAcceptanceArgument],
+            [AppRuntimeProfile.contestingArgument, AppRuntimeProfile.contestingArgument],
+            ["--runtime-profile=unknown"],
+        ] {
+            XCTAssertNil(AppRuntimeProfile.workerServiceLocalAcceptance(arguments: arguments))
+        }
     }
 
     func testContestingProfileRejectsProductionPathAliasThroughSymlink() throws {

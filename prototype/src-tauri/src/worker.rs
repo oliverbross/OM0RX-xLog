@@ -696,6 +696,17 @@ pub fn configure_contesting_test(enabled: bool) -> Result<(), String> {
     CONTESTING_TEST.set(enabled).map_err(|_| "Runtime profile was already configured".into())
 }
 
+fn worker_arguments(local_acceptance: bool, contesting_test: bool) -> Vec<&'static str> {
+    let mut arguments = Vec::with_capacity(2);
+    if contesting_test {
+        arguments.push("--runtime-profile=contesting-test");
+    }
+    if local_acceptance {
+        arguments.push("--local-ui-acceptance");
+    }
+    arguments
+}
+
 fn start() -> Result<Arc<Session>, String> {
     let executable = std::env::current_exe().map_err(|_| "Cannot locate application")?;
     let name = if cfg!(windows) {
@@ -714,11 +725,10 @@ fn start() -> Result<Arc<Session>, String> {
     // Normal logging remains the process workspace. The production worker also
     // owns the serialized Python contest lane used by detached Contest windows.
     command.env("XLOG_OPERATING_MODULE", "normal_logging");
-    if LOCAL_ACCEPTANCE.get() == Some(&true) {
-        command.arg("--local-ui-acceptance");
-    } else if CONTESTING_TEST.get() == Some(&true) {
-        command.arg("--runtime-profile=contesting-test");
-    }
+    command.args(worker_arguments(
+        LOCAL_ACCEPTANCE.get() == Some(&true),
+        CONTESTING_TEST.get() == Some(&true),
+    ));
     let child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1073,6 +1083,15 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn worker_arguments_compose_runtime_profile_and_local_acceptance() {
+        assert_eq!(super::worker_arguments(false, false), Vec::<&str>::new());
+        assert_eq!(super::worker_arguments(false, true), vec!["--runtime-profile=contesting-test"]);
+        assert_eq!(super::worker_arguments(true, false), vec!["--local-ui-acceptance"]);
+        assert_eq!(super::worker_arguments(true, true),
+            vec!["--runtime-profile=contesting-test", "--local-ui-acceptance"]);
+    }
+
     #[test]
     fn initial_worker_preserves_launch_arm_and_replacements_revoke_it() {
         assert!(!super::replaces_worker_generation(1));

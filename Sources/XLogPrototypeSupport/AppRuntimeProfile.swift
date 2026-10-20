@@ -6,6 +6,7 @@ public enum AppRuntimeProfile: Equatable, Sendable {
 
     static let contestingBundleIdentifier = "com.oliverbross.xlog.contesting-test"
     public static let contestingArgument = "--runtime-profile=contesting-test"
+    public static let localAcceptanceArgument = "--local-ui-acceptance"
     static let contestingIdentityPrefix = "com.oliverbross.OM0RXXLog.ContestingTest.Integration."
 
     private static let lock = NSLock()
@@ -42,6 +43,15 @@ public enum AppRuntimeProfile: Equatable, Sendable {
         let applicationSupport = try fileManager.url(for: .applicationSupportDirectory,
             in: .userDomainMask, appropriateFor: nil, create: false)
         return try contestingTestProfile(applicationSupport: applicationSupport, fileManager: fileManager)
+    }
+
+    /// Exact worker service modes. Unknown, duplicated, or reordered arguments
+    /// remain fail-closed instead of silently acquiring acceptance authority.
+    public static func workerServiceLocalAcceptance(arguments: [String]) -> Bool? {
+        if arguments.isEmpty || arguments == [contestingArgument] { return false }
+        if arguments == [localAcceptanceArgument]
+            || arguments == [contestingArgument, localAcceptanceArgument] { return true }
+        return nil
     }
 
     static func contestingTestProfile(applicationSupport: URL,

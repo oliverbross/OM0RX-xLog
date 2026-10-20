@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 
-const binary = process.argv[2];
+const binary = process.env.XLOG_WORKER_BINARY || process.argv[2];
 assert.ok(binary, "Pass the built xlog-prototype-worker executable path.");
 
-function exercise(start, onLine, expectedCount, args = []) {
+function exercise(start, onLine, expectedCount, args = [], executable = binary) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(executable, args, { stdio: ["pipe", "pipe", "pipe"] });
     let buffer = "";
     let stderr = "";
     const responses = [];
@@ -120,5 +123,33 @@ test("local UI acceptance uses a real isolated workspace and refuses external se
   for (const reply of replies.slice(3)) {
     assert.equal(reply.ok, false);
     assert.equal(reply.error.code, "acceptance_restricted");
+  }
+});
+
+test("Contesting Test profile composes with isolated local UI acceptance", { skip: process.platform !== "darwin" }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "xlog-contesting-worker-"));
+  try {
+    const contents = join(root, "Test.app", "Contents");
+    const executable = join(contents, "MacOS", "xlog-prototype-worker");
+    await mkdir(join(contents, "MacOS"), { recursive: true });
+    await writeFile(join(contents, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.oliverbross.xlog.contesting-test</string></dict></plist>\n`);
+    await symlink(resolve(binary), executable);
+    const requests = [["health", {}], ["station_connect", {}]];
+    const send = (child, index) => {
+      const [method, params] = requests[index];
+      child.stdin.write(JSON.stringify({ id: `combined-${index}`, method, params }) + "\n");
+    };
+    const replies = await exercise(child => send(child, 0), (child, responses) => {
+      if (responses.length < requests.length) send(child, responses.length);
+    }, requests.length, ["--runtime-profile=contesting-test", "--local-ui-acceptance"], executable);
+    assert.equal(replies[0].result.mode, "isolated_local_acceptance");
+    assert.equal(replies[0].result.isolated_workspace, true);
+    assert.equal(replies[0].result.station_io, false);
+    assert.equal(replies[1].ok, false);
+    assert.equal(replies[1].error.code, "acceptance_restricted");
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
