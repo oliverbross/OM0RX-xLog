@@ -812,7 +812,7 @@ fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Resu
         let mut builder = tauri::WebviewWindowBuilder::new(app, "contest-setup",
             tauri::WebviewUrl::App(format!("index.html?view=contest-setup{suffix}").into()))
             .title("OM0RX-xLog Contest — Setup")
-            .inner_size(600.0, 820.0)
+            .inner_size(600.0, 740.0)
             .min_inner_size(520.0, 620.0)
             // Direct child-dialog menu items still need the mounted setup
             // authority, but must not surface an unsolicited Setup window.
