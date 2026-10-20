@@ -48,6 +48,8 @@ it("renders validated manual main context without manufacturing headings or dist
   expect(screen.getByLabelText("Current CW speed").textContent).toBe("27");
   expect(screen.getByLabelText("Contact heading, long path and distance").textContent).toContain("—° Hdg · LP —° / distance — km");
   expect(screen.getByLabelText("QSOs, multipliers and score").textContent).toBe("42/17 2142");
+  expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
+    .toBe("repeat(4,minmax(0,1fr))");
 });
 
 it("renders Statistics v3 as the original compact table with TOTAL last", async () => {
@@ -90,6 +92,7 @@ it("renders ICWC original name/serial input while omitting hidden report fields"
   expect(await screen.findByLabelText("Name + S/N")).toHaveProperty("value","BOB 12");
   expect(screen.queryByLabelText("SNT")).toBeNull(); expect(screen.queryByLabelText("RCV")).toBeNull();
   expect(screen.getByLabelText("Sent exchange")).toHaveProperty("value","003");
+  expect(screen.getByText("Sent S/N").getAttribute("title")).toBe("Sent S/N");
 });
 
 it("retains manual Reserve serial for legacy detached entries",async()=>{
@@ -520,7 +523,8 @@ it("keeps a CWT keyboard burst and its Name tab target live while the owner pers
   });
   render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),name=screen.getByLabelText("Name");
   expect((document.querySelector(".contest-surface-main-fields") as HTMLElement).style.getPropertyValue("--contest-entry-field-columns"))
-    .toBe("minmax(130px,1.3fr) minmax(120px,1fr) minmax(120px,1fr)");
+    .toBe("repeat(3,minmax(0,1fr))");
+  expect(screen.getByText("Member No./SPC", { selector: ".contest-field-label" }).getAttribute("title")).toBe("Member No./SPC");
   expect(screen.queryByLabelText("Sent exchange")).toBeNull();
   fireEvent.change(callsign,{target:{value:"K"}});await waitFor(()=>expect(actions).toHaveLength(1));
   current={...current,projection:{...current.projection,busy:true}};await act(async()=>{native.wake!();});

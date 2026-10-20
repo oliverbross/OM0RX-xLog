@@ -5,7 +5,7 @@ import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 export function ContestTextField({ label, inputRef, className, children, ...input }: {
   label: string; inputRef?: Ref<HTMLInputElement>; className?: string; children?: ReactNode;
 } & InputHTMLAttributes<HTMLInputElement>) {
-  return <label className={className}><span className="contest-field-label">{label}</span><input ref={inputRef} {...input}/>{children}</label>;
+  return <label className={className}><span className="contest-field-label" title={label}>{label}</span><input ref={inputRef} {...input}/>{children}</label>;
 }
 
 export function ContestEntryFields({ detached = false, callsign, reports, exchange }: {

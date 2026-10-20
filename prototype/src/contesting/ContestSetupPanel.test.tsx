@@ -37,6 +37,7 @@ it("matches station row order, saves upstream field names, and preserves unknown
   render(<ContestSetupPanel {...p}/>); open("Station Settings");
   const labels = Array.from(document.querySelectorAll(".contest-station-form label>span")).map(item => item.textContent);
   expect(labels).toEqual(["Call", "Name", "Address", "Address", "City", "State", "Zip", "Country", "Grid Square", "CQ Zone", "ITU Zone", "License", "Latitude", "Longitude", "Station TX/RX", "Power", "Antenna", "Ant. Height", "a.s.l.", "ARRL Section", "Rover QTH", "Club", "Email address"]);
+  expect(screen.getByText("Station TX/RX", { selector: ".contest-setup-field>span" }).getAttribute("title")).toBe("Station TX/RX");
   fireEvent.change(screen.getByLabelText("License"), { target: { value: "Extra" } });
   fireEvent.change(screen.getByLabelText("Station TX/RX"), { target: { value: "FLEX-8400" } });
   fireEvent.change(screen.getByLabelText("City"), { target: { value: "Bratislava" } });

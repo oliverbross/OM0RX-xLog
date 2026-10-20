@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./ContestWorkspace.css", import.meta.url), "utf8");
 const detachedCSS = readFileSync(new URL("./DetachedContestSurface.css", import.meta.url), "utf8");
+const setupCSS = readFileSync(new URL("./ContestSetupPanel.css", import.meta.url), "utf8");
 const setupDialogCSS = readFileSync(new URL("./DetachedContestSetupDialog.css", import.meta.url), "utf8");
 const entrypoint = readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
 
@@ -22,13 +23,20 @@ describe("ContestWorkspace responsive contract", () => {
 
   it("keeps detached contest controls dense and reflows them at scaled narrow widths", () => {
     expect(detachedCSS).toContain(".contest-detached-surface,.contest-detached-surface * { box-sizing:border-box; }");
+    expect(detachedCSS).toContain("grid-template-columns:var(--contest-entry-field-columns)");
     expect(detachedCSS).toContain("grid-template-columns:repeat(3,minmax(0,1fr))");
     expect(detachedCSS).toContain("grid-template-columns:repeat(2,minmax(0,1fr))");
-    expect(detachedCSS).toContain("grid-template-columns:var(--contest-entry-field-columns)");
     expect(detachedCSS).toContain(".contest-field-label");
     expect(detachedCSS).toContain(".contest-detached-surface button { font:inherit; white-space:nowrap; }");
     expect(setupDialogCSS).toContain("text-overflow:ellipsis; white-space:nowrap");
     expect(css).toContain(".contest-history-window { width:100%; height:100dvh; min-height:0; overflow:auto; }");
+  });
+
+  it("uses one compact label-width token for detached Contest Setup fields", () => {
+    expect(setupCSS).toContain("--contest-setup-label-width:100px");
+    expect(setupCSS).toContain("flex:0 0 var(--contest-setup-label-width)");
+    expect(setupCSS).toContain("text-overflow:ellipsis; white-space:nowrap");
+    expect(setupCSS).not.toMatch(/flex-basis:\s*(?:65|90)px/);
   });
 
   it("mounts every main or detached surface inside the shared interface scale provider", () => {

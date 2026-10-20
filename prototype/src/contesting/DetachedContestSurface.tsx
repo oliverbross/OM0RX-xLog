@@ -212,9 +212,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
     ? projection.descriptor.sentFields[0].id as ContestInputFieldID:null;
   const displayedBands=projection.schemaVersion===2?projection.descriptor.bands:["160m","80m","40m","20m","15m","10m"];
   const reportsVisible=projection.descriptor?.reportsVisible!==false;
-  const entryFieldColumns=["minmax(130px,1.3fr)",...(reportsVisible?["minmax(60px,.55fr)","minmax(60px,.55fr)"]:[]),
-    ...(projection.descriptor?.sentFields?.length?["minmax(110px,.8fr)"]:[]),
-    ...Array.from({length:Math.max(1,projection.draft.receivedFields.length)},()=>"minmax(120px,1fr)")].join(" ");
+  const entryFieldCount=1+(reportsVisible?2:0)+(projection.descriptor?.sentFields?.length?1:0)+Math.max(1,projection.draft.receivedFields.length);
+  const entryFieldColumns=`repeat(${entryFieldCount},minmax(0,1fr))`;
   // The owner reports busy while it persists the first character. These
   // inputs are locally journalled, so disabling them would drop the rest of
   // a real keyboard burst before the queued intent can drain.
@@ -298,7 +297,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       disabled={entryBufferDisabled} operatorField={index===0?"sent":"receive"} inputRef={setFieldRef(index===0?"sent":"receive")} onFocus={()=>focusField(index===0?"sent":"receive")}
       onChange={(changed,value)=>intents.change(changed,value,actionFor(changed))} unresolved={intents.unresolved.has(key)}
       retry={()=>intents.retry(key)} discard={()=>intents.discard(key)}/>)}
-    {projection.schemaVersion===2&&projection.descriptor.sentFields.length>0&&<label className="contest-surface-sent-number"><span>{projection.descriptor.sentFields[0]?.label||"SentNR"}</span><input
+    {projection.schemaVersion===2&&projection.descriptor.sentFields.length>0&&<label className="contest-surface-sent-number"><span title={projection.descriptor.sentFields[0]?.label||"SentNR"}>{projection.descriptor.sentFields[0]?.label||"SentNR"}</span><input
       aria-label="Sent exchange" readOnly data-contest-field-id={sentOperatorField??undefined} ref={sentOperatorField?setFieldRef(sentOperatorField):undefined}
       onFocus={sentOperatorField?()=>focusField(sentOperatorField):undefined}
       value={projection.descriptor.sentFields.map((field:any)=>field.value).join(" ")}/></label>}

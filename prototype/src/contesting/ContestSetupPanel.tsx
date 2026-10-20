@@ -104,7 +104,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
     setDraft(current => ({ ...current, [section]: { ...current[section], [key]: next } }));
   const field = (section: "station" | "settings" | "preferences" | "network", key: string, label: string, type = "text", choices?: string[], locked = false) => {
     const current = draft[section][key];
-    return <label key={`${section}-${key}`}><span>{label}</span>{choices ? <select value={String(current ?? "")} disabled={locked} onChange={event => update(section, key, event.target.value)}>{choices.map(choice => <option key={choice} value={choice}>{choice || "None"}</option>)}</select>
+    return <label key={`${section}-${key}`} className="contest-setup-field"><span title={label}>{label}</span>{choices ? <select value={String(current ?? "")} disabled={locked} onChange={event => update(section, key, event.target.value)}>{choices.map(choice => <option key={choice} value={choice}>{choice || "None"}</option>)}</select>
       : <input type={type} value={String(current ?? "")} maxLength={512} min={type === "number" ? 0 : undefined} max={type === "number" ? 65535 : undefined}
         onChange={event => update(section, key, type === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)}/> }</label>;
   };
