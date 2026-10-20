@@ -1109,21 +1109,25 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
         return Ok(());
     }
     let operator = object(value, "entry operator")?;
+    let mut fields = vec![
+        "output",
+        "armed",
+        "style",
+        "status",
+        "pending",
+        "focusedField",
+        "tabNext",
+        "tabPrevious",
+        "functionKeys",
+        "readiness",
+        "trace",
+    ];
+    if operator.contains_key("autoCQ") {
+        fields.push("autoCQ");
+    }
     exact(
         operator,
-        &[
-            "output",
-            "armed",
-            "style",
-            "status",
-            "pending",
-            "focusedField",
-            "tabNext",
-            "tabPrevious",
-            "functionKeys",
-            "readiness",
-            "trace",
-        ],
+        &fields,
         "entry operator",
     )?;
     enum_value(
@@ -1196,6 +1200,24 @@ fn validate_entry_operator(value: &Value) -> Result<(), String> {
         "canCommit",
     ] {
         boolean(&readiness[key], "operator readiness")?;
+    }
+    if let Some(auto_cq) = operator.get("autoCQ") {
+        let auto_cq = object(auto_cq, "operator Auto CQ")?;
+        exact(
+            auto_cq,
+            &["active", "delaySeconds", "remainingMs"],
+            "operator Auto CQ",
+        )?;
+        boolean(&auto_cq["active"], "operator Auto CQ active state")?;
+        let delay = uint_value(&auto_cq["delaySeconds"], 3600, "operator Auto CQ delay")?;
+        if delay == 0 {
+            return Err("The operator Auto CQ delay is invalid.".into());
+        }
+        nullable_uint(
+            &auto_cq["remainingMs"],
+            3_600_000,
+            "operator Auto CQ remaining time",
+        )?;
     }
     for trace in array(&operator["trace"], 24, "operator trace")? {
         let trace = object(trace, "operator trace")?;
@@ -2638,7 +2660,17 @@ mod tests {
             "headingDegrees":null,"longPathHeadingDegrees":null,"distanceKm":null,"qsos":0,"multipliers":0,"total":0});
         native["operator"]["output"] = json!("xlog-native");
         native["operator"]["functionKeys"][0]["macro"] = json!("Run CQ");
+        native["operator"]["autoCQ"] = json!({"active":false,"delaySeconds":15,"remainingMs":null});
         assert!(validate_projection("active-qso", &native).is_ok());
+        let mut bad_auto_cq = native.clone();
+        bad_auto_cq["operator"]["autoCQ"]["delaySeconds"] = json!(0);
+        assert!(validate_projection("active-qso", &bad_auto_cq).is_err());
+        bad_auto_cq = native.clone();
+        bad_auto_cq["operator"]["autoCQ"]["remainingMs"] = json!(3_600_001);
+        assert!(validate_projection("active-qso", &bad_auto_cq).is_err());
+        bad_auto_cq = native.clone();
+        bad_auto_cq["operator"]["autoCQ"]["unexpected"] = json!(true);
+        assert!(validate_projection("active-qso", &bad_auto_cq).is_err());
         let mut not1mm_phone_trace = entry.clone();
         not1mm_phone_trace["operator"]["trace"][0]["mode"] = json!("SSB");
         not1mm_phone_trace["operator"]["trace"][0]["macro"] = json!("Exch");
@@ -2805,6 +2837,12 @@ mod tests {
         assert_eq!(state.context, Some(current.clone()));
         register_context_in(&mut state, &stale);
         assert!(state.panels.is_empty());
+        let mut restored = entry_v2();
+        restored["operator"]["autoCQ"] =
+            json!({"active":false,"delaySeconds":15,"remainingMs":null});
+        validate_projection("active-qso", &restored).unwrap();
+        publish_after_admission(&mut state, "active-qso", 1, restored).unwrap();
+        assert_eq!(state.panels["active-qso"].projection.as_ref().unwrap().0, 1);
         invalidate_context_in(&mut state, &current);
         assert_eq!(state.context, Some(stale.clone()));
         invalidate_context_in(&mut state, &stale);
