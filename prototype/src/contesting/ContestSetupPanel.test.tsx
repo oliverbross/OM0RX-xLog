@@ -92,6 +92,32 @@ it("keeps ESM mappings, Call History and score reporting together in Options and
   fireEvent.click(screen.getByRole("tab", { name: "Group" }));
   for (const label of ["Connect to server", "Be the master", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
 });
+it.each([false, true])("keeps every detached Options control inside the two-column body with an embedded history panel=%s", async embedded => {
+  const p = props(), onOpenCallHistory = vi.fn();
+  render(<ContestSetupPanel {...p} initialTab="Options" detachedDialog="configuration" onOpenCallHistory={onOpenCallHistory}
+    callHistoryPanel={embedded ? <section aria-label="Call history manager"><button type="button">Import local file</button></section> : undefined}/>);
+  const panel = screen.getByRole("tabpanel"), columns = panel.querySelector(".contest-options-columns");
+  expect(Array.from(panel.children)).toEqual([columns]);
+  expect(columns?.children.length).toBe(2);
+  const left = columns!.children[0], right = columns!.children[1];
+  expect(left.className).toBe("contest-manual-stack");
+  expect(right.className).toBe("contest-manual-stack");
+  expect(left.contains(screen.getByLabelText("Enable ESM"))).toBe(true);
+  for (const label of ["Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)", "Clear input fields in S&P when the VFO frequency changes"]) {
+    expect(right.contains(screen.getByLabelText(label))).toBe(true);
+  }
+  const historyControl = screen.getByRole("button", { name: embedded ? "Import local file" : "Open Call History" });
+  expect(right.contains(historyControl)).toBe(true);
+  const footer = screen.getByRole("button", { name: "Save" }).closest("footer")!;
+  expect(panel.closest("fieldset")?.nextElementSibling).toBe(footer);
+  if (!embedded) { fireEvent.click(historyControl); expect(onOpenCallHistory).toHaveBeenCalledOnce(); }
+  else expect(screen.queryByRole("button", { name: "Open Call History" })).toBeNull();
+  fireEvent.click(screen.getByLabelText("Clear input fields in S&P when the VFO frequency changes"));
+  fireEvent.change(screen.getByLabelText("Score posting interval (minutes)"), { target: { value: "3" } });
+  open("Save");
+  await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(p.onSave.mock.calls[0][0].preferences).toMatchObject({ clearOnVFOChange: true, rtcIntervalMinutes: 3 });
+});
 it("uses the Not1MM Sound tab to choose and durably save the voice-keyer output", async () => {
   const original = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
   Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { enumerateDevices: vi.fn(async () => [
