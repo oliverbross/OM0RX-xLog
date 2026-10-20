@@ -361,17 +361,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const refresh = async (sessionID: string, next?: Projection, offset = 0) => {
     const expected = next ?? projectionRef.current;
     if (!expected || expected.sessionID !== sessionID) return;
+    const revision = expected.revision;
     const [log, scoreResult, rateResult] = await Promise.all([
-      result<Data>("contest_log_page", { sessionID, expectedRevision: (next ?? projectionRef.current)?.revision,
+      result<Data>("contest_log_page", { sessionID, expectedRevision: revision,
         offset, limit: logPageSize }),
-      result<Data>("contest_score", { sessionID }),
-      result<Data>("contest_rates", { sessionID }),
+      result<Data>("contest_score", { sessionID, expectedRevision: revision }),
+      result<Data>("contest_rates", { sessionID, expectedRevision: revision }),
     ]);
-    if (next && projectionRef.current?.sessionID !== next.sessionID) return;
+    const current = projectionRef.current;
+    if (current?.sessionID !== sessionID || current.revision !== revision) return;
     setRows(Array.isArray(log.rows) ? log.rows : []); setLogOffset(Number(log.offset ?? offset)); setLogTotal(Number(log.total ?? 0));
     setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? {});
-    admitStatistics(scoreResult, sessionID, expected.revision);
-    admitRates(rateResult, sessionID, expected.revision);
+    admitStatistics(scoreResult, sessionID, revision);
+    admitRates(rateResult, sessionID, revision);
   };
   useEffect(() => {
     const sessionID = projection?.sessionID;
@@ -479,11 +481,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       return null;
     }
     const inputVersion = editVersionRef.current;
+    let operationPromise: Promise<MutationResult> | null = null, changed: MutationResult | null = null;
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
       if (flushBuffered) base = await flushDraft(base);
       if (!base) throw new Error("Open a contest session before editing it.");
-      let changed = await (signal ? abortPhoneWait(operation(base), signal) : operation(base));
+      operationPromise = operation(base);
+      changed = await (signal ? abortPhoneWait(operationPromise, signal) : operationPromise);
       if (changed.actions?.length && consumeOutput)
         changed = await (signal ? abortPhoneWait(consumeOutput(changed), signal) : consumeOutput(changed));
       acceptProjection(changed.projection, preserveConcurrentEdits ? inputVersion : undefined);
@@ -493,6 +497,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       if (changed.outputError) setError(changed.outputError);
       return changed.projection;
     } catch (cause) {
+      if (cause instanceof PhoneSimulationStopped && base) {
+        const admitCommittedProjection = (settled: MutationResult) => {
+          const current = projectionRef.current, next = settled.projection;
+          if (current?.sessionID === base!.sessionID && current.revision === base!.revision &&
+              next?.sessionID === base!.sessionID && settled.revision === next.revision)
+            acceptProjection(next, preserveConcurrentEdits ? inputVersion : undefined);
+        };
+        if (changed) admitCommittedProjection(changed);
+        else void operationPromise?.then(admitCommittedProjection).catch(() => { /* Stop never retries an uncertain mutation. */ });
+      }
       if (!(cause instanceof PhoneSimulationStopped)) setError(errorMessage(cause));
       if (throwFailures && !(cause instanceof PhoneSimulationStopped)) throw cause;
       return null;
@@ -552,7 +566,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }
     const phoneController = phoneAction ? new AbortController() : null;
     if (phoneController) { phoneSimulationControllerRef.current = phoneController; setPhoneSimulationPending(true); }
-    try { return await runMutation(async base => {
+    try {
+      const confirmed = await runMutation(async base => {
     if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before using ESM.");
     if (base.mode !== "CW")
       return mutate(method, base, { fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra });
@@ -563,7 +578,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
-    }, !phoneAction, false, false, throwFailures, phoneAction ? consumeContestPhoneSimulation : undefined, phoneController?.signal); }
+      }, !phoneAction, false, false, throwFailures, phoneAction ? consumeContestPhoneSimulation : undefined, phoneController?.signal);
+      if (phoneAction && confirmed && !phoneController?.signal.aborted) void refresh(confirmed.sessionID, confirmed).catch(cause => {
+        const current = projectionRef.current;
+        if (current?.sessionID === confirmed.sessionID && current.revision === confirmed.revision) setError(errorMessage(cause));
+      });
+      return confirmed;
+    }
     finally { if (phoneController && phoneSimulationControllerRef.current === phoneController) {
       phoneSimulationControllerRef.current = null; setPhoneSimulationPending(false);
     } }

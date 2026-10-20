@@ -584,7 +584,8 @@ it.each([
   let current={...projection(3,{sent:"59",receive:"59",other_1:other1,other_2:other2}),pluginID,
     pluginName,mode:"SSB",supportedModes:["SSB"] as const,reservedSerial,matrixTrackers:[] as Array<"countries"|"zones">};
   current.functionKeys=Array.from({length:12},(_,index)=>({id:`F${index+1}`,highlighted:false,label:index===11?"His call TU":`Message ${index+1}`}));
-  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"="normal",recoverAttempts=0;
+  let lastActions:any[]=[],completedClaims=0,claimMode:"normal"|"stop"|"recover"="normal",recoverAttempts=0,
+    refreshMode:"hang"|"update"="hang",logged=false,releaseStale:Array<()=>void>=[];
   const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -592,10 +593,20 @@ it.each([
     if(method==="contest_catalog")result={plugins:[{id:pluginID,name:pluginName,modes:["SSB"]}]};
     else if(method==="contest_sessions")result={sessions:[]};
     else if(method==="contest_create")result={projection:current};
-    else if(method==="contest_log_page")return completedClaims ? new Promise(()=>{}) : {id:crypto.randomUUID(),ok:true,result:{rows:[],total:0}};
-    else if(method==="contest_score")return completedClaims ? new Promise(()=>{}) : {id:crypto.randomUUID(),ok:true,result:{score:current.score}};
+    else if(method==="contest_log_page")return completedClaims&&refreshMode==="hang" ? new Promise(resolve=>releaseStale.push(()=>resolve({
+      id:crypto.randomUUID(),ok:true,result:{rows:[],total:99,offset:0}}))) : {id:crypto.randomUUID(),ok:true,
+      result:{rows:logged?[{ID:"qso-1",TS:"2026-10-21 00:00:00",Call:"K1ABC",Freq:14250,Band:14,Mode:"SSB",SNT:"59",RCV:"59",
+        SentNr:1,NR:"123",Points:1,WPXPrefix:"K1"}]:[],total:logged?1:0,offset:0}};
+    else if(method==="contest_score")return completedClaims&&refreshMode==="hang" ? new Promise(resolve=>releaseStale.push(()=>resolve({
+      id:crypto.randomUUID(),ok:true,result:{sessionID:current.sessionID,revision:current.revision-1,
+        score:{...current.score,qsos:99,total:99},matrices:{},statistics:statisticsFor(current)}}))) : {id:crypto.randomUUID(),ok:true,
+      result:{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{},statistics:statisticsFor(current)}};
     else if(method==="contest_function_key"||method==="contest_esm"){
+      if(params.expectedRevision!==current.revision)throw new Error(`stale expectedRevision ${params.expectedRevision}; current ${current.revision}`);
       current={...current,revision:current.revision+1};
+      if(method==="contest_esm"){
+        logged=true;current={...current,score:{...current.score,qsos:1,points:1,total:1}};
+      }
       const key=method==="contest_esm"?"F3":String(params.key),label=method==="contest_esm"?"Exchange":key==="F12"?"His call TU":`Message ${key.slice(1)}`;
       const payload=method==="contest_esm"?esmPayload:"K1ABC rr tu";
       lastActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key,label,payload,
@@ -627,10 +638,16 @@ it.each([
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F12",focusedField:"callsign"}}));
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.trace[0]).toMatchObject({mode:"SSB",macro:"His call TU",text:"K1ABC rr tu",status:"confirmed"}));
   entry=surfaceOwner.current.projections["active-qso"];
+  refreshMode="update";
   await act(async()=>surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}}));
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.trace[1]).toMatchObject({
     mode:"SSB",macro:"Exchange",text:esmPayload,status:"confirmed"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.page.total).toBe(1));
+  expect(surfaceOwner.current.projections.propagation.score).toMatchObject({qsos:1,points:1,claimedScore:1});
+  const firstStale=releaseStale.splice(0,2);await act(async()=>firstStale.forEach(release=>release()));
+  expect(surfaceOwner.current.projections.logbook.page.total).toBe(1);
+  expect(surfaceOwner.current.projections.propagation.score).toMatchObject({qsos:1,claimedScore:1});
   expect(request.mock.calls.filter(([method])=>method==="contest_output_claim")).toHaveLength(2);
   expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(true);
   expect(request.mock.calls.some(([method])=>method==="contest_esm")).toBe(true);
@@ -638,7 +655,7 @@ it.each([
   expect(workspaceProps.stationTune).not.toHaveBeenCalled();
   expect(surfaceOwner.current.projections["active-qso"]).toMatchObject({busy:false,operator:{pending:null,status:"armed"}});
 
-  claimMode="stop";
+  refreshMode="hang";claimMode="stop";
   entry=surfaceOwner.current.projections["active-qso"];
   let stopped:Promise<void>;
   act(()=>{stopped=surfaceOwner.current.handle({...envelope,action:"entry_operator_key",
