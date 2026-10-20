@@ -242,6 +242,37 @@ it("uses one owner save for a repeated native request after a lost completion", 
   await waitFor(() => expect(completions).toBe(2));
   expect(save).toHaveBeenCalledTimes(1);
 });
+it("routes Digital logging changes through the existing setup owner", async () => {
+  const source = snapshot(), saveDigital = vi.fn(async () => {}), report = vi.fn();
+  const pending = { ...source, requestID:"digital-1", kind:"digital", digital:{
+    configuration:{enabled:false,address:"224.0.0.1",port:2237}, action:"start" } };
+  let delivered = false;
+  native.invoke.mockImplementation(async (_command, { method }) => {
+    if (method === "next" && !delivered) { delivered = true; return pending; }
+    return method === "next" ? null : source;
+  });
+  function Owner() { useContestSetupDialogs({ enabled:true, context:source.context, document:source.document,
+    auxiliary:source.auxiliary, save:vi.fn(), saveRover:vi.fn(), saveDigital, report }); return null; }
+  render(<Owner/>);
+  await waitFor(() => expect(saveDigital).toHaveBeenCalledExactlyOnceWith(pending.digital));
+  expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request", { method:"complete",
+    params:expect.objectContaining({requestID:"digital-1",ok:true}) });
+});
+it("returns a real Digital host rejection to the dialog receipt", async () => {
+  const source = snapshot(), report = vi.fn(), failure = new Error("WSJT-X port is already in use");
+  const pending = { ...source, requestID:"digital-failed", kind:"digital", digital:{
+    configuration:{enabled:true,address:"224.0.0.1",port:2237}, action:"start" } };
+  let delivered = false;
+  native.invoke.mockImplementation(async (_command, { method }) => {
+    if (method === "next" && !delivered) { delivered = true; return pending; }
+    return method === "next" ? null : source;
+  });
+  function Owner() { useContestSetupDialogs({ enabled:true, context:source.context, document:source.document,
+    auxiliary:source.auxiliary, save:vi.fn(), saveRover:vi.fn(), saveDigital:vi.fn(async () => { throw failure; }), report }); return null; }
+  render(<Owner/>);
+  await waitFor(() => expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_request", { method:"complete",
+    params:expect.objectContaining({requestID:"digital-failed",ok:false,message:"WSJT-X port is already in use"}) }));
+});
 it("rejects a dialog save when owner context changes while the request is being read", async () => {
   const source = snapshot(), save = vi.fn(async () => {}), report = vi.fn();
   let deliver!: (value: unknown) => void;

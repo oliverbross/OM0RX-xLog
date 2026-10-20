@@ -11,13 +11,15 @@ vi.mock("./contestStationControl", () => ({ setContestCWSpeed: stationControl.sp
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}) }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any, waitForPublication: vi.fn(async () => {}) }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
+const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => {
   surfaceOwner.current = owner; return surfaceOwner.waitForPublication;
 } }));
 vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWindow.open,
   openContestCallHistoryWindow: surfaceWindow.openHistory }));
-vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog, useContestSetupDialogs: vi.fn() }));
+vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog,
+  useContestSetupDialogs: (owner: unknown) => { setupDialogOwner.current = owner; } }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
@@ -26,7 +28,7 @@ vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   profile: { macros: [{ id: 2, enabled: true, shortcut: "F2", text: "{CALL} {RST} {EXCHANGE}" }] },
 }) }));
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks(); surfaceOwner.current = null; });
+afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks(); surfaceOwner.current = null; setupDialogOwner.current = null; });
 
 const operatingContext = "44444444-4444-4444-8444-444444444444";
 const workspaceGeneration = "33333333-3333-4333-8333-333333333333";
@@ -65,10 +67,37 @@ it("opens all separate setup dialogs from the hub and Contest menu before a sess
     registerMenuRoute={handler => { route = handler; }}/>);
   await userEvent.click(await screen.findByRole("button", {name:"Station Settings"}));
   await userEvent.click(screen.getByRole("button", {name:"Configuration Settings"}));
-  await act(async () => { await route!("contest-dialog-operator"); await route!("contest-dialog-station"); await route!("contest-dialog-configuration"); });
-  expect(surfaceWindow.openDialog.mock.calls.map(([kind]) => kind)).toEqual(["station", "configuration", "operator", "station", "configuration"]);
+  await userEvent.click(screen.getByRole("button", {name:"Digital Setup"}));
+  await act(async () => { await route!("contest-dialog-operator"); await route!("contest-dialog-station"); await route!("contest-dialog-configuration"); await route!("contest-dialog-digital"); });
+  expect(surfaceWindow.openDialog.mock.calls.map(([kind]) => kind)).toEqual(["station", "configuration", "digital", "operator", "station", "configuration", "digital"]);
   expect(screen.queryByRole("textbox", {name:"City"})).toBeNull();
-  expect(request.mock.calls.every(([method]) => ["contest_catalog", "contest_sessions"].includes(method))).toBe(true);
+  expect(request.mock.calls.every(([method]) => ["contest_catalog", "contest_sessions", "wsjtx_snapshot"].includes(method))).toBe(true);
+});
+
+it("routes Digital logging saves, starts, and stops through the real host service", async () => {
+  const digital = { configuration:{enabled:false,address:"224.0.0.1",port:2237}, running:false,
+    status:"Stopped", receive_only:true, received_count:17, activity:{spots:[{}]} };
+  const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+    if (method === "contest_catalog") return { id:crypto.randomUUID(),ok:true,result:{plugins:[]} };
+    if (method === "contest_sessions") return { id:crypto.randomUUID(),ok:true,result:{sessions:[]} };
+    if (method === "wsjtx_snapshot") return digital;
+    if (method === "wsjtx_configure") return {...digital,configuration:(params as any).configuration};
+    if (method === "wsjtx_start") return {...digital,running:true,status:"Listening"};
+    if (method === "wsjtx_stop") return digital;
+    throw new Error(method);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  await waitFor(() => expect(setupDialogOwner.current?.auxiliary.digital).toEqual({
+    configuration:digital.configuration,running:false,status:"Stopped",receive_only:true,
+  }));
+  const saveDigital = setupDialogOwner.current.saveDigital;
+  await act(() => saveDigital({configuration:digital.configuration,action:"save"}));
+  await act(() => saveDigital({configuration:digital.configuration,action:"start"}));
+  await act(() => saveDigital({configuration:digital.configuration,action:"stop"}));
+  expect(request.mock.calls.filter(([method]) => method.startsWith("wsjtx_")).map(([method]) => method)).toEqual([
+    "wsjtx_snapshot", "wsjtx_configure", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
+  ]);
+  expect(request).toHaveBeenCalledWith("wsjtx_configure", {configuration:{...digital.configuration,enabled:true}});
 });
 
 it("persists station settings before the first contest exists", async () => {

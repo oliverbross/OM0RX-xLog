@@ -7,7 +7,8 @@ const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args), isTauri: () => true }));
 const snapshot = { epoch:"owner", context:"session", revision:1,
   document:{ station:{}, settings:{}, preferences:{}, network:{}, macros:[] },
-  auxiliary:{ roverLocation:"JN88", diagnostics:{ engine:"Not1MM Python", plugin:"cq_ww_cw", version:"26.10.11", source:"7c8b499225a7", reference:"cty-test" } } };
+  auxiliary:{ roverLocation:"JN88", diagnostics:{ engine:"Not1MM Python", plugin:"cq_ww_cw", version:"26.10.11", source:"7c8b499225a7", reference:"cty-test" },
+    digital:{configuration:{enabled:false,address:"224.0.0.1",port:2237},running:false,status:"Stopped",receive_only:true} } };
 
 describe("DetachedContestAuxiliaryDialog", () => {
   beforeEach(() => { invoke.mockReset(); window.history.replaceState({}, "", "/"); });
@@ -30,5 +31,9 @@ describe("DetachedContestAuxiliaryDialog", () => {
     expect(await screen.findByRole("heading",{name:"Not1MM"})).not.toBeNull();
     expect(screen.getByText("Pedro CT2HZA")).not.toBeNull(); expect(screen.getByText("7c8b499225a7")).not.toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+  it("routes the separate Digital logging setup surface", async () => {
+    const { DetachedContestDigitalDialog } = await import("./DetachedContestDigitalDialog");
+    expect(await loadWindowSurface("?view=contest-setup-digital")).toBe(DetachedContestDigitalDialog);
   });
 });

@@ -16,7 +16,7 @@ import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
 import { openContestSetupService } from "./contestSetupServices";
-import { openContestSetupDialog, useContestSetupDialogs } from "./contestSetupDialogs";
+import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
 import { setContestCWSpeed } from "./contestStationControl";
 import "./ContestWorkspace.css";
@@ -262,6 +262,17 @@ function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[
       total: Object.values(counts).reduce((sum, value) => sum + value, 0) })), total: rows.size, busy };
 }
 
+/** Keep volatile decoder counters/activity out of the setup mailbox revision fence. */
+function boundedDigitalSnapshot(value: unknown): ContestDigitalSnapshot | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>, configuration = source.configuration as Record<string, unknown> | undefined;
+  if (!configuration || typeof configuration.enabled !== "boolean" || typeof configuration.address !== "string" ||
+      typeof configuration.port !== "number" || typeof source.running !== "boolean" || typeof source.status !== "string" ||
+      typeof source.receive_only !== "boolean") return undefined;
+  return { configuration: { enabled: configuration.enabled, address: configuration.address, port: configuration.port },
+    running: source.running, status: source.status, receive_only: source.receive_only };
+}
+
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
@@ -276,6 +287,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
+  const [digitalSnapshot, setDigitalSnapshot] = useState<ContestDigitalSnapshot | undefined>();
   const configuredBands = useMemo(() => {
     const selected = Array.isArray(setup.preferences.bands) ? setup.preferences.bands : contestBands;
     const supported = projection?.supportedBands?.length ? projection.supportedBands : setupBandChoices;
@@ -731,14 +743,31 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       false, true, false, true);
     if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
+  useEffect(() => {
+    if (!setupOnly) return;
+    let active = true;
+    const refreshDigital = () => void serviceRequest("wsjtx_snapshot").then(value => {
+      if (active) setDigitalSnapshot(boundedDigitalSnapshot(value));
+    }).catch(() => { if (active) setDigitalSnapshot(undefined); });
+    refreshDigital(); const timer = window.setInterval(refreshDigital, 5_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [setupOnly, serviceRequest]);
   useContestSetupDialogs({ enabled: setupOnly, context: `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`,
     document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", diagnostics: {
       engine: "Not1MM Python", plugin: projection?.pluginID ?? "No open contest",
       version: projection?.ruleIdentity?.version ?? "26.10.11", source: projection?.sourceRevision ?? "7c8b499225a73f7f8f792246881bd7aefc05452f",
-      reference: projection?.referenceID ?? "No active reference" } }, save: async document => {
+      reference: projection?.referenceID ?? "No active reference" }, digital: digitalSnapshot }, save: async document => {
       if (busyRef.current || retiring) throw new Error("Contest Setup is busy. Try again after it finishes.");
       await saveSetup(document);
-    }, saveRover: async location => { await hostAction("contest_rover_location", { location }, true); }, report: setError });
+    }, saveRover: async location => { await hostAction("contest_rover_location", { location }, true); },
+    saveDigital: async ({ configuration, action }: ContestDigitalSave) => {
+      if (busyRef.current || retiring) throw new Error("Contest Setup is busy. Try again after it finishes.");
+      if (action === "stop") setDigitalSnapshot(boundedDigitalSnapshot(await serviceRequest("wsjtx_stop")));
+      else {
+        const configured = boundedDigitalSnapshot(await serviceRequest("wsjtx_configure", { configuration: { ...configuration, enabled: action === "start" ? true : configuration.enabled } }));
+        setDigitalSnapshot(action === "start" ? boundedDigitalSnapshot(await serviceRequest("wsjtx_start")) : configured);
+      }
+    }, report: setError });
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(); return; }
@@ -1186,9 +1215,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
-      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
+      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-rover", "contest-dialog-about"].includes(route)) {
         await openContestSetupDialog(route === "contest-dialog-operator" ? "operator" : route === "contest-dialog-station" ? "station" :
-          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-rover" ? "rover" : "about");
+          route === "contest-dialog-configuration" ? "configuration" : route === "contest-dialog-digital" ? "digital" : route === "contest-dialog-rover" ? "rover" : "about");
         return true;
       }
       if (route === "contest-setup") {

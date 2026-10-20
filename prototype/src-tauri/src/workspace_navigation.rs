@@ -28,11 +28,12 @@ pub fn mode_route(id: &str) -> Option<&'static str> {
 
 // Menu destinations are retained main-renderer intents. The main contest
 // controller supplies the current session when opening its existing windows.
-pub const CONTEST_MENU_ITEMS: [(&str, &str); 19] = [
+pub const CONTEST_MENU_ITEMS: [(&str, &str); 20] = [
     ("contest-setup", "Contest Setup"),
     ("contest-dialog-operator", "Operator…"),
     ("contest-dialog-station", "Station Settings…"),
     ("contest-dialog-configuration", "Configuration Settings…"),
+    ("contest-dialog-digital", "Digital Logging Setup…"),
     ("contest-dialog-rover", "Rover…"),
     ("contest-window-call-history", "Call History"),
     ("contest-window-qrz-details", "QRZ Details"),
@@ -58,7 +59,7 @@ pub fn contest_route(id: &str) -> Option<&'static str> {
 pub fn contest_owner_foreground(id: &str) -> bool { id == "contest-setup" }
 pub fn contest_owner_dependent_window(label: &str) -> bool {
     label.starts_with("contest--")
-        || matches!(label, "contest-setup-operator" | "contest-setup-station" | "contest-setup-configuration" | "contest-setup-rover" | "contest-setup-about")
+        || matches!(label, "contest-setup-operator" | "contest-setup-station" | "contest-setup-configuration" | "contest-setup-digital" | "contest-setup-rover" | "contest-setup-about")
 }
 pub fn contest_owner_can_retire<'a>(visible: bool, pending: bool,
     labels: impl IntoIterator<Item = &'a str>) -> bool {
@@ -133,7 +134,7 @@ mod tests {
                 assert_eq!(contest_window_panel(panel), Some(panel));
                 windows.insert(panel);
             } else {
-                assert!(["contest-setup", "contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-rover", "contest-dialog-about"].contains(&route));
+                assert!(["contest-setup", "contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-rover", "contest-dialog-about"].contains(&route));
             }
             let pending = state.request(route).unwrap();
             assert_eq!(state.snapshot("contest-setup").unwrap(), Some(pending.clone()));
@@ -142,7 +143,7 @@ mod tests {
             assert!(state.acknowledge("contest--active-qso", pending.revision).is_err());
             state.acknowledge("contest-setup", pending.revision).unwrap();
         }
-        for label in ["contest--active-qso", "contest--monitor", "contest--station-control", "contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-rover", "contest-setup-about"] {
+        for label in ["contest--active-qso", "contest--monitor", "contest--station-control", "contest-setup-operator", "contest-setup-station", "contest-setup-configuration", "contest-setup-digital", "contest-setup-rover", "contest-setup-about"] {
             assert!(contest_owner_dependent_window(label));
         }
         for label in ["contest-setup", "main", "rotor", "station-control", "contest-window-active-qso"] {
@@ -160,6 +161,7 @@ mod tests {
             ("contest-setup", "Contest Setup"), ("contest-window-call-history", "Call History"), ("contest-window-qrz-details", "QRZ Details"),
             ("contest-dialog-operator", "Operator…"),
             ("contest-dialog-station", "Station Settings…"), ("contest-dialog-configuration", "Configuration Settings…"),
+            ("contest-dialog-digital", "Digital Logging Setup…"),
             ("contest-dialog-rover", "Rover…"), ("contest-dialog-about", "About Not1MM"),
             ("contest-window-active-qso", "Main Logging"), ("contest-window-propagation", "Stats"),
             ("contest-window-logbook", "Logbook"), ("contest-window-band-maps", "Band Map"),

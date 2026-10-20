@@ -32,7 +32,7 @@ it("subscribes before reading a menu click retained before the renderer started"
   disconnect(); expect(f.stop).toHaveBeenCalledOnce();
 });
 it("accepts only known contest setup and window intents", () => {
-  expect(contestSetupDialogRoutes).toEqual(["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-rover", "contest-dialog-about"]);
+  expect(contestSetupDialogRoutes).toEqual(["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-rover", "contest-dialog-about"]);
   for (const screen of ["contest-setup", ...contestSetupDialogRoutes, ...contestMenuPanelIDs.map(id => `contest-window-${id}`)]) {
     expect(isContestMenuRoute(screen)).toBe(true);
     expect(validWorkspaceNavigation({ revision: 1, screen })).toBe(true);

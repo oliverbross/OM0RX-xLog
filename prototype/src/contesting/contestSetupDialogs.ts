@@ -2,10 +2,14 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import type { ContestSetupDocument } from "./ContestSetupPanel";
 
-export type SetupDialogKind = "operator" | "station" | "configuration" | "rover" | "about";
-export type SetupDialogAuxiliary = { roverLocation: string; diagnostics: { engine: string; plugin: string; version: string; source: string; reference: string } };
+export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "rover" | "about";
+export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number };
+  running: boolean; status: string; receive_only: boolean };
+export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"]; action: "save" | "start" | "stop" };
+export type SetupDialogAuxiliary = { roverLocation: string; diagnostics: { engine: string; plugin: string; version: string; source: string; reference: string };
+  digital?: ContestDigitalSnapshot };
 export type SetupDialogSnapshot = { epoch: string; context: string; revision: number; document: ContestSetupDocument; auxiliary: SetupDialogAuxiliary };
-type SaveRequest = SetupDialogSnapshot & { requestID: string; kind: SetupDialogKind; roverLocation?: string };
+type SaveRequest = SetupDialogSnapshot & { requestID: string; kind: SetupDialogKind; roverLocation?: string; digital?: ContestDigitalSave };
 type Receipt = { requestID: string; status: "pending" | "saved" | "rejected"; message?: string };
 export const setupDialogRequest = <T,>(method: string, params: unknown = {}): Promise<T> =>
   invoke("contest_setup_dialog_request", { method, params });
@@ -18,6 +22,9 @@ export const closeContestSetupDialog = () => setupDialogRequest<void>("close");
 export async function saveContestRoverDialog(snapshot: SetupDialogSnapshot, roverLocation: string): Promise<void> {
   return submitContestSetupDialog(snapshot, { roverLocation: roverLocation.trim().toUpperCase() });
 }
+export async function saveContestDigitalDialog(snapshot: SetupDialogSnapshot, digital: ContestDigitalSave): Promise<void> {
+  return submitContestSetupDialog(snapshot, { digital });
+}
 
 /** Only apply the fields owned by this form, preserving the other dialog's data. */
 export function mergeSetupDialog(current: ContestSetupDocument, requested: ContestSetupDocument, kind: SetupDialogKind): ContestSetupDocument {
@@ -26,7 +33,7 @@ export function mergeSetupDialog(current: ContestSetupDocument, requested: Conte
     { ...current, preferences: structuredClone(requested.preferences), network: structuredClone(requested.network) };
 }
 
-async function submitContestSetupDialog(snapshot: SetupDialogSnapshot, payload: { document?: ContestSetupDocument; roverLocation?: string }): Promise<void> {
+async function submitContestSetupDialog(snapshot: SetupDialogSnapshot, payload: { document?: ContestSetupDocument; roverLocation?: string; digital?: ContestDigitalSave }): Promise<void> {
   const requestID = crypto.randomUUID();
   let receipt: Receipt = { requestID, status: "pending" };
   try { receipt = await setupDialogRequest<Receipt>("submit", { ...snapshot, ...payload, requestID }); }
@@ -59,7 +66,8 @@ export async function saveContestSetupDialog(snapshot: SetupDialogSnapshot, docu
 }
 
 export function useContestSetupDialogs(options: { enabled: boolean; context: string; document: ContestSetupDocument; auxiliary: SetupDialogAuxiliary;
-  save: (document: ContestSetupDocument) => Promise<void>; saveRover: (location: string) => Promise<void>; report: (message: string) => void }) {
+  save: (document: ContestSetupDocument) => Promise<void>; saveRover: (location: string) => Promise<void>;
+  saveDigital?: (digital: ContestDigitalSave) => Promise<void>; report: (message: string) => void }) {
   const latest = useRef(options); latest.current = options;
   useEffect(() => {
     if (!options.enabled || !isTauri()) return;
@@ -80,6 +88,10 @@ export function useContestSetupDialogs(options: { enabled: boolean; context: str
             try {
               if (published !== JSON.stringify({ context: latest.current.context, document: latest.current.document, auxiliary: latest.current.auxiliary })) throw new Error("Setup changed. Reopen the dialog before saving.");
               if (pending.kind === "rover") await latest.current.saveRover(pending.roverLocation ?? "");
+              else if (pending.kind === "digital") {
+                if (!pending.digital || !latest.current.saveDigital) throw new Error("Digital logging settings are unavailable.");
+                await latest.current.saveDigital(pending.digital);
+              }
               else await latest.current.save(mergeSetupDialog(latest.current.document, pending.document, pending.kind));
               result.ok = true;
             } catch (cause) { result.message = cause instanceof Error ? cause.message : "Setup could not be saved."; }

@@ -7,6 +7,7 @@ pub fn kind(label: &str) -> Option<&'static str> {
         "contest-setup-operator" => Some("operator"),
         "contest-setup-station" => Some("station"),
         "contest-setup-configuration" => Some("configuration"),
+        "contest-setup-digital" => Some("digital"),
         "contest-setup-rover" => Some("rover"),
         "contest-setup-about" => Some("about"),
         _ => None,
@@ -17,6 +18,7 @@ pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
         "operator" => Some(("contest-setup-operator", "Operator", 420.0, 190.0)),
         "station" => Some(("contest-setup-station", "Station Settings", 760.0, 660.0)),
         "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 320.0)),
+        "digital" => Some(("contest-setup-digital", "Digital Logging Setup", 720.0, 560.0)),
         "rover" => Some(("contest-setup-rover", "Rover", 382.0, 110.0)),
         "about" => Some(("contest-setup-about", "About Not1MM", 420.0, 500.0)),
         _ => None,
@@ -36,6 +38,13 @@ fn document(value: &Value) -> bool {
 fn auxiliary(value: &Value) -> bool {
     value.is_object() && value["roverLocation"].as_str().is_some_and(|s| s.len() <= 10)
         && value["diagnostics"].is_object() && value["diagnostics"].to_string().len() <= 4_096
+}
+fn digital(value: &Value) -> bool {
+    let configuration = &value["configuration"];
+    let address = configuration["address"].as_str().unwrap_or("");
+    let port = configuration["port"].as_u64().unwrap_or(0);
+    configuration.is_object() && configuration["enabled"].is_boolean() && !address.is_empty() && address.len() <= 45
+        && (1..=65_535).contains(&port) && matches!(value["action"].as_str(), Some("save" | "start" | "stop"))
 }
 fn owner(label: &str) -> Result<(), String> {
     if label == "contest-setup" { Ok(()) } else { Err("Only Contest Setup owns setup changes.".into()) }
@@ -96,7 +105,7 @@ impl State {
                 if dialog == "about" { return Err("The About window is read-only.".into()); }
                 let valid_payload = if dialog == "rover" {
                     params["roverLocation"].as_str().is_some_and(|s| !s.trim().is_empty() && s.len() <= 10)
-                } else { document(&params["document"]) };
+                } else if dialog == "digital" { digital(&params["digital"]) } else { document(&params["document"]) };
                 if !text(&params["requestID"]) || !valid_payload { return Err("Invalid setup save request.".into()); }
                 let mut request = params; request["kind"] = json!(dialog);
                 if let Some((_, original, receipt)) = self.receipts.iter().find(|(_,p,_)| p["requestID"] == request["requestID"]) {
@@ -146,7 +155,7 @@ mod tests {
     }
     #[test]
     fn only_owner_or_main_logging_opon_can_open_dialogs() {
-        for kind in ["operator", "station", "configuration", "rover", "about"] {
+        for kind in ["operator", "station", "configuration", "digital", "rover", "about"] {
             assert!(can_open("contest-setup", kind));
         }
         assert!(can_open("contest--active-qso", "operator"));
@@ -168,6 +177,17 @@ mod tests {
         assert!(s.pending.is_none());
     }
     #[test]
+    fn digital_requests_are_bounded_and_owned() {
+        let mut s = State::default(); let snapshot = publish(&mut s);
+        let mut request = snapshot.clone(); request["requestID"] = json!("digital-1");
+        request["digital"] = json!({"configuration":{"enabled":false,"address":"224.0.0.1","port":2237},"action":"start"});
+        assert_eq!(s.request("contest-setup-digital","submit",request.clone()).unwrap()["status"],"pending");
+        assert!(s.request("contest-setup-digital","submit",request).is_ok());
+        let mut invalid = snapshot; invalid["requestID"] = json!("digital-2");
+        invalid["digital"] = json!({"configuration":{"enabled":false,"address":"","port":0},"action":"connect"});
+        assert!(s.request("contest-setup-digital","submit",invalid).is_err());
+    }
+    #[test]
     fn fences_changed_document_context_and_owner() {
         let mut s = State::default(); let snapshot = publish(&mut s); let p = submission(&snapshot);
         s.request("contest-setup-station","submit",p.clone()).unwrap();
@@ -184,6 +204,7 @@ mod tests {
         assert_eq!(spec("operator"),Some(("contest-setup-operator","Operator",420.0,190.0)));
         assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
         assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,320.0)));
+        assert_eq!(spec("digital"),Some(("contest-setup-digital","Digital Logging Setup",720.0,560.0)));
         assert_eq!(spec("rover"),Some(("contest-setup-rover","Rover",382.0,110.0)));
         assert_eq!(spec("about"),Some(("contest-setup-about","About Not1MM",420.0,500.0)));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-operator"),(360.0,170.0));
@@ -194,7 +215,7 @@ mod tests {
     #[test]
     fn dialogs_have_only_their_finite_core_capability() {
         let capability: Value = serde_json::from_str(include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
-        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration","contest-setup-rover","contest-setup-about"]));
+        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration","contest-setup-digital","contest-setup-rover","contest-setup-about"]));
         assert_eq!(capability["permissions"],json!(["core:default","core:window:allow-set-size"]));
     }
 }
