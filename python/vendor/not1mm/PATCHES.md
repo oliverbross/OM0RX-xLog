@@ -9,7 +9,7 @@ registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
 ARRL Sweepstakes CW, ARRL Sweepstakes Phone, ARRL DX CW, ARRL DX SSB,
 NAQP CW, NAQP SSB,
 Phone Weekly Test, ICWC MST, CWT, CWOPS Open, K1USN SST, Trans Tasman CW,
-Oceania DX CW and Oceania DX SSB.
+Oceania DX CW, Oceania DX SSB, SAC CW and SAC SSB.
 `source-manifest.json` binds those registrations to unchanged pinned file hashes.
 
 `contest_host/upstream.py` applies exact, single-occurrence source overlays at
@@ -104,6 +104,15 @@ import time and fails if the pinned source differs:
     distinct non-`DX` section, including on a zero-point non-NA contact; that
     pinned behavior is deliberately preserved rather than silently rewritten.
 
+12. SAC CW and SAC SSB execute unchanged modules from the same pinned revision
+    (Git blobs `6fbd04ffa8ea961fa24b7b11282d3bb622d7a080` and
+    `334550de17a5a6ffe623105ae7169f13b6a203fe`). They use the existing durable
+    serial reservation, numeric received-exchange validation, per-band duplicate
+    check and ordered correction/deletion replay. Their original Scandinavian
+    point, multiplier, ESM and Cabrillo callbacks remain authoritative. The
+    generic serial-macro adapter supplies F3 `{RST} {SENTNR}` from the reserved
+    draft serial. SSB remains non-transmitting and adds no audio/PTT authority.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -114,6 +123,8 @@ Original SHA-256:
 | plugins/cwo.py | e162c7e11759cd97322e2d60257f05e47312d997751c2fb2db2b5751872b3a8e |
 | plugins/oceania_dx_cw.py | 51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664 |
 | plugins/oceania_dx_ssb.py | f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee |
+| plugins/sac_cw.py | 2c2879d79f59df964e821f5c9ee6a5a460dad93e1c0e04a72b4c3a9ff9aa36ce |
+| plugins/sac_ssb.py | c8a8fe6189e79a6fe001de2f73cccd574acc0d26ea8f2f8691765619f1b06fd9 |
 | plugins/arrl_dx_ssb.py | 357f333526a8cda2f654c84245056cf47cc95bbb0be0c1add64b1e53c3474387 |
 | plugins/arrl_dx_cw.py | 50dad8d13b4e782f6a846660f96a96357ae96866dac4ae5787f97818ed00e2d2 |
 | plugins/naqp_cw.py | 84da97206ac651638498812dc7867432c883e88650a86571161ca5e3a72b222b |

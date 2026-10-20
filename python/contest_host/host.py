@@ -14,7 +14,8 @@ import uuid
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
 from .plugins import (ARRL_DX_PLUGINS, CQ_WW_PLUGINS, NAME_SPC_PLUGINS,
-                      PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS, TEN_TEN_PLUGINS)
+                      PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS,
+                      SIMPLE_MULTIPLIER_PLUGINS, TEN_TEN_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
@@ -467,6 +468,11 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "prefixes": prefixes,
                     "multipliers": prefixes, "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] in SIMPLE_MULTIPLIER_PLUGINS:
+            multipliers = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": 0, "zones": 0, "multipliers": multipliers,
+                    "total": self.contest.calc_score(self)}
         country, zone = self.contest.show_mults(self, rtc=True)
         return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                 "countries": country, "zones": zone, "multipliers": country + zone, "total": self.contest.calc_score(self)}

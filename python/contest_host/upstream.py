@@ -60,12 +60,7 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
             raise RuntimeError("Pinned Not1MM CW macro source is invalid")
         template = adapt_cw_template(plugin_id, parts[3])
         result[(parts[0], parts[1])] = {"label": parts[2], "template": template}
-    if plugin_id in {"cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw"}:
-        # The shipped macros target a configured exchange. Serial contests send the
-        # host-reserved draft serial, independently of that configured text.
-        for mode in ("R", "S"):
-            result[(mode, "F3")]["template"] = "{RST} {SENTNR}"
-    elif plugin_id in {"arrl_ss_cw", "arrl_ss_phone"}:
+    if plugin_id in {"arrl_ss_cw", "arrl_ss_phone"}:
         # The pinned plugin's SOAPBOX_HINT gives its exchange macro explicitly.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{CALL} {SENTNR} {EXCHANGE}"
@@ -77,6 +72,11 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # CW Open sends the host-reserved serial followed by the configured name.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{SENTNR} {EXCHANGE}"
+    elif PLUGIN_REGISTRY[plugin_id].serial:
+        # Ordinary serial contests send the host-reserved draft serial,
+        # independently of any configured exchange text.
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{RST} {SENTNR}"
     if len(result) != 24:
         raise RuntimeError("Pinned Not1MM CW macro set is incomplete")
     return result
