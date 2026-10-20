@@ -3,14 +3,23 @@ use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
 
 pub fn kind(label: &str) -> Option<&'static str> {
-    match label { "contest-setup-station" => Some("station"), "contest-setup-configuration" => Some("configuration"), _ => None }
+    match label {
+        "contest-setup-operator" => Some("operator"),
+        "contest-setup-station" => Some("station"),
+        "contest-setup-configuration" => Some("configuration"),
+        _ => None,
+    }
 }
 pub fn spec(kind: &str) -> Option<(&'static str, &'static str, f64, f64)> {
     match kind {
+        "operator" => Some(("contest-setup-operator", "Operator", 420.0, 190.0)),
         "station" => Some(("contest-setup-station", "Station Settings", 760.0, 660.0)),
         "configuration" => Some(("contest-setup-configuration", "Configuration Settings", 820.0, 320.0)),
         _ => None,
     }
+}
+pub fn can_open(label: &str, kind: &str) -> bool {
+    label == "contest-setup" || label == "contest--active-qso" && kind == "operator"
 }
 #[derive(Default)]
 pub struct State { snapshot: Option<Value>, pending: Option<Value>, receipts: Vec<(String, Value, Value)> }
@@ -123,6 +132,15 @@ mod tests {
         assert!(s.request("contest-setup-station","contest_commit",Value::Null).is_err());
     }
     #[test]
+    fn only_owner_or_main_logging_opon_can_open_dialogs() {
+        for kind in ["operator", "station", "configuration"] {
+            assert!(can_open("contest-setup", kind));
+        }
+        assert!(can_open("contest--active-qso", "operator"));
+        assert!(!can_open("contest--active-qso", "station"));
+        assert!(!can_open("main", "operator"));
+    }
+    #[test]
     fn deduplicates_requests_and_preserves_single_writer() {
         let mut s = State::default(); let p = submission(&publish(&mut s));
         assert_eq!(s.request("contest-setup-station","submit",p.clone()).unwrap()["status"],"pending");
@@ -149,9 +167,11 @@ mod tests {
         assert!(s.request("contest-setup","next",json!({"epoch":"old-owner"})).is_err());
     }
     #[test]
-    fn only_exposes_two_compact_distinct_windows() {
+    fn exposes_three_compact_distinct_windows() {
+        assert_eq!(spec("operator"),Some(("contest-setup-operator","Operator",420.0,190.0)));
         assert_eq!(spec("station"),Some(("contest-setup-station","Station Settings",760.0,660.0)));
         assert_eq!(spec("configuration"),Some(("contest-setup-configuration","Configuration Settings",820.0,320.0)));
+        assert_eq!(crate::workspace_windows::native_minimum("contest-setup-operator"),(360.0,170.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-station"),(620.0,480.0));
         assert_eq!(crate::workspace_windows::native_minimum("contest-setup-configuration"),(680.0,300.0));
         assert!(spec("logbook").is_none()); assert!(kind("contest-setup").is_none());
@@ -159,7 +179,7 @@ mod tests {
     #[test]
     fn dialogs_have_only_their_finite_core_capability() {
         let capability: Value = serde_json::from_str(include_str!("../capabilities/contest-setup-dialogs.json")).unwrap();
-        assert_eq!(capability["windows"],json!(["contest-setup-station","contest-setup-configuration"]));
+        assert_eq!(capability["windows"],json!(["contest-setup-operator","contest-setup-station","contest-setup-configuration"]));
         assert_eq!(capability["permissions"],json!(["core:default","core:window:allow-set-size"]));
     }
 }

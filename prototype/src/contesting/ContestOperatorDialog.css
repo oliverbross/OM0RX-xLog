@@ -1,0 +1,7 @@
+.contest-operator-dialog { height:100dvh; min-height:0; justify-content:flex-start; padding:14px; overflow:hidden; }
+.contest-operator-dialog>header { display:grid; gap:2px; }
+.contest-operator-dialog h1,.contest-operator-dialog p { margin:0; }
+.contest-operator-dialog>header p { color:var(--secondary,#a6b6ca); font-size:10px; }
+.contest-operator-dialog form { display:grid; gap:10px; min-height:0; padding:12px; border:1px solid var(--border,#243a55); border-radius:8px; background:var(--panel,#0b1728); }
+.contest-operator-dialog input { font:700 14px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; }
+.contest-operator-dialog footer { display:flex; justify-content:flex-end; gap:8px; }

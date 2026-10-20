@@ -2165,7 +2165,7 @@ async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<
 
 #[tauri::command]
 async fn contest_setup_dialog_open(window: tauri::WebviewWindow, app: tauri::AppHandle, kind: String) -> Result<(), String> {
-    if window.label() != CONTEST_SETUP_WINDOW { return Err("Only Contest Setup opens its dialogs.".into()); }
+    if !contest_setup_dialogs::can_open(window.label(), &kind) { return Err("Only Contest Setup or OPON from Main Logging opens this dialog.".into()); }
     let (label, title, width, height) = contest_setup_dialogs::spec(&kind).ok_or("Unknown setup dialog.")?;
     let (minimum_width, minimum_height) = workspace_windows::native_minimum(label);
     let dialog = recover_singleton(&MAIN_CREATION, || app.get_webview_window(label), || {

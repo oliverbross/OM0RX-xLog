@@ -570,6 +570,26 @@ it("uses the pinned plugin space-advance fields instead of limiting space to Cal
   expect(document.activeElement).toBe(receive);
 });
 
+it("opens Operator for exact OPON Space while ordinary callsigns keep space advance",async()=>{
+  const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,callsign:""},
+    descriptor:{bands:["20m"],modes:["CW"],advanceOnSpace:["callsign"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"queued"};
+    if(command==="contest_setup_dialog_open")return null;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const callsign=await screen.findByLabelText("Callsign"),sent=screen.getByLabelText("SNT");
+  fireEvent.change(callsign,{target:{value:"K1ABC"}});fireEvent.keyDown(callsign,{key:" "});
+  expect(document.activeElement).toBe(sent);
+  expect(native.invoke.mock.calls.some(([command])=>command==="contest_setup_dialog_open")).toBe(false);
+  callsign.focus();fireEvent.change(callsign,{target:{value:"OPON"}});fireEvent.keyDown(callsign,{key:" "});
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_setup_dialog_open",{kind:"operator"}));
+  expect(document.activeElement).toBe(callsign);
+});
+
 it("restores authoritative callsign focus when a logged QSO creates a new draft",async()=>{
   const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"receive",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};

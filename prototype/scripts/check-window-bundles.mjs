@@ -54,10 +54,10 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   // both detached surfaces.
   // Contest Setup adds one lazy route to the shared surface loader without
   // pulling its contest workspace into ordinary detached-window startup.
-  // Two additional lazy setup-dialog routes add preload metadata to the shared
-  // bootstrap. Logbook measures 401,426 bytes; neither setup UI nor its owner is
-  // in that startup graph. Keep the adjustment local to the affected budget.
-  const budget = name === "Settings" ? 407_000 : name === "QSO" ? 406_000 : name === "Logbook" ? 402_000 : 401_000;
+  // Three additional lazy setup-dialog routes add preload metadata to the shared
+  // bootstrap. Their setup UI and session owner remain outside this startup
+  // graph. Keep the adjustment local to the affected budget.
+  const budget = name === "Settings" ? 408_000 : name === "QSO" ? 407_000 : name === "Logbook" ? 402_000 : 401_000;
   assert(bytes <= budget, `${name} startup JavaScript exceeds the ${budget / 1_000} kB budget: ${bytes}`);
   console.log(JSON.stringify({ window: name, bytes, gzip, files }));
 }

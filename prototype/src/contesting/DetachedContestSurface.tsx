@@ -278,6 +278,10 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       ? resolveContestKeyBinding(projection.descriptor.keyBindings,bindingContext(focusedField),chord) : null;
     if(bound){event.preventDefault();event.stopPropagation();runBoundAction(bound);return;}
     if(event.altKey||event.ctrlKey||event.metaKey)return;
+    if(!event.shiftKey&&event.key===" "&&focusedField==="callsign"&&intents.values.callsign.trim().toUpperCase()==="OPON"){
+      event.preventDefault();event.stopPropagation();intents.change("callsign","",actionFor("callsign"));
+      void import("./contestSetupDialogs").then(({openContestSetupDialog})=>openContestSetupDialog("operator"))
+        .catch(cause=>reportConflict(message(cause)));return;}
     if(event.key==="Tab"&&focusedField){const next=nextFocusable(focusedField,event.shiftKey?"tabPrevious":"tabNext");
       if(next){event.preventDefault();event.stopPropagation();fieldRefs.current[next]?.focus();}return;}
     const advanceOnSpace=focusedField&&(projection.descriptor?.advanceOnSpace?.includes(focusedField)??focusedField==="callsign");

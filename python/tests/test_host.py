@@ -281,6 +281,19 @@ class HostTests(unittest.TestCase):
                          ("OM0RX/P", "OM1ABC", 16))
         self.assertEqual((rows[qso]["IsRunQSO"], rows[qso]["Run1Run2"]), (0, 1))
 
+    def test_operator_switch_preserves_setup_and_historical_qso_attribution(self):
+        old_qso = self.log()
+        before = self.read("setup_get")["setup"]
+        switched = {**before, "operator": "OM1ABC/P"}
+        saved = self.mutate("setup_save", setup=switched)
+        self.assertEqual(saved["setup"], switched)
+        self.assertEqual({key: saved["setup"][key] for key in before if key != "operator"},
+                         {key: before[key] for key in before if key != "operator"})
+        new_qso = self.log("DL1ABC", "14", 1)
+        rows = {row["ID"]: row for row in self.read("log")["rows"]}
+        self.assertEqual(rows[old_qso]["Operator"], "OM0RX")
+        self.assertEqual(rows[new_qso]["Operator"], "OM1ABC/P")
+
     def test_saved_cqww_mynr_macro_migrates_to_configured_exchange(self):
         setup = self.read("setup_get")["setup"]
         setup["macros"] = [{"mode": "R", "key": "F6", "label": "MyNR", "template": "{SENTNR}"}]

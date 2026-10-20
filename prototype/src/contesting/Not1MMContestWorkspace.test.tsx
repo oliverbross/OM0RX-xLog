@@ -55,7 +55,7 @@ it("shows a string rejection from the detached contest owner", async () => {
   expect((await screen.findByRole("alert")).textContent).toContain("Contest mutations require backend admission.");
 });
 
-it("opens both separate setup dialogs from the hub and Contest menu before a session exists", async () => {
+it("opens all separate setup dialogs from the hub and Contest menu before a session exists", async () => {
   const request = vi.fn(async (method: string) => ({ id:crypto.randomUUID(), ok:true,
     result:method === "contest_catalog" ? {plugins:[]} : {sessions:[]} }));
   let route: ((value: string) => boolean | Promise<boolean>) | null = null;
@@ -63,8 +63,8 @@ it("opens both separate setup dialogs from the hub and Contest menu before a ses
     registerMenuRoute={handler => { route = handler; }}/>);
   await userEvent.click(await screen.findByRole("button", {name:"Station Settings"}));
   await userEvent.click(screen.getByRole("button", {name:"Configuration Settings"}));
-  await act(async () => { await route!("contest-dialog-station"); await route!("contest-dialog-configuration"); });
-  expect(surfaceWindow.openDialog.mock.calls.map(([kind]) => kind)).toEqual(["station", "configuration", "station", "configuration"]);
+  await act(async () => { await route!("contest-dialog-operator"); await route!("contest-dialog-station"); await route!("contest-dialog-configuration"); });
+  expect(surfaceWindow.openDialog.mock.calls.map(([kind]) => kind)).toEqual(["station", "configuration", "operator", "station", "configuration"]);
   expect(screen.queryByRole("textbox", {name:"City"})).toBeNull();
   expect(request.mock.calls.every(([method]) => ["contest_catalog", "contest_sessions"].includes(method))).toBe(true);
 });

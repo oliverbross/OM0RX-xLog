@@ -2,7 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import type { ContestSetupDocument } from "./ContestSetupPanel";
 
-export type SetupDialogKind = "station" | "configuration";
+export type SetupDialogKind = "operator" | "station" | "configuration";
 export type SetupDialogSnapshot = { epoch: string; context: string; revision: number; document: ContestSetupDocument };
 type SaveRequest = SetupDialogSnapshot & { requestID: string; kind: SetupDialogKind };
 type Receipt = { requestID: string; status: "pending" | "saved" | "rejected"; message?: string };
@@ -16,6 +16,7 @@ export const closeContestSetupDialog = () => setupDialogRequest<void>("close");
 
 /** Only apply the fields owned by this form, preserving the other dialog's data. */
 export function mergeSetupDialog(current: ContestSetupDocument, requested: ContestSetupDocument, kind: SetupDialogKind): ContestSetupDocument {
+  if (kind === "operator") return { ...current, operator: requested.operator };
   return kind === "station" ? { ...current, station: structuredClone(requested.station) } :
     { ...current, preferences: structuredClone(requested.preferences), network: structuredClone(requested.network) };
 }

@@ -689,6 +689,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Escape") { event.preventDefault(); if (phoneSimulationAvailable) stopPhoneSimulation(); else void cw.controller.stop(); return; }
     if (!projection || busy || retiring) return;
+    const target = event.target as HTMLInputElement;
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === " " &&
+        target.dataset.contestField === "callsign" && (fieldsRef.current.callsign ?? "").trim().toUpperCase() === "OPON") {
+      event.preventDefault(); changeField("callsign", "");
+      void openContestSetupDialog("operator").catch(cause => setError(errorMessage(cause))); return;
+    }
     if (/^F(?:[1-9]|1[0-2])$/.test(event.key)) { event.preventDefault(); void hostAction("contest_function_key", { key: event.key }); return; }
     if (event.key === "Enter") { event.preventDefault(); void hostAction("contest_esm", { field: focusRef.current }); return; }
     if (event.key === "Tab") {
@@ -1111,8 +1117,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   useEffect(() => {
     if (!registerMenuRoute) return;
     const handle = async (route: string) => {
-      if (route === "contest-dialog-station" || route === "contest-dialog-configuration") {
-        await openContestSetupDialog(route === "contest-dialog-station" ? "station" : "configuration");
+      if (["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration"].includes(route)) {
+        await openContestSetupDialog(route === "contest-dialog-operator" ? "operator" : route === "contest-dialog-station" ? "station" : "configuration");
         return true;
       }
       if (route === "contest-setup") {
