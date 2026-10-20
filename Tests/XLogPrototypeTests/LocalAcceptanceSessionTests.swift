@@ -28,6 +28,8 @@ struct LocalAcceptanceSessionTests {
             #expect(health?["mode"] as? String == "isolated_local_acceptance")
             #expect(health?["isolated_workspace"] as? Bool == true)
             #expect(health?["platform_services"] as? Bool == false)
+            #expect(health?["contesting_engine"] == nil)
+            #expect(health?["contesting_available"] == nil)
             #expect(health?["public_opportunities"] as? Bool == false)
             #expect(health?["live_cluster"] as? Bool == false)
             let status = try await request(session, "workspace_status")["result"] as? [String: Any]

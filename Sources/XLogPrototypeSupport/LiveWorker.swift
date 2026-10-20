@@ -402,7 +402,7 @@ public actor LiveWorker {
                     health["mode"] = "contesting"
                     health["isolated_workspace"] = false
                 }
-                if runtimeProfile == .production {
+                if runtimeProfile == .production && !localAcceptance {
                     health["contesting_engine"] = "not1mm-python"
                     health["contesting_available"] = pythonContestAvailable
                     health["isolated_workspace"] = false
