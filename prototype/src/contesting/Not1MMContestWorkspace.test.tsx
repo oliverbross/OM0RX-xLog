@@ -487,6 +487,10 @@ it("projects Trans Tasman low bands, serial exchange, plugin dupe period and ret
 });
 
 it.each([
+  { pluginID:"oceania_dx_cw", pluginName:"Oceania DX CW",
+    columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
+    row:{ID:"oc-qso",TS:"2026-10-20 11:00:00",Call:"VK4ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,WPXPrefix:"VK4",IsMultiplier1:1,Points:1},
+    receivedExchange:"123", multiplierLabels:["VK4"], values:["2026-10-20 11:00:00","VK4ABC","14025","599","599","1","123","✓","1"] },
   { pluginID:"cq_wpx_cw", pluginName:"CQ WPX CW",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","WPX","M1","PTS"],
     row:{ID:"wpx-qso",TS:"2026-10-20 11:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:123,WPXPrefix:"K1",IsMultiplier1:1,Points:3},

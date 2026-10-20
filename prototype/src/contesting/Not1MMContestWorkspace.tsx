@@ -147,7 +147,7 @@ function receivedExchange(row: Data, pluginID?: string): string {
   if (pluginID === "icwc_mst") return `${row.Name ?? ""} ${row.NR ?? ""}`.trim();
   if (pluginID === "cwo") return `${row.NR ?? ""} ${row.Name ?? ""}`.trim();
   if (pluginID === "arrl_ss_cw") return [row.NR, row.Prec, row.Call, row.CK, row.Sect].filter(value => value !== undefined && value !== "").join(" ");
-  return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
+  return String(pluginID === "cq_wpx_cw" || pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" ? row.NR ?? "" : row.ZN ?? row.Exchange1 ?? "");
 }
 function correctionExchangeValues(row: Data, pluginID?: string) {
   if (pluginID === "cwt") {
@@ -164,7 +164,7 @@ function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
     band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
     points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" || pluginID === "cwo" ? []
-      : pluginID === "trans_tasman" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
+      : pluginID === "trans_tasman" || pluginID === "oceania_dx_cw" ? [String(row.WPXPrefix ?? "")].filter(Boolean)
       : pluginID === "arrl_ss_cw" ? [row.Sect ? `Section ${row.Sect}` : ""].filter(Boolean)
       : [String(row.CountryPrefix ?? ""), row.ZN ? `Zone ${row.ZN}` : ""].filter(Boolean),
   }));

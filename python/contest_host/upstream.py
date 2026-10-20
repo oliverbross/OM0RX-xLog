@@ -59,7 +59,7 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
             raise RuntimeError("Pinned Not1MM CW macro source is invalid")
         template = adapt_cw_template(plugin_id, parts[3])
         result[(parts[0], parts[1])] = {"label": parts[2], "template": template}
-    if plugin_id in {"cq_wpx_cw", "trans_tasman"}:
+    if plugin_id in {"cq_wpx_cw", "trans_tasman", "oceania_dx_cw"}:
         # The shipped macros target a configured exchange. Serial contests send the
         # host-reserved draft serial, independently of that configured text.
         for mode in ("R", "S"):
@@ -120,6 +120,21 @@ def load_plugin(plugin_id="cq_ww_cw"):
             ("from PyQt6 import QtWidgets", "from contest_host.qt_compat import QtWidgets"),
             ("str(Path.home())", "str(self.export_directory)"),
         ]
+        if plugin_id == "oceania_dx_cw":
+            # SQLite stores Band as REAL; the pinned plugin indexes string keys.
+            # Ordered host replay already computed each row's duplicate points.
+            replacements.extend([
+                ('band = self.contact.get("Band", "0.0")', 'band = str(self.contact.get("Band", "0.0"))'),
+                ('_BAND_POINTS.get(self.contact.get("Band", "0.0"), 0)',
+                 '_BAND_POINTS.get(str(self.contact.get("Band", "0.0")), 0)'),
+                ('contact["Points"] = points(self)',
+                 '# Preserve per-contact points from the host ordered replay.'),
+                ('contest_nr = self.pref.get("contest")',
+                 'contest_nr = self.pref.get("contest")\n    contact_id = self.contact.get("ID", "")'),
+                ('f" TS < \'{time_stamp}\' "',
+                 'f" (TS < \'{time_stamp}\' OR (TS = \'{time_stamp}\' AND rowid < "\n'
+                 '        f"(SELECT rowid FROM dxlog WHERE ID = \'{contact_id}\'))) "'),
+            ])
         if plugin_id == "trans_tasman":
             # Explicit compatibility fixes; original pinned bytes stay intact.
             replacements.extend([

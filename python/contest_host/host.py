@@ -355,7 +355,7 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "sections": sections,
                     "multipliers": sections, "total": self.contest.calc_score(self)}
-        if self.state["pluginID"] == "cq_wpx_cw":
+        if self.state["pluginID"] in {"cq_wpx_cw", "oceania_dx_cw"}:
             prefixes = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "prefixes": prefixes,
@@ -980,7 +980,7 @@ class Host:
         if desk.state["pluginID"] == "cq_ww_cw":
             require(fields["other_2"].isdigit() and 1 <= int(fields["other_2"]) <= 40, "CQ zone must be 1 to 40")
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40, "Sent CQ zone must be 1 to 40")
-        elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman"}:
+        elif desk.state["pluginID"] in {"cq_wpx_cw", "trans_tasman", "oceania_dx_cw"}:
             for name in ("other_1", "other_2"):
                 require(re.fullmatch(r"[0-9]+", fields[name]) is not None and 0 < int(fields[name]) <= 9223372036854775807,
                         "Sent and received serials must be positive SQLite integers")
@@ -1025,7 +1025,7 @@ class Host:
             raise HostError("qso_collision", "QSO identity or timestamp/call already exists") from error
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
-        if desk.state["pluginID"] == "trans_tasman":
+        if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw"}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
