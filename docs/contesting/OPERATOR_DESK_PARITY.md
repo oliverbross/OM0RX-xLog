@@ -48,7 +48,7 @@ An earlier source checkpoint kept `ContestWorkspace` as the sole session, draft,
 
 That checkpoint is retained as implementation and regression history only. It does not define the current user experience: the Contest menu opens separate native windows, and there is no contest canvas/desktop mode. The single-owner rule remains applicable to every detached window.
 
-The remaining tracked working surfaces are Band Map, Rate, Group Chat, DXCC, Zone, Rotator, VFO and Cluster. They need contest-aware projections through their existing services before they can be exposed as meaningful canvas panels. The scoped native registry and planner recognize all 21 shared roles and the 12 contest-native roles, but native child presentation, action forwarding and state subscription remain separate implementation work.
+The remaining tracked working surfaces at that historical checkpoint were Band Map, Rate, Group Chat, DXCC, Zone, Rotator, VFO and Cluster. They require contest-aware projections through their existing services before their separate native windows can be considered functional. A registered panel/window identity or visible shell is not acceptance evidence; native action forwarding and state subscription must operate against the single contest owner.
 
 ## Detached surface action contract
 
