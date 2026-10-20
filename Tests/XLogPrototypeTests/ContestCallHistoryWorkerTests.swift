@@ -171,7 +171,8 @@ final class ContestCallHistoryWorkerTests: XCTestCase {
         let source = fixture.root.appendingPathComponent("operator-history.unfiltered")
         let escaped = String(repeating: "\u{0001}", count: 3_900)
         var expected: [Int: [String]] = [:]
-        var text = "!!Order!!,Call,Name,CqZone,X-Unknown\n"
+        let headers = ["Call", "X-Name", "X-Zone", "X-Unknown"]
+        var text = "!!Order!!," + headers.joined(separator: ",") + "\n"
         for ordinal in 0..<24 {
             let values = (0..<3).map { "r\(ordinal)c\($0)-\(escaped)" }
             expected[ordinal] = ["K1ABC"] + values
@@ -210,7 +211,7 @@ final class ContestCallHistoryWorkerTests: XCTestCase {
                 for cell in row["values"] as? [[String: Any]] ?? [] {
                     let header = try XCTUnwrap(cell["header"] as? [String: Any])
                     let headerName = try XCTUnwrap(header["originalName"] as? String)
-                    let headerIndex = try XCTUnwrap(["Call", "Name", "CqZone", "X-Unknown"].firstIndex(of: headerName))
+                    let headerIndex = try XCTUnwrap(headers.firstIndex(of: headerName))
                     XCTAssertEqual(cell["value"] as? String, expectedValues[headerIndex])
                     XCTAssertTrue(visited.insert("\(recordID)|\(headerName)").inserted)
                 }
@@ -242,7 +243,7 @@ final class ContestCallHistoryWorkerTests: XCTestCase {
             guard let next = page["nextValueOffset"] as? Int else { break }
             selectionOffset = next
         }
-        XCTAssertEqual(selectedHeaders, ["Call", "Name", "CqZone", "X-Unknown"])
+        XCTAssertEqual(selectedHeaders, headers)
         XCTAssertEqual(selectedValues, try XCTUnwrap(expected[try XCTUnwrap(selectedOrdinal)]))
     }
 

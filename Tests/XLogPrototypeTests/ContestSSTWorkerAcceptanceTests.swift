@@ -332,7 +332,7 @@ final class ContestSSTWorkerAcceptanceTests: XCTestCase {
             operatingModule: .contesting,
             contestDeclarativeDefinitions: [definition])
         let denied = try await frame(production, "contest_catalog")
-        XCTAssertEqual((denied["error"] as? [String: Any])?["code"] as? String, "contest_profile_required")
+        XCTAssertEqual((denied["error"] as? [String: Any])?["code"] as? String, "contest_host_unavailable")
 
         let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected contest profile") }

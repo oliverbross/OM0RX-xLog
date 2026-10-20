@@ -95,7 +95,7 @@ final class ContestExportWorkerWireTests: XCTestCase {
         let production = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root.appendingPathComponent("production"),
             inheritNativePreferences: false), runtimeProfile: .production)
         let wrongProfile = try await frame(production, method: "contest_export_prepare", params: prepare)
-        XCTAssertEqual((wrongProfile["error"] as? [String: Any])?["code"] as? String, "contest_profile_required")
+        XCTAssertEqual((wrongProfile["error"] as? [String: Any])?["code"] as? String, "contest_host_unavailable")
         await worker.beginTerminalShutdown()
         let stopped = try await frame(worker, method: "contest_export_prepare", params: prepare)
         XCTAssertEqual((stopped["error"] as? [String: Any])?["code"] as? String, "worker_stopping")
