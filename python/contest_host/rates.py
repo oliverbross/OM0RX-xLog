@@ -19,7 +19,6 @@ def calculate_rates(rows, at):
     hour = [(stamp, identity, run) for stamp, identity, run in past if stamp > at - timedelta(hours=1)]
     hour_start = at.replace(minute=0, second=0, microsecond=0)
     current_hour = [row for row in past if row[0] > hour_start]
-    seconds_this_hour = (at - hour_start).total_seconds()
     valid = all(stamp is not None for stamp, _, _ in timed)
 
     def sample_rate(size):
@@ -32,7 +31,7 @@ def calculate_rates(rows, at):
     hour_rate = len(hour) * 3600 / hour_seconds if hour_seconds > 0 else (1 if len(hour) == 1 else None)
     return {"lastHourQsoPerHour": hour_rate if valid else None,
             "last10QsoPerHour": sample_rate(10), "last100QsoPerHour": sample_rate(100),
-            "sinceMinuteQsoPerHour": len(current_hour) * 3600 / seconds_this_hour if valid and seconds_this_hour > 0 else None,
+            "sinceHourUTC": hour_start.hour, "sinceHourQso": len(current_hour),
             "runQso": sum(run for _, _, run in past),
             "searchAndPounceQso": sum(not run for _, _, run in past),
             "hourRunQso": sum(run for _, _, run in current_hour),

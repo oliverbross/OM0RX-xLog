@@ -1299,7 +1299,8 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
             "lastHourQsoPerHour",
             "last10QsoPerHour",
             "last100QsoPerHour",
-            "sinceMinuteQsoPerHour",
+            "sinceHourUTC",
+            "sinceHourQso",
             "runQso",
             "searchAndPounceQso",
             "hourRunQso",
@@ -1312,11 +1313,12 @@ fn validate_native_rate_projection(value: &Map<String, Value>) -> Result<(), Str
         "lastHourQsoPerHour",
         "last10QsoPerHour",
         "last100QsoPerHour",
-        "sinceMinuteQsoPerHour",
     ] {
         nullable_nonnegative_number(&value[key], "native contest rate")?;
     }
+    uint_value(&value["sinceHourUTC"], 23, "native contest UTC hour")?;
     for key in [
+        "sinceHourQso",
         "runQso",
         "searchAndPounceQso",
         "hourRunQso",
@@ -2240,9 +2242,27 @@ mod tests {
         assert!(validate_projection("propagation", &missing_display).is_err());
         assert!(validate_projection("propagation", &statistics_v2()).is_ok());
         let native_rates = json!({"schemaVersion":1,"status":"ready","lastHourQsoPerHour":null,
-            "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceMinuteQsoPerHour":0.0,
+            "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceHourUTC":19,"sinceHourQso":2,
             "runQso":2,"searchAndPounceQso":1,"hourRunQso":1,"hourSearchAndPounceQso":0,"busy":false});
         assert!(validate_projection("monitor", &native_rates).is_ok());
+        let mut invalid_hour = native_rates.clone();
+        invalid_hour["sinceHourUTC"] = json!(24);
+        assert!(validate_projection("monitor", &invalid_hour).is_err());
+        for hour in [json!(-1), json!(1.5)] {
+            let mut invalid_hour = native_rates.clone();
+            invalid_hour["sinceHourUTC"] = hour;
+            assert!(validate_projection("monitor", &invalid_hour).is_err());
+        }
+        for hour in [0, 23] {
+            let mut boundary_hour = native_rates.clone();
+            boundary_hour["sinceHourUTC"] = json!(hour);
+            assert!(validate_projection("monitor", &boundary_hour).is_ok());
+        }
+        let mut legacy_rates = native_rates;
+        legacy_rates.as_object_mut().unwrap().remove("sinceHourUTC");
+        legacy_rates.as_object_mut().unwrap().remove("sinceHourQso");
+        legacy_rates["sinceMinuteQsoPerHour"] = json!(120.0);
+        assert!(validate_projection("monitor", &legacy_rates).is_err());
         let matrix = json!({"schemaVersion":1,"status":"ready","title":"DXCC","bands":["20m","40m"],
             "rows":[{"label":"Germany","counts":{"20m":1,"40m":0},"total":1}],"total":1,"busy":false});
         assert!(validate_projection("awards", &matrix).is_ok());

@@ -93,17 +93,18 @@ or second scoring authority is introduced.
 
 `rates` reads all retained `DXLOG` rows in one read snapshot, returning session ID,
 revision and `lastHourQsoPerHour`, `last10QsoPerHour`, `last100QsoPerHour`,
-`sinceMinuteQsoPerHour`, `runQso`, `searchAndPounceQso`, `hourRunQso`,
-`hourSearchAndPounceQso`. Rates are finite nonnegative numbers or null; counts are
+`sinceHourUTC`, `sinceHourQso`, `runQso`, `searchAndPounceQso`, `hourRunQso`,
+`hourSearchAndPounceQso`. Rates are finite nonnegative numbers or null; hours are
+integers from 0 through 23 and counts are
 nonnegative integers. The trailing hour and latest samples use count times 3600
 divided by newest-minus-oldest seconds. The trailing hour uses `(now-3600,now]`,
 reports 1 for one QSO and null for empty/zero-span samples; latest-10/100 require
-the complete sample. `sinceMinuteQsoPerHour` follows Not1MM's Since HH00 display:
-current UTC-hour count times 3600 divided by elapsed seconds since hour start,
-null at exact hour start. Hour style counts use `(UTC hour start,now]`.
+the complete sample. `sinceHourUTC` and `sinceHourQso` follow Not1MM's
+`Since HH:00:00z` display and report the current UTC hour plus the QSO count in
+`(UTC hour start,now]`. Hour style counts use the same interval.
 Future rows are excluded. Naive Not1MM timestamps are UTC; ISO offsets, Z and
-fractional seconds are accepted. A malformed timestamp makes rates null and is
-excluded from time-scoped counts. Historical `IsRunQSO=1` means Run; other values
+fractional seconds are accepted. A malformed timestamp makes the sampled rate
+values null and is excluded from time-scoped counts. Historical `IsRunQSO=1` means Run; other values
 mean S&P, independently of today's Run toggle. Corrections preserve `IsRunQSO`
 and `Run1Run2`. Reads create no receipts or writes.
 

@@ -161,7 +161,7 @@ class HostTests(unittest.TestCase):
         self.assertAlmostEqual(rates["lastHourQsoPerHour"], 150 * 3600 / 1490)
         self.assertAlmostEqual(rates["last10QsoPerHour"], 400)
         self.assertAlmostEqual(rates["last100QsoPerHour"], 100 * 3600 / 990)
-        self.assertEqual(rates["sinceMinuteQsoPerHour"], 298)
+        self.assertEqual((rates["sinceHourUTC"], rates["sinceHourQso"]), (8, 149))
         self.assertEqual((rates["runQso"], rates["searchAndPounceQso"]), (75, 75))
         self.assertEqual((rates["hourRunQso"], rates["hourSearchAndPounceQso"]), (75, 74))
         self.assertEqual(rates["revision"], revision)
@@ -174,14 +174,22 @@ class HostTests(unittest.TestCase):
             ("2026-10-19T11:30:00.000+02:00", 0), ("2026-10-19 09:30:01", 1)])]
         rates = calculate_rates(rows, at)
         self.assertEqual(rates, {"lastHourQsoPerHour": 4, "last10QsoPerHour": None,
-            "last100QsoPerHour": None, "sinceMinuteQsoPerHour": 2,
+            "last100QsoPerHour": None, "sinceHourUTC": 9, "sinceHourQso": 1,
             "runQso": 2, "searchAndPounceQso": 1, "hourRunQso": 0, "hourSearchAndPounceQso": 1})
-        self.assertIsNone(calculate_rates(rows, at.replace(minute=0))["sinceMinuteQsoPerHour"])
+        self.assertEqual(calculate_rates(rows, at.replace(minute=0))["sinceHourQso"], 0)
+        boundary = [{"ID": "after", "TS": "2026-10-19T09:00:00.001Z", "IsRunQSO": 1}]
+        self.assertEqual(calculate_rates(boundary, at)["sinceHourQso"], 1)
+        late = [{"ID": "late", "TS": "2026-10-19T23:59:59.999Z", "IsRunQSO": 0}]
+        self.assertEqual(calculate_rates(late, timestamp("2026-10-19T23:59:59.999Z"))["sinceHourUTC"], 23)
+        midnight = calculate_rates(late, timestamp("2026-10-20T00:00:00Z"))
+        self.assertEqual((midnight["sinceHourUTC"], midnight["sinceHourQso"]), (0, 0))
         same = [{"ID": str(i), "TS": "2026-10-19 09:15:00", "IsRunQSO": 0} for i in range(100)]
         self.assertIsNone(calculate_rates(same, at)["last100QsoPerHour"])
         self.assertIsNone(calculate_rates(same, at)["last10QsoPerHour"])
         rows.append({"ID": "bad", "TS": "invalid", "IsRunQSO": 0})
-        self.assertIsNone(calculate_rates(rows, at)["lastHourQsoPerHour"])
+        malformed = calculate_rates(rows, at)
+        self.assertIsNone(malformed["lastHourQsoPerHour"])
+        self.assertEqual(malformed["sinceHourQso"], 1)
         self.assertIsNone(timestamp(None))
 
     def test_setup_save_is_durable_revision_fenced_and_idempotent(self):

@@ -84,7 +84,7 @@ export type ContestStatisticsSurfaceProjection = { schemaVersion: 1; status: "re
 // Rates are computed from the full Python-owned contest log, never a displayed log page.
 export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
-  sinceMinuteQsoPerHour: number | null; runQso: number; searchAndPounceQso: number;
+  sinceHourUTC: number; sinceHourQso: number; runQso: number; searchAndPounceQso: number;
   hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
 export type ContestMatrixSurfaceProjection = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
@@ -279,11 +279,11 @@ function validLogProjection(value: Record<string, unknown>) {
 }
 
 function validRatesProjection(value: Record<string, unknown>) {
-  const rateKeys = ["lastHourQsoPerHour", "last10QsoPerHour", "last100QsoPerHour", "sinceMinuteQsoPerHour"];
-  const countKeys = ["runQso", "searchAndPounceQso", "hourRunQso", "hourSearchAndPounceQso"];
-  return exact(value, ["schemaVersion", "status", ...rateKeys, ...countKeys, "busy"]) &&
+  const rateKeys = ["lastHourQsoPerHour", "last10QsoPerHour", "last100QsoPerHour"];
+  const countKeys = ["sinceHourQso", "runQso", "searchAndPounceQso", "hourRunQso", "hourSearchAndPounceQso"];
+  return exact(value, ["schemaVersion", "status", ...rateKeys, "sinceHourUTC", ...countKeys, "busy"]) &&
     rateKeys.every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
-    countKeys.every(key => uint(value[key])) && typeof value.busy === "boolean";
+    uint(value.sinceHourUTC, 23) && countKeys.every(key => uint(value[key])) && typeof value.busy === "boolean";
 }
 function validMatrixProjection(value: Record<string, unknown>) {
   const bands = value.bands;

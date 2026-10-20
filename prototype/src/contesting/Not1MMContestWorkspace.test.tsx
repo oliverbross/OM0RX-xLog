@@ -21,7 +21,7 @@ vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   profile: { macros: [{ id: 2, enabled: true, shortcut: "F2", text: "{CALL} {RST} {EXCHANGE}" }] },
 }) }));
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); surfaceOwner.current = null; });
+afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks(); surfaceOwner.current = null; });
 
 const operatingContext = "44444444-4444-4444-8444-444444444444";
 const workspaceGeneration = "33333333-3333-4333-8333-333333333333";
@@ -77,7 +77,7 @@ async function createContestThroughSetup() {
 const workspaceSupport = (method: string, params: Record<string, unknown>, current: ReturnType<typeof projection>) => {
   const id = crypto.randomUUID();
   if (method === "contest_rates") return { id, ok:true, result:{ sessionID:current.sessionID, revision:current.revision,
-    lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,sinceMinuteQsoPerHour:null,
+    lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,sinceHourUTC:0,sinceHourQso:0,
     runQso:0,searchAndPounceQso:0,hourRunQso:0,hourSearchAndPounceQso:0 } };
   if (method === "contest_setup_save") return { id, ok:true, result:{ projection:{...current,
     cwSpeedWpm:(params.setup as any)?.preferences?.cwSpeed ?? (current as any).cwSpeedWpm}, setup:params.setup, actions:[], messages:[] } };
@@ -154,6 +154,67 @@ it.each([false, true])("publishes ready empty CQ WW trackers and preserves popul
   expect(zones.rows).toEqual(worked ? [{ label: "15", counts: { "160m": 0, "80m": 0, "40m": 1, "20m": 0, "15m": 0, "10m": 0 }, total: 1 }] : []);
   expect(validContestSurfaceProjection("awards", countries)).toBe(true);
   expect(validContestSurfaceProjection("chaser-dx", zones)).toBe(true);
+});
+
+it("refreshes the current contest Rates snapshot every ten seconds", async () => {
+  const current = projection();
+  let rateReads = 0;
+  let poll: (() => void) | undefined;
+  vi.spyOn(window, "setInterval").mockImplementation(((handler: TimerHandler, timeout?: number) => {
+    if (timeout === 10_000 && typeof handler === "function") poll = handler as () => void;
+    return 1;
+  }) as typeof window.setInterval);
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const id = crypto.randomUUID();
+    if (method === "contest_rates") {
+      rateReads += 1;
+      return { id, ok:true, result:{ sessionID:current.sessionID, revision:current.revision,
+        lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,sinceHourUTC:19,
+        sinceHourQso:rateReads === 1 ? 0 : 3,runQso:3,searchAndPounceQso:0,hourRunQso:3,hourSearchAndPounceQso:0 } };
+    }
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} :
+      method === "contest_log_page" ? {rows:[],total:0} : method === "contest_score" ? {score:current.score,matrices:{countries:[],zones:[]}} : null;
+    if (!result) throw new Error(method);
+    return {id,ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections.monitor.sinceHourQso).toBe(0));
+  expect(poll).toBeTypeOf("function");
+  await act(async () => { poll?.(); });
+  await waitFor(() => expect(surfaceOwner.current.projections.monitor).toMatchObject({sinceHourUTC:19,sinceHourQso:3}));
+  const rateCalls = request.mock.calls.filter(([method]) => method === "contest_rates");
+  expect(rateCalls).toHaveLength(2);
+  expect(rateCalls.at(-1)?.[1]).toEqual({sessionID:current.sessionID});
+});
+
+it.each(["wrong session", "stale revision"])("rejects an initial Rates snapshot with a %s", async mismatch => {
+  const current = projection(4);
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (method !== "contest_rates" && support) return support;
+    const id = crypto.randomUUID();
+    if (method === "contest_rates") return {id,ok:true,result:{
+      sessionID:mismatch === "wrong session" ? "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" : current.sessionID,
+      revision:mismatch === "stale revision" ? current.revision - 1 : current.revision,
+      lastHourQsoPerHour:1,last10QsoPerHour:null,last100QsoPerHour:null,sinceHourUTC:19,sinceHourQso:99,
+      runQso:99,searchAndPounceQso:0,hourRunQso:99,hourSearchAndPounceQso:0,
+    }};
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} :
+      method === "contest_log_page" ? {rows:[],total:0} : method === "contest_score" ? {score:current.score,matrices:{countries:[],zones:[]}} : null;
+    if (!result) throw new Error(method);
+    return {id,ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.context.sessionID).toBe(current.sessionID));
+  expect(surfaceOwner.current.projections.monitor).toEqual({schemaVersion:1,status:"unavailable"});
 });
 
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
@@ -468,7 +529,7 @@ it("clears prior-session log rows when a newly opened session cannot refresh its
     }
     if(method==="contest_score")return{id:crypto.randomUUID(),ok:true,result:{score:(params.sessionID===first.sessionID?first:second).score,matrices:{countries:[],zones:[]}}};
     if(method==="contest_rates")return{id:crypto.randomUUID(),ok:true,result:{lastHourQsoPerHour:null,last10QsoPerHour:null,last100QsoPerHour:null,
-      sinceMinuteQsoPerHour:null,runQso:0,searchAndPounceQso:0,hourRunQso:0,hourSearchAndPounceQso:0}};
+      sinceHourUTC:0,sinceHourQso:0,runQso:0,searchAndPounceQso:0,hourRunQso:0,hourSearchAndPounceQso:0}};
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
     throw new Error(method);
   });

@@ -277,7 +277,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     }
     acceptProjection(next);
   };
+  const admitRates = (next: Data, sessionID: string, revision: number) => {
+    const current = projectionRef.current;
+    if (current?.sessionID !== sessionID || current.revision !== revision ||
+        next.sessionID !== sessionID || next.revision !== revision) return false;
+    setRates(next);
+    return true;
+  };
   const refresh = async (sessionID: string, next?: Projection, offset = 0) => {
+    const expected = next ?? projectionRef.current;
+    if (!expected || expected.sessionID !== sessionID) return;
     const [log, scoreResult, rateResult] = await Promise.all([
       result<Data>("contest_log_page", { sessionID, expectedRevision: (next ?? projectionRef.current)?.revision,
         offset, limit: logPageSize }),
@@ -287,8 +296,24 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (next && projectionRef.current?.sessionID !== next.sessionID) return;
     setRows(Array.isArray(log.rows) ? log.rows : []); setLogOffset(Number(log.offset ?? offset)); setLogTotal(Number(log.total ?? 0));
     setScore(scoreResult.score as Score); setMatrices(scoreResult.matrices ?? {});
-    setRates(rateResult);
+    admitRates(rateResult, sessionID, expected.revision);
   };
+  useEffect(() => {
+    const sessionID = projection?.sessionID;
+    if (!sessionID) return;
+    let cancelled = false;
+    let sequence = 0;
+    const timer = window.setInterval(() => {
+      const requestSequence = ++sequence;
+      void request("contest_rates", { sessionID }).then(value => {
+        const next = unwrap<Data>(value);
+        const current = projectionRef.current;
+        if (cancelled || requestSequence !== sequence || !current) return;
+        admitRates(next, sessionID, current.revision);
+      }).catch(() => { /* Retain the last admitted snapshot until the next refresh. */ });
+    }, 10_000);
+    return () => { cancelled = true; sequence += 1; window.clearInterval(timer); };
+  }, [projection?.sessionID, request]);
   const openSession = async (session: Session) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
@@ -433,9 +458,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         settings: document.settings });
       const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] };
       setEffectiveMacros(saved.effectiveMacros);
-      acceptSessionProjection(saved.projection); rememberSetup(saved.setup); await refresh(sessionID, saved.projection);
+      acceptSessionProjection(saved.projection); rememberSetup(saved.setup); await refresh(saved.projection.sessionID, saved.projection);
       const list = await result<{ sessions: Session[] }>("contest_sessions"); setSessions(list.sessions);
-      localStorage.setItem(activeSessionKey, sessionID); if (!setupOnly) setManager(false);
+      localStorage.setItem(activeSessionKey, saved.projection.sessionID); if (!setupOnly) setManager(false);
     } catch (cause) { setError(errorMessage(cause)); throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
@@ -666,11 +691,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
       connectedClusters,loadedSpots,spots:sharedSpots,busy:busy||retiring};
     unavailable.propagation = { schemaVersion: 1, status: "ready", score: scoreView, busy: busy || retiring };
-    unavailable.monitor = { schemaVersion: 1, status: "ready",
-      lastHourQsoPerHour: rates?.lastHourQsoPerHour ?? null, last10QsoPerHour: rates?.last10QsoPerHour ?? null,
-      last100QsoPerHour: rates?.last100QsoPerHour ?? null, sinceMinuteQsoPerHour: rates?.sinceMinuteQsoPerHour ?? null,
-      runQso: Number(rates?.runQso ?? 0), searchAndPounceQso: Number(rates?.searchAndPounceQso ?? 0),
-      hourRunQso: Number(rates?.hourRunQso ?? 0), hourSearchAndPounceQso: Number(rates?.hourSearchAndPounceQso ?? 0), busy: busy || retiring };
+    if (rates) unavailable.monitor = { schemaVersion: 1, status: "ready",
+      lastHourQsoPerHour: rates.lastHourQsoPerHour ?? null, last10QsoPerHour: rates.last10QsoPerHour ?? null,
+      last100QsoPerHour: rates.last100QsoPerHour ?? null, sinceHourUTC: Number(rates.sinceHourUTC),
+      sinceHourQso: Number(rates.sinceHourQso), runQso: Number(rates.runQso),
+      searchAndPounceQso: Number(rates.searchAndPounceQso), hourRunQso: Number(rates.hourRunQso),
+      hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso), busy: busy || retiring };
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
     if (projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {

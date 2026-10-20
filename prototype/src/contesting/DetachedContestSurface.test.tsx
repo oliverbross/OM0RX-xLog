@@ -214,7 +214,7 @@ it.each(["band-maps", "monitor", "alerts", "awards", "chaser-dx", "rotor", "stat
 it("renders exact owner Rates independently of the current log page and refreshes on wake", async () => {
   window.history.replaceState({}, "", search.replace("view=active-qso", "view=monitor"));
   let rates = { schemaVersion: 1, status: "ready", lastHourQsoPerHour: 48, last10QsoPerHour: 72.5,
-    last100QsoPerHour: null, sinceMinuteQsoPerHour: 120, runQso: 210, searchAndPounceQso: 70,
+    last100QsoPerHour: null, sinceHourUTC: 19, sinceHourQso: 2, runQso: 210, searchAndPounceQso: 70,
     hourRunQso: 30, hourSearchAndPounceQso: 18, busy: false };
   native.invoke.mockImplementation(async (command: string) => {
     if (command === "contest_surface_snapshot") return { ...snapshot, panelID: "monitor", projection: rates };
@@ -223,6 +223,8 @@ it("renders exact owner Rates independently of the current log page and refreshe
   render(<DetachedContestSurface/>);
   expect(await screen.findByRole("heading", { name: "Rates" })).toBeTruthy();
   expect(screen.getByText("72.5")).toBeTruthy();
+  expect(screen.getByText("Since 19:00:00z:")).toBeTruthy();
+  expect(screen.getByText("QSO")).toBeTruthy();
   expect(screen.getByLabelText("Not enough contacts")).toBeTruthy();
   expect(screen.getByRole("table", { name: "Run and Search & Pounce QSOs" }).textContent).toContain("210");
   rates = { ...rates, runQso: 211 };

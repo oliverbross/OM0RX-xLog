@@ -131,7 +131,7 @@ const checkProjection = { schemaVersion: 1, status: "ready", draftID: "draft-1",
 const statisticsProjection = { schemaVersion: 1, status: "ready", score: { qsos: 6, points: 21, multipliers: 8, claimedScore: 168,
   multiplierLabels: ["K", "W"], multiplierDisplayLabels: ["United States", "United States"], sourceVerification: "verified" }, busy: false } as const;
 const ratesProjection = { schemaVersion: 1, status: "ready", lastHourQsoPerHour: 48, last10QsoPerHour: 72.5,
-  last100QsoPerHour: null, sinceMinuteQsoPerHour: 120, runQso: 210, searchAndPounceQso: 70, hourRunQso: 30,
+  last100QsoPerHour: null, sinceHourUTC: 19, sinceHourQso: 2, runQso: 210, searchAndPounceQso: 70, hourRunQso: 30,
   hourSearchAndPounceQso: 18, busy: false } as const;
 const matrixProjection = { schemaVersion: 1, status: "ready", title: "DXCC", bands: ["20m", "40m"],
   rows: [{ label: "Slovakia", counts: { "20m": 2, "40m": 0 }, total: 2 }], total: 1, busy: false };
@@ -179,7 +179,12 @@ describe("contest native surface projection v1", () => {
   it.each([
     { ...ratesProjection, lastHourQsoPerHour: Infinity },
     { ...ratesProjection, last10QsoPerHour: -1 },
+    { ...ratesProjection, sinceHourUTC: -1 },
+    { ...ratesProjection, sinceHourUTC: 1.5 },
+    { ...ratesProjection, sinceHourUTC: 24 },
+    { ...ratesProjection, sinceHourQso: -1 },
     { ...ratesProjection, runQso: 1.5 },
+    { ...ratesProjection, sinceHourUTC: undefined, sinceMinuteQsoPerHour: 120 },
     { ...ratesProjection, extra: "log-page inference" },
   ])("rejects invalid owner rates %#", value => expect(validContestSurfaceProjection("monitor", value)).toBe(false));
 
