@@ -235,7 +235,9 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
             {!savedAvailable && <option value={saved}>Saved device (unavailable)</option>}
             {(audioOutputs ?? []).map(output => <option key={output.deviceID} value={output.deviceID}>{output.label}</option>)}
           </select></label>
+          {field("preferences", "voiceProfilePath", "Voice WAV profile folder")}
           <p role="status">{audioOutputs === null ? "Finding audio outputs…" : audioOutputError ? `Audio output discovery failed: ${audioOutputError}` : audioOutputs.length ? "Choose the sound output device for the voice keyer." : "No named audio outputs were reported. The system default remains available."}</p>
+          <p>Use a Not1MM-compatible recorded profile: lowercase character files such as <code>c.wav</code>, <code>q.wav</code>, <code>space.wav</code>, and optional whole-message files such as <code>cq.wav</code> for a <code>[cq]</code> macro.</p>
         </div>;
         break;
       }

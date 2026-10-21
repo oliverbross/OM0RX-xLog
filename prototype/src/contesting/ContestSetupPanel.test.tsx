@@ -205,10 +205,12 @@ it("uses the Not1MM Sound tab to choose and durably save the voice-keyer output"
   try {
     const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
     const output = await screen.findByLabelText("Sound Output") as HTMLSelectElement;
+    const profile = screen.getByLabelText("Voice WAV profile folder") as HTMLInputElement;
     await waitFor(() => expect(Array.from(output.options).map(option => option.textContent)).toEqual(["System default", "Radio line out", "Operator headphones"]));
-    fireEvent.change(output, { target: { value: "headphones" } }); open("Save");
+    fireEvent.change(output, { target: { value: "headphones" } }); fireEvent.change(profile, { target: { value: "/Users/operator/voice" } }); open("Save");
     await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
     expect(p.onSave.mock.calls[0][0].preferences.soundDevice).toBe("headphones");
+    expect(p.onSave.mock.calls[0][0].preferences.voiceProfilePath).toBe("/Users/operator/voice");
   } finally {
     if (original) Object.defineProperty(navigator, "mediaDevices", original); else Reflect.deleteProperty(navigator, "mediaDevices");
   }

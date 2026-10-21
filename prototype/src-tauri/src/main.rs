@@ -57,6 +57,7 @@ mod contest_setup_services;
 mod contest_setup_dialogs;
 mod contest_group_chat;
 mod contest_log_transfer;
+mod contest_voice;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -2556,6 +2557,16 @@ fn contest_group_network_receipts(window: tauri::WebviewWindow,
         &format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation))
 }
 
+#[tauri::command]
+fn contest_voice_prepare(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
+    params: contest_voice::PrepareRequest) -> Result<contest_voice::PreparedVoice, String> {
+    runtime_profile::require_external_io_disabled()?;
+    contest_voice::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire), runtime_profile::CONTESTING_TEST)?;
+    let context = contest_window_context::active()?;
+    contest_voice::prepare(params, &context.session_id, &context.workspace_generation)
+}
+
 fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), String> {
     validate_contest_surface_main_caller(label)?;
     workspace_navigation::contest_window_panel(panel_id)
@@ -3084,6 +3095,7 @@ fn main() {
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_receipts,
+            contest_voice_prepare,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,

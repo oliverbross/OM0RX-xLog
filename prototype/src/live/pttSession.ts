@@ -23,11 +23,11 @@ export class PTTSession{
   private accept(base:Base){if(!Array.isArray(base.receipts)||base.release_required!==null&&(!uuid(base.release_required?.owner_id)||!target(base.release_required?.target)))throw new Error("Native PTT state unavailable");
     this.update({releaseRequired:base.release_required});for(const r of base.receipts){if(!receipt(r,r.operation_id))throw new Error("Invalid native PTT receipt");if(!this.inFlight.has(r.operation_id))this.retain(r);}}
   async refresh(){const saved=[...this.state.pending];this.accept(await this.request<Base>({action:"snapshot"}));await Promise.all(saved.filter(id=>!this.inFlight.has(id)).map(id=>this.check(id)));}
-  async set(enabled:boolean,provider:CarrierTarget["provider"]){const lane=enabled?"onBusy":"offBusy";if(this.state[lane])throw new Error("This PTT lane is busy; PTT off remains independent");const marker=crypto.randomUUID();this.update({[lane]:true,feedback:marker,message:""});let id:string|null=null;
+  async set(enabled:boolean,provider?:CarrierTarget["provider"]){const lane=enabled?"onBusy":"offBusy";if(this.state[lane])throw new Error("This PTT lane is busy; PTT off remains independent");const marker=crypto.randomUUID();this.update({[lane]:true,feedback:marker,message:""});let id:string|null=null;
     try{const base=await this.request<Base>({action:"prepare",enabled});this.accept(base);
       if(enabled&&(base.release_required||base.receipts.some(r=>["pending","unknown"].includes(r.status))))throw new Error("Resolve retained GUI PTT release and receipts before PTT on");
       if(!enabled&&!base.release_required)throw new Error("No retained GUI PTT owner is available to release");
-      const t=base.target;if(!target(t)||t.provider!==provider||!uuid(base.intent))throw new Error("Exact native PTT authority unavailable");
+      const t=base.target;if(!target(t)||(provider!==undefined&&t.provider!==provider)||!uuid(base.intent))throw new Error("Exact native PTT authority unavailable");
       id=crypto.randomUUID();const pending=[...this.state.pending,id];if(pending.length>256)throw new Error("PTT journal full");this.journal.write(pending);this.inFlight.add(id);this.update({pending,...(this.state.feedback===marker?{feedback:id}:{})});
       const r=await this.request<PTTReceipt>({action:enabled?"on":"off",operation_id:id,target:t,intent:base.intent});
       if(!receipt(r,id)||r.enabled!==enabled||r.owner_id!==(enabled?id:base.release_required!.owner_id)||!keys.every(k=>r.target[k]===t[k]))throw new Error("PTT receipt identity lost; inspect without replay");this.retain(r);

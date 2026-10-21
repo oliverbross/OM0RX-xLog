@@ -22,6 +22,7 @@ import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBind
 import { setContestCWSpeed } from "./contestStationControl";
 import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
   takeContestGroupContactReceipts } from "./contestGroupChat";
+import { ContestVoiceOutput, type ContestVoiceAction } from "./contestVoiceOutput";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
@@ -463,6 +464,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const [phoneSimulationTrace, setPhoneSimulationTrace] = useState<PhoneSimulationTrace[]>([]);
   const phoneSimulationControllerRef = useRef<AbortController | null>(null);
   const phoneSimulationRecoveryRef = useRef<Promise<boolean> | null>(null);
+  const voiceOutput = useMemo(() => new ContestVoiceOutput(!contestingTest), [contestingTest]);
   const [autoCQDeadlineMs, setAutoCQDeadlineMs] = useState<number | null>(null);
   const [autoCQNowMs, setAutoCQNowMs] = useState(() => Date.now());
   const autoCQActiveRef = useRef(false), autoCQTimerRef = useRef<number | null>(null);
@@ -524,10 +526,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const configuredAutoCQDelay = Number(setup.preferences.autoCQDelay ?? 15);
   const autoCQDelaySeconds = Number.isFinite(configuredAutoCQDelay) ? Math.min(3600, Math.max(1, configuredAutoCQDelay)) : 15;
   const phoneSimulationAvailable = Boolean(contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
+  const phoneProductionAvailable = Boolean(!contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
+  const phoneProductionConfigured = phoneProductionAvailable && Boolean(String(setup.preferences.voiceProfilePath ?? "").trim());
+  const phoneOutputAvailable = phoneSimulationAvailable || phoneProductionConfigured;
   useEffect(() => {
+    phoneSimulationControllerRef.current?.abort(); phoneSimulationControllerRef.current = null;
+    void voiceOutput.stop().catch(() => {});
     phoneSimulationRecoveryRef.current = null;
     setPhoneSimulationArmed(false); setPhoneSimulationPending(false); setPhoneSimulationTrace([]);
-  }, [contestingTest, projection?.sessionID, projection?.pluginID, projection?.mode]);
+  }, [contestingTest, projection?.sessionID, projection?.pluginID, projection?.mode, voiceOutput]);
   const rememberSetup = (document: ContestSetupDocument) => {
     setSetup(document);
     try { localStorage.setItem(setupDraftKey, JSON.stringify(document)); } catch { /* storage is optional */ }
@@ -772,6 +779,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       const bytes = new TextEncoder().encode(payload).byteLength;
       const source = action.sourceMacro;
       if (action.actionID !== `${operationID}:${index}` || action.sessionID !== origin.sessionID ||
+          action.workspaceGeneration !== origin.workspaceGeneration || action.sourceRevision !== origin.sourceRevision ||
           action.draftID !== origin.draftID || action.kind !== "voice_keyer" || action.signal !== "phone" ||
           action.mode !== "SSB" || !/^F(?:[1-9]|1[0-2])$/.test(action.key) || typeof action.label !== "string" ||
           new TextEncoder().encode(action.label).byteLength > 160 || bytes > 4_096 || action.payloadUTF8Bytes !== bytes ||
@@ -802,8 +810,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       }
     } finally { if (timer) window.clearTimeout(timer); }
     if (claimed && (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions)))
-      throw new Error("The contest phone simulation claim could not be verified; do not retry the key.");
+      throw new Error("The contest phone output claim could not be verified; do not retry the key.");
     if (controller.signal.aborted || phoneSimulationControllerRef.current !== controller) throw new PhoneSimulationStopped();
+    if (phoneProductionAvailable) await voiceOutput.play(actions as ContestVoiceAction[], origin,
+      String(setup.preferences.voiceProfilePath ?? ""), String(setup.preferences.soundDevice ?? ""), controller.signal);
     setPhoneSimulationTrace(items => [...items, ...traces].slice(-24));
     return { ...changed, actions: [] };
   };
@@ -834,10 +844,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       const failure = new Error("Enable fldigi macro transmit in Digital Logging Setup before using RTTY function keys.");
       setError(failure.message); if (throwFailures) throw failure; return null;
     }
-    if (phoneAction && (!phoneSimulationAvailable || !phoneSimulationArmed)) {
-      const failure = new Error(phoneSimulationAvailable
-        ? "Arm the nontransmitting phone simulation before using phone contest messages."
-        : "Phone contest voice output is unavailable in production; no audio or PTT action was taken.");
+    if (phoneAction && (!phoneOutputAvailable || !phoneSimulationArmed)) {
+      const failure = new Error(phoneOutputAvailable
+        ? `Arm the ${phoneSimulationAvailable ? "nontransmitting phone simulation" : "recorded phone output"} before using phone contest messages.`
+        : phoneProductionAvailable ? "Phone contest voice output is unavailable in production until a Voice WAV profile folder is saved; no audio or PTT action was taken."
+          : "Phone contest voice output is unavailable; no audio or PTT action was taken.");
       setError(failure.message); if (throwFailures) throw failure; return null;
     }
     if (phoneAction && phoneSimulationRecoveryRef.current) {
@@ -879,8 +890,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   };
   autoCQHostActionRef.current = hostAction;
 
-  const stopPhoneSimulation = () => {
+  const stopPhoneOutput = async () => {
     phoneSimulationControllerRef.current?.abort(); phoneSimulationControllerRef.current = null;
+    if (phoneProductionAvailable) await voiceOutput.stop();
     setPhoneSimulationArmed(false); setPhoneSimulationPending(false);
   };
 
@@ -892,7 +904,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const stopAutoCQ = async (stopOutput = true) => {
     clearAutoCQ();
     if (!stopOutput) return;
-    if (phoneSimulationAvailable) stopPhoneSimulation(); else await cw.controller.stop();
+    if (phoneOutputAvailable) await stopPhoneOutput(); else await cw.controller.stop();
   };
   const scheduleAutoCQ = () => {
     if (!autoCQActiveRef.current) return;
@@ -908,8 +920,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const startAutoCQ = async (contestSurfaceRequestID?: string) => {
     const active = projectionRef.current;
     if (!active) throw new Error("Open a contest before starting Auto CQ.");
-    if (active.mode !== "CW" && !phoneSimulationAvailable) throw new Error("Auto CQ requires admitted CW output or Contesting Test phone simulation.");
-    if (phoneSimulationAvailable ? !phoneSimulationArmed : !cw.state.armed) throw new Error("Arm the contest output before starting Auto CQ.");
+    if (active.mode !== "CW" && !phoneOutputAvailable) throw new Error("Auto CQ requires admitted CW or recorded phone output.");
+    if (phoneOutputAvailable ? !phoneSimulationArmed : !cw.state.armed) throw new Error("Arm the contest output before starting Auto CQ.");
     if (!active.run) await runMutation(base => mutate("contest_run_state", base, { run: true }), false, true, false, true);
     clearAutoCQ(); autoCQActiveRef.current = true; scheduleAutoCQ();
     try { await hostAction("contest_function_key", { key: "F1" }, true, contestSurfaceRequestID); }
@@ -924,7 +936,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   useEffect(() => () => {
     autoCQActiveRef.current = false;
     if (autoCQTimerRef.current !== null) window.clearTimeout(autoCQTimerRef.current);
-  }, []);
+    phoneSimulationControllerRef.current?.abort(); void voiceOutput.stop().catch(() => {});
+  }, [voiceOutput]);
   useEffect(() => { clearAutoCQ(); }, [projection?.sessionID, projection?.mode, contestingTest, autoCQDelaySeconds]);
 
   useEffect(() => {
@@ -1218,22 +1231,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       },
       operator: {
         output: phoneSimulationAvailable || cw.state.canonical?.provider === "test-simulation" ? "test-simulation" : "xlog-native",
-        armed: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+        armed: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
         style: projection.run ? "run" : "search-and-pounce",
-        status: phoneSimulationAvailable ? phoneSimulationPending ? "waiting" : phoneSimulationArmed ? "armed" : "disarmed"
+        status: phoneOutputAvailable ? phoneSimulationPending ? "waiting" : phoneSimulationArmed ? "armed" : "disarmed"
           : cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
-        pending: phoneSimulationAvailable && phoneSimulationPending || !phoneSimulationAvailable && cw.state.pending ? "send" : null,
+        pending: phoneOutputAvailable && phoneSimulationPending || !phoneOutputAvailable && cw.state.pending ? "send" : null,
         focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
-        functionKeys: projection.mode === "CW" || phoneSimulationAvailable || fldigiOperatorAvailable
+        functionKeys: projection.mode === "CW" || phoneOutputAvailable || fldigiOperatorAvailable
           ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
         autoCQ: { active: autoCQDeadlineMs !== null, delaySeconds: autoCQDelaySeconds,
           remainingMs: autoCQDeadlineMs === null ? null : Math.max(0, autoCQDeadlineMs - autoCQNowMs) },
-        readiness: { canSendCQ: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
-          canSendCall: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
-          canSendDuplicate: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+        readiness: { canSendCQ: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+          canSendCall: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+          canSendDuplicate: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
           canReserveCall: false, canReserveCommit: false, canCommit: true },
-        trace: phoneSimulationAvailable ? phoneSimulationTrace : [],
+        trace: phoneOutputAvailable ? phoneSimulationTrace : [],
       },
       busy: busy || retiring,
       dirty: !sameFields(currentFields, projectionFields(projection)) || frequencyHz !== projection.frequencyHz,
@@ -1324,7 +1337,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     return unavailable;
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
-    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
+    busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneOutputAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
@@ -1468,7 +1481,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           true, true, false, true); return;
       case "entry_operator_arm":
         if (!action.params.armed) clearAutoCQ();
-        if (phoneSimulationAvailable) { setPhoneSimulationArmed(action.params.armed); return; }
+        if (phoneSimulationAvailable || phoneProductionAvailable) {
+          if (action.params.armed && phoneProductionAvailable && !String(setup.preferences.voiceProfilePath ?? "").trim())
+            throw new Error("Choose a voice WAV profile folder in Contest Sound settings before arming phone output.");
+          if (!action.params.armed) await stopPhoneOutput(); else setPhoneSimulationArmed(true);
+          return;
+        }
         if (active.mode !== "CW") throw new Error("This contest does not support admitted output.");
         if (action.params.armed) await cw.controller.arm(action.requestID); else await cw.controller.stop();
         return;

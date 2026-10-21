@@ -5504,6 +5504,7 @@ dependencies = [
 name = "xlog-prototype"
 version = "1.2.101"
 dependencies = [
+ "base64 0.22.1",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
@@ -5512,6 +5513,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serialport",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-notification",

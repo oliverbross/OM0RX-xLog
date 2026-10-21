@@ -1124,7 +1124,7 @@ it.each([
       lastActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key,label,payload,
         payloadUTF8Bytes:new TextEncoder().encode(payload).byteLength,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),
         sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",revision:next.sourceRevision,mode:"S",key,label,template:payload},
-        sessionID:origin.sessionID,draftID:origin.draftID}];
+        sessionID:origin.sessionID,workspaceGeneration:origin.workspaceGeneration,sourceRevision:origin.sourceRevision,draftID:origin.draftID}];
       result={operationID:params.operationID,revision:next.revision,projection:next,actions:lastActions,messages:[],replayed:false};
       if(mutationMode!=="normal"){
         const fail=mutationMode==="hold-fail",late=mutationMode==="hold-late";mutationMode="normal";
@@ -1395,7 +1395,8 @@ it("runs detached Shift-F1 Auto CQ immediately in Run and cancels it on callsign
       current={...current,revision:current.revision+1};
       outputActions=[{actionID:`${params.operationID}:0`,kind:"voice_keyer",signal:"phone",mode:"SSB",key:params.key,label:"CQ",payload:"CQ OM0RX",
         payloadUTF8Bytes:8,payloadSHA256:"0".repeat(64),sourceMacroSHA256:"1".repeat(64),sourceMacro:{origin:"pinned_not1mm",path:"not1mm/data/cwmacros.txt",
-          revision:current.sourceRevision,mode:"R",key:params.key,label:"CQ",template:"CQ {MYCALL}"},sessionID:current.sessionID,draftID:current.draftID}];
+          revision:current.sourceRevision,mode:"R",key:params.key,label:"CQ",template:"CQ {MYCALL}"},sessionID:current.sessionID,
+          workspaceGeneration:current.workspaceGeneration,sourceRevision:current.sourceRevision,draftID:current.draftID}];
       result={operationID:params.operationID,revision:current.revision,projection:current,actions:outputActions,messages:[],replayed:false};
     } else if(method==="contest_output_claim")result={claimed:true,operationID:params.operationID,actions:outputActions};
     else if(method==="contest_draft_apply"){
