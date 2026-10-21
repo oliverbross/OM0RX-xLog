@@ -42,7 +42,7 @@ class EuropeanHFPluginTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def create(self, plugin_id, sent_exchange=None):
+    def create(self, plugin_id, sent_exchange=None, station_call="OM0RX", mode=None):
         case = CASES[plugin_id]
         root = Path(self.temporary.name).resolve() / f"{plugin_id}-{uid()}"
         host = Host(root)
@@ -51,16 +51,18 @@ class EuropeanHFPluginTests(unittest.TestCase):
         countries.update({
             "EA1ABC": {"entity": "Spain", "continent": "EU", "cq": 14, "itu": 37,
                        "primary_pfx": "EA"},
+            "EA2ABC": {"entity": "Spain", "continent": "EU", "cq": 14, "itu": 37,
+                       "primary_pfx": "EA"},
             "SM1ABC": {"entity": "Sweden", "continent": "EU", "cq": 14, "itu": 18,
                        "primary_pfx": "SM"},
         })
         result = host.dispatch({"id": uid(), "method": "session_create", "params": {
             "sessionID": session, "workspaceGeneration": uid(), "operationID": uid(),
             "expectedRevision": 0, "pluginID": plugin_id,
-            "station": {"Call": "OM0RX", "GridSquare": "JN88XX"},
-            "frequencyHz": 7025000, "mode": case["mode"],
+            "station": {"Call": station_call, "GridSquare": "JN88XX"},
+            "frequencyHz": 7025000, "mode": mode or case["mode"],
             "settings": {"SentExchange": case["sent"] if sent_exchange is None else sent_exchange,
-                         "ModeCategory": case["mode"],
+                         "ModeCategory": mode or case["mode"],
                          "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL",
                          "PowerCategory": "LOW"},
             "reference": {"id": "european-hf-cty-v1", "countries": countries},
@@ -183,6 +185,82 @@ class EuropeanHFPluginTests(unittest.TestCase):
             self.assertEqual(sum(row["IsMultiplier1"] for row in self.read(host, session, "log")["rows"]), 1)
         finally:
             host.close()
+
+    def test_ssa_mt_function_key_and_esm_send_serial_and_station_locator(self):
+        for plugin_id in ("ssa_mt_cw", "ssa_mt_ssb"):
+            with self.subTest(plugin=plugin_id):
+                host, _, session, revision = self.create(plugin_id)
+                try:
+                    result, revision = self.mutate(
+                        host, session, revision, "function_key", key="F3")
+                    direct = next(action for action in result["actions"] if action["key"] == "F3")
+                    self.assertEqual((direct["sentSerial"], direct["sentExchange"]),
+                                     ("1", "JP75XX"))
+                    if plugin_id == "ssa_mt_cw":
+                        self.assertEqual(direct["template"], "{RST} {SENTNR} {EXCHANGE}")
+                    else:
+                        self.assertEqual(direct["payload"], "59 1 JP75XX")
+
+                    _, revision = self.mutate(host, session, revision, "run_state", run=True)
+                    result, revision = self.mutate(
+                        host, session, revision, "esm", field="callsign",
+                        fields={"callsign": "SM1ABC"})
+                    esm = next(action for action in result["actions"] if action["key"] == "F3")
+                    self.assertEqual((esm["sentSerial"], esm["sentExchange"]),
+                                     ("1", "JP75XX"))
+                    if plugin_id == "ssa_mt_cw":
+                        self.assertEqual(esm["template"], "{RST} {SENTNR} {EXCHANGE}")
+                    else:
+                        self.assertEqual(esm["payload"], "59 1 JP75XX")
+                finally:
+                    host.close()
+
+    def test_ea_rtty_setup_refreshes_draft_without_rewriting_history(self):
+        transitions = (("M", "TO", "EA1ABC"), ("#", "M", "OM0RX"))
+        for original, replacement, station_call in transitions:
+            with self.subTest(original=original, replacement=replacement):
+                host, _, session, revision = self.create(
+                    "ea_rtty", original, station_call=station_call)
+                try:
+                    projection = self.read(host, session, "projection")["projection"]
+                    fields = {item["id"]: item for item in projection["fields"]}
+                    expected_sent = original if original != "#" else "001"
+                    self.assertEqual(fields["other_1"]["value"], expected_sent)
+
+                    _, revision = self.mutate(
+                        host, session, revision, "qso_commit", qsoID=uid(),
+                        timestamp="2026-10-21 17:00:00",
+                        fields={"callsign": "EA2ABC", "other_2": "TO"})
+                    historical = self.read(host, session, "log")["rows"][0]["SentNr"]
+
+                    setup = self.read(host, session, "setup_get")["setup"]
+                    setup["settings"]["SentExchange"] = replacement
+                    setup["station"]["Call"] = "EA1ABC"
+                    result, revision = self.mutate(
+                        host, session, revision, "setup_save", setup=setup)
+                    fields = {item["id"]: item for item in result["projection"]["fields"]}
+                    self.assertEqual(fields["other_1"]["value"], replacement)
+                    self.assertIsNone(result["projection"]["reservedSerial"])
+                    self.assertEqual(self.read(host, session, "log")["rows"][0]["SentNr"], historical)
+                finally:
+                    host.close()
+
+    def test_ea_rtty_digital_aliases_export_as_ry_without_changing_live_mode(self):
+        for mode in RTTY_MODES:
+            with self.subTest(mode=mode):
+                host, _, session, revision = self.create("ea_rtty", mode=mode)
+                try:
+                    _, revision = self.mutate(
+                        host, session, revision, "qso_commit", qsoID=uid(),
+                        timestamp="2026-10-21 18:00:00",
+                        fields={"callsign": "EA1ABC", "other_2": "M"})
+                    self.assertEqual(self.read(host, session, "projection")["projection"]["mode"], mode)
+                    self.assertEqual(self.read(host, session, "log")["rows"][0]["Mode"], mode)
+                    qso_line = next(line for line in self.read(host, session, "export")["content"].splitlines()
+                                    if line.startswith("QSO:"))
+                    self.assertEqual(qso_line.split()[2], "RY")
+                finally:
+                    host.close()
 
 
 if __name__ == "__main__":

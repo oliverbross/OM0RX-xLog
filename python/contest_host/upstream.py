@@ -72,6 +72,11 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # CW Open sends the host-reserved serial followed by the configured name.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{SENTNR} {EXCHANGE}"
+    elif plugin_id in {"ssa_mt_cw", "ssa_mt_ssb"}:
+        # SSA MT sends both the host-reserved serial and configured station
+        # locator; its visible Nr field is the received serial.
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{RST} {SENTNR} {EXCHANGE}"
     elif PLUGIN_REGISTRY[plugin_id].serial or PLUGIN_REGISTRY[plugin_id].conditional_serial:
         # Ordinary serial contests send the host-reserved draft serial,
         # independently of any configured exchange text.
@@ -345,6 +350,14 @@ def load_plugin(plugin_id="cq_ww_cw"):
             replacements.append((
                 'key = exch[:4].upper() + ":" + band',
                 'key = exch[:4].upper() + ":" + str(band)',
+            ))
+        if plugin_id == "ea_rtty":
+            # Preserve every admitted live digital alias in session/log state,
+            # but emit Cabrillo's single RY mode token at export time.
+            replacements.append((
+                'if themode == "RTTY":',
+                'if themode in ("RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", '
+                '"DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"):',
             ))
         if plugin_id == "lz-dx":
             # Stable replay for contacts sharing the same UTC second.

@@ -1094,6 +1094,8 @@ class Host:
                     state["operatingMode"] = setup["settings"]["ModeCategory"]
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
+                if state["pluginID"] == "ea_rtty" and zone != "#":
+                    state["draft"]["fields"]["other_1"] = zone.upper()
                 self.reserve_serial(store, state)
                 # Recreate the adapter with effective settings/macros before returning
                 # the projection, and rescore if the station country changed.
@@ -1399,6 +1401,7 @@ class Host:
                      or plugin_id in DISPLAY_SENTNR_PLUGINS
                      or plugin_id == "arrl_10m"
                      or plugin_id in EA_MAJESTAD_PLUGINS
+                     or plugin_id == "ea_rtty" and settings["SentExchange"] != "#"
                      or plugin_id in REF_PLUGINS
                        or plugin_id in EUROPEAN_DX_PLUGINS else "", "")))}}
 
