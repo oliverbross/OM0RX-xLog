@@ -21,7 +21,12 @@ final class WorkerStartupTests: XCTestCase {
         let normalState = await normal.backgroundServiceStateForTesting()
         XCTAssertTrue(normalState.sync); XCTAssertTrue(normalState.delivery)
         let health = try await response(normal, id: "normal-health", method: "health")
-        XCTAssertEqual((health["result"] as? [String: Any])?["mode"] as? String, "integrated")
+        #if os(macOS)
+        let expectedMode = "integrated"
+        #else
+        let expectedMode = "integrated_local"
+        #endif
+        XCTAssertEqual((health["result"] as? [String: Any])?["mode"] as? String, expectedMode)
         XCTAssertEqual((health["result"] as? [String: Any])?["contesting_engine"] as? String,
                        "not1mm-python")
         await normal.shutdown()
