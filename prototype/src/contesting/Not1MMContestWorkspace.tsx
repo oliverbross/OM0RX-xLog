@@ -439,6 +439,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const [partial, setPartial] = useState<{sessionID:string;revision:number;query:string;rows:Data[]} | null>(null);
   const [manager, setManager] = useState(true), [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [startupPending, setStartupPending] = useState(true);
+  const [catalogReady, setCatalogReady] = useState(false), [catalogLoadError, setCatalogLoadError] = useState("");
+  const [catalogLoadAttempt, setCatalogLoadAttempt] = useState(0);
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
@@ -697,6 +699,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
 
   useEffect(() => {
     let active = true;
+    setStartupPending(true); setCatalogReady(false); setCatalogLoadError("");
     void (async () => {
       try {
         const [available, list] = await Promise.all([
@@ -706,6 +709,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         const hostBands = validBandDefinitions(available.bandDefinitions);
         setCatalog(Array.isArray(available.plugins) ? available.plugins : []);
         setBandDefinitions(hostBands.length ? hostBands : fallbackBandDefinitions); setSessions(list.sessions);
+        setCatalogReady(true);
         const stored = localStorage.getItem(activeSessionKey);
         const hostActive = list.activeSessionID
           ? list.sessions.find(session => session.sessionID === list.activeSessionID) : undefined;
@@ -714,13 +718,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         if (stored && !storedActive && !hostActive) localStorage.removeItem(activeSessionKey);
         if (saved) await openSession(saved);
       } catch (cause) {
-        if (active) setError(errorMessage(cause));
+        if (active) setCatalogLoadError(cause instanceof ContestServerError && cause.code === "contest_host_protocol"
+          ? "Contest types could not be loaded. Station services may still be starting." : errorMessage(cause));
       } finally {
         if (active) setStartupPending(false);
       }
     })();
     return () => { active = false; };
-  }, []);
+  }, [catalogLoadAttempt]);
 
   useEffect(() => {
     if (!registerTransition) return;
@@ -1842,13 +1847,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         .finally(() => { busyRef.current = false; setBusy(false); });
     }}>{manager ? "Back to desk" : "Select contest"}</button>}</div></header>}
     {error && <p className="contest-alert is-error" role="alert">{error}<button type="button" onClick={() => setError("")}>Dismiss</button></p>}
+    {startupPending && <p className="contest-alert" role="status">Loading contest types…</p>}
+    {catalogLoadError && <p className="contest-alert is-error" role="alert">{catalogLoadError}<button type="button" onClick={() => setCatalogLoadAttempt(attempt => attempt + 1)}>Retry</button></p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
     {showSetup && <div className="contest-entry-context">
       <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
-      catalog={setupCatalog} busy={busy || retiring}
+      catalog={setupCatalog} busy={busy || retiring} newContestDisabled={!catalogReady}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }

@@ -32,7 +32,7 @@ type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
   effectiveMacros?: ContestSetupMacro[];
   catalog: ContestSetupCatalogEntry[];
-  busy?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
+  busy?: boolean; newContestDisabled?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
   onOpen: (session: ContestSetupSession) => Promise<void>;
@@ -90,7 +90,7 @@ function currentUTCStart(): string {
 }
 
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
-export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
+export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, newContestDisabled = false, error = "", initialTab = "Contest",
   onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
   const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
@@ -275,7 +275,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "Edit Keys") content = <><div className="contest-key-scroll"><table className="contest-key-table contest-binding-table"><thead><tr>{["Context", "Key", "Action", "Description"].map(name => <th key={name}>{name}</th>)}</tr></thead><tbody>{bindingValue.map((binding, index) => <tr key={index} aria-selected={selectedBinding === index} onClick={() => setSelectedBinding(index)}><td><select aria-label={`context ${index + 1}`} value={binding.context} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, context: event.target.value as ContestKeyBinding["context"] } : item))}>{contestKeyBindingContexts.map(option => <option key={option}>{option}</option>)}</select></td><td><input aria-label={`key ${index + 1}`} value={binding.key} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, key: event.target.value } : item))}/></td><td><select aria-label={`action ${index + 1}`} value={binding.action} onChange={event => setBindings(bindingValue.map((item, i) => i === index ? { ...item, action: event.target.value as ContestKeyBinding["action"] } : item))}>{contestKeyBindingActions.map(option => <option key={option}>{option}</option>)}</select></td><td><output aria-label={`description ${index + 1}`} title={contestKeyBindingDescriptions[binding.action]}>{contestKeyBindingDescriptions[binding.action]}</output></td></tr>)}</tbody></table></div><div className="contest-key-actions"><button type="button" onClick={() => { setBindings([...bindingValue, { context: "*", key: "", action: "LOG_NOW" }]); setSelectedBinding(bindingValue.length); }}>Add</button><button type="button" disabled={!bindingValue.length} onClick={() => { setBindings(bindingValue.filter((_, i) => i !== selectedBinding)); setSelectedBinding(0); }}>Remove</button><button type="button" onClick={() => setBindings(structuredClone(defaultContestKeyBindings))}>Reset all</button></div></>;
   const configuration = view === "Configuration Settings";
   return <section className="contest-setup" data-setup-view={view ?? "Contest Setup"} aria-label="Contest Setup" aria-busy={disabled}><header><h2>{view ?? "Contest Setup"}</h2></header>
-    {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => {
+    {!view ? <div className="contest-setup-hub">{setupViews.map(name => <button type="button" key={name} disabled={disabled || (name === "New Contest" && newContestDisabled) || (["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(name) && !activeSessionID)} onClick={() => {
       const kind = name === "Station Settings" ? "station" : name === "Configuration Settings" ? "configuration" : name === "Digital Setup" ? "digital" : name === "Edit Macros" ? "macros" : name === "Edit Keys" ? "keys" : null;
       if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
       else open(name);

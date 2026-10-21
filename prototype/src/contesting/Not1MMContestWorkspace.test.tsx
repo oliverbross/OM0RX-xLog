@@ -73,6 +73,50 @@ it("shows a string rejection from the detached contest owner", async () => {
   expect((await screen.findByRole("alert")).textContent).toContain("Contest mutations require backend admission.");
 });
 
+it("keeps New Contest unavailable until the contest catalog is ready", async () => {
+  let resolveCatalog!: (value: unknown) => void;
+  const catalog = new Promise<any>(resolve => { resolveCatalog = resolve; });
+  const request = vi.fn(async (method: string) => {
+    if (method === "contest_catalog") return catalog;
+    if (method === "contest_sessions") return { id:crypto.randomUUID(), ok:true, result:{sessions:[]} };
+    throw new Error(method);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  const create = screen.getByRole("button", {name:"New Contest"}) as HTMLButtonElement;
+  expect(create.disabled).toBe(true);
+  expect(screen.getByRole("status").textContent).toContain("Loading contest types");
+
+  await act(async () => { resolveCatalog({ id:crypto.randomUUID(), ok:true,
+    result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} }); await catalog; });
+  await waitFor(() => expect(create.disabled).toBe(false));
+  await userEvent.click(create);
+  expect((screen.getByRole("combobox", {name:"Log Type"}) as HTMLSelectElement).value).toBe("cq_ww_cw");
+});
+
+it("replaces a cold catalog protocol failure with an actionable retry", async () => {
+  let catalogAttempts = 0;
+  const request = vi.fn(async (method: string) => {
+    if (method === "contest_catalog" && ++catalogAttempts === 1) return { id:crypto.randomUUID(), ok:false,
+      error:{code:"contest_host_protocol",message:"The contest host reply was invalid.",outcome:"uncertain"} };
+    if (method === "contest_catalog") return { id:crypto.randomUUID(), ok:true,
+      result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} };
+    if (method === "contest_sessions") return { id:crypto.randomUUID(), ok:true, result:{sessions:[]} };
+    throw new Error(method);
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toContain("Contest types could not be loaded");
+  expect(alert.textContent).not.toContain("reply was invalid");
+  expect((screen.getByRole("button", {name:"New Contest"}) as HTMLButtonElement).disabled).toBe(true);
+  await userEvent.click(within(alert).getByRole("button", {name:"Retry"}));
+
+  await waitFor(() => expect((screen.getByRole("button", {name:"New Contest"}) as HTMLButtonElement).disabled).toBe(false));
+  expect(screen.queryByRole("alert")).toBeNull();
+  await userEvent.click(screen.getByRole("button", {name:"New Contest"}));
+  expect(screen.getByRole("combobox", {name:"Log Type"}).textContent).toContain("CQ WW CW");
+});
+
 it("opens all separate setup dialogs from the hub and Contest menu before a session exists", async () => {
   const request = vi.fn(async (method: string) => ({ id:crypto.randomUUID(), ok:true,
     result:method === "contest_catalog" ? {plugins:[]} : {sessions:[]} }));
