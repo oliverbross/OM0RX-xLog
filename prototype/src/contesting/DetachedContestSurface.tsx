@@ -304,7 +304,7 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
   const nextFocusable=(from:ContestInputFieldID,direction:"tabNext"|"tabPrevious")=>{let candidate:ContestInputFieldID|undefined=from;
     for(let index=0;index<contestInputFieldIDs.length;index+=1){candidate=operator?.[direction]?.[candidate];if(!candidate)return null;
       const element=fieldRefs.current[candidate];if(element&&!element.disabled&&!element.readOnly)return candidate;if(candidate===from)return null;}return null;};
-  const operatorKey=(key:string,focusedField:ContestInputFieldID|null,shifted=false)=>{if(!operator||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key)||shifted&&key!=="F1")return false;
+  const operatorKey=(key:string,focusedField:ContestInputFieldID|null,shifted=false)=>{if(!operator||operator.status==="uncertain"||!/^F(?:[1-9]|1[0-2])$|^Enter$|^Escape$/.test(key)||shifted&&key!=="F1")return false;
     const intended=intents.capture(),intentContext={band:projection.draft.band,mode:projection.draft.mode,reservedSerial:projection.draft.reservedSerial,
       armed:operator.armed,style:operator.style};
     void (async()=>{let lastLocalProjectionRevision:number|null=null,focusProjectionRevision:number|null=null;if(key!=="Escape"){const flushed=await intents.flush();if(!flushed.ok)return;
@@ -403,8 +403,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm-1}},projectionRevision)}>−</button>
         <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm+1}},projectionRevision)}>+</button></div>}
       {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
-    {(projection.draft.mode==="CW"||testSimulation&&operator?.functionKeys.length)&&<div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
-      disabled={disabled||!item||testSimulation&&!operator?.armed} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>}
+      {(projection.draft.mode==="CW"||Boolean(operator?.functionKeys.length))&&<div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator?.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
+        disabled={disabled||!item||operator?.status==="uncertain"||projection.draft.mode==="SSB"&&!operator?.armed} aria-label={`${key} ${label}`} onClick={()=>operatorKey(key,operator?.focusedField??null)}><kbd>{key}:</kbd> <span>{label}</span></button>;})}</div>}
     </div></div>
     <div className="contest-surface-contact-footer"><div aria-label="Contact heading, long path and distance">{projection.manual?.headingDegrees??"—"}° Hdg · LP {projection.manual?.longPathHeadingDegrees??"—"}° / distance {projection.manual?.distanceKm??"—"} km<br/><span aria-label="Country and zones">{projection.manual?.country??"—"} cq:{projection.manual?.cqZone??"—"} itu:{projection.manual?.ituZone??"—"}</span></div><output aria-label="QSOs, multipliers and score">{projection.manual?.qsos??"—"}/{projection.manual?.multipliers??"—"} <span>{projection.manual?.total??"—"}</span></output></div>
     <details className="contest-surface-entry-options"><summary>Entry controls</summary>
@@ -419,13 +419,13 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       retry={()=>intents.retry("frequency")} discard={()=>intents.discard("frequency")}/>
       {projection.schemaVersion===2&&<>
       {projection.descriptor.serial.requirement==="requiredForCommit"&&<p>Serial: {projection.descriptor.serial.reservedSerial??"not reserved"}</p>}
-      {operator&&(projection.draft.mode==="CW"||testSimulation)&&<section aria-label={testSimulation?"Run and S&P test simulation":operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
+      {operator&&(projection.draft.mode==="CW"||Boolean(operator.functionKeys.length))&&<section aria-label={testSimulation?"Run and S&P test simulation":projection.draft.mode==="SSB"?"Run and S&P phone controls":operator.output==="xlog-native"?"Run and S&P CW controls":"Run and S&P simulation"}><div className="contest-surface-row">
         <button type="button" aria-pressed={operator.armed} disabled={disabled||operator.pending!==null}
-          onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":operator.output==="xlog-native"?"Arm CW":projection.draft.mode==="SSB"?"Arm phone simulation":"Arm simulation"}</button>
-        {testSimulation&&projection.draft.mode==="SSB"&&<button type="button" disabled={!operator.armed||operator.pending!==null}
+          onClick={()=>void send({action:"entry_operator_arm",params:{...base,armed:!operator.armed}},projectionRevision)}>{operator.armed?"Disarm":projection.draft.mode==="SSB"?testSimulation?"Arm phone simulation":"Arm recorded phone":operator.output==="xlog-native"?"Arm CW":"Arm simulation"}</button>
+        {projection.draft.mode==="SSB"&&<button type="button" disabled={!operator.armed||operator.status==="uncertain"||operator.pending!==null}
           onClick={()=>operatorKey("Enter",operator.focusedField)}>Enter / ESM</button>}
-        <button type="button" disabled={!operator.armed} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
-        <span role="status">{testSimulation?"Test simulation":operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
+        <button type="button" disabled={!operator.armed||operator.status==="uncertain"} onClick={()=>operatorKey("Escape",operator.focusedField)}>Escape</button>
+        <span role="status">{testSimulation?"Test simulation":projection.draft.mode==="SSB"?"xLog recorded phone":operator.output==="xlog-native"?"xLog CW":"Simulation"} · {operator.status}</span></div>
         {operator.trace.length>0&&<details className="contest-surface-trace"><summary>Simulation output</summary><ol>{operator.trace.map((item:any)=><li key={item.operationID}><span>{item.mode} · {item.macro}</span> <strong>{item.text}</strong> <small>{item.status}</small></li>)}</ol></details>}
       </section>}</>}
       <footer>{projection.schemaVersion===2&&projection.descriptor.serial.requirement!=="none"&&!projection.descriptor.automaticSerial&&

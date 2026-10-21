@@ -632,6 +632,49 @@ it("keeps SSB Run and S&P while hiding CW output controls",async()=>{
   expect(screen.queryByRole("button",{name:"Arm CW"})).toBeNull();
 });
 
+it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"Disarm",next:false}])(
+  "routes truthful production SSB $label controls through the owner",async({armed,label,next})=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"xlog-native",armed,style:"run",status:armed?"armed":"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:armed,canSendCall:armed,canSendDuplicate:armed,
+        canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return{requestID:args.requestID,status:"queued"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  await screen.findByRole("region",{name:"Run and S&P phone controls"});
+  expect(screen.getByText(new RegExp(`xLog recorded phone · ${armed?"armed":"disarmed"}`,"i"))).toBeTruthy();
+  expect((screen.getByRole("button",{name:"F1 CQ"})as HTMLButtonElement).disabled).toBe(!armed);
+  fireEvent.click(screen.getByRole("button",{name:label}));
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_arm"&&args.params.armed===next)).toBe(true));
+  if(armed){fireEvent.click(screen.getByRole("button",{name:"Escape"}));
+    await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_key"&&args.params.key==="Escape")).toBe(true));}
+});
+
+it("keeps uncertain production phone ownership visible while blocking every send",async()=>{
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
+    descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"xlog-native",armed:true,style:"run",status:"uncertain",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
+        canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return{requestID:args.requestID,status:"queued"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  await screen.findByText(/xLog recorded phone · uncertain/i);
+  expect((screen.getByRole("button",{name:"F1 CQ"})as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Enter / ESM"})as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Escape"})as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Disarm"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&
+    args.action==="entry_operator_arm"&&args.params.armed===false)).toBe(true));
+});
+
 it("makes CQ WW SSB Contesting Test intent simulation unmistakable without CW controls",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},

@@ -18,6 +18,7 @@ const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHisto
 const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: vi.fn(async () => {}),
   publish: vi.fn(async () => {}), acknowledgements: vi.fn(async () => [] as string[]) }));
 const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
+const nativeVoice = vi.hoisted(() => ({ play: vi.fn(async () => {}), stop: vi.fn(async () => {}) }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => {
   surfaceOwner.current = owner; return surfaceOwner.waitForPublication;
@@ -36,6 +37,9 @@ vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   profile: { macros: [{ id: 2, enabled: true, shortcut: "F2", text: "{CALL} {RST} {EXCHANGE}" }] },
 }) }));
 vi.mock("./contestExportSave", () => ({ nativeContestExportSave: nativeExport.save }));
+vi.mock("./contestVoiceOutput", () => ({ ContestVoiceOutput: class {
+  play = nativeVoice.play; stop = nativeVoice.stop;
+} }));
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks(); surfaceOwner.current = null; setupDialogOwner.current = null; });
 
@@ -1372,6 +1376,39 @@ it.each([
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign"}})).rejects.toThrow("unavailable in production");
   expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(false);
   expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+});
+
+it("projects and routes production recorded-phone arm and stop only with a saved profile",async()=>{
+  const saved=newContestSetup("OM0RX");saved.pluginID="cq_ww_ssb";saved.name="CQ WW SSB";saved.settings.ModeCategory="SSB";
+  saved.preferences.voiceProfilePath="/operator/voice";
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
+  const current={...projection(),pluginID:"cq_ww_ssb",pluginName:"CQ WW SSB",mode:"SSB",supportedModes:["SSB"] as const,
+    fields:projection().fields.map(field=>({...field,value:field.id==="sent"||field.id==="receive"?"59":field.value})),matrixTrackers:[]};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_ssb",name:"CQ WW SSB",modes:["SSB"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{},statistics:statisticsFor(current)}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  let entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.operator).toMatchObject({output:"xlog-native",armed:false,status:"disarmed"});
+  expect(entry.operator.functionKeys.length).toBeGreaterThan(0);
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  entry=surfaceOwner.current.projections["active-qso"];expect(entry.operator).toMatchObject({armed:true,status:"armed"});
+  const stopsBeforeDisarm=nativeVoice.stop.mock.calls.length;
+  nativeVoice.stop.mockRejectedValueOnce(new Error("RX confirmation unavailable"));
+  await act(async()=>{await expect(surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:false}})).rejects.toThrow("RX confirmation unavailable");});
+  entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.operator).toMatchObject({armed:true,status:"uncertain",readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false}});
+  nativeVoice.stop.mockResolvedValueOnce(undefined);
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:false}}));
+  expect(nativeVoice.stop.mock.calls.length).toBe(stopsBeforeDisarm+2);
+  expect(surfaceOwner.current.projections["active-qso"].operator).toMatchObject({armed:false,status:"disarmed"});
 });
 
 it("runs detached Shift-F1 Auto CQ immediately in Run and cancels it on callsign input",async()=>{

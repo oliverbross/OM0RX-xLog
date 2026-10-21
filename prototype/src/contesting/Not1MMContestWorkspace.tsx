@@ -461,9 +461,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const [effectiveMacros, setEffectiveMacros] = useState<ContestSetupMacro[] | undefined>();
   const [phoneSimulationArmed, setPhoneSimulationArmed] = useState(false);
   const [phoneSimulationPending, setPhoneSimulationPending] = useState(false);
+  const [phoneReleaseUncertain, setPhoneReleaseUncertain] = useState("");
   const [phoneSimulationTrace, setPhoneSimulationTrace] = useState<PhoneSimulationTrace[]>([]);
   const phoneSimulationControllerRef = useRef<AbortController | null>(null);
   const phoneSimulationRecoveryRef = useRef<Promise<boolean> | null>(null);
+  const phoneReleaseGenerationRef = useRef(0);
   const voiceOutput = useMemo(() => new ContestVoiceOutput(!contestingTest), [contestingTest]);
   const [autoCQDeadlineMs, setAutoCQDeadlineMs] = useState<number | null>(null);
   const [autoCQNowMs, setAutoCQNowMs] = useState(() => Date.now());
@@ -529,11 +531,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const phoneProductionAvailable = Boolean(!contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
   const phoneProductionConfigured = phoneProductionAvailable && Boolean(String(setup.preferences.voiceProfilePath ?? "").trim());
   const phoneOutputAvailable = phoneSimulationAvailable || phoneProductionConfigured;
+  const phoneCanSend = phoneSimulationArmed && !phoneSimulationPending && !phoneReleaseUncertain;
+  const phoneReleaseBlocking = Boolean(phoneReleaseUncertain || !phoneOutputAvailable && (phoneSimulationArmed || phoneSimulationPending));
   useEffect(() => {
     phoneSimulationControllerRef.current?.abort(); phoneSimulationControllerRef.current = null;
-    void voiceOutput.stop().catch(() => {});
     phoneSimulationRecoveryRef.current = null;
-    setPhoneSimulationArmed(false); setPhoneSimulationPending(false); setPhoneSimulationTrace([]);
+    const generation = ++phoneReleaseGenerationRef.current;
+    setPhoneSimulationPending(true);
+    void voiceOutput.stop().then(() => {
+      if (phoneReleaseGenerationRef.current !== generation) return;
+      setPhoneReleaseUncertain(""); setPhoneSimulationArmed(false); setPhoneSimulationTrace([]);
+    }).catch(cause => {
+      if (phoneReleaseGenerationRef.current !== generation) return;
+      const message = `Contest phone PTT release remains uncertain: ${errorMessage(cause)}`;
+      setPhoneReleaseUncertain(message); setPhoneSimulationArmed(true); setError(message);
+    }).finally(() => {
+      if (phoneReleaseGenerationRef.current === generation) setPhoneSimulationPending(false);
+    });
   }, [contestingTest, projection?.sessionID, projection?.pluginID, projection?.mode, voiceOutput]);
   const rememberSetup = (document: ContestSetupDocument) => {
     setSetup(document);
@@ -840,11 +854,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     const fldigiMode = projectionRef.current?.fldigiTransmitAvailable === true;
     const fldigiAction = Boolean(fldigiMode &&
       digitalSnapshot?.fldigi?.configuration.transmit_enabled && projectionRef.current?.mode !== "CW" && projectionRef.current?.mode !== "SSB");
+    if (phoneReleaseBlocking) {
+      const failure = new Error(phoneReleaseUncertain || "Contest phone PTT release is still pending.");
+      setError(failure.message); if (throwFailures) throw failure; return null;
+    }
     if (fldigiMode && !fldigiAction) {
       const failure = new Error("Enable fldigi macro transmit in Digital Logging Setup before using RTTY function keys.");
       setError(failure.message); if (throwFailures) throw failure; return null;
     }
-    if (phoneAction && (!phoneOutputAvailable || !phoneSimulationArmed)) {
+    if (phoneAction && phoneReleaseUncertain) {
+      const failure = new Error(phoneReleaseUncertain);
+      setError(failure.message); if (throwFailures) throw failure; return null;
+    }
+    if (phoneAction && (!phoneOutputAvailable || !phoneCanSend)) {
       const failure = new Error(phoneOutputAvailable
         ? `Arm the ${phoneSimulationAvailable ? "nontransmitting phone simulation" : "recorded phone output"} before using phone contest messages.`
         : phoneProductionAvailable ? "Phone contest voice output is unavailable in production until a Voice WAV profile folder is saved; no audio or PTT action was taken."
@@ -892,8 +914,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
 
   const stopPhoneOutput = async () => {
     phoneSimulationControllerRef.current?.abort(); phoneSimulationControllerRef.current = null;
-    if (phoneProductionAvailable) await voiceOutput.stop();
-    setPhoneSimulationArmed(false); setPhoneSimulationPending(false);
+    const generation = ++phoneReleaseGenerationRef.current;
+    setPhoneSimulationPending(true);
+    try {
+      await voiceOutput.stop();
+      if (phoneReleaseGenerationRef.current === generation) {
+        setPhoneReleaseUncertain(""); setPhoneSimulationArmed(false);
+      }
+    } catch (cause) {
+      const message = `Contest phone PTT release remains uncertain: ${errorMessage(cause)}`;
+      if (phoneReleaseGenerationRef.current === generation) {
+        setPhoneReleaseUncertain(message); setPhoneSimulationArmed(true); setError(message);
+      }
+      throw cause;
+    } finally {
+      if (phoneReleaseGenerationRef.current === generation) setPhoneSimulationPending(false);
+    }
   };
 
   const clearAutoCQ = () => {
@@ -920,8 +956,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const startAutoCQ = async (contestSurfaceRequestID?: string) => {
     const active = projectionRef.current;
     if (!active) throw new Error("Open a contest before starting Auto CQ.");
+    if (phoneReleaseBlocking) throw new Error(phoneReleaseUncertain || "Contest phone PTT release is still pending.");
     if (active.mode !== "CW" && !phoneOutputAvailable) throw new Error("Auto CQ requires admitted CW or recorded phone output.");
-    if (phoneOutputAvailable ? !phoneSimulationArmed : !cw.state.armed) throw new Error("Arm the contest output before starting Auto CQ.");
+    if (phoneOutputAvailable ? !phoneCanSend : !cw.state.armed) throw new Error("Arm the contest output before starting Auto CQ.");
     if (!active.run) await runMutation(base => mutate("contest_run_state", base, { run: true }), false, true, false, true);
     clearAutoCQ(); autoCQActiveRef.current = true; scheduleAutoCQ();
     try { await hostAction("contest_function_key", { key: "F1" }, true, contestSurfaceRequestID); }
@@ -936,7 +973,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   useEffect(() => () => {
     autoCQActiveRef.current = false;
     if (autoCQTimerRef.current !== null) window.clearTimeout(autoCQTimerRef.current);
-    phoneSimulationControllerRef.current?.abort(); void voiceOutput.stop().catch(() => {});
+    phoneSimulationControllerRef.current?.abort(); ++phoneReleaseGenerationRef.current;
+    void voiceOutput.stop().catch(cause => console.error("Contest phone unmount release remains uncertain", cause));
   }, [voiceOutput]);
   useEffect(() => { clearAutoCQ(); }, [projection?.sessionID, projection?.mode, contestingTest, autoCQDelaySeconds]);
 
@@ -1231,20 +1269,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       },
       operator: {
         output: phoneSimulationAvailable || cw.state.canonical?.provider === "test-simulation" ? "test-simulation" : "xlog-native",
-        armed: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+        armed: Boolean(phoneReleaseUncertain) || phoneSimulationArmed || fldigiOperatorAvailable || projection.mode === "CW" && cw.state.armed,
         style: projection.run ? "run" : "search-and-pounce",
-        status: phoneOutputAvailable ? phoneSimulationPending ? "waiting" : phoneSimulationArmed ? "armed" : "disarmed"
+        status: phoneReleaseUncertain ? "uncertain" : phoneSimulationPending ? "waiting" : phoneOutputAvailable ? phoneSimulationArmed ? "armed" : "disarmed"
           : cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
-        pending: phoneOutputAvailable && phoneSimulationPending || !phoneOutputAvailable && cw.state.pending ? "send" : null,
+        pending: phoneSimulationPending || !phoneOutputAvailable && cw.state.pending ? "send" : null,
         focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
         functionKeys: projection.mode === "CW" || phoneOutputAvailable || fldigiOperatorAvailable
           ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
         autoCQ: { active: autoCQDeadlineMs !== null, delaySeconds: autoCQDelaySeconds,
           remainingMs: autoCQDeadlineMs === null ? null : Math.max(0, autoCQDeadlineMs - autoCQNowMs) },
-        readiness: { canSendCQ: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
-          canSendCall: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
-          canSendDuplicate: fldigiOperatorAvailable || (phoneOutputAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+        readiness: { canSendCQ: !phoneReleaseBlocking && (fldigiOperatorAvailable || (phoneOutputAvailable ? phoneCanSend : projection.mode === "CW" && cw.state.armed)),
+          canSendCall: !phoneReleaseBlocking && (fldigiOperatorAvailable || (phoneOutputAvailable ? phoneCanSend : projection.mode === "CW" && cw.state.armed)),
+          canSendDuplicate: !phoneReleaseBlocking && (fldigiOperatorAvailable || (phoneOutputAvailable ? phoneCanSend : projection.mode === "CW" && cw.state.armed)),
           canReserveCall: false, canReserveCommit: false, canCommit: true },
         trace: phoneOutputAvailable ? phoneSimulationTrace : [],
       },
@@ -1338,7 +1376,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   }, [projection, detachedAvailable, activeSessionName, fields, operationFrequencyHz, rows, logOffset, logTotal, editing,
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneOutputAvailable, phoneSimulationArmed,
-    phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
+    phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
     sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId]);
@@ -1481,9 +1519,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           true, true, false, true); return;
       case "entry_operator_arm":
         if (!action.params.armed) clearAutoCQ();
+        if (phoneReleaseBlocking) {
+          if (action.params.armed) throw new Error(phoneReleaseUncertain || "Contest phone PTT release is still pending.");
+          await stopPhoneOutput(); return;
+        }
         if (phoneSimulationAvailable || phoneProductionAvailable) {
           if (action.params.armed && phoneProductionAvailable && !String(setup.preferences.voiceProfilePath ?? "").trim())
             throw new Error("Choose a voice WAV profile folder in Contest Sound settings before arming phone output.");
+          if (action.params.armed && phoneReleaseUncertain)
+            throw new Error(phoneReleaseUncertain);
           if (!action.params.armed) await stopPhoneOutput(); else setPhoneSimulationArmed(true);
           return;
         }
@@ -1710,11 +1754,29 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   };
 
   const fldigiPanelReady = Boolean(projection?.fldigiTransmitAvailable && digitalSnapshot?.fldigi?.configuration.transmit_enabled);
-  const cwPanel = () => projection && <section className="contest-operator" aria-label={fldigiPanelReady ? "fldigi controls" : "CW controls"}><header><div><strong>{fldigiPanelReady ? "ESM and fldigi" : "ESM and CW"}</strong><p>{fldigiPanelReady
-    ? "Not1MM chooses the F-key text; xLog claims it once and sends it through fldigi XML-RPC."
-    : cw.state.canonical?.provider === "test-simulation"
-    ? "CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output"
-    : "Not1MM chooses the F-key action; xLog owns the armed output lease."}</p></div><span>{fldigiPanelReady ? digitalSnapshot?.fldigi?.status : cw.state.message}</span></header><div className="contest-operator-controls">{!fldigiPanelReady&&<button type="button" disabled={busy || cw.state.pending} onClick={() => void cw.controller.arm()}>{cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button>}<button type="button" className="contest-danger-secondary" onClick={() => fldigiPanelReady ? void serviceRequest("fldigi_stop").then(() => setDigitalSnapshot(current => current?.fldigi ? {...current,fldigi:{...current.fldigi,configuration:{receive_enabled:false,transmit_enabled:false},receive_running:false,status:"Off"}} : current)) : void stopAutoCQ()}>Stop</button><span className={fldigiPanelReady || cw.state.armed ? "is-armed" : ""}>{fldigiPanelReady || cw.state.armed ? "Armed" : "Disarmed"}</span>{autoCQDeadlineMs !== null&&<span role="status">Auto CQ · {Math.max(0, Math.ceil((autoCQDeadlineMs-autoCQNowMs)/1000))}s</span>}</div>{cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}<div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring || projection.mode !== "CW" && !fldigiPanelReady} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div></section>;
+  const cwPanel = () => {
+    if (!projection || projection.mode === "SSB" && !phoneOutputAvailable) return null;
+    const phone = projection.mode === "SSB" && phoneOutputAvailable;
+    const armed = phoneReleaseBlocking ? phoneSimulationArmed || Boolean(phoneReleaseUncertain) : phone ? phoneSimulationArmed : fldigiPanelReady || cw.state.armed;
+    const title = fldigiPanelReady ? "ESM and fldigi" : phone ? "ESM and Phone" : "ESM and CW";
+    const description = fldigiPanelReady
+      ? "Not1MM chooses the F-key text; xLog claims it once and sends it through fldigi XML-RPC."
+      : phoneSimulationAvailable
+        ? "CONTESTING TEST · simulated phone only · no RF, audio, PTT, radio, or network output"
+        : phone
+          ? "Not1MM chooses and claims each recorded message once; xLog requires fresh TX confirmation before audio."
+          : cw.state.canonical?.provider === "test-simulation"
+            ? "CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output"
+            : "Not1MM chooses the F-key action; xLog owns the armed CW output lease.";
+    return <section className="contest-operator" aria-label={fldigiPanelReady ? "fldigi controls" : phone ? "Phone controls" : "CW controls"}>
+      <header><div><strong>{title}</strong><p>{description}</p></div><span>{phoneReleaseUncertain ? "Phone PTT release uncertain" : phoneReleaseBlocking ? "Phone PTT release pending" : phone ? phoneSimulationPending ? "Phone output pending" : armed ? "Phone output armed" : "Phone output disarmed" : fldigiPanelReady ? digitalSnapshot?.fldigi?.status : cw.state.message}</span></header>
+      <div className="contest-operator-controls">{!fldigiPanelReady&&<button type="button" disabled={busy || phoneSimulationPending || !phone&&cw.state.pending} onClick={() => phoneReleaseBlocking ? void stopPhoneOutput() : phone ? armed ? void stopPhoneOutput() : setPhoneSimulationArmed(true) : void cw.controller.arm()}>{phoneReleaseUncertain ? "Retry phone disarm" : phoneReleaseBlocking ? "Phone disarm pending" : phone ? armed ? "Disarm phone" : phoneSimulationAvailable ? "Arm phone simulation" : "Arm recorded phone" : cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button>}
+        <button type="button" className="contest-danger-secondary" onClick={() => fldigiPanelReady ? void serviceRequest("fldigi_stop").then(() => setDigitalSnapshot(current => current?.fldigi ? {...current,fldigi:{...current.fldigi,configuration:{receive_enabled:false,transmit_enabled:false},receive_running:false,status:"Off"}} : current)) : void stopAutoCQ()}>Stop</button>
+        <span className={armed ? "is-armed" : ""}>{armed ? "Armed" : "Disarmed"}</span>{autoCQDeadlineMs !== null&&<span role="status">Auto CQ · {Math.max(0, Math.ceil((autoCQDeadlineMs-autoCQNowMs)/1000))}s</span>}
+      </div>{!phone && cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}
+      <div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring || phoneReleaseBlocking || (phone ? !phoneCanSend : projection.mode !== "CW" && !fldigiPanelReady)} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div>
+    </section>;
+  };
   const entryPanel: ReactNode = projection && <form className="contest-entry" aria-label={`${projection.pluginName ?? projection.pluginID} entry`} onSubmit={event => { event.preventDefault(); void runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz })); }} onKeyDown={keyDown}>
     <header><div><h2><Radio size={15}/> {projection.pluginName ?? projection.pluginID} · Not1MM</h2><p>Actual pinned Python plugin · {projection.run ? "Run" : "Search & Pounce"}</p></div><span>{busy ? "Working…" : "Ready"}</span></header>
     <ContestEntryFields callsign={visibleFields.slice(0, 1).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} className="contest-call" autoComplete="off" data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } reports={visibleFields.slice(1, 3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value)}/>) } exchange={visibleFields.slice(3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } />
@@ -1724,7 +1786,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)} onBlur={syncManualFrequency}/>}</div><div><span>Band / mode</span><strong>{bandLabels[String(projection.band)] ?? projection.band} · {projection.mode}</strong></div><div><span>Operating style</span><button type="button" disabled={busy || retiring} onClick={() => void runMutation(base => mutate("contest_run_state", base, { run: !base.run }), false)}>{projection.run ? "Run" : "S&P"}</button></div></div>
     <div className={`contest-validation ${projection.dupe ? "is-duplicate" : "is-clear"}`}><strong>{projection.dupe ? "Duplicate" : "Dupe check"}</strong><span>{projection.countryResolved ? "Country resolved by xLog CTY data." : "Unknown country is retained; scoring credit may be zero."}</span></div>
     {cwPanel()}
-    <footer><button type="button" disabled={busy || retiring || Boolean(projection.fldigiTransmitAvailable && !fldigiPanelReady)} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
+    <footer><button type="button" disabled={busy || retiring || phoneReleaseBlocking || Boolean(projection.fldigiTransmitAvailable && !fldigiPanelReady)} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
   </form>;
   const scorePanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score</h2><ContestScoreSummary score={scoreView}/></aside>;
   const checkPanel = <section className="contest-score" aria-label="Check Partial"><h2>Check Partial</h2>{projection && <ContestAssistancePanel

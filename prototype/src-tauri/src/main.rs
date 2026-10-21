@@ -2559,12 +2559,28 @@ fn contest_group_network_acknowledgements(window: tauri::WebviewWindow,
 
 #[tauri::command]
 fn contest_voice_prepare(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
-    params: contest_voice::PrepareRequest) -> Result<contest_voice::PreparedVoice, String> {
+    params: contest_voice::PrepareBatchRequest) -> Result<Vec<contest_voice::PreparedVoice>, String> {
     runtime_profile::require_external_io_disabled()?;
     contest_voice::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()),
         APP_EXITING.load(Ordering::Acquire), runtime_profile::CONTESTING_TEST)?;
     let context = contest_window_context::active()?;
-    contest_voice::prepare(params, &context.session_id, &context.workspace_generation)
+    contest_voice::prepare_batch(params, &context.session_id, &context.workspace_generation)
+}
+
+#[tauri::command]
+async fn contest_voice_ptt(app: tauri::AppHandle, window: tauri::WebviewWindow,
+    state: tauri::State<'_, acceptance::Acceptance>, params: contest_voice::PTTRequest) -> Result<serde_json::Value, String> {
+    runtime_profile::require_external_io_disabled()?;
+    contest_voice::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire), runtime_profile::CONTESTING_TEST)?;
+    let acquiring = params.acquiring();
+    let queued_acquisition = if acquiring { Some(contest_voice::queue_acquisition()?) } else { None };
+    let app_for_task = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _queued_acquisition = queued_acquisition;
+        let _module_admission = if acquiring { Some(operating_module::owner()?.admit_current()?) } else { None };
+        params.execute(&app_for_task)
+    }).await.map_err(|_| "Contest voice PTT task ended; inspect its retained receipt; never replay".to_string())?
 }
 
 fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), String> {
@@ -2877,6 +2893,28 @@ fn main() {
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    if contest_voice::needs_shutdown_barrier() {
+                        api.prevent_close();
+                        if contest_voice::begin_window_close_barrier() {
+                            let app = window.app_handle().clone();
+                            let closing = window.clone();
+                            tauri::async_runtime::spawn_blocking(move || {
+                                if let Err(error) = contest_voice::shutdown(&app) {
+                                    eprintln!("Contest voice PTT close release remains uncertain: {error}");
+                                }
+                                let _ = closing.destroy();
+                            });
+                        }
+                    }
+                } else if matches!(event, tauri::WindowEvent::Destroyed)
+                    && contest_voice::needs_shutdown_barrier() {
+                    if let Err(error) = contest_voice::shutdown(window.app_handle()) {
+                        eprintln!("Contest voice PTT destroyed-window release remains uncertain: {error}");
+                    }
+                }
+            }
             if matches!(event, tauri::WindowEvent::Destroyed)
                 && workspace_navigation::contest_owner_dependent_window(window.label()) {
                 schedule_hidden_contest_owner_retirement(window.app_handle().clone());
@@ -3095,7 +3133,7 @@ fn main() {
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
-            contest_voice_prepare,
+            contest_voice_prepare, contest_voice_ptt,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
@@ -3111,6 +3149,11 @@ fn main() {
         .expect("Application failed to start")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                if contest_voice::needs_shutdown_barrier() {
+                    if let Err(error) = contest_voice::shutdown(app) {
+                        eprintln!("Contest voice PTT application-exit release remains uncertain: {error}");
+                    }
+                }
                 APP_EXITING.store(true, Ordering::Release);
                 rotor_session::shutdown();
                 station_identity::shutdown();
