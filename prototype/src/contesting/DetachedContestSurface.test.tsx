@@ -657,8 +657,8 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
       receivedFields:[{...projection.draft.receivedFields[0],label:"sn prec ck sec"}]},
     descriptor:{bands:["20m","40m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ",highlighted:true}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},
       trace:[{operationID:"simulation-1",mode:"CW",macro:"CQ",text:"CQ OM0RX",status:"confirmed"}]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return v2;
@@ -693,26 +693,57 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
 });
 
-it("keeps SSB Run and S&P while hiding CW output controls",async()=>{
+it("keeps original SSB macros visible but disabled with Voice WAV guidance when output is unconfigured",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"xlog-native",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+    operator:{output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Recorded phone output is unavailable until a Voice WAV profile folder is saved in Contest Setup.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ",highlighted:true},{key:"F2",macro:"Exchange",highlighted:false}],
+      readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;throw new Error(command);});
   render(<DetachedContestSurface/>);
   await screen.findByRole("region",{name:"Main Logging"});
   expect(screen.getByRole("radio",{name:"Run"})).toBeTruthy();
   expect(screen.queryByRole("group",{name:"CW speed"})).toBeNull();
-  expect(screen.queryByRole("group",{name:"Function key macros"})).toBeNull();
+  expect(screen.getByRole("group",{name:"Function key macros"}).querySelectorAll("button")).toHaveLength(12);
+  expect((screen.getByRole("button",{name:"F1 CQ"})as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("button",{name:"F1 CQ"}).className).toContain("contest-primary");
+  expect((screen.getByRole("button",{name:"Arm recorded phone"})as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(/Voice WAV profile folder is saved in Contest Setup/i)).toBeTruthy();
+});
+
+it.each([{available:false},{available:true}])("keeps original RTTY macros visible with truthful fldigi availability ($available)",async({available})=>{
+  const reason="fldigi macro output is unavailable. Enable fldigi macro transmit in Digital Logging Setup.";
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"RTTY"},
+    descriptor:{bands:["20m"],modes:["RTTY"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
+    operator:{output:"xlog-native",outputAvailable:available,outputUnavailableReason:available?null:reason,armed:available,
+      style:"run",status:available?"armed":"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ TEST",highlighted:true},{key:"F2",macro:"Exchange",highlighted:false}],
+      readiness:{canSendCQ:available,canSendCall:available,canSendDuplicate:available,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return{requestID:args.requestID,status:"queued"};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  await screen.findByRole("region",{name:"Run and S&P fldigi controls"});
+  const f1=screen.getByRole("button",{name:"F1 CQ TEST"})as HTMLButtonElement;
+  expect(f1.disabled).toBe(!available);
+  expect(f1.className).toContain("contest-primary");
   expect(screen.queryByRole("button",{name:"Arm CW"})).toBeNull();
+  if(!available)expect(screen.getByText(reason)).toBeTruthy();
+  else {
+    fireEvent.click(f1);
+    await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&
+      args.action==="entry_operator_key"&&args.params.key==="F1")).toBe(true));
+  }
 });
 
 it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"Disarm",next:false}])(
   "routes truthful production SSB $label controls through the owner",async({armed,label,next})=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"xlog-native",armed,style:"run",status:armed?"armed":"disarmed",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:armed,canSendCall:armed,canSendDuplicate:armed,
+    operator:{output:"xlog-native",outputAvailable:true,outputUnavailableReason:null,armed,style:"run",status:armed?"armed":"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:armed,canSendCall:armed,canSendDuplicate:armed,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -732,8 +763,8 @@ it.each([{armed:false,label:"Arm recorded phone",next:true},{armed:true,label:"D
 it("keeps uncertain production phone ownership visible while blocking every send",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"xlog-native",armed:true,style:"run",status:"uncertain",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
+    operator:{output:"xlog-native",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"uncertain",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -753,8 +784,8 @@ it("keeps uncertain production phone ownership visible while blocking every send
 it("makes CQ WW SSB Contesting Test intent simulation unmistakable without CW controls",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"test-simulation",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[{key:"F1",macro:"CQ"},{key:"F12",macro:"His call TU"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
+    operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ",highlighted:true},{key:"F12",macro:"His call TU",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
         canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[{operationID:"operation-1:0",mode:"SSB",macro:"Their call",text:"K1ABC",status:"confirmed"}]}}};
   native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;throw new Error(command);});
   render(<DetachedContestSurface/>);
@@ -769,8 +800,8 @@ it("makes CQ WW SSB Contesting Test intent simulation unmistakable without CW co
 it("makes the contesting-test nontransmitting CW simulator unmistakable",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,mode:"CW"},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"test-simulation",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+    operator:{output:"test-simulation",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string)=>{if(command==="contest_surface_snapshot")return view;throw new Error(command);});
   render(<DetachedContestSurface/>);
   expect(await screen.findByText(/CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output/i)).toBeTruthy();
@@ -783,7 +814,7 @@ it("executes saved finite Not1MM key bindings and stops using the replaced chord
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},keyBindings:[
         {context:"*",key:"Alt+R",action:"TOGGLE_RUN"},{context:"Callsign",key:"Up",action:"NEXT_SPOT"}]},
-    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -804,8 +835,8 @@ it("executes saved function-macro and explicit S&P bindings through the existing
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},keyBindings:[
         {context:"*",key:"Ctrl+1",action:"SEND_F2"},{context:"*",key:"Ctrl+Shift+S",action:"SET_S_AND_P"}]},
-    operator:{output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-      functionKeys:[{key:"F2",macro:"Exchange"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[{key:"F2",macro:"Exchange",highlighted:true}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:true,
         canReserveCall:true,canReserveCommit:true,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -825,7 +856,7 @@ it("executes a saved field-navigation binding through authoritative focus",async
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
       keyBindings:[{context:"Callsign",key:"Ctrl+N",action:"FOCUS_NEXT"}]},
-    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -843,7 +874,7 @@ it("executes a field-context Not1MM key binding",async()=>{
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"power",label:"Power",value:"100",required:true,maximumUTF8Bytes:4}],
       serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},keyBindings:[{context:"Callsign",key:"Up",action:"NEXT_SPOT"}]},
-    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -862,7 +893,7 @@ it.each([["s","entry_spot"],["m","entry_mark_spot"],["g","entry_tune_spot"]] as 
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
       keyBindings:[{context:"*",key:`Ctrl+${key.toUpperCase()}`,action:bindingAction}]},
-    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
     if(command==="contest_surface_snapshot")return view;
@@ -899,7 +930,7 @@ it("retains the original log headings and an empty partial pane when the log is 
 });
 
 it("serializes rapid Python tab-map focus changes and sends exact report focus to ESM",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"receive",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"receive",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -926,7 +957,7 @@ it("serializes rapid Python tab-map focus changes and sends exact report focus t
 });
 
 it("uses the pinned plugin space-advance fields instead of limiting space to Callsign",async()=>{
-  const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"sent",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"sent",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const view={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],advanceOnSpace:["callsign","sent","receive","other_1","other_2"],
@@ -942,7 +973,7 @@ it("uses the pinned plugin space-advance fields instead of limiting space to Cal
 });
 
 it("opens Operator for exact OPON Space while ordinary callsigns keep space advance",async()=>{
-  const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,callsign:""},
     descriptor:{bands:["20m"],modes:["CW"],advanceOnSpace:["callsign"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -962,7 +993,7 @@ it("opens Operator for exact OPON Space while ordinary callsigns keep space adva
 });
 
 it("restores authoritative callsign focus when a logged QSO creates a new draft",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"receive",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"receive",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -985,7 +1016,7 @@ it("restores authoritative callsign focus when a logged QSO creates a new draft"
 it("keeps a CWT keyboard burst and its Name tab target live while the owner persists the first character",async()=>{
   const cwtTabs={tabNext:{callsign:"other_1",other_1:"other_2",other_2:"callsign"},
     tabPrevious:{callsign:"other_2",other_1:"callsign",other_2:"other_1"}};
-  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...cwtTabs,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...cwtTabs,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,session:{name:"CWT",ruleName:"CWT",mode:"CW"},
     draft:{...projection.draft,callsign:"",receivedFields:[
@@ -1014,8 +1045,8 @@ it("keeps a CWT keyboard burst and its Name tab target live while the owner pers
 });
 
 it("flushes true multi-keystroke callsign and exchange intent before detached Enter and waits for terminal receipts",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-    functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
     draft:{...projection.draft,receivedFields:[{...projection.draft.receivedFields[0],id:"other_2"}]},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -1092,8 +1123,8 @@ it("coalesces synchronous rapid Entry typing into one full-value action",async()
 });
 
 it("submits Escape outside a blocked edit queue without replaying either action",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-    functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
@@ -1108,7 +1139,7 @@ it("submits Escape outside a blocked edit queue without replaying either action"
 });
 
 it("admits only Escape across benign refresh churn",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const base:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -1124,7 +1155,7 @@ it("admits only Escape across benign refresh churn",async()=>{
 });
 
 it("does not silently rebase a control action after another surface revision wins",async()=>{
-  const operator={output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -1142,7 +1173,7 @@ it("does not silently rebase a control action after another surface revision win
 });
 
 it("rejects Enter after same-value sibling revision churn",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -1158,7 +1189,7 @@ it("rejects Enter after same-value sibling revision churn",async()=>{
 });
 
 it("accepts Enter when an already-running flush had partly completed before key capture",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -1179,8 +1210,8 @@ it("accepts Enter when an already-running flush had partly completed before key 
 });
 
 it("ignores repeated, composing, prevented, and modified detached operator keys",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-    functionKeys:[{key:"F1",macro:"CQ"}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   const actions:Record<string,any>[]=[];native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
@@ -1196,8 +1227,8 @@ it("ignores repeated, composing, prevented, and modified detached operator keys"
 });
 
 it("admits Shift-F1 as Auto CQ from the detached Main Logging window",async()=>{
-  const operator={output:"simulation-only",armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
-    functionKeys:[{key:"F1",macro:"CQ"}],autoCQ:{active:true,delaySeconds:15,remainingMs:7500},
+  const operator={output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"run",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    functionKeys:[{key:"F1",macro:"CQ",highlighted:false}],autoCQ:{active:true,delaySeconds:15,remainingMs:7500},
     readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   const current:any={...snapshot,projection:{...projection,schemaVersion:2,
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
@@ -1216,7 +1247,7 @@ it("admits Shift-F1 as Auto CQ from the detached Main Logging window",async()=>{
 it("carries delayed multi-field typing through the real owner drain before one Enter intent",async()=>{
   const initial:any={...projection,schemaVersion:2,draft:{...projection.draft,callsign:"",receivedFields:[{...projection.draft.receivedFields[0],value:""}],frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},
-    operator:{output:"simulation-only",armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
+    operator:{output:"simulation-only",outputAvailable:true,outputUnavailableReason:null,armed:true,style:"search-and-pounce",status:"armed",pending:null,focusedField:"callsign",...tabMaps,
       functionKeys:[],readiness:{canSendCQ:true,canSendCall:true,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}};
   let bridgeProjection:any=initial,bridgeRevision=1,receipts:any[]=[],releaseFirst!:()=>void,firstStarted!:()=>void;
   const firstStart=new Promise<void>(resolve=>{firstStarted=resolve;}),firstGate=new Promise<void>(resolve=>{releaseFirst=resolve;}),

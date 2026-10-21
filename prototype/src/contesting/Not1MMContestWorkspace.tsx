@@ -1535,6 +1535,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     const callContext = projection.callContext?.callsign === partialQuery ? projection.callContext : undefined;
     const fldigiOperatorAvailable = projection.fldigiTransmitAvailable === true &&
       digitalSnapshot?.fldigi?.configuration.transmit_enabled === true;
+    const digitalOperatorMode = rttyContestModeAliases.has(projection.mode);
+    const operatorOutputAvailable = projection.mode === "CW" || phoneOutputAvailable || fldigiOperatorAvailable;
+    const operatorOutputUnavailableReason = operatorOutputAvailable ? null : projection.mode === "SSB"
+      ? "Recorded phone output is unavailable until a Voice WAV profile folder is saved in Contest Setup."
+      : digitalOperatorMode
+        ? "fldigi macro output is unavailable. Enable fldigi macro transmit in Digital Logging Setup."
+        : "Contest function-key output is unavailable for this mode.";
     unavailable["active-qso"] = {
       schemaVersion: 2, status: "ready",
       manual: {operator:projection.operator ?? "", cwSpeedWpm:projection.cwSpeedWpm ?? null,
@@ -1574,15 +1581,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       },
       operator: {
         output: phoneSimulationAvailable || cw.state.canonical?.provider === "test-simulation" ? "test-simulation" : "xlog-native",
+        outputAvailable: operatorOutputAvailable,
+        outputUnavailableReason: operatorOutputUnavailableReason,
         armed: Boolean(phoneReleaseUncertain) || phoneSimulationArmed || fldigiOperatorAvailable || projection.mode === "CW" && cw.state.armed,
         style: projection.run ? "run" : "search-and-pounce",
         status: phoneReleaseUncertain ? "uncertain" : phoneSimulationPending ? "waiting" : phoneOutputAvailable ? phoneSimulationArmed ? "armed" : "disarmed"
-          : cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
-        pending: phoneSimulationPending || !phoneOutputAvailable && cw.state.pending ? "send" : null,
+          : fldigiOperatorAvailable ? "armed" : projection.mode === "CW" && cw.state.pending ? "waiting"
+            : projection.mode === "CW" && cw.state.error ? "uncertain" : projection.mode === "CW" && cw.state.armed ? "armed" : "disarmed",
+        pending: phoneSimulationPending || projection.mode === "CW" && cw.state.pending ? "send" : null,
         focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
-        functionKeys: projection.mode === "CW" || phoneOutputAvailable || fldigiOperatorAvailable
-          ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
+        functionKeys: projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey,
+          macro: item.label ?? item.id, highlighted: item.highlighted })),
         autoCQ: { active: autoCQDeadlineMs !== null, delaySeconds: autoCQDelaySeconds,
           remainingMs: autoCQDeadlineMs === null ? null : Math.max(0, autoCQDeadlineMs - autoCQNowMs) },
         readiness: { canSendCQ: !phoneReleaseBlocking && (fldigiOperatorAvailable || (phoneOutputAvailable ? phoneCanSend : projection.mode === "CW" && cw.state.armed)),

@@ -1194,7 +1194,8 @@ it("creates an SSB session from catalog metadata and runs ESM without native CW 
   await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.mode).toBe("SSB"));
   const entry=surfaceOwner.current.projections["active-qso"];
   expect(entry).toMatchObject({descriptor:{modes:["SSB"],reportsVisible:true},
-    draft:{sentReport:"59",receivedReport:"59"},operator:{armed:false,functionKeys:[],readiness:{canSendCQ:false}}});
+    draft:{sentReport:"59",receivedReport:"59"},operator:{armed:false,outputAvailable:false,
+      functionKeys:expect.arrayContaining([expect.objectContaining({key:"F2",highlighted:true})]),readiness:{canSendCQ:false}}});
   expect(request.mock.calls.find(([method])=>method==="contest_create")?.[1]?.settings).toMatchObject({ModeCategory:"SSB"});
   await act(async()=>{await surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:3,key:"Enter",focusedField:"other_2"}});});
@@ -1492,11 +1493,49 @@ it.each([
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
   await createContestThroughSetup();
   const entry=surfaceOwner.current.projections["active-qso"];
-  expect(entry.operator.functionKeys).toEqual([]);
+  expect(entry.operator).toMatchObject({outputAvailable:false,
+    outputUnavailableReason:expect.stringMatching(/Voice WAV profile folder/)});
+  expect(entry.operator.functionKeys).toHaveLength(12);
+  expect(entry.operator.functionKeys[1]).toEqual({key:"F2",macro:"F2",highlighted:true});
   await expect(surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign"}})).rejects.toThrow("unavailable in production");
   expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(false);
   expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+});
+
+it.each([{configured:false},{configured:true}])("projects original RTTY macros with truthful fldigi availability ($configured)",async({configured})=>{
+  const current={...projection(),pluginID:"cq_ww_rtty",pluginName:"CQ WW RTTY",mode:"RTTY",supportedModes:["RTTY"] as const,
+    fldigiTransmitAvailable:true,matrixTrackers:["countries","zones"] as Array<"countries"|"zones">};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_rtty",name:"CQ WW RTTY",modes:["RTTY"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  const digital={configuration:{enabled:false,address:"224.0.0.1",port:42424,destination:"active_contest"},running:false,
+    status:"Stopped",receive_only:true,contest_target_supported:true,active_contest:{session_id:current.sessionID,plugin_id:current.pluginID}};
+  const fldigi={configuration:{receive_enabled:false,transmit_enabled:configured},receive_supported:true,transmit_supported:true,
+    receive_running:false,status:configured?"Ready":"Stopped",udp_endpoint:"127.0.0.1:9876",xmlrpc_endpoint:"http://127.0.0.1:7362/RPC2"};
+  const serviceRequest=vi.fn(async(method:string,params?:Record<string,unknown>)=>method==="wsjtx_snapshot"?digital:
+    method==="fldigi_snapshot"?fldigi:request(method,params));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={serviceRequest} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].operator.outputAvailable).toBe(configured));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.operator.status).toBe(configured?"armed":"disarmed");
+  expect(entry.operator.functionKeys).toHaveLength(12);
+  expect(entry.operator.functionKeys[1]).toEqual({key:"F2",macro:"F2",highlighted:true});
+  expect(entry.operator.outputUnavailableReason).toBe(configured?null:
+    "fldigi macro output is unavailable. Enable fldigi macro transmit in Digital Logging Setup.");
+  if(!configured){
+    await expect(surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_key",
+      params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"F1",focusedField:"callsign"}})).rejects.toThrow("Enable fldigi macro transmit");
+    expect(request.mock.calls.some(([method])=>method==="contest_function_key")).toBe(false);
+    expect(request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+    expect(serviceRequest.mock.calls.some(([method])=>method==="fldigi_send")).toBe(false);
+  }
 });
 
 it("projects and routes production recorded-phone arm and stop only with a saved profile",async()=>{
@@ -1635,7 +1674,8 @@ it.each(["log", "cluster"])("applies %s Check Partial only through the revision-
     expectedRevision:9,draftID:current.draftID,frequencyHz:14_025_000,fields:{callsign:"DL1ABC"}});
   expect(surfaceOwner.current.projections["active-qso"].draft).toMatchObject({callsign:"DL1ABC",dupe:{state:"duplicate"}});
   expect(surfaceOwner.current.projections["active-qso"].draft.receivedFields).toContainEqual(expect.objectContaining({value:"14"}));
-  expect(surfaceOwner.current.projections["active-qso"].operator.functionKeys).toContainEqual({key:"F6",macro:"QSOB4"});
+  expect(surfaceOwner.current.projections["active-qso"].operator.functionKeys).toContainEqual(
+    expect.objectContaining({key:"F6",macro:"QSOB4",highlighted:true}));
   await expect(surfaceOwner.current.handle(envelope)).rejects.toThrow("entry changed");
   view.rerender(<Not1MMContestWorkspace {...props} spots={[]}/>);
   await waitFor(()=>expect(surfaceOwner.current.projections["callsign-intelligence"][key]).toEqual([]));

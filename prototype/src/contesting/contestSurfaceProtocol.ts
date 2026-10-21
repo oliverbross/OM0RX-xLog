@@ -78,13 +78,14 @@ export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection
     reportFields?: ContestSurfaceReceivedField[];
     sentFields: ContestSurfaceReceivedField[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
-  operator: null | { output: "simulation-only" | "xlog-native" | "test-simulation"; armed: boolean; style: "run" | "search-and-pounce";
+  operator: null | { output: "simulation-only" | "xlog-native" | "test-simulation"; outputAvailable: boolean;
+    outputUnavailableReason: string | null; armed: boolean; style: "run" | "search-and-pounce";
     status: "disarmed" | "armed" | "waiting" | "uncertain"; pending: "reserve-serial" | "send" | "commit" | null;
     focusedField: ContestInputFieldID | null;
     tabNext: Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
     tabPrevious: Partial<Record<ContestInputFieldID, ContestInputFieldID>>;
     functionKeys: { key: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
-      macro: string }[];
+      macro: string; highlighted: boolean }[];
     autoCQ?: { active: boolean; delaySeconds: number; remainingMs: number | null };
     readiness: { canSendCQ: boolean; canSendCall: boolean; canSendDuplicate: boolean; canReserveCall: boolean;
       canReserveCommit: boolean; canCommit: boolean };
@@ -241,8 +242,11 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     descriptor.advanceOnSpace.length <= contestInputFieldIDs.length && new Set(descriptor.advanceOnSpace).size === descriptor.advanceOnSpace.length &&
     descriptor.advanceOnSpace.every(item => oneOf(item, contestInputFieldIDs));
   const operatorValid = value.operator === null || !!operator &&
-    optionalKeys(operator, ["output", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"], ["autoCQ"]) &&
-    oneOf(operator.output, ["simulation-only", "xlog-native", "test-simulation"]) && typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
+    optionalKeys(operator, ["output", "outputAvailable", "outputUnavailableReason", "armed", "style", "status", "pending", "focusedField", "tabNext", "tabPrevious", "functionKeys", "readiness", "trace"], ["autoCQ"]) &&
+    oneOf(operator.output, ["simulation-only", "xlog-native", "test-simulation"]) && typeof operator.outputAvailable === "boolean" &&
+    (operator.outputUnavailableReason === null || text(operator.outputUnavailableReason, 512)) &&
+    (operator.outputAvailable ? operator.outputUnavailableReason === null : operator.outputUnavailableReason !== null) &&
+    typeof operator.armed === "boolean" && oneOf(operator.style, ["run", "search-and-pounce"]) &&
     oneOf(operator.status, ["disarmed", "armed", "waiting", "uncertain"]) &&
     (operator.pending === null || oneOf(operator.pending, ["reserve-serial", "send", "commit"])) &&
     (operator.focusedField === null || oneOf(operator.focusedField, contestInputFieldIDs)) &&
@@ -250,8 +254,9 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     Array.isArray(operator.functionKeys) && operator.functionKeys.length <= 12 && new Set(operator.functionKeys.map(item => {
       const key = record(item) ? item : undefined; return key?.key;
     })).size === operator.functionKeys.length &&
-    operator.functionKeys.every(item => { const key = record(item) ? item : undefined; return !!key && exact(key, ["key", "macro"]) &&
-      oneOf(key.key, ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"]) && text(key.macro, 160, true); }) &&
+    operator.functionKeys.every(item => { const key = record(item) ? item : undefined; return !!key && exact(key, ["key", "macro", "highlighted"]) &&
+      oneOf(key.key, ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"]) &&
+      text(key.macro, 160, true) && typeof key.highlighted === "boolean"; }) &&
     !!readiness && exact(readiness, ["canSendCQ", "canSendCall", "canSendDuplicate", "canReserveCall", "canReserveCommit", "canCommit"]) &&
     Object.values(readiness).every(item => typeof item === "boolean") && Array.isArray(operator.trace) && operator.trace.length <= 24 &&
     (operator.autoCQ === undefined || !!autoCQ && exact(autoCQ, ["active", "delaySeconds", "remainingMs"]) && typeof autoCQ.active === "boolean" &&
