@@ -271,6 +271,9 @@ for line in sys.stdin:
         let settingsReply = try await request("settings", "settings_load")
         let settings = try XCTUnwrap(settingsReply["result"] as? [String: Any])
         let workspace = try XCTUnwrap(settings["generation"] as? String)
+        let initialReply = try await request("initial", "wsjtx_snapshot")
+        let initial = try XCTUnwrap(initialReply["result"] as? [String: Any])
+        let initialDestination = try XCTUnwrap(initial["logging_destination"] as? String)
         let session = UUID().uuidString.lowercased()
         let created = try await request("create", "contest_session_create", [
             "sessionID": session, "workspaceGeneration": workspace,
@@ -284,14 +287,14 @@ for line in sys.stdin:
         let ordinaryReply = try await request("ordinary", "wsjtx_snapshot")
         let ordinary = try XCTUnwrap(ordinaryReply["result"] as? [String: Any])
         XCTAssertEqual(ordinary["contest_target_supported"] as? Bool, false)
-        XCTAssertEqual(ordinary["logging_destination"] as? String, "ordinary_logbook")
+        XCTAssertEqual(ordinary["logging_destination"] as? String, initialDestination)
         let contestReply = try await request("contest", "wsjtx_snapshot", operatingModule: "contesting")
         let contest = try XCTUnwrap(contestReply["result"] as? [String: Any])
         XCTAssertEqual(contest["contest_target_supported"] as? Bool, true)
         XCTAssertEqual((contest["active_contest"] as? [String: Any])?["session_id"] as? String, session)
         XCTAssertEqual((contest["active_contest"] as? [String: Any])?["plugin_id"] as? String, "cq_ww_rtty")
-        XCTAssertEqual(contest["logging_destination"] as? String, "ordinary_logbook",
-            "A scoped snapshot must not opt in or persist an active-contest destination.")
+        XCTAssertEqual(contest["logging_destination"] as? String, initialDestination,
+            "A scoped snapshot must not change the operator's persisted destination.")
 
         let invalid = try await request("invalid", "wsjtx_snapshot", operatingModule: "unknown")
         XCTAssertEqual((invalid["error"] as? [String: Any])?["code"] as? String, "operating_module_invalid")
