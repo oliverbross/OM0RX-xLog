@@ -9,6 +9,78 @@ port or a public macOS release is finished.
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
 
+## 1.3.0 finishing candidate — transfer semantics, staged replicas and RTC submission
+
+- The installed executable candidate is version/build `1.3.0` from exact source
+  `cfd93d7ce38ee5e5df861ea701a704f277fd8fb9` on canonical `main`; all four
+  implementation commits in this batch are pushed. The embedded Python-runtime
+  receipt records the same source, no source changes, successful relocation and
+  no external libraries loaded. The pinned Not1MM source manifest remains at
+  revision `7c8b499225a73f7f8f792246881bd7aefc05452f` with all 94 original
+  executable plugins registered.
+- Contest-to-normal-log transfer now follows persisted plugin field meanings:
+  CQ WW zone data maps to CQ zone, IARU HF numeric ITU exchanges map to ITU zone
+  while HQ text remains exchange data, and CWT's received operator name remains
+  the received exchange rather than being substituted for the sent exchange.
+  Receipt replay remains non-overwriting; existing transferred user contacts are
+  not silently rewritten.
+- Trusted-LAN replica recovery now stages bounded 25-change audit pages for a
+  matching non-empty client. Durable stage identities survive interruption and
+  retry; the client binds and installs audit/serial authority only after the
+  final validated page. No unlimited response or weakened first-page validation
+  was introduced.
+- Score Reporting now builds the original plugin's `online_score_xml` through
+  the Python host and performs bounded HTTPS RTC posts to the selected pinned
+  service through xLog's existing native networking owner. Passwords are held
+  in Keychain, native receipts retain only a SHA-256 payload digest and redacted
+  envelope, redirects/cookies/cache are disabled, and the legacy HTTP service
+  remains visibly ineligible for credentials. Manual and two-minute periodic
+  routes share the same owner.
+
+The complete milestone checks passed all 304 Python tests, all 3,875 frontend
+tests across 273 files, all 778 Rust tests, the complete Swift package suite
+(including the 484-test/67-suite Swift Testing bundle and its XCTest bundles),
+TypeScript compilation, the production frontend build and all five macOS staging
+checks. Focused transfer, staged-replica, RTC-networking and native action-receipt
+regressions also passed. External RTC transport was intercepted in tests; no
+score was published to a live account.
+
+The exact source was packaged once from the canonical checkout. Developer ID
+deep/strict verification passes for team `4WCMQ4U946`; Apple notarization
+submission `a4a25fe7-e5ef-4ca1-b909-864c6ceef915` was accepted, stapler
+validation passes and Gatekeeper reports `Notarized Developer ID`. Candidate and
+installed executable hashes match:
+
+- Main executable: `ed691a35785cb49efd783e38790aa942ae3b24b95fe03f3501ade83041635a69`
+- Swift worker: `16b67a3cb783ed1c2cc6f327b8964060da21cac8310ed7e29566e3e10eabad03`
+- Final archive: `dist/OM0RX-xLog-1.3.0-macOS-arm64.zip`, SHA-256
+  `8c25603821edae8b49871a0c89ca6e3776d5604e4cd4ba9bf54275ad9c0a89ad`
+
+Through the installed notarized application, the first cold launch again showed
+the recoverable **logbook service did not finish loading** state; **Retry
+connection** loaded the preserved normal workspace. Opening Contest Setup then
+restored the saved CQ WW RTTY desk as separate Band Map, Check Partial, Cluster,
+Log Display, Main Logging, Rates, Score Reporting and Stats windows. The normal
+workspace was absent from the Window menu, Main Logging owned callsign focus,
+and its saved S&P state, two credited QSOs and score 12 were visible. Score
+Reporting displayed the same Python-owned score plus secure credential,
+periodic-send and manual-send controls; with no credentials configured, Save and
+Send remained disabled and no external submission occurred. No contact, radio,
+audio, PTT or transmit action was used. The preserved normal database contained
+68,455 QSOs and both it and the active contest database passed SQLite
+`quick_check`.
+
+Remaining external acceptance is deliberately short:
+
+1. Exercise staged multi-op reconciliation, simultaneous serial/log sharing and
+   interruption/retry on a second installed Mac over the trusted station LAN.
+2. Post to an RTC scoreboard with the operator's real account and confirm its
+   server-visible update; the implementation and intercepted HTTPS route are
+   complete, but no account submission was made in this pass.
+3. Exercise production voice/audio/PTT and external WSJT-X/JTDX/fldigi behavior
+   with the authorized station hardware/apps. Existing transmit authorization
+   and nontransmitting test boundaries remain unchanged.
+
 ## Post-1.3.0 source milestone — contest desktop, retained services and bounded recovery
 
 - Exact implementation source is `0679096db08992a79c2853ffa7110e3d1449aa29`
