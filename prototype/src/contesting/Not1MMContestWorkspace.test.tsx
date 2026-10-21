@@ -1588,6 +1588,29 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   expect(screen.getByRole("heading", { name:"Contest Setup", level:1 })).toBeTruthy();
 });
 
+it("uses a valid manual VHF frequency when the observed radio frequency is stale and outside the selected contest", async () => {
+  const saved = newContestSetup("OM0RX");
+  saved.pluginID = "cq_ww_vhf";
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
+  let current: any = { ...projection(), pluginID:"cq_ww_vhf", pluginName:"CQ WW VHF",
+    supportedBands:["6m","2m"], frequencyHz:50_125_000, band:50 };
+  const request = vi.fn(async (method:string, params:Record<string,unknown>={}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_vhf",name:"CQ WW VHF",supportedBands:["6m","2m"]}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create"
+        ? (current={...current,frequencyHz:Number(params.frequencyHz)},{projection:current}) :
+      method === "contest_log_page" ? {rows:[],total:0} : method === "contest_score" ? {score:current.score} : null;
+    if (!result) throw new Error(method);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={14_348_000}/>);
+  fireEvent.change(await screen.findByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:"50.125"}});
+  await createContestThroughSetup();
+  await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(true));
+  expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz:50_125_000});
+});
+
 it.each([
   { frequencyHz:50_125_000, band:50, supportedBands:["6m","2m"], created:true },
   { frequencyHz:144_200_000, band:144, supportedBands:["6m","2m"], created:true },

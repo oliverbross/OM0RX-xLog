@@ -470,7 +470,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     radioFrequencyHz >= 0 ? radioFrequencyHz : null;
   const observedFrequencyHz = contestFrequency(selectedRadioFrequencyHz, activeSupportedBands, bandDefinitions);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz, activeSupportedBands, bandDefinitions);
-  const operationFrequencyHz = selectedRadioFrequencyHz === null ? fallbackFrequencyHz : observedFrequencyHz;
+  const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
     sessionID:projection?.sessionID??""}),[operatingContext,workspaceGeneration,projection?.sessionID]);
@@ -898,8 +898,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     if (!contestCall) throw new Error("Configure the xLog station callsign before creating a contest.");
     const catalogBands = catalog.find(item => item.id === document.pluginID)?.supportedBands;
     const supportedBands = Array.isArray(catalogBands) && catalogBands.length ? catalogBands as string[] : bandDefinitions.map(band => band.id);
-    const frequencyHz = selectedRadioFrequencyHz === null ? manualFrequency(manualFrequencyMHz, supportedBands, bandDefinitions)
-      : contestFrequency(selectedRadioFrequencyHz, supportedBands, bandDefinitions);
+    const frequencyHz = contestFrequency(selectedRadioFrequencyHz, supportedBands, bandDefinitions) ??
+      manualFrequency(manualFrequencyMHz, supportedBands, bandDefinitions);
     if (frequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before creating a contest.");
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
