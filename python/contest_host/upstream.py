@@ -306,6 +306,57 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
                 ),
             ])
+        if plugin_id == "ari_dx":
+            # The pinned points callback prints CTY lookup internals to stdout,
+            # which is the worker's JSON protocol channel.
+            replacements.append((
+                'print(f"{result=}")',
+                'logger.debug("cty_lookup result: %s", result)',
+            ))
+        if plugin_id == "darc_xmas":
+            # Stable rowid tie-breaks preserve source multiplier rules when
+            # multiple contacts share one UTC second.
+            replacements.extend([
+                (
+                    "result = self.database.fetch_wpx_exists_before_me(wpx, time_stamp)",
+                    "result = self.database.fetch_wpx_exists_before_contact(wpx, time_stamp, contact.get(\"ID\", \"\"))",
+                ),
+                (
+                    'f"select count(*) as dok_count from dxlog where  TS < \'{time_stamp}\' "',
+                    'f"select count(*) as dok_count from dxlog where  (TS < \'{time_stamp}\' OR "\n'
+                    '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+                ),
+            ])
+        if plugin_id == "lz-dx":
+            # Stable replay for contacts sharing the same UTC second.
+            replacements.extend([
+                (
+                    'f"select count(*) as canton_count from dxlog where  TS < \'{time_stamp}\' "',
+                    'f"select count(*) as canton_count from dxlog where  (TS < \'{time_stamp}\' OR "\n'
+                    '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+                ),
+                (
+                    'f"select count(*) as dxcc_count from dxlog where TS < \'{time_stamp}\' "',
+                    'f"select count(*) as dxcc_count from dxlog where (TS < \'{time_stamp}\' OR "\n'
+                    '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+                ),
+            ])
+        if plugin_id == "wag":
+            # Stable replay for both DOK-prefix and country multipliers.
+            replacements.extend([
+                (
+                    'f"and TS < \'{time_stamp}\' "\n                f"and NR like \'{district}%\' "',
+                    'f"and (TS < \'{time_stamp}\' OR (TS = \'{time_stamp}\' AND rowid < "\n'
+                    '                f"(SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "\n'
+                    '                f"and NR like \'{district}%\' "',
+                ),
+                (
+                    'f"and TS < \'{time_stamp}\' "\n                f"and CountryPrefix = \'{dxcc}\' "',
+                    'f"and (TS < \'{time_stamp}\' OR (TS = \'{time_stamp}\' AND rowid < "\n'
+                    '                f"(SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "\n'
+                    '                f"and CountryPrefix = \'{dxcc}\' "',
+                ),
+            ])
         if plugin_id in {"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"}:
             # DXLOG stores the canonical band as REAL while these original
             # plugins compare it with digit-only strings.

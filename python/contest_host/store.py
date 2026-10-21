@@ -236,5 +236,13 @@ class Store(DataBase):
         row = super().fetch_call_history(call)
         return CallHistoryRow(row) if row else row
 
+    def fetch_wpx_exists_before_contact(self, wpx, timestamp, qso_id):
+        """Pinned WPX lookup with the host's stable same-second replay order."""
+        return self.exec_sql(
+            "SELECT count(*) AS wpx_count FROM DXLOG WHERE WPXPrefix=? AND ContestNR=? "
+            "AND (TS < ? OR (TS=? AND rowid < (SELECT rowid FROM DXLOG WHERE ID=?)))",
+            (wpx, self.current_contest, timestamp, timestamp, qso_id),
+        )
+
     def close(self):
         self.conn.close()

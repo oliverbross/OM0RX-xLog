@@ -14,7 +14,8 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
+from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
+                      CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
@@ -33,9 +34,10 @@ FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "histo
 BAND_LABELS = {1.8: "160m", 3.5: "80m", 7.0: "40m", 14.0: "20m", 21.0: "15m", 28.0: "10m",
                50.0: "6m", 144.0: "2m", 222.0: "1.25m", 432.0: "70cm", 902.0: "33cm", 1296.0: "23cm"}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
-                        "arrl_field_day", *ARRL_VHF_PLUGINS}
+                        "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
-                      "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS}
+                      "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS,
+                      *CENTRAL_EUROPEAN_PLUGINS}
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -68,6 +70,26 @@ class HostError(Exception):
 def require(condition, message, code="invalid_request"):
     if not condition:
         raise HostError(code, message)
+
+
+def validate_central_europe_sent_exchange(plugin_id, station_prefix, exchange):
+    exchange = str(exchange)
+    if plugin_id == "ari_dx":
+        valid = (re.fullmatch(r"[A-Za-z]{2}", exchange) is not None
+                 if station_prefix in {"I", "IS"} else exchange == "#")
+        require(valid, "ARI DX sent exchange must be an Italian province or #")
+    elif plugin_id in {"darc_xmas", "wag"}:
+        valid = (re.fullmatch(r"[A-Za-z0-9]{1,6}", exchange) is not None and exchange != "#"
+                 if station_prefix == "DL" else exchange == "#")
+        require(valid, "DARC sent exchange must be a DOK/NM for DL or # outside DL")
+    elif plugin_id == "eudx":
+        require((re.fullmatch(r"[A-Za-z]{2}[0-9]{2}", exchange) is not None)
+                or (exchange.isdigit() and 1 <= int(exchange) <= 90),
+                "EUDX sent exchange must be an EU Union region or ITU zone 1 to 90")
+    elif plugin_id == "lz-dx":
+        valid = (re.fullmatch(r"[A-Za-z]{2}", exchange) is not None if station_prefix == "LZ"
+                 else exchange.isdigit() and 1 <= int(exchange) <= 90)
+        require(valid, "LZ DX sent exchange must be a district in LZ or ITU zone 1 to 90")
 
 
 def identifier(value):
@@ -996,6 +1018,9 @@ class Host:
                 if state["pluginID"] in EUROPEAN_DX_PLUGINS:
                     require(re.fullmatch(r"#|[A-Za-z]{1,4}", zone) is not None,
                             "National DX sent exchange must be # or a location code")
+                if state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS:
+                    validate_central_europe_sent_exchange(
+                        state["pluginID"], state["reference"]["countries"][call].get("primary_pfx", ""), zone)
                 if state["pluginID"] in ESTONIAN_PLUGINS:
                     require(setup["settings"].get("SentExchange") == "#",
                             "Estonian contests require # as the serial exchange")
@@ -1026,7 +1051,8 @@ class Host:
                         or state["pluginID"] == "arrl_10m"
                         or state["pluginID"] in EA_MAJESTAD_PLUGINS
                         or state["pluginID"] in REF_PLUGINS
-                        or state["pluginID"] in EUROPEAN_DX_PLUGINS):
+                        or state["pluginID"] in EUROPEAN_DX_PLUGINS
+                        or state["pluginID"] in DISPLAY_SENTNR_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1282,6 +1308,9 @@ class Host:
         if plugin_id in EUROPEAN_DX_PLUGINS:
             require(re.fullmatch(r"#|[A-Za-z]{1,4}", str(settings["SentExchange"])) is not None,
                     "National DX sent exchange must be # or a location code")
+        if plugin_id in CENTRAL_EUROPEAN_PLUGINS:
+            validate_central_europe_sent_exchange(
+                plugin_id, countries[call].get("primary_pfx", ""), settings["SentExchange"])
         if plugin_id in ESTONIAN_PLUGINS:
             require(settings["SentExchange"] == "#",
                     "Estonian contests require # as the serial exchange")
@@ -1314,7 +1343,8 @@ class Host:
                      or plugin_id == "arrl_10m"
                      or plugin_id in EA_MAJESTAD_PLUGINS
                      or plugin_id in REF_PLUGINS
-                     or plugin_id in EUROPEAN_DX_PLUGINS else "", "")))}}
+                      or plugin_id in EUROPEAN_DX_PLUGINS
+                      or plugin_id in DISPLAY_SENTNR_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if not requires_serial(state):
@@ -1550,6 +1580,39 @@ class Host:
             else:
                 require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
                         "National DX sent location must match contest setup")
+        elif desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS:
+            plugin_id = desk.state["pluginID"]
+            country = desk.cty_lookup(desk.callsign.text())
+            require(country is not None, "Resolve the contact country before logging this contest")
+            contact_prefix = next(iter(country.values())).get("primary_pfx", "")
+            station_country = desk.cty_lookup(desk.station.get("Call", ""))
+            station_prefix = next(iter(station_country.values())).get("primary_pfx", "") if station_country else ""
+            sent = fields["other_1"]
+            received = fields["other_2"]
+            if requires_serial(desk.state):
+                require(sent.isdigit() and 0 < int(sent) <= 9223372036854775807,
+                        "Sent serial must be a positive SQLite integer")
+            else:
+                require(sent.upper() == str(desk.state["settings"]["SentExchange"]).upper(),
+                        "Sent exchange must match contest setup")
+            if plugin_id == "ari_dx":
+                valid = (re.fullmatch(r"[A-Za-z]{2}", received) is not None
+                         if contact_prefix in {"I", "IS"} else received.isdigit() and int(received) > 0)
+                require(valid, "ARI DX received exchange must be an Italian province or positive serial")
+            elif plugin_id in {"darc_xmas", "wag"}:
+                valid = (re.fullmatch(r"[A-Za-z0-9]{1,6}", received) is not None
+                         if contact_prefix == "DL" else received.isdigit() and int(received) > 0)
+                require(valid, "DARC received exchange must be a DOK/NM for DL or positive serial")
+                if plugin_id == "wag" and station_prefix != "DL":
+                    require(contact_prefix == "DL", "Non-DL WAG stations may work only DL stations")
+            elif plugin_id == "eudx":
+                require((re.fullmatch(r"[A-Za-z]{2}[0-9]{2}", received) is not None)
+                        or (received.isdigit() and 1 <= int(received) <= 90),
+                        "EUDX received exchange must be an EU Union region or ITU zone 1 to 90")
+            else:
+                valid = (re.fullmatch(r"[A-Za-z]{2}", received) is not None if contact_prefix == "LZ"
+                         else received.isdigit() and 1 <= int(received) <= 90)
+                require(valid, "LZ DX received exchange must be a district in LZ or ITU zone 1 to 90")
         elif desk.state["pluginID"] in RSGB_PLUGINS:
             received = fields["other_2"]
             match = re.fullmatch(r"([0-9]+)(?:\s+[Hh][Qq])?", received)
@@ -1611,7 +1674,7 @@ class Host:
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
                                        *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
-                                       *EUROPEAN_DX_PLUGINS}:
+                                       *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1655,11 +1718,13 @@ class Host:
                     or desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                     or desk.state["pluginID"] in REF_PLUGINS
                     or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS
+                    or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS
                     or desk.state["pluginID"] == "arrl_rtty_ru"
                     or desk.state["pluginID"] in ARRL_VHF_PLUGINS):
                 pattern = (r"[A-Ra-r]{2}[0-9]{2}" if desk.state["pluginID"] in ARRL_VHF_PLUGINS else
                            r"[A-Za-z0-9]{1,6}" if desk.state["pluginID"] == "arrl_10m"
-                           or desk.state["pluginID"] in REF_PLUGINS else r"[A-Za-z]{1,4}|[0-9]+")
+                           or desk.state["pluginID"] in REF_PLUGINS
+                           or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS else r"[A-Za-z]{1,4}|[0-9]+")
                 require(re.fullmatch(pattern, updated["other_1"]) is not None,
                         "Historical sent exchange must be a serial or location code")
                 original = desk.state["settings"]["SentExchange"]
@@ -1689,7 +1754,7 @@ class Host:
                                  *ARRL_DX_PLUGINS, *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS, "arrl_160m"
                              }
                              or desk.state["pluginID"] in {"arrl_10m", *EA_MAJESTAD_PLUGINS, *REF_PLUGINS,
-                                                          *EUROPEAN_DX_PLUGINS}
+                                                           *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}
                              and "other_1" not in correction_fields)
             if preserve_sent:
                 # Received-name edits must not replace the exchange actually
@@ -1698,7 +1763,8 @@ class Host:
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
                   or desk.state["pluginID"] in ESTONIAN_PLUGINS
-                  or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS):
+                  or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS
+                  or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS):
                 after["SentNr"] = (int(updated["other_1"]) if updated["other_1"].isdigit()
                                    else updated["other_1"].upper())
             else:
@@ -1721,6 +1787,7 @@ class Host:
     def rebuild(desk):
         rows = desk.database.fetch_all_contacts_asc()
         points, duplicate_ids = {}, set()
+        configured_sent_exchange = desk.state["settings"].get("SentExchange", "")
         desk.database.conn.execute("DELETE FROM DXLOG")
         for row in rows:
             desk.contact = row
@@ -1731,9 +1798,17 @@ class Host:
                 # The original points() reads the active exchange widget. During
                 # ordered replay, make that widget represent the row being scored.
                 desk.other_2.setText(row["NR"])
+            if desk.state["pluginID"] == "eudx":
+                # Its original points callback reads both exchange widgets and
+                # contest settings; replay each row with its historical values.
+                desk.other_2.setText(str(row["NR"]))
+                desk.state["settings"]["SentExchange"] = str(row["SentNr"])
+                desk.contest_settings["SentExchange"] = str(row["SentNr"])
             row["Points"] = desk.contest.points(desk)
             points[row["ID"]] = row["Points"]
             desk.database.log_contact(row)
+        desk.state["settings"]["SentExchange"] = configured_sent_exchange
+        desk.contest_settings["SentExchange"] = configured_sent_exchange
         desk.contest.recalculate_mults(desk)
         if desk.state["pluginID"] == "rsgb_commonwealth_beru":
             # BERU's original callback deliberately reallocates the first three

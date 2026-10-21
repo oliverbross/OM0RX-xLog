@@ -37,7 +37,7 @@ class PluginRegistryTests(unittest.TestCase):
             host = Host(Path(root).resolve())
             try:
                 catalog = host.dispatch({"id": "catalog", "method": "catalog", "params": {}})
-                self.assertEqual(len(catalog["plugins"]), 59)
+                self.assertEqual(len(catalog["plugins"]), 64)
                 self.assertEqual([(item["id"], item["name"]) for item in catalog["plugins"]], list(PLUGINS.items()))
                 sweepstakes = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_cw")
                 self.assertEqual(sweepstakes["modes"], ["CW"])
@@ -113,6 +113,19 @@ class PluginRegistryTests(unittest.TestCase):
                         "rsgb_80m_cc": ("RSGB 80M CC", ["CW"], "Serial number"),
                         "rsgb_commonwealth_beru": (
                             "RSGB Commonwealth BERU", ["CW"], "Serial number (optional HQ)"),
+                    },
+                )
+                central = {item["id"]: item for item in catalog["plugins"]
+                           if item["id"] in {"ari_dx", "darc_xmas", "eudx", "lz-dx", "wag"}}
+                self.assertEqual(
+                    {key: (item["name"], item["modes"], item["sentExchangeHint"])
+                     for key, item in central.items()},
+                    {
+                        "ari_dx": ("ARI International DX", ["CW", "SSB", "RTTY"], "Province or #"),
+                        "darc_xmas": ("DARC XMAS", ["CW", "SSB"], "DOK/NM or #"),
+                        "eudx": ("EUDXC", ["CW", "SSB"], "ITU zone or EU Union region"),
+                        "lz-dx": ("LZ DX", ["CW", "SSB"], "District or ITU zone"),
+                        "wag": ("WAG", ["CW", "SSB"], "DOK/NM or #"),
                     },
                 )
             finally:
