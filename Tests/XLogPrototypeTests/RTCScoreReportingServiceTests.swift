@@ -90,6 +90,33 @@ struct RTCScoreReportingServiceTests {
         #expect(RTCScoreFixture.requestCount() == 4)
         await service.terminate()
     }
+
+    @Test("Termination cancels a manual post without applying a result")
+    func terminationCancelsManualPost() async throws {
+        RTCScoreFixture.reset(status: 204, suspended: true)
+        let urlConfiguration = URLSessionConfiguration.ephemeral
+        urlConfiguration.protocolClasses = [RTCScoreFixture.self]
+        let service = RTCScoreReportingService(sessionConfiguration: urlConfiguration,
+            credential: { "secret" }, payload: { _,_ in "<dynamicresults/>" })
+        _ = try await service.configure(.init(sessionID: UUID().uuidString, workspaceGeneration: UUID().uuidString,
+            service: "hamscore", endpoint: URL(string: "https://hamscore.com/postxml/")!,
+            username: "OM0RX", intervalMinutes: 2, enabled: false))
+        let before = await service.status()
+        let submission = Task { try await service.sendNow() }
+        for _ in 0..<10_000 {
+            if RTCScoreFixture.requestCount() != 0 { break }
+            await Task.yield()
+        }
+        #expect(RTCScoreFixture.requestCount() == 1)
+
+        await service.terminate()
+        await #expect(throws: Error.self) { try await submission.value }
+        let after = await service.status()
+        #expect(after["posting"] as? Bool == false)
+        #expect(after["consecutive_failures"] as? Int == before["consecutive_failures"] as? Int)
+        #expect(after["last_outcome"] as? String == before["last_outcome"] as? String)
+        #expect(RTCScoreFixture.cancellationCount() == 1)
+    }
 }
 
 private final class RTCScoreFixture: URLProtocol {
@@ -98,10 +125,18 @@ private final class RTCScoreFixture: URLProtocol {
     private static var capturedBody = Data()
     private static var requests = 0
     private static var responseStatus = 204
-    static func reset(status: Int) { lock.withLock { captured = nil; capturedBody = Data(); requests = 0; responseStatus = status } }
+    private static var suspended = false
+    private static var cancellations = 0
+    static func reset(status: Int, suspended: Bool = false) {
+        lock.withLock {
+            captured = nil; capturedBody = Data(); requests = 0; responseStatus = status
+            self.suspended = suspended; cancellations = 0
+        }
+    }
     static func request() -> URLRequest? { lock.withLock { captured } }
     static func body() -> Data { lock.withLock { capturedBody } }
     static func requestCount() -> Int { lock.withLock { requests } }
+    static func cancellationCount() -> Int { lock.withLock { cancellations } }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -116,16 +151,17 @@ private final class RTCScoreFixture: URLProtocol {
                 body.append(buffer, count: count)
             }
         }
-        let status = Self.lock.withLock {
+        let (status, suspended) = Self.lock.withLock {
             Self.captured = request
             Self.capturedBody = body
             Self.requests += 1
-            return Self.responseStatus
+            return (Self.responseStatus, Self.suspended)
         }
+        if suspended { return }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
             headerFields: ["Content-Type":"text/plain", "Content-Length":"0"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocolDidFinishLoading(self)
     }
-    override func stopLoading() { }
+    override func stopLoading() { Self.lock.withLock { Self.cancellations += 1 } }
 }

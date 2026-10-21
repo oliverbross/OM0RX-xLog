@@ -112,6 +112,7 @@ actor RTCScoreReportingService {
     private let payload: PayloadLoader
     private var configuration: RTCScoreConfiguration?
     private var timer: Task<Void, Never>?
+    private var transfer: Task<Int, Error>?
     private var posting = false
     private var consecutiveFailures = 0
     private var lastOutcome = "Not sent yet."
@@ -154,7 +155,12 @@ actor RTCScoreReportingService {
          "next_attempt": nextAttempt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull()]
     }
 
-    func terminate() { stopped = true; timer?.cancel(); timer = nil; nextAttempt = nil }
+    func terminate() {
+        stopped = true
+        timer?.cancel(); timer = nil
+        transfer?.cancel(); transfer = nil
+        nextAttempt = nil
+    }
 
     private func schedule(after delay: TimeInterval) {
         guard !stopped, configuration?.enabled == true else { return }
@@ -189,6 +195,7 @@ actor RTCScoreReportingService {
                 throw WorkerFailure("credential_required", "The scoreboard password is not saved.")
             }
             let xml = try await payload(configuration.sessionID, configuration.workspaceGeneration)
+            guard !stopped else { throw CancellationError() }
             guard (1...65_536).contains(xml.utf8.count) else {
                 throw WorkerFailure("rtc_payload_invalid", "The contest engine produced invalid score XML.")
             }
@@ -198,16 +205,27 @@ actor RTCScoreReportingService {
             request.setValue("text/xml", forHTTPHeaderField: "Content-Type")
             let auth = Data("\(configuration.username):\(password)".utf8).base64EncodedString()
             request.setValue("Basic \(auth)", forHTTPHeaderField: "Authorization")
-            let status = try await RTCScoreHTTPTransport.post(configuration: sessionConfiguration, request: request)
-            guard self.configuration == configuration else {
+            let transfer = Task {
+                try await RTCScoreHTTPTransport.post(configuration: sessionConfiguration, request: request)
+            }
+            self.transfer = transfer
+            defer { transfer.cancel(); self.transfer = nil }
+            let status = try await withTaskCancellationHandler {
+                try await transfer.value
+            } onCancel: {
+                transfer.cancel()
+            }
+            guard !stopped, self.configuration == configuration else {
                 throw WorkerFailure("rtc_context_changed", "Score reporting changed before the post completed; its result was not applied.")
             }
             consecutiveFailures = 0
             lastOutcome = "Accepted by the score server (HTTP \(status))."
             return self.status()
         } catch {
-            consecutiveFailures = min(3, consecutiveFailures + 1)
-            lastOutcome = "Score report failed; no success was confirmed."
+            if !stopped {
+                consecutiveFailures = min(3, consecutiveFailures + 1)
+                lastOutcome = "Score report failed; no success was confirmed."
+            }
             throw error
         }
     }
