@@ -688,7 +688,9 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             )?;
             text_value(&params["candidateID"], 160, false, "assistance candidate")?;
         }
-        "log_export_cabrillo" | "log_export_adif" => exact(params, &[], "contest export params")?,
+        "log_export_cabrillo" | "log_export_adif" | "log_export_edi" => {
+            exact(params, &[], "contest export params")?
+        }
         "log_recalculate" => {
             exact(params, &["expectedSessionRevision"], "log recalculation params")?;
             uint_value(&params["expectedSessionRevision"], MAX_SAFE_INTEGER, "session revision")?;
@@ -1029,6 +1031,7 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
     let descriptor = object(value, "entry descriptor")?;
     let mut required = descriptor.clone();
     let reports_visible = required.remove("reportsVisible");
+    let report_fields = required.remove("reportFields");
     let allow_duplicate_commit = required.remove("allowDuplicateCommit");
     let automatic_serial = required.remove("automaticSerial");
     let advance_on_space = required.remove("advanceOnSpace");
@@ -1088,25 +1091,13 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
             return Err("The entry key bindings are not unique.".into());
         }
     }
-    let mut field_ids = BTreeSet::new();
-    for field in array(&descriptor["sentFields"], 16, "sent exchange fields")? {
-        let field = object(field, "sent exchange field")?;
-        exact(
-            field,
-            &["id", "label", "value", "required", "maximumUTF8Bytes"],
-            "sent exchange field",
-        )?;
-        let field_id = text_value(&field["id"], 64, false, "sent field ID")?;
-        if !field_ids.insert(field_id.into()) {
-            return Err("The sent exchange field IDs are not unique.".into());
+    let mut field_ids = descriptor_fields(&descriptor["sentFields"], "sent exchange fields")?;
+    if let Some(report_fields) = report_fields {
+        for field_id in descriptor_fields(&report_fields, "report fields")? {
+            if !field_ids.insert(field_id) {
+                return Err("The entry field IDs are not unique.".into());
+            }
         }
-        text_value(&field["label"], 160, false, "sent field label")?;
-        boolean(&field["required"], "sent field required")?;
-        let maximum = uint_value(&field["maximumUTF8Bytes"], 1024, "sent field maximum")?;
-        if maximum == 0 {
-            return Err("The sent field maximum is invalid.".into());
-        }
-        text_value(&field["value"], maximum as usize, true, "sent field value")?;
     }
     let serial = object(&descriptor["serial"], "entry serial descriptor")?;
     exact(
@@ -1124,12 +1115,14 @@ fn validate_entry_descriptor(value: &Value) -> Result<BTreeSet<String>, String> 
             return Err("A contest without serial allocation cannot publish a serial field.".into())
         }
         "requiredForCommit" => {
-            text_value(
-                &serial["allocatedFieldID"],
-                64,
-                false,
-                "allocated serial field",
-            )?;
+            if !serial["allocatedFieldID"].is_null() {
+                text_value(
+                    &serial["allocatedFieldID"],
+                    64,
+                    false,
+                    "allocated serial field",
+                )?;
+            }
             nullable_uint(
                 &serial["reservedSerial"],
                 MAX_SAFE_INTEGER,
@@ -1901,6 +1894,7 @@ fn validate_band_statistics(value: &Value, total: bool) -> Result<(String, [u64;
 fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String> {
     let mut required = value.clone();
     let can_export_adif = required.remove("canExportAdif");
+    let can_export_edi = required.remove("canExportEdi");
     let manual_rows = required.remove("manualRows");
     let partial_rows = required.remove("partialRows");
     let layout = required.remove("exchangeLayout");
@@ -1965,6 +1959,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
     if let Some(can_export_adif) = can_export_adif {
         boolean(&can_export_adif, "ADIF export availability")?;
     }
+    if let Some(can_export_edi) = can_export_edi {
+        boolean(&can_export_edi, "EDI export availability")?;
+    }
     boolean(&value["busy"], "logbook busy")?;
     let page = object(&value["page"], "log page")?;
     exact(page, &["offset", "limit", "total", "rows"], "log page")?;
@@ -2010,6 +2007,7 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         let mut required_edit = edit.clone();
         let worked_at = required_edit.remove("workedAt");
         let operator = required_edit.remove("operator");
+        let entry_fields = required_edit.remove("entryFields");
         let reports_visible = required_edit.remove("reportsVisible");
         let details = required_edit.remove("details");
         exact(
@@ -2036,6 +2034,9 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         }
         if let Some(operator) = operator {
             text_value(&operator, 32, true, "log edit operator")?;
+        }
+        if let Some(entry_fields) = entry_fields {
+            fields(&entry_fields, true)?;
         }
         if let Some(reports_visible) = reports_visible {
             boolean(&reports_visible, "log edit report visibility")?;
@@ -2133,23 +2134,51 @@ fn validate_plugin_rows(value: &Value, columns: usize, maximum: usize) -> Result
     Ok(ids)
 }
 
+fn descriptor_fields(value: &Value, name: &str) -> Result<BTreeSet<String>, String> {
+    let mut ids = BTreeSet::new();
+    for field in array(value, 16, name)? {
+        let field = object(field, name)?;
+        let mut required = field.clone();
+        let enabled = required.remove("enabled");
+        let read_only = required.remove("readOnly");
+        exact(
+            &required,
+            &["id", "label", "value", "required", "maximumUTF8Bytes"],
+            name,
+        )?;
+        let field_id = text_value(&field["id"], 64, false, "field ID")?;
+        if !ids.insert(field_id.to_string()) {
+            return Err(format!("The {name} IDs are not unique."));
+        }
+        text_value(&field["label"], 160, false, "field label")?;
+        boolean(&field["required"], "field required")?;
+        let maximum = uint_value(&field["maximumUTF8Bytes"], 1024, "field maximum")?;
+        if maximum == 0 {
+            return Err(format!("The {name} maximum is invalid."));
+        }
+        text_value(&field["value"], maximum as usize, true, "field value")?;
+        if let Some(enabled) = enabled {
+            boolean(&enabled, "field enabled")?;
+        }
+        if let Some(read_only) = read_only {
+            boolean(&read_only, "field read-only")?;
+        }
+    }
+    Ok(ids)
+}
+
 fn fields(value: &Value, descriptor: bool) -> Result<(), String> {
+    if descriptor {
+        descriptor_fields(value, "exchange fields")?;
+        return Ok(());
+    }
     let fields = array(value, 16, "exchange fields")?;
     for field in fields {
         let field = object(field, "exchange field")?;
-        let keys: &[&str] = if descriptor {
-            &["id", "label", "value", "required", "maximumUTF8Bytes"]
-        } else {
-            &["id", "label", "value"]
-        };
-        exact(field, keys, "exchange field")?;
+        exact(field, &["id", "label", "value"], "exchange field")?;
         text_value(&field["id"], 64, false, "field ID")?;
         text_value(&field["label"], 160, false, "field label")?;
         text_value(&field["value"], 1024, true, "field value")?;
-        if descriptor {
-            boolean(&field["required"], "field required")?;
-            uint_value(&field["maximumUTF8Bytes"], 1024, "field maximum")?;
-        }
     }
     Ok(())
 }
@@ -2376,6 +2405,12 @@ mod tests {
         ))
         .is_ok());
         assert!(validate_action_envelope(&action(
+            "log_export_edi",
+            "logbook",
+            json!({})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
             "log_recalculate",
             "logbook",
             json!({"expectedSessionRevision":2})
@@ -2383,6 +2418,12 @@ mod tests {
         .is_ok());
         assert!(validate_action_envelope(&action(
             "log_export_cabrillo",
+            "logbook",
+            json!({"extra":true})
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
+            "log_export_edi",
             "logbook",
             json!({"extra":true})
         ))
@@ -2573,6 +2614,14 @@ mod tests {
                 "receivedReport":"599","receivedFields":[],"frequencyHz":null,"editFrequencyText":"bad",
                 "frequencyError":"Enter a frequency","correctionReason":"","confirmDelete":false,"deletionReason":""},"busy":false});
         assert!(validate_projection("logbook", &logbook).is_ok());
+        let mut edi_logbook = logbook.clone();
+        edi_logbook["canExportEdi"] = json!(true);
+        assert!(validate_projection("logbook", &edi_logbook).is_ok());
+        edi_logbook["canExportEdi"] = json!("true");
+        assert!(validate_projection("logbook", &edi_logbook).is_err());
+        let mut unknown_export_availability = logbook.clone();
+        unknown_export_availability["canExportReg1Test"] = json!(true);
+        assert!(validate_projection("logbook", &unknown_export_availability).is_err());
         let mut not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"canExportCabrillo":true,"exchangeLayout":"plugin",
             "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00.000Z",
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
@@ -2589,6 +2638,12 @@ mod tests {
             "receivedNumber":"14","sentNumber":"15","points":"3","power":"100","zone":"14","section":"","check":"","precedence":"A",
             "multiplier1":"Yes","multiplier2":"No","multiplier3":"","wpx":"DL1","exchange":"","run":"1","radio":"1","grid":"","misc":"","roverQTH":""
         });
+        not1mm_logbook["editing"]["entryFields"] = json!([
+            {"id":"sent","label":"Sent serial","value":"001","required":true,
+                "maximumUTF8Bytes":160,"enabled":true,"readOnly":true},
+            {"id":"other_1","label":"Received county","value":"ALAM","required":true,
+                "maximumUTF8Bytes":32,"enabled":true,"readOnly":false}
+        ]);
         assert!(validate_projection("logbook", &not1mm_logbook).is_ok());
         let mut malformed_details = not1mm_logbook.clone();
         malformed_details["editing"]["details"]["points"] = json!(3);
@@ -2827,6 +2882,26 @@ mod tests {
             "requirement":"requiredForCommit","allocatedFieldID":"serial","reservedSerial":1
         });
         assert!(validate_projection("active-qso", &serial_entry).is_ok());
+
+        let mut host_serial_entry = entry.clone();
+        host_serial_entry["draft"]["reservedSerial"] = json!(1);
+        host_serial_entry["descriptor"]["reportFields"] = json!([
+            {"id":"sent","label":"Sent serial","value":"001","required":true,
+                "maximumUTF8Bytes":160,"enabled":true,"readOnly":true},
+            {"id":"receive","label":"Received serial","value":"42","required":true,
+                "maximumUTF8Bytes":160,"enabled":true,"readOnly":false}
+        ]);
+        host_serial_entry["descriptor"]["serial"] = json!({
+            "requirement":"requiredForCommit","allocatedFieldID":"sent","reservedSerial":1
+        });
+        assert!(validate_projection("active-qso", &host_serial_entry).is_ok());
+
+        let mut non_field_serial = entry.clone();
+        non_field_serial["draft"]["reservedSerial"] = json!(1);
+        non_field_serial["descriptor"]["serial"] = json!({
+            "requirement":"requiredForCommit","allocatedFieldID":null,"reservedSerial":1
+        });
+        assert!(validate_projection("active-qso", &non_field_serial).is_ok());
 
         let mut overlong_value = entry.clone();
         overlong_value["descriptor"]["sentFields"][0]["value"] = json!("ABCDEF");

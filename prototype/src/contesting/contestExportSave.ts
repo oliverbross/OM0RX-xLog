@@ -4,7 +4,7 @@ import type { ContestRecoveryStorage } from "./sessionOwner";
 
 export type ContestExportSavePrepared = {
   artifactID: string; sessionID: string; workspaceGeneration: string; revision: number;
-  byteLength: number; sha256: string; format: ContestExportFormat;
+  byteLength: number; sha256: string; format: ContestExportFormat | "edi";
 };
 export type ContestExportSaveResult =
   | { status: "saved"; artifactID: string; sha256: string; filename: string }

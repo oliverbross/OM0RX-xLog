@@ -420,12 +420,35 @@ it("drops stale confirmed overlay state when authority disappears and reappears 
 it("projects Python exportFormats and rejects an unsupported Cabrillo owner action",async()=>{
   const current={...projection(),exportFormats:["adif" as const]},request=operationalRequest(()=>current);
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
-  await waitFor(()=>expect(surfaceOwner.current.projections.logbook).toMatchObject({canExportCabrillo:false,canExportAdif:true}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook).toMatchObject({canExportCabrillo:false,canExportAdif:true,canExportEdi:false}));
   const log=surfaceOwner.current.projections.logbook;
   await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:log.sessionRevision,requestID:crypto.randomUUID(),action:"log_export_cabrillo",params:{}}))
     .rejects.toThrow("Cabrillo export is not supported");
   expect(request.mock.calls.some(([method])=>method==="contest_export_prepare")).toBe(false);
+});
+
+it("routes detached EDI export through the prepared native single-completion owner", async () => {
+  const current:any={...projection(),exportFormats:["adif","edi"]};let preparedFormat="";
+  nativeExport.save.mockResolvedValue({status:"cancelled",artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",sha256:"b".repeat(64)});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"darc_vhf",name:"DARC VHF",exportFormats:["cabrillo","adif","edi"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],offset:0,limit:20,total:0}:method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:
+      method==="contest_export_prepare"?(preparedFormat=String(params.format),{artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        sessionID:current.sessionID,workspaceGeneration,revision:current.revision,byteLength:128,sha256:"b".repeat(64),format:params.format}):null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook).toMatchObject({canExportCabrillo:false,canExportAdif:true,canExportEdi:true}));
+  const log=surfaceOwner.current.projections.logbook,envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:log.sessionRevision,requestID:crypto.randomUUID()} as const;
+  await act(async()=>expect(surfaceOwner.current.handle({...envelope,action:"log_export_edi",params:{}})).resolves.toBe("native-completed"));
+  expect(preparedFormat).toBe("edi");
+  expect(nativeExport.save).toHaveBeenCalledWith(expect.objectContaining({format:"edi"}),expect.objectContaining({requestID:envelope.requestID}));
+  await waitFor(()=>expect(screen.getByText("EDI save cancelled.")).toBeTruthy());
 });
 
 it("routes detached ADIF export and manual recalculation through the active Python owner", async () => {
@@ -680,8 +703,8 @@ it("projects CWT Name as received input and admits edits through the detached ow
   let entry:any=surfaceOwner.current.projections["active-qso"];
   expect(entry.descriptor.sentFields).toEqual([]);
   expect(entry.draft.receivedFields).toEqual([
-    {id:"other_1",label:"Name",value:"ALICE",required:true,maximumUTF8Bytes:32},
-    {id:"other_2",label:"Member No./SPC",value:"1234",required:true,maximumUTF8Bytes:128},
+    {id:"other_1",label:"Name",value:"ALICE",required:true,maximumUTF8Bytes:32,enabled:true,readOnly:false},
+    {id:"other_2",label:"Member No./SPC",value:"1234",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false},
   ]);
   await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_exchange",
@@ -689,6 +712,40 @@ it("projects CWT Name as received input and admits edits through the detached ow
   expect(applied).toMatchObject({fields:{other_1:"BOB",other_2:"1234"}});
   entry=surfaceOwner.current.projections["active-qso"];
   expect(entry.draft.receivedFields[0].value).toBe("BOB");
+});
+
+it.each([
+  {pluginID:"qso_party_sn",pluginName:"QSO PARTY SN",received:["other_1"]},
+  {pluginID:"ca_qso_party",pluginName:"California QSO Party",received:["other_1"]},
+  {pluginID:"raem",pluginName:"RAEM",received:["other_1","other_2"]},
+])("projects the real host field roles for $pluginID Main Logging",async({pluginID,pluginName,received})=>{
+  let current:any={...projection(),pluginID,pluginName,reservedSerial:1,allocatedSerialFieldID:"sent"};
+  current.fields=current.fields.map((field:any)=>field.id==="sent"?{...field,label:"Sent serial",visible:true,value:"001",readOnly:true}:
+    field.id==="receive"?{...field,label:"Received serial",visible:pluginID!=="raem",value:"42",readOnly:false}:
+    field.id==="other_1"?{...field,label:pluginID==="raem"?"Received serial":"Received location",visible:true,value:pluginID==="raem"?"101":"NEW",readOnly:false}:
+    field.id==="other_2"?{...field,label:"Received coordinates",visible:pluginID==="raem",value:"40N74W",readOnly:false}:field);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:pluginID,name:pluginName}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"),{target:{value:pluginID}});
+  await userEvent.click(screen.getByRole("button",{name:"OK"}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.descriptor.reportFields).toEqual(expect.arrayContaining([
+    expect.objectContaining({id:"sent",value:"001",enabled:true,readOnly:true}),
+  ]));
+  expect(entry.descriptor.serial).toEqual({requirement:"requiredForCommit",allocatedFieldID:"sent",reservedSerial:1});
+  expect(entry.descriptor.sentFields).toEqual([]);
+  expect(entry.draft.receivedFields.map((field:any)=>field.id)).toEqual(received);
+  expect(entry.draft.receivedFields).toEqual(expect.arrayContaining(received.map(id=>
+    expect.objectContaining({id,enabled:true,readOnly:false}))));
 });
 
 it.each([
@@ -743,7 +800,7 @@ it.each([
   });
 
 it("projects ICWC serial, original exchange labels, unique calls and editable packed name/serial", async () => {
-  const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3, matrixTrackers:[],
+  const current = { ...projection(4, {other_1:"003",other_2:"BOB 12"}), pluginID:"icwc_mst", pluginName:"ICWC Medium Speed Test", reservedSerial:3, allocatedSerialFieldID:"other_1", matrixTrackers:[],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","SentNr","Name","RcvNr","PTS"],
     score:{qsos:2,points:2,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:2} };
   current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
@@ -852,7 +909,7 @@ it.each([
 it("projects CWOPS Open serial/name exchange, retained dupes and unique-call score", async () => {
   const current = { ...projection(4, {other_1:"003",other_2:"12 ALICE"}), pluginID:"cwo", pluginName:"CWOPS - Open",
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","SentNr","RcvNr","Name","M1","PTS"],
-    reservedSerial:3,allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band.",matrixTrackers:[],
+    reservedSerial:3,allocatedSerialFieldID:"other_1",allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band.",matrixTrackers:[],
     score:{qsos:2,points:1,countries:0,zones:0,multipliers:1,uniqueCalls:1,total:1} };
   current.fields = current.fields.map(field => ({...field, visible: !["sent","receive"].includes(String(field.id)),
     readOnly:field.id==="other_1", label:field.id==="other_1"?"SentNR":field.id==="other_2"?"Recd Number and Name":field.label}));
@@ -885,12 +942,12 @@ it("projects CWOPS Open serial/name exchange, retained dupes and unique-call sco
 
 it("projects Trans Tasman low bands, serial exchange, plugin dupe period and retained duplicate logging", async () => {
   const current = { ...projection(5, {other_1:"001",other_2:"012"}), pluginID:"trans_tasman", pluginName:"Trans Tasman CW",
-    frequencyHz:7_025_000,band:7,reservedSerial:1,supportedBands:["160m","80m","40m"],supportedModes:["CW"],
+    frequencyHz:7_025_000,band:7,reservedSerial:1,allocatedSerialFieldID:"other_1",supportedBands:["160m","80m","40m"],supportedModes:["CW"],
     columns:["YYYY-MM-DD HH:MM:SS","Call","Freq","Mode","Snt","Rcv","SentNr","RcvNr","M1","PTS"],
     allowDuplicateCommit:true,dupe:true,dupeExplanation:"Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14).",matrixTrackers:[],
     ruleIdentity:{id:"trans-tasman",version:"26.10.11",edition:"not1mm-python",sourceRevision:"7c8b499225a73f7f8f792246881bd7aefc05452f"},
     score:{qsos:1,points:1,countries:0,zones:0,multipliers:1,prefixes:1,total:1} };
-  current.fields = current.fields.map(field => ({...field,readOnly:field.id==="other_1",
+  current.fields = current.fields.map(field => ({...field,visible:field.id === "other_1" ? true : field.visible,readOnly:field.id==="other_1",
     label:field.id==="other_1"?"SentNR":field.id==="other_2"?"RcvNR":field.label}));
   const row={ID:"tt-qso",TS:"2026-10-20 08:10:00",Call:"ZL1ABC",Freq:7025,Band:7,Mode:"CW",SNT:"599",RCV:"599",SentNr:1,NR:12,WPXPrefix:"ZL1",Points:1};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
@@ -1641,7 +1698,7 @@ it("uses the manual VHF frequency when creating CQ WW VHF from an active HF sess
     return {id:crypto.randomUUID(),ok:true,result};
   });
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
-    radioFrequencyHz={14_348_000}/>);
+    radioFrequencyHz={14_025_000}/>);
   await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_open")).toBe(true));
   await waitFor(() => expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
   const activeEntry = surfaceOwner.current.projections["active-qso"];
@@ -1650,7 +1707,8 @@ it("uses the manual VHF frequency when creating CQ WW VHF from an active HF sess
     params:{draftID:current.draftID,expectedDraftRevision:activeEntry.draft.revision,field:"callsign",value:"K1ABC"}}));
   await userEvent.click(await screen.findByRole("button", {name:"New Contest"}));
   fireEvent.change(screen.getByLabelText("Log Type"), {target:{value:"cq_ww_vhf"}});
-  fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:"50.125"}});
+  const manualFrequency=await screen.findByRole("textbox", {name:"Manual frequency MHz"});
+  fireEvent.change(manualFrequency, {target:{value:"50.125"}});
   await userEvent.click(screen.getByRole("button", {name:"OK"}));
   await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(true));
   const createCallIndex = request.mock.calls.findIndex(([method]) => method === "contest_create");

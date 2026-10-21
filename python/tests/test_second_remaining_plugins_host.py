@@ -137,6 +137,8 @@ class SecondRemainingPluginTests(unittest.TestCase):
                     draft, revision = self.mutate(host, session, revision, "draft_apply",
                                                    fields={"callsign": "K1ABC", **FIELDS[plugin_id][0]})
                     self.assertEqual(draft["projection"]["fields"][0]["value"], "K1ABC")
+                    if plugin_id == "raem":
+                        self.assertEqual(draft["projection"]["allocatedSerialFieldID"], "sent")
                     for index, (qso_id, call, fields) in enumerate(((first, "K1ABC", FIELDS[plugin_id][0]),
                                                                     (second, "DL1ABC", FIELDS[plugin_id][1]))):
                         _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=qso_id,

@@ -1,5 +1,7 @@
 """Focused host regressions for the final seven pinned Not1MM plugins."""
+import base64
 from copy import deepcopy
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -30,7 +32,7 @@ class FinalRemainingPluginTests(unittest.TestCase):
 
     def create(self, plugin_id, *, frequency=50125000, mode="CW", sent_exchange=None,
                station=None, operator_category="SINGLE-OP", band_category="ALL",
-               countries=None):
+               countries=None, start_date="2026-10-21 00:00:00"):
         root = Path(self.temporary.name).resolve() / f"{plugin_id}-{uid()}"
         host, session = Host(root), uid()
         defaults = {
@@ -44,19 +46,24 @@ class FinalRemainingPluginTests(unittest.TestCase):
         }
         settings = {
             "SentExchange": defaults[plugin_id] if sent_exchange is None else sent_exchange,
+            "StartDate": start_date,
             "ModeCategory": mode,
             "OperatorCategory": operator_category,
             "BandCategory": band_category,
             "PowerCategory": "LOW",
         }
-        result = host.dispatch({"id": uid(), "method": "session_create", "params": {
-            "sessionID": session, "workspaceGeneration": uid(), "operationID": uid(),
-            "expectedRevision": 0, "pluginID": plugin_id,
-            "station": station or {"Call": "OM0RX", "GridSquare": "JN88XX"},
-            "frequencyHz": frequency, "mode": mode, "settings": settings,
-            "reference": {"id": "final-seven-cty-v1",
-                          "countries": deepcopy(countries or fixtures.CTY)},
-        }})
+        try:
+            result = host.dispatch({"id": uid(), "method": "session_create", "params": {
+                "sessionID": session, "workspaceGeneration": uid(), "operationID": uid(),
+                "expectedRevision": 0, "pluginID": plugin_id,
+                "station": station or {"Call": "OM0RX", "GridSquare": "JN88XX"},
+                "frequencyHz": frequency, "mode": mode, "settings": settings,
+                "reference": {"id": "final-seven-cty-v1",
+                              "countries": deepcopy(countries or fixtures.CTY)},
+            }})
+        except BaseException:
+            host.close()
+            raise
         return host, root, session, result["revision"]
 
     @staticmethod
@@ -99,10 +106,116 @@ class FinalRemainingPluginTests(unittest.TestCase):
         host, _, session, _ = self.create("ta_vhf_uhf_contest", frequency=144300000)
         try:
             projection = self.read(host, session, "projection")["projection"]
-            self.assertEqual(projection["exportFormats"], ["adif"])
+            self.assertEqual(projection["exportFormats"], ["adif", "edi"])
             with self.assertRaises(HostError) as error:
                 self.read(host, session, "export_prepare", format="cabrillo")
             self.assertEqual(error.exception.code, "export_unsupported")
+        finally:
+            host.close()
+
+        self.assertEqual(PLUGIN_REGISTRY["darc_vhf"].export_formats,
+                         ("cabrillo", "adif", "edi"))
+        self.assertEqual(PLUGIN_REGISTRY["nac_vhf"].export_formats,
+                         ("cabrillo", "adif", "edi"))
+        self.assertEqual(
+            {plugin_id for plugin_id, plugin in PLUGIN_REGISTRY.items()
+             if "edi" in plugin.export_formats},
+            {"darc_vhf", "nac_vhf", "ta_vhf_uhf_contest"},
+        )
+
+    def test_edi_export_requires_canonical_start_date_without_blocking_other_workflows(self):
+        for plugin_id in ("darc_vhf", "nac_vhf", "ta_vhf_uhf_contest"):
+            for invalid in ("", "2026-10-21", "2026-10-21T00:00:00", "2026-02-30 00:00:00"):
+                with self.subTest(plugin=plugin_id, start=invalid):
+                    host, _, session, revision = self.create(
+                        plugin_id, frequency=144300000, start_date=invalid)
+                    try:
+                        setup = self.read(host, session, "setup_get")["setup"]
+                        setup["station"]["Club"] = "OM DX Club"
+                        saved, revision = self.mutate(
+                            host, session, revision, "setup_save", setup=setup)
+                        self.assertEqual(saved["projection"]["revision"], revision)
+                        with self.assertRaisesRegex(HostError, "EDI contest start must be UTC"):
+                            self.read(host, session, "export_prepare", format="edi")
+                    finally:
+                        host.close()
+
+    def test_original_edi_writers_use_prepared_private_chunked_export(self):
+        expected_names = {
+            "darc_vhf": "DARC VHF Contest",
+            "nac_vhf": "NAC",
+            "ta_vhf_uhf_contest": "TA 50_144_430 Contest",
+        }
+        private_home = Path(self.temporary.name) / "operator-home"
+        private_home.mkdir()
+        previous_home = os.environ.get("HOME")
+        os.environ["HOME"] = str(private_home)
+        try:
+            for plugin_id, contest_name in expected_names.items():
+                with self.subTest(plugin=plugin_id):
+                    host, _, session, revision = self.create(plugin_id, frequency=144300000)
+                    try:
+                        _, revision = self.mutate(
+                            host, session, revision, "qso_commit", qsoID=uid(),
+                            timestamp="2026-10-21 01:30:00",
+                            fields={"callsign": "K1ABC", "other_2": "101 JO60AA"})
+                        points = self.read(host, session, "score")["score"]["points"]
+                        prepared = self.read(host, session, "export_prepare", format="edi")
+                        self.assertEqual(prepared["format"], "edi")
+                        self.assertTrue(prepared["filename"].endswith(".edi"))
+                        chunks = []
+                        offset = 0
+                        while offset < prepared["byteLength"]:
+                            length = min(37, prepared["byteLength"] - offset)
+                            chunk = self.read(
+                                host, session, "export_read", exportID=prepared["artifactID"],
+                                workspaceGeneration=prepared["workspaceGeneration"],
+                                offset=offset, length=length)
+                            chunks.append(base64.b64decode(chunk["dataBase64"]))
+                            offset += length
+                            self.assertEqual(chunk["eof"], offset == prepared["byteLength"])
+                        payload = b"".join(chunks)
+                        self.assertEqual(len(payload), prepared["byteLength"])
+                        self.assertNotIn(b"\n", payload.replace(b"\r\n", b""))
+                        content = payload.decode("ascii")
+                        self.assertTrue(content.startswith("[REG1TEST;1]\r\n"))
+                        self.assertIn(f"TName={contest_name}\r\n", content)
+                        self.assertIn("TDate=20261021;20261021\r\n", content)
+                        self.assertIn("PCall=OM0RX\r\n", content)
+                        self.assertIn("PWWLo=JN88XX\r\n", content)
+                        self.assertIn("CQSOs=1;1\r\n", content)
+                        self.assertIn(f"CQSOP={points}\r\n", content)
+                        self.assertIn(f"CToSc={points}\r\n", content)
+                        self.assertIn("[QSORecords;1]\r\n", content)
+                        self.assertIn("K1ABC", content)
+                        self.assertIn("JO60AA", content)
+                        self.assertEqual(list(private_home.glob("*.edi")), [])
+
+                        released = self.read(
+                            host, session, "export_release", exportID=prepared["artifactID"],
+                            workspaceGeneration=prepared["workspaceGeneration"])
+                        self.assertTrue(released["released"])
+                        with self.assertRaisesRegex(HostError, "unavailable"):
+                            self.read(host, session, "export_read", exportID=prepared["artifactID"],
+                                      workspaceGeneration=prepared["workspaceGeneration"],
+                                      offset=0, length=1)
+                    finally:
+                        host.close()
+                    self.assertEqual(os.environ.get("HOME"), str(private_home))
+        finally:
+            if previous_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = previous_home
+
+    def test_edi_is_rejected_outside_the_three_original_plugins(self):
+        host, _, session, _ = self.create("cq_ww_vhf", frequency=50125000)
+        try:
+            with self.assertRaises(HostError) as caught:
+                self.read(host, session, "export_prepare", format="edi")
+            self.assertEqual(caught.exception.code, "export_unsupported")
+            with self.assertRaisesRegex(HostError, "Unsupported contest export format"):
+                self.read(host, session, "export_prepare", format="reg1test")
         finally:
             host.close()
 

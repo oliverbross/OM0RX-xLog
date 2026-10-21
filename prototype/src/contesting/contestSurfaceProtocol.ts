@@ -28,7 +28,7 @@ export type ContestSurfaceAction =
       "F7" | "F8" | "F9" | "F10" | "F11" | "F12" | "Enter" | "Escape"; focusedField: ContestInputFieldID | null; shifted?: boolean } }
   | { action: "assistance_query"; params: DraftRevision & { inputCallsign: string } }
   | { action: "assistance_select"; params: DraftRevision & { kind: "scp" | "history" | "log" | "cluster"; candidateID: string } }
-  | { action: "log_export_cabrillo" | "log_export_adif"; params: Record<string, never> }
+  | { action: "log_export_cabrillo" | "log_export_adif" | "log_export_edi"; params: Record<string, never> }
   | { action: "log_recalculate"; params: { expectedSessionRevision: Revision } }
   | { action: "log_page"; params: { offset: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
@@ -50,7 +50,8 @@ export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
   requestID: string;
 };
 export type ContestSurfaceUnavailableProjection = { schemaVersion: 1; status: "unavailable" };
-export type ContestSurfaceReceivedField = { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number };
+export type ContestSurfaceReceivedField = { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number;
+  enabled?: boolean; readOnly?: boolean };
 export type ContestManualRow = { qsoID: string; TS: string; Call: string; Freq: string; SNT: string; RCV: string;
   M1: string; ZN: string; M2: string; prefix: string; Points: string };
 export type ContestLogEditDetails = { rxFrequency: string; contest: string; country: string; stationCall: string;
@@ -71,7 +72,8 @@ export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
 export type ContestEntrySurfaceProjectionV2 = Omit<ContestEntrySurfaceProjection, "schemaVersion"> & { schemaVersion: 2;
   descriptor: { reportsVisible?: boolean; bands: string[]; modes: ("CW" | "SSB" | "RTTY" | "AM" | "FM")[];
     allowDuplicateCommit?: boolean; automaticSerial?: boolean; advanceOnSpace?: ContestInputFieldID[]; keyBindings?: ContestKeyBinding[];
-    sentFields: { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number }[];
+    reportFields?: ContestSurfaceReceivedField[];
+    sentFields: ContestSurfaceReceivedField[];
     serial: { requirement: "none" | "requiredForCommit"; allocatedFieldID: string | null; reservedSerial: number | null } };
   operator: null | { output: "simulation-only" | "xlog-native" | "test-simulation"; armed: boolean; style: "run" | "search-and-pounce";
     status: "disarmed" | "armed" | "waiting" | "uncertain"; pending: "reserve-serial" | "send" | "commit" | null;
@@ -126,14 +128,14 @@ export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; 
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
-  canExportCabrillo: boolean; canExportAdif?: boolean;
+  canExportCabrillo: boolean; canExportAdif?: boolean; canExportEdi?: boolean;
   exchangeLayout?: "plugin";
   manualRows?: ContestManualRow[]; partialRows?: ContestManualRow[];
   pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
   editing: null | { reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
-    receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
+    entryFields?: ContestSurfaceReceivedField[]; receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
   ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection |
@@ -178,9 +180,10 @@ const canonicalISO = (value: unknown) => typeof value === "string" && Number.isF
   new Date(value).toISOString() === value;
 const validReceivedFields = (value: unknown) => Array.isArray(value) && value.length <= 16 && value.every(item => {
   const field = record(item) ? item : undefined;
-  return !!field && exact(field, ["id", "label", "value", "required", "maximumUTF8Bytes"]) && text(field.id, 64) &&
+  return !!field && optionalKeys(field, ["id", "label", "value", "required", "maximumUTF8Bytes"], ["enabled", "readOnly"]) && text(field.id, 64) &&
     text(field.label, 160) && typeof field.required === "boolean" && uint(field.maximumUTF8Bytes, 1024) &&
-    (field.maximumUTF8Bytes as number) > 0 && text(field.value, field.maximumUTF8Bytes as number, true);
+    (field.maximumUTF8Bytes as number) > 0 && text(field.value, field.maximumUTF8Bytes as number, true) &&
+    (field.enabled === undefined || typeof field.enabled === "boolean") && (field.readOnly === undefined || typeof field.readOnly === "boolean");
 });
 
 function validEntryProjection(value: Record<string, unknown>) {
@@ -207,18 +210,14 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
   const autoCQ = record(operator?.autoCQ) ? operator.autoCQ : undefined;
   const readiness = record(operator?.readiness) ? operator.readiness : undefined;
   const draftValue = record(value.draft) ? value.draft : undefined;
-  const sentFieldIDs = new Set<string>();
-  const sentFieldsValid = Array.isArray(descriptor?.sentFields) && descriptor.sentFields.length <= 16 && descriptor.sentFields.every(item => {
-    const field = record(item) ? item : undefined;
-    if (!field || !exact(field, ["id", "label", "value", "required", "maximumUTF8Bytes"]) || !text(field.id, 64) ||
-        sentFieldIDs.has(field.id as string) || !text(field.label, 160) || typeof field.required !== "boolean" ||
-        !uint(field.maximumUTF8Bytes, 1024) || (field.maximumUTF8Bytes as number) < 1 ||
-        !text(field.value, Math.min(field.maximumUTF8Bytes as number, 1024), true)) return false;
-    sentFieldIDs.add(field.id as string); return true;
-  });
+  const reportFieldsValid = descriptor?.reportFields === undefined || validReceivedFields(descriptor.reportFields);
+  const sentFieldsValid = validReceivedFields(descriptor?.sentFields);
+  const projectedFieldIDs = new Set([...(Array.isArray(descriptor?.reportFields) ? descriptor.reportFields : []),
+    ...(Array.isArray(descriptor?.sentFields) ? descriptor.sentFields : [])].map(item => record(item) ? item.id : null));
   const serialValid = !!serial && exact(serial, ["requirement", "allocatedFieldID", "reservedSerial"]) &&
     oneOf(serial.requirement, ["none", "requiredForCommit"]) &&
-    (serial.requirement === "none" ? serial.allocatedFieldID === null : text(serial.allocatedFieldID, 64) && sentFieldIDs.has(serial.allocatedFieldID as string)) &&
+    (serial.requirement === "none" ? serial.allocatedFieldID === null : serial.allocatedFieldID === null ||
+      text(serial.allocatedFieldID, 64) && projectedFieldIDs.has(serial.allocatedFieldID)) &&
     (serial.reservedSerial === null || uint(serial.reservedSerial)) && serial.reservedSerial === draftValue?.reservedSerial;
   const keyBindingsValid = descriptor?.keyBindings === undefined || Array.isArray(descriptor.keyBindings) && descriptor.keyBindings.length <= 32 &&
     new Set(descriptor.keyBindings.map(item => {
@@ -254,14 +253,14 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
       oneOf(trace.mode, ["CW", "SSB", "AM", "FM"]) && text(trace.macro, 160, true) &&
       text(trace.text, 4096, true) && oneOf(trace.status, ["pending", "confirmed", "failed", "stopped"]); });
   return optionalKeys(value, ["schemaVersion", "status", "session", "draft", "busy", "dirty", "uncertain", "descriptor", "operator"], ["manual"]) &&
-    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "keyBindings"]) &&
+    validEntryProjection(base) && !!descriptor && optionalKeys(descriptor, ["bands", "modes", "sentFields", "serial"], ["reportFields", "reportsVisible", "allowDuplicateCommit", "automaticSerial", "advanceOnSpace", "keyBindings"]) &&
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
     (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
     (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
     texts(descriptor.bands, 64, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&
-    new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && advanceOnSpaceValid && keyBindingsValid && operatorValid;
+    new Set(descriptor.modes).size === descriptor.modes.length && reportFieldsValid && sentFieldsValid && serialValid && advanceOnSpaceValid && keyBindingsValid && operatorValid;
 }
 function validCallCandidates(value: unknown) {
   if (!Array.isArray(value) || value.length > 500) return false;
@@ -327,8 +326,9 @@ function validLogProjection(value: Record<string, unknown>) {
   const pageRows = Array.isArray(page?.rows) ? page.rows : [], pluginLayout = value.exchangeLayout === "plugin";
   const pluginColumns = pluginColumnsValid(value.pluginColumns) ? value.pluginColumns : undefined;
   return optionalKeys(value, ["schemaVersion", "status", "sessionRevision", "canExportCabrillo", "page", "editing", "busy"],
-      ["canExportAdif", "manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows"]) &&
+      ["canExportAdif", "canExportEdi", "manualRows", "partialRows", "exchangeLayout", "pluginColumns", "pluginRows", "pluginPartialRows"]) &&
     typeof value.canExportCabrillo === "boolean" && (value.canExportAdif === undefined || typeof value.canExportAdif === "boolean") &&
+    (value.canExportEdi === undefined || typeof value.canExportEdi === "boolean") &&
     (!("exchangeLayout" in value) || value.exchangeLayout === "plugin") &&
     (pluginLayout ? !!pluginColumns && pluginRowsValid(value.pluginRows, pluginColumns.length, 20) &&
         pluginRowsValid(value.pluginPartialRows, pluginColumns.length, 500) && !("manualRows" in value) && !("partialRows" in value)
@@ -341,11 +341,12 @@ function validLogProjection(value: Record<string, unknown>) {
         text(row.sentExchange, 2048, true) && text(row.receivedExchange, 2048, true) && uint(row.points) && texts(row.multiplierLabels, 32, 160); }) &&
     (!pluginLayout || Array.isArray(value.pluginRows) && value.pluginRows.length === pageRows.length && value.pluginRows.every((item, index) =>
       record(item) && record(pageRows[index]) && item.qsoID === pageRows[index].qsoID)) &&
-    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["reportsVisible", "details"]) &&
+    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["entryFields", "reportsVisible", "details"]) &&
       (!("reportsVisible" in editing) || typeof editing.reportsVisible === "boolean") &&
       (!("details" in editing) || validLogEditDetails(editing.details)) &&
       text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&
-      text(editing.receivedReport, 160, true) && validReceivedFields(editing.receivedFields) && optionalFrequency(editing.frequencyHz) &&
+      text(editing.receivedReport, 160, true) && (!("entryFields" in editing) || validReceivedFields(editing.entryFields)) &&
+      validReceivedFields(editing.receivedFields) && optionalFrequency(editing.frequencyHz) &&
       text(editing.editFrequencyText, 11, true) && text(editing.frequencyError, 512, true) && text(editing.correctionReason, 1024, true) &&
       typeof editing.confirmDelete === "boolean" && text(editing.deletionReason, 1024, true)) && typeof value.busy === "boolean";
 }
@@ -463,7 +464,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "assistance_query") return draft(params, ["inputCallsign"]) && text(params.inputCallsign, 32, true);
   if (action === "assistance_select") return draft(params, ["kind", "candidateID"]) &&
     oneOf(params.kind, ["scp", "history", "log", "cluster"]) && text(params.candidateID, 160);
-  if (action === "log_export_cabrillo" || action === "log_export_adif") return exact(params, []);
+  if (action === "log_export_cabrillo" || action === "log_export_adif" || action === "log_export_edi") return exact(params, []);
   if (action === "log_recalculate") return exact(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
   if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);

@@ -13,6 +13,7 @@ const MAX_FILENAME_BYTES: usize = 160;
 pub enum ExportFormat {
     Cabrillo,
     Adif,
+    Edi,
 }
 
 impl ExportFormat {
@@ -20,6 +21,7 @@ impl ExportFormat {
         match self {
             Self::Cabrillo => "log",
             Self::Adif => "adi",
+            Self::Edi => "edi",
         }
     }
 }
@@ -360,6 +362,7 @@ fn validate_format(bytes: &[u8], format: ExportFormat) -> Result<(), String> {
             bytes.starts_with(b"START-OF-LOG: 3.0\r\n") && bytes.ends_with(b"END-OF-LOG:\r\n")
         }
         ExportFormat::Adif => valid_adif(bytes),
+        ExportFormat::Edi => valid_edi(bytes),
     };
     if valid {
         Ok(())
@@ -389,6 +392,56 @@ fn valid_adif(bytes: &[u8]) -> bool {
         && document[..document.len().min(16 * 1024)]
             .windows(b"<EOH>\r\n".len())
             .any(|value| value == b"<EOH>\r\n")
+}
+
+fn valid_edi(bytes: &[u8]) -> bool {
+    if !bytes.ends_with(b"\r\n")
+        || !bytes
+            .iter()
+            .all(|byte| *byte == b'\r' || *byte == b'\n' || (0x20..=0x7e).contains(byte))
+    {
+        return false;
+    }
+    for (index, byte) in bytes.iter().enumerate() {
+        if (*byte == b'\n' && (index == 0 || bytes[index - 1] != b'\r'))
+            || (*byte == b'\r' && bytes.get(index + 1) != Some(&b'\n'))
+        {
+            return false;
+        }
+    }
+    let Ok(document) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let lines: Vec<_> = document
+        .strip_suffix("\r\n")
+        .unwrap_or(document)
+        .split("\r\n")
+        .collect();
+    if lines.first() != Some(&"[REG1TEST;1]") || lines.iter().any(|line| line.is_empty()) {
+        return false;
+    }
+    let required = ["TName=", "TDate=", "PCall=", "PWWLo=", "CQSOP=", "CToSc="];
+    if required
+        .iter()
+        .any(|prefix| !lines.iter().any(|line| line.starts_with(prefix)))
+        || !lines.contains(&"[Remarks]")
+    {
+        return false;
+    }
+    let mut records = lines.iter().enumerate().filter_map(|(index, line)| {
+        line.strip_prefix("[QSORecords;")
+            .and_then(|value| value.strip_suffix(']'))
+            .and_then(|value| value.parse::<usize>().ok())
+            .map(|count| (index, count))
+    });
+    let Some((record_index, record_count)) = records.next() else {
+        return false;
+    };
+    if records.next().is_some() || lines.len().saturating_sub(record_index + 1) != record_count {
+        return false;
+    }
+    let expected_qsos = format!("CQSOs={record_count};1");
+    lines[..record_index].contains(&expected_qsos.as_str())
 }
 
 fn verify_available(
@@ -707,6 +760,9 @@ mod tests {
     }
     fn not1mm_adif_bytes() -> Vec<u8> {
         b"Not1MM ADIF export\r\n<ADIF_VER:5>3.1.5\r\n<EOH>\r\n<CALL:5>K1ABC<EOR>\r\n".to_vec()
+    }
+    fn not1mm_edi_bytes() -> Vec<u8> {
+        b"[REG1TEST;1]\r\nTName=NAC\r\nTDate=20261021;20261021\r\nPCall=OM0RX\r\nPWWLo=JN88TQ\r\nCQSOs=1;1\r\nCQSOP=812\r\nCToSc=812\r\n[Remarks]\r\n[QSORecords;1]\r\n261021;0715;VK2ZZZ;2;599;001;599;002;;QF56AA;812;; ; ; \r\n".to_vec()
     }
     fn coordinate(data: &[u8]) -> PreparedCoordinate {
         PreparedCoordinate {
@@ -1332,6 +1388,35 @@ mod tests {
         ] {
             assert!(validate_format(invalid, ExportFormat::Adif).is_err());
         }
+    }
+
+    #[test]
+    fn original_not1mm_edi_passes_the_native_format_boundary_and_is_published() {
+        let data = not1mm_edi_bytes();
+        let mut worker = TestWorker::new(data.clone());
+        worker.coordinate.format = ExportFormat::Edi;
+        assert_eq!(worker.coordinate.suggested_filename(), "xLog Contest.edi");
+        let (result, dialog, writes) = run(
+            &worker,
+            &TestAdmission::passing(),
+            Some(PathBuf::from("out.edi")),
+            false,
+        );
+        assert_eq!(result.status, SaveStatus::Saved, "{:?}", result.message);
+        assert_eq!(*dialog.lock().unwrap(), 1);
+        assert_eq!(
+            writes.lock().unwrap().as_slice(),
+            &[(PathBuf::from("out.edi"), data)]
+        );
+        for invalid in [
+            b"[REG1TEST;1]\nTName=NAC\n[QSORecords;0]\n".as_slice(),
+            b"[REG1TEST;1]\r\nTName=NA\0C\r\nTDate=20261021;20261021\r\nPCall=OM0RX\r\nPWWLo=JN88TQ\r\nCQSOs=0;1\r\nCQSOP=0\r\nCToSc=0\r\n[Remarks]\r\n[QSORecords;0]\r\n".as_slice(),
+            b"[REG1TEST;1]\r\nTName=NAC\r\nTDate=20261021;20261021\r\nPCall=OM0RX\r\nPWWLo=JN88TQ\r\nCQSOs=1;1\r\nCQSOP=0\r\nCToSc=0\r\n[Remarks]\r\n[QSORecords;1]\r\n".as_slice(),
+            b"[REG1TEST;1]\r\nTName=NAC\r\nTDate=20261021;20261021\r\nPCall=OM0RX\r\nPWWLo=JN88TQ\r\nCQSOs=0;1\r\nCQSOP=0\r\nCToSc=0\r\n[Remarks]\r\n[QSORecords;0]\r\n[QSORecords;0]\r\n".as_slice(),
+        ] {
+            assert!(validate_format(invalid, ExportFormat::Edi).is_err());
+        }
+        assert!(validate_format(&not1mm_adif_bytes(), ExportFormat::Edi).is_err());
     }
 
     #[test]

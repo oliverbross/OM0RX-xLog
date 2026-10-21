@@ -160,6 +160,29 @@ it("renders ICWC original name/serial input while omitting hidden report fields"
   expect(screen.getByText("Sent S/N").getAttribute("title")).toBe("Sent S/N");
 });
 
+it.each([
+  {plugin:"QSO PARTY SN",reports:[{id:"sent",label:"Sent serial",value:"001",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:true},
+    {id:"receive",label:"Received serial",value:"42",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:false}],
+    received:[{id:"other_1",label:"Received location",value:"NEW",required:true,maximumUTF8Bytes:32,enabled:true,readOnly:false}]},
+  {plugin:"California QSO Party",reports:[{id:"sent",label:"Sent serial",value:"001",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:true},
+    {id:"receive",label:"Received serial",value:"42",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:false}],
+    received:[{id:"other_1",label:"Received county",value:"ALAM",required:true,maximumUTF8Bytes:32,enabled:true,readOnly:false}]},
+  {plugin:"RAEM",reports:[{id:"sent",label:"Sent serial",value:"001",required:true,maximumUTF8Bytes:160,enabled:true,readOnly:true}],
+    received:[{id:"other_1",label:"Received serial",value:"101",required:true,maximumUTF8Bytes:32,enabled:true,readOnly:false},
+      {id:"other_2",label:"Received coordinates",value:"40N74W",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false}]},
+])("renders $plugin from host field identity and flags",async({plugin,reports,received})=>{
+  const view={...projection,schemaVersion:2,session:{name:plugin,ruleName:plugin,mode:"CW"},
+    draft:{...projection.draft,sentReport:"001",receivedReport:reports.some(field=>field.id==="receive")?"42":"",reservedSerial:1,receivedFields:received},
+    descriptor:{reportsVisible:true,reportFields:reports,bands:["20m"],modes:["CW"],automaticSerial:true,sentFields:[],
+      serial:{requirement:"requiredForCommit",allocatedFieldID:"sent",reservedSerial:1}},operator:null};
+  expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
+  native.invoke.mockResolvedValue({...snapshot,projection:view});render(<DetachedContestSurface/>);
+  const sent=await screen.findByLabelText("Sent serial");
+  expect(sent).toHaveProperty("value","001");expect(sent).toHaveProperty("readOnly",true);
+  for(const field of received){const input=document.querySelector(`[data-contest-field-id="${field.id}"]`) as HTMLInputElement;
+    expect(input).toBeTruthy();expect(input.readOnly).toBe(false);expect(input.disabled).toBe(false);}
+});
+
 it("retains manual Reserve serial for legacy detached entries",async()=>{
   const view={...projection,schemaVersion:2,draft:{...projection.draft,reservedSerial:3},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[{id:"serial",label:"Serial",value:"003",required:true,maximumUTF8Bytes:32}],
@@ -345,10 +368,11 @@ it("renders the exact plugin log columns for both paged and partial rows",async(
 it.each([
   ["Export Cabrillo…","log_export_cabrillo",{}],
   ["Export ADIF…","log_export_adif",{}],
+  ["Export EDI…","log_export_edi",{}],
   ["Recalculate","log_recalculate",{expectedSessionRevision:1}],
 ] as const)("routes %s from the detached Log window to its contest owner",async(button,action,params)=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
-  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,canExportAdif:true,
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,canExportAdif:true,canExportEdi:true,
     page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"?
     {...snapshot,panelID:"logbook",projection:view}:{requestID:args.requestID,status:"queued"});
@@ -366,6 +390,7 @@ it("hides Cabrillo when the Python contest projection only admits ADIF export",a
   native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});render(<DetachedContestSurface/>);
   expect(await screen.findByRole("button",{name:"Export ADIF…"})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"Export Cabrillo…"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Export EDI…"})).toBeNull();
 });
 
 it("uses supplied full-log and cluster calls in their manual Check Partial columns",async()=>{

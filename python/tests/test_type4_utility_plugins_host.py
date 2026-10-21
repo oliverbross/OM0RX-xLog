@@ -89,8 +89,9 @@ class Type4UtilityPluginTests(unittest.TestCase):
                     fields = {item["id"]: item for item in view["fields"]}
                     self.assertEqual(fields["other_2"]["visible"], plugin_id in {"general_logging", "randomgram"})
                     if plugin_id == "qso_party_sn":
-                        self.assertEqual((view["reservedSerial"], fields["sent"]["value"], fields["sent"]["readOnly"]),
-                                         (1, "001", True))
+                        self.assertEqual((view["reservedSerial"], view["allocatedSerialFieldID"],
+                                          fields["sent"]["value"], fields["sent"]["readOnly"]),
+                                         (1, "sent", "001", True))
                 finally:
                     host.close()
 
@@ -165,6 +166,44 @@ class Type4UtilityPluginTests(unittest.TestCase):
                         self.assertEqual((projection["reservedSerial"], projected["sent"]), (3, "003"))
                 finally:
                     host.close()
+
+    def test_off_page_general_logging_partial_preserves_name_and_comment_on_correction(self):
+        host, _, session, revision = self.create("general_logging")
+        qso_id = uid()
+        try:
+            _, revision = self.mutate(
+                host, session, revision, "qso_commit", qsoID=qso_id,
+                timestamp="2026-10-21 10:00:00",
+                fields={"callsign": "K1ABC", "other_1": "Alice", "other_2": "portable"},
+            )
+            store = host.database(session)
+            base = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
+            for index in range(50):
+                timestamp = f"2026-10-21 10:00:{index + 1:02}"
+                store.log_contact({**base, "ID": uid(), "TS": timestamp, "Call": "DL1ABC"})
+            store.conn.commit()
+
+            self.assertNotIn(qso_id, {row["ID"] for row in self.read(host, session, "log")["rows"]})
+            partial = self.read(host, session, "check_partial", query="K1ABC")["rows"][0]
+            self.assertEqual(partial["ID"], qso_id)
+            self.assertEqual(partial["raw_fields"], {
+                "callsign": "K1ABC", "sent": "599", "receive": "599",
+                "other_1": "Alice", "other_2": "portable",
+            })
+
+            _, revision = self.mutate(
+                host, session, revision, "qso_correct", qsoID=qso_id,
+                fields=partial["raw_fields"], reason="Unchanged save",
+            )
+            _, revision = self.mutate(
+                host, session, revision, "qso_correct", qsoID=qso_id,
+                fields={**partial["raw_fields"], "callsign": "OM1ABC"},
+                reason="Correct callsign",
+            )
+            corrected = store.exec_sql("SELECT Call,Name,Comment FROM DXLOG WHERE ID=?", (qso_id,))
+            self.assertEqual(corrected, {"Call": "OM1ABC", "Name": "Alice", "Comment": "portable"})
+        finally:
+            host.close()
 
     def test_correction_preserves_historical_rover_location_and_cabrillo(self):
         host, _, session, revision = self.create("qso_party_rst")

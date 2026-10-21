@@ -99,6 +99,8 @@ class FirstRemainingPluginTests(unittest.TestCase):
                     draft_fields = {"callsign": "K1ABC", **FIELDS[plugin_id][0]}
                     draft, revision = self.mutate(host, session, revision, "draft_apply", fields=draft_fields)
                     self.assertEqual(draft["projection"]["fields"][0]["value"], "K1ABC")
+                    if plugin_id == "ca_qso_party":
+                        self.assertEqual(draft["projection"]["allocatedSerialFieldID"], "sent")
                     for index, (qso_id, call, extra) in enumerate((
                             (first, "K1ABC", FIELDS[plugin_id][0]),
                             (second, "DL1ABC", FIELDS[plugin_id][1]))):

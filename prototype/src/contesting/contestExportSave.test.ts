@@ -17,6 +17,8 @@ beforeEach(() => native.invoke.mockReset());
 it("maps the worker artifact coordinate to the exact native prepared DTO", () => {
   expect(nativeSavePrepared(prepared)).toEqual({ artifactID: prepared.artifactID, sessionID: prepared.sessionID,
     workspaceGeneration: prepared.workspaceGeneration, revision: 7, byteLength: 450, sha256: "a".repeat(64), format: "cabrillo" });
+  expect(nativeSavePrepared({ ...prepared, format: "edi" })).toEqual({ artifactID: prepared.artifactID, sessionID: prepared.sessionID,
+    workspaceGeneration: prepared.workspaceGeneration, revision: 7, byteLength: 450, sha256: "a".repeat(64), format: "edi" });
 });
 
 it("strips worker presentation metadata before invoking the strict native save contract", async () => {

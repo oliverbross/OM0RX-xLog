@@ -105,6 +105,9 @@ class EuropeanHFPluginTests(unittest.TestCase):
                     name, modes, serial = expected[plugin_id]
                     self.assertEqual((projection["pluginName"], projection["supportedModes"],
                                       projection["reservedSerial"]), (name, modes, serial))
+                    self.assertEqual(projection["allocatedSerialFieldID"],
+                                     None if plugin_id in {"ari_40_80", "ssa_mt_cw", "ssa_mt_ssb"}
+                                     else "other_1")
                     fields = {item["id"]: item for item in projection["fields"]}
                     self.assertEqual(fields["other_1"]["readOnly"],
                                      serial is not None and plugin_id not in {"ssa_mt_cw", "ssa_mt_ssb"})

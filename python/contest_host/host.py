@@ -288,6 +288,16 @@ def validate_estonian_setup(plugin_id, station, settings):
                 "ES Manual Key License Class must be two seniority digits")
 
 
+def validate_edi_start(settings):
+    """Require the exact UTC timestamp shape consumed by the original EDI writers."""
+    start = settings.get("StartDate")
+    try:
+        require(datetime.strptime(start, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == start,
+                "EDI contest start must be UTC YYYY-MM-DD HH:MM:SS")
+    except (TypeError, ValueError) as error:
+        raise HostError("invalid_request", "EDI contest start must be UTC YYYY-MM-DD HH:MM:SS") from error
+
+
 def validate_european_hf_setup(plugin_id, station_prefix, sent_exchange):
     """Bound setup values required by the five original European HF plugins."""
     exchange = str(sent_exchange).upper()
@@ -654,9 +664,14 @@ class Desk:
         if type(speed) not in {int, float} or not 1 <= speed <= 100:
             speed = None
         plugin = PLUGIN_REGISTRY[self.state["pluginID"]]
+        allocated_serial_field = None
+        if requires_serial(self.state) and self.state["pluginID"] not in SSA_MT_PLUGINS:
+            allocated_serial_field = ("sent" if self.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS
+                                      else "other_1")
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
                 "reservedSerial": self.current_sn if requires_serial(self.state) else None,
+                "allocatedSerialFieldID": allocated_serial_field,
                 "sourceRevision": SOURCE_REVISION,
                 "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"), "version": "26.10.11",
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
@@ -957,7 +972,15 @@ class Host:
                         "Contest changed before partial log lookup", "stale_revision")
                 match = (f"%{query}%", store.current_contest)
                 total = store.exec_sql("SELECT count(*) AS n FROM DXLOG WHERE Call LIKE ? AND ContestNR=?", match)["n"]
-                rows = store.exec_sql_mult("SELECT * FROM DXLOG WHERE Call LIKE ? AND ContestNR=? ORDER BY TS ASC,rowid ASC LIMIT ?", (*match, limit))
+                rows = store.exec_sql_mult(
+                    "SELECT d.*,i.raw_fields FROM DXLOG AS d "
+                    "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
+                    "WHERE d.Call LIKE ? AND d.ContestNR=? "
+                    "ORDER BY d.TS ASC,d.rowid ASC LIMIT ?",
+                    (*match, limit),
+                )
+                for row in rows:
+                    row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
                 return {"sessionID": session_id, "revision": state["revision"], "query": query,
                         "limit": limit, "total": total, "rows": rows}
             finally:
@@ -1041,7 +1064,7 @@ class Host:
                     "Unexpected contest export fields")
             require(len(self.exports) < 8, "Release another prepared export first", "export_busy")
             export_format = params.get("format", "cabrillo")
-            require(export_format in {"cabrillo", "adif"}, "Unsupported contest export format")
+            require(export_format in {"cabrillo", "adif", "edi"}, "Unsupported contest export format")
             filename, payload = self.export_artifact(desk, 32 * 1024 * 1024, export_format)
             require(bool(payload), "Plugin export was empty", "export_failed")
             artifact_id = str(uuid.uuid4())
@@ -2413,6 +2436,8 @@ class Host:
         require(export_format in PLUGIN_REGISTRY[desk.state["pluginID"]].export_formats,
                 f"{PLUGIN_REGISTRY[desk.state['pluginID']].name} does not provide {export_format.upper()} export",
                 "export_unsupported")
+        if export_format == "edi":
+            validate_edi_start(desk.state["settings"])
         # The pinned plugin writes only inside this explicit private destination.
         with TemporaryDirectory(prefix="export-", dir=Path(desk.database.database).parent) as directory:
             desk.export_directory = Path(directory)
@@ -2420,21 +2445,23 @@ class Host:
                 desk.contest.cabrillo(desk, "utf-8")
                 files = list(Path(directory).glob("*.log"))
             else:
-                require(callable(getattr(desk.contest, "adif", None)),
-                        "This original plugin does not provide ADIF export", "export_unsupported")
-                # Original Not1MM ADIF writers target Path.home(). The host is a
+                writer = getattr(desk.contest, export_format, None)
+                require(callable(writer),
+                        f"This original plugin does not provide {export_format.upper()} export",
+                        "export_unsupported")
+                # Original Not1MM ADIF and EDI writers target Path.home(). The host is a
                 # serialized helper process, so redirect HOME only for this one
                 # synchronous plugin call and restore it before inspecting output.
                 previous_home = os.environ.get("HOME")
                 os.environ["HOME"] = directory
                 try:
-                    desk.contest.adif(desk)
+                    writer(desk)
                 finally:
                     if previous_home is None:
                         os.environ.pop("HOME", None)
                     else:
                         os.environ["HOME"] = previous_home
-                files = list(Path(directory).glob("*.adi"))
+                files = list(Path(directory).glob("*.adi" if export_format == "adif" else "*.edi"))
             require(len(files) == 1, "Plugin export failed", "export_failed")
             require(files[0].stat().st_size <= maximum,
                     "Use a chunked export route for this log" if maximum == 512000 else "Prepared export exceeds the native save limit",
