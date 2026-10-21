@@ -539,6 +539,72 @@ public enum ContestDefinitionError: Error, Equatable {
     case digestMismatch
 }
 
+private enum ContestCanonicalJSON {
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
+        // Foundation's `.sortedKeys` used numeric ordering on older macOS releases.
+        // Re-emit object members in UTF-8 order so persisted identities are toolchain-stable.
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let encoded = try encoder.encode(value)
+        let object = try JSONSerialization.jsonObject(with: encoded, options: [.fragmentsAllowed])
+        var result = Data()
+        try append(object, to: &result)
+        return result
+    }
+
+    private static func append(_ value: Any, to result: inout Data) throws {
+        if let object = value as? [String: Any] {
+            result.append(UInt8(ascii: "{"))
+            for (index, key) in object.keys.sorted(by: utf8LessThan).enumerated() {
+                if index > 0 { result.append(UInt8(ascii: ",")) }
+                try appendScalar(key, to: &result)
+                result.append(UInt8(ascii: ":"))
+                guard let member = object[key] else {
+                    throw EncodingError.invalidValue(
+                        object,
+                        .init(codingPath: [], debugDescription: "Canonical JSON object lost a member."))
+                }
+                try append(member, to: &result)
+            }
+            result.append(UInt8(ascii: "}"))
+        } else if let array = value as? [Any] {
+            result.append(UInt8(ascii: "["))
+            for (index, member) in array.enumerated() {
+                if index > 0 { result.append(UInt8(ascii: ",")) }
+                try append(member, to: &result)
+            }
+            result.append(UInt8(ascii: "]"))
+        } else if value is NSNull {
+            result.append(contentsOf: "null".utf8)
+        } else {
+            try appendScalar(value, to: &result)
+        }
+    }
+
+    private static func appendScalar(_ value: Any, to result: inout Data) throws {
+        let wrapped = [value]
+        guard JSONSerialization.isValidJSONObject(wrapped) else {
+            throw EncodingError.invalidValue(
+                value,
+                .init(codingPath: [], debugDescription: "Canonical JSON encountered an invalid scalar."))
+        }
+        let encoded = try JSONSerialization.data(
+            withJSONObject: wrapped,
+            options: [.withoutEscapingSlashes])
+        guard encoded.count >= 2, encoded.first == UInt8(ascii: "["),
+              encoded.last == UInt8(ascii: "]") else {
+            throw EncodingError.invalidValue(
+                value,
+                .init(codingPath: [], debugDescription: "Canonical JSON scalar wrapper was malformed."))
+        }
+        result.append(encoded.dropFirst().dropLast())
+    }
+
+    private static func utf8LessThan(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.utf8.lexicographicallyPrecedes(rhs.utf8)
+    }
+}
+
 public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
     public let draft: ContestDefinitionDraft
     public let definitionDigest: String
@@ -573,15 +639,11 @@ public struct ContestDeclarativeDefinition: Codable, Hashable, Sendable {
     }
 
     public func canonicalStorageData() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return try encoder.encode(self)
+        try ContestCanonicalJSON.encode(self)
     }
 
     private static func digest(_ draft: ContestDefinitionDraft) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return ContestSCPIndex.sha256(try encoder.encode(draft))
+        ContestSCPIndex.sha256(try ContestCanonicalJSON.encode(draft))
     }
 
     private static func diagnostics(for draft: ContestDefinitionDraft) -> [String] {
