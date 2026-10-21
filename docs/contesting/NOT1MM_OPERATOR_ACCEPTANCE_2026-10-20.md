@@ -1,4 +1,4 @@
-# Not1MM operator acceptance — updated 21 October 2026
+# Not1MM operator acceptance — updated 22 October 2026
 
 This checkpoint records demonstrated desktop behavior for the original executable
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
@@ -7,65 +7,54 @@ port or a public macOS release is finished.
 > **Status chronology:** the newest milestone is always documented first. Every
 > later section in this file is retained as historical evidence for its named
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
-> do not describe the current source or the installed 1.2.101 milestone.
+> do not describe the current source or the installed 1.3.0 milestone.
 
-## 1.3.0 source milestone before packaging — complete registry, safer workflows
+## 1.3.0 notarized macOS candidate — exact-source installed acceptance
 
-- Exact executable-code source through this batch is
-  `9ff49df8974485583c52472a751e36e19689cc5c` on
-  `codex/not1mm-contesting`; all implementation commits are pushed. All 94
-  byte-pinned original Not1MM plugins remain registered and executable through
-  the Python/SQLite host. Registry completeness is not represented as complete
-  operator parity.
-- Contest-to-normal-log transfer now accepts the existing BandPlan's microwave
-  frequencies instead of imposing a six-HF-band/1 GHz ceiling. Focused cases
-  preserve 1296 MHz as 23 cm and 2300 MHz as 13 cm through the normal-log owner.
-- Exact same-revision/same-payload Contest Setup publication is idempotent, so
-  React replay no longer exposes the internal “projection revision did not
-  advance” diagnostic. Lower revisions and divergent same-revision payloads
-  remain rejected.
-- Creating or reopening a contest opens the familiar separate Main Logging,
-  Band Map, Statistics, Logbook, Check Partial, Rates and Cluster windows. Their
-  open set and native geometry use the existing detached-window persistence.
-  The normal main window closes only after Main Logging exists and the other
-  guards pass; contest windows keep the application alive.
-- WSJT-X/JTDX Logged ADIF contest routing was rechecked across the real
-  Swift/native/Python path: explicit Active-contest selection, semantic
-  duplicate receipts, nonpersistent restart lease, Python-host restart receipt,
-  contest-switch/late-packet fencing and Contesting Test denial are covered.
-  This proves logged-QSO receive behavior, not modem, audio, CAT, PTT or keying.
-- DARC VHF, NAC VHF and TA VHF/UHF still execute their original EDI writers;
-  Start UTC feeds `TDate`, and the existing native no-clobber Save-panel owner
-  has one terminal completion path. Successful installed Save-panel export is
-  intentionally left for the exact 1.3.0 candidate.
-- Group Chat and retryable best-effort Renfield contact publication reuse the
-  pinned upstream protocol. Historical per-QSO Operator is preserved. Because
-  upstream `RESPONSE` is unauthenticated and does not prove persistence, it
-  never clears the durable dirty row; shared authoritative serial, dupe and log
-  synchronization remain unavailable rather than being falsely advertised.
-- Production phone macros now use the existing xLog audio-output and PTT
-  owners. The native boundary verifies every WAV/manifest, preserves slash and
-  configured token identity, applies aggregate limits before allocation, waits
-  for fresh observed TX before playback, serializes acquisition/release and
-  shutdown, retains replay tombstones for the whole contest context, and keeps
-  release uncertainty visible while blocking further sends. Contesting Test
-  performs no audio or PTT output.
+- The executable candidate is version `1.3.0` from exact source
+  `d2ddd3011dcd2db80a4c154978458ed2e93a9fd2` on canonical `main`. All
+  implementation commits are pushed. The packaged distribution metadata and
+  embedded Python-runtime receipt both record that source with no source changes.
+- All 94 byte-pinned original Not1MM plugins remain registered and executable
+  through the Python/SQLite host. Registry completeness is not represented as
+  complete operator-workflow parity.
+- Contest Setup now waits for the host catalog before enabling New Contest. A
+  cold launch showed `Loading contest types…` rather than the internal invalid
+  reply/projection diagnostic. Opening the saved contest restored separate Band
+  Map, Check Partial, Cluster, Log Display, Main Logging, Rates, Setup and Stats
+  windows through the existing native geometry owner.
+- The installed receive-only WSJT-X/JTDX route retained **Active contest** across
+  restart without silently reopening its UDP listener. Two identical type-12
+  packets for `VK8ZX` produced one CQ WW RTTY row with authoritative contest
+  identity, OM0RX station prefix and CQ zone 29. Stats advanced from 1 to 2 and
+  the already-open Log Display showed the contact without close/reopen. After an
+  application restart the saved contest reopened with the same score/log state,
+  while UDP port 42424 remained closed until the operator selected Save and
+  listen again. This proves logged-QSO receive behavior, not modem, audio, CAT,
+  PTT or keying.
+- DARC VHF EDI export completed through the installed application's native Save
+  panel. The 602-byte one-QSO file records `TDate=20261021;20261021`, 144 MHz,
+  one QSO and claimed score 431; SHA-256 is
+  `2ebc4b09cdd457cb735da15687bc11013d450cb67048f66999544ff213a5e0ce`.
+- Contest-to-normal-log transfer uses the existing BandPlan/destination owner
+  and has focused 1296 MHz (23 cm) and 2300 MHz (13 cm) coverage. The installed
+  normal workspace passed SQLite `quick_check` and retained 68,441 contacts.
+- Packaged and installed native acceptance reports completed with no failed
+  checks. Exact-source CI run `39627525815` succeeded. The macOS artifact is
+  Developer ID signed and Apple notarization submission
+  `1c5f5c84-2ede-4250-95fa-603984389f89` was accepted; stapler validation and
+  Gatekeeper assessment both pass. The notarized ZIP SHA-256 is
+  `650345f3b77765d40c8be6730faaeb9f38f7a8bc962c8d98b75aae22c5a0014f`.
+- Production phone macros use the existing xLog audio-output and PTT owners with
+  verified file manifests, fresh-TX gating, serialized release/shutdown and
+  replay protection. Contesting Test remains nontransmitting. Group Chat and
+  retryable Renfield publication retain their bounded, honest capability labels.
 
-Automated evidence at the executable-code boundary includes 284 Python tests,
-the complete portable Swift suite, 783 Rust tests, 3,843 frontend tests across
-273 files, 9 focused native voice tests, 196 focused contest-window/voice UI
-tests, TypeScript compilation and the production frontend build. The voice/PTT
-diff also received an independent two-pass review; its final pass found no
-remaining P0/P1 issue. Exact-source CI/portability remain release gates. No
-1.3.0 application has yet been packaged, installed or notarized at this
-source-only checkpoint.
-
-Remaining acceptance includes the actual installed separate-window workflow,
-successful EDI Save panel, external WSJT-X/JTDX and fldigi receive, selected
-macOS audio-device playback, fresh TX/RX behavior over the real station path,
-physical no-output confirmation in Contesting Test, multi-host Renfield limits,
-sponsor-rule certification and public-release notarization. These evidence
-boundaries remain visible even though all 94 plugins are present.
+The broader automated milestone still includes 284 Python tests, the portable
+Swift suite, 783 Rust tests, 3,843 frontend tests, TypeScript compilation and the
+production frontend build. Exact-source CI repackaged the application
+successfully; portability run `39627586264` also passed its macOS, Linux and
+Windows source-level jobs independently from Mac-first installed acceptance.
 
 ## Source milestone after installed 1.2.101 — digital contest routing and honest networking
 
@@ -798,34 +787,27 @@ remote Wavelog upload receipt for C5R.
 
 ## Exact remaining limitations
 
-- Notarization is incomplete.
 - No physical RF, voice playback, PTT, amplifier, tuner or rotor action was
-  exercised in this acceptance. The Contesting Test profile intentionally blocks
-  those paths.
-- Production SSB voice-keyer output has no accepted native audio/PTT authority;
-  the demonstrated phone path is a nontransmitting simulation.
-- Original RTTY plugins now have a bounded nontransmitting sink, but no live
-  modem, audio, PTT or digital-station path has end-to-end acceptance.
-- Auto CQ now has a bounded runtime consumer with Stop, focus and replay
-  protections. Group Chat has a bounded multicast owner and separate saved
-  window, but no second live peer was available for end-to-end packet exchange;
-  broader N1MM packet/RTC and multi-operator workflows remain incomplete.
-- Digital Logging Setup now accepts bounded receive-only WSJT-X/JTDX Logged ADIF
-  UDP input, but no external WSJT-X/JTDX instance, fldigi modem, digital audio,
-  PTT or RF path was exercised.
+  exercised in the 1.3.0 acceptance. Contesting Test intentionally blocks those
+  paths; the production voice owner is implemented but still needs selected
+  device and real-station hardware acceptance.
+- WSJT-X/JTDX acceptance used safe synthetic logged-QSO packets. No external
+  WSJT-X/JTDX or fldigi application, modem, digital audio, CAT, PTT or RF path was
+  exercised; receiving logged QSOs is not full modem/keying integration.
+- Group Chat has a bounded multicast owner and separate saved window, but no
+  second live peer was available. Renfield publication is best-effort and does
+  not establish authoritative shared serial, duplicate or log synchronization.
 - The reported 7P8GE 28.088 MHz `FT-8 TNX 73s` row had aged out before this
   installed-app pass. Its exact parser/session behavior and stale-row refresh are
   regression-tested, but that exact live cluster observation was not repeated.
-- The installed 1.2.95 milestone contains 46 pinned original plugins out of 94;
-  48 original plugins still need to be brought through this same Python host.
 - BERU's original ESM auto-logs numeric exchanges only. Valid `SERIAL HQ`
   contacts work through direct commit, scoring, correction and export, but still
   require manual commit rather than Enter-driven ESM.
-- The installed 1.2.95 application remains unnotarized.
-- Normal-log transfer/finalization remains incomplete. Saved-window refresh,
-  child reconnection and automatic active-contest restoration are fixed.
-- Some original configuration windows and workflows remain to be reproduced.
-- Setup still exposes broader VHF/UHF choices than the current HF contest host,
-  and Cabrillo export remains limited to the connected contest exporters.
-- Physical real-station and Wavelog receipt checks remain separate acceptance
-  boundaries. Available software work continues without treating them as a stop.
+- The 94-entry registry is complete, but sponsor-rule certification and a full
+  installed operator rehearsal for every original contest/window combination are
+  not complete. Registration alone is not full Not1MM parity.
+- Windows and Linux evidence is source portability only; packaged application
+  acceptance remains Mac-first.
+- Physical real-station and remote Wavelog receipt checks remain separate
+  acceptance boundaries, including a fresh remote receipt for the earlier C5R
+  investigation.
