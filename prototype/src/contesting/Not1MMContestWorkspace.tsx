@@ -679,12 +679,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       throw cause;
     }
   };
-  const flushDraft = async (supplied = projectionRef.current): Promise<Projection | null> => {
+  const flushDraft = async (supplied = projectionRef.current,
+      frequencyHz = operationFrequencyHz): Promise<Projection | null> => {
     if (!supplied) return null;
-    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before continuing.");
+    if (frequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before continuing.");
     const values = { ...fieldsRef.current }, inputVersion = editVersionRef.current;
-    if (sameFields(values, projectionFields(supplied)) && operationFrequencyHz === supplied.frequencyHz) return supplied;
-    const changed = await mutate("contest_draft_apply", supplied, { fields: values, frequencyHz: operationFrequencyHz });
+    if (sameFields(values, projectionFields(supplied)) && frequencyHz === supplied.frequencyHz) return supplied;
+    const changed = await mutate("contest_draft_apply", supplied, { fields: values, frequencyHz });
     acceptProjection(changed.projection, inputVersion);
     return changed.projection;
   };
@@ -904,7 +905,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
-      await flushDraftRef.current();
+      await flushDraft(projectionRef.current, operationFrequencyHz ?? projectionRef.current?.frequencyHz ?? null);
       if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(workspaceGeneration))
         throw new Error("The current xLog workspace identity is unavailable. Reopen the workspace before creating a contest.");
       const sessionID = crypto.randomUUID();

@@ -1614,6 +1614,54 @@ it.each([
   expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz});
 });
 
+it("uses the manual VHF frequency when creating CQ WW VHF from an active HF session with stale HF CAT", async () => {
+  let current: any = { ...projection(), pluginID:"cq_wpx_cw", pluginName:"CQ WPX CW",
+    supportedBands:["10m"], frequencyHz:28_400_500, band:28 };
+  const activeSession = { sessionID:current.sessionID, name:"Active HF", pluginID:"cq_wpx_cw",
+    workspaceGeneration:current.workspaceGeneration, revision:current.revision };
+  const request = vi.fn(async (method:string, params:Record<string,unknown>={}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    let result: any;
+    if (method === "contest_catalog") result = {plugins:[
+      {id:"cq_wpx_cw",name:"CQ WPX CW",supportedBands:["10m"]},
+      {id:"cq_ww_vhf",name:"CQ WW VHF",supportedBands:["6m","2m"]},
+    ]};
+    else if (method === "contest_sessions") result = {sessions:[activeSession],activeSessionID:activeSession.sessionID};
+    else if (method === "contest_open") result = {projection:current};
+    else if (method === "contest_draft_apply") {
+      current = {...current,revision:current.revision+1,frequencyHz:Number(params.frequencyHz)};
+      result = {projection:current,actions:[],messages:[]};
+    } else if (method === "contest_create") {
+      current = {...projection(),sessionID:String(params.sessionID),pluginID:"cq_ww_vhf",pluginName:"CQ WW VHF",
+        supportedBands:["6m","2m"],frequencyHz:Number(params.frequencyHz),band:50};
+      result = {projection:current};
+    } else if (method === "contest_log_page") result = {rows:[],total:0};
+    else if (method === "contest_score") result = {score:current.score};
+    else throw new Error(method);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
+    radioFrequencyHz={14_348_000}/>);
+  await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_open")).toBe(true));
+  await waitFor(() => expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const activeEntry = surfaceOwner.current.projections["active-qso"];
+  await act(async () => surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:activeEntry.draft.revision,requestID:crypto.randomUUID(),action:"entry_set_text",
+    params:{draftID:current.draftID,expectedDraftRevision:activeEntry.draft.revision,field:"callsign",value:"K1ABC"}}));
+  await userEvent.click(await screen.findByRole("button", {name:"New Contest"}));
+  fireEvent.change(screen.getByLabelText("Log Type"), {target:{value:"cq_ww_vhf"}});
+  fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:"50.125"}});
+  await userEvent.click(screen.getByRole("button", {name:"OK"}));
+  await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(true));
+  const createCallIndex = request.mock.calls.findIndex(([method]) => method === "contest_create");
+  const priorDraftApplies = request.mock.calls.slice(0, createCallIndex).filter(([method]) => method === "contest_draft_apply");
+  expect(priorDraftApplies).toHaveLength(1);
+  expect(priorDraftApplies[0]?.[1]).toMatchObject({frequencyHz:28_400_500,fields:{callsign:"K1ABC"}});
+  expect(request.mock.calls[createCallIndex]?.[1]).toMatchObject({
+    pluginID:"cq_ww_vhf",frequencyHz:50_125_000,
+  });
+});
+
 it.each([
   { frequencyHz:50_125_000, band:50, supportedBands:["6m","2m"], created:true },
   { frequencyHz:144_200_000, band:144, supportedBands:["6m","2m"], created:true },
