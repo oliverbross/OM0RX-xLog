@@ -24,7 +24,7 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       NO_MULTIPLIER_PLUGINS, QSO_PARTY_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
-                      SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
+                      SENT_FIELD_SERIAL_PLUGINS, SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
                       TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
@@ -331,14 +331,18 @@ class Desk:
         if state["pluginID"] in RTTY_PLUGINS:
             self.fldigi_util = DigitalOutputSink()
         self.contest.init_contest(self)
+        # DX-Pedition initializes this transient GUI attribute itself. Restore
+        # the bounded draft value only after that callback for request continuity.
+        self.prev_call = text(state["draft"].get("prevCall", ""), 32)
         if requires_serial(state) and state["pluginID"] not in SSA_MT_PLUGINS:
             # Older hosts allowed this visible field to drift from the durable
             # reservation. Reconcile it on every load before any projection,
             # mutation, direct commit, or reopen can consume the stale value.
             expected = reserved_sent_exchange(state, state["draft"]["serial"])
-            self.other_1.setText(expected)
-            state["draft"]["fields"]["other_1"] = expected
-            self.other_1.setReadOnly(True)
+            serial_field = self.sent if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else self.other_1
+            serial_field.setText(expected)
+            state["draft"]["fields"][serial_field.name] = expected
+            serial_field.setReadOnly(True)
 
     def set_running(self, value):
         require(type(value) is bool, "Running flag must be boolean")
@@ -371,7 +375,7 @@ class Desk:
         context = {"sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                    "fields": self.values(), "stationCall": self.station["Call"],
                    "sentExchange": str(self.contest_settings["SentExchange"]),
-                   "sentSerial": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS
+                   "sentSerial": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
                                   else self.other_1.text() if self.state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
         if mode == "SSB":
             if self.state["pluginID"] not in VOICE_INTENT_PLUGINS:
@@ -426,6 +430,7 @@ class Desk:
         self.state["draft"]["fields"] = self.values()
         self.state["focus"] = self.current_widget
         self.state["esmCallSent"] = self.esm_call_sent
+        self.state["draft"]["prevCall"] = text(self.prev_call, 32)
 
     def contact_for(self, fields, qso_id, timestamp, frequency, base=None, operator=None):
         for name in INPUTS:
@@ -560,6 +565,7 @@ class Desk:
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
                 "matrixTrackers": list(plugin.matrix_trackers),
+                "exportFormats": list(plugin.export_formats),
                 "workspaceGeneration": workspace_generation(self.state),
                 "referenceID": self.state["reference"]["id"], "revision": self.state["revision"],
                 "draftID": self.state["draft"]["id"], "fields": fields,
@@ -753,6 +759,7 @@ class Host:
                                   "sourceRevision": SOURCE_REVISION, "modes": list(plugin.modes),
                                   "sentExchangeHint": plugin.sent_exchange_hint,
                                   "overlayChoices": list(plugin.overlay_choices)}
+                                  | {"exportFormats": list(plugin.export_formats)}
                                  for key, plugin in PLUGIN_REGISTRY.items()], "protocolVersion": 1}
         if method == "sessions":
             sessions = []
@@ -867,7 +874,7 @@ class Host:
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
                     "sentExchange": str(state["settings"]["SentExchange"]),
-                    "sentSerial": (str(desk.current_sn) if state["pluginID"] in SSA_MT_PLUGINS
+                    "sentSerial": (str(desk.current_sn) if state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
                                    else desk.other_1.text()
                                    if state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
         if method == "receipt":
@@ -1437,7 +1444,8 @@ class Host:
                                (state["draft"]["id"], serial, self._operation, scope))
         state["draft"]["serial"] = serial
         if state["pluginID"] not in SSA_MT_PLUGINS:
-            state["draft"]["fields"]["other_1"] = reserved_sent_exchange(state, serial)
+            field = "sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+            state["draft"]["fields"][field] = reserved_sent_exchange(state, serial)
 
     @staticmethod
     def countries(countries):
@@ -1479,14 +1487,17 @@ class Host:
             current.update(additions)
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
+        serial_field = "sent" if desk.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
         if (not allow_reserved_serial_change and requires_serial(desk.state)
-                and desk.state["pluginID"] not in SSA_MT_PLUGINS and "other_1" in fields):
+                and desk.state["pluginID"] not in SSA_MT_PLUGINS and serial_field in fields):
             expected = reserved_sent_exchange(desk.state, desk.state["draft"].get("serial", ""))
-            require(fields["other_1"] == expected,
+            require(fields[serial_field] == expected,
                     "The sent serial is reserved by the contest host and cannot be changed", "serial_conflict")
         for name, value in fields.items():
             getattr(desk, name).setText(text(value, 128))
         desk.callsign.setText(desk.callsign.text().upper())
+        if desk.state["pluginID"] == "dxpedition" and not desk.callsign.text():
+            desk.contest.reset_label(desk)
         if "frequencyHz" in params:
             frequency = params["frequencyHz"]
             require(type(frequency) is int, "Frequency must be integer Hz")
@@ -1496,7 +1507,7 @@ class Host:
                 self.reserve_serial(desk.database, desk.state)
                 if requires_serial(desk.state) and desk.state["pluginID"] not in SSA_MT_PLUGINS:
                     desk.current_sn = desk.state["draft"]["serial"]
-                    desk.other_1.setText(reserved_sent_exchange(desk.state, desk.current_sn))
+                    getattr(desk, serial_field).setText(reserved_sent_exchange(desk.state, desk.current_sn))
 
     @staticmethod
     def prefill(desk):
@@ -1721,7 +1732,8 @@ class Host:
         elif desk.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
             pass
         elif desk.state["pluginID"] in QSO_PARTY_PLUGINS:
-            require(bool(fields["other_1"].strip()), "QSO Party received location is required")
+            require(re.fullmatch(r"[A-Za-z0-9-]{1,15}", fields["other_1"]) is not None,
+                    "QSO Party location must be 1 to 15 letters, digits, or hyphens")
             if desk.state["pluginID"] == "qso_party_sn":
                 require(fields["sent"].isdigit() and int(fields["sent"]) > 0
                         and fields["receive"].isdigit() and int(fields["receive"]) > 0,
@@ -1803,8 +1815,10 @@ class Host:
         if requires_serial(desk.state):
             self.reserve_serial(desk.database, desk.state)
             desk.current_sn = desk.state["draft"]["serial"]
-            desk.other_1.setText("" if desk.state["pluginID"] in SSA_MT_PLUGINS
-                                 else desk.state["draft"]["fields"]["other_1"])
+            serial_field = "sent" if desk.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+            getattr(desk, serial_field).setText("" if desk.state["pluginID"] in SSA_MT_PLUGINS
+                                                else desk.state["draft"]["fields"][serial_field])
+        desk.prev_call = ""
         desk.current_widget = "callsign"
 
     def change(self, desk, method, params):
@@ -1976,6 +1990,9 @@ class Host:
 
     @staticmethod
     def export_artifact(desk, maximum, export_format="cabrillo"):
+        require(export_format in PLUGIN_REGISTRY[desk.state["pluginID"]].export_formats,
+                f"{PLUGIN_REGISTRY[desk.state['pluginID']].name} does not provide {export_format.upper()} export",
+                "export_unsupported")
         # The pinned plugin writes only inside this explicit private destination.
         with TemporaryDirectory(prefix="export-", dir=Path(desk.database.database).parent) as directory:
             desk.export_directory = Path(directory)

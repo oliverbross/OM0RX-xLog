@@ -18,6 +18,7 @@ class Plugin:
     matrix_trackers: tuple[str, ...] = ()
     sent_exchange_hint: str = "Sent Exchange"
     overlay_choices: tuple[str, ...] = ("N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH")
+    export_formats: tuple[str, ...] = ("cabrillo", "adif")
 
 
 PLUGIN_REGISTRY = MappingProxyType({
@@ -154,14 +155,15 @@ PLUGIN_REGISTRY = MappingProxyType({
     "ssa_mt_ssb": Plugin("SSA MT SSB", serial=True, bands=("80m", "40m"), modes=("SSB",),
                          sent_exchange_hint="Serial + locator", overlay_choices=("N/A",)),
     "dxpedition": Plugin("DX-Pedition", modes=("CW", "SSB"), allow_duplicate_commit=True,
-                           overlay_choices=("N/A",)),
+                           overlay_choices=("N/A",), export_formats=("adif",)),
     "general_logging": Plugin("General Logging", modes=("CW", "SSB"), allow_duplicate_commit=True,
-                                overlay_choices=("N/A",)),
-    "randomgram": Plugin("RandomGram", allow_duplicate_commit=True, overlay_choices=("N/A",)),
+                                overlay_choices=("N/A",), export_formats=("adif",)),
+    "randomgram": Plugin("RandomGram", allow_duplicate_commit=True, overlay_choices=("N/A",),
+                           export_formats=("adif",)),
     "qso_party_rst": Plugin("QSO PARTY RST", modes=("CW", "SSB"), allow_duplicate_commit=True,
                              bands=("160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "70cm"),
                              sent_exchange_hint="County", overlay_choices=("N/A",)),
-    "qso_party_sn": Plugin("QSO PARTY SN", modes=("CW", "SSB"), allow_duplicate_commit=True,
+    "qso_party_sn": Plugin("QSO PARTY SN", serial=True, modes=("CW", "SSB"), allow_duplicate_commit=True,
                             bands=("160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "70cm"),
                             sent_exchange_hint="County", overlay_choices=("N/A",)),
 })
@@ -194,6 +196,7 @@ EUROPEAN_HF_PLUGINS = frozenset({"ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "
 TYPE4_UTILITY_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn"})
 NO_MULTIPLIER_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram"})
 QSO_PARTY_PLUGINS = frozenset({"qso_party_rst", "qso_party_sn"})
+SENT_FIELD_SERIAL_PLUGINS = frozenset({"qso_party_sn"})
 SSA_MT_PLUGINS = frozenset({"ssa_mt_cw", "ssa_mt_ssb"})
 ARRL_VHF_PLUGINS = frozenset({"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({

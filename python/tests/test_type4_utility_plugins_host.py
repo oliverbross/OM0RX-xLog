@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from contest_host.host import Host, HostError
+from contest_host.store import CALLHISTORY_COLUMNS
 from contest_host.upstream import VENDOR, load_plugin
 import test_host as fixtures
 
@@ -23,7 +24,7 @@ CASES = {
     "general_logging": ({"callsign": "K1ABC", "other_1": "Alice", "other_2": "portable"}, 0),
     "randomgram": ({"callsign": "K1ABC", "other_1": "ABC", "other_2": "XYZ"}, 2),
     "qso_party_rst": ({"callsign": "K1ABC", "other_1": "NEW"}, 2),
-    "qso_party_sn": ({"callsign": "K1ABC", "sent": "17", "receive": "42", "other_1": "NEW"}, 2),
+    "qso_party_sn": ({"callsign": "K1ABC", "receive": "42", "other_1": "NEW"}, 2),
 }
 
 
@@ -81,10 +82,15 @@ class Type4UtilityPluginTests(unittest.TestCase):
                     self.assertTrue(view["allowDuplicateCommit"])
                     self.assertFalse(view["dupe"])
                     self.assertEqual(view["dupeExplanation"], "Duplicate checking disabled.")
+                    self.assertEqual(view["exportFormats"],
+                                     ["cabrillo", "adif"] if plugin_id.startswith("qso_party_") else ["adif"])
                     if plugin_id == "dxpedition":
                         self.assertTrue(view["run"])
                     fields = {item["id"]: item for item in view["fields"]}
                     self.assertEqual(fields["other_2"]["visible"], plugin_id in {"general_logging", "randomgram"})
+                    if plugin_id == "qso_party_sn":
+                        self.assertEqual((view["reservedSerial"], fields["sent"]["value"], fields["sent"]["readOnly"]),
+                                         (1, "001", True))
                 finally:
                     host.close()
 
@@ -111,21 +117,22 @@ class Type4UtilityPluginTests(unittest.TestCase):
         first, second = uid(), uid()
         try:
             draft, revision = self.mutate(host, session, revision, "draft_apply",
-                                           fields={"callsign": "K1ABC", "sent": "17", "receive": "42", "other_1": "NEW"})
-            self.assertEqual({item["id"]: item["value"] for item in draft["projection"]["fields"]}["sent"], "17")
+                                           fields={"callsign": "K1ABC", "receive": "42", "other_1": "NEW"})
+            self.assertEqual({item["id"]: item["value"] for item in draft["projection"]["fields"]}["sent"], "001")
             _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=first,
                                       timestamp="2026-10-21 11:00:00",
-                                      fields={"callsign": "K1ABC", "sent": "17", "receive": "42", "other_1": "NEW"})
+                                      fields={"callsign": "K1ABC", "receive": "42", "other_1": "NEW"})
+            self.assertEqual({item["id"]: item["value"] for item in self.read(host, session, "projection")["projection"]["fields"]}["sent"], "002")
             _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=second,
                                       timestamp="2026-10-21 11:00:01",
-                                      fields={"callsign": "K1ABC", "sent": "18", "receive": "43", "other_1": "OLD"})
+                                      fields={"callsign": "K1ABC", "receive": "43", "other_1": "OLD"})
             setup = self.read(host, session, "setup_get")["setup"]
             setup["settings"]["SentExchange"] = "NEWSETUP"
             _, revision = self.mutate(host, session, revision, "setup_save", setup=setup)
             _, revision = self.mutate(host, session, revision, "qso_correct", qsoID=first,
                                       fields={"other_1": "OLD"}, reason="Correct county")
             row = next(row for row in self.read(host, session, "log")["rows"] if row["ID"] == first)
-            self.assertEqual((row["SentNr"], row["NR"], row["Exchange1"]), (17, 42, "OLD"))
+            self.assertEqual((row["SentNr"], row["NR"], row["Exchange1"]), (1, 42, "OLD"))
             _, revision = self.mutate(host, session, revision, "qso_delete", qsoID=second,
                                       reason="Remove test QSO")
             _, revision = self.mutate(host, session, revision, "recalculate")
@@ -135,7 +142,10 @@ class Type4UtilityPluginTests(unittest.TestCase):
         try:
             rows = self.read(host, session, "log")["rows"]
             self.assertEqual(len(rows), 1)
-            self.assertEqual((rows[0]["SentNr"], rows[0]["NR"]), (17, 42))
+            self.assertEqual((rows[0]["SentNr"], rows[0]["NR"]), (1, 42))
+            view = self.read(host, session, "projection")["projection"]
+            self.assertEqual((view["reservedSerial"], {item["id"]: item["value"] for item in view["fields"]}["sent"]),
+                             (3, "003"))
             self.assertEqual(self.read(host, session, "score")["score"]["total"], 2)
         finally:
             host.close()
@@ -155,12 +165,93 @@ class Type4UtilityPluginTests(unittest.TestCase):
                         self.assertIn("CONTEST: QSO_PARTY\r\n", cabrillo)
                         self.assertIn("QSO:", cabrillo)
                     else:
-                        with self.assertRaisesRegex(HostError, "Plugin export failed"):
+                        with self.assertRaisesRegex(HostError, "does not provide CABRILLO export") as caught:
                             self.read(host, session, "export")
+                        self.assertEqual(caught.exception.code, "export_unsupported")
                     view, revision = self.mutate(host, session, revision, "draft_apply",
                                                  fields={"callsign": "K1ABC"})
                     action, revision = self.mutate(host, session, revision, "function_key", key="F2")
                     self.assertEqual(action["actions"][0]["kind"], "function_key")
+                finally:
+                    host.close()
+
+    def test_qso_party_serial_replay_same_second_tie_and_location_sql_guard(self):
+        host, root, session, revision = self.create("qso_party_sn")
+        first_operation, first_qso = uid(), uid()
+        try:
+            request = {"id": uid(), "method": "qso_commit", "params": {
+                "sessionID": session, "operationID": first_operation, "expectedRevision": revision,
+                "qsoID": first_qso, "timestamp": "2026-10-21 13:00:00",
+                "fields": {"callsign": "K1ABC", "receive": "41", "other_1": "NEW"}}}
+            first = host.dispatch(request)
+            revision = first["revision"]
+            replay = host.dispatch(request)
+            self.assertTrue(replay["replayed"])
+            self.assertEqual(replay["revision"], revision)
+            _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
+                                      timestamp="2026-10-21 13:00:00",
+                                      fields={"callsign": "DL1ABC", "receive": "42", "other_1": "NEW"})
+            rows = self.read(host, session, "log")["rows"]
+            self.assertEqual([row["SentNr"] for row in reversed(rows)], [1, 2])
+            self.assertEqual(sum(row["IsMultiplier1"] for row in rows), 1)
+            with self.assertRaisesRegex(HostError, "letters, digits, or hyphens"):
+                self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
+                            fields={"callsign": "K1ABC", "receive": "43", "other_1": "X';DELETE"})
+            with self.assertRaisesRegex(HostError, "letters, digits, or hyphens"):
+                self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
+                            fields={"callsign": "K1ABC", "receive": "43", "other_1": "O'BRIEN"})
+        finally:
+            host.close()
+        host = Host(root)
+        try:
+            self.assertEqual(sum(row["IsMultiplier1"] for row in self.read(host, session, "log")["rows"]), 1)
+            view = self.read(host, session, "projection")["projection"]
+            self.assertEqual((view["reservedSerial"], {item["id"]: item["value"] for item in view["fields"]}["sent"]),
+                             (3, "003"))
+        finally:
+            host.close()
+
+    def test_dxpedition_prev_call_persists_between_native_esm_requests(self):
+        host, _, session, revision = self.create("dxpedition")
+        try:
+            first, revision = self.mutate(host, session, revision, "esm", field="callsign",
+                                          fields={"callsign": "K1ABC"})
+            self.assertEqual([action["key"] for action in first["actions"]], ["F2", "F3"])
+            self.assertEqual(self.read(host, session, "log")["total"], 0)
+            second, revision = self.mutate(host, session, revision, "esm", field="callsign",
+                                           fields={"callsign": "K1ABC"})
+            self.assertEqual([action["key"] for action in second["actions"]], ["F4"])
+            self.assertEqual(self.read(host, session, "log")["total"], 1)
+            self.assertEqual({item["id"]: item["value"] for item in second["projection"]["fields"]}["callsign"], "")
+            _, revision = self.mutate(host, session, revision, "draft_apply", fields={"callsign": ""})
+            fresh, revision = self.mutate(host, session, revision, "esm", field="callsign",
+                                          fields={"callsign": "DL1ABC"})
+            self.assertEqual([action["key"] for action in fresh["actions"]], ["F2", "F3"])
+            self.assertEqual(self.read(host, session, "log")["total"], 1)
+        finally:
+            host.close()
+
+    def test_qso_party_callhistory_exch1_aliases_match_original_plugins(self):
+        for plugin_id in ("qso_party_rst", "qso_party_sn"):
+            with self.subTest(plugin=plugin_id):
+                host, _, session, revision = self.create(plugin_id)
+                try:
+                    view = self.read(host, session, "projection")["projection"]
+                    workspace = view["workspaceGeneration"]
+                    history = {column: "" for column in CALLHISTORY_COLUMNS}
+                    history.update(Call="K1ABC", Exch1="NEW")
+                    generation, digest = uid(), "a" * 64
+                    scope = {"sessionID": session, "workspaceGeneration": workspace,
+                             "generation": generation, "digest": digest}
+                    host.dispatch({"id": uid(), "method": "history_stage_begin",
+                                   "params": {**scope, "rowCount": 1}})
+                    host.dispatch({"id": uid(), "method": "history_stage_chunk",
+                                   "params": {**scope, "offset": 0, "rows": [history]}})
+                    host.dispatch({"id": uid(), "method": "history_stage_commit",
+                                   "params": {**scope, "rowCount": 1}})
+                    result, revision = self.mutate(host, session, revision, "draft_apply",
+                                                   fields={"callsign": "K1ABC"})
+                    self.assertEqual(result["projection"]["history"], "K1ABC, NEW")
                 finally:
                     host.close()
 

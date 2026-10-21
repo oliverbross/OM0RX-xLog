@@ -102,6 +102,7 @@ class CQWPXSSBHostTests(unittest.TestCase):
             "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f", "modes": ["SSB"],
             "sentExchangeHint": "Sent Exchange",
             "overlayChoices": ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"],
+            "exportFormats": ["cabrillo", "adif"],
         })
         view = self.read("projection")["projection"]
         fields = {field["id"]: field for field in view["fields"]}

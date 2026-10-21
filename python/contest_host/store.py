@@ -20,6 +20,8 @@ class CallHistoryRow(dict):
     """Retain upstream spelling while making its CQZone/CqZone lookup defect harmless."""
 
     def get(self, key, default=None):
+        if key in {"Exchange1", "County"}:
+            key = "Exch1"
         if key in self:
             return super().get(key, default)
         if isinstance(key, str):
@@ -235,6 +237,13 @@ class Store(DataBase):
     def fetch_call_history(self, call):
         row = super().fetch_call_history(call)
         return CallHistoryRow(row) if row else row
+
+    def fetch_all_contacts_asc(self):
+        """Return the host's stable replay order, including same-second contacts."""
+        return self.exec_sql_mult(
+            "SELECT * FROM DXLOG WHERE ContestNR=? ORDER BY TS ASC,rowid ASC",
+            (self.current_contest,),
+        )
 
     def fetch_wpx_exists_before_contact(self, wpx, timestamp, qso_id):
         """Pinned WPX lookup with the host's stable same-second replay order."""

@@ -378,6 +378,11 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 'print(f"{result=}")',
                 'logger.debug("call-history result: %s", result)',
             ))
+            replacements.append((
+                'f"select count(*) as county_count from dxlog where  TS < \'{time_stamp}\' "',
+                'f"select count(*) as county_count from dxlog where (TS < \'{time_stamp}\' OR "\n'
+                '            f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+            ))
         if plugin_id == "lz-dx":
             # Stable replay for contacts sharing the same UTC second.
             replacements.extend([

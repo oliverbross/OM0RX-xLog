@@ -108,6 +108,7 @@ class ARRLSweepstakesPhoneHostTests(unittest.TestCase):
             "modes": ["SSB"],
             "sentExchangeHint": "Prec Call Check Section",
             "overlayChoices": ["N/A"],
+            "exportFormats": ["cabrillo", "adif"],
         })
         view = self.read("projection")["projection"]
         fields = {field["id"]: field for field in view["fields"]}
