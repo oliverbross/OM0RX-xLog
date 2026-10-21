@@ -21,9 +21,11 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
                       ESTONIAN_PLUGINS, EUROPEAN_DX_PLUGINS, EUROPEAN_HF_PLUGINS,
                       JIDX_PLUGINS,
+                      NO_MULTIPLIER_PLUGINS, QSO_PARTY_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
-                      SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS)
+                      SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
+                      TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
@@ -301,6 +303,7 @@ class Desk:
         self.pref = {"contest": 1, "run_state": state["run"], "use_esm": self.use_esm,
                      "esm_send_corrected_call": esm["sendCorrectedCall"]}
         self.actions, self.messages, self.highlights = [], [], set()
+        self.prev_call = ""
         # Original plugins may notify Not1MM's optional log window after a
         # multiplier rebuild. xLog projects the rebuilt database directly.
         self.log_window = None
@@ -336,6 +339,11 @@ class Desk:
             self.other_1.setText(expected)
             state["draft"]["fields"]["other_1"] = expected
             self.other_1.setReadOnly(True)
+
+    def set_running(self, value):
+        require(type(value) is bool, "Running flag must be boolean")
+        self.state["run"] = value
+        self.pref["run_state"] = value
 
     def cty_lookup(self, call):
         result = self.state["reference"]["countries"].get(call.upper())
@@ -458,6 +466,8 @@ class Desk:
         return self.callsign.text().upper()
 
     def is_dupe(self, call, band, timestamp=None, mode="CW"):
+        if self.contest.dupe_type == 4:
+            return False
         if self.contest.dupe_type == 5:
             previous = self.contact
             previous_mode = self.radio_state["mode"]
@@ -577,11 +587,17 @@ class Desk:
                                     if self.contest.dupe_type == 5 else
                                     "Worked in this contest." if self.contest.dupe_type == 1 else
                                     "Worked on this band and mode." if self.contest.dupe_type == 3 else
+                                    "Duplicate checking disabled." if self.contest.dupe_type == 4 else
                                     "Worked on this band."),
                 "countryResolved": bool(self.cty_lookup(call)), "history": self.history_info.text(),
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
+            points = self.database.fetch_points().get("Points") or 0
+            return {"qsos": self.contest.show_qso(self), "points": points,
+                    "countries": 0, "zones": 0, "multipliers": 0,
+                    "total": self.contest.calc_score(self) or 0}
         if self.state["pluginID"] == "cq_ww_rtty":
             combined, zone = self.contest.show_mults(self, rtc=True)
             states = self.database.fetch_state_band_count()
@@ -1702,6 +1718,14 @@ class Host:
                         "SSA MT sent and received serials must be between 1 and 999")
                 require(desk.contest._check_locator(received),  # pylint: disable=protected-access
                         "SSA MT received locator must be a valid 6-character Swedish locator")
+        elif desk.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
+            pass
+        elif desk.state["pluginID"] in QSO_PARTY_PLUGINS:
+            require(bool(fields["other_1"].strip()), "QSO Party received location is required")
+            if desk.state["pluginID"] == "qso_party_sn":
+                require(fields["sent"].isdigit() and int(fields["sent"]) > 0
+                        and fields["receive"].isdigit() and int(fields["receive"]) > 0,
+                        "QSO Party serials must be positive integers")
         elif desk.state["pluginID"] in RSGB_PLUGINS:
             received = fields["other_2"]
             match = re.fullmatch(r"([0-9]+)(?:\s+[Hh][Qq])?", received)
@@ -1764,7 +1788,7 @@ class Host:
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
                                        *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
                                         *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
-                                        *EUROPEAN_HF_PLUGINS}:
+                                         *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1858,6 +1882,10 @@ class Host:
                 after["SentNr"] = before["SentNr"]
                 if desk.state["pluginID"] in SSA_MT_PLUGINS:
                     after["GridSquare"] = before["GridSquare"]
+            elif desk.state["pluginID"] in TYPE4_UTILITY_PLUGINS:
+                # These plugins own heterogeneous historical sent fields
+                # (RST, serial, RandomGram, or no sent exchange at all).
+                pass
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
                   or desk.state["pluginID"] in ESTONIAN_PLUGINS

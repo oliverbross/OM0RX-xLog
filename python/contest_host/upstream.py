@@ -124,8 +124,10 @@ def load_plugin(plugin_id="cq_ww_cw"):
         import_module("not1mm.plugins")
         replacements = [
             ("from PyQt6 import QtWidgets", "from contest_host.qt_compat import QtWidgets"),
-            ("str(Path.home())", "str(self.export_directory)"),
         ]
+        source = (VENDOR / f"not1mm/plugins/{plugin_id}.py").read_text(encoding="utf-8")
+        if "str(Path.home())" in source:
+            replacements.append(("str(Path.home())", "str(self.export_directory)"))
         if plugin_id == "cq_ww_rtty":
             # Apply the CQ WW duplicate-eligibility rule to its third multiplier
             # family; the original query otherwise counts a duplicate's state.
@@ -358,6 +360,23 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 'if themode == "RTTY":',
                 'if themode in ("RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", '
                 '"DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"):',
+            ))
+        if plugin_id == "qso_party_rst":
+            # The pinned plugin refers to a nonexistent `rcv` widget in prefill.
+            # Keep source bytes exact and adapt only those three proven aliases.
+            replacements.extend([
+                ('case "LSB" | "USB" | "SSB" | "FM" | "AM":\n            self.sent.setText("599")\n            self.rcv.setText("599")',
+                 'case "LSB" | "USB" | "SSB" | "FM" | "AM":\n            self.sent.setText("599")\n            self.receive.setText("599")'),
+                ('case "CW" | "CW-U" | "CW-L" | "CW-R" | "CWR":\n            self.sent.setText("59")\n            self.rcv.setText("59")',
+                 'case "CW" | "CW-U" | "CW-L" | "CW-R" | "CWR":\n            self.sent.setText("59")\n            self.receive.setText("59")'),
+                ('| "PKTLSB"\n        ):\n            self.sent.setText("599")\n            self.rcv.setText("599")',
+                 '| "PKTLSB"\n        ):\n            self.sent.setText("599")\n            self.receive.setText("599")'),
+            ])
+        if plugin_id in {"qso_party_rst", "qso_party_sn"}:
+            # Call-history diagnostics must not corrupt the worker's stdout JSON protocol.
+            replacements.append((
+                'print(f"{result=}")',
+                'logger.debug("call-history result: %s", result)',
             ))
         if plugin_id == "lz-dx":
             # Stable replay for contacts sharing the same UTC second.

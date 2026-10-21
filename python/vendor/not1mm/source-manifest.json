@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb", "euhfc", "iaru_hf", "arrl_10m", "arrl_160m", "arrl_field_day", "arrl_rtty_ru", "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep", "ea_majestad_cw", "ea_majestad_ssb", "ref_cw", "ref_ssb", "rsgb_80m_cc", "rsgb_commonwealth_beru", "es_field_day", "es_ll_kv", "es_manual_key", "es_open", "hadx", "helvetia", "pacc", "spdx", "ari_dx", "darc_xmas", "eudx", "lz-dx", "wag", "ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"],
+  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb", "euhfc", "iaru_hf", "arrl_10m", "arrl_160m", "arrl_field_day", "arrl_rtty_ru", "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep", "ea_majestad_cw", "ea_majestad_ssb", "ref_cw", "ref_ssb", "rsgb_80m_cc", "rsgb_commonwealth_beru", "es_field_day", "es_ll_kv", "es_manual_key", "es_open", "hadx", "helvetia", "pacc", "spdx", "ari_dx", "darc_xmas", "eudx", "lz-dx", "wag", "ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb", "dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn"],
   "sha256": {
     "not1mm/plugins/oceania_dx_ssb.py": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee",
     "not1mm/plugins/oceania_dx_cw.py": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664",
@@ -72,6 +72,11 @@
     "not1mm/plugins/ok1wc.py": "77d0c2e2dc72d43d56433d01b55222cc57b4215a67a7eecc910fa3d91b6a44ea",
     "not1mm/plugins/ssa_mt_cw.py": "24edb651b2a74d327ca820be9d6fb12db9b35d27914c8d5ba88a6da1858dfa36",
     "not1mm/plugins/ssa_mt_ssb.py": "cb05d6f0e99f49d9e134ef1e749436d97b2a162e337de9ab64fceddf9e4168ca",
+    "not1mm/plugins/dxpedition.py": "7af5440718a7d4910b3c4eeac31a927001c63f6ef806370aa74de0f8b0993bc8",
+    "not1mm/plugins/general_logging.py": "e016498859d98cc915c2e1bfd1c3aa616fcba827c579ede193347ef39766f26d",
+    "not1mm/plugins/randomgram.py": "d93f7009517c4d179062ddd74327dbb90f9800a5e4ecfe6660fda310596112e9",
+    "not1mm/plugins/qso_party_rst.py": "f3d97ca32cdd4a6779153e82d4d75ff1daca2aed27107a514b09e5dcb7e033ef",
+    "not1mm/plugins/qso_party_sn.py": "1d1ba1669c7308eff804b1c589a35fa523df210c23e1c88db46070e247330325",
     "not1mm/lib/database.py": "855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8",
     "not1mm/lib/plugin_common.py": "09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737",
     "not1mm/lib/ham_utility.py": "dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2",
