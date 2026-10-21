@@ -9,6 +9,47 @@ port or a public macOS release is finished.
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
 
+## Post-1.3.0 source milestone — contest desktop, retained services and bounded recovery
+
+- Exact implementation source is `0679096db08992a79c2853ffa7110e3d1449aa29`
+  on canonical `main`; every implementation commit through this point is pushed.
+  The installed 1.3.0 application still predates this batch, so the behavior in
+  this section is source and automated evidence until a new exact-source
+  candidate is packaged and exercised.
+- New/Open Contest now restores the seven standard separate windows even if a
+  previous session remembered Main Logging closed. Existing detached-window
+  geometry remains authoritative, Main Logging is shown and focused, normal
+  xLog windows are hidden, and closing the normal main window while a usable
+  contest child exists no longer terminates the application.
+- The contest Rotator window now resolves the active QSO short/long-path target
+  through the retained contest projection and delegates movement to xLog's
+  existing manual rotor owner. Contest Band Map displays a fresh direct-TCI
+  receive-filter width without gaining radio control.
+- The original S&P clear-on-VFO preference is available and defaults off. It
+  clears only the callsign and received plugin inputs after a fresh observed VFO
+  change, retaining reports, sent exchange and reserved serial. Startup retries
+  are bounded to the exact transient workspace/service-contention failures.
+- Contest > Score Reporting opens a separate xLog-styled RTC compatibility
+  window with the live Python-authoritative score, the three pinned Not1MM
+  services and the original two-minute interval. Credential persistence and
+  network submission remain deliberately disabled until a secure credential
+  store and bounded retry-safe reporter exist; the legacy HTTP service is
+  explicitly identified.
+- Trusted-LAN clients can adopt a strictly newer lease from the same master
+  station after a process restart and retry exact request identities through
+  persisted Python receipts. A non-empty client can bind only when a complete
+  first authority page exactly matches its durable QSO rows and identities.
+  The current native page bound is 25 audit changes; larger histories still
+  require staged multi-page reconciliation. Simultaneous second-Mac installed
+  acceptance and cryptographic peer identity remain outstanding.
+
+Milestone checks passed 3,875 frontend tests across 273 files, all 303 Python
+tests, all 776 native Rust tests, TypeScript compilation and the production
+frontend build. Focused lifecycle, rotor, filter, score-reporting and replica
+checks also passed. These checks do not establish installed-app window behavior,
+physical rotor/RF/PTT operation, external digital application behavior or live
+scoreboard publication.
+
 ## 1.3.0 trusted-LAN replica candidate — exact-source installed acceptance
 
 - The installed candidate is version `1.3.0` from packaged source
