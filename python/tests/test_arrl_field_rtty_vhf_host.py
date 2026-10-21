@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from contest_host.host import Host, HostError
+from contest_host.host import Desk, Host, HostError
 from contest_host.upstream import VENDOR, load_plugin
 import test_host as fixtures
 
@@ -33,14 +33,14 @@ class ARRLOriginalPluginCase(unittest.TestCase):
         self.host.close()
         self.temporary.cleanup()
 
-    def create(self, plugin_id, sent_exchange, frequency, mode):
+    def create(self, plugin_id, sent_exchange, frequency, mode, category=None):
         self.session, self.workspace = uid(), uid()
         result = self.host.dispatch({"id": uid(), "method": "session_create", "params": {
             "sessionID": self.session, "workspaceGeneration": self.workspace,
             "operationID": uid(), "expectedRevision": 0, "pluginID": plugin_id,
             "station": {"Call": "OM0RX", "GridSquare": "JN88", "ARRLSection": "ORG"},
             "frequencyHz": frequency, "mode": mode,
-            "settings": {"SentExchange": sent_exchange, "ModeCategory": mode,
+            "settings": {"SentExchange": sent_exchange, "ModeCategory": category or mode,
                          "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL",
                          "PowerCategory": "LOW"},
             "reference": {"id": "arrl-original-cty-v1", "countries": deepcopy(fixtures.CTY)},
@@ -137,6 +137,26 @@ class ARRLFieldDayHostTests(ARRLOriginalPluginCase):
         self.assertIn("<STX_STRING:6>1D ORG", adif)
         self.assertIn("<SRX_STRING:6>3A EMA", adif)
 
+    def test_am_fm_reports_scoring_and_exports_are_phone_compatible(self):
+        result = self.create("arrl_field_day", "1D ORG", 14025000, "AM", "MIXED")
+        fields = {row["id"]: row["value"] for row in result["projection"]["fields"]}
+        self.assertEqual((fields["sent"], fields["receive"]), ("59", "59"))
+        self.mutate("qso_commit", qsoID=uid(), timestamp="2026-06-27 18:00:00",
+                    fields={"callsign": "K1ABC", "other_1": "2A", "other_2": "CT"})
+        self.mutate("qso_commit", qsoID=uid(), timestamp="2026-06-27 18:01:00",
+                    frequencyHz=50125000, mode="FM",
+                    fields={"callsign": "DL1ABC", "other_1": "1D", "other_2": "DX"})
+        rows = self.read("log")["rows"]
+        self.assertEqual([(row["Mode"], row["SNT"], row["RCV"], row["Points"]) for row in rows],
+                         [("FM", "59", "59", 1), ("AM", "59", "59", 1)])
+        self.assertEqual(self.read("score")["score"]["total"], 4)
+        qso_lines = [line for line in self.read("export")["content"].splitlines() if line.startswith("QSO:")]
+        self.assertEqual(len(qso_lines), 2)
+        self.assertTrue(all(" PH " in line for line in qso_lines))
+        adif = self.prepared_adif()
+        self.assertIn("<MODE:2>AM", adif)
+        self.assertIn("<MODE:2>FM", adif)
+
 
 class ARRLRTTYRoundupHostTests(ARRLOriginalPluginCase):
     def test_serial_multiplier_correction_restart_and_exports(self):
@@ -168,8 +188,25 @@ class ARRLRTTYRoundupHostTests(ARRLOriginalPluginCase):
 
 
 class ARRLVHFHostTests(ARRLOriginalPluginCase):
+    def test_vhf_catalog_and_host_cover_every_pinned_microwave_band(self):
+        expected = {
+            2320000000: (2300.0, "13cm"), 3400000000: (3300.0, "9cm"),
+            5670000000: (5650.0, "6cm"), 10360000000: (10000.0, "3cm"),
+            24048000000: (24000.0, "1.25cm"), 47088000000: (47000.0, "6mm"),
+            76000000000: (75500.0, "4mm"), 120000000000: (119980.0, "2.5mm"),
+            142000000000: (134000.0, "2mm"), 242000000000: (241000.0, "1mm"),
+            300000000000: (300000.0, "submm"),
+        }
+        result = self.create("arrl_vhf_jan", "JN88", 300000000000, "CW")
+        self.assertEqual(result["projection"]["supportedBands"][-11:],
+                         [label for _, label in expected.values()])
+        for frequency, (band, _) in expected.items():
+            with self.subTest(frequency=frequency):
+                self.assertEqual(Desk.band(frequency), band)
+        self.assertEqual(self.read("projection")["projection"]["band"], 300000.0)
+
     def test_vhf_season_scoring_and_exact_plugin_differences(self):
-        expected = {"arrl_vhf_jan": 10, "arrl_vhf_jun": 8, "arrl_vhf_sep": 8}
+        expected = {"arrl_vhf_jan": 39, "arrl_vhf_jun": 24, "arrl_vhf_sep": 24}
         for plugin_id, total in expected.items():
             with self.subTest(plugin=plugin_id):
                 self.host.close()
@@ -181,7 +218,29 @@ class ARRLVHFHostTests(ARRLOriginalPluginCase):
                             fields={"callsign": "K1ABC", "other_2": "FN31"})
                 self.mutate("qso_commit", qsoID=uid(), timestamp="2026-09-12 18:01:00",
                             frequencyHz=902100000, fields={"callsign": "DL1ABC", "other_2": "JO60"})
+                self.mutate("qso_commit", qsoID=uid(), timestamp="2026-09-12 18:02:00",
+                            frequencyHz=3400000000, fields={"callsign": "VK4ABC", "other_2": "QG62"})
                 self.assertEqual(self.read("score")["score"]["total"], total)
+
+    def test_vhf_am_fm_reports_scoring_and_cabrillo_are_phone_compatible(self):
+        result = self.create("arrl_vhf_jun", "JN88", 144100000, "AM", "MIXED")
+        fields = {row["id"]: row["value"] for row in result["projection"]["fields"]}
+        self.assertEqual((fields["sent"], fields["receive"]), ("59", "59"))
+        self.mutate("qso_commit", qsoID=uid(), timestamp="2026-06-13 18:00:00",
+                    fields={"callsign": "K1ABC", "other_2": "FN31"})
+        self.mutate("qso_commit", qsoID=uid(), timestamp="2026-06-13 18:01:00",
+                    frequencyHz=2320000000, mode="FM",
+                    fields={"callsign": "DL1ABC", "other_2": "JO60"})
+        rows = self.read("log")["rows"]
+        self.assertEqual([(row["Mode"], row["SNT"], row["RCV"], row["Points"]) for row in rows],
+                         [("FM", "59", "59", 4), ("AM", "59", "59", 1)])
+        self.assertEqual(self.read("score")["score"]["total"], 10)
+        qso_lines = [line for line in self.read("export")["content"].splitlines() if line.startswith("QSO:")]
+        self.assertEqual(len(qso_lines), 2)
+        self.assertTrue(all(" PH " in line for line in qso_lines))
+        adif = self.prepared_adif()
+        self.assertIn("<MODE:2>AM", adif)
+        self.assertIn("<MODE:2>FM", adif)
 
     def test_vhf_historical_grid_restart_cabrillo_and_adif(self):
         self.create("arrl_vhf_jun", "JN88", 144100000, "CW")

@@ -32,7 +32,10 @@ SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BAND_LABELS = {1.8: "160m", 3.5: "80m", 7.0: "40m", 14.0: "20m", 21.0: "15m", 28.0: "10m",
-               50.0: "6m", 144.0: "2m", 222.0: "1.25m", 432.0: "70cm", 902.0: "33cm", 1296.0: "23cm"}
+               50.0: "6m", 144.0: "2m", 222.0: "1.25m", 432.0: "70cm", 902.0: "33cm", 1296.0: "23cm",
+               2300.0: "13cm", 3300.0: "9cm", 5650.0: "6cm", 10000.0: "3cm", 24000.0: "1.25cm",
+               47000.0: "6mm", 75500.0: "4mm", 119980.0: "2.5mm", 134000.0: "2mm",
+               241000.0: "1mm", 300000.0: "submm"}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
                         "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
@@ -183,7 +186,7 @@ def operating_mode(state):
 
 
 def default_report(mode):
-    return "59" if mode == "SSB" else "599"
+    return "59" if mode in {"SSB", "AM", "FM"} else "599"
 
 
 def workspace_generation(state):
@@ -462,7 +465,13 @@ class Desk:
                                  (21000000, 21450000, 21.0), (28000000, 29700000, 28.0),
                                  (50000000, 54000000, 50.0), (144000000, 148000000, 144.0),
                                  (222000000, 225000000, 222.0), (420000000, 450000000, 432.0),
-                                 (902000000, 928000000, 902.0), (1240000000, 1300000000, 1296.0)):
+                                 (902000000, 928000000, 902.0), (1240000000, 1300000000, 1296.0),
+                                 (2300000000, 2449999999, 2300.0), (3300000000, 3499999999, 3300.0),
+                                 (5650000000, 5924999999, 5650.0), (10000000000, 10499999999, 10000.0),
+                                 (24000000000, 24249999999, 24000.0), (47000000000, 47199999999, 47000.0),
+                                 (75500000000, 80999999999, 75500.0), (119980000000, 122999999999, 119980.0),
+                                 (134000000000, 148999999999, 134000.0), (241000000000, 249999999999, 241000.0),
+                                 (300000000000, 7499999999999, 300000.0)):
             if low <= frequency <= high:
                 return band
         raise HostError("invalid_frequency", "Frequency is outside supported contest bands")
