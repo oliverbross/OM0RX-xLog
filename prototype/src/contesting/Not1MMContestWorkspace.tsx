@@ -21,11 +21,80 @@ import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
 import { setContestCWSpeed } from "./contestStationControl";
 import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
-  takeContestGroupUnverifiedAcknowledgements } from "./contestGroupChat";
+  readContestGroupNetwork, takeContestGroupUnverifiedAcknowledgements,
+  requestContestGroupAuthority, syncContestGroupReplicaPage,
+  type ContestGroupChatSnapshot } from "./contestGroupChat";
 import { ContestVoiceOutput, type ContestVoiceAction } from "./contestVoiceOutput";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
+type ClientAction="commit"|"correct"|"delete";
+type PendingClientMutation={schemaVersion:1;localSessionID:string;localWorkspaceGeneration:string;authoritySessionID:string;
+  authorityWorkspaceGeneration:string;draftID:string;action:ClientAction;baseRevision:number;requestID:string;qsoID:string;
+  params:Record<string,unknown>;createdAt:number};
+const pendingClientPrefix="xlog.contest.pending-client-mutation.v1/";
+const pendingClientQuarantinePrefix="xlog.contest.pending-client-mutation-quarantine.v1/";
+const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const exactKeys=(value:Record<string,unknown>,keys:string[])=>Object.keys(value).length===keys.length&&keys.every(key=>key in value);
+function validClientParams(action:ClientAction,value:unknown,qsoID:string,baseRevision:number){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;const params=value as Record<string,unknown>;
+  const common=typeof params.action==="string"&&params.action===action&&params.qsoID===qsoID;
+  if(!common)return false;
+  if(action==="delete")return exactKeys(params,["action","qsoID","baseRevision","reason"])&&
+    params.baseRevision===baseRevision&&typeof params.reason==="string"&&params.reason.length<=1024;
+  const fields=params.fields;
+  if(!fields||typeof fields!=="object"||Array.isArray(fields)||Object.keys(fields).length>64||
+      !Object.values(fields).every(item=>typeof item==="string"&&new TextEncoder().encode(item).length<=4096))return false;
+  if(action==="correct")return exactKeys(params,["action","qsoID","baseRevision","timestamp","frequencyHz","operator","fields","reason"])&&
+    params.baseRevision===baseRevision&&typeof params.timestamp==="string"&&params.timestamp.length<=64&&
+    Number.isSafeInteger(params.frequencyHz)&&Number(params.frequencyHz)>0&&typeof params.operator==="string"&&
+    typeof params.reason==="string"&&params.reason.length<=1024;
+  const keys=Object.keys(params),allowed=["action","qsoID","timestamp","frequencyHz","mode","operator","fields","serialRequestID"];
+  return keys.every(key=>allowed.includes(key))&&keys.length===(params.serialRequestID===undefined?7:8)&&
+    typeof params.timestamp==="string"&&params.timestamp.length<=64&&Number.isSafeInteger(params.frequencyHz)&&Number(params.frequencyHz)>0&&
+    typeof params.mode==="string"&&typeof params.operator==="string"&&
+    (params.serialRequestID===undefined||uuidPattern.test(String(params.serialRequestID)));
+}
+function validPendingClientMutation(value:unknown):value is PendingClientMutation{
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;const item=value as Record<string,unknown>;
+  if(!exactKeys(item,["schemaVersion","localSessionID","localWorkspaceGeneration","authoritySessionID","authorityWorkspaceGeneration",
+      "draftID","action","baseRevision","requestID","qsoID","params","createdAt"])||item.schemaVersion!==1||
+      ![item.localSessionID,item.localWorkspaceGeneration,item.authoritySessionID,item.authorityWorkspaceGeneration,item.draftID,item.requestID,item.qsoID]
+        .every(value=>uuidPattern.test(String(value)))||!["commit","correct","delete"].includes(String(item.action))||
+      !Number.isSafeInteger(item.baseRevision)||Number(item.baseRevision)<0||!Number.isSafeInteger(item.createdAt)||Number(item.createdAt)<=0)return false;
+  return validClientParams(item.action as ClientAction,item.params,item.qsoID as string,item.baseRevision as number);
+}
+function pendingScope(localSessionID:string,localWorkspaceGeneration:string,draftID:string,action:ClientAction,baseRevision:number){
+  return `${pendingClientPrefix}${localSessionID}/${localWorkspaceGeneration}/${draftID}/${action}/${baseRevision}/`;
+}
+function pendingStorageKey(item:PendingClientMutation){return `${pendingScope(item.localSessionID,item.localWorkspaceGeneration,item.draftID,item.action,item.baseRevision)}${item.qsoID}/${item.authoritySessionID}/${item.authorityWorkspaceGeneration}`;}
+function quarantinePendingClientMutation(key:string,raw:string|null,reason:"invalid"|"stale"):never{
+  const warning=`This pending contest operation is ${reason} and may already be logged by the master. Quarantine the preserved record now? You must review the master log before retrying.`;
+  if(!window.confirm(warning))throw new Error(`The ${reason} pending contest operation remains blocked; no new operation was sent.`);
+  const quarantineKey=`${pendingClientQuarantinePrefix}${Date.now()}/${crypto.randomUUID()}`;
+  localStorage.setItem(quarantineKey,raw??"");localStorage.removeItem(key);
+  throw new Error("The pending contest operation was quarantined with its raw evidence. Review the master log before retrying; this attempt was stopped.");
+}
+export function storedPendingClientMutation(scope:string,authoritySessionID:string,authorityWorkspaceGeneration:string){
+  for(let index=0;index<localStorage.length;index+=1){const key=localStorage.key(index);if(!key?.startsWith(scope))continue;
+    const raw=localStorage.getItem(key);let value:unknown;try{value=JSON.parse(raw??"");}catch{return quarantinePendingClientMutation(key,raw,"invalid");}
+    if(!validPendingClientMutation(value)||pendingStorageKey(value)!==key)return quarantinePendingClientMutation(key,raw,"invalid");
+    if(value.authoritySessionID===authoritySessionID&&value.authorityWorkspaceGeneration===authorityWorkspaceGeneration)return value;
+    return quarantinePendingClientMutation(key,raw,"stale");
+  }
+  return null;
+}
+function persistPendingClientMutation(item:PendingClientMutation){
+  const key=pendingStorageKey(item),encoded=JSON.stringify(item);localStorage.setItem(key,encoded);
+  let restored:unknown;try{restored=JSON.parse(localStorage.getItem(key)??"");}catch{restored=null;}
+  if(!validPendingClientMutation(restored)||canonicalJSON(restored)!==canonicalJSON(item))throw new Error("The pending contest operation could not be durably saved; no network operation was sent.");
+  return item;
+}
+export function authoritativeChangeRevision(row:Record<string,unknown>):number{
+  const revision=Number(row.change_revision);
+  if(!Number.isSafeInteger(revision)||revision<=0)throw new Error("Synchronise this contact's authoritative revision before changing it.");
+  return revision;
+}
 type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11" | "F12";
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
@@ -46,6 +115,8 @@ type Projection = {
   fldigiReceiveSupported?: boolean; fldigiTransmitSupported?: boolean; fldigiTransmitAvailable?: boolean;
   columns?: string[];
   history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
+  replicaCursor?: { revision:number; sequence:number } | null;
+  authoritySerialRequestID?: string | null;
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
 type MutationResult = { operationID?: string; revision?: number; projection: Projection; actions?: Data[]; messages?: string[]; replayed?: boolean; outputError?: string; effectiveMacros?: ContestSetupMacro[] };
@@ -448,6 +519,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
   const [digitalSnapshot, setDigitalSnapshot] = useState<ContestDigitalSnapshot | undefined>();
+  const [groupNetwork, setGroupNetwork] = useState<ContestGroupChatSnapshot | null>(null), groupNetworkRef=useRef<ContestGroupChatSnapshot|null>(null);
+  const [authorityDupe,setAuthorityDupe]=useState<{key:string;isDupe:boolean}|null>(null);
+  const authorityGenerationRef = useRef(0), authorityBusyRef=useRef(false), editingRef=useRef<Data|null>(null);
   const setupCatalog = useMemo<ContestSetupCatalogEntry[]>(() => catalog.map(item => ({ id: String(item.id), name: String(item.name),
     modes: item.modes, supportedBands: item.supportedBands,
     sentExchangeHint: item.sentExchangeHint, overlayChoices: item.overlayChoices })), [catalog]);
@@ -494,7 +568,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const editVersionRef = useRef(0);
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
-  projectionRef.current = projection; fieldsRef.current = fields;
+  projectionRef.current = projection; fieldsRef.current = fields;groupNetworkRef.current=groupNetwork;editingRef.current=editing;
   const selectedRadioFrequencyHz = typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
     radioFrequencyHz >= 0 ? radioFrequencyHz : null;
   const observedFrequencyHz = contestFrequency(selectedRadioFrequencyHz, activeSupportedBands, bandDefinitions);
@@ -760,6 +834,88 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       throw cause;
     }
   };
+  const configuredClient=groupNetwork?.authority?.role==="client"||setup.network.multiEnabled===true&&setup.network.multiMaster!==true;
+  const authorityClientReady=groupNetwork?.authority?.role==="client"&&["leasing","connected"].includes(groupNetwork.authority.status)&&
+    typeof groupNetwork.authority.sessionID==="string"&&typeof groupNetwork.authority.workspaceGeneration==="string";
+  const readyAuthority=()=>{const authority=groupNetworkRef.current?.authority;
+    if(authority?.role!=="client"||!["leasing","connected"].includes(authority.status)||!uuidPattern.test(String(authority.sessionID))||
+        !uuidPattern.test(String(authority.workspaceGeneration)))throw new Error("The configured contest client is waiting for its master authority.");
+    return {sessionID:authority.sessionID!,workspaceGeneration:authority.workspaceGeneration!};};
+  const pendingMutation=(action:ClientAction,base:Projection,baseRevision:number,create:()=>{qsoID:string;params:Record<string,unknown>})=>{
+    const authority=readyAuthority(),scope=pendingScope(base.sessionID,base.workspaceGeneration,base.draftID,action,baseRevision);
+    const restored=storedPendingClientMutation(scope,authority.sessionID,authority.workspaceGeneration);if(restored)return restored;
+    const created=create(),item:PendingClientMutation={schemaVersion:1,localSessionID:base.sessionID,
+      localWorkspaceGeneration:base.workspaceGeneration,authoritySessionID:authority.sessionID,
+      authorityWorkspaceGeneration:authority.workspaceGeneration,draftID:base.draftID,action,baseRevision,
+      requestID:crypto.randomUUID(),qsoID:created.qsoID,params:created.params,createdAt:Date.now()};
+    if(!validPendingClientMutation(item))throw new Error("The authoritative contest operation is invalid; no network operation was sent.");
+    return persistPendingClientMutation(item);
+  };
+  const pendingForDraft=(action:ClientAction,base:Projection)=>{
+    const authority=readyAuthority(),scope=`${pendingClientPrefix}${base.sessionID}/${base.workspaceGeneration}/${base.draftID}/${action}/`;
+    let matched:PendingClientMutation|null=null;
+    for(let index=0;index<localStorage.length;index+=1){const key=localStorage.key(index);if(!key?.startsWith(scope))continue;
+      const raw=localStorage.getItem(key);let value:unknown;try{value=JSON.parse(raw??"");}catch{return quarantinePendingClientMutation(key,raw,"invalid");}
+      if(!validPendingClientMutation(value)||pendingStorageKey(value)!==key)return quarantinePendingClientMutation(key,raw,"invalid");
+      if(value.authoritySessionID!==authority.sessionID||value.authorityWorkspaceGeneration!==authority.workspaceGeneration)
+        return quarantinePendingClientMutation(key,raw,"stale");
+      if(matched)throw new Error("More than one pending authoritative operation exists for this contest draft.");matched=value;
+    }
+    return matched;
+  };
+  const syncReplica = async (authored?:{qsoID:string;draftID:string},{background=false}:{background?:boolean}={}) => {
+    let active=projectionRef.current;if(!active)throw new Error("Open a contest before synchronising it.");
+    readyAuthority();
+    if(background&&(busyRef.current||editingRef.current||
+        !sameFields(fieldsRef.current,projectionFields(active))))return active;
+    const context={operatingContext,sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration};
+    const generation=authorityGenerationRef.current,inputVersion=editVersionRef.current,serialContest=active.reservedSerial!==null&&active.reservedSerial!==undefined;
+    let needsSerial=serialContest&&!active.authoritySerialRequestID;
+    for(let page=0;page<200;page+=1){
+      const cursor=active.replicaCursor??{revision:0,sequence:0};
+      const reserveThisPage=needsSerial&&!authored;
+      const syncRequest={operationID:crypto.randomUUID(),changesRequestID:crypto.randomUUID(),expectedRevision:active.revision,
+        fromCursor:cursor,limit:25,...(authored?{draftID:authored.draftID,authoredQSOID:authored.qsoID}:{}),
+        ...(reserveThisPage
+          ?{serialReservation:{requestID:crypto.randomUUID(),frequencyHz:active.frequencyHz}}:{})};
+      let synced;try{synced=await syncContestGroupReplicaPage(context,syncRequest);}catch{synced=await syncContestGroupReplicaPage(context,syncRequest);}
+      if(generation!==authorityGenerationRef.current)throw new Error("The group authority changed during synchronisation.");
+      const result=synced.apply.result as Data,next=result.projection as Projection,cursorResult=result.replicaCursor as Data;
+      if(!next||next.sessionID!==active.sessionID||next.workspaceGeneration!==active.workspaceGeneration||
+          !cursorResult||cursorResult.revision!==next.replicaCursor?.revision||cursorResult.sequence!==next.replicaCursor?.sequence)
+        throw new Error("The native replica returned a mismatched local projection.");
+      acceptProjection(next,inputVersion);active=next;
+      if(reserveThisPage){if(!next.authoritySerialRequestID)throw new Error("The local replica did not bind its authoritative serial reservation.");needsSerial=false;}
+      if(synced.authoredApplied){authored=undefined;needsSerial=serialContest;}
+      if(!synced.hasMore&&!needsSerial){await refresh(next.sessionID,next,logOffset);return next;}
+    }
+    throw new Error("The authoritative contest log changed too quickly to finish synchronising.");
+  };
+  const sendPendingMutation=async(item:PendingClientMutation)=>{
+    const active=projectionRef.current,authority=readyAuthority();
+    if(!active||active.sessionID!==item.localSessionID||active.workspaceGeneration!==item.localWorkspaceGeneration||
+        authority.sessionID!==item.authoritySessionID||authority.workspaceGeneration!==item.authorityWorkspaceGeneration)
+      throw new Error("The pending contest operation belongs to a stale local or group authority context.");
+    const context={operatingContext,sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration};
+    let applied;try{applied=await requestContestGroupAuthority(context,"contactApply",item.params,item.requestID);}
+    catch{applied=await requestContestGroupAuthority(context,"contactApply",item.params,item.requestID);}
+    const next=item.action==="commit"?await syncReplica({qsoID:item.qsoID,draftID:item.draftID}):await syncReplica();
+    if(item.action!=="commit"&&Number(next.replicaCursor?.revision??-1)<Number(applied.changeRevision))
+      throw new Error("The authoritative contact change has not reached the local replica.");
+    localStorage.removeItem(pendingStorageKey(item));return next;
+  };
+  const resumePendingMutations=async()=>{
+    const active=projectionRef.current,authority=readyAuthority();if(!active)return;
+    const pending:PendingClientMutation[]=[];
+    const localScope=`${pendingClientPrefix}${active.sessionID}/${active.workspaceGeneration}/`;
+    for(let index=0;index<localStorage.length;index+=1){const key=localStorage.key(index);if(!key?.startsWith(localScope))continue;
+      let value:unknown;try{value=JSON.parse(localStorage.getItem(key)??"");}catch{continue;}
+      if(validPendingClientMutation(value)&&value.localSessionID===active.sessionID&&value.localWorkspaceGeneration===active.workspaceGeneration&&
+          value.authoritySessionID===authority.sessionID&&value.authorityWorkspaceGeneration===authority.workspaceGeneration)pending.push(value);
+    }
+    pending.sort((left,right)=>left.createdAt-right.createdAt);
+    for(const item of pending)await sendPendingMutation(item);
+  };
   const flushDraft = async (supplied = projectionRef.current,
       frequencyHz = operationFrequencyHz): Promise<Projection | null> => {
     if (!supplied) return null;
@@ -890,6 +1046,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   };
   const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false,
       contestSurfaceRequestID?: string) => {
+    if (configuredClient && (method === "contest_esm" || method === "contest_function_key")) {
+      const failure=new Error("Client ESM and function keys are disabled until the master can authorize their logging action.");
+      setError(failure.message); if(throwFailures)throw failure; return null;
+    }
     const phoneAction = Boolean(projectionRef.current?.pluginID && contestPhoneIntentPlugins.has(projectionRef.current.pluginID) && projectionRef.current.mode === "SSB");
     const fldigiMode = projectionRef.current?.fldigiTransmitAvailable === true;
     const fldigiAction = Boolean(fldigiMode &&
@@ -1201,6 +1361,19 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     if (frequencyHz === null) throw new Error("Enter a frequency on a band supported by this contest before saving the correction.");
     const originalFields = editing.raw_fields && typeof editing.raw_fields === "object" && !Array.isArray(editing.raw_fields)
       ? editing.raw_fields as Record<string, unknown> : {};
+    if(configuredClient){
+      if(authorityBusyRef.current)throw new Error("The authoritative contest log is synchronising; try again.");
+      authorityBusyRef.current=true;
+      try{
+      const active=projectionRef.current,baseRevision=authoritativeChangeRevision(editing);
+      if(!active)throw new Error("The active contest authority context is unavailable.");
+      const pending=pendingMutation("correct",active,baseRevision,()=>{const qsoID=String(editing.ID);return{qsoID,params:{action:"correct",qsoID,baseRevision,
+        timestamp:editTimestamp,frequencyHz,operator:editOperator,
+        fields:{...originalFields,callsign:editCall.toUpperCase(),sent:editSent,receive:editReceived,
+          other_1:editSentExchange,other_2:editZone},reason}}});
+      const next=await sendPendingMutation(pending);setEditing(null);setConfirmDelete(false);return next;
+      }finally{authorityBusyRef.current=false;}
+    }
     const next = await runMutation(base => mutate("contest_qso_correct", base, { qsoID: editing.ID,
       timestamp: editTimestamp, frequencyHz, operator: editOperator,
       fields: { ...originalFields, callsign: editCall.toUpperCase(), sent: editSent, receive: editReceived,
@@ -1211,6 +1384,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const correct = (event: FormEvent) => { event.preventDefault();
     void saveCorrection(correctionReason).catch(cause => setError(errorMessage(cause))); };
   const deleteQSO = async (reason: string, throwFailures = false) => { if (!editing) return null;
+    if(configuredClient){
+      if(authorityBusyRef.current)throw new Error("The authoritative contest log is synchronising; try again.");
+      authorityBusyRef.current=true;
+      try{
+      const active=projectionRef.current,baseRevision=authoritativeChangeRevision(editing);
+      if(!active)throw new Error("The active contest authority context is unavailable.");
+      const pending=pendingMutation("delete",active,baseRevision,()=>{const qsoID=String(editing.ID);return{qsoID,
+        params:{action:"delete",qsoID,baseRevision,reason}}});
+      const next=await sendPendingMutation(pending);setEditing(null);setConfirmDelete(false);return next;
+      }finally{authorityBusyRef.current=false;}
+    }
     const next = await runMutation(base => mutate("contest_qso_delete", base, { qsoID: editing.ID, reason }),
       true, true, false, throwFailures);
     if (next) { setEditing(null); setConfirmDelete(false); }
@@ -1218,6 +1402,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   };
   const remove = () => { if (!editing || !confirm(`Delete ${editing.Call} from this contest?`)) return;
     void deleteQSO(deletionReason).catch(cause => setError(errorMessage(cause))); };
+  const commitEntry=async()=>{
+    if(configuredClient){
+      if(authorityBusyRef.current)throw new Error("The authoritative contest log is synchronising; try again.");
+      authorityBusyRef.current=true;
+      try{
+        const current=projectionRef.current;if(!current)throw new Error("The active contest authority context is unavailable.");
+        const restored=pendingForDraft("commit",current),base=restored?current:await syncReplica(),
+          pending=restored??pendingMutation("commit",base,base.revision,()=>{const qsoID=crypto.randomUUID();return{qsoID,
+            params:{action:"commit",qsoID,timestamp:new Date().toISOString().slice(0,19).replace("T"," "),
+              frequencyHz:base.frequencyHz,mode:base.mode,operator:base.operator??setup.operator,fields:{...fieldsRef.current},
+              ...(base.authoritySerialRequestID?{serialRequestID:base.authoritySerialRequestID}:{})}}});
+        return await sendPendingMutation(pending);
+      }finally{authorityBusyRef.current=false;}
+    }
+    return runMutation(base=>mutate("contest_qso_commit",base,{fields:fieldsRef.current,frequencyHz:base.frequencyHz}),
+      true,true,false,true);
+  };
 
   const scoreView = scoreSummary(score, projection?.pluginID);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
@@ -1289,7 +1490,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         frequencyHz, frequencyText: frequencyHz === null ? "" : String(frequencyHz),
         frequencyError: frequencyHz === null ? "Enter a frequency on a band supported by this contest." : "",
         band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode,
-        dupe: { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe
+        dupe: configuredClient ? authorityClientReady&&authorityDupe?.key===`${projection.draftID}|${(currentFields.callsign??"").trim().toUpperCase()}|${frequencyHz}|${projection.mode}`
+          ? {state:authorityDupe.isDupe?"duplicate":"clear" as const,reason:authorityDupe.isDupe?"Worked in the authoritative group log.":"Clear in the authoritative group log."}
+          : {state:"unchecked" as const,reason:"Awaiting the authoritative group duplicate check."}
+          : { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe
           ? projection.dupeExplanation ?? "Worked on this band." : "Clear for this contest." },
         validation: { errors: [], warnings: projection.countryResolved ? [] : ["Country is unresolved; scoring credit may be zero."] },
         reservedSerial,
@@ -1419,11 +1623,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
-    sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId]);
+    sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId,configuredClient,authorityClientReady,authorityDupe]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
   } : null;
+  useEffect(()=>{
+    if(!authorityClientReady||!surfaceContext||!projection){setAuthorityDupe(null);return;}
+    const call=(fields.callsign??"").trim().toUpperCase(),frequencyHz=operationFrequencyHz;
+    if(!/^[A-Z0-9/]{3,32}$/.test(call)||frequencyHz===null){setAuthorityDupe(null);return;}
+    const key=`${projection.draftID}|${call}|${frequencyHz}|${projection.mode}`,requestID=crypto.randomUUID();let cancelled=false;
+    const params={call,frequencyHz,mode:projection.mode,timestamp:new Date().toISOString().slice(0,19).replace("T"," ")};
+    void requestContestGroupAuthority(surfaceContext,"dupeInquiry",params,requestID).then(value=>{
+      if(!cancelled&&projectionRef.current?.draftID===projection.draftID)setAuthorityDupe({key,isDupe:value.isDupe===true});
+    }).catch(()=>{if(!cancelled)setAuthorityDupe(null);});
+    return()=>{cancelled=true;};
+  },[authorityClientReady,surfaceContext?.operatingContext,surfaceContext?.sessionID,surfaceContext?.workspaceGeneration,
+    projection?.draftID,projection?.mode,fields.callsign,operationFrequencyHz]);
   const handleSurfaceAction = async (action: ContestSurfaceActionEnvelope) => {
     const active = projectionRef.current;
     if (!active || !detachedAvailable || action.sessionID !== active.sessionID ||
@@ -1555,8 +1771,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         await chooseSpot(visibleWorkflowSpots[nextIndex], true); return;
       }
       case "entry_commit":
-        await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),
-          true, true, false, true); return;
+        await commitEntry();return;
       case "entry_operator_arm":
         if (!action.params.armed) clearAutoCQ();
         if (phoneReleaseBlocking) {
@@ -1679,7 +1894,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       stationName: String(setup.network.stationName ?? "").trim(),
       multiMaster: setup.network.multiMaster === true,
       contestIdentity: groupContestIdentity(setup),
-    }).catch(cause => setError(errorMessage(cause)));
+    }).then(snapshot=>{groupNetworkRef.current=snapshot;setGroupNetwork(snapshot);}).catch(cause => setError(errorMessage(cause)));
   }, [setupOnly, surfaceContext?.operatingContext, surfaceContext?.sessionID, surfaceContext?.workspaceGeneration,
     setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface,
     setup.network.stationName, setup.network.multiMaster, setup.operator, setup.pluginID, setup.settings.StartDate, setup.station.Call]);
@@ -1701,6 +1916,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           multiMaster: setup.network.multiMaster === true,
           contestIdentity: groupContestIdentity(setup),
         });
+        const snapshot=await readContestGroupNetwork(surfaceContext);
+        const previous=groupNetworkRef.current?.authority;
+        if(previous && (previous.role!==snapshot.authority.role||previous.status!==snapshot.authority.status||
+            previous.sessionID!==snapshot.authority.sessionID||previous.workspaceGeneration!==snapshot.authority.workspaceGeneration))
+          authorityGenerationRef.current+=1;
+        groupNetworkRef.current=snapshot;setGroupNetwork(snapshot);
+        if(snapshot.authority.role==="client"&&["leasing","connected"].includes(snapshot.authority.status)&&snapshot.authority.sessionID&&
+            snapshot.authority.workspaceGeneration&&!authorityBusyRef.current&&!busyRef.current&&!editingRef.current&&
+            projectionRef.current&&sameFields(fieldsRef.current,projectionFields(projectionRef.current))){
+          authorityBusyRef.current=true;try{await resumePendingMutations();await syncReplica(undefined,{background:true});}catch{/* retry quietly */}
+          finally{authorityBusyRef.current=false;}
+        }
         // Pinned Renfield responds even when its SQLite write fails. Drain these
         // transport observations, but never use them to retire the Dirty ledger.
         await takeContestGroupUnverifiedAcknowledgements(surfaceContext);
@@ -1821,14 +2048,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       <div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring || phoneReleaseBlocking || (phone ? !phoneCanSend : projection.mode !== "CW" && !fldigiPanelReady)} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div>
     </section>;
   };
-  const entryPanel: ReactNode = projection && <form className="contest-entry" aria-label={`${projection.pluginName ?? projection.pluginID} entry`} onSubmit={event => { event.preventDefault(); void runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz })); }} onKeyDown={keyDown}>
+  const directDupeKey=projection?`${projection.draftID}|${(fields.callsign??"").trim().toUpperCase()}|${operationFrequencyHz}|${projection.mode}`:"";
+  const directAuthorityDupe=configuredClient&&authorityClientReady&&authorityDupe?.key===directDupeKey?authorityDupe:null;
+  const entryPanel: ReactNode = projection && <form className="contest-entry" aria-label={`${projection.pluginName ?? projection.pluginID} entry`} onSubmit={event => { event.preventDefault(); void commitEntry().catch(cause=>setError(errorMessage(cause))); }} onKeyDown={keyDown}>
     <header><div><h2><Radio size={15}/> {projection.pluginName ?? projection.pluginID} · Not1MM</h2><p>Actual pinned Python plugin · {projection.run ? "Run" : "Search & Pounce"}</p></div><span>{busy ? "Working…" : "Ready"}</span></header>
     <ContestEntryFields callsign={visibleFields.slice(0, 1).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} className="contest-call" autoComplete="off" data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } reports={visibleFields.slice(1, 3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value)}/>) } exchange={visibleFields.slice(3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } />
     <div className="contest-entry-context"><div><span>Frequency</span>{observedFrequencyHz !== null
       ? <strong>{(observedFrequencyHz / 1e6).toFixed(6)} MHz · radio observed</strong>
       : <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
           value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)} onBlur={syncManualFrequency}/>}</div><div><span>Band / mode</span><strong>{bandLabels[String(projection.band)] ?? projection.band} · {projection.mode}</strong></div><div><span>Operating style</span><button type="button" disabled={busy || retiring} onClick={() => void runMutation(base => mutate("contest_run_state", base, { run: !base.run }), false)}>{projection.run ? "Run" : "S&P"}</button></div></div>
-    <div className={`contest-validation ${projection.dupe ? "is-duplicate" : "is-clear"}`}><strong>{projection.dupe ? "Duplicate" : "Dupe check"}</strong><span>{projection.countryResolved ? "Country resolved by xLog CTY data." : "Unknown country is retained; scoring credit may be zero."}</span></div>
+    <div className={`contest-validation ${(configuredClient?directAuthorityDupe?.isDupe:projection.dupe) ? "is-duplicate" : "is-clear"}`}>
+      <strong>{configuredClient?!directAuthorityDupe?"Authority dupe check pending":directAuthorityDupe.isDupe?"Duplicate":"Dupe check":projection.dupe?"Duplicate":"Dupe check"}</strong>
+      <span>{projection.countryResolved ? "Country resolved by xLog CTY data." : "Unknown country is retained; scoring credit may be zero."}</span></div>
     {cwPanel()}
     <footer><button type="button" disabled={busy || retiring || phoneReleaseBlocking || Boolean(projection.fldigiTransmitAvailable && !fldigiPanelReady)} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
   </form>;

@@ -400,6 +400,30 @@ def workspace_generation(state):
     return str(uuid.uuid5(uuid.UUID(state["sessionID"]), "xlog-not1mm-workspace"))
 
 
+def coordination_identity(state):
+    """Immutable-enough contest identity shared by one authoritative log and its replicas."""
+    value = state.get("coordinationBasis") or {
+        "pluginID": state["pluginID"], "sourceRevision": SOURCE_REVISION,
+        "referenceID": state["reference"]["id"], "station": state["station"],
+        "settings": state["settings"],
+    }
+    return {"pluginID": value["pluginID"], "sourceRevision": value["sourceRevision"],
+            "referenceID": value["referenceID"],
+            "coordinationDigest": hashlib.sha256(canonical(value).encode()).hexdigest()}
+
+
+def authority_identity(state):
+    return {"sessionID": state["sessionID"],
+            "workspaceGeneration": workspace_generation(state),
+            **coordination_identity(state)}
+
+
+def allocated_serial_field(state):
+    if not requires_serial(state) or state["pluginID"] in SSA_MT_PLUGINS:
+        return None
+    return "sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+
+
 class Field:
     """Only the audited plugin field API; Python rejects unknown attributes."""
     __slots__ = ("name", "value", "maximum", "visible", "accessible_name", "read_only", "enabled", "focused", "tooltip", "style_sheet")
@@ -748,14 +772,16 @@ class Desk:
         if type(speed) not in {int, float} or not 1 <= speed <= 100:
             speed = None
         plugin = PLUGIN_REGISTRY[self.state["pluginID"]]
-        allocated_serial_field = None
-        if requires_serial(self.state) and self.state["pluginID"] not in SSA_MT_PLUGINS:
-            allocated_serial_field = ("sent" if self.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS
-                                      else "other_1")
+        serial_field = allocated_serial_field(self.state)
+        replica = self.database.replica()
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
                 "reservedSerial": self.current_sn if requires_serial(self.state) else None,
-                "allocatedSerialFieldID": allocated_serial_field,
+                "allocatedSerialFieldID": serial_field,
+                "coordinationIdentity": coordination_identity(self.state),
+                "replicaCursor": ({"revision": replica["revision"], "sequence": replica["sequence"]}
+                                  if replica else None),
+                "authoritySerialRequestID": self.state.get("replicaReservation", {}).get("requestID"),
                 "sourceRevision": SOURCE_REVISION,
                 "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"), "version": "26.10.11",
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
@@ -884,7 +910,10 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "multi_contact_apply"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "multi_contact_apply", "multi_replica_apply"}
+    REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest",
+                       "qso_correct", "qso_delete", "recalculate", "setup_save", "rover_location",
+                       "multi_contact_apply"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -1198,7 +1227,9 @@ class Host:
                 match = (f"%{query}%", store.current_contest)
                 total = store.exec_sql("SELECT count(*) AS n FROM DXLOG WHERE Call LIKE ? AND ContestNR=?", match)["n"]
                 rows = store.exec_sql_mult(
-                    "SELECT d.*,i.raw_fields FROM DXLOG AS d "
+                    "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
+                    "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision "
+                    "FROM DXLOG AS d "
                     "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
                     "WHERE d.Call LIKE ? AND d.ContestNR=? "
                     "ORDER BY d.TS ASC,d.rowid ASC LIMIT ?",
@@ -1273,7 +1304,9 @@ class Host:
             expected = params.get("expectedRevision")
             require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
             rows = store.exec_sql_mult(
-                "SELECT d.*,i.raw_fields FROM DXLOG AS d "
+                "SELECT d.*,i.raw_fields,coalesce((SELECT max(a.revision) "
+                "FROM xlog_qso_audit AS a WHERE a.qso_id=d.ID),0) AS change_revision "
+                "FROM DXLOG AS d "
                 "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
                 "ORDER BY d.TS DESC,d.rowid DESC LIMIT ? OFFSET ?",
                 (limit, offset),
@@ -1383,6 +1416,7 @@ class Host:
         payload = canonical({"method": method, "params": params})
         store.begin()
         try:
+            require(not store.replica(), "A contest replica cannot serve as group authority", "replica_read_only")
             previous = store.exec_sql(
                 "SELECT payload,result FROM xlog_operation WHERE operation_id=?", (request_id,)
             )
@@ -1395,6 +1429,13 @@ class Host:
                 return result
             current = store.state(state["sessionID"])
             self.verify_engine(current)
+            if "coordinationBasis" not in current:
+                current["coordinationBasis"] = {
+                    "pluginID": current["pluginID"], "sourceRevision": SOURCE_REVISION,
+                    "referenceID": current["reference"]["id"],
+                    "station": deepcopy(current["station"]), "settings": deepcopy(current["settings"]),
+                }
+                store.save_state(current)
             require(params.get("workspaceGeneration") == workspace_generation(current),
                     "Multi-operator workspace changed", "stale_context")
             common = {"sessionID", "workspaceGeneration", "requestID"}
@@ -1411,6 +1452,8 @@ class Host:
                           "requestID": request_id, "revision": current["revision"],
                           "scope": scope, "serial": reservation["serial"],
                           "sentExchange": reserved_sent_exchange(current, reservation["serial"]),
+                           "allocatedFieldID": allocated_serial_field(current),
+                           "authority": authority_identity(current),
                           "replayed": False}
             elif method == "multi_dupe_inquiry":
                 require(set(params) == common | {"call", "frequencyHz", "mode", "timestamp"},
@@ -1436,28 +1479,65 @@ class Host:
                           "call": call, "band": BAND_LABELS[band], "mode": mode,
                           "timestamp": timestamp,
                           "isDupe": bool(desk.is_dupe(call, band, timestamp, mode)),
+                           "authority": authority_identity(current),
                           "replayed": False}
             else:
-                require(set(params) == common | {"afterRevision", "limit"},
+                require(frozenset(params) in {frozenset(common | {"afterRevision", "limit"}),
+                                              frozenset(common | {"afterRevision", "afterSequence", "limit"})},
                         "Unexpected contact change fields")
-                after, limit = params.get("afterRevision"), params.get("limit")
+                after, after_sequence, limit = (params.get("afterRevision"),
+                                                params.get("afterSequence", 2**63 - 1), params.get("limit"))
                 require(type(after) is int and 0 <= after <= current["revision"],
                         "Invalid contact change revision", "stale_cursor")
+                require(type(after_sequence) is int and after_sequence >= 0,
+                        "Invalid contact change sequence", "stale_cursor")
                 require(type(limit) is int and 1 <= limit <= 100, "Invalid contact change page limit")
-                rows = store.contact_changes(after, limit + 1)
+                rows = store.contact_changes(after, after_sequence, limit + 1)
                 has_more = len(rows) > limit
                 rows = rows[:limit]
-                changes = [{"sequence": row["sequence"], "revision": row["revision"],
-                            "requestID": row["operation_id"], "qsoID": row["qso_id"],
-                            "kind": row["kind"], "before": json.loads(row["before_json"]),
-                            "after": json.loads(row["after_json"]), "reason": row["reason"]}
-                           for row in rows]
-                next_revision = rows[-1]["revision"] if has_more else current["revision"]
+                if "afterSequence" in params:
+                    expected_sequence = after_sequence + 1
+                    for row in rows:
+                        require(row["sequence"] == expected_sequence,
+                                "Contact audit stream has a legacy gap and cannot be replicated safely",
+                                "replica_change_unsupported")
+                        expected_sequence += 1
+                changes = []
+                for row in rows:
+                    try:
+                        require(row["before_json"] is not None and row["after_json"] is not None,
+                                "Legacy contact audit image is unavailable", "replica_change_unsupported")
+                        before, after_image = json.loads(row["before_json"]), json.loads(row["after_json"])
+                        before_identity = (json.loads(row["before_identity_json"])
+                                           if row["before_identity_json"] else None)
+                        after_identity = (json.loads(row["after_identity_json"])
+                                          if row["after_identity_json"] else None)
+                    except (TypeError, ValueError, json.JSONDecodeError) as error:
+                        raise HostError("replica_change_unsupported",
+                                        "Legacy contact audit image is invalid") from error
+                    changes.append({"sequence": row["sequence"], "revision": row["revision"],
+                                    "requestID": row["operation_id"], "qsoID": row["qso_id"],
+                                    "kind": row["kind"], "before": before, "after": after_image,
+                                    "reason": row["reason"], "beforeIdentity": before_identity,
+                                    "afterIdentity": after_identity})
+                if "afterSequence" in params:
+                    # A tuple cursor describes the contact-audit stream, not the
+                    # host state revision. Empty pages therefore cannot move it.
+                    next_revision = rows[-1]["revision"] if rows else after
+                    next_sequence = rows[-1]["sequence"] if rows else after_sequence
+                else:
+                    # Preserve the revision-only contract for older callers.
+                    next_revision = rows[-1]["revision"] if has_more else current["revision"]
+                    next_sequence = (rows[-1]["sequence"]
+                                     if rows and rows[-1]["revision"] == next_revision else 0)
                 result = {"sessionID": current["sessionID"],
                           "workspaceGeneration": workspace_generation(current),
-                          "requestID": request_id, "afterRevision": after,
+                           "requestID": request_id, "afterRevision": after,
+                           "afterSequence": after_sequence,
                           "currentRevision": current["revision"], "nextRevision": next_revision,
-                          "hasMore": has_more, "changes": changes, "replayed": False}
+                           "nextSequence": next_sequence, "hasMore": has_more,
+                           "authority": authority_identity(current),
+                           "changes": changes, "replayed": False}
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)",
                                (request_id, payload, canonical(result)))
             store.finish(True)
@@ -1466,12 +1546,209 @@ class Host:
             store.finish(False)
             raise
 
+    @staticmethod
+    def replica_cursor(value, name):
+        require(isinstance(value, dict) and set(value) == {"revision", "sequence"},
+                f"Invalid {name} replica cursor", "stale_cursor")
+        revision, sequence = value["revision"], value["sequence"]
+        require(type(revision) is int and revision >= 0 and type(sequence) is int and sequence >= 0,
+                f"Invalid {name} replica cursor", "stale_cursor")
+        return revision, sequence
+
+    @staticmethod
+    def replica_identity(store, qso_id):
+        row = store.exec_sql("SELECT raw_fields,country,deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
+        if not row:
+            return None
+        return {"rawFields": json.loads(row["raw_fields"]),
+                "country": json.loads(row["country"]) if row["country"] else None,
+                "deleted": bool(row["deleted"])}
+
+    @staticmethod
+    def replica_reservation_valid(desk):
+        state, store = desk.state, desk.database
+        reservation = state.get("replicaReservation")
+        keys = {"requestID", "scope", "serial", "sentExchange", "allocatedFieldID"}
+        if not isinstance(reservation, dict) or set(reservation) != keys:
+            return False
+        try:
+            request_id = identifier(reservation["requestID"])
+            serial = reservation["serial"]
+            scope = serial_scope(state, state["draft"]["frequencyHz"])
+            if (type(serial) is not int or serial <= 0 or reservation["scope"] != scope or
+                    reservation["sentExchange"] != reserved_sent_exchange(state, serial) or
+                    reservation["allocatedFieldID"] != allocated_serial_field(state) or
+                    state["draft"].get("serial") != serial):
+                return False
+        except (HostError, KeyError, TypeError, ValueError):
+            return False
+        row = store.exec_sql(
+            "SELECT serial,operation_id,qso_id FROM xlog_serial WHERE draft_id=? AND scope=?",
+            (state["draft"]["id"], scope),
+        )
+        return bool(row and row["serial"] == serial and row["operation_id"] == request_id
+                    and row["qso_id"] is None)
+
+    def apply_replica(self, desk, params):
+        store, state = desk.database, desk.state
+        required = {"sessionID", "workspaceGeneration", "operationID", "expectedRevision",
+                    "authority", "fromCursor", "toCursor", "changes"}
+        allowed = required | {"draftID", "authoredQSOID", "nextReservation"}
+        require(required <= set(params) <= allowed, "Replica apply fields are invalid")
+        authority = params["authority"]
+        authority_keys = {"sessionID", "workspaceGeneration", "pluginID", "sourceRevision",
+                          "referenceID", "coordinationDigest"}
+        require(isinstance(authority, dict) and set(authority) == authority_keys,
+                "Replica authority identity is invalid", "authority_mismatch")
+        identifier(authority["sessionID"]); identifier(authority["workspaceGeneration"])
+        local_identity = coordination_identity(state)
+        require({key: authority[key] for key in local_identity} == local_identity,
+                "Replica contest configuration differs from the authority", "authority_mismatch")
+        start = self.replica_cursor(params["fromCursor"], "source")
+        end = self.replica_cursor(params["toCursor"], "destination")
+        require(end >= start, "Replica cursor moved backwards", "stale_cursor")
+        bound = store.replica()
+        if bound:
+            require((bound["master_session_id"], bound["master_workspace_generation"],
+                     bound["coordination_digest"]) ==
+                    (authority["sessionID"], authority["workspaceGeneration"],
+                     authority["coordinationDigest"]),
+                    "Replica authority changed", "authority_mismatch")
+            require(start == (bound["revision"], bound["sequence"]),
+                    "Replica cursor is stale", "stale_cursor")
+        else:
+            count = store.exec_sql("SELECT count(*) AS count FROM DXLOG WHERE ContestNR=?",
+                                   (store.current_contest,))["count"]
+            require(count == 0 and start == (0, 0),
+                    "A replica can bind only to an empty contest log at cursor zero", "replica_not_empty")
+            store.conn.execute("DELETE FROM xlog_serial WHERE qso_id IS NULL")
+            store.conn.execute("INSERT INTO xlog_replica VALUES(1,?,?,?,?,?)",
+                               (authority["sessionID"], authority["workspaceGeneration"],
+                                authority["coordinationDigest"], 0, 0))
+        changes = params["changes"]
+        require(isinstance(changes, list) and len(changes) <= 100, "Replica change page is invalid")
+        previous = start
+        previous_sequence = start[1]
+        authored = params.get("authoredQSOID")
+        if authored is not None:
+            authored = identifier(authored)
+            require(params.get("draftID") == state["draft"]["id"], "Draft changed", "stale_draft")
+        authored_seen = False
+        touched = {}
+        change_keys = {"sequence", "revision", "requestID", "qsoID", "kind", "before", "after",
+                       "reason", "beforeIdentity", "afterIdentity"}
+        for change in changes:
+            require(isinstance(change, dict) and set(change) == change_keys,
+                    "Replica change is malformed")
+            cursor = self.replica_cursor({"revision": change["revision"],
+                                          "sequence": change["sequence"]}, "change")
+            require(previous < cursor <= end, "Replica changes are unordered or outside the page", "stale_cursor")
+            require(change["sequence"] == previous_sequence + 1,
+                    "Replica change page omitted or reordered a contact", "replica_conflict")
+            previous = cursor
+            previous_sequence = change["sequence"]
+            request_id, qso_id = identifier(change["requestID"]), identifier(change["qsoID"])
+            kind = change["kind"]
+            require(kind in {"commit", "correct", "delete"}, "Replica change kind is invalid")
+            require(isinstance(change["reason"], str) and len(change["reason"].encode()) <= 512,
+                    "Replica change reason is invalid")
+            before, after = change["before"], change["after"]
+            require(before is None or isinstance(before, dict) and before.get("ID") == qso_id,
+                    "Replica before-image identity is invalid")
+            require(after is None or isinstance(after, dict) and after.get("ID") == qso_id,
+                    "Replica after-image identity is invalid")
+            # ContestNR is a store-local upstream row namespace. The master
+            # value is not portable across databases and must never take part
+            # in replica fencing or writes.
+            before = ({**before, "ContestNR": store.current_contest} if before is not None else None)
+            after = ({**after, "ContestNR": store.current_contest} if after is not None else None)
+            before_identity, after_identity = change["beforeIdentity"], change["afterIdentity"]
+            require(after_identity is not None and isinstance(after_identity, dict),
+                    "Replica change lacks durable identity data", "replica_change_unsupported")
+            current = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
+            current_identity = self.replica_identity(store, qso_id)
+            require(canonical(current) == canonical(before) and canonical(current_identity) == canonical(before_identity),
+                    "Replica contact differs from the authoritative before-image", "replica_conflict")
+            require((kind == "commit" and before is None and after is not None) or
+                    (kind == "correct" and before is not None and after is not None) or
+                    (kind == "delete" and before is not None and after is None),
+                    "Replica change images do not match its kind")
+            require(set(after_identity) == {"rawFields", "country", "deleted"} and
+                    isinstance(after_identity["rawFields"], dict) and
+                    type(after_identity["deleted"]) is bool and
+                    after_identity["deleted"] == (kind == "delete"),
+                    "Replica identity image is invalid")
+            if kind == "commit":
+                store.log_contact(deepcopy(after))
+                store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,?)",
+                                   (qso_id, canonical(after_identity["rawFields"]),
+                                    canonical(after_identity["country"]), int(after_identity["deleted"])))
+            elif kind == "correct":
+                store.change_contact(deepcopy(after))
+                store.conn.execute("UPDATE xlog_qso_identity SET raw_fields=?,country=?,deleted=? WHERE id=?",
+                                   (canonical(after_identity["rawFields"]), canonical(after_identity["country"]),
+                                    int(after_identity["deleted"]), qso_id))
+            else:
+                store.delete_contact(qso_id)
+                store.conn.execute("UPDATE xlog_qso_identity SET raw_fields=?,country=?,deleted=1 WHERE id=?",
+                                   (canonical(after_identity["rawFields"]), canonical(after_identity["country"]), qso_id))
+            store.conn.execute(
+                "INSERT INTO xlog_qso_audit(revision,operation_id,qso_id,kind,before_json,after_json,reason,"
+                "before_identity_json,after_identity_json) VALUES(?,?,?,?,?,?,?,?,?)",
+                (change["revision"], request_id, qso_id, kind, canonical(before), canonical(after),
+                 change["reason"], canonical(before_identity) if before_identity is not None else None,
+                 canonical(after_identity)),
+            )
+            touched[qso_id] = after
+            authored_seen = authored_seen or (qso_id == authored and kind == "commit")
+        require((not changes and end == start) or (changes and previous == end),
+                "Replica page cursor does not exactly cover its changes", "replica_conflict")
+        require(authored is None or authored_seen, "Authored contact is absent from this replica page",
+                "replica_conflict")
+        reservation = params.get("nextReservation")
+        needs_reservation = (requires_serial(state) and
+                             (not bound or authored is not None or
+                              not self.replica_reservation_valid(desk)))
+        if requires_serial(state):
+            if needs_reservation:
+                require(reservation is not None,
+                        "Replica draft requires the next master reservation", "serial_not_found")
+            else:
+                require(reservation is None,
+                        "Replica draft already has a valid authority reservation", "serial_conflict")
+        else:
+            require(reservation is None, "This replica contest does not use serials", "serial_unsupported")
+        if bound and not changes and authored is None and not needs_reservation:
+            return {"revision": end[0], "sequence": end[1], "noOp": True}
+        self.rebuild(desk)
+        for qso_id, expected in touched.items():
+            actual = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
+            if expected is not None and canonical(actual) != canonical(expected):
+                # The master audit image is authoritative. Rebuild first so
+                # correction side-effects reach other rows, then restore the
+                # exact changed row for future before-image fencing.
+                store.change_contact(deepcopy(expected))
+        if authored is not None:
+            if requires_serial(state):
+                store.conn.execute("UPDATE xlog_serial SET qso_id=? WHERE draft_id=? AND qso_id IS NULL",
+                                   (authored, state["draft"]["id"]))
+            self.advance_draft(desk)
+        if needs_reservation:
+            self.install_replica_reservation(desk, reservation, authority)
+        elif not requires_serial(state):
+            state.pop("replicaReservation", None)
+        store.conn.execute("UPDATE xlog_replica SET revision=?,sequence=? WHERE singleton=1", end)
+        return {"revision": end[0], "sequence": end[1]}
+
     def mutate(self, store, session_id, method, params):
         operation = identifier(params.get("requestID") if method == "multi_contact_apply"
                                else params.get("operationID"))
         payload = canonical({"method": method, "params": params})
         store.begin()
         try:
+            if method in self.REPLICA_BLOCKED and store.replica():
+                raise HostError("replica_read_only",
+                                "This contest is bound to a master; contacts and contest semantics are read-only")
             previous = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (operation,))
             if previous:
                 require(previous["payload"] == payload, "Operation ID was already used with another payload", "payload_conflict")
@@ -1481,6 +1758,9 @@ class Host:
                 return result
             state = store.state(session_id)
             previous_n1mm_network = deepcopy(state.get("setup", {}).get("network", {})) if state else {}
+            if state is not None and store.replica() and method in self.REPLICA_BLOCKED:
+                raise HostError("replica_read_only",
+                                "This contest is bound to a master; contacts and contest semantics are read-only")
             expected = params.get("expectedRevision", 0)
             require(type(expected) is int and expected >= 0, "Revision must be a nonnegative integer")
             new_session = False
@@ -1488,6 +1768,11 @@ class Host:
                 require(state is None, "Session already exists", "session_exists")
                 require(expected == 0, "Creation revision must be zero")
                 state = self.new_state(session_id, params)
+                state["coordinationBasis"] = {
+                    "pluginID": state["pluginID"], "sourceRevision": SOURCE_REVISION,
+                    "referenceID": state["reference"]["id"],
+                    "station": deepcopy(state["station"]), "settings": deepcopy(state["settings"]),
+                }
                 new_session = True
             elif method == "legacy_import":
                 if state is None:
@@ -1505,7 +1790,7 @@ class Host:
             else:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
-                if method in {"digital_ingest", "multi_contact_apply"}:
+                if method in {"digital_ingest", "multi_contact_apply", "multi_replica_apply"}:
                     require(params.get("workspaceGeneration") == workspace_generation(state),
                             "Contact destination belongs to another workspace", "stale_context")
                 if method == "digital_ingest":
@@ -1658,6 +1943,11 @@ class Host:
                     state["operatingMode"] = current_mode if current_mode in modes else mode
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
+                state["coordinationBasis"] = {
+                    "pluginID": state["pluginID"], "sourceRevision": SOURCE_REVISION,
+                    "referenceID": state["reference"]["id"],
+                    "station": deepcopy(state["station"]), "settings": deepcopy(state["settings"]),
+                }
                 if state["pluginID"] == "ea_rtty" and zone != "#":
                     state["draft"]["fields"]["other_1"] = zone.upper()
                 if state["pluginID"] == "darc_schwaben" and zone != "#":
@@ -1772,6 +2062,16 @@ class Host:
                                    (params["semanticIdentity"], committed[0], operation))
             elif method in {"qso_correct", "qso_delete"}:
                 self.change(desk, method, params)
+            elif method == "multi_replica_apply":
+                replica_cursor = self.apply_replica(desk, params)
+                if replica_cursor.pop("noOp", False):
+                    result = {"operationID": operation, "sessionID": session_id,
+                              "revision": state["revision"], "projection": desk.projection(),
+                              "actions": [], "messages": [], "replayed": False,
+                              "replicaCursor": replica_cursor}
+                    store.finish(True)
+                    self.remember_active_session(session_id)
+                    return result
             elif method == "multi_contact_apply":
                 common = {"sessionID", "workspaceGeneration", "requestID", "action", "qsoID"}
                 action = params.get("action")
@@ -1845,7 +2145,10 @@ class Host:
                 result["effectiveMacros"] = self.effective_macros(state)
             if method == "multi_contact_apply":
                 result.update({"requestID": operation, "qsoID": qso_id, "action": action,
-                               "changeRevision": store.latest_qso_revision(qso_id)})
+                               "changeRevision": store.latest_qso_revision(qso_id),
+                               "authority": authority_identity(state)})
+            if method == "multi_replica_apply":
+                result["replicaCursor"] = replica_cursor
             if legacy_summary is not None:
                 result["legacyImport"] = legacy_summary
             for index, action in enumerate(result["actions"]):
@@ -2749,6 +3052,57 @@ class Host:
         except ValueError as error:
             raise HostError("invalid_request", "Digital contact timestamp is invalid") from error
 
+    def advance_draft(self, desk):
+        desk.state["draft"]["id"] = str(uuid.uuid4())
+        report = default_report(operating_mode(desk.state))
+        desk.callsign.setText("")
+        desk.sent.setText(report)
+        desk.receive.setText("" if desk.state["pluginID"] == "ca_qso_party" else report)
+        desk.other_2.setText("")
+        if desk.state["pluginID"] in {
+            "cwt", "k1usn_sst", "cq_ww_rtty", "general_logging",
+            *NAME_SPC_ENTRY_PLUGINS, *QSO_PARTY_PLUGINS,
+            "ca_qso_party", "winter_field_day", "raem", "stew_perry_topband",
+        }:
+            desk.other_1.setText("")
+        if requires_serial(desk.state):
+            self.reserve_serial(desk.database, desk.state)
+            desk.current_sn = desk.state["draft"]["serial"]
+            serial_field = "sent" if desk.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+            getattr(desk, serial_field).setText("" if desk.state["pluginID"] in SSA_MT_PLUGINS
+                                                else desk.state["draft"]["fields"][serial_field])
+        desk.prev_call = ""
+        desk.current_widget = "callsign"
+
+    def install_replica_reservation(self, desk, reservation, authority):
+        state, store = desk.state, desk.database
+        keys = {"requestID", "scope", "serial", "sentExchange", "allocatedFieldID", "authority"}
+        require(isinstance(reservation, dict) and set(reservation) == keys,
+                "Replica serial reservation is invalid")
+        request_id = identifier(reservation["requestID"])
+        require(reservation["authority"] == authority, "Replica serial authority changed",
+                "authority_mismatch")
+        serial = reservation["serial"]
+        require(type(serial) is int and serial > 0, "Replica serial is invalid")
+        scope = serial_scope(state, state["draft"]["frequencyHz"])
+        require(reservation["scope"] == scope and
+                reservation["sentExchange"] == reserved_sent_exchange(state, serial) and
+                reservation["allocatedFieldID"] == allocated_serial_field(state),
+                "Replica serial reservation does not match this draft", "serial_conflict")
+        store.conn.execute("DELETE FROM xlog_serial WHERE draft_id=? AND qso_id IS NULL",
+                           (state["draft"]["id"],))
+        store.conn.execute(
+            "INSERT INTO xlog_serial(draft_id,serial,operation_id,scope,qso_id) VALUES(?,?,?,?,NULL)",
+            (state["draft"]["id"], serial, request_id, scope),
+        )
+        state["draft"]["serial"] = serial
+        serial_field = "sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+        state["draft"]["fields"][serial_field] = reservation["sentExchange"]
+        getattr(desk, serial_field).setText("" if state["pluginID"] in SSA_MT_PLUGINS
+                                            else reservation["sentExchange"])
+        desk.current_sn = serial
+        state["replicaReservation"] = {key: deepcopy(reservation[key]) for key in keys - {"authority"}}
+
     def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None, operator=None):
         fields = desk.values()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
@@ -2779,35 +3133,23 @@ class Host:
                                           "agcw_qrp", "rda_contest", "rdxc", *FINAL_VHF_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
-        self.audit(desk.database, qso_id, "commit", None, contact, revision=desk.state["revision"] + 1)
+        identity_after = {"rawFields": fields, "country": country, "deleted": False}
+        self.audit(desk.database, qso_id, "commit", None, contact,
+                   after_identity=identity_after, revision=desk.state["revision"] + 1)
         if self._n1mm_events is not None:
             self._n1mm_events.append(("contact", deepcopy(contact)))
-        desk.state["draft"]["id"] = str(uuid.uuid4())
-        report = default_report(operating_mode(desk.state))
-        desk.callsign.setText("")
-        desk.sent.setText(report)
-        desk.receive.setText("" if desk.state["pluginID"] == "ca_qso_party" else report)
-        desk.other_2.setText("")
-        if desk.state["pluginID"] in {
-            "cwt", "k1usn_sst", "cq_ww_rtty", "general_logging",
-            *NAME_SPC_ENTRY_PLUGINS, *QSO_PARTY_PLUGINS,
-            "ca_qso_party", "winter_field_day",
-            "raem", "stew_perry_topband",
-        }:
-            desk.other_1.setText("")
-        if requires_serial(desk.state):
-            self.reserve_serial(desk.database, desk.state)
-            desk.current_sn = desk.state["draft"]["serial"]
-            serial_field = "sent" if desk.state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
-            getattr(desk, serial_field).setText("" if desk.state["pluginID"] in SSA_MT_PLUGINS
-                                                else desk.state["draft"]["fields"][serial_field])
-        desk.prev_call = ""
-        desk.current_widget = "callsign"
+        self.advance_draft(desk)
 
     def change(self, desk, method, params):
         qso_id = identifier(params.get("qsoID"))
         before = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         require(bool(before), "QSO does not exist", "not_found")
+        identity_row = desk.database.exec_sql(
+            "SELECT raw_fields,country,deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
+        require(bool(identity_row), "QSO identity does not exist", "not_found")
+        identity_before = {"rawFields": json.loads(identity_row["raw_fields"]),
+                           "country": json.loads(identity_row["country"]) if identity_row["country"] else None,
+                           "deleted": bool(identity_row["deleted"])}
         reason = text(params.get("reason", "Operator correction"), 512)
         old_fields = desk.values()
         legacy = None
@@ -2957,7 +3299,13 @@ class Host:
                 "UPDATE xlog_legacy_row_receipt SET current_fields=? WHERE target_qso_id=?",
                 (canonical(after), qso_id),
             )
+        identity_row = desk.database.exec_sql(
+            "SELECT raw_fields,country,deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
+        identity_after = {"rawFields": json.loads(identity_row["raw_fields"]),
+                          "country": json.loads(identity_row["country"]) if identity_row["country"] else None,
+                          "deleted": bool(identity_row["deleted"])}
         self.audit(desk.database, qso_id, "delete" if method == "qso_delete" else "correct", before, after, reason,
+                   before_identity=identity_before, after_identity=identity_after,
                    revision=desk.state["revision"] + 1)
         if self._n1mm_events is not None:
             emitted = deepcopy(before if method == "qso_delete" else after)
@@ -3055,12 +3403,15 @@ class Host:
             for qso_id, value in points.items():
                 desk.database.conn.execute("UPDATE DXLOG SET Points=? WHERE ID=?", (value, qso_id))
 
-    def audit(self, store, qso_id, kind, before, after, reason="", revision=None):
+    def audit(self, store, qso_id, kind, before, after, reason="", revision=None,
+              before_identity=None, after_identity=None):
         require(type(revision) is int and revision > 0, "Contact audit revision is required")
         store.conn.execute(
-            "INSERT INTO xlog_qso_audit(revision,operation_id,qso_id,kind,before_json,after_json,reason) "
-            "VALUES(?,?,?,?,?,?,?)",
-            (revision, self._operation, qso_id, kind, canonical(before), canonical(after), reason),
+            "INSERT INTO xlog_qso_audit(revision,operation_id,qso_id,kind,before_json,after_json,reason,"
+            "before_identity_json,after_identity_json) VALUES(?,?,?,?,?,?,?,?,?)",
+            (revision, self._operation, qso_id, kind, canonical(before), canonical(after), reason,
+             canonical(before_identity) if before_identity is not None else None,
+             canonical(after_identity) if after_identity is not None else None),
         )
 
     @staticmethod

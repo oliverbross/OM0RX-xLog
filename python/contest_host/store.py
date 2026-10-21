@@ -54,7 +54,11 @@ class Store(DataBase):
                 qso_id TEXT NOT NULL UNIQUE, operation_id TEXT NOT NULL UNIQUE);
             CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, revision INTEGER NOT NULL,
                 operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL,
-                before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
+                before_json TEXT, after_json TEXT, reason TEXT NOT NULL,
+                before_identity_json TEXT, after_identity_json TEXT);
+            CREATE TABLE IF NOT EXISTS xlog_replica(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                master_session_id TEXT NOT NULL, master_workspace_generation TEXT NOT NULL,
+                coordination_digest TEXT NOT NULL, revision INTEGER NOT NULL, sequence INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_legacy_import(source_identity TEXT PRIMARY KEY, source_digest TEXT NOT NULL,
                 source_contest_nr INTEGER NOT NULL, source_path_name TEXT NOT NULL, imported_rows INTEGER NOT NULL,
                 source_settings TEXT NOT NULL, source_station TEXT, plugin_id TEXT NOT NULL);
@@ -97,6 +101,10 @@ class Store(DataBase):
             audit_columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(xlog_qso_audit)")}
             if "revision" not in audit_columns:
                 self.conn.execute("ALTER TABLE xlog_qso_audit ADD revision INTEGER")
+            if "before_identity_json" not in audit_columns:
+                self.conn.execute("ALTER TABLE xlog_qso_audit ADD before_identity_json TEXT")
+            if "after_identity_json" not in audit_columns:
+                self.conn.execute("ALTER TABLE xlog_qso_audit ADD after_identity_json TEXT")
             for row in self.conn.execute("SELECT sequence,operation_id FROM xlog_qso_audit WHERE revision IS NULL"):
                 receipt = self.conn.execute(
                     "SELECT result FROM xlog_operation WHERE operation_id=?", (row["operation_id"],)
@@ -335,12 +343,18 @@ class Store(DataBase):
             "SELECT coalesce(max(revision),0) AS revision FROM xlog_qso_audit WHERE qso_id=?", (qso_id,)
         )["revision"]
 
-    def contact_changes(self, after_revision, limit):
+    def contact_changes(self, after_revision, after_sequence, limit):
         return self.exec_sql_mult(
-            "SELECT sequence,revision,operation_id,qso_id,kind,before_json,after_json,reason "
-            "FROM xlog_qso_audit WHERE revision>? ORDER BY revision ASC,sequence ASC LIMIT ?",
-            (after_revision, limit),
+            "SELECT sequence,revision,operation_id,qso_id,kind,before_json,after_json,reason,"
+            "before_identity_json,after_identity_json FROM xlog_qso_audit "
+            "WHERE revision>? OR (revision=? AND sequence>?) "
+            "ORDER BY revision ASC,sequence ASC LIMIT ?",
+            (after_revision, after_revision, after_sequence, limit),
         )
+
+    def replica(self):
+        return self.exec_sql("SELECT * FROM xlog_replica WHERE singleton=1")
+
 
     def close(self):
         self.conn.close()

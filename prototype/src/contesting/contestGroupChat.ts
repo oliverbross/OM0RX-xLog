@@ -11,6 +11,13 @@ export type ContestGroupAuthoritySnapshot = {
   leaseExpiresAtMs: number | null; reconnectCursor: number;
 };
 export type ContestGroupAuthorityOperation = "serialReserve" | "dupeInquiry" | "contactApply" | "changes";
+export type ContestGroupAuthorityIdentity = { sessionID:string; workspaceGeneration:string; pluginID:string; sourceRevision:string; referenceID:string; coordinationDigest:string };
+export type ContestGroupReplicaCursor = { revision:number; sequence:number };
+export type ContestGroupAuthorityResult = Record<string, unknown> & { requestID:string; authority:ContestGroupAuthorityIdentity };
+export type ContestGroupReplicaSyncRequest={operationID:string;changesRequestID:string;expectedRevision:number;
+  fromCursor:ContestGroupReplicaCursor;limit:number;draftID?:string;authoredQSOID?:string;
+  serialReservation?:{requestID:string;frequencyHz:number}};
+export type ContestGroupReplicaSyncResult={apply:{id:string;ok:true;result:Record<string,unknown>};hasMore:boolean;authoredApplied:boolean};
 export type ContestGroupChatSnapshot = { status: "disabled" | "connected" | "error"; error: string | null; enabled: boolean;
   operator: string; multicastGroup: string; multicastPort: number; messages: ContestGroupChatMessage[]; unverifiedTransportAcknowledgements: string[];
   capabilities: { chat: boolean; contactPublication: boolean; remotePersistenceVerified: boolean; sharedSerial: boolean; duplicateInquiry: boolean; authorityLimitation: string };
@@ -19,6 +26,36 @@ const bytes = (value: string) => new TextEncoder().encode(value).length;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const contextValid = (value: ContestSurfaceContext) => uuid.test(value.operatingContext) && uuid.test(value.sessionID) && uuid.test(value.workspaceGeneration);
 const contextKey = (value: ContestSurfaceContext) => `${value.operatingContext}/${value.sessionID}/${value.workspaceGeneration}`;
+const uint = (value:unknown) => Number.isSafeInteger(value) && Number(value) >= 0;
+const exact = (value:Record<string,unknown>, keys:string[]) => Object.keys(value).length === keys.length && keys.every(key => key in value);
+function validAuthority(value:unknown): value is ContestGroupAuthorityIdentity {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item=value as Record<string,unknown>;
+  return exact(item,["sessionID","workspaceGeneration","pluginID","sourceRevision","referenceID","coordinationDigest"]) &&
+    uuid.test(String(item.sessionID)) && uuid.test(String(item.workspaceGeneration)) &&
+    [item.pluginID,item.sourceRevision,item.referenceID].every(part=>typeof part==="string"&&bytes(part)<=256) &&
+    typeof item.coordinationDigest==="string" && /^[0-9a-f]{64}$/.test(item.coordinationDigest);
+}
+function validAuthorityResult(operation:ContestGroupAuthorityOperation, value:unknown, requestID:string): value is ContestGroupAuthorityResult {
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const item=value as Record<string,unknown>;
+  if(item.requestID!==requestID||!validAuthority(item.authority)||!uint(item.revision)||typeof item.replayed!=="boolean")return false;
+  if(operation==="serialReserve")return uint(item.serial)&&typeof item.scope==="string"&&typeof item.sentExchange==="string"&&
+    (item.allocatedFieldID===null||typeof item.allocatedFieldID==="string");
+  if(operation==="dupeInquiry")return typeof item.isDupe==="boolean"&&typeof item.call==="string"&&typeof item.mode==="string"&&
+    typeof item.timestamp==="string"&&typeof item.band==="string";
+  if(operation==="contactApply")return uuid.test(String(item.qsoID))&&["commit","correct","delete"].includes(String(item.action))&&uint(item.changeRevision);
+  if(!uint(item.afterRevision)||!uint(item.afterSequence)||!uint(item.currentRevision)||!uint(item.nextRevision)||!uint(item.nextSequence)||
+      typeof item.hasMore!=="boolean"||!Array.isArray(item.changes)||item.changes.length>100)return false;
+  return item.changes.every(raw=>{if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;const change=raw as Record<string,unknown>;
+    return exact(change,["sequence","revision","requestID","qsoID","kind","before","after","reason","beforeIdentity","afterIdentity"])&&
+      uint(change.sequence)&&uint(change.revision)&&uuid.test(String(change.requestID))&&uuid.test(String(change.qsoID))&&
+      ["commit","correct","delete"].includes(String(change.kind))&&typeof change.reason==="string"&&
+      (change.before===null||typeof change.before==="object"&&!Array.isArray(change.before))&&
+      (change.after===null||typeof change.after==="object"&&!Array.isArray(change.after))&&
+      (change.beforeIdentity===null||typeof change.beforeIdentity==="object"&&!Array.isArray(change.beforeIdentity))&&
+      !!change.afterIdentity&&typeof change.afterIdentity==="object"&&!Array.isArray(change.afterIdentity);});
+}
 
 export function contestGroupChatContextFromSearch(search: string): ContestSurfaceContext {
   const query = new URLSearchParams(search), one = (key: string) => query.getAll(key).length === 1 ? query.get(key) : null;
@@ -59,12 +96,29 @@ function validSnapshot(value: unknown, maximumHistory = 200): value is ContestGr
 }
 
 export async function requestContestGroupAuthority(context: ContestSurfaceContext, operation: ContestGroupAuthorityOperation,
-    params: Record<string, unknown>, requestID = crypto.randomUUID()) {
+    params: Record<string, unknown>, requestID:string = crypto.randomUUID()) {
   if (!contextValid(context) || !uuid.test(requestID) || !params || typeof params !== "object" || Array.isArray(params))
     throw new Error("The Group authority request could not be verified.");
   const value = await invoke("contest_group_authority_request", { ...context, request: { requestID, operation, params } });
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("The Group authority returned an invalid response.");
-  return value as Record<string, unknown>;
+  const envelope=value as Record<string,unknown>;
+  if(envelope.id!==requestID||envelope.ok!==true||!validAuthorityResult(operation,envelope.result,requestID))
+    throw new Error("The Group authority returned an invalid or mismatched response.");
+  return envelope.result as ContestGroupAuthorityResult;
+}
+export async function syncContestGroupReplicaPage(context:ContestSurfaceContext,request:ContestGroupReplicaSyncRequest){
+  const paired=(request.draftID===undefined)===(request.authoredQSOID===undefined);
+  if(!contextValid(context)||!uuid.test(request.operationID)||!uuid.test(request.changesRequestID)||!uint(request.expectedRevision)||
+      !uint(request.fromCursor.revision)||!uint(request.fromCursor.sequence)||!Number.isInteger(request.limit)||request.limit<1||request.limit>25||!paired||
+      (request.draftID!==undefined&&(!uuid.test(request.draftID)||!uuid.test(request.authoredQSOID!)))||
+      (request.serialReservation!==undefined&&(!uuid.test(request.serialReservation.requestID)||!uint(request.serialReservation.frequencyHz)||request.serialReservation.frequencyHz===0)))
+    throw new Error("The native replica synchronisation request could not be verified.");
+  const value=await invoke("contest_group_replica_sync_page",{...context,request});
+  if(!value||typeof value!=="object"||Array.isArray(value))throw new Error("The native replica synchronisation response is invalid.");
+  const response=value as Record<string,unknown>,apply=response.apply as Record<string,unknown>|undefined;
+  if(typeof response.hasMore!=="boolean"||typeof response.authoredApplied!=="boolean"||!apply||apply.id!==request.operationID||apply.ok!==true||!apply.result||typeof apply.result!=="object"||Array.isArray(apply.result))
+    throw new Error("The native replica synchronisation response is mismatched.");
+  return response as ContestGroupReplicaSyncResult;
 }
 
 export async function configureContestGroupChat(context: ContestSurfaceContext, configuration: ContestGroupChatConfiguration) {

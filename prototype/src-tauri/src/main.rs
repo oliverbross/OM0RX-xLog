@@ -56,6 +56,7 @@ mod contest_surface;
 mod contest_setup_services;
 mod contest_setup_dialogs;
 mod contest_group_chat;
+mod contest_group_replica;
 mod contest_log_transfer;
 mod contest_voice;
 
@@ -2575,10 +2576,37 @@ async fn contest_group_authority_request(app: tauri::AppHandle, window: tauri::W
     session_i_d: String, workspace_generation: String,
     request: contest_group_chat::AuthorityRequest) -> Result<serde_json::Value, String> {
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    contest_group_replica::validate_renderer_authority_request(request.operation)?;
     runtime_profile::require_external_io_disabled()?;
     let key = format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation);
     tauri::async_runtime::spawn_blocking(move || app.state::<contest_group_chat::GroupChat>()
         .authority_request(&key, request)).await.map_err(|_| "Group authority task failed.".to_string())?
+}
+
+#[tauri::command]
+async fn contest_group_replica_sync_page(app: tauri::AppHandle, window: tauri::WebviewWindow,
+    operating_context: String, session_i_d: String, workspace_generation: String,
+    request: contest_group_replica::SyncPageRequest) -> Result<contest_group_replica::SyncPageResult, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    runtime_profile::require_external_io_disabled()?;
+    request.validate()?;
+    let key = format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation);
+    let generation = worker::existing_generation()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let group = app.state::<contest_group_chat::GroupChat>();
+        let changes = group.authority_request(&key, request.changes_request())?;
+        let reservation = request.reservation_request()
+            .map(|reservation| group.authority_request(&key, reservation)).transpose()?;
+        let current = contest_window_context::resolve(&context.session_id, &context.workspace_generation)?;
+        if current.operating_context != context.operating_context {
+            return Err("The contest replica context changed before its page could be applied.".into());
+        }
+        let prepared = request.prepare_apply(&context.session_id, &context.workspace_generation,
+            changes, reservation)?;
+        let apply = worker::request_existing_generation(prepared.request, generation)?;
+        Ok(contest_group_replica::SyncPageResult { apply, has_more: prepared.has_more,
+            authored_applied: prepared.authored_applied })
+    }).await.map_err(|_| "Replica synchronisation task failed; retry the same request identities.".to_string())?
 }
 
 #[tauri::command]
@@ -3157,7 +3185,7 @@ fn main() {
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
-            contest_group_authority_request,
+            contest_group_authority_request, contest_group_replica_sync_page,
             contest_voice_prepare, contest_voice_ptt,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,

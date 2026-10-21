@@ -27,6 +27,12 @@ const declarativeRule: ContestRuleMetadata = { identity: { id: "ten-ten-fall-pho
   declarativeDefinition: { definitionDigest: declarativeDigest, immutablePerSession: true, exportPurpose: "operatorArchive", submissionReady: false } };
 const session: ContestSessionSummary = { sessionID: "session-1", workspaceGeneration: "generation-1", revision: 7, name: "WW", rule, referenceDataVersion: rule.referenceDataVersion, station: { callsign: "OM0RX", cqZone: "15", dxccEntity: "Slovak Republic" }, operator: { callsign: "OM0RX", category: "Single Operator" }, qsoCount: 0, updatedAt: "2026-10-17T00:00:00Z" };
 const fields: ContestDraftFields = { callsign: "K1ABC", sentReport: "599", sentExchange: "15", receivedReport: "599", receivedExchange: "05", frequencyHz: 14025000, band: "20m", mode: "CW" };
+it.each([["6m",50_100_000],["2m",144_100_000],["23cm",1_296_100_000],["13cm",2_304_100_000]] as const)(
+  "admits %s only when the plugin advertises it",(band,frequencyHz)=>{
+    const vhfRule={...rule,supportedBands:[band]};
+    expect(()=>validateDraftFields({...fields,band,frequencyHz},vhfRule)).not.toThrow();
+    expect(()=>validateDraftFields({...fields,band,frequencyHz},{...vhfRule,supportedBands:["20m"]})).toThrow("selected rule");
+  });
 function draft(revision = 8) { return { draftID: "draft-1", sessionID: session.sessionID, workspaceGeneration: session.workspaceGeneration, revision, fields, reservedSerial: null, validation: { errors: [], warnings: [] }, dupe: { state: "clear" as const, reason: "Clear" },
   operatorReadiness: { capabilityDigest: capability.auditDigest, callsign: "ready" as const, exchange: "ready" as const, canSendCQ: false,
     canSendCall: true, canSendDuplicate: false, canReserveCall: false, canReserveCommit: false, canCommit: true }, updatedAt: "2026-10-17T00:00:01Z" }; }

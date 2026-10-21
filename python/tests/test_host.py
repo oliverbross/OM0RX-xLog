@@ -354,7 +354,10 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("setup_get")["setup"], setup)
         new_qso = self.log("DL1ABC", "14", 1)
         rows = {row["ID"]: row for row in self.read("log")["rows"]}
-        self.assertEqual({key: value for key, value in rows[qso].items() if key != "raw_fields"}, before)
+        self.assertEqual(
+            {key: value for key, value in rows[qso].items() if key not in {"raw_fields", "change_revision"}},
+            before,
+        )
         self.assertEqual(rows[qso]["raw_fields"]["other_2"], "5")
         self.assertEqual((rows[new_qso]["Operator"], rows[new_qso]["StationPrefix"], rows[new_qso]["SentNr"]),
                          ("OM0RX/P", "OM1ABC", 16))
@@ -447,7 +450,10 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("check_partial", query="NOTFOUND")["total"], 0)
         row = result["rows"][0]
         self.assertTrue({"TS", "Call", "Freq", "SNT", "RCV", "SentNr", "ZN", "WPXPrefix", "CountryPrefix", "Points"} <= set(row))
-        self.assertEqual(self.read("log", limit=1)["rows"][0]["Freq"], 14025)
+        self.assertGreater(row["change_revision"], 0)
+        self.assertEqual(result["rows"][-1]["change_revision"], 0)
+        newest = self.read("log", limit=1)["rows"][0]
+        self.assertEqual((newest["Freq"], newest["change_revision"]), (14025, 0))
         self.assertEqual(self.read("check_partial", query="ABC")["revision"], self.revision)
         self.mutate("draft_apply", fields={"callsign": "DL1ABC"})
         with self.assertRaises(HostError) as error:
@@ -821,14 +827,16 @@ class HostTests(unittest.TestCase):
             self.assertEqual(after[key], value, key)
         allowed = {"TS", "Call", "Freq", "Band", "Operator", "SNT", "RCV", "SentNr", "ZN", "NR",
                    "CountryPrefix", "Continent", "WPXPrefix", "Points", "IsMultiplier1", "IsMultiplier2",
-                   "isMultiplier3", "Dirty", "raw_fields"}
+                   "isMultiplier3", "Dirty", "raw_fields", "change_revision"}
         self.assertLessEqual({key for key in before if before[key] != after[key]}, allowed)
         audit = store.exec_sql(
             "SELECT before_json,after_json FROM xlog_qso_audit WHERE qso_id=? AND kind='correct'", (qso,))
         self.assertEqual(json.loads(audit["before_json"]),
-                         {key: value for key, value in before.items() if key != "raw_fields"})
+                         {key: value for key, value in before.items()
+                          if key not in {"raw_fields", "change_revision"}})
         self.assertEqual(json.loads(audit["after_json"]),
-                         {key: value for key, value in after.items() if key != "raw_fields"})
+                         {key: value for key, value in after.items()
+                          if key not in {"raw_fields", "change_revision"}})
 
     def test_unknown_country_retained_and_station_country_required(self):
         self.log("XX1TEST", "10")

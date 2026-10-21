@@ -12,7 +12,7 @@ type IDFactory = () => string;
 type DigestFactory = (payload: unknown) => Promise<string>;
 export type ContestOperationState = "inflight" | "uncertain" | "confirmed";
 export type ContestOperationObserver = (operation: ContestMutation, state: ContestOperationState) => void;
-const BANDS = new Set(["160m", "80m", "40m", "20m", "15m", "10m"]);
+const BANDS = new Set(["160m","80m","40m","20m","15m","10m","6m","2m","1.25m","70cm","33cm","23cm","13cm","9cm","6cm","3cm","1.25cm","6mm","4mm","2.5mm","2mm","1mm","submm"]);
 const MAX_EXPORT_BYTES = 32 * 1_024 * 1_024;
 const MAX_EXPORT_CHUNK = 64 * 1_024;
 const MAX_EXPORT_BASE64 = 4 * Math.ceil(MAX_EXPORT_CHUNK / 3);

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { compactContestSpotWorkflow, contestSpotWorkflowMaxBytes, contestSpotWorkflowMaxEntries, contestSpotWorkflowStorageKey,
   contestSpotWorkflowTTLms, decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, persistContestSpotWorkflow,
-  projectContestSpotWorkflow, updateContestSpotWorkflow } from "./Not1MMContestWorkspace";
+  projectContestSpotWorkflow, updateContestSpotWorkflow, authoritativeChangeRevision, storedPendingClientMutation } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -16,6 +16,7 @@ const nativeExport = vi.hoisted(() => ({ save: vi.fn() }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any, waitForPublication: vi.fn(async () => {}) }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
 const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: vi.fn(async () => {}),
+  read:vi.fn(async()=>({})),authority:vi.fn(),sync:vi.fn(),
   publish: vi.fn(async () => {}), acknowledgements: vi.fn(async () => [] as string[]) }));
 const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
 const nativeVoice = vi.hoisted(() => ({ play: vi.fn(async () => {}), stop: vi.fn(async () => {}) }));
@@ -28,6 +29,7 @@ vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWind
 vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog,
   useContestSetupDialogs: (owner: unknown) => { setupDialogOwner.current = owner; } }));
 vi.mock("./contestGroupChat", () => ({ configureContestGroupChat: groupChat.configure, openContestGroupChatWindow: groupChat.open,
+  readContestGroupNetwork:groupChat.read,requestContestGroupAuthority:groupChat.authority,syncContestGroupReplicaPage:groupChat.sync,
   publishContestGroupContact: groupChat.publish, takeContestGroupUnverifiedAcknowledgements: groupChat.acknowledgements }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
@@ -48,6 +50,38 @@ const workspaceGeneration = "33333333-3333-4333-8333-333333333333";
 const workspaceProps = { operatingContext, workspaceGeneration, stationCall: "OM0RX", radioFrequencyHz: 14_025_000,
   spots: [] as any[], cluster: null, stationTune: vi.fn(async () => ({ accepted:true, confirmed:true })),
   contestSpot: vi.fn(async () => ({ accepted:true, confirmed:true })) };
+const clientGroupSnapshot=()=>({status:"connected",error:null,enabled:true,operator:"OM0RX",multicastGroup:"239.1.1.1",multicastPort:2239,
+  messages:[],unverifiedTransportAcknowledgements:[],capabilities:{chat:true,contactPublication:true,remotePersistenceVerified:true,
+    sharedSerial:true,duplicateInquiry:true,authorityLimitation:"Trusted LAN"},authority:{role:"client",status:"connected",masterStation:"MASTER",
+    sessionID:crypto.randomUUID(),workspaceGeneration:crypto.randomUUID(),leaseExpiresAtMs:Date.now()+3000,reconnectCursor:1}});
+it("fails closed for missing, legacy, or malformed replicated contact revisions",()=>{
+  for(const value of [undefined,0,-1,1.5,"stale"])expect(()=>authoritativeChangeRevision({change_revision:value})).toThrow(/Synchronise/);
+  expect(authoritativeChangeRevision({change_revision:7})).toBe(7);
+});
+it("ignores unrelated corrupt pending records before parsing the current scope",()=>{
+  localStorage.setItem("xlog.contest.pending-client-mutation.v1/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/bad","{");
+  const scope="xlog.contest.pending-client-mutation.v1/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/22222222-2222-4222-8222-222222222222/commit/4/";
+  expect(storedPendingClientMutation(scope,"44444444-4444-4444-8444-444444444444","55555555-5555-4555-8555-555555555555")).toBeNull();
+});
+it("blocks stale current-scope pending evidence unless the operator confirms quarantine",()=>{
+  const scope="xlog.contest.pending-client-mutation.v1/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/22222222-2222-4222-8222-222222222222/commit/4/",
+    qsoID="66666666-6666-4666-8666-666666666666",oldAuthority="77777777-7777-4777-8777-777777777777",oldGeneration="88888888-8888-4888-8888-888888888888",
+    item={schemaVersion:1,localSessionID:"11111111-1111-4111-8111-111111111111",localWorkspaceGeneration:"33333333-3333-4333-8333-333333333333",
+      authoritySessionID:oldAuthority,authorityWorkspaceGeneration:oldGeneration,draftID:"22222222-2222-4222-8222-222222222222",action:"commit",baseRevision:4,
+      requestID:"99999999-9999-4999-8999-999999999999",qsoID,params:{action:"commit",qsoID,timestamp:"2026-10-22 03:00:00",frequencyHz:14025000,
+        mode:"CW",operator:"OM0RX",fields:{callsign:"VK6ABC"}},createdAt:1},key=`${scope}${qsoID}/${oldAuthority}/${oldGeneration}`;
+  localStorage.setItem(key,JSON.stringify(item));vi.spyOn(window,"confirm").mockReturnValue(false);
+  expect(()=>storedPendingClientMutation(scope,"44444444-4444-4444-8444-444444444444","55555555-5555-4555-8555-555555555555")).toThrow(/remains blocked/);
+  expect(localStorage.getItem(key)).toBe(JSON.stringify(item));
+});
+it("quarantines confirmed corrupt current-scope evidence without discarding its raw bytes",()=>{
+  const scope="xlog.contest.pending-client-mutation.v1/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333/22222222-2222-4222-8222-222222222222/delete/9/",
+    key=`${scope}66666666-6666-4666-8666-666666666666/77777777-7777-4777-8777-777777777777/88888888-8888-4888-8888-888888888888`,raw="{not-json";
+  localStorage.setItem(key,raw);vi.spyOn(window,"confirm").mockReturnValue(true);
+  expect(()=>storedPendingClientMutation(scope,"77777777-7777-4777-8777-777777777777","88888888-8888-4888-8888-888888888888")).toThrow(/quarantined/);
+  expect(localStorage.getItem(key)).toBeNull();const quarantine=Object.keys(localStorage).find(item=>item.startsWith("xlog.contest.pending-client-mutation-quarantine.v1/"));
+  expect(quarantine).toBeTruthy();expect(localStorage.getItem(quarantine!)).toBe(raw);
+});
 const unavailableSCP = () => ({ id: "scp-status", ok: true,
   result: { dataset: null, unavailableReason: "not_imported" } });
 const unavailableHistory = () => ({ id: "history-status", ok: true,
@@ -480,7 +514,7 @@ it("drops stale confirmed overlay state when authority disappears and reappears 
 
 it("projects Python exportFormats and rejects an unsupported Cabrillo owner action",async()=>{
   const current={...projection(),exportFormats:["adif" as const]},request=operationalRequest(()=>current);
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook).toMatchObject({canExportCabrillo:false,canExportAdif:true,canExportEdi:false}));
   const log=surfaceOwner.current.projections.logbook;
   await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
@@ -2196,6 +2230,158 @@ it("pages past QSO 100 and sends the complete correction contract", async () => 
   await waitFor(()=>expect(corrected).not.toBeNull());
   expect(corrected).toMatchObject({qsoID:"qso-001",timestamp:"2026-10-19 09:15:30",frequencyHz:7_025_000,
     operator:"OM0RX/P",fields:{callsign:"DL1ABC",sent:"579",receive:"589",other_1:"16",other_2:"14"}});
+});
+
+it("uses the replicated contact revision for a client correction and closes only after native sync",async()=>{
+  let current={...projection(),replicaCursor:{revision:8,sequence:1}},release!:()=>void;
+  const row:any={ID:"11111111-1111-4111-8111-111111111111",change_revision:8,TS:"2026-10-19 08:00:00",Call:"DL1ABC",Freq:14025,
+    Band:14,Mode:"CW",SNT:"599",RCV:"599",Operator:"OM0RX",raw_fields:{callsign:"DL1ABC",sent:"599",receive:"599",other_1:"KEEP",other_2:"14"}};
+  groupChat.configure.mockResolvedValue(clientGroupSnapshot());
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    if(method==="contest_catalog")return{id:crypto.randomUUID(),ok:true,result:{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}};
+    if(method==="contest_sessions")return{id:crypto.randomUUID(),ok:true,result:{sessions:[]}};
+    if(method==="contest_create")return{id:crypto.randomUUID(),ok:true,result:{projection:current}};
+    if(method==="contest_log_page")return{id:crypto.randomUUID(),ok:true,result:{rows:[row],offset:0,limit:20,total:1}};
+    if(method==="contest_score")return{id:crypto.randomUUID(),ok:true,result:{score:current.score,matrices:{countries:[],zones:[]}}};throw new Error(method);});
+  groupChat.authority.mockResolvedValue({});
+  groupChat.sync.mockImplementation(()=>new Promise(resolve=>{release=()=>{current={...current,revision:current.revision+1,
+    replicaCursor:{revision:(current.replicaCursor?.revision??8)+1,sequence:0}};
+    resolve({apply:{id:"ignored",ok:true,result:{projection:current,replicaCursor:current.replicaCursor}},hasMore:false,authoredApplied:true});};}));
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_edit_begin",params:{qsoID:row.ID}}));
+  const saving=surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_save",params:{qsoID:row.ID,expectedSessionRevision:current.revision}});
+  await waitFor(()=>expect(groupChat.authority).toHaveBeenCalled());
+  expect(groupChat.authority.mock.calls.at(-1)?.[2]).toMatchObject({action:"correct",qsoID:row.ID,baseRevision:8,
+    fields:expect.objectContaining({other_1:"KEEP",other_2:"14"})});
+  expect(surfaceOwner.current.projections.logbook.editing?.qsoID).toBe(row.ID);release();await act(async()=>{await saving;});
+  expect(surfaceOwner.current.projections.logbook.editing).toBeNull();row.change_revision=9;
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_begin",params:{qsoID:row.ID}}));
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_set_text",params:{qsoID:row.ID,field:"deletionReason",value:"Duplicate"}}));
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_confirm_delete",params:{qsoID:row.ID,confirmed:true}}));
+  groupChat.authority.mockRejectedValueOnce(new Error("timeout")).mockRejectedValueOnce(new Error("timeout"));
+  const firstDelete=surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_delete",params:{qsoID:row.ID,expectedSessionRevision:current.revision}});
+  await act(async()=>{await expect(firstDelete).rejects.toThrow("timeout");});
+  const timedOutCalls=groupChat.authority.mock.calls.slice(-2);expect(timedOutCalls[0][3]).toBe(timedOutCalls[1][3]);expect(timedOutCalls[0][2]).toEqual(timedOutCalls[1][2]);
+  expect(Object.keys(localStorage).some(key=>key.startsWith("xlog.contest.pending-client-mutation.v1/"))).toBe(true);
+  groupChat.authority.mockResolvedValue({changeRevision:10});
+  const deleting=surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_delete",params:{qsoID:row.ID,expectedSessionRevision:current.revision}});
+  await waitFor(()=>expect(groupChat.authority.mock.calls.length).toBeGreaterThanOrEqual(4));
+  expect(groupChat.authority.mock.calls.at(-1)?.[3]).toBe(timedOutCalls[0][3]);expect(groupChat.authority.mock.calls.at(-1)?.[2]).toEqual(timedOutCalls[0][2]);
+  release();await act(async()=>{await deleting;});expect(surfaceOwner.current.projections.logbook.editing).toBeNull();
+  expect(Object.keys(localStorage).some(key=>key.startsWith("xlog.contest.pending-client-mutation.v1/"))).toBe(false);
+});
+
+it.each(["discovering","lease_lost"] as const)("never falls back to local logging while a configured client is %s",async status=>{
+  const document=newContestSetup("OM0RX");document.network={...document.network,multiEnabled:true,multiMaster:false};
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(document));
+  const current=projection();
+  groupChat.configure.mockResolvedValue({...clientGroupSnapshot(),authority:{role:"client",status,masterStation:null,
+    sessionID:null,workspaceGeneration:null,leaseExpiresAtMs:null,reconnectCursor:0}});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};});
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const entry=surfaceOwner.current.projections["active-qso"],base={operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID()} as const;
+  await expect(surfaceOwner.current.handle({...base,action:"entry_commit",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}))
+    .rejects.toThrow(/waiting for its master authority/);
+  await expect(surfaceOwner.current.handle({...base,requestID:crypto.randomUUID(),action:"entry_operator_key",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"callsign"}}))
+    .rejects.toThrow(/disabled until the master/);
+  expect(request.mock.calls.some(([method])=>method==="contest_qso_commit"||method==="contest_esm")).toBe(false);
+  expect(groupChat.authority).not.toHaveBeenCalled();
+});
+
+it.each(["discovering","leasing","connected"] as const)("keeps the latent direct Log Now path fenced through shared client commit while %s",async status=>{
+  const document=newContestSetup("OM0RX");document.network={...document.network,multiEnabled:true,multiMaster:false};
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(document));
+  let current={...projection(),replicaCursor:{revision:1,sequence:0},authoritySerialRequestID:crypto.randomUUID()};
+  const snapshot=status!=="discovering"?{...clientGroupSnapshot(),authority:{...clientGroupSnapshot().authority,status}}:
+    {...clientGroupSnapshot(),authority:{role:"client",status:"discovering",masterStation:null,
+      sessionID:null,workspaceGeneration:null,leaseExpiresAtMs:null,reconnectCursor:0}};
+  groupChat.configure.mockResolvedValue(snapshot);
+  if(status==="leasing")groupChat.read.mockResolvedValueOnce(snapshot).mockResolvedValue({...snapshot,authority:{...snapshot.authority,status:"connected"}});
+  else groupChat.read.mockResolvedValue(snapshot);
+  groupChat.authority.mockResolvedValue({changeRevision:2});
+  groupChat.sync.mockImplementation(async(_context:any,syncRequest:any)=>{current={...current,revision:current.revision+1,
+    replicaCursor:{revision:current.replicaCursor.revision+1,sequence:0}};return{apply:{id:"ignored",ok:true,
+      result:{projection:current,replicaCursor:current.replicaCursor}},hasMore:false,authoredApplied:Boolean(syncRequest.authoredQSOID)};});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};});
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(groupChat.read).toHaveBeenCalled());
+  // Current-workspace contests render detached Main Logging, not the legacy direct form. The form's
+  // retained onSubmit and the detached action nevertheless share commitEntry, so exercise that one owner.
+  expect(screen.queryByRole("button",{name:"Log Now"})).toBeNull();const entry=surfaceOwner.current.projections["active-qso"];
+  const commit=surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_commit",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}});
+  if(status!=="discovering"){
+    await act(async()=>{await commit;});
+    await waitFor(()=>expect(groupChat.authority).toHaveBeenCalledWith(expect.anything(),"contactApply",expect.objectContaining({action:"commit"}),expect.any(String)));
+    expect(groupChat.sync.mock.calls.some(call=>Boolean(call[1].authoredQSOID))).toBe(true);
+    if(status==="leasing")await waitFor(()=>expect(groupChat.read.mock.calls.length).toBeGreaterThanOrEqual(2),{timeout:3000});
+  }else{
+    await expect(commit).rejects.toThrow(/waiting for its master authority/);
+    expect(groupChat.authority).not.toHaveBeenCalled();
+  }
+  expect(request.mock.calls.some(([method])=>method==="contest_qso_commit")).toBe(false);
+});
+
+it("does not overwrite operator input when a background client replica page returns",async()=>{
+  const document=newContestSetup("OM0RX");document.network={...document.network,multiEnabled:true,multiMaster:false};
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(document));
+  let current={...projection(),replicaCursor:{revision:1,sequence:0},authoritySerialRequestID:crypto.randomUUID()};let release!:()=>void;
+  groupChat.configure.mockResolvedValue(clientGroupSnapshot());groupChat.read.mockResolvedValue(clientGroupSnapshot());
+  groupChat.sync.mockImplementation(()=>{const remote={...current,replicaCursor:{revision:1,sequence:1}};return new Promise(resolve=>{
+    release=()=>resolve({apply:{id:"ignored",ok:true,result:{projection:remote,replicaCursor:remote.replicaCursor}},hasMore:false,authoredApplied:false});});});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    if(method==="contest_draft_apply"){current={...current,revision:current.revision+1,fields:current.fields.map(field=>({...field,value:(params.fields as any)[String(field.id)]??field.value}))};
+      return{id:crypto.randomUUID(),ok:true,result:{projection:current,actions:[],messages:[]}};}
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};});
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(groupChat.sync).toHaveBeenCalled());
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_set_text",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,field:"callsign",value:"VK6ABC"}}));
+  release();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("VK6ABC"));
+  expect(groupChat.sync.mock.calls[0][1]).not.toHaveProperty("serialReservation");
+});
+
+it("retains one authored identity across a paged client commit and clears it only after the matching page",async()=>{
+  const document=newContestSetup("OM0RX");document.network={...document.network,multiEnabled:true,multiMaster:false};
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(document));
+  let current={...projection(),replicaCursor:{revision:1,sequence:0},authoritySerialRequestID:crypto.randomUUID()},authoredPage=0;
+  groupChat.configure.mockResolvedValue(clientGroupSnapshot());groupChat.read.mockResolvedValue(clientGroupSnapshot());
+  groupChat.authority.mockResolvedValue({changeRevision:3});
+  groupChat.sync.mockImplementation(async(_context:any,syncRequest:any)=>{if(!syncRequest.authoredQSOID)
+    return{apply:{id:"ignored",ok:true,result:{projection:current,replicaCursor:current.replicaCursor}},hasMore:false,authoredApplied:false};
+    authoredPage+=1;current={...current,revision:current.revision+1,replicaCursor:authoredPage===1?{revision:2,sequence:25}:{revision:3,sequence:0}};
+    return{apply:{id:"ignored",ok:true,result:{projection:current,replicaCursor:current.replicaCursor}},hasMore:authoredPage===1,authoredApplied:authoredPage===2};});
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]}:method==="contest_sessions"?{sessions:[]}:
+      method==="contest_create"?{projection:current}:method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};});
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_commit",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  const authored=groupChat.sync.mock.calls.map(call=>call[1]).filter(request=>request.authoredQSOID);expect(authored).toHaveLength(2);
+  expect(authored[0].authoredQSOID).toBe(authored[1].authoredQSOID);expect(authored[0].draftID).toBe(authored[1].draftID);
+  expect(Object.keys(localStorage).some(key=>key.startsWith("xlog.contest.pending-client-mutation.v1/"))).toBe(false);
 });
 
 it("applies detached Entry mutations and commit through the Python session owner", async () => {

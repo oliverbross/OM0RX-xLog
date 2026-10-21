@@ -18,6 +18,9 @@ const PASSIVE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
+    if request["method"].as_str().is_some_and(|method| method.starts_with("contest_multi_")) {
+        return Err("Use the native group-authority or replica-sync owner for multi-operator requests.".into());
+    }
     if request["method"] == "station_tune" || request["method"] == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Only the shared native tune owner can dispatch simplex tuning.".into());
     }
@@ -224,6 +227,11 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_rover_location",
         "contest_statistics",
         "contest_recalculate",
+        "contest_multi_serial_reserve",
+        "contest_multi_dupe_inquiry",
+        "contest_multi_contact_apply",
+        "contest_multi_changes",
+        "contest_multi_replica_apply",
         "contest_export_prepare",
         "contest_export_read",
         "contest_export_release",
