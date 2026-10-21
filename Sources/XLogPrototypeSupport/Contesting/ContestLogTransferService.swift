@@ -9,6 +9,7 @@ import XLogCore
 #else
 import XLogPortableCore
 #endif
+import XContestCore
 
 /// Native owner for copying an immutable contest snapshot into the ordinary log.
 /// Source reads stay in the contest lane; all destination writes stay in the
@@ -145,9 +146,14 @@ actor ContestLogTransferService {
               call.range(of: #"^[A-Za-z0-9/\-]{2,32}$"#, options: .regularExpression) != nil,
               let timestamp = row["TS"] as? String, let start = utcDate(timestamp),
               let frequencyKHz = double(row["Freq"]), frequencyKHz.isFinite,
-              frequencyKHz > 0, frequencyKHz <= 1_000_000,
+              frequencyKHz > 0,
               let frequencyHz = Int64(exactly: (frequencyKHz * 1_000).rounded()),
+              (1...1_000_000_000_000).contains(frequencyHz),
               let sourceMode = string(row["Mode"], maximum: 16), !sourceMode.isEmpty else {
+            throw invalidSource()
+        }
+        let normalBand = BandPlan.band(for: frequencyHz)
+        guard let band = normalBand.isEmpty ? ContestBandPlan.band(for: frequencyHz) : normalBand else {
             throw invalidSource()
         }
         let upperMode = sourceMode.uppercased()
@@ -167,7 +173,7 @@ actor ContestLogTransferService {
             if let value = string(raw["other_1"], maximum: 512), !value.isEmpty { extra["APP_XLOG_CONTEST_SENT_EXCHANGE"] = value }
             if let value = string(raw["other_2"], maximum: 512), !value.isEmpty { extra["APP_XLOG_CONTEST_RECEIVED_EXCHANGE"] = value }
         }
-        return QSO(call: call, start: start, band: BandPlan.band(for: frequencyHz), mode: mode,
+        return QSO(call: call, start: start, band: band, mode: mode,
             submode: submode, frequencyHz: frequencyHz,
             rstSent: string(row["SNT"], maximum: 16), rstReceived: string(row["RCV"], maximum: 16),
             name: string(row["Name"], maximum: 128) ?? "", gridSquare: string(row["GridSquare"], maximum: 16) ?? "",

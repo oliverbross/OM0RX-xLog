@@ -137,4 +137,74 @@ final class ContestLogTransferTests: XCTestCase {
         XCTAssertEqual((reopened["counts"] as? [String: Any])?["alreadyTransferred"] as? Int, 1)
         XCTAssertEqual((reopened["counts"] as? [String: Any])?["pending"] as? Int, 0)
     }
+
+    func testNativeServicePreservesMicrowaveFrequenciesAndBands() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let generation = try XCTUnwrap(
+            try logbook.handle(method: "workspace_status", params: [:])["generation"] as? String)
+        let sessionID = UUID().uuidString.lowercased()
+        let rows: [[String: Any]] = [
+            ["ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:02:03",
+             "Call": "VK4ABC", "Freq": 1_296_000.0, "Mode": "CW"],
+            ["ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:03:04",
+             "Call": "VK4DEF", "Freq": 2_300_000.0, "Mode": "CW"],
+        ]
+        let source: ContestLogTransferService.ContestRequest = { method, _ in
+            if method == "contest_draft_get" {
+                return ["projection": ["sessionID": sessionID, "workspaceGeneration": generation,
+                    "revision": 1, "sourceRevision": "microwave-test"]]
+            }
+            return ["revision": 1, "total": rows.count, "rows": rows]
+        }
+        let transfer = ContestLogTransferService(logbook: logbook)
+        let prepared = try await transfer.handle(method: "contest_log_transfer_prepare", params: [
+            "sessionID": sessionID, "workspaceGeneration": generation, "expectedRevision": 1,
+        ], request: source)
+        let manifest = try XCTUnwrap(prepared["manifest"] as? [String: Any])
+        let manifestID = try XCTUnwrap(manifest["manifestID"] as? String)
+        let committed = try await transfer.handle(method: "contest_log_transfer_commit", params: [
+            "sessionID": sessionID, "workspaceGeneration": generation,
+            "expectedRevision": 1, "manifestID": manifestID,
+        ], request: source)
+
+        XCTAssertEqual((committed["counts"] as? [String: Any])?["inserted"] as? Int, 2)
+        let saved = try logbook.openedDatabase().fetchAll().sorted { $0.frequencyHz! < $1.frequencyHz! }
+        XCTAssertEqual(saved.map(\.frequencyHz), [1_296_000_000, 2_300_000_000])
+        XCTAssertEqual(saved.map(\.band), ["23cm", "13cm"])
+    }
+
+    func testNativeServiceRejectsFrequencyBeyondNormalLogBound() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let generation = try XCTUnwrap(
+            try logbook.handle(method: "workspace_status", params: [:])["generation"] as? String)
+        let sessionID = UUID().uuidString.lowercased()
+        let row: [String: Any] = [
+            "ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:02:03",
+            "Call": "VK4ABC", "Freq": 1_000_000_000.001, "Mode": "CW",
+        ]
+        let source: ContestLogTransferService.ContestRequest = { method, _ in
+            if method == "contest_draft_get" {
+                return ["projection": ["sessionID": sessionID, "workspaceGeneration": generation,
+                    "revision": 1, "sourceRevision": "upper-bound-test"]]
+            }
+            return ["revision": 1, "total": 1, "rows": [row]]
+        }
+
+        do {
+            _ = try await ContestLogTransferService(logbook: logbook).handle(
+                method: "contest_log_transfer_prepare",
+                params: ["sessionID": sessionID, "workspaceGeneration": generation, "expectedRevision": 1],
+                request: source)
+            XCTFail("A frequency beyond the normal-log limit must not be prepared")
+        } catch {
+            // Expected: the transfer must enforce the destination owner's frequency bound.
+        }
+        XCTAssertTrue(try logbook.openedDatabase().fetchAll().isEmpty)
+    }
 }
