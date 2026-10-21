@@ -67,6 +67,34 @@ it("keeps the workspace pending while a cold-start worker admission failure reco
   expect(api.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
 });
 
+it("retries bundled-worker saturation during cold-start workspace reads", async () => {
+  const backend = api.request.getMockImplementation()!;
+  let preferenceAttempts = 0;
+  api.request.mockImplementation((method, params) => method === "workspace_preferences_load" && ++preferenceAttempts === 1
+    ? Promise.reject(new Error("Station service is busy; try again.")) : backend(method, params));
+  render(<LiveApp />);
+  expect(screen.getByRole("heading", { name: "Opening your integrated logbook" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Retry connection" })).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(75); });
+  expect(preferenceAttempts).toBe(2);
+  expect(screen.getByRole("main", { name: "Separate Windows" })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "Logbook connection unavailable" })).toBeNull();
+  expect(api.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
+});
+
+it("keeps bundled-worker startup retries bounded when saturation persists", async () => {
+  const backend = api.request.getMockImplementation()!;
+  let statusAttempts = 0;
+  api.request.mockImplementation((method, params) => method === "workspace_status"
+    ? (++statusAttempts, Promise.reject(new Error("Station service is busy; try again."))) : backend(method, params));
+  render(<LiveApp />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+  expect(statusAttempts).toBe(4);
+  expect(screen.getByRole("heading", { name: "Logbook connection unavailable" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Retry connection" })).toBeTruthy();
+  expect(api.request.mock.calls.some(([method]) => method === "workspace_create")).toBe(false);
+});
+
 it("keeps conflicting main-draft recovery visible across layout reloads until explicitly resolved", async () => {
   let view!: ReturnType<typeof render>;
   await act(async () => { view = render(<LiveApp />); });

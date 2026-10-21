@@ -195,6 +195,7 @@ const rotorConfigurationJournalKey = "xlog.integration.rotorConfiguration.main.v
 const workspaceStartupRetryDelays = [75, 175, 350];
 const workspaceStartupAdmissionFailures = new Set([
   "Prototype worker is busy; try again",
+  "Station service is busy; try again.",
   "Station service unavailable; retry the request",
   "Station service unavailable",
 ]);
