@@ -76,3 +76,29 @@ it("prepares the exact active snapshot and commits only after confirmation", asy
     sessionID:"20000000-0000-4000-8000-000000000001",workspaceGeneration:"30000000-0000-4000-8000-000000000001",expectedRevision:7,manifestID:"40000000-0000-4000-8000-000000000001",
   }));
 });
+
+it("refreshes the native active session after legacy import so it can transfer immediately", async () => {
+  const api=fixture();
+  const importedContext={workspaceGeneration:"30000000-0000-4000-8000-000000000001",stationCall:"OM0RX",sessionID:"20000000-0000-4000-8000-000000000002",expectedRevision:2,contestName:"Imported CQ WW CW",qsoCount:2};
+  vi.mocked(api.context).mockResolvedValueOnce({workspaceGeneration:importedContext.workspaceGeneration,stationCall:"OM0RX"}).mockResolvedValue(importedContext);
+  render(<ContestLogTransferWindow api={api}/>);
+  fireEvent.click(screen.getByRole("tab",{name:/Active contest/}));
+  await screen.findByText("Open a contest session in Contest Setup before preparing a transfer.");
+  expect((screen.getByRole("button",{name:"Preview transfer"}) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("tab",{name:"Legacy Not1MM"}));
+  fireEvent.click(screen.getByRole("button",{name:"Choose Not1MM database…"}));
+  await screen.findByText("CQ-WW-CW · 2 contacts");
+  const review=screen.getByRole("button",{name:"Review import…"});
+  await waitFor(()=>expect((review as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button",{name:"Import 2 contacts"}));
+  await screen.findByText("2 contacts imported into a new xLog contest session.");
+  fireEvent.click(screen.getByRole("tab",{name:/Active contest/}));
+  await screen.findByText("Imported CQ WW CW");
+  const prepare=screen.getByRole("button",{name:"Preview transfer"});
+  await waitFor(()=>expect((prepare as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(prepare);
+  await waitFor(()=>expect(api.transfer).toHaveBeenCalledExactlyOnceWith("contest_log_transfer_prepare",{
+    sessionID:importedContext.sessionID,workspaceGeneration:importedContext.workspaceGeneration,expectedRevision:2,
+  }));
+});

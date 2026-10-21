@@ -50,6 +50,9 @@ export function ContestLogTransferWindow({ api = contestLogTransferAPI }: { api?
       const imported = Number((result.legacyImport as Record<string, unknown> | undefined)?.importedRows ?? contest.rowCount);
       setNotice(`${count(imported, "contact")} imported into a new xLog contest session.`);
       setConfirming(null);
+      setTransfer(null);
+      setContext(null);
+      setContext(await api.context());
     } catch (cause) { setError(message(cause)); }
     finally { setBusy(false); }
   };
