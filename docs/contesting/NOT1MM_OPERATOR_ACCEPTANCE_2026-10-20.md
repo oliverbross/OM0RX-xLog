@@ -4,6 +4,98 @@ This checkpoint records demonstrated desktop behavior for the original executabl
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
 port or a public macOS release is finished.
 
+> **Status chronology:** the newest milestone is always documented first. Every
+> later section in this file is retained as historical evidence for its named
+> candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
+> do not describe the current source or the installed 1.2.100 milestone.
+
+## Installed 1.2.100 reviewed-workflow milestone — 21 October
+
+- Exact executable source: `8435509ab4cd2af304b21a052e9f361bcf41ed3f`
+  on `codex/not1mm-contesting`, comprising logical implementation commit
+  `f017b49e` and version/provenance commit `8435509a`; both are pushed to GitHub.
+- All 94 byte-pinned original Not1MM Python plugins remain registered through the
+  Python/SQLite host. The original plugins remain the contest authority; this
+  milestone adds no Swift rule translation, JSON rule language or parallel contest
+  service.
+- Editable partial-match rows now include the authoritative decoded `raw_fields`,
+  so an older General Logging contact outside the main log page preserves values
+  such as `Name=Alice` and `Comment=portable` on unchanged or callsign-only saves.
+- The host's actual field identity, visibility, enabled state and read-only flags
+  now drive entry and edit projections. `qso_party_sn`, `ca_qso_party` and `raem`
+  keep their allocated sent serial in `sent` while required received fields remain
+  editable; contests whose original plugin owns the serial in `other_1` keep that
+  different role.
+- New Contest frequency availability follows the newly selected plugin. Changing
+  from a valid observed HF frequency to CQ WW VHF exposes manual frequency entry
+  instead of retaining the active HF contest's visibility decision.
+- Required REG1TEST EDI output is connected to the original DARC VHF, NAC VHF and
+  TA VHF/UHF Python plugin writers and to the existing native Save-panel owner.
+  The React owner no longer attempts a second completion after native success or
+  cancellation.
+
+Focused final checks passed 273 Python tests, 758 Rust tests, 261 UI/native
+contract tests and TypeScript compilation. The broad frontend run produced 3,818
+passes and one unrelated load-timing failure in `ContestWorkspace.arrlDX.test.tsx`;
+the complete affected file immediately passed 5/5 on rerun. A prior broad run at
+the same implementation boundary passed 3,819/3,819. The production frontend build
+passed. Primary CI run `39567989235` and macOS/Linux/Windows portability run
+`39567989239` both passed for the exact candidate commit. An independent final code
+review reported no release-blocking findings. These checks support the milestone;
+they are not substitutes for installed-application behavior.
+
+The packaged application's isolated acceptance report is
+`/private/tmp/xlog-1.2.100-8435509a-native-acceptance.json`; SHA-256 is
+`4ce33b93c5ab5cef5d9397ac2a76e44920f16bb3f55cbee661ea176a71820eb9`.
+It records status `passed`, embedded UI and worker present, station I/O disabled,
+and all 35 of 35 checks true.
+
+The candidate was incrementally packaged from the canonical checkout, signed and
+installed at `/Applications/OM0RX-xLog.app`. The prior installed 1.2.99 application
+is retained recoverably at
+`/Applications/OM0RX-xLog-1.2.99-backup-2026-10-21.app`. Deep strict signature
+verification passed for Developer ID team `4WCMQ4U946`; Gatekeeper reports
+`Unnotarized Developer ID`, so this is not notarized public-release acceptance.
+Candidate and installed executable hashes match:
+
+- Production executable: `511b5a2da3d237aee16679436f95f8d2b6afe6dcf6d58e7f16019ef3138724b9`
+- Swift worker: `43e726c27a058670dfa85f7f742d30a5fba7558b8fd04f760ad3884abbcb8b7d`
+- Not1MM runtime provenance: `759e2f74986a5152b4dffcef089953fbf68c3ee8b882cd8fc75e0a366be430d5`
+- Not1MM source manifest: `b7303ee4ea62f4e8e296ab6dea38ccf6086d0d84756874e0319b0638fd9f9aeb`
+
+The runtime provenance names source commit `8435509a` and Python 3.12.4. Its only
+recorded working-tree change was this acceptance-ledger file, which does not enter
+the executable; the provenance record therefore makes that documentation-only
+state explicit rather than silently claiming a clean package checkout.
+
+Actual installed-application QA exercised the separate Contest Setup, Main Logging,
+Stats and Log Display windows with native macOS close, minimize and zoom controls.
+The Contest menu exposed the original workflow windows, the New Contest selector
+showed the complete 94-plugin inventory, and selecting CQ WW VHF displayed manual
+144.200 MHz entry. The restored CQ WW VHF session showed its 50 and 144 MHz QSOs,
+plugin fields and six-point score in Main Logging, Stats and Log Display after the
+upgrade. The normal integrated logbook showed 68,431 contacts and was not replaced
+or truncated. The user's CQ WW VHF session was restored as the active session after
+the disposable checks.
+
+Installed-app QA also created a disposable DARC VHF session and confirmed that Log
+Display exposes `Export EDI...`. The attempted installed-app export was correctly
+rejected because that disposable contest's Start UTC was blank; the date control's
+accessibility rendering appeared populated even though the stored HTML value was
+empty. Therefore successful EDI file creation is established by focused
+Python/native/UI tests, not by this installed-app run. This distinction remains an
+acceptance item rather than being represented as a successful desktop export.
+
+This remains a milestone, not completion of the full Not1MM port. Receipt-backed
+normal-log transfer, lossless legacy migration, production phone/audio/PTT and
+digital-keying operation, real multi-operator networking, installed successful EDI
+save, physical RF/station behavior, sponsor-rule certification, notarization and
+public-release acceptance remain incomplete or unaccepted. Controls for unfinished
+capabilities must continue to report those limits truthfully. The next coherent
+implementation batch is repeat-safe legacy import plus contest-to-normal-log
+transfer through the existing xLog logbook service, with durable source and QSO
+receipts rather than lossy semantic deduplication.
+
 ## Installed 1.2.99 batched milestone — 21 October
 
 - Exact candidate and installed application source:
