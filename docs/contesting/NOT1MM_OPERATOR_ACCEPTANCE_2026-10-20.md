@@ -9,6 +9,103 @@ port or a public macOS release is finished.
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.2.101 milestone.
 
+## 1.3.0 source milestone before packaging — complete registry, safer workflows
+
+- Exact executable-code source through this batch is
+  `9ff49df8974485583c52472a751e36e19689cc5c` on
+  `codex/not1mm-contesting`; all implementation commits are pushed. All 94
+  byte-pinned original Not1MM plugins remain registered and executable through
+  the Python/SQLite host. Registry completeness is not represented as complete
+  operator parity.
+- Contest-to-normal-log transfer now accepts the existing BandPlan's microwave
+  frequencies instead of imposing a six-HF-band/1 GHz ceiling. Focused cases
+  preserve 1296 MHz as 23 cm and 2300 MHz as 13 cm through the normal-log owner.
+- Exact same-revision/same-payload Contest Setup publication is idempotent, so
+  React replay no longer exposes the internal “projection revision did not
+  advance” diagnostic. Lower revisions and divergent same-revision payloads
+  remain rejected.
+- Creating or reopening a contest opens the familiar separate Main Logging,
+  Band Map, Statistics, Logbook, Check Partial, Rates and Cluster windows. Their
+  open set and native geometry use the existing detached-window persistence.
+  The normal main window closes only after Main Logging exists and the other
+  guards pass; contest windows keep the application alive.
+- WSJT-X/JTDX Logged ADIF contest routing was rechecked across the real
+  Swift/native/Python path: explicit Active-contest selection, semantic
+  duplicate receipts, nonpersistent restart lease, Python-host restart receipt,
+  contest-switch/late-packet fencing and Contesting Test denial are covered.
+  This proves logged-QSO receive behavior, not modem, audio, CAT, PTT or keying.
+- DARC VHF, NAC VHF and TA VHF/UHF still execute their original EDI writers;
+  Start UTC feeds `TDate`, and the existing native no-clobber Save-panel owner
+  has one terminal completion path. Successful installed Save-panel export is
+  intentionally left for the exact 1.3.0 candidate.
+- Group Chat and retryable best-effort Renfield contact publication reuse the
+  pinned upstream protocol. Historical per-QSO Operator is preserved. Because
+  upstream `RESPONSE` is unauthenticated and does not prove persistence, it
+  never clears the durable dirty row; shared authoritative serial, dupe and log
+  synchronization remain unavailable rather than being falsely advertised.
+- Production phone macros now use the existing xLog audio-output and PTT
+  owners. The native boundary verifies every WAV/manifest, preserves slash and
+  configured token identity, applies aggregate limits before allocation, waits
+  for fresh observed TX before playback, serializes acquisition/release and
+  shutdown, retains replay tombstones for the whole contest context, and keeps
+  release uncertainty visible while blocking further sends. Contesting Test
+  performs no audio or PTT output.
+
+Automated evidence at the executable-code boundary includes 284 Python tests,
+the complete portable Swift suite, 783 Rust tests, 3,843 frontend tests across
+273 files, 9 focused native voice tests, 196 focused contest-window/voice UI
+tests, TypeScript compilation and the production frontend build. The voice/PTT
+diff also received an independent two-pass review; its final pass found no
+remaining P0/P1 issue. Exact-source CI/portability remain release gates. No
+1.3.0 application has yet been packaged, installed or notarized at this
+source-only checkpoint.
+
+Remaining acceptance includes the actual installed separate-window workflow,
+successful EDI Save panel, external WSJT-X/JTDX and fldigi receive, selected
+macOS audio-device playback, fresh TX/RX behavior over the real station path,
+physical no-output confirmation in Contesting Test, multi-host Renfield limits,
+sponsor-rule certification and public-release notarization. These evidence
+boundaries remain visible even though all 94 plugins are present.
+
+## Source milestone after installed 1.2.101 — digital contest routing and honest networking
+
+- Exact source through this recorded batch: `9c48f6a33f681a783ec657378c095b030602effd`
+  on `codex/not1mm-contesting`. Commit `6607525d` implements WSJT-X contest
+  routing; `3dccce22` and `82ac0a8b` restore portable imports; `202376c9`
+  corrects the Renfield default and capability presentation; and `9c48f6a3`
+  implements the fldigi workflow. All commits are pushed to GitHub.
+- Digital Logging Setup now keeps **Ordinary log** as its default and offers an
+  explicit **Active contest** destination only when the selected original
+  Not1MM plugin provides its executable `ft8_handler`.
+- An Active-contest lease freezes the session, plugin, workspace generation and
+  source revision. Contest switches, workspace transitions and shutdown retire
+  the lease; late datagrams cannot fall through into the normal log. Restart
+  does not silently reactivate contest routing.
+- WSJT-X ADIF input is bounded, passed through the original plugin handler and
+  committed through the existing Python/SQLite contest owner. Durable semantic
+  receipts make repeated datagrams duplicate-safe. The ordinary-log importer is
+  unchanged.
+- fldigi logged-QSO receive is separate from transmit capability. Its loopback
+  UDP ADIF path uses the same frozen contest destination and original plugin
+  handler as WSJT-X. RTTY plugins expose their original F-key text through a
+  bounded loopback XML-RPC path (`main.tx`, then `text.add_tx`); the existing
+  native output reservation serializes it against CW/carrier output. Stop,
+  disable, failure and stale-contest paths suppress the payload and make a
+  bounded best-effort return to RX. Contesting Test neither binds nor sends.
+- Contest Setup now exposes only the currently implemented Group Chat network
+  capability, using Renfield's pinned `239.1.1.1:2239` default. Shared serial,
+  dupe, log synchronization and master/client authority remain visibly
+  unavailable, and legacy hidden values are preserved rather than discarded.
+
+The combined boundary passed 282 Python tests, 311 Swift tests, 764 Rust tests,
+TypeScript compilation and the production frontend build. The affected digital
+UI files passed 103/103. Five load-timing cases that timed out only during the
+fully parallel frontend run passed 3/3 and 2/2 when rerun serially. The native
+fldigi output-owner and Contest Setup admission tests passed, as did the portable
+worker regression. These are source and automated checks, not installed-
+application, external-WSJT-X/JTDX or external-fldigi acceptance. No new
+application was packaged, signed or installed for this source milestone.
+
 ## Installed 1.2.101 migration and normal-log milestone — 21 October
 
 - Exact executable source: `cba6e3c7cae2c3dfa48d3410998821dc5d3312fb`
@@ -88,12 +185,12 @@ external services and station I/O were disabled.
 
 This remains a milestone, not completion of the full Not1MM port. Required EDI
 writers and native routing are implemented, but a successful installed Save-panel
-EDI export remains unaccepted. Production phone/audio/PTT operation, real digital
-modem/keying and destination routing, multi-operator shared serial/log/network
-behavior, physical RF/station behavior, sponsor-rule certification, notarization
-and public-release acceptance remain incomplete or unaccepted. All 94 plugins in
-the executable registry do not by themselves establish every contest-specific
-operator workflow.
+EDI export remains unaccepted. Production phone/audio/PTT operation, installed
+external WSJT-X/JTDX and fldigi integration, multi-operator shared serial/log
+authority, physical RF/station behavior, sponsor-rule certification,
+notarization and public-release acceptance remain incomplete or unaccepted. All
+94 plugins in the executable registry do not by themselves establish every
+contest-specific operator workflow.
 
 ## Installed 1.2.100 reviewed-workflow milestone — 21 October
 

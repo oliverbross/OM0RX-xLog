@@ -1,8 +1,9 @@
 # OM0RX-xLog Contesting — porting and delivery plan
 
 **Date:** 17 October 2026, Australia/Darwin  
-**Status:** IN PROGRESS — 64 of 94 original plugins execute through the pinned Python/SQLite host; full 94-entry, feature, operator, package and sponsor-rule gates remain open
-**Latest installed milestone — 21 October 2026:** version `1.2.97` is built and installed from exact source `106ef154247983c125baf613d24659b551ad39ea` on `codex/not1mm-contesting`. The batch adds ten exact pinned ARRL and Central European plugins, completes the ARRL VHF band/phone handling, preserves plugin-specific historical sent exchanges during corrections, and restores the two-pane Not1MM Log Display/Edit Contact workflow in separate xLog-styled windows. Exact-source suites passed 231 Python, 3,775 frontend, 730 Rust unit and 26 Rust integration tests. The packaged acceptance report `/private/tmp/om0rx-xlog-1.2.97-not1mm-acceptance-106ef154-20261021.json` passed all 35 of 35 checks. Actual installed-app QA opened Contest Setup, Main Logging and Log Display through the native Contest menu, retained the VK8R CQ WPX CW draft and simultaneously loaded the existing 68,411-contact normal logbook. Standard macOS window controls were present; no contact or transmit-capable state was changed. Normal logs, settings and application data were preserved. No physical RF, audio, PTT or live network-peer behavior was proved; notarization remains open. The executable catalog is now 64/94, leaving 30 plugins plus the broader workflow gates.
+**Status:** IN PROGRESS — all 94 byte-pinned original plugins are registered and execute through the pinned Python/SQLite host; operator workflow, installed-package, external-service, physical-station, multi-operator, sponsor-rule and public-release gates remain open. Registry completeness is not full Not1MM parity.
+**Latest source milestone — 21 October 2026:** executable code through `9ff49df8974485583c52472a751e36e19689cc5c` on `codex/not1mm-contesting` adds microwave normal-log transfer, idempotent setup projection, automatic separate-window contest desk opening, audited WSJT-X/JTDX contest ingestion, original EDI routing, bounded best-effort Renfield publication and production phone/audio/PTT integration with confirmed-TX playback, serialized release/shutdown, whole-context replay protection and explicit uncertainty. Automated checks include 284 Python tests, the complete portable Swift suite, 783 Rust tests, 3,843 frontend tests, focused native/UI voice regressions, TypeScript compilation and the production frontend build. The exact 1.3.0 candidate still requires exact-source CI/portability, canonical packaging/signing, installed-app operator acceptance and notarization. Real audio/PTT/RF, external digital applications and multi-host Renfield authority are not claimed.
+**Latest installed milestone — 21 October 2026:** version `1.2.101` from exact source `cba6e3c7cae2c3dfa48d3410998821dc5d3312fb` demonstrated packaged legacy import, duplicate-safe normal-log transfer, restart persistence and retained existing data. It was Developer ID signed but not notarized. The older 1.2.97 description and all smaller catalog counts below are retained as historical evidence only.
 **Implementation cadence — 21 October 2026:** continue in substantial related plugin/workflow batches. Use focused checks during implementation, broader integration at shared-boundary or milestone completion, and produce one signed application candidate only when a meaningful milestone is ready. Preserve caches and incremental builds; do not treat each commit as a release.
 **Latest combined operator source checkpoint — 18 October 2026:** accepted combined source `cabca0f9df44d1b4f3e0cf94bf02c40a50bc3fbd` on `codex/contest-rate-operator-integration` merges accepted Rate/Statistics UI `2fa999e` and contest harness `9e1c3dd` onto the accepted product lineage with no conflict resolutions. Root verified ancestry, diff and pushed remote. Combined validation passed 328 tests across 32 files plus TypeScript, five open-file tests, and bounded-child deadline/readiness/group/spawn checks; logs: `/tmp/xlog-rate-operator-integration-contesting.log` SHA-256 `bc9535370fc9369ca6ab1fe46f09a60c41fdd3a04791037bb918bd404d749511`, `/tmp/xlog-rate-operator-integration-open-files.log` SHA-256 `959ed3bbe91619707c4f542f0c60c156e440eb2f9bd58764bd0cc8834ffac393`, and `/tmp/xlog-rate-operator-integration-bounded-child.log` SHA-256 `26f543e5785c06dd1f1e40e8185468216ffa3b85699a8467a4856683b288b6bc`. The full family rehearsal result from `9e1c3dd` is pending and must be rerun against `cabca0f`; earlier preflight failures remain failures, not passes. Rate/Statistics UI repairs are root-reviewed and accepted at source, with package/runtime acceptance still open. Main 1.2.25 from `5ebc712` is installed and runtime-accepted; root verified installed host SHA-256 `5782551bcb3a12573348fef7da8d1d67788c92e42c4573cbbf1f615d2d896d3b`, worker SHA-256 `4d28ad8b255fe2ad994304ab0d1d52a8590f536337248c3b9592efdf11ab1af8`, and strict deep code-signature success. The canonical checkout is reserved for an emergency amplifier operator-verification hotfix; its replacement is pending and has no acceptance receipt yet. Contesting Test `5024b2cf1129347a8f0b1f621d2f2e7306121c90` remains installed. The accepted VHF work is a read-only plan; implementation and catalog activation remain open. These checks do not prove serialized-file or contest package/native UI acceptance. Keep published Markdown/workbook unchanged and ledger at 16 previews / 78 pending / 0 fully ported.
 **Rehearsal and VHF status correction — 18 October 2026:** the full-family rehearsal on `9e1c3ddcd4e2f8f7ddb609684f0d8c2e3de8164b` failed after 51.477 seconds with exit 1: Blank CQ did not settle for CQ WW CW Country Reference Preview CW at driver line 525, after regular CQWW CW/SSB cases progressed. Response and shutdown preflight passed; earlier preflight failures remain separate failures, not passes. Diagnosis is ongoing and the rehearsal must be rerun against `cabca0f`. VHF store implementation is assigned in isolated branch `codex/contest-vhf-grid-move` from `cabca0f`, but is not validated or accepted; worker/Rust/UI/catalog activation remain open. Main 1.2.25 runtime acceptance and emergency amplifier hotfix reservation are recorded above.
@@ -404,8 +405,8 @@ Every row is in the full programme unless explicitly marked as an upstream limit
 | F08 | cwdaemon and PyWinKeyer/SwiftKeyer network interfaces; `cwinterface.py` | Compatibility adapters through shared transmit ownership where existing direct WinKeyer is not equivalent | Protocol fixtures plus actual supported backend checks |
 | F09 | Voice WAV/phonetic sequencing, soundcard selection, radio voice memories | New audio adapter and contest voice profile; shared PTT owner | Device removal, audio end/error, Stop and PTT-release tests |
 | F10 | Macros including EXCH, PREVCALL/PREVNR, LOGIT, TX/RX, MARK, SPOT, RUN, SANDP, WIPE, VOICE1–10, RI: | Parse into typed text/actions, preview without execution; map legacy profiles with diagnostics | Token/action coverage; unsupported radio commands explicitly rejected |
-| F11 | WSJT-X logged contacts, digital handlers | Reuse parser/receiver with explicit contest destination and rule validation | Duplicate datagrams, late packets and contest-switch routing tests |
-| F12 | FLDIGI ADIF UDP and XML-RPC RTTY sends; `fldigi_sendstring.py`, main | New adapter using shared transmit lifecycle | Receive/import and transmit/return-to-RX integration evidence |
+| F11 | WSJT-X logged contacts, digital handlers | Reuse parser/receiver with explicit contest destination and rule validation | Implemented at source `6607525d`: explicit default-normal/active-contest destination, plugin-handler admission, frozen session/generation lease, duplicate receipts and late/switch/restart fences; installed external-WSJT-X acceptance remains open |
+| F12 | FLDIGI ADIF UDP and XML-RPC RTTY sends; `fldigi_sendstring.py`, main | Source implemented at `9c48f6a3`: loopback receive reuses the frozen digital contest destination; RTTY transmit uses original Python macro text, native output reservation and bounded XML-RPC | Automated receive/duplicate, capability split, transmit order, Stop/disable/failure/stale-context return-to-RX and no-I/O test-profile coverage passed; installed external-fldigi acceptance remains open |
 | F13 | CAT via rigctld, flrig, TCI; `cat_*.py` | Reuse Hamlib/TCI/embedded xCat; flrig compatibility is new work | Capability matrix per provider; observed frequency/mode and stop behavior |
 | F14 | rotctld rotator, bearings; `rotator.py`, `rot_interface.py` | Reuse xLog rotor/geo services | Existing ownership and stale-generation protections remain effective |
 | F15 | Cluster, bandmap, local mark/CQ marker, spots, tune/navigation; `clusterwindow.py`, `bandmap.py` | Reuse feed and map UI; add contest dupe/multiplier projection | Normal DX classification and contest-needed status remain distinct |
@@ -415,10 +416,10 @@ Every row is in the full programme unless explicitly marked as an upstream limit
 | F19 | Log view, edit/delete, claimed-QSO state, statistics/rate, DXCC/zone trackers | Reuse table and windows; new contest projections and rescoring | Rate windows and mult status verified against independent calculations |
 | F20 | ADIF import/export | Reuse xLog parser/unknown-field preservation; add contest mapping | Exchange, serials, IDs and app fields survive round trips |
 | F21 | Cabrillo per-plugin output | New versioned serializers; preserve supported fields/encoding | Exact header/QSO fixtures, frequency units and per-contest format validation |
-| F22 | EDI: DARC VHF, NAC VHF, TA VHF/UHF | New EDI serializers using existing geo helpers | Three family-specific golden outputs and distance/grid checks |
+| F22 | EDI: DARC VHF, NAC VHF, TA VHF/UHF | Execute the three original pinned Python writers and reuse the native Save-panel owner | Implemented at source `f017b49e` with host/native/UI regression coverage; installed Save-panel and golden-file acceptance remains open |
 | F23 | Real-time XML scoreboard; `rtc_service.py`, `online_score_xml` | New optional reporter, secure credential store, bounded background work | Recorded payloads, interval/error/retry tests; live opt-in acceptance |
 | F24 | N1MM-style radio/contact/update/delete/score packets; `lib/n1mm.py` | New optional UDP output adapter | Wire fixtures and receiver verification; no claim of N1MM+ interoperability |
-| F25 | Multi-Multi master/client, serial/dupe queries, contact replay, chat | Separate network workstream; renfield protocol dependency | Multiple hosts, disconnect/reconnect, conflict and serial uniqueness evidence |
+| F25 | Multi-Multi master/client, serial/dupe queries, contact replay, chat | Separate compatibility workstream pinned to Renfield `102f9b41e562e4f9941d0ff37196fdc40b4ab73d` (26.10.4); existing Group Chat covers chat only | Shared serial/log authority remains experimental upstream; require multiple-host disconnect/reconnect, replay, conflict and serial-uniqueness evidence before enabling it |
 | F26 | Operator change and rover location | New immutable operator/location snapshots on QSO | Changes do not rewrite earlier QSOs or invalidate archived score silently |
 | F27 | Remote VFO/Pico USB knob; `vfo.py`, `usb_vfo_knob/` | Portable explicit device selection through station owner | Windows COM, macOS and Linux serial permission/hotplug tests |
 | F28 | Languages, theme, fonts, docking and preferences | Use xLog appearance/window behavior; migrate relevant language text and settings | Same UI conventions, scaled layouts, keyboard labels and translations review |
@@ -653,7 +654,7 @@ Initial measurable targets, to be confirmed on documented reference machines at 
 | Current normal draft/sync/WSJT-X endpoints assume normal logging | Introduce explicit operating-context routing before contest use | Shared integration / P3–P8 |
 | Serial sent before logging, uncertain send or network partition | Durable reservations; no automatic reuse; defined multi-station authority | Core/network / P3, P10 |
 | Existing Linux/Windows live service gaps | Continuous native builds from P1; per-feature capability matrix and real acceptance | Platform / P11 |
-| renfield is external and upstream Multi-Multi is experimental | Pin and inspect dependency at P10; characterize protocol before compatibility claims | Network / P10 |
+| renfield is external and upstream Multi-Multi is experimental | Pinned/audited at `102f9b41e562e4f9941d0ff37196fdc40b4ab73d`: IPv4 multicast `239.1.1.1:2239`, ASCII JSON, 2,048-byte datagrams and 10-second PING; lack of authentication, request IDs, idempotent serial allocation and authoritative resync keeps shared log/serial disabled pending fault-tested compatibility | Network / P10 |
 | Raw CAT macros bypass current safety model | Typed mappings/capability allowlist; explicit unsupported-command report | Station owner / P6 |
 | Source data/font/audio licences differ from code | Inventory each reused asset; retain provenance/notices; replace assets if needed | Packaging / P1, P12 |
 | Source is GPL-3.0-or-later; xLog carries GPLv3 | Preserve attribution and applicable source/notice obligations; verify dependency combinations before release | Release / P1, P12 |
@@ -674,7 +675,16 @@ Pinned upstream: [contest-sw tree at 7c8b499](https://github.com/oliverbross/con
 
 ## Appendix A. Complete source plugin inventory
 
-The following inventory is extracted from the pinned source and reconciled against all 94 selector entries. All are **pending** implementation/equivalence review. Mode and duplicate type are source declarations, not independently certified contest rules. Dupe types: **1** once per contest, **2** per band, **3** per band/mode, **4** unrestricted, **5** custom. Digital hook means `ft8_handler` exists; it does not imply FT8 is permitted by that contest's rules.
+The following table is the original planning inventory extracted from the pinned
+source. Its repeated **Pending** cells are retained as a historical per-plugin
+acceptance baseline; they no longer mean that the plugin is absent from the
+runtime. Current source registers all 94 byte-pinned original plugins and invokes
+their executable Python behavior. Per-contest operator and sponsor-rule acceptance
+still remains distinct from registry completeness and is recorded in the operator
+acceptance ledger. Mode and duplicate type are source declarations, not
+independently certified contest rules. Dupe types: **1** once per contest, **2**
+per band, **3** per band/mode, **4** unrestricted, **5** custom. Digital hook means
+`ft8_handler` exists; it does not imply FT8 is permitted by that contest's rules.
 
 Proposed batching: start with CQ WW/CQ WPX CW; follow with their mode variants and common HF families; then name/state/section and national contests; then VHF/distance/rover/time-block/bonus rules and generic/expedition mappings. Each module remains a separate acceptance row even when it shares implementation with another mode.
 
@@ -715,7 +725,7 @@ Proposed batching: start with CQ WW/CQ WPX CW; follow with their mode variants a
 | 33 | `cwo.py` | CWOPS - Open | CW | 2 | ft8_handler | Pending |
 | 34 | `cwt.py` | CWT | CW | 2 | ft8_handler | Pending |
 | 35 | `darc_schwaben.py` | DARC SCHWABEN | BOTH | 3 | — | Pending |
-| 36 | `darc_vhf.py` | DARC VHF | BOTH | 3 | edi | Pending |
+| 36 | `darc_vhf.py` | DARC VHF | BOTH | 3 | edi | Original writer connected; installed Save-panel/golden acceptance open |
 | 37 | `darc_xmas.py` | DARC XMAS | BOTH | 3 | — | Pending |
 | 38 | `dxpedition.py` | DX-Pedition | BOTH | 4 | ft8_handler | Pending |
 | 39 | `ea_majestad_cw.py` | His Maj. King of Spain Contest, CW | CW | 2 | ft8_handler | Pending |
@@ -740,7 +750,7 @@ Proposed batching: start with CQ WW/CQ WPX CW; follow with their mode variants a
 | 58 | `k1usn_sst.py` | K1USN SLOW SPEED TEST | CW | 2 | ft8_handler | Pending |
 | 59 | `labre_rs_digi.py` | LABRE-RS Digi | RTTY | 2 | ft8_handler | Pending |
 | 60 | `lz-dx.py` | LZ DX | BOTH | 3 | — | Pending |
-| 61 | `nac_vhf.py` | NAC VHF | BOTH | 1 | edi | Pending |
+| 61 | `nac_vhf.py` | NAC VHF | BOTH | 1 | edi | Original writer connected; installed Save-panel/golden acceptance open |
 | 62 | `naqp_cw.py` | NAQP CW | CW | 2 | — | Official-rules plain-logging preview; full operating/submission gates open |
 | 63 | `naqp_rtty.py` | NAQP RTTY | RTTY | 2 | ft8_handler | Official-rules plain-logging preview; full operating/submission gates open |
 | 64 | `naqp_ssb.py` | NAQP SSB | SSB | 2 | — | Official-rules plain-logging preview; full operating/submission gates open |
@@ -766,7 +776,7 @@ Proposed batching: start with CQ WW/CQ WPX CW; follow with their mode variants a
 | 84 | `ssa_mt_cw.py` | SSA MT CW | CW | 2 | — | Pending |
 | 85 | `ssa_mt_ssb.py` | SSA MT SSB | SSB | 2 | — | Pending |
 | 86 | `stew_perry_topband.py` | Stew Perry Topband | CW | 1 | — | Pending |
-| 87 | `ta_vhf_uhf_contest.py` | TA VHF UHF | BOTH | 3 | edi | Pending |
+| 87 | `ta_vhf_uhf_contest.py` | TA VHF UHF | BOTH | 3 | edi | Original writer connected; installed Save-panel/golden acceptance open |
 | 88 | `trans_tasman.py` | Trans Tasman | BOTH | 5 | — | Pending |
 | 89 | `ukeidx.py` | UKEI-DX | BOTH | 2 | — | Pending |
 | 90 | `vhf_sprint.py` | VHF SPRINT | BOTH | 3 | ft8_handler | Pending |
