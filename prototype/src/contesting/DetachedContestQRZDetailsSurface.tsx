@@ -72,7 +72,8 @@ export function ContestQRZDetailsSurface({ search = window.location.search,
   const revision = useRef(0);
   const refresh = useCallback(async () => {
     const snapshot = await readContestSurfaceSnapshot(context);
-    if (snapshot.panelID !== "qrz-details" || snapshot.projection.status !== "ready" || snapshot.projection.schemaVersion !== 2)
+    if (snapshot.panelID !== "qrz-details" || snapshot.projection.status !== "ready" || snapshot.projection.schemaVersion !== 2 ||
+        !("draft" in snapshot.projection))
       throw new Error("The contest draft is not available for QRZ Details.");
     if (snapshot.projectionRevision >= revision.current) {
       revision.current = snapshot.projectionRevision;

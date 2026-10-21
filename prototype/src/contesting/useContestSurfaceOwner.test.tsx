@@ -98,8 +98,8 @@ it("rejects stale contest spot selection before the owner can tune or mutate",as
     if(command==="contest_surface_action_complete"){completed.push(args);return;}
     throw new Error(command);
   });
-  const spotProjection={schemaVersion:1 as const,status:"ready" as const,draftID:"draft-1",draftRevision:5,
-    radioFrequencyHz:14_025_000,connectedClusters:1,loadedSpots:0,spots:[],busy:false};
+  const spotProjection={schemaVersion:2 as const,status:"ready" as const,draftID:"draft-1",draftRevision:5,
+    radioFrequencyHz:14_025_000,connectedClusters:1,loadedSpots:0,selectedSpotID:null,markedOnly:false,spots:[],busy:false};
   const projections={...unavailable(),"band-maps":spotProjection},handle=vi.fn(async()=>{});
   const view=render(<Harness projections={projections} handle={handle}/>);
   await waitFor(()=>expect(native.wake).toBeTypeOf("function"));

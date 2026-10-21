@@ -12,7 +12,7 @@ import { not1mmHistoryCandidate } from "./contestCallHistory";
 import type { ContestRequest } from "./types";
 import { contestInputFieldIDs, contestSurfacePanelIDs, type ContestInputFieldID, type ContestSurfaceActionEnvelope, type ContestSurfacePanelID,
   type ContestSurfaceProjection, type ContestManualRow, type ContestManualContext, type ContestPluginLogRow,
-  type ContestStatisticsRow, validContestSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestStatisticsRow, type ContestSurfaceSpot, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
 import { openContestCallHistoryWindow, openContestSurfaceWindow } from "./contestSurfaceNative";
@@ -84,6 +84,7 @@ type Props = {
 
 const activeSessionKey = "xlog.contesting.not1mm.active-session.v1";
 const setupDraftKey = "xlog.contesting.not1mm.setup-draft.v1";
+const spotWorkflowKey = "xlog.contesting.not1mm.spot-workflow.v1";
 const logPageSize = 20;
 const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
@@ -265,8 +266,54 @@ function contestSurfaceSpots(spots: BandMapSpot[]) {
       workedBefore:uintOrNull(spot.workedBefore),specialTags:strings(spot.specialTags,32,64),score:Math.max(0,Number(spot.score)||0),
       scoreReasons:strings(spot.scoreReasons,64,160),aggregateCount:uintOrNull(spot.aggregateCount)??0,
       aggregateSpotters:strings(spot.aggregateSpotters,64,64),source:bounded(spot.source),statusHex:bounded(spot.statusHex),
-      bandHex:bounded(spot.bandHex),modeHex:bounded(spot.modeHex)}];
+      bandHex:bounded(spot.bandHex),modeHex:bounded(spot.modeHex),marked:false}];
   });
+}
+
+type SpotWorkflowEntry = { spot: ContestSurfaceSpot; deleted: boolean };
+type SpotWorkflow = { sessionID: string; markedOnly: boolean; entries: Record<string, SpotWorkflowEntry> };
+const emptySpotWorkflow = (sessionID = ""): SpotWorkflow => ({ sessionID, markedOnly: false, entries: {} });
+export const encodeContestSpotWorkflow=(workflow:SpotWorkflow)=>JSON.stringify(workflow);
+export function decodeContestSpotWorkflow(raw:string|null,sessionID:string):SpotWorkflow{
+  try{
+    const value=JSON.parse(raw??"null") as SpotWorkflow|null,entries=value?.entries;
+    if(value?.sessionID!==sessionID||typeof value.markedOnly!=="boolean"||!entries||typeof entries!=="object"||Array.isArray(entries))
+      return emptySpotWorkflow(sessionID);
+    const spots:ContestSurfaceSpot[]=[];
+    for(const [id,entry] of Object.entries(entries)){
+      if(!entry||typeof entry!=="object"||typeof entry.deleted!=="boolean"||entry.spot?.id!==id)return emptySpotWorkflow(sessionID);
+      spots.push(entry.spot);
+    }
+    const projection={schemaVersion:2,status:"ready",draftID:"persistence-check",draftRevision:0,radioFrequencyHz:null,
+      connectedClusters:0,loadedSpots:spots.length,selectedSpotID:null,markedOnly:value.markedOnly,spots,busy:false};
+    return validContestSurfaceProjection("band-maps",projection)?value:emptySpotWorkflow(sessionID);
+  }catch{return emptySpotWorkflow(sessionID);}
+}
+function restoredSpotWorkflow(sessionID: string): SpotWorkflow {
+  try {
+    return decodeContestSpotWorkflow(localStorage.getItem(spotWorkflowKey),sessionID);
+  } catch { /* A malformed or unavailable preference starts a fresh session overlay. */ }
+  return emptySpotWorkflow(sessionID);
+}
+export function projectContestSpotWorkflow(spots: ContestSurfaceSpot[],workflow:SpotWorkflow,includeOnlyMarked=workflow.markedOnly):ContestSurfaceSpot[]{
+  const projected=new Map(spots.map(spot=>[spot.id,spot]));
+  for(const [id,entry] of Object.entries(workflow.entries)){
+    if(entry.deleted){projected.delete(id);continue;}
+    const current=projected.get(id);projected.set(id,current?{...current,receivedAt:entry.spot.receivedAt,marked:entry.spot.marked}:entry.spot);
+  }
+  const values=[...projected.values()];return includeOnlyMarked?values.filter(spot=>spot.marked):values;
+}
+export function updateContestSpotWorkflow(workflow:SpotWorkflow,spots:ContestSurfaceSpot[],spotID:string,
+    operation:"confirm"|"delete"|"mark",marked=false,now=Date.now()/1000-978_307_200):SpotWorkflow{
+  const target=spots.find(spot=>spot.id===spotID);if(!target)return workflow;
+  const entries={...workflow.entries};
+  if(operation==="delete")entries[spotID]={spot:target,deleted:true};
+  else{
+    for(const spot of spots)if(spot.id!==spotID&&Math.abs(Math.round(spot.frequencyKHz*1000)-Math.round(target.frequencyKHz*1000))<=100)
+      entries[spot.id]={spot,deleted:true};
+    entries[spotID]={spot:{...target,receivedAt:now,marked:operation==="mark"?marked:target.marked},deleted:false};
+  }
+  return {...workflow,entries};
 }
 
 function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[], busy: boolean,
@@ -338,6 +385,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusRef = useRef("callsign");
   const spotCursorRef = useRef<{ context: string; spotID: string | null }>({ context: "", spotID: null });
+  const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
@@ -347,6 +395,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const observedFrequencyHz = cqwwFrequency(selectedRadioFrequencyHz);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+  const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
+  const allWorkflowSpots=useMemo(()=>projectContestSpotWorkflow(sharedSpots,spotWorkflow,false),[sharedSpots,spotWorkflow]);
+  const visibleWorkflowSpots=useMemo(()=>projectContestSpotWorkflow(sharedSpots,spotWorkflow),[sharedSpots,spotWorkflow]);
   const spotSelectionContext = `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`;
   const spotIDSignature = spots.map(spot => String(spot.id)).join("\u001f");
   useEffect(() => {
@@ -361,6 +412,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       spotCursorRef.current = { context: spotSelectionContext, spotID: null };
     }
   }, [spotSelectionContext, spotIDSignature, selectedSpotId]);
+  useEffect(()=>{const sessionID=projection?.sessionID??"";if(sessionID&&spotWorkflow.sessionID!==sessionID)setSpotWorkflow(restoredSpotWorkflow(sessionID));},
+    [projection?.sessionID,spotWorkflow.sessionID]);
+  useEffect(()=>{if(!spotWorkflow.sessionID)return;try{localStorage.setItem(spotWorkflowKey,encodeContestSpotWorkflow(spotWorkflow));}
+    catch{/* Spot lifecycle remains available in memory if local storage is unavailable. */}},[spotWorkflow]);
   const configuredAutoCQDelay = Number(setup.preferences.autoCQDelay ?? 15);
   const autoCQDelaySeconds = Number.isFinite(configuredAutoCQDelay) ? Math.min(3600, Math.max(1, configuredAutoCQDelay)) : 15;
   const phoneSimulationAvailable = Boolean(contestingTest && projection?.pluginID && contestPhoneIntentPlugins.has(projection.pluginID) && projection.mode === "SSB");
@@ -1053,15 +1108,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         rows: historyCandidate ? [historyCandidate] : [] },
       busy: !!scpSurface?.busy,
     };
-    const sharedSpots=contestSurfaceSpots(spots);
     const clusterSnapshot=cluster?.snapshot as Data|undefined;
     const connectedClusters=Number.isSafeInteger(clusterSnapshot?.connectedClusters)&&Number(clusterSnapshot?.connectedClusters)>=0
       ? Number(clusterSnapshot?.connectedClusters):0;
     const loadedSpots=Number.isSafeInteger(clusterSnapshot?.loadedSpots)&&Number(clusterSnapshot?.loadedSpots)>=0
       ? Number(clusterSnapshot?.loadedSpots):sharedSpots.length;
-    for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:1,status:"ready",
+    const selectedCandidate=selectedSpotId==null?spotCursorRef.current.spotID:String(selectedSpotId);
+    const selectedSpotID=selectedCandidate!==null&&allWorkflowSpots.some(spot=>spot.id===selectedCandidate)?selectedCandidate:null;
+    for(const panelID of ["band-maps","dx-cluster"] as const) unavailable[panelID]={schemaVersion:2,status:"ready",
       draftID:projection.draftID,draftRevision:projection.revision,radioFrequencyHz:radioFrequencyHz??null,
-      connectedClusters,loadedSpots,spots:sharedSpots,busy:busy||retiring};
+      connectedClusters,loadedSpots,selectedSpotID,markedOnly:spotWorkflow.markedOnly,spots:visibleWorkflowSpots,busy:busy||retiring};
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
       radioFrequencyHz: selectedRadioFrequencyHz, contestFrequencyHz: frequencyHz,
       band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode, busy: busy || retiring };
@@ -1095,7 +1151,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
-    setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz]);
+    setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
+    sharedSpots,allWorkflowSpots,visibleWorkflowSpots,spotWorkflow.markedOnly,selectedSpotId]);
 
   const surfaceContext = detachedAvailable && projection ? {
     operatingContext, sessionID: projection.sessionID, workspaceGeneration: projection.workspaceGeneration,
@@ -1109,7 +1166,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       await stopAutoCQ(); return;
     }
     if (busyRef.current || retiring) throw new Error("The contest owner is busy.");
-    if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action === "spot_select") {
+    if (action.action.startsWith("entry_") || action.action.startsWith("assistance_") || action.action.startsWith("spot_")) {
       if (!("draftID" in action.params) || action.params.draftID !== active.draftID ||
           action.params.expectedDraftRevision !== active.revision)
         throw new Error("The contest entry changed before this action reached the owner.");
@@ -1124,12 +1181,32 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const requireEditing = (qsoID: string) => {
       if (!editing || String(editing.ID ?? "") !== qsoID) throw new Error("Open this contact in the shared log editor first.");
     };
+    const currentSpot=()=>{
+      const query=(fieldsRef.current.callsign??"").trim().toUpperCase();
+      const selected=selectedSpotId==null?spotCursorRef.current.spotID:String(selectedSpotId);
+      return (query?allWorkflowSpots.find(spot=>spot.callsign===query)??allWorkflowSpots.find(spot=>spot.callsign.includes(query)):null)
+        ??(selected===null?null:allWorkflowSpots.find(spot=>spot.id===selected)??null);
+    };
     switch (action.action) {
       case "spot_select": {
-        const spot=spots.find(candidate=>String(candidate.id)===action.params.spotID);
+        const spot=allWorkflowSpots.find(candidate=>candidate.id===action.params.spotID);
         if(!spot)throw new Error("That shared spot is no longer available.");
         await chooseSpot(spot, true); return;
       }
+      case "spot_confirm":
+      case "spot_delete":
+      case "spot_set_marked": {
+        const spot=allWorkflowSpots.find(candidate=>candidate.id===action.params.spotID);
+        if(!spot)throw new Error("That shared spot is no longer available.");
+        setSpotWorkflow(current=>updateContestSpotWorkflow(current,allWorkflowSpots,spot.id,
+          action.action==="spot_confirm"?"confirm":action.action==="spot_delete"?"delete":"mark",
+          action.action==="spot_set_marked"?action.params.marked:false));
+        if(action.action==="spot_delete"&&spotCursorRef.current.spotID===spot.id)
+          spotCursorRef.current={context:spotSelectionContext,spotID:null};
+        return;
+      }
+      case "spot_set_marked_only":
+        setSpotWorkflow(current=>({...current,markedOnly:action.params.markedOnly}));return;
       case "entry_set_text": {
         const fieldID = { callsign: "callsign", sentReport: "sent", receivedReport: "receive" }[action.params.field];
         await persistFields(fieldID, action.params.field === "callsign" ? action.params.value.toUpperCase() : action.params.value); return;
@@ -1172,14 +1249,30 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           frequencyHz: operationFrequencyHz ?? base.frequencyHz }), false, true, true, true);
         return;
       }
+      case "entry_spot": {
+        const callsign=(fieldsRef.current.callsign??"").trim().toUpperCase(),frequencyHz=operationFrequencyHz;
+        if(!callsign)throw new Error("Enter a callsign before spotting it.");
+        if(frequencyHz===null)throw new Error("A valid contest frequency is required before spotting a callsign.");
+        const frequencyKHz=(frequencyHz/1000).toFixed(3).replace(/\.0+$/,"").replace(/(\.\d*?)0+$/,"$1");
+        await serviceRequest("cluster_command",{command:`dx ${callsign} ${frequencyKHz}`});
+        setNotice(`Spotted ${callsign} on ${frequencyKHz} kHz through the existing xLog cluster connection.`);return;
+      }
+      case "entry_mark_spot": {
+        const spot=currentSpot();if(!spot)throw new Error("No selected or matching shared spot is available to mark.");
+        setSpotWorkflow(current=>updateContestSpotWorkflow(current,allWorkflowSpots,spot.id,"mark",!spot.marked));return;
+      }
+      case "entry_tune_spot": {
+        const spot=currentSpot();if(!spot)throw new Error("No selected or matching shared spot is available to tune.");
+        await chooseSpot(spot,true);return;
+      }
       case "entry_step_spot": {
-        if (!spots.length) throw new Error("No shared contest spots are available.");
+        if (!allWorkflowSpots.length) throw new Error("No shared contest spots are available.");
         const cursor = spotCursorRef.current.context === spotSelectionContext ? spotCursorRef.current.spotID : null;
-        const current = cursor == null ? -1 : spots.findIndex(spot => String(spot.id) === cursor);
+        const current = cursor == null ? -1 : allWorkflowSpots.findIndex(spot => spot.id === cursor);
         const nextIndex = action.params.direction === "next"
-          ? current < 0 || current + 1 >= spots.length ? 0 : current + 1
-          : current <= 0 ? spots.length - 1 : current - 1;
-        await chooseSpot(spots[nextIndex], true); return;
+          ? current < 0 || current + 1 >= allWorkflowSpots.length ? 0 : current + 1
+          : current <= 0 ? allWorkflowSpots.length - 1 : current - 1;
+        await chooseSpot(allWorkflowSpots[nextIndex], true); return;
       }
       case "entry_commit":
         await runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz }),

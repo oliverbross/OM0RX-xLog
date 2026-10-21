@@ -1,12 +1,12 @@
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { ArrowDown, ArrowUp, RotateCcw, Settings, X, ZoomIn, ZoomOut } from "lucide-react";
 import { clusterBandColors, clusterStatusCode, clusterStatusColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
 import "./BandMaps.css";
 
-export type BandMapSpot = Record<string, any>;
+export type BandMapSpot = Record<string, any> & { id?: unknown };
 // An explicit host slot lets compact maps share the workspace toolbar without
 // changing ownership, remounting charts, or searching/moving DOM nodes.
 export const BandMapsToolbarContext = createContext<HTMLElement | null>(null);
@@ -24,7 +24,8 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
   preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string;
-  focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string };
+  focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string;
+  selectedSpotId?: string | null; onSpotContextMenu?: (spot: BandMapSpot, event: ReactMouseEvent<HTMLElement>) => void };
 type Allocation = { name: "CW" | "Data" | "Phone"; low: number; high: number };
 type Range = { low: number; high: number; allocations: Allocation[] };
 type ViewRange = { low: number; high: number };
@@ -70,6 +71,7 @@ function receivedAtMilliseconds(value: unknown): number | null {
 export function filterRecentBandMapSpots(spots: BandMapSpot[], ageMinutes: number, nowMs = Date.now()): BandMapSpot[] {
   const cutoff = nowMs - ageMinutes * 60_000;
   return spots.filter(spot => {
+    if (spot.marked === true) return true;
     const timestamp = receivedAtMilliseconds(spot.receivedAt);
     return timestamp === null || timestamp >= cutoff && timestamp <= nowMs + 300_000;
   });
@@ -245,9 +247,11 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
   return { placed, hidden };
 }
 
-function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, resolution, onManualView, focusFrequencyKHz, hidden: panelHidden = false, modeSettings }: {
+function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, resolution, onManualView, focusFrequencyKHz, hidden: panelHidden = false, modeSettings,
+    selectedSpotId, onSpotContextMenu }: {
   band: string; spots: BandMapSpot[]; onSelect: Props["onSelect"]; onRemove: () => void;
   canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
+  selectedSpotId?: string | null; onSpotContextMenu?: Props["onSpotContextMenu"];
 }) {
   const full = BAND_RANGES[band];
   const [view, setView] = useState<ViewRange>({ low: full.low, high: full.high });
@@ -376,7 +380,10 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
         const tooltip = `${text(spot.callsign)} · ${(spot.frequencyKHz / 1000).toFixed(6)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <Fragment key={key}><span className="band-map-spot-anchor" aria-hidden="true" style={{ top: anchorTop, left: axis - 4, width: Math.max(8, centre - axis + 4), color }} />
-          <button type="button" className="band-map-spot" style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={tooltip} onClick={() => onSelect(spot)}><strong>{text(spot.callsign)}</strong><b>{code}</b></button></Fragment>;
+          <button type="button" className={`band-map-spot${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
+            style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={`${tooltip}${spot.marked ? " · Marked" : ""}`}
+            aria-current={selectedSpotId === String(spot.id) ? "true" : undefined} onClick={() => onSelect(spot)}
+            onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.marked && <span aria-label="Marked">★</span>}<b>{code}</b></button></Fragment>;
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
@@ -384,7 +391,8 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange, storageNamespace, selectionHint = "Select a marker to load it into the logger." }: Props) {
+export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange,
+  storageNamespace, selectedSpotId, onSpotContextMenu, selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
   const controlKey = (name: string) => controlStorageKey(compact, Boolean(focusedBand), name, storageNamespace);
   const [localBands, setLocalBands] = useState(() => storedBands(compact, storageNamespace));
@@ -517,7 +525,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
     <div ref={panelsRef} className={`band-maps-panels band-maps-${compact || layout === "row" ? "row" : "grid"}`} style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, visibleCount))}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${Math.max(1, Math.ceil(visibleCount / columns))}, minmax(0, 1fr))` }}>
       {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} resolution={resolution}
         onManualView={markCustom}
-        focusFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : finite(filtered.find(spot => spot.band === band)?.frequencyKHz) ?? undefined}
+      focusFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : finite(filtered.find(spot => spot.band === band)?.frequencyKHz) ?? undefined}
+      selectedSpotId={selectedSpotId} onSpotContextMenu={onSpotContextMenu}
         hidden={index < firstBand || index >= firstBand + capacity} modeSettings={focusedBand ? { modes, setModes } : undefined} />)}
     </div>
     <footer className="band-maps-quick-controls" aria-label="Band map view controls">

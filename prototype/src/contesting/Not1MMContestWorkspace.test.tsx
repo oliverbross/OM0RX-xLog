@@ -2,7 +2,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+import { decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, projectContestSpotWorkflow,
+  updateContestSpotWorkflow } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -95,6 +96,7 @@ it("routes Digital logging saves, starts, and stops through the real host servic
   await waitFor(() => expect(setupDialogOwner.current?.auxiliary.digital).toEqual({
     configuration:digital.configuration,running:false,status:"Stopped",receive_only:true,
   }));
+
   const saveDigital = setupDialogOwner.current.saveDigital;
   await act(() => saveDigital({configuration:digital.configuration,action:"save"}));
   await act(() => saveDigital({configuration:digital.configuration,action:"start"}));
@@ -103,6 +105,25 @@ it("routes Digital logging saves, starts, and stops through the real host servic
     "wsjtx_snapshot", "wsjtx_configure", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
   ]);
   expect(request).toHaveBeenCalledWith("wsjtx_configure", {configuration:{...digital.configuration,enabled:true}});
+});
+
+it("persists exact confirm, mark, marked-only and delete spot lifecycle semantics",()=>{
+  const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyText:"14025.0",comment:"CQ",
+    band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",
+    workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",
+    statusHex:"",bandHex:"",modeHex:"",marked:false};
+  const spots=[{...base,id:"one",callsign:"DL1ABC",frequencyKHz:14025},{...base,id:"collision",callsign:"DL2ABC",frequencyKHz:14025.1},
+    {...base,id:"other",callsign:"DL3ABC",frequencyKHz:14025.2}];
+  let workflow=decodeContestSpotWorkflow(null,"session-1");
+  workflow=updateContestSpotWorkflow(workflow,spots,"one","confirm",false,200);
+  expect(projectContestSpotWorkflow(spots,workflow,false).map(spot=>[spot.id,spot.receivedAt])).toEqual([["one",200],["other",1]]);
+  workflow=updateContestSpotWorkflow(workflow,projectContestSpotWorkflow(spots,workflow,false),"one","mark",true,201);
+  workflow={...workflow,markedOnly:true};
+  const restored=decodeContestSpotWorkflow(encodeContestSpotWorkflow(workflow),"session-1");
+  expect(projectContestSpotWorkflow(spots,restored).map(spot=>[spot.id,spot.marked])).toEqual([["one",true]]);
+  workflow=updateContestSpotWorkflow(restored,projectContestSpotWorkflow(spots,restored,false),"one","delete");
+  expect(projectContestSpotWorkflow(spots,workflow,false).map(spot=>spot.id)).toEqual(["other"]);
+  expect(decodeContestSpotWorkflow("{bad","session-1")).toEqual({sessionID:"session-1",markedOnly:false,entries:{}});
 });
 
 it("persists station settings before the first contest exists", async () => {

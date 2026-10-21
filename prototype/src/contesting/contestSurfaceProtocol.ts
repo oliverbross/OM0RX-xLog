@@ -10,11 +10,15 @@ type Revision = number;
 type DraftRevision = { draftID: string; expectedDraftRevision: Revision };
 export type ContestSurfaceAction =
   | { action: "spot_select"; params: DraftRevision & { spotID: string } }
+  | { action: "spot_confirm" | "spot_delete"; params: DraftRevision & { spotID: string } }
+  | { action: "spot_set_marked"; params: DraftRevision & { spotID: string; marked: boolean } }
+  | { action: "spot_set_marked_only"; params: DraftRevision & { markedOnly: boolean } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string } }
   | { action: "entry_set_band" | "entry_set_mode"; params: DraftRevision & { value: string } }
   | { action: "entry_reserve_serial" | "entry_commit" | "entry_clear"; params: DraftRevision }
+  | { action: "entry_spot" | "entry_mark_spot" | "entry_tune_spot"; params: DraftRevision }
   | { action: "entry_step_spot"; params: DraftRevision & { direction: "previous" | "next" } }
   | { action: "entry_operator_arm"; params: DraftRevision & { armed: boolean } }
   | { action: "entry_operator_style"; params: DraftRevision & { value: "run" | "search-and-pounce" } }
@@ -115,9 +119,10 @@ export type ContestSurfaceSpot = { id: string; receivedAt: number; clusterName: 
   band: string; mode: string; country: string; adif: number | null; continent: string; cqZone: number | null;
   ituZone: number | null; callStatus: string; dxccStatus: string; workedBefore: number | null; specialTags: string[];
   score: number; scoreReasons: string[]; aggregateCount: number; aggregateSpotters: string[]; source: string;
-  statusHex: string; bandHex: string; modeHex: string };
-export type ContestSpotSurfaceProjection = { schemaVersion: 1; status: "ready"; draftID: string; draftRevision: number;
-  radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; spots: ContestSurfaceSpot[]; busy: boolean };
+  statusHex: string; bandHex: string; modeHex: string; marked: boolean };
+export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; draftID: string; draftRevision: number;
+  radioFrequencyHz: number | null; connectedClusters: number; loadedSpots: number; selectedSpotID: string | null;
+  markedOnly: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
@@ -386,23 +391,25 @@ function validMatrixProjection(value: Record<string, unknown>) {
   });
 }
 function validSpotProjection(value: Record<string, unknown>) {
-  if (!exact(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "spots", "busy"]) ||
+  if (!exact(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots",
+      "selectedSpotID", "markedOnly", "spots", "busy"]) ||
       !text(value.draftID, 160) || !uint(value.draftRevision) || !optionalFrequency(value.radioFrequencyHz) ||
       !uint(value.connectedClusters) || !uint(value.loadedSpots) || !Array.isArray(value.spots) || value.spots.length > 2_000 ||
-      typeof value.busy !== "boolean") return false;
+      value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" || typeof value.busy !== "boolean") return false;
   const ids = new Set<string>();
   return value.spots.every(item => {
     if (!record(item) || !exact(item, ["id", "receivedAt", "clusterName", "spotter", "spotterContinent", "frequencyKHz",
         "frequencyText", "callsign", "comment", "band", "mode", "country", "adif", "continent", "cqZone", "ituZone",
         "callStatus", "dxccStatus", "workedBefore", "specialTags", "score", "scoreReasons", "aggregateCount",
-        "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex"]) || !text(item.id, 128) || ids.has(item.id as string) ||
+        "aggregateSpotters", "source", "statusHex", "bandHex", "modeHex", "marked"]) || !text(item.id, 128) || ids.has(item.id as string) ||
         !["receivedAt", "frequencyKHz", "score"].every(key => typeof item[key] === "number" && Number.isFinite(item[key]) && (item[key] as number) >= 0) ||
         !uint(item.aggregateCount) || !["clusterName", "spotter", "frequencyText", "comment", "country", "continent", "callStatus",
           "dxccStatus", "source", "statusHex", "bandHex", "modeHex"].every(key => text(item[key], 512, true)) ||
         !text(item.callsign, 32) || !text(item.band, 16) || !text(item.mode, 16) ||
         !["spotterContinent", "adif", "cqZone", "ituZone", "workedBefore"].every(key => item[key] === null ||
           (key === "spotterContinent" ? text(item[key], 32, true) : uint(item[key]))) ||
-        !texts(item.specialTags, 32, 64) || !texts(item.scoreReasons, 64, 160) || !texts(item.aggregateSpotters, 64, 64)) return false;
+        !texts(item.specialTags, 32, 64) || !texts(item.scoreReasons, 64, 160) || !texts(item.aggregateSpotters, 64, 64) ||
+        typeof item.marked !== "boolean") return false;
     ids.add(item.id as string); return true;
   });
 }
@@ -418,6 +425,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if ((panelID === "active-qso" || panelID === "qrz-details") && projection.schemaVersion === 2 && projection.status === "ready") return validEntryProjectionV2(projection);
   if (panelID === "propagation" && projection.schemaVersion === 3 && projection.status === "ready") return validStatisticsProjectionV3(projection);
   if ((panelID === "awards" || panelID === "chaser-dx") && projection.schemaVersion === 4 && projection.status === "ready") return validMatrixProjection(projection);
+  if ((panelID === "band-maps" || panelID === "dx-cluster") && projection.schemaVersion === 2 && projection.status === "ready") return validSpotProjection(projection);
   if (projection.schemaVersion !== 1) return false;
   if (projection.status === "unavailable") return exact(projection, ["schemaVersion", "status"]);
   if (projection.status !== "ready") return false;
@@ -427,19 +435,22 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (panelID === "monitor") return validRatesProjection(projection);
   if (panelID === "awards" || panelID === "chaser-dx") return validMatrixProjection(projection);
   if (panelID === "logbook") return validLogProjection(projection);
-  if (panelID === "band-maps" || panelID === "dx-cluster") return validSpotProjection(projection);
   if (panelID === "station-control") return validRemoteVFOProjection(projection);
   return false;
 }
 
 function validParams(action: string, params: Record<string, unknown>) {
-  if (action === "spot_select") return draft(params, ["spotID"]) && text(params.spotID, 128);
+  if (action === "spot_select" || action === "spot_confirm" || action === "spot_delete")
+    return draft(params, ["spotID"]) && text(params.spotID, 128);
+  if (action === "spot_set_marked") return draft(params, ["spotID", "marked"]) && text(params.spotID, 128) && typeof params.marked === "boolean";
+  if (action === "spot_set_marked_only") return draft(params, ["markedOnly"]) && typeof params.markedOnly === "boolean";
   if (action === "entry_set_text") return draft(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport"]) && text(params.value, 160, true);
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "entry_set_frequency_text") return draft(params, ["value"]) && text(params.value, 11, true);
   if (action === "entry_set_band" || action === "entry_set_mode") return draft(params, ["value"]) && text(params.value, 16);
   if (action === "entry_reserve_serial" || action === "entry_commit" || action === "entry_clear") return draft(params, []);
+  if (action === "entry_spot" || action === "entry_mark_spot" || action === "entry_tune_spot") return draft(params, []);
   if (action === "entry_step_spot") return draft(params, ["direction"]) && oneOf(params.direction, ["previous", "next"]);
   if (action === "entry_operator_arm") return draft(params, ["armed"]) && typeof params.armed === "boolean";
   if (action === "entry_operator_style") return draft(params, ["value"]) && oneOf(params.value, ["run", "search-and-pounce"]);
@@ -472,7 +483,7 @@ export function validContestSurfaceActionEnvelope(value: unknown): value is Cont
   const action = typeof envelope?.action === "string" ? envelope.action : "";
   const panel = typeof envelope?.panelID === "string" ? envelope.panelID : "";
   const params = record(envelope?.params) ? envelope.params : undefined;
-  const panelMatches = action === "spot_select" ? panel === "band-maps" || panel === "dx-cluster" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
+  const panelMatches = action.startsWith("spot_") ? panel === "band-maps" || panel === "dx-cluster" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
     ? panel === "callsign-intelligence" : action.startsWith("log_") ? panel === "logbook" : false;
   return !!envelope && exact(envelope, keys) && validContestSurfaceUUID(envelope.operatingContext) && envelope.scope === "contesting" &&
       validContestSurfaceUUID(envelope.sessionID) && validContestSurfaceUUID(envelope.workspaceGeneration) && oneOf(panel, contestSurfacePanelIDs) &&

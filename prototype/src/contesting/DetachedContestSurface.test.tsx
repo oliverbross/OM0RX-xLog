@@ -31,7 +31,7 @@ const snapshot={operatingContext,scope:"contesting",sessionID,workspaceGeneratio
 const sharedSpot={id:"spot-1",receivedAt:Math.floor(Date.now()/1000)-978_307_200,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,
   frequencyKHz:14025,frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,
   continent:"EU",cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,
-  scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:""};
+  scoreReasons:[],aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 const tabMaps={tabNext:{callsign:"sent",sent:"receive",receive:"other_1",other_1:"other_2",other_2:"callsign"},
   tabPrevious:{callsign:"other_2",sent:"callsign",receive:"sent",other_1:"receive",other_2:"other_1"}} as const;
 
@@ -55,6 +55,25 @@ it("rereads a restored Main Logging window after the replacement context listene
   expect(await screen.findByLabelText("Callsign")).toHaveProperty("value","OM0RX");
   expect(screen.queryByRole("heading",{name:"Panel unavailable"})).toBeNull();
   expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot")).toHaveLength(2);
+});
+
+it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot lifecycle actions in the contest %s window",async panelID=>{
+  window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",markedOnly:false,spots:[{...sharedSpot,marked:true}],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);
+  const callsign=await screen.findByText("DL1ABC"),target=panelID==="dx-cluster"?callsign.closest("tr")!:callsign.closest("button")!;
+  expect(screen.getByLabelText("Marked")).toBeTruthy();
+  fireEvent.contextMenu(target,{clientX:40,clientY:50});
+  expect(await screen.findByRole("menu",{name:"Spot actions for DL1ABC"})).toBeTruthy();
+  fireEvent.click(screen.getByRole("menuitem",{name:"Unmark"}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_marked")?.[1])
+    .toMatchObject({panelID,action:"spot_set_marked",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"spot-1",marked:false}}));
+  fireEvent.click(screen.getByLabelText("Marked only"));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_set_marked_only")?.[1])
+    .toMatchObject({panelID,action:"spot_set_marked_only",params:{markedOnly:true}}));
 });
 
 it("renders validated manual main context without manufacturing headings or distance",async()=>{
@@ -357,8 +376,8 @@ it.each(["band-maps","dx-cluster"] as const)("selects shared spots from the cont
   window.history.replaceState({},"",search.replace("view=active-qso",`view=${panelID}`));
   localStorage.setItem("xlog.integration.bandMaps.workspace.bands","normal-band-map-sentinel");
   localStorage.setItem("xlog.integration.full-cluster-columns.v1","normal-cluster-sentinel");
-  const view={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:25,spots:[sharedSpot],busy:false};
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:25,selectedSpotID:null,markedOnly:false,spots:[sharedSpot],busy:false};
   native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID,projection:view}:
     command==="contest_surface_action"?{requestID:args.requestID,status:"queued"}:Promise.reject(new Error(`unexpected ${command}`)));
   render(<DetachedContestSurface/>);
@@ -665,6 +684,25 @@ it("executes a field-context Not1MM key binding",async()=>{
   fireEvent.keyDown(screen.getByLabelText("Callsign"),{key:"ArrowUp"});
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_step_spot")?.[1])
     .toMatchObject({action:"entry_step_spot",params:{direction:"next"}}));
+});
+
+it.each([["s","entry_spot"],["m","entry_mark_spot"],["t","entry_tune_spot"]] as const)(
+  "routes Ctrl-%s through the bounded %s Edit Keys action",async(key,action)=>{
+  const bindingAction={entry_spot:"SPOT_DX",entry_mark_spot:"MARK_SPOT",entry_tune_spot:"TUNE_SPOT"}[action];
+  const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"*",key:`Ctrl+${key.toUpperCase()}`,action:bindingAction}]},
+    operator:{output:"simulation-only",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
+      functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]}}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_snapshot")return view;
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const region=await screen.findByRole("region",{name:"Main Logging"});
+  fireEvent.keyDown(region,{key,ctrlKey:true});
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action===action)?.[1])
+    .toMatchObject({action,params:{draftID:"draft-1",expectedDraftRevision:5}}));
 });
 
 it("retains the manual Check Partial Log, Master and Telnet columns with explicit missing sources",async()=>{

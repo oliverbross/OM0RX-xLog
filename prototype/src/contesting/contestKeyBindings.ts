@@ -6,7 +6,7 @@ export const contestFunctionKeyActions = ["SEND_F1", "SEND_F2", "SEND_F3", "SEND
 export type ContestFunctionKeyAction = typeof contestFunctionKeyActions[number];
 
 export const contestKeyBindingActions = ["TOGGLE_RUN", "SET_RUN", "SET_S_AND_P", "LOG_NOW", "CLEAR_INPUTS",
-  "PREV_SPOT", "NEXT_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+  "PREV_SPOT", "NEXT_SPOT", "SPOT_DX", "MARK_SPOT", "TUNE_SPOT", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
   ...contestFunctionKeyActions] as const;
 export type ContestKeyBindingAction = typeof contestKeyBindingActions[number];
 
@@ -24,6 +24,9 @@ export const contestKeyBindingDescriptions: Record<ContestKeyBindingAction, stri
   CLEAR_INPUTS: "Clear all input fields",
   PREV_SPOT: "Jump to the previous spot in the bandmap",
   NEXT_SPOT: "Jump to the next spot in the bandmap",
+  SPOT_DX: "Spot the current callsign to the cluster",
+  MARK_SPOT: "Mark or unmark the current callsign to work later",
+  TUNE_SPOT: "Tune to the selected spot or a callsign match",
   FOCUS_CALLSIGN: "Move focus to the callsign field",
   FOCUS_NEXT: "Move focus to the next contest field",
   FOCUS_PREVIOUS: "Move focus to the previous contest field",
@@ -52,6 +55,9 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "*", key: "Ctrl+=", action: "LOG_NOW" },
   { context: "Callsign", key: "Up", action: "PREV_SPOT" },
   { context: "Callsign", key: "Down", action: "NEXT_SPOT" },
+  { context: "*", key: "Ctrl+S", action: "SPOT_DX" },
+  { context: "*", key: "Ctrl+M", action: "MARK_SPOT" },
+  { context: "*", key: "Ctrl+T", action: "TUNE_SPOT" },
   { context: "*", key: "PgUp", action: "CW_SPEED_UP" },
   { context: "*", key: "PgDown", action: "CW_SPEED_DOWN" },
   { context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },

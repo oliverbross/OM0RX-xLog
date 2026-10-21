@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfaceSnapshot, submitContestSurfaceAction,
@@ -140,16 +141,37 @@ type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
 function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
     projectionRevision:number;send:Send}) {
+  const [menu,setMenu]=useState<null|{spotID:string;x:number;y:number}>(null);
+  const selected=projection.selectedSpotID===null?null:projection.spots.find(spot=>spot.id===projection.selectedSpotID)??null;
   const select=(spotID:string)=>void send({action:"spot_select",params:{draftID:projection.draftID,
     expectedDraftRevision:projection.draftRevision,spotID}},projectionRevision);
-  if(panelID==="band-maps")return <BandMaps compact spots={projection.spots} radioFrequencyHz={projection.radioFrequencyHz??undefined}
-    storageNamespace="contest" onSelect={spot=>select(String(spot.id))}
-    selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
+  const act=(action:ContestSurfaceAction)=>{setMenu(null);void send(action,projectionRevision);};
+  const contextMenu=(spot:{id?:unknown},event:ReactMouseEvent<HTMLElement>)=>{
+    event.preventDefault();event.stopPropagation();setMenu({spotID:String(spot.id),x:event.clientX,y:event.clientY});
+  };
+  const target=menu&&projection.spots.find(spot=>spot.id===menu.spotID);
+  const workflow=<><div className="contest-spot-toolbar"><label><input type="checkbox" checked={projection.markedOnly}
+    onChange={event=>act({action:"spot_set_marked_only",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
+      markedOnly:event.currentTarget.checked}})}/>Marked only</label><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span></div>
+    {menu&&target&&<div className="contest-spot-menu" role="menu" aria-label={`Spot actions for ${target.callsign}`}
+      style={{left:menu.x,top:menu.y}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();setMenu(null);}}}>
+      <button type="button" role="menuitem" autoFocus onClick={()=>act({action:"spot_confirm",params:{draftID:projection.draftID,
+        expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Confirm</button>
+      <button type="button" role="menuitem" onClick={()=>act({action:"spot_set_marked",params:{draftID:projection.draftID,
+        expectedDraftRevision:projection.draftRevision,spotID:target.id,marked:!target.marked}})}>{target.marked?"Unmark":"Mark"}</button>
+      <button type="button" role="menuitem" onClick={()=>act({action:"spot_delete",params:{draftID:projection.draftID,
+        expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Delete</button>
+      <button type="button" role="menuitem" onClick={()=>setMenu(null)}>Cancel</button>
+    </div>}</>;
+  if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact spots={projection.spots}
+    radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace="contest" selectedSpotId={projection.selectedSpotID}
+    onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
+    selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;
   const clusterSnapshot={snapshot:{connectedClusters:projection.connectedClusters,loadedSpots:projection.loadedSpots,contactCount:0,contactRevision:0,
     logbookDataLoaded:false,countryDataLoaded:false,connections:[],spots:projection.spots,console:[]}};
-  return <ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
+  return <section className="contest-spots" aria-label="Contest Cluster">{workflow}<ClusterPanel passive presentationOnly taskOnly snapshot={clusterSnapshot}
     preferenceStorageKey="xlog.integration.contest.cluster-columns.v1" onRequest={async()=>null}
-    onSelect={spot=>select(spot.id)}/>;
+    selectedSpotId={projection.selectedSpotID} onSpotContextMenu={contextMenu} onSelect={spot=>select(spot.id)}/></section>;
 }
 type IntentInputProps = { label:string;value:string;identity:string;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];
   disabled:boolean;maximumUTF8Bytes:number;send:Send;action:(value:string)=>ContestSurfaceAction;operatorField?:ContestInputFieldID;inputRef?:Ref<HTMLInputElement> };
@@ -302,6 +324,9 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       else if(action==="LOG_NOW")await send({action:"entry_commit",params},current.projectionRevision);
       else if(action==="CLEAR_INPUTS")await send({action:"entry_clear",params},current.projectionRevision);
       else if(action==="PREV_SPOT"||action==="NEXT_SPOT")await send({action:"entry_step_spot",params:{...params,direction:action==="PREV_SPOT"?"previous":"next"}},current.projectionRevision);
+      else if(action==="SPOT_DX")await send({action:"entry_spot",params},current.projectionRevision);
+      else if(action==="MARK_SPOT")await send({action:"entry_mark_spot",params},current.projectionRevision);
+      else if(action==="TUNE_SPOT")await send({action:"entry_tune_spot",params},current.projectionRevision);
       else {const speed=currentProjection.manual?.cwSpeedWpm;if(typeof speed!=="number")return;
         const value=action==="CW_SPEED_UP"?Math.min(100,speed+1):Math.max(5,speed-1);
         if(value!==speed)await send({action:"entry_set_cw_speed",params:{...params,value}},current.projectionRevision);}

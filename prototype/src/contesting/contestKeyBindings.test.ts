@@ -13,12 +13,17 @@ describe("contest key bindings", () => {
   it("offers only implemented operator actions and maps each function macro exactly", () => {
     expect(contestKeyBindingActions).toEqual(expect.arrayContaining([
       "SET_RUN", "SET_S_AND_P", "FOCUS_CALLSIGN", "FOCUS_NEXT", "FOCUS_PREVIOUS", "CW_SPEED_UP", "CW_SPEED_DOWN",
+      "SPOT_DX", "MARK_SPOT", "TUNE_SPOT",
     ]));
     expect(contestFunctionKeyActions.map(functionKeyForContestAction)).toEqual(
       Array.from({ length: 12 }, (_, index) => `F${index + 1}`),
     );
     expect(functionKeyForContestAction("LOG_NOW")).toBeNull();
-    expect(contestKeyBindingActions).not.toEqual(expect.arrayContaining(["SPOT_DX", "MARK_SPOT", "VFO_UP", "ROTATE"]));
+    expect(contestKeyBindingActions).not.toEqual(expect.arrayContaining(["VFO_UP", "ROTATE"]));
+    expect(defaultContestKeyBindings).toEqual(expect.arrayContaining([
+      {context:"*",key:"Ctrl+S",action:"SPOT_DX"},{context:"*",key:"Ctrl+M",action:"MARK_SPOT"},
+      {context:"*",key:"Ctrl+T",action:"TUNE_SPOT"},
+    ]));
   });
 
   it("migrates the old row representation without trusting stored descriptions", () => {

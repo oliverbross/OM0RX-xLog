@@ -8,14 +8,14 @@ const draft = { draftID: "draft-1", expectedDraftRevision: 5 };
 const spot = {id:"spot-1",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,
   frequencyText:"14025.0",callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",
   cqZone:14,ituZone:28,callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,scoreReasons:[],
-  aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:""};
+  aggregateCount:1,aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
 
 it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection and bounded projections",panelID=>{
   const action={...base,panelID,action:"spot_select",params:{...draft,spotID:spot.id}};
   expect(()=>validateContestSurfaceActionEnvelope(action)).not.toThrow();
   expect(()=>validateContestSurfaceActionEnvelope({...action,params:{...action.params,spotID:"x".repeat(129)}})).toThrow();
-  const projection={schemaVersion:1,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
-    connectedClusters:1,loadedSpots:1,spots:[spot],busy:false};
+  const projection={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:1,selectedSpotID:"spot-1",markedOnly:false,spots:[spot],busy:false};
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,spots:[spot,{...spot}]})).toBe(false);
 });
@@ -63,6 +63,13 @@ const valid = [
   { panelID: "active-qso", action: "entry_reserve_serial", params: draft },
   { panelID: "active-qso", action: "entry_commit", params: draft },
   { panelID: "active-qso", action: "entry_clear", params: draft },
+  { panelID: "active-qso", action: "entry_spot", params: draft },
+  { panelID: "active-qso", action: "entry_mark_spot", params: draft },
+  { panelID: "active-qso", action: "entry_tune_spot", params: draft },
+  { panelID: "band-maps", action: "spot_confirm", params: { ...draft, spotID:"spot-1" } },
+  { panelID: "band-maps", action: "spot_set_marked", params: { ...draft, spotID:"spot-1", marked:true } },
+  { panelID: "dx-cluster", action: "spot_delete", params: { ...draft, spotID:"spot-1" } },
+  { panelID: "dx-cluster", action: "spot_set_marked_only", params: { ...draft, markedOnly:true } },
   { panelID: "active-qso", action: "entry_step_spot", params: { ...draft, direction: "previous" } },
   { panelID: "active-qso", action: "entry_operator_arm", params: { ...draft, armed: true } },
   { panelID: "active-qso", action: "entry_operator_style", params: { ...draft, value: "search-and-pounce" } },
