@@ -4,6 +4,14 @@ Source: `oliverbross/contest-sw` commit `7c8b499225a73f7f8f792246881bd7aefc05452
 Copied from the supplied Not1MM reset feasibility archive. `upstream/` preserves
 the original source bytes. GPL-3.0 license is retained in `LICENSE`.
 
+The 79-plugin progression adds the unchanged `ca_qso_party.py`, `canada_day.py`,
+`cqws.py`, `darc_schwaben.py`, and `winter_field_day.py` bytes from that same
+revision. Canada Day, CQWS, and Winter Field Day have no upstream band whitelist,
+so their descriptors use the complete pinned Not1MM band plan. WFD advertises the
+CW, SSB, RTTY, AM, and FM modes the bounded host can score and export. Runtime-only
+CQP and WFD export overlays read each contact's host-persisted historical sent
+exchange from `MiscText`, preventing later setup edits from rewriting Cabrillo.
+
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
 CQ WPX RTTY,

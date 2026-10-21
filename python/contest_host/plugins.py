@@ -5,6 +5,12 @@ from types import MappingProxyType
 
 RTTY_MODES = ("RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
               "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB")
+FULL_PINNED_BANDS = (
+    "2190m", "630m", "560m", "160m", "80m", "60m", "40m", "30m", "20m", "17m",
+    "15m", "12m", "10m", "8m", "6m", "5m", "4m", "2m", "1.25m", "70cm", "33cm",
+    "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm",
+    "1mm", "submm",
+)
 
 
 @dataclass(frozen=True)
@@ -166,6 +172,20 @@ PLUGIN_REGISTRY = MappingProxyType({
     "qso_party_sn": Plugin("QSO PARTY SN", serial=True, modes=("CW", "SSB"), allow_duplicate_commit=True,
                             bands=("160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "70cm"),
                             sent_exchange_hint="County", overlay_choices=("N/A",)),
+    "ca_qso_party": Plugin("California QSO Party", serial=True, modes=("CW", "SSB"),
+                           sent_exchange_hint="# + state/province or CA county", overlay_choices=("N/A",)),
+    "canada_day": Plugin("CANADA DAY", conditional_serial=True, bands=FULL_PINNED_BANDS, modes=("CW", "SSB"),
+                         sent_exchange_hint="# + province/territory", overlay_choices=("N/A",)),
+    "cqws": Plugin("CQ WORLD SCOUT", bands=FULL_PINNED_BANDS, modes=("CW", "SSB"),
+                   sent_exchange_hint="Station type", overlay_choices=("N/A",)),
+    "darc_schwaben": Plugin("DARC SCHWABEN", conditional_serial=True,
+                            bands=("80m", "40m", "2m", "70cm"), modes=("CW", "SSB", "FM"),
+                            sent_exchange_hint="DOK/NM or # (+Locator for VHF)", overlay_choices=("N/A",)),
+    # The bounded host advertises only the pinned plugin's modes whose scoring
+    # and Cabrillo/ADIF mapping it can faithfully represent.
+    "winter_field_day": Plugin("Winter Field Day", bands=FULL_PINNED_BANDS,
+                               modes=("CW", "SSB", "RTTY", "AM", "FM"),
+                               sent_exchange_hint="Class + section", overlay_choices=("N/A",)),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -179,7 +199,7 @@ NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
 RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty", "arrl_rtty_ru",
                           "ea_rtty"})
 CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty",
-                                       "aadx_cw", "aadx_ssb", "euhfc", "iaru_hf", "eudx", "lz-dx"})
+                                       "aadx_cw", "aadx_ssb", "euhfc", "iaru_hf", "eudx", "lz-dx", "cqws"})
 DISPLAY_SENTNR_PLUGINS = frozenset({"euhfc", "iaru_hf", "eudx", "lz-dx", "arrl_rtty_ru",
                                     "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 ARRL_DX_PLUGINS = frozenset({"arrl_dx_cw", "arrl_dx_ssb"})
@@ -194,9 +214,9 @@ EUROPEAN_DX_PLUGINS = frozenset({"hadx", "helvetia", "pacc", "spdx"})
 CENTRAL_EUROPEAN_PLUGINS = frozenset({"ari_dx", "darc_xmas", "eudx", "lz-dx", "wag"})
 EUROPEAN_HF_PLUGINS = frozenset({"ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"})
 TYPE4_UTILITY_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn"})
-NO_MULTIPLIER_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram"})
+NO_MULTIPLIER_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "darc_schwaben"})
 QSO_PARTY_PLUGINS = frozenset({"qso_party_rst", "qso_party_sn"})
-SENT_FIELD_SERIAL_PLUGINS = frozenset({"qso_party_sn"})
+SENT_FIELD_SERIAL_PLUGINS = frozenset({"qso_party_sn", "ca_qso_party"})
 SSA_MT_PLUGINS = frozenset({"ssa_mt_cw", "ssa_mt_ssb"})
 ARRL_VHF_PLUGINS = frozenset({"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
@@ -207,3 +227,4 @@ SIMPLE_MULTIPLIER_PLUGINS |= ARRL_VHF_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= CENTRAL_EUROPEAN_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= EUROPEAN_HF_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= QSO_PARTY_PLUGINS
+SIMPLE_MULTIPLIER_PLUGINS |= frozenset({"ca_qso_party", "canada_day", "cqws", "winter_field_day"})

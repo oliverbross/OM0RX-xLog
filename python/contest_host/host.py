@@ -35,12 +35,19 @@ INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BAND_DEFINITIONS = pinned_band_definitions()
 BAND_LABELS = {definition["value"]: definition["id"] for definition in BAND_DEFINITIONS}
+CQWS_EXCHANGES = frozenset({
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+    "PA", "PB", "PR", "PE", "PI", "RJ", "RS", "RO", "RN", "RR", "SC", "SP", "SE",
+    "TO", "CL", "HQ", "RA", "DX", "PT", "BP", "RE", "GE", "DB", "FD", "YL", "QRP", "WS",
+})
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
                         "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
-                        *EUROPEAN_HF_PLUGINS}
+                        *EUROPEAN_HF_PLUGINS, "ca_qso_party", "canada_day", "cqws",
+                        "darc_schwaben", "winter_field_day"}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
                       "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS,
-                      *CENTRAL_EUROPEAN_PLUGINS, "ari_40_80"}
+                      *CENTRAL_EUROPEAN_PLUGINS, "ari_40_80", "ca_qso_party", "canada_day",
+                      "cqws", "darc_schwaben", "winter_field_day"}
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -136,11 +143,25 @@ def requires_serial(state):
 
 def reserved_sent_exchange(state, serial):
     value = str(serial).zfill(3)
+    if state["pluginID"] == "canada_day":
+        return str(state["settings"].get("SentExchange", "#")).replace("#", value)
     if state["pluginID"] == "es_field_day":
         return f'{value} {str(state["station"].get("State", "")).upper()}'
     if state["pluginID"] == "es_manual_key":
         return f'{str(state["station"].get("LicenseClass", "")).upper()}{value}'
     return value
+
+
+def validate_ca_exchange(contest, exchange, setup=False):
+    """Accept upstream CQP tokens and its documented county-line syntax."""
+    value = str(exchange).upper().strip()
+    if setup:
+        value = value.lstrip("# ")
+    parts = value.split("/")
+    valid = (1 <= len(parts) <= 8 and all(part in contest.CA_COUNTIES for part in parts))
+    if len(parts) == 1:
+        valid = valid or value in contest.CA_MULTS or value == "DX"
+    require(valid, "CQP exchange must be a valid state, province, DX, or slash-separated CA counties")
 
 
 def validate_cwo_names(station, sent_exchange):
@@ -452,6 +473,8 @@ class Desk:
             self.contact.update({"QSXFreq": frequency / 1000, "Mode": radio_mode, "ContestNR": 1,
                 "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
                 "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
+            if self.state["pluginID"] in {"ca_qso_party", "winter_field_day"}:
+                self.contact["MiscText"] = str(self.state["settings"].get("SentExchange", "")).upper()
         self.contact_is_dupe = int(self.is_dupe(call, band, timestamp, self.contact["Mode"]))
         self.contest.set_contact_vars(self)
         if self.state["pluginID"] in ARRL_DX_PLUGINS:
@@ -634,6 +657,11 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": 0, "zones": 0, "prefixes": prefixes,
                     "multipliers": prefixes, "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] == "cqws":
+            countries, brazilian_units = self.contest.show_mults(self, rtc=True)
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": countries, "zones": 0, "exchangeBandMultipliers": brazilian_units,
+                    "multipliers": countries + brazilian_units, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] in SIMPLE_MULTIPLIER_PLUGINS:
             multipliers = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -1099,6 +1127,21 @@ class Host:
                 if state["pluginID"] in EUROPEAN_HF_PLUGINS:
                     validate_european_hf_setup(
                         state["pluginID"], state["reference"]["countries"][call].get("primary_pfx", ""), zone)
+                if state["pluginID"] == "ca_qso_party":
+                    validate_ca_exchange(load_plugin(state["pluginID"]), zone, setup=True)
+                if state["pluginID"] == "canada_day":
+                    require(bool(zone.strip()) and zone.count("#") <= 1
+                            and re.fullmatch(r"[A-Za-z0-9 #]{1,32}", zone) is not None,
+                            "Canada Day sent exchange must be text with at most one # serial placeholder")
+                if state["pluginID"] == "cqws":
+                    require(re.fullmatch(r"[A-Za-z0-9]{1,8}", zone) is not None,
+                            "CQWS sent station type must be 1 to 8 letters or digits")
+                if state["pluginID"] == "darc_schwaben":
+                    require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", zone) is not None,
+                            "DARC Schwaben sent exchange must be # or a DOK/NM")
+                if state["pluginID"] == "winter_field_day":
+                    require(re.fullmatch(r"[0-9]{1,2}[A-Za-z] [A-Za-z0-9]{2,4}", zone) is not None,
+                            "Winter Field Day sent exchange must be CLASS SECTION")
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
@@ -1115,6 +1158,10 @@ class Host:
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
                 if state["pluginID"] == "ea_rtty" and zone != "#":
+                    state["draft"]["fields"]["other_1"] = zone.upper()
+                if state["pluginID"] == "darc_schwaben" and zone != "#":
+                    state["draft"]["fields"]["other_1"] = zone.upper()
+                if state["pluginID"] == "canada_day" and "#" not in zone:
                     state["draft"]["fields"]["other_1"] = zone.upper()
                 self.reserve_serial(store, state)
                 # Recreate the adapter with effective settings/macros before returning
@@ -1394,6 +1441,22 @@ class Host:
         if plugin_id in EUROPEAN_HF_PLUGINS:
             validate_european_hf_setup(
                 plugin_id, countries[call].get("primary_pfx", ""), settings["SentExchange"])
+        if plugin_id == "ca_qso_party":
+            validate_ca_exchange(load_plugin(plugin_id), settings["SentExchange"], setup=True)
+        if plugin_id == "canada_day":
+            canada_exchange = str(settings["SentExchange"])
+            require(bool(canada_exchange.strip()) and canada_exchange.count("#") <= 1
+                    and re.fullmatch(r"[A-Za-z0-9 #]{1,32}", canada_exchange) is not None,
+                    "Canada Day sent exchange must be text with at most one # serial placeholder")
+        if plugin_id == "cqws":
+            require(re.fullmatch(r"[A-Za-z0-9]{1,8}", str(settings["SentExchange"])) is not None,
+                    "CQWS sent station type must be 1 to 8 letters or digits")
+        if plugin_id == "darc_schwaben":
+            require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
+                    "DARC Schwaben sent exchange must be # or a DOK/NM")
+        if plugin_id == "winter_field_day":
+            require(re.fullmatch(r"[0-9]{1,2}[A-Za-z] [A-Za-z0-9]{2,4}", str(settings["SentExchange"])) is not None,
+                    "Winter Field Day sent exchange must be CLASS SECTION")
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1405,6 +1468,7 @@ class Host:
         live_mode = params.get("mode", mode) if settings["ModeCategory"] == "MIXED" else settings["ModeCategory"]
         require(live_mode in modes, f"Selected plugin requires a supported {mode} submode")
         report = default_report(live_mode)
+        received_report = "" if plugin_id == "ca_qso_party" else report
         return {"sessionID": session_id, "workspaceGeneration": workspace,
                 "name": text(params.get("name", PLUGINS[plugin_id]), 128),
                 "revision": 0, "engine": "not1mm-python", "pluginID": plugin_id,
@@ -1413,7 +1477,7 @@ class Host:
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries},
                 "run": False, "focus": "callsign", "draft": {"id": str(uuid.uuid4()), "frequencyHz": frequency,
-                "fields": dict(zip(INPUTS, ("", report, report,
+                "fields": dict(zip(INPUTS, ("", report, received_report,
                     str(settings["SentExchange"]) if (plugin_id in CQ_WW_PLUGINS and plugin_id != "cq_ww_rtty")
                     or plugin_id in JIDX_PLUGINS
                     or plugin_id in AADX_PLUGINS
@@ -1423,7 +1487,9 @@ class Host:
                      or plugin_id in EA_MAJESTAD_PLUGINS
                      or plugin_id == "ea_rtty" and settings["SentExchange"] != "#"
                      or plugin_id in REF_PLUGINS
-                       or plugin_id in EUROPEAN_DX_PLUGINS else "", "")))}}
+                       or plugin_id in EUROPEAN_DX_PLUGINS
+                       or plugin_id == "canada_day" and "#" not in str(settings["SentExchange"])
+                       or plugin_id == "darc_schwaben" and settings["SentExchange"] != "#" else "", "")))}}
 
     def reserve_serial(self, store, state):
         if not requires_serial(state):
@@ -1726,6 +1792,36 @@ class Host:
                         "SSA MT sent and received serials must be between 1 and 999")
                 require(desk.contest._check_locator(received),  # pylint: disable=protected-access
                         "SSA MT received locator must be a valid 6-character Swedish locator")
+        elif desk.state["pluginID"] == "ca_qso_party":
+            validate_ca_exchange(desk.contest, fields["other_1"])
+            require(fields["sent"].isdigit() and int(fields["sent"]) > 0
+                    and fields["receive"].isdigit() and int(fields["receive"]) > 0,
+                    "CQP sent and received serials must be positive integers")
+        elif desk.state["pluginID"] == "canada_day":
+            require(bool(fields["other_1"].strip()), "Canada Day sent exchange is required")
+            require(re.fullmatch(r"[A-Za-z]{1,8}|[0-9]+", fields["other_2"]) is not None,
+                    "Canada Day received exchange must be a province, territory, or positive serial")
+            if fields["other_2"].isdigit():
+                require(int(fields["other_2"]) > 0, "Canada Day received serial must be positive")
+        elif desk.state["pluginID"] == "cqws":
+            require(fields["other_2"].upper() in CQWS_EXCHANGES,
+                    "CQWS received station type is invalid")
+        elif desk.state["pluginID"] == "darc_schwaben":
+            if requires_serial(desk.state):
+                require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0,
+                        "DARC Schwaben sent serial must be positive")
+            else:
+                require(fields["other_1"].upper() == str(desk.state["settings"]["SentExchange"]).upper(),
+                        "DARC Schwaben sent DOK/NM must match contest setup")
+            received, locator = desk.contest.parse_exchange(fields["other_2"])
+            require(re.fullmatch(r"[A-Za-z0-9]{1,6}", received) is not None,
+                    "DARC Schwaben received exchange must contain a DOK/NM or serial")
+            require(not locator or re.fullmatch(r"[A-Ra-r]{2}[0-9]{2}(?:[A-Xa-x]{2})?", locator) is not None,
+                    "DARC Schwaben locator must be a valid 4- or 6-character grid")
+        elif desk.state["pluginID"] == "winter_field_day":
+            require(re.fullmatch(r"[0-9]{1,2}[A-Za-z]", fields["other_1"]) is not None
+                    and re.fullmatch(r"[A-Za-z0-9]{2,4}", fields["other_2"]) is not None,
+                    "Winter Field Day received exchange must be CLASS and SECTION")
         elif desk.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
             pass
         elif desk.state["pluginID"] in QSO_PARTY_PLUGINS:
@@ -1785,6 +1881,10 @@ class Host:
         fields = desk.values()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
         self.validate_exchange(desk, fields)
+        if desk.state["pluginID"] == "darc_schwaben" \
+                and BAND_LABELS[desk.band(desk.state["draft"]["frequencyHz"])] in {"2m", "70cm"}:
+            require(bool(desk.contest.parse_exchange(fields["other_2"])[1]),
+                    "DARC Schwaben VHF exchange requires a locator")
         qso_id = identifier(qso_id) if qso_id else str(uuid.uuid4())
         timestamp = timestamp or now()
         try:
@@ -1801,7 +1901,8 @@ class Host:
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
                                        *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
                                         *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
-                                         *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS}:
+                                         *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS,
+                                         "ca_qso_party", "canada_day", "cqws", "winter_field_day"}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1809,11 +1910,12 @@ class Host:
         report = default_report(operating_mode(desk.state))
         desk.callsign.setText("")
         desk.sent.setText(report)
-        desk.receive.setText(report)
+        desk.receive.setText("" if desk.state["pluginID"] == "ca_qso_party" else report)
         desk.other_2.setText("")
         if desk.state["pluginID"] in {
             "cwt", "k1usn_sst", "cq_ww_rtty", "general_logging",
             *NAME_SPC_ENTRY_PLUGINS, *QSO_PARTY_PLUGINS,
+            "ca_qso_party", "winter_field_day",
         }:
             desk.other_1.setText("")
         if requires_serial(desk.state):
@@ -1855,12 +1957,14 @@ class Host:
                     or desk.state["pluginID"] in REF_PLUGINS
                     or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS
                     or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS
+                    or desk.state["pluginID"] == "darc_schwaben"
                     or desk.state["pluginID"] == "arrl_rtty_ru"
                     or desk.state["pluginID"] in ARRL_VHF_PLUGINS):
                 pattern = (r"[A-Ra-r]{2}[0-9]{2}" if desk.state["pluginID"] in ARRL_VHF_PLUGINS else
                            r"[A-Za-z0-9]{1,6}" if desk.state["pluginID"] == "arrl_10m"
                            or desk.state["pluginID"] in REF_PLUGINS
-                           or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS else r"[A-Za-z]{1,4}|[0-9]+")
+                           or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS
+                           or desk.state["pluginID"] == "darc_schwaben" else r"[A-Za-z]{1,4}|[0-9]+")
                 require(re.fullmatch(pattern, updated["other_1"]) is not None,
                         "Historical sent exchange must be a serial or location code")
                 original = desk.state["settings"]["SentExchange"]
@@ -1880,9 +1984,14 @@ class Host:
             frequency = params.get("frequencyHz", round(before["Freq"] * 1000))
             require(type(frequency) is int, "Frequency must be integer Hz")
             desk.contest_band(frequency)
+            if desk.state["pluginID"] == "darc_schwaben" and BAND_LABELS[desk.band(frequency)] in {"2m", "70cm"}:
+                require(bool(desk.contest.parse_exchange(updated["other_2"])[1]),
+                        "DARC Schwaben VHF exchange requires a locator")
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
+            if desk.state["pluginID"] == "darc_schwaben" and not desk.contest.parse_exchange(updated["other_2"])[1]:
+                after["Exchange1"] = ""
             preserve_sent = (desk.state["pluginID"] in SSA_MT_PLUGINS
                              or desk.state["pluginID"] == "cq_ww_rtty"
                              or desk.state["pluginID"] == "arrl_field_day"
@@ -1893,6 +2002,10 @@ class Host:
                              or desk.state["pluginID"] in {"arrl_10m", *EA_MAJESTAD_PLUGINS, *REF_PLUGINS,
                                                            *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                                                            *EUROPEAN_HF_PLUGINS}
+                             and "other_1" not in correction_fields
+                             or desk.state["pluginID"] == "cqws"
+                             or desk.state["pluginID"] == "ca_qso_party" and "sent" not in correction_fields
+                             or desk.state["pluginID"] in {"canada_day", "darc_schwaben"}
                              and "other_1" not in correction_fields)
             if preserve_sent:
                 # Received-name edits must not replace the exchange actually
@@ -1903,6 +2016,11 @@ class Host:
             elif desk.state["pluginID"] in TYPE4_UTILITY_PLUGINS:
                 # These plugins own heterogeneous historical sent fields
                 # (RST, serial, RandomGram, or no sent exchange at all).
+                pass
+            elif desk.state["pluginID"] == "ca_qso_party":
+                after["SentNr"] = int(updated["sent"])
+            elif desk.state["pluginID"] in {"canada_day", "darc_schwaben", "winter_field_day"}:
+                # Original setters already own their heterogeneous sent fields.
                 pass
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
@@ -1959,6 +2077,15 @@ class Host:
             desk.contest_settings["SentExchange"] = configured_sent_exchange
             desk.other_2.setText(replay_received_exchange)
         desk.contest.recalculate_mults(desk)
+        if desk.state["pluginID"] == "ca_qso_party":
+            seen = set()
+            for row in desk.database.fetch_all_contacts_asc():
+                exchange = str(row.get("Exchange1", "")).upper()
+                is_multiplier = int(bool(exchange) and exchange != "DX" and exchange not in seen)
+                row["IsMultiplier1"] = is_multiplier
+                desk.database.change_contact(row)
+                if exchange and exchange != "DX":
+                    seen.add(exchange)
         if desk.state["pluginID"] == "rsgb_commonwealth_beru":
             # BERU's original callback deliberately reallocates the first three
             # per-band bonuses. Preserve those recalculated values while retaining

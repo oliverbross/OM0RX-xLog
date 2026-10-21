@@ -209,6 +209,16 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 "self.process_function_key(button, rttysendrx=False)",
                 "self.process_function_key(button)",
             ))
+        if plugin_id == "ca_qso_party":
+            replacements.append((
+                'my_qth = self.contest_settings.get("SentExchange", "").upper()',
+                'my_qth = str(contact.get("MiscText", self.contest_settings.get("SentExchange", ""))).upper()',
+            ))
+        if plugin_id == "winter_field_day":
+            replacements.append((
+                'f"{self.contest_settings.get(\'SentExchange\', \'\').ljust(9).upper()}"',
+                'f"{str(contact.get(\'MiscText\', self.contest_settings.get(\'SentExchange\', \'\'))).ljust(9).upper()}"',
+            ))
         if plugin_id in {"ref_cw", "ref_ssb"}:
             # The pinned REF siblings inherited Helvetia's country-prefix
             # literal during multiplier replay, and their ESM accepted only
