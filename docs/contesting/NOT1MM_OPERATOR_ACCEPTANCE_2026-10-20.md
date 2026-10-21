@@ -853,3 +853,50 @@ tests; its WSJT-X snapshot case read the process-global installed preference
 `ordinary_logbook`. The operator's saved preference was not changed. That
 test-isolation leak is separate from the N1MM route and remains to be corrected
 before the next broad release gate.
+
+## Post-1.3.0 source continuation: multi-operator authority foundation
+
+Source `957e53e953031d8f3e236a2dd825d690bbeb35ab` adds the persistence and
+transport foundation for authoritative multi-operator operation without adding
+a second station service. The Python contest host is the only SQLite writer and
+now provides durable, request-idempotent routes for shared serial reservation,
+duplicate inquiry, remote contact commit/correction/deletion and ordered change
+replay across restart. Serial allocation is transactionally unique and remote
+correction/deletion is fenced by the latest revision of the target QSO.
+
+The existing Group Chat multicast owner now supports an optional master/client
+v1 protocol alongside legacy Renfield CHAT/POST traffic. It carries correlated
+request, session, workspace, lease, revision-cursor and contest identities;
+requests from a different plugin/start-UTC/station-call fingerprint are rejected
+before lease adoption or worker dispatch. Replay caches are bounded, lease loss
+revokes pending work, and native forwarding is restricted to the four approved
+`contest_multi_*` routes. Configuration exposes the original **Be the master**
+choice and Group Chat displays the current authority role/status.
+
+The trust boundary is intentionally narrow and explicit: this is correlation on
+an isolated trusted multicast LAN, not cryptographic peer authentication against
+an active LAN observer. Legacy Renfield acknowledgements remain transport-only.
+`remotePersistenceVerified` stays false until an active lease has returned a
+successful `contactApply`; serial or dupe replies alone do not claim persistence.
+
+Supporting checks at this exact source boundary:
+
+- the complete Python contest-host suite passed **292 tests**, including
+  concurrent unique serials, exact replay/payload conflict, stale workspace,
+  snapshot-stable dupe inquiry, remote-QSO conflict fencing, paged restart
+  replay, and repair of an interrupted schema migration;
+- the combined contest workflow/UI selection passed **144 tests**, the focused
+  Group/configuration set passed **41 tests**, TypeScript checking passed, and
+  the production frontend build completed with only the existing chunk warning;
+- the native Group Chat/authority suite passed **18 tests**, including invalid
+  lease tags, cross-contest multicast isolation, duplicate/lost frame replay,
+  lease loss/reconnect and persistence-capability truthfulness;
+- a read-only cross-review confirmed the contest-identity and migration blockers
+  were corrected and found no further P1/P2 issue in those fixes.
+
+This is implemented source, not installed-app or multi-host acceptance. Main
+Logging still commits locally and publishes through the legacy path; it does not
+yet call the new authority routes for serial allocation, dupe display, contact
+commit or change replay. Therefore shared multi-operator logging is still
+unfinished and no new 1.3.0 package was built for this batch. The next batch is
+the visible Main Logging integration followed by two-host safe acceptance.
