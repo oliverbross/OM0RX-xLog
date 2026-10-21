@@ -85,7 +85,7 @@ describe("Contest Setup station projection", () => {
     await expect(loadContestStationSnapshot(async radioId => session(radioId, radioId))).resolves.toEqual({});
   });
 
-  it("bootstraps through native station ownership and never calls raw station_snapshot", async () => {
+  it("routes the digital setup snapshot through the native Contest Setup owner", async () => {
     mocks.station.mockResolvedValue(session("radio1", "radio1", 14_025_000));
     mocks.worker.mockImplementation(async (method: string) => {
       if (method === "station_snapshot") throw new Error("raw station snapshot is forbidden");
@@ -93,14 +93,18 @@ describe("Contest Setup station projection", () => {
       if (method === "workspace_status") return { result: { workspace_exists: true } };
       if (method === "settings_load") return { result: { generation: "workspace", settings: { stationCall: "OM0RX" } } };
       if (method === "cluster_snapshot") return { result: { snapshot: { spots: [] } } };
-      if (method === "wsjtx_snapshot") return { result: { configuration:{enabled:false,address:"127.0.0.1",port:2237},running:false } };
+      if (method === "wsjtx_snapshot") return { result: { configuration:{enabled:false,address:"127.0.0.1",port:2237,destination:"ordinary_logbook"},
+        running:false,contest_target_supported:true,active_contest:{session_id:"contest",plugin_id:"cq_ww_rtty"} } };
       throw new Error(`unexpected method ${method}`);
     });
     render(React.createElement((await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface));
     await waitFor(() => expect(mocks.station).toHaveBeenCalledWith("radio1"));
     expect(mocks.worker.mock.calls.map(([method]) => method)).not.toContain("station_snapshot");
     const props=mocks.workspace.mock.calls.at(-1)?.[0] as {serviceRequest:(method:string)=>Promise<unknown>};
-    await expect(props.serviceRequest("wsjtx_snapshot")).resolves.toMatchObject({configuration:{address:"127.0.0.1",port:2237}});
+    await expect(props.serviceRequest("wsjtx_snapshot")).resolves.toMatchObject({
+      configuration:{address:"127.0.0.1",port:2237,destination:"ordinary_logbook"},
+      contest_target_supported:true,active_contest:{plugin_id:"cq_ww_rtty"},
+    });
     expect(mocks.worker).toHaveBeenCalledWith("wsjtx_snapshot",{});
     expect(mocks.framed).not.toHaveBeenCalledWith("wsjtx_snapshot",expect.anything());
   });

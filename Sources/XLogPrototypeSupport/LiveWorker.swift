@@ -371,13 +371,23 @@ public actor LiveWorker {
         do {
             guard data.count <= PrototypeWorker.maxRequestBytes,
                   let envelope = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-                  Set(envelope.keys) == ["id", "method", "params"],
+                  (Set(envelope.keys) == ["id", "method", "params"]
+                    || Set(envelope.keys) == ["id", "method", "params", "operatingModule"]),
                   let requestID = envelope["id"] as? String, !requestID.isEmpty, requestID.utf8.count <= 128,
                   let method = envelope["method"] as? String, method.utf8.count <= 64,
                   let params = envelope["params"] as? [String: Any] else {
                 throw WorkerFailure("invalid_request", "Expected a bounded, correlated request.")
             }
             id = requestID
+            let requestOperatingModule: WorkerOperatingModule
+            if let rawModule = envelope["operatingModule"] as? String {
+                guard let module = WorkerOperatingModule(rawValue: rawModule) else {
+                    throw WorkerFailure("operating_module_invalid", "The native request operating module is invalid.")
+                }
+                requestOperatingModule = module
+            } else {
+                requestOperatingModule = operatingModule
+            }
             if terminalShutdown && method == "remote_backup_request" {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no backup command was started.")
             }
@@ -633,10 +643,10 @@ public actor LiveWorker {
                 } else if method.hasPrefix("spot_bridge_") {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
                 } else if method.hasPrefix("wsjtx_") {
-                    let route = Self.wsjtxRoute(for: operatingModule)
+                    let route = Self.wsjtxRoute(for: requestOperatingModule)
                     var destinationProvider: (@Sendable () async throws -> WSJTXContestDestination)?
                     var contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)?
-                    if operatingModule == .contesting, let lane = pythonContestLane {
+                    if requestOperatingModule == .contesting, let lane = pythonContestLane {
                         destinationProvider = { try await lane.digitalDestination() }
                         contestImporter = { record, destination in
                             try await lane.ingestDigital(record, destination: destination)
@@ -651,7 +661,7 @@ public actor LiveWorker {
                     var transmitDestination: WSJTXContestDestination?
                     var transmitDestinationProvider: (@Sendable () async throws -> WSJTXContestDestination)?
                     var contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)?
-                    if operatingModule == .contesting, let lane = pythonContestLane {
+                    if requestOperatingModule == .contesting, let lane = pythonContestLane {
                         receiveDestination = try? await lane.digitalDestination()
                         transmitDestinationProvider = { try await lane.fldigiTransmitDestination() }
                         transmitDestination = try? await transmitDestinationProvider?()

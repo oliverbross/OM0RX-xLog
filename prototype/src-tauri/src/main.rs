@@ -1982,6 +1982,11 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
 }
 
+fn contest_setup_digital_worker_module(label: &str, method: &str) -> Option<operating_module::OperatingModule> {
+    (label == CONTEST_SETUP_WINDOW && (method.starts_with("wsjtx_") || method.starts_with("fldigi_")))
+        .then_some(operating_module::OperatingModule::Contesting)
+}
+
 #[tauri::command]
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
@@ -1992,12 +1997,19 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let contest_window_ticket = if enters_contest_desk(window.label(), method) {
         Some(contest_window_context::begin(&request)?)
     } else { None };
-    let _module_admission = if let Some(module) = operating_module::worker_module(&request) {
+    let digital_contest_module = contest_setup_digital_worker_module(window.label(), method);
+    let _module_admission = if let Some(module) = digital_contest_module.or_else(|| operating_module::worker_module(&request)) {
         Some(operating_module::owner()?.admit(module, request["operatingContext"].as_str())?)
     } else if operating_module::shared_worker_mutation(&request) {
         Some(operating_module::owner()?.admit_current()?)
     } else { None };
-    if let Some(object) = request.as_object_mut() { object.remove("operatingContext"); }
+    if let Some(object) = request.as_object_mut() {
+        object.remove("operatingContext");
+        object.remove("operatingModule");
+        if let Some(module) = digital_contest_module {
+            object.insert("operatingModule".into(), serde_json::to_value(module).map_err(|_| "Operating module unavailable")?);
+        }
+    }
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     if native_only_worker_method(method) {
         return Err("Use the dedicated native file chooser.".into());
@@ -3353,6 +3365,19 @@ mod workspace_layout_tests {
         }
         assert!(super::validate_contest_surface_main_caller("main").is_err());
         assert!(super::validate_contest_surface_main_caller("contest-setup").is_ok());
+    }
+
+    #[test]
+    fn contest_setup_digital_route_marks_only_owner_worker_requests_as_contesting() {
+        use crate::operating_module::OperatingModule;
+        for method in ["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
+                       "fldigi_snapshot", "fldigi_configure", "fldigi_start", "fldigi_stop"] {
+            assert_eq!(super::contest_setup_digital_worker_module("contest-setup", method),
+                       Some(OperatingModule::Contesting));
+            assert_eq!(super::contest_setup_digital_worker_module("contest-setup-digital", method), None);
+            assert_eq!(super::contest_setup_digital_worker_module("main", method), None);
+        }
+        assert_eq!(super::contest_setup_digital_worker_module("contest-setup", "contest_setup_get"), None);
     }
 
     #[test]

@@ -236,6 +236,60 @@ for line in sys.stdin:
         await lane.shutdown()
     }
 
+    func testNormalProcessWorkerUsesTrustedContestScopeForDigitalSetupSnapshot() async throws {
+        let root = repositoryRoot()
+        let basePath = FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
+        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
+            .appendingPathComponent("xlog-digital-worker-route-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let configuration = PythonContestHostConfiguration(
+            executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("contest", isDirectory: true))
+        let logbook = LiveLogbookMethods(
+            supportDirectory: temporary.appendingPathComponent("workspace", isDirectory: true),
+            inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: .production,
+            operatingModule: .normalLogging, pythonContestConfiguration: configuration)
+        func request(_ id: String, _ method: String, _ params: [String: Any] = [:],
+                     operatingModule: String? = nil) async throws -> [String: Any] {
+            var envelope: [String: Any] = ["id": id, "method": method, "params": params]
+            if let operatingModule { envelope["operatingModule"] = operatingModule }
+            let reply = await worker.response(to: try JSONSerialization.data(withJSONObject: envelope))
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: reply) as? [String: Any])
+        }
+        let settingsReply = try await request("settings", "settings_load")
+        let settings = try XCTUnwrap(settingsReply["result"] as? [String: Any])
+        let workspace = try XCTUnwrap(settings["generation"] as? String)
+        let session = UUID().uuidString.lowercased()
+        let created = try await request("create", "contest_session_create", [
+            "sessionID": session, "workspaceGeneration": workspace,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_rtty", "frequencyHz": 14_080_000,
+            "station": ["Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"],
+            "settings": ["SentExchange": "15", "ModeCategory": "RTTY"],
+        ])
+        XCTAssertEqual(created["ok"] as? Bool, true)
+
+        let ordinaryReply = try await request("ordinary", "wsjtx_snapshot")
+        let ordinary = try XCTUnwrap(ordinaryReply["result"] as? [String: Any])
+        XCTAssertEqual(ordinary["contest_target_supported"] as? Bool, false)
+        XCTAssertEqual(ordinary["logging_destination"] as? String, "ordinary_logbook")
+        let contestReply = try await request("contest", "wsjtx_snapshot", operatingModule: "contesting")
+        let contest = try XCTUnwrap(contestReply["result"] as? [String: Any])
+        XCTAssertEqual(contest["contest_target_supported"] as? Bool, true)
+        XCTAssertEqual((contest["active_contest"] as? [String: Any])?["session_id"] as? String, session)
+        XCTAssertEqual((contest["active_contest"] as? [String: Any])?["plugin_id"] as? String, "cq_ww_rtty")
+        XCTAssertEqual(contest["logging_destination"] as? String, "ordinary_logbook",
+            "A scoped snapshot must not opt in or persist an active-contest destination.")
+
+        let invalid = try await request("invalid", "wsjtx_snapshot", operatingModule: "unknown")
+        XCTAssertEqual((invalid["error"] as? [String: Any])?["code"] as? String, "operating_module_invalid")
+        await worker.shutdown()
+    }
+
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
