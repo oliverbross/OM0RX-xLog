@@ -150,7 +150,8 @@ it("shows the bounded Renfield capabilities and pinned multicast default", () =>
   for (const label of ["Enable Renfield Group Network", "Unique Station Name", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
   expect((screen.getByLabelText("Multicast Group") as HTMLInputElement).value).toBe("239.1.1.1");
   expect(screen.queryByLabelText("Connect to server")).toBeNull(); expect(screen.queryByLabelText("Be the master")).toBeNull();
-  expect(screen.getByRole("status").textContent).toContain("idempotent contact publication");
+  expect(screen.getByRole("status").textContent).toContain("unverified transport acknowledgements");
+  expect(screen.getByRole("status").textContent).toContain("do not prove remote persistence or clear the local retry ledger");
   expect(screen.getByRole("status").textContent).toContain("Shared serial allocation and server dupe inquiries remain unavailable");
 });
 it("migrates the obsolete multicast default without exposing or clearing saved master state", async () => {

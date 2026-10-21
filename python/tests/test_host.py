@@ -125,7 +125,7 @@ class HostTests(unittest.TestCase):
         self.assertEqual((fields["callsign"], fields["sent"], fields["receive"], fields["other_2"]),
                          ("", "599", "599", ""))
 
-    def test_network_publication_ledger_replays_until_exact_receipt(self):
+    def test_network_publication_ledger_remains_dirty_after_unverified_acknowledgement(self):
         first = self.log(minute=0)
         second = self.log("DL1ABC", "14", minute=1)
         scope = {"workspaceGeneration": self.workspace, "limit": 100}
@@ -133,18 +133,21 @@ class HostTests(unittest.TestCase):
         self.assertEqual([row["ID"] for row in pending["contacts"]], [first, second])
         self.assertTrue(all(row["Dirty"] == 1 for row in pending["contacts"]))
 
-        confirmed = self.read("network_confirm", workspaceGeneration=self.workspace, qsoID=second)
-        self.assertEqual(confirmed["qsoID"], second)
-        self.assertTrue(confirmed["confirmed"])
-        # Duplicate receipts are idempotent; only the exact UUID is retired.
+        # Pinned Renfield also emits this response when a same-second/call
+        # INSERT collides. The client must not interpret it as persistence.
+        acknowledged = self.read("network_confirm", workspaceGeneration=self.workspace, qsoID=second)
+        self.assertEqual(acknowledged["qsoID"], second)
+        self.assertTrue(acknowledged["transportAcknowledged"])
+        self.assertFalse(acknowledged["persistenceVerified"])
+        self.assertFalse(acknowledged["confirmed"])
         self.read("network_confirm", workspaceGeneration=self.workspace, qsoID=second)
         replay = self.read("network_pending", **scope)
-        self.assertEqual([row["ID"] for row in replay["contacts"]], [first])
+        self.assertEqual([row["ID"] for row in replay["contacts"]], [first, second])
 
         self.host.close()
         self.host = Host(self.root)
         restarted = self.read("network_pending", **scope)
-        self.assertEqual([row["ID"] for row in restarted["contacts"]], [first])
+        self.assertEqual([row["ID"] for row in restarted["contacts"]], [first, second])
 
     def test_network_publication_rejects_stale_foreign_and_unknown_receipts(self):
         qso = self.log()

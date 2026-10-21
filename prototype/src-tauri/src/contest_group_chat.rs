@@ -15,7 +15,7 @@ const MAX_DATAGRAM_BYTES: usize = 2_048;
 const MAX_MESSAGE_BYTES: usize = 512;
 const MAX_SENDER_BYTES: usize = 32;
 const MAX_HISTORY: usize = 200;
-const MAX_RECEIPTS: usize = 500;
+const MAX_ACKNOWLEDGEMENTS: usize = 500;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -64,7 +64,7 @@ pub struct Snapshot {
     pub multicast_group: String,
     pub multicast_port: u16,
     pub messages: Vec<Message>,
-    pub contact_receipts: Vec<String>,
+    pub unverified_transport_acknowledgements: Vec<String>,
     pub capabilities: Capabilities,
 }
 
@@ -73,6 +73,7 @@ pub struct Snapshot {
 pub struct Capabilities {
     pub chat: bool,
     pub contact_publication: bool,
+    pub remote_persistence_verified: bool,
     pub shared_serial: bool,
     pub duplicate_inquiry: bool,
     pub authority_limitation: &'static str,
@@ -85,7 +86,7 @@ struct SharedState {
     next_sequence: u64,
     messages: VecDeque<Message>,
     outstanding_contacts: BTreeSet<String>,
-    contact_receipts: VecDeque<String>,
+    unverified_transport_acknowledgements: VecDeque<String>,
 }
 
 impl Default for SharedState {
@@ -96,7 +97,7 @@ impl Default for SharedState {
             next_sequence: 1,
             messages: VecDeque::new(),
             outstanding_contacts: BTreeSet::new(),
-            contact_receipts: VecDeque::new(),
+            unverified_transport_acknowledgements: VecDeque::new(),
         }
     }
 }
@@ -279,7 +280,10 @@ impl GroupChat {
         Ok(())
     }
 
-    pub fn take_contact_receipts(&self, context: &str) -> Result<Vec<String>, String> {
+    pub fn take_unverified_transport_acknowledgements(
+        &self,
+        context: &str,
+    ) -> Result<Vec<String>, String> {
         let slot = self
             .0
             .lock()
@@ -288,13 +292,18 @@ impl GroupChat {
             .as_ref()
             .ok_or("Group network has not been configured for the active contest.")?;
         if owner.context != context {
-            return Err("Those contact receipts belong to an expired contest context.".into());
+            return Err(
+                "Those transport acknowledgements belong to an expired contest context.".into(),
+            );
         }
         let mut state = owner
             .state
             .lock()
             .map_err(|_| "Group network state is unavailable.")?;
-        Ok(state.contact_receipts.drain(..).collect())
+        Ok(state
+            .unverified_transport_acknowledgements
+            .drain(..)
+            .collect())
     }
 
     pub fn shutdown(&self) {
@@ -466,12 +475,18 @@ fn process_wire(bytes: &[u8], configuration: &Configuration, state: &Arc<Mutex<S
             let Ok(mut current) = state.lock() else {
                 return;
             };
-            if current.outstanding_contacts.remove(&response.unique_id)
-                && !current.contact_receipts.contains(&response.unique_id)
+            // Pinned Renfield emits RESPONSE even when its SQLite insert fails.
+            // Record transport observation only; never retire the publication.
+            if current.outstanding_contacts.contains(&response.unique_id)
+                && !current
+                    .unverified_transport_acknowledgements
+                    .contains(&response.unique_id)
             {
-                current.contact_receipts.push_back(response.unique_id);
-                while current.contact_receipts.len() > MAX_RECEIPTS {
-                    current.contact_receipts.pop_front();
+                current
+                    .unverified_transport_acknowledgements
+                    .push_back(response.unique_id);
+                while current.unverified_transport_acknowledgements.len() > MAX_ACKNOWLEDGEMENTS {
+                    current.unverified_transport_acknowledgements.pop_front();
                 }
             }
         }
@@ -518,13 +533,18 @@ fn snapshot(owner: &Owner) -> Result<Snapshot, String> {
         multicast_group: owner.configuration.multicast_group.clone(),
         multicast_port: owner.configuration.multicast_port,
         messages: state.messages.iter().cloned().collect(),
-        contact_receipts: state.contact_receipts.iter().cloned().collect(),
+        unverified_transport_acknowledgements: state
+            .unverified_transport_acknowledgements
+            .iter()
+            .cloned()
+            .collect(),
         capabilities: Capabilities {
             chat: true,
             contact_publication: true,
+            remote_persistence_verified: false,
             shared_serial: false,
             duplicate_inquiry: false,
-            authority_limitation: "Pinned Renfield GET_SN and ISDUPE replies have no request identity; loss, retry or reordering cannot be correlated safely.",
+            authority_limitation: "Pinned Renfield POST replies do not prove SQLite persistence, and GET_SN/ISDUPE replies have no request identity. Contact publication remains retryable; remote persistence, shared serials and dupe replies are not authoritative.",
         },
     })
 }
@@ -579,11 +599,13 @@ fn post_packet(configuration: &Configuration, contact: Value) -> Result<(String,
     if contest.chars().any(|character| character == '\0') {
         return Err("Contest contact publication has an invalid contest identity.".into());
     }
+    let operator = object
+        .get("Operator")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or("Contest contact publication has no historical operator.")?;
+    validate_text(operator, MAX_SENDER_BYTES, "Contact operator")?;
     object.insert("cmd".into(), Value::String("POST".into()));
-    object.insert(
-        "Operator".into(),
-        Value::String(configuration.operator.clone()),
-    );
     object.insert(
         "NetBiosName".into(),
         Value::String(configuration.station_name.clone()),
@@ -729,28 +751,45 @@ mod tests {
         for state in [&first, &second] {
             let state = state.lock().unwrap();
             assert!(state.outstanding_contacts.is_empty());
-            assert!(state.contact_receipts.is_empty());
+            assert!(state.unverified_transport_acknowledgements.is_empty());
             assert!(state.messages.is_empty());
         }
     }
 
     #[test]
-    fn post_publication_uses_stable_uuid_and_pinned_recipient_fields() {
+    fn post_publication_preserves_historical_operator_during_handoff_retry() {
         let qso_id = "11111111-1111-4111-8111-111111111111";
+        let mut current_configuration = configuration(true);
+        current_configuration.operator = "NEWOP".into();
         let (identity, packet) = post_packet(
-            &configuration(true),
-            serde_json::json!({"ID":qso_id,"ContestName":"CQ-WW-CW","Call":"K1ABC","Dirty":1}),
+            &current_configuration,
+            serde_json::json!({"ID":qso_id,"ContestName":"CQ-WW-CW","Call":"K1ABC","Operator":"OLDOP","Dirty":1}),
         )
         .unwrap();
         assert_eq!(identity, qso_id);
         let value: Value = serde_json::from_slice(&packet).unwrap();
         assert_eq!(value["cmd"], "POST");
-        assert_eq!(value["Operator"], "OM0RX");
+        assert_eq!(value["Operator"], "OLDOP");
         assert_eq!(value["NetBiosName"], "xlog-a");
     }
 
     #[test]
-    fn two_peers_accept_only_their_outstanding_receipts_under_loss_and_reordering() {
+    fn post_publication_requires_a_bounded_historical_operator() {
+        let qso_id = "11111111-1111-4111-8111-111111111111";
+        assert!(post_packet(
+            &configuration(true),
+            serde_json::json!({"ID":qso_id,"ContestName":"CQ-WW-CW","Call":"K1ABC"}),
+        )
+        .is_err());
+        assert!(post_packet(
+            &configuration(true),
+            serde_json::json!({"ID":qso_id,"ContestName":"CQ-WW-CW","Call":"K1ABC","Operator":"X".repeat(33)}),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn two_peers_record_only_their_unverified_transport_acknowledgements() {
         let first = Arc::new(Mutex::new(SharedState::default()));
         let second = Arc::new(Mutex::new(SharedState::default()));
         let one = "11111111-1111-4111-8111-111111111111";
@@ -786,20 +825,26 @@ mod tests {
             first
                 .lock()
                 .unwrap()
-                .contact_receipts
+                .unverified_transport_acknowledgements
                 .iter()
                 .cloned()
                 .collect::<Vec<_>>(),
             [two, one]
         );
-        assert!(second.lock().unwrap().contact_receipts.is_empty());
+        assert!(second
+            .lock()
+            .unwrap()
+            .unverified_transport_acknowledgements
+            .is_empty());
+        assert!(first.lock().unwrap().outstanding_contacts.contains(one));
+        assert!(first.lock().unwrap().outstanding_contacts.contains(two));
 
         process_wire(&response("xlog-b", two), &second_configuration, &second);
         assert_eq!(
             second
                 .lock()
                 .unwrap()
-                .contact_receipts
+                .unverified_transport_acknowledgements
                 .iter()
                 .cloned()
                 .collect::<Vec<_>>(),
@@ -816,7 +861,11 @@ mod tests {
         }))
         .unwrap();
         process_wire(&packet, &configuration(true), &restarted);
-        assert!(restarted.lock().unwrap().contact_receipts.is_empty());
+        assert!(restarted
+            .lock()
+            .unwrap()
+            .unverified_transport_acknowledgements
+            .is_empty());
         restarted
             .lock()
             .unwrap()
@@ -830,6 +879,10 @@ mod tests {
             &configuration(true),
             &restarted,
         );
-        assert!(restarted.lock().unwrap().contact_receipts.is_empty());
+        assert!(restarted
+            .lock()
+            .unwrap()
+            .unverified_transport_acknowledgements
+            .is_empty());
     }
 }

@@ -21,7 +21,7 @@ import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
 import { setContestCWSpeed } from "./contestStationControl";
 import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
-  takeContestGroupContactReceipts } from "./contestGroupChat";
+  takeContestGroupUnverifiedAcknowledgements } from "./contestGroupChat";
 import { ContestVoiceOutput, type ContestVoiceAction } from "./contestVoiceOutput";
 import "./ContestWorkspace.css";
 
@@ -1613,13 +1613,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           operator: setup.operator.trim().toUpperCase(),
           stationName: String(setup.network.stationName ?? "").trim(),
         });
-        for (const qsoID of await takeContestGroupContactReceipts(surfaceContext)) {
-          if (stopped) return;
-          const current = projectionRef.current;
-          if (!current || current.sessionID !== surfaceContext.sessionID || current.workspaceGeneration !== surfaceContext.workspaceGeneration) return;
-          unwrap(await request("contest_network_confirm", { sessionID: current.sessionID,
-            workspaceGeneration: current.workspaceGeneration, qsoID }));
-        }
+        // Pinned Renfield responds even when its SQLite write fails. Drain these
+        // transport observations, but never use them to retire the Dirty ledger.
+        await takeContestGroupUnverifiedAcknowledgements(surfaceContext);
         const current = projectionRef.current;
         if (!current || current.sessionID !== surfaceContext.sessionID || current.workspaceGeneration !== surfaceContext.workspaceGeneration) return;
         const pending = unwrap<{ sessionID:string; workspaceGeneration:string; contacts:Record<string,unknown>[] }>(

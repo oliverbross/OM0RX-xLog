@@ -16,7 +16,7 @@ const nativeExport = vi.hoisted(() => ({ save: vi.fn() }));
 const surfaceOwner = vi.hoisted(() => ({ current: null as any, waitForPublication: vi.fn(async () => {}) }));
 const surfaceWindow = vi.hoisted(() => ({ open: vi.fn(async () => {}), openHistory: vi.fn(async () => {}), openDialog: vi.fn(async (_kind: string) => {}) }));
 const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: vi.fn(async () => {}),
-  publish: vi.fn(async () => {}), receipts: vi.fn(async () => [] as string[]) }));
+  publish: vi.fn(async () => {}), acknowledgements: vi.fn(async () => [] as string[]) }));
 const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
 
 vi.mock("./useContestSurfaceOwner", () => ({ useContestSurfaceOwner: (owner: unknown) => {
@@ -27,7 +27,7 @@ vi.mock("./contestSurfaceNative", () => ({ openContestSurfaceWindow: surfaceWind
 vi.mock("./contestSetupDialogs", () => ({ openContestSetupDialog: surfaceWindow.openDialog,
   useContestSetupDialogs: (owner: unknown) => { setupDialogOwner.current = owner; } }));
 vi.mock("./contestGroupChat", () => ({ configureContestGroupChat: groupChat.configure, openContestGroupChatWindow: groupChat.open,
-  publishContestGroupContact: groupChat.publish, takeContestGroupContactReceipts: groupChat.receipts }));
+  publishContestGroupContact: groupChat.publish, takeContestGroupUnverifiedAcknowledgements: groupChat.acknowledgements }));
 vi.mock("../live/BandMaps", () => ({ default: () => <div>Shared bandmap</div> }));
 vi.mock("../live/ClusterPanel", () => ({ default: () => <div>Shared cluster</div> }));
 vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({

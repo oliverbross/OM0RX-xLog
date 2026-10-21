@@ -2549,11 +2549,11 @@ fn contest_group_network_publish(window: tauri::WebviewWindow,
 }
 
 #[tauri::command]
-fn contest_group_network_receipts(window: tauri::WebviewWindow,
+fn contest_group_network_acknowledgements(window: tauri::WebviewWindow,
     state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
     session_i_d: String, workspace_generation: String) -> Result<Vec<String>, String> {
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
-    state.take_contact_receipts(
+    state.take_unverified_transport_acknowledgements(
         &format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation))
 }
 
@@ -3094,7 +3094,7 @@ fn main() {
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
-            contest_group_network_snapshot, contest_group_network_publish, contest_group_network_receipts,
+            contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
             contest_voice_prepare,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,

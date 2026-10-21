@@ -5,8 +5,8 @@ export const maxContestChatBytes = 512;
 export type ContestGroupChatConfiguration = { enabled: boolean; multicastGroup: string; multicastPort: number; interface: string; operator: string; stationName: string };
 export type ContestGroupChatMessage = { sequence: number; sender: string; message: string; receivedAtMs: number };
 export type ContestGroupChatSnapshot = { status: "disabled" | "connected" | "error"; error: string | null; enabled: boolean;
-  operator: string; multicastGroup: string; multicastPort: number; messages: ContestGroupChatMessage[]; contactReceipts: string[];
-  capabilities: { chat: boolean; contactPublication: boolean; sharedSerial: false; duplicateInquiry: false; authorityLimitation: string } };
+  operator: string; multicastGroup: string; multicastPort: number; messages: ContestGroupChatMessage[]; unverifiedTransportAcknowledgements: string[];
+  capabilities: { chat: boolean; contactPublication: boolean; remotePersistenceVerified: false; sharedSerial: false; duplicateInquiry: false; authorityLimitation: string } };
 const bytes = (value: string) => new TextEncoder().encode(value).length;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const contextValid = (value: ContestSurfaceContext) => uuid.test(value.operatingContext) && uuid.test(value.sessionID) && uuid.test(value.workspaceGeneration);
@@ -28,9 +28,10 @@ function validSnapshot(value: unknown, maximumHistory = 200): value is ContestGr
     typeof snapshot.enabled === "boolean" && typeof snapshot.operator === "string" && bytes(snapshot.operator) <= 32 &&
     typeof snapshot.multicastGroup === "string" && snapshot.multicastGroup.length <= 15 &&
     Number.isInteger(snapshot.multicastPort) && Number(snapshot.multicastPort) >= 1 && Number(snapshot.multicastPort) <= 65535 &&
-    Array.isArray(snapshot.contactReceipts) && snapshot.contactReceipts.length <= 500 && snapshot.contactReceipts.every(item => typeof item === "string" && uuid.test(item)) &&
+    Array.isArray(snapshot.unverifiedTransportAcknowledgements) && snapshot.unverifiedTransportAcknowledgements.length <= 500 && snapshot.unverifiedTransportAcknowledgements.every(item => typeof item === "string" && uuid.test(item)) &&
     !!snapshot.capabilities && typeof snapshot.capabilities === "object" && !Array.isArray(snapshot.capabilities) &&
     (snapshot.capabilities as Record<string, unknown>).chat === true && typeof (snapshot.capabilities as Record<string, unknown>).contactPublication === "boolean" &&
+    (snapshot.capabilities as Record<string, unknown>).remotePersistenceVerified === false &&
     (snapshot.capabilities as Record<string, unknown>).sharedSerial === false && (snapshot.capabilities as Record<string, unknown>).duplicateInquiry === false &&
     typeof (snapshot.capabilities as Record<string, unknown>).authorityLimitation === "string" && bytes(String((snapshot.capabilities as Record<string, unknown>).authorityLimitation)) <= 512 &&
     Array.isArray(messages) && messages.length <= maximumHistory && messages.every(item => {
@@ -69,11 +70,11 @@ export async function publishContestGroupContact(context: ContestSurfaceContext,
     throw new Error("The contest contact publication is invalid.");
   await invoke("contest_group_network_publish", { ...context, contact });
 }
-export async function takeContestGroupContactReceipts(context: ContestSurfaceContext) {
-  if (!contextValid(context)) throw new Error("The Group network receipt context could not be verified.");
-  const value = await invoke("contest_group_network_receipts", { ...context });
+export async function takeContestGroupUnverifiedAcknowledgements(context: ContestSurfaceContext) {
+  if (!contextValid(context)) throw new Error("The Group network acknowledgement context could not be verified.");
+  const value = await invoke("contest_group_network_acknowledgements", { ...context });
   if (!Array.isArray(value) || value.length > 500 || !value.every(item => typeof item === "string" && uuid.test(item)))
-    throw new Error("The Group network contact receipts could not be verified.");
+    throw new Error("The Group network transport acknowledgements could not be verified.");
   return value as string[];
 }
 export async function openContestGroupChatWindow(context: ContestSurfaceContext) {

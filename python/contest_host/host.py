@@ -1021,17 +1021,13 @@ class Host:
                     "Contest network context is stale", "stale_generation")
             qso_id = identifier(params["qsoID"])
             row = store.exec_sql(
-                "SELECT ID,Dirty FROM DXLOG WHERE ID=? AND ContestNR=?",
+                "SELECT ID FROM DXLOG WHERE ID=? AND ContestNR=?",
                 (qso_id, store.current_contest),
             )
             require(bool(row), "Network contact does not belong to this contest", "not_found")
-            if row["Dirty"]:
-                store.exec_sql_commit(
-                    "UPDATE DXLOG SET Dirty=0 WHERE ID=? AND ContestNR=?",
-                    (qso_id, store.current_contest),
-                )
             return {"sessionID": session_id, "workspaceGeneration": workspace_generation(state),
-                    "qsoID": qso_id, "confirmed": True}
+                    "qsoID": qso_id, "transportAcknowledged": True,
+                    "persistenceVerified": False, "confirmed": False}
         if method == "check_partial":
             query = text(params.get("query", ""), 32).upper()
             require(re.fullmatch(r"[A-Z0-9/]{1,32}", query) is not None, "Partial callsign must contain letters, digits or slash")
