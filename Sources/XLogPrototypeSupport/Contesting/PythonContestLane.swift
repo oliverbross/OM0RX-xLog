@@ -1,6 +1,10 @@
 import Foundation
 import XContestCore
+#if os(macOS)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 
 /// Application-relative launch information for the bundled Not1MM host.
 /// Production never searches PATH or a user Python installation.

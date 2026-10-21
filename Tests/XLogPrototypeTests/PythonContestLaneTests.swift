@@ -1,6 +1,10 @@
 import Foundation
 import XCTest
+#if os(macOS)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
