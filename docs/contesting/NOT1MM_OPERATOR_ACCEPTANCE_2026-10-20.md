@@ -9,6 +9,46 @@ port or a public macOS release is finished.
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
 > do not describe the current source or the installed 1.3.0 milestone.
 
+## 1.3.0 trusted-LAN replica candidate — exact-source installed acceptance
+
+- The installed candidate is version `1.3.0` from packaged source
+  `a969c4402fefb0378d4693d7692f219755265db7` on canonical `main`; executable
+  implementation is `fe03f4f1798d3d7aaffbe847495571e63e7a8962`. The embedded
+  Python receipt records the packaged source, an empty `sourceChanges` array,
+  successful relocation and no external libraries loaded.
+- The built and installed main executable hashes match at
+  `5a1641a5054fe58c127f26a2f84e0e4f872541b3352a0e9d063d20f9d6e4b900`;
+  worker hashes match at
+  `e2172bbe3b2db1579540b3c1fc9cc23a6cea9430f93181ff15e5f5749f852f9c`.
+- The preserved normal database contains **68,441 QSOs** and passes SQLite
+  `quick_check`; the saved CQ WW RTTY contest database also passes
+  `quick_check`.
+- Through the installed Tauri application, Contest Setup restored the saved
+  CQ WW RTTY session and opened the separate Band Map, Check Partial, Cluster,
+  Log Display, Main Logging, Rates, Setup and Stats windows. The native Window
+  menu listed that contest desk without the normal main window. Main Logging
+  showed the saved two-QSO session, owned callsign focus, and accepted Run/S&P
+  switching. A disposable callsign draft was cleared; no QSO was logged and no
+  transmit action was used.
+- On one cold restart the normal workspace first showed the existing recoverable
+  **logbook service did not finish loading** screen. **Retry connection** loaded
+  the preserved workspace, and reopening Contest Setup restored the saved
+  contest desk with a fresh operating context. This observation is recorded as
+  a remaining startup-reliability limitation, not hidden as a clean first-pass
+  restart.
+- Developer ID signing, Apple notarization submission
+  `a0a87739-5be3-42ab-ae20-6d5ac3988afe`, stapler validation and Gatekeeper
+  assessment pass. The final ZIP is
+  `dist/OM0RX-xLog-1.3.0-macOS-arm64.zip`, SHA-256
+  `11cc0c11e3683594afc2c81fb4e6d25f564123abd35e6dfb74baa2fe6a8aa361`.
+
+The completed master/client routes and replica behavior remain automated source
+evidence: a second installed Mac did not exercise simultaneous logging,
+multicast loss/reconnect or lease transfer. Master failover/rebind is not
+implemented, and the trusted-LAN protocol does not provide cryptographic peer
+identity. Physical RF, production voice/PTT and external digital applications
+were not operated during this candidate pass.
+
 ## 1.3.0 notarized macOS candidate — exact-source installed acceptance
 
 - The executable candidate is version `1.3.0` from exact source
