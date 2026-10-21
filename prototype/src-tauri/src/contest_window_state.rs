@@ -8,6 +8,16 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 const FILE_NAME: &str = "contest-window-state.json";
+const VERSION: u8 = 2;
+const DEFAULT_OPEN: [&str; 7] = [
+    "active-qso",
+    "band-maps",
+    "propagation",
+    "logbook",
+    "callsign-intelligence",
+    "monitor",
+    "dx-cluster",
+];
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 struct Document {
@@ -24,8 +34,12 @@ fn path(directory: &Path) -> PathBuf {
     directory.join(FILE_NAME)
 }
 
-fn checked(document: Document) -> Result<Document, String> {
-    if document.version != 1
+fn default_document() -> Document {
+    Document { version: VERSION, open: DEFAULT_OPEN.into_iter().map(str::to_owned).collect() }
+}
+
+fn checked(mut document: Document) -> Result<Document, String> {
+    if !matches!(document.version, 1 | VERSION)
         || document.open.len() > crate::workspace_windows::CONTEST_WINDOWS.len()
         || document.open.iter().any(|panel| {
             !crate::workspace_windows::supports_panel(
@@ -35,6 +49,13 @@ fn checked(document: Document) -> Result<Document, String> {
         })
     {
         return Err("Saved contest window state is invalid.".into());
+    }
+    // Version 1 was written before the contest desk had a first-run set. An
+    // empty v1 document therefore records the old defect, not operator intent.
+    if document.version == 1 && document.open.is_empty() {
+        document = default_document();
+    } else {
+        document.version = VERSION;
     }
     Ok(document)
 }
@@ -50,10 +71,7 @@ fn read(directory: &Path) -> Result<Document, String> {
                     .map_err(|_| "Saved contest window state is invalid.")?,
             )
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Document {
-            version: 1,
-            open: BTreeSet::new(),
-        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(default_document()),
         Err(error) => Err(error.to_string()),
     }
 }
@@ -119,20 +137,31 @@ pub fn remember(directory: &Path, label: &str, open: bool) -> Result<(), String>
 mod tests {
     use super::*;
 
+    fn default_labels() -> Vec<String> {
+        DEFAULT_OPEN.into_iter().map(|panel| format!("contest--{panel}")).collect::<BTreeSet<_>>().into_iter().collect()
+    }
+
     #[test]
     fn remembers_exact_open_contest_set_across_process_lifetimes() {
         let directory = tempfile::tempdir().unwrap();
-        assert!(labels(directory.path()).unwrap().is_empty());
+        assert_eq!(labels(directory.path()).unwrap(), default_labels());
         remember(directory.path(), "contest--active-qso", true).unwrap();
         remember(directory.path(), "contest--logbook", true).unwrap();
         remember(directory.path(), "contest--active-qso", true).unwrap();
-        assert_eq!(
-            labels(directory.path()).unwrap(),
-            ["contest--active-qso", "contest--logbook"]
-        );
         remember(directory.path(), "contest--active-qso", false).unwrap();
-        assert_eq!(labels(directory.path()).unwrap(), ["contest--logbook"]);
+        assert!(!labels(directory.path()).unwrap().contains(&"contest--active-qso".to_owned()));
         assert!(remember(directory.path(), "logbook", true).is_err());
+    }
+
+    #[test]
+    fn migrates_the_legacy_empty_state_to_the_useful_contest_desk() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(path(directory.path()), br#"{"version":1,"open":[]}"#).unwrap();
+        assert_eq!(labels(directory.path()).unwrap(), default_labels());
+        remember(directory.path(), "contest--band-maps", false).unwrap();
+        let saved: Document = serde_json::from_slice(&std::fs::read(path(directory.path())).unwrap()).unwrap();
+        assert_eq!(saved.version, VERSION);
+        assert!(!saved.open.contains("band-maps"));
     }
 
     #[test]

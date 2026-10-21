@@ -944,6 +944,46 @@ fn wait_for_workspace_windows(app: &tauri::AppHandle, generation: &str, revision
     }
 }
 
+fn contest_desk_window(label: &str) -> bool {
+    workspace_windows::WorkspaceWindowIdentity::parse_native_label(label)
+        .is_ok_and(|identity| identity.scope == workspace_windows::WorkspaceWindowScope::Contesting
+            && identity.panel_id != "edit-contact")
+}
+
+fn enters_contest_desk(label: &str, method: &str) -> bool {
+    label == CONTEST_SETUP_WINDOW && matches!(method, "contest_create" | "contest_session_create" | "contest_open")
+}
+
+fn present_contest_desk(app: &tauri::AppHandle,
+    context: &contest_window_context::ContestWindowContext, attempt: u64) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let status = workspace_window_runtime::contest_status(app, context.clone())?;
+        if status["state"] == "error" || status["stopped"] == true {
+            return Err(status["error"].as_str().unwrap_or("The contest desk could not be opened.").into());
+        }
+        if status["state"] == "applied" && status["attempt"].as_u64().is_some_and(|value| value >= attempt) {
+            let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
+            if !labels.iter().any(|label| label == "contest--active-qso") {
+                return Err("The contest desk did not open Main Logging; the xLog main window remains available.".into());
+            }
+            if !labels.iter().any(|label| contest_desk_window(label)) {
+                return Err("The contest desk did not open a usable window; the xLog main window remains available.".into());
+            }
+            if let Some(main) = app.get_webview_window("main") {
+                validate_editor_transition(main.label())?;
+                detached_geometry::flush(&main);
+                main.destroy().map_err(|error| error.to_string())?;
+            }
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err("The contest desk did not finish opening; the xLog main window remains available.".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 fn update_workspace_mode_checks(app: &tauri::AppHandle, windows: bool) -> Result<(), String> {
     if let Some(menu) = app.menu() {
         let modes = menu.get(WINDOW_SUBMENU_ID).and_then(|item| item.as_submenu().cloned())
@@ -1948,7 +1988,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     validate_worker_request_caller(window.label())?;
     let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
     let method = method_value.as_str();
-    let contest_window_ticket = if window.label() == "contest-setup" && matches!(method, "contest_create" | "contest_session_create" | "contest_open") {
+    let contest_window_ticket = if enters_contest_desk(window.label(), method) {
         Some(contest_window_context::begin(&request)?)
     } else { None };
     let _module_admission = if let Some(module) = operating_module::worker_module(&request) {
@@ -2088,7 +2128,10 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         if response["ok"] == true {
             let context = contest_window_context::complete(ticket, response)?;
             let runtime_app = app.clone();
-            tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_context_changed_and_refresh(&runtime_app, context))
+            tauri::async_runtime::spawn_blocking(move || {
+                let attempt = workspace_window_runtime::contest_context_changed_and_refresh(&runtime_app, context.clone())?;
+                present_contest_desk(&runtime_app, &context, attempt)
+            })
                 .await.map_err(|_| "Contest window context task failed".to_string())??;
         }
     }
@@ -3062,9 +3105,31 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, contest_desk_window, enters_contest_desk, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn contest_desk_children_keep_a_usable_native_lifetime_after_main_retires() {
+        for label in ["contest--active-qso", "contest--band-maps", "contest--propagation",
+            "contest--logbook", "contest--callsign-intelligence", "contest--monitor", "contest--dx-cluster"] {
+            assert!(contest_desk_window(label), "rejected desk child {label}");
+        }
+        for label in ["main", "contest-setup", "contest--edit-contact", "contest--unknown", "logbook", ""] {
+            assert!(!contest_desk_window(label), "accepted non-desk lifetime {label}");
+        }
+    }
+
+    #[test]
+    fn creating_or_reopening_a_contest_enters_the_native_desk() {
+        for method in ["contest_create", "contest_session_create", "contest_open"] {
+            assert!(enters_contest_desk("contest-setup", method));
+            assert!(!enters_contest_desk("main", method));
+        }
+        for method in ["contest_sessions", "contest_setup_save", "contest_close", ""] {
+            assert!(!enters_contest_desk("contest-setup", method));
+        }
+    }
 
     #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
