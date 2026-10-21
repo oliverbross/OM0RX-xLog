@@ -177,13 +177,24 @@ final class LiveWSJTXBridgeTests: XCTestCase {
             route: .contestSurfaceOrdinaryLogbook, contestDestinationProvider: provider, contestImporter: contestImporter)
         XCTAssertEqual(configured["logging_destination"] as? String, "active_contest")
         XCTAssertEqual(configured["contest_target_supported"] as? Bool, true)
+        let persisted = try JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent("wsjtx.json"))) as? [String: Any]
+        XCTAssertEqual(persisted?["destination"] as? String, "active_contest")
+        XCTAssertEqual(persisted?["enabled"] as? Bool, true)
+        let restoredReceiver = FakeWSJTXReceiver()
         let restored = LiveWSJTXBridge(configurationURL: directory.appendingPathComponent("wsjtx.json"),
             workspaceAvailable: { true }, importer: { _ in ordinary.nextResult() },
-            receiverFactory: { _, _ in FakeWSJTXReceiver() })
-        let restoredSnapshot = try await restored.handle(method: "wsjtx_snapshot", params: [:])
-        XCTAssertEqual(restoredSnapshot["logging_destination"] as? String, "ordinary_logbook")
-        XCTAssertEqual((restoredSnapshot["configuration"] as? [String: Any])?["enabled"] as? Bool, false,
-            "An ephemeral contest lease must not restart later as an ordinary-log listener.")
+            receiverFactory: { _, _ in restoredReceiver })
+        await restored.startIfEnabled()
+        var restoredSnapshot = try await restored.handle(method: "wsjtx_snapshot", params: [:],
+            route: .contestSurfaceOrdinaryLogbook, contestDestinationProvider: provider, contestImporter: contestImporter)
+        XCTAssertEqual(restoredSnapshot["logging_destination"] as? String, "active_contest")
+        XCTAssertEqual((restoredSnapshot["configuration"] as? [String: Any])?["enabled"] as? Bool, true)
+        XCTAssertEqual(restoredSnapshot["running"] as? Bool, false,
+            "A persisted contest destination must not restart through the ordinary-log startup route.")
+        restoredSnapshot = try await restored.handle(method: "wsjtx_start", params: [:],
+            route: .contestSurfaceOrdinaryLogbook, contestDestinationProvider: provider, contestImporter: contestImporter)
+        XCTAssertEqual(restoredSnapshot["running"] as? Bool, true)
+        XCTAssertEqual(restoredReceiver.started?.0, "239.255.0.1")
         _ = try await bridge.handle(method: "wsjtx_start", params: [:], route: .contestSurfaceOrdinaryLogbook,
             contestDestinationProvider: provider, contestImporter: contestImporter)
         await bridge.ingest(datagram()); await bridge.ingest(datagram())

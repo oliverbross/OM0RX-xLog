@@ -199,6 +199,27 @@ private struct WSJTXBridgeConfiguration: Codable, Equatable {
     var enabled = false
     var address = "127.0.0.1"
     var port: UInt16 = 2_237
+    var destination = "ordinary_logbook"
+}
+
+private extension WSJTXBridgeConfiguration {
+    enum CodingKeys: String, CodingKey { case enabled, address, port, destination }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try values.decode(Bool.self, forKey: .enabled)
+        address = try values.decode(String.self, forKey: .address)
+        port = try values.decode(UInt16.self, forKey: .port)
+        destination = try values.decodeIfPresent(String.self, forKey: .destination) ?? "ordinary_logbook"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(enabled, forKey: .enabled)
+        try values.encode(address, forKey: .address)
+        try values.encode(port, forKey: .port)
+        try values.encode(destination, forKey: .destination)
+    }
 }
 
 public enum WSJTXLoggingRoute: String, Sendable {
@@ -261,7 +282,8 @@ public actor LiveWSJTXBridge {
 
     public func startIfEnabled() {
         guard externalIOAllowed(), !terminalShutdown, workspaceSuspensionDepth == 0 else { return }
-        guard (try? workspaceAvailable()) == true, let config = try? load(), config.enabled else { return }
+        guard (try? workspaceAvailable()) == true, let config = try? load(), config.enabled,
+              config.destination == "ordinary_logbook" else { return }
         try? startReceiver(config)
     }
 
@@ -287,6 +309,11 @@ public actor LiveWSJTXBridge {
         let availableContest = try? await contestDestinationProvider?()
         if let current = contestDestination, current != availableContest {
             stopReceiver(); retireContestDestination()
+            var config = try load()
+            if config.destination == "active_contest" {
+                config.enabled = false; config.destination = "ordinary_logbook"
+                try save(config); configuration = config
+            }
             status = "The active contest changed; the digital destination was retired."
         }
         switch method {
@@ -306,10 +333,7 @@ public actor LiveWSJTXBridge {
                 self.contestDestination = lease
                 self.contestImporter = contestImporter
             } else { retireContestDestination() }
-            let persisted = destination == "active_contest"
-                ? WSJTXBridgeConfiguration(enabled: false, address: next.address, port: next.port)
-                : next
-            try save(persisted); configuration = next
+            try save(next); configuration = next
             if !next.enabled { stopReceiver(); status = "Off" }
             else if receiver != nil { stopReceiver(); status = "Settings saved; restart the listener." }
             return try snapshot(route: route, availableContest: availableContest)
@@ -319,6 +343,13 @@ public actor LiveWSJTXBridge {
             try requireWorkspace()
             let config = try load()
             guard config.enabled else { throw WorkerFailure("wsjtx_disabled", "Enable WSJT-X logging before starting the listener.") }
+            if config.destination == "active_contest" {
+                guard let lease = availableContest, let contestImporter else {
+                    throw WorkerFailure("digital_unsupported", "The active contest cannot receive WSJT-X logged contacts.")
+                }
+                self.contestDestination = lease
+                self.contestImporter = contestImporter
+            } else { retireContestDestination() }
             try startReceiver(config)
             return try snapshot(route: route, availableContest: availableContest)
         case "wsjtx_stop":
@@ -453,7 +484,7 @@ public actor LiveWSJTXBridge {
                 }
             }
         }
-        let destination = contestDestination == nil ? "ordinary_logbook" : "active_contest"
+        let destination = config.destination
         let activeContest: Any = availableContest.map { ["session_id": $0.sessionID, "plugin_id": $0.pluginID] } ?? NSNull()
         return ["configuration": ["enabled": config.enabled, "address": config.address, "port": Int(config.port),
                                   "destination": destination],
@@ -496,7 +527,8 @@ public actor LiveWSJTXBridge {
               (1...65_535).contains(port.intValue) else { throw invalid() }
         let destination = object["destination"] as? String ?? "ordinary_logbook"
         guard ["ordinary_logbook", "active_contest"].contains(destination) else { throw invalid() }
-        let value = WSJTXBridgeConfiguration(enabled: enabled, address: address, port: UInt16(port.intValue))
+        let value = WSJTXBridgeConfiguration(enabled: enabled, address: address, port: UInt16(port.intValue),
+                                             destination: destination)
         try validate(value); return (value, destination)
     }
 
@@ -505,7 +537,8 @@ public actor LiveWSJTXBridge {
         guard value.address.utf8.count <= 45,
               value.address.withCString({ inet_pton(AF_INET, $0, &parsed) }) == 1 else { throw invalid() }
         let hostOrder = UInt32(bigEndian: parsed.s_addr), firstOctet = hostOrder >> 24
-        guard hostOrder == 0x7f00_0001 || (224...239).contains(firstOctet) else { throw invalid() }
+        guard hostOrder == 0x7f00_0001 || (224...239).contains(firstOctet),
+              ["ordinary_logbook", "active_contest"].contains(value.destination) else { throw invalid() }
     }
 
     private func validatePath() throws {

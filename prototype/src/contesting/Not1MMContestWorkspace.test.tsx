@@ -89,7 +89,7 @@ it("opens all separate setup dialogs from the hub and Contest menu before a sess
 });
 
 it("routes Digital logging saves, starts, and stops through the real host service", async () => {
-  const digital = { configuration:{enabled:false,address:"224.0.0.1",port:2237,destination:"ordinary_logbook"}, running:false,
+  const digital = { configuration:{enabled:false,address:"224.0.0.1",port:42424,destination:"active_contest"}, running:false,
     status:"Stopped", receive_only:true, contest_target_supported:true,
     active_contest:{session_id:"contest",plugin_id:"cq_ww_rtty"}, received_count:17, activity:{spots:[{}]} };
   const fldigi = { configuration:{receive_enabled:true,transmit_enabled:false},receive_supported:true,transmit_supported:true,
