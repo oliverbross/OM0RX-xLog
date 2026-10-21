@@ -212,6 +212,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_setup_save",
         "contest_rover_location",
         "contest_statistics",
+        "contest_recalculate",
         "contest_export_prepare",
         "contest_export_read",
         "contest_export_release",
@@ -1581,7 +1582,7 @@ mod tests {
             "contest_esm", "contest_function_key", "contest_output_claim", "contest_serial_reserve",
             "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
             "contest_operation_receipt", "contest_log_page", "contest_score", "contest_rates", "contest_check_partial",
-            "contest_setup_get", "contest_setup_save", "contest_rover_location", "contest_statistics",
+            "contest_setup_get", "contest_setup_save", "contest_rover_location", "contest_statistics", "contest_recalculate",
             "contest_export_prepare", "contest_export_read", "contest_export_release", "contest_scp_download",
         ] {
             let request = json!({"id":"contest", "method":method, "params":{}});
