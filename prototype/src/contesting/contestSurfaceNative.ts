@@ -15,6 +15,8 @@ export type ContestSurfaceCompletion = ContestSurfaceContext & { requestID: stri
   message?: string; projectionRevision: number };
 export type ContestSurfacePublication = ContestSurfaceContext & { scope: "contesting"; panelID: ContestSurfacePanelID;
   projectionRevision: number; projection: unknown };
+export type ContestRotorTarget = { available: boolean; projectionRevision: number; callsign: string | null;
+  shortPathBearing: number | null; longPathBearing: number | null };
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => {
@@ -121,6 +123,21 @@ export async function readContestSurfaceSnapshot(context: ContestSurfaceContext)
   return surfaceSnapshot(await invoke("contest_surface_snapshot", {
     sessionID: context.sessionID, workspaceGeneration: context.workspaceGeneration,
   }), context);
+}
+
+export async function readContestRotorTarget(context: ContestSurfaceContext): Promise<ContestRotorTarget> {
+  if (!contextValid(context)) throw new Error("The contest rotor context could not be verified.");
+  const value = await invoke<unknown>("contest_rotor_target", {
+    sessionID: context.sessionID, workspaceGeneration: context.workspaceGeneration,
+  });
+  const target = record(value) ? value : undefined;
+  const bearing = (item: unknown) => item === null || typeof item === "number" && Number.isFinite(item) && item >= 0 && item <= 360;
+  if (!target || !exact(target, ["available", "projectionRevision", "callsign", "shortPathBearing", "longPathBearing"]) ||
+      typeof target.available !== "boolean" || !uint(target.projectionRevision) ||
+      (target.callsign !== null && (typeof target.callsign !== "string" || !target.callsign.trim() || bytes(target.callsign) > 32)) ||
+      !bearing(target.shortPathBearing) || !bearing(target.longPathBearing) || target.available !== (target.callsign !== null))
+    throw new Error("The contest rotor target could not be verified.");
+  return target as ContestRotorTarget;
 }
 
 export async function closeContestSurfaceContext(context: ContestSurfaceContext): Promise<void> {

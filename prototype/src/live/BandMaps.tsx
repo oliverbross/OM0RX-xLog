@@ -23,6 +23,7 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 }
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
+  observedReceiveBandwidthHz?: number | null;
   preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string;
   focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string;
   selectedSpotId?: string | null; onSpotContextMenu?: (spot: BandMapSpot, event: ReactMouseEvent<HTMLElement>) => void };
@@ -391,7 +392,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   </section>;
 }
 
-export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange,
+export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBandwidthHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange,
   storageNamespace, selectedSpotId, onSpotContextMenu, selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
   const controlKey = (name: string) => controlStorageKey(compact, Boolean(focusedBand), name, storageNamespace);
@@ -504,6 +505,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, compact = false, p
   const choose = (spot: BandMapSpot) => { setSelected(spot); onSelect(spot); };
   const markCustom = useCallback(() => setResolution(current => current === "custom" ? current : "custom"), []);
   const toolbarControls = <div className="band-maps-head-controls"><label className="band-maps-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} /> Follow radio</label>
+        {typeof observedReceiveBandwidthHz === "number" && Number.isFinite(observedReceiveBandwidthHz) && observedReceiveBandwidthHz > 0 &&
+          <output aria-label="Observed receive-filter bandwidth">RX filter {new Intl.NumberFormat("en-US").format(observedReceiveBandwidthHz)} Hz</output>}
         <div className="band-maps-scale"><button type="button" aria-label="Decrease band map text size" disabled={fontScale <= 0.8} onClick={() => setFontScale((value) => Math.max(0.8, +(value - 0.1).toFixed(1)))}>A−</button><output>{Math.round(fontScale * 100)}%</output><button type="button" aria-label="Increase band map text size" disabled={fontScale >= 2} onClick={() => setFontScale((value) => Math.min(2, +(value + 0.1).toFixed(1)))}>A+</button></div>
         {!compact && <div className="band-maps-layout" role="group" aria-label="Band map layout"><button type="button" aria-pressed={layout === "row"} onClick={() => setLayout("row")}>Single row</button><button type="button" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")}>Adaptive grid</button></div>}
         {pages > 1 && <div className="band-maps-pages" role="group" aria-label="Band map pages"><button type="button" aria-label="Previous band maps" disabled={visiblePage === 0} onClick={() => setPage(visiblePage - 1)}>‹</button><output aria-live="polite">{visiblePage + 1} / {pages}</output><button type="button" aria-label="Next band maps" disabled={visiblePage === pages - 1} onClick={() => setPage(visiblePage + 1)}>›</button></div>}

@@ -423,6 +423,33 @@ pub fn snapshot(label: &str, context: &ContestWindowContext) -> Result<Value, St
     })?
 }
 
+pub fn rotor_target(label: &str, context: &ContestWindowContext) -> Result<Value, String> {
+    if label != "contest--rotor" {
+        return Err("The contest rotor target is unavailable in this window.".into());
+    }
+    crate::contest_window_context::with_admitted(context, || {
+        let state = state().lock().map_err(|_| "Contest surface state unavailable")?;
+        require_context(&state, context)?;
+        let Some((revision, projection)) = state.panels.get("active-qso").and_then(|panel| panel.projection.as_ref()) else {
+            return Ok(json!({"available":false,"projectionRevision":0,"callsign":null,
+                "shortPathBearing":null,"longPathBearing":null}));
+        };
+        Ok(rotor_target_projection(*revision, projection))
+    })?
+}
+
+fn rotor_target_projection(revision: u64, projection: &Value) -> Value {
+    if projection["status"] != "ready" {
+        return json!({"available":false,"projectionRevision":revision,"callsign":null,
+            "shortPathBearing":null,"longPathBearing":null});
+    }
+    let callsign = projection["draft"]["callsign"].as_str().map(str::trim).filter(|call| !call.is_empty());
+    let short = projection["manual"]["headingDegrees"].as_f64().filter(|bearing| *bearing >= 0.0 && *bearing <= 360.0);
+    let long = projection["manual"]["longPathHeadingDegrees"].as_f64().filter(|bearing| *bearing >= 0.0 && *bearing <= 360.0);
+    json!({"available":callsign.is_some(),"projectionRevision":revision,"callsign":callsign,
+        "shortPathBearing":short,"longPathBearing":long})
+}
+
 fn receipt_mut<'a>(
     state: &'a mut State,
     panel_id: &str,
@@ -3639,5 +3666,20 @@ mod tests {
                     "canReserveCall":true,"canReserveCommit":true,"canCommit":true},
                 "trace":[{"operationID":"simulation-1","mode":"CW","macro":"CQ","text":"CQ TEST","status":"confirmed"}]},
             "busy":false,"dirty":true,"uncertain":false})
+    }
+
+    #[test]
+    fn contest_rotor_target_uses_only_the_retained_active_entry_projection() {
+        assert!(rotor_target("rotor", &context()).is_err());
+        assert!(rotor_target("contest--band-maps", &context()).is_err());
+        let mut entry = entry_v2();
+        entry["manual"] = json!({"operator":"OM0RX","cwSpeedWpm":27,"country":"Germany","cqZone":14,"ituZone":28,
+            "headingDegrees":123.4,"longPathHeadingDegrees":303.4,"distanceKm":9000,"qsos":1,"multipliers":1,"total":1});
+        assert_eq!(rotor_target_projection(8, &entry), json!({"available":true,"projectionRevision":8,"callsign":"DL1AAA",
+            "shortPathBearing":123.4,"longPathBearing":303.4}));
+        entry["draft"]["callsign"] = json!("");
+        assert_eq!(rotor_target_projection(9, &entry)["available"], false);
+        assert_eq!(rotor_target_projection(10, &json!({"schemaVersion":1,"status":"unavailable"})),
+            json!({"available":false,"projectionRevision":10,"callsign":null,"shortPathBearing":null,"longPathBearing":null}));
     }
 }

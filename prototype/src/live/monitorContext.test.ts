@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, monitorRadioFresh, monitorRotorAction, monitorStation, validMonitorContext } from "./monitorContext";
+import { connectMonitorContext, freshMonitorProjection, monitorRadioAction, monitorRadioFresh, monitorRotorAction, monitorStation, observedReceiveBandwidthHz, validMonitorContext } from "./monitorContext";
 import { syntheticMonitorContext } from "./monitorContextFixtures";
 import { radioReleaseSession } from "./radioRelease";
 import { carrierTuneSession } from "./carrierTune";
@@ -15,6 +15,15 @@ it("accepts fresh TCI observations but rejects every radio command", async () =>
   expect(validMonitorContext(context)).toBe(true); expect(monitorRadioFresh(context)).toBe(true);
   for (const action of ["operate", "standby", "tune", "cancel", "ptt", "receive_frequency", "cw"]) await expect(monitorRadioAction(context, action, call)).rejects.toThrow();
   expect(call).not.toHaveBeenCalled();
+});
+it("projects only a fresh observed TCI receive-filter bandwidth", () => {
+  const context = syntheticMonitorContext();
+  context.selection!.provider = "direct_tci"; context.radio.provider = "direct_tci"; context.radio.snapshot.source = "direct_tci";
+  context.radio.snapshot.tci = { filter_lower_hz: -500, filter_upper_hz: 500 };
+  expect(observedReceiveBandwidthHz(context)).toBe(1000);
+  context.radio.received_at_ms -= 6000; expect(observedReceiveBandwidthHz(context)).toBeNull();
+  context.radio.received_at_ms += 6000; context.radio.snapshot.tci.filter_upper_hz = -600;
+  expect(observedReceiveBandwidthHz(context)).toBeNull();
 });
 
 it("validates context, permits an unset radio, and never freshens original receipt times", () => {

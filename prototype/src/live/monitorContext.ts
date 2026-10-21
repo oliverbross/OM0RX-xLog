@@ -51,6 +51,11 @@ export function monitorStation(context: MonitorContext | null, now = Date.now())
     station: { ...(snapshot?.station ?? {}), radio_stale: !fresh, swr_is_live: fresh && snapshot?.station?.swr_is_live === true },
     rotor: { ...rotor, connected: rotorFresh && rotor.connected === true } };
 }
+export function observedReceiveBandwidthHz(context: MonitorContext | null, now = Date.now()): number | null {
+  if (context?.selection?.provider !== "direct_tci" || !monitorRadioFresh(context, now)) return null;
+  const lower = context.radio.snapshot?.tci?.filter_lower_hz, upper = context.radio.snapshot?.tci?.filter_upper_hz;
+  return Number.isSafeInteger(lower) && Number.isSafeInteger(upper) && upper > lower ? upper - lower : null;
+}
 type Invoke = (command: string, params?: Data) => Promise<any>;
 export async function monitorRadioAction(context: MonitorContext | null, action: unknown, call: Invoke = invoke) {
   if (!context?.selection?.provider || context.acceptance || typeof action !== "string" || !["direct_agent", "direct_flex_lan"].includes(context.selection.provider) ||

@@ -17,8 +17,9 @@ export function ManualRotorStatus({ session = manualRotorGotoSession(), onResolv
 }
 
 type RotorObservation = { available: boolean; snapshot: RotorSnapshot | null };
-export function ManualRotorControl({ context, observation, session = manualRotorGotoSession(), onManual, onPark, hideHeading = false }: {
+export function ManualRotorControl({ context, observation, session = manualRotorGotoSession(), target, onManual, onPark, hideHeading = false }: {
   context?: MonitorContext | null; observation?: RotorObservation; session?: ManualRotorGotoSession;
+  target?: { callsign: string; shortPathBearing: number | null; longPathBearing: number | null } | null;
   onManual?: () => void | Promise<void>; onPark?: (snapshot: RotorSnapshot) => Promise<void>; hideHeading?: boolean;
 }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot), [bearing, setBearing] = useState("");
@@ -27,14 +28,17 @@ export function ManualRotorControl({ context, observation, session = manualRotor
   const retained = observation ?? context?.rotor;
   const rotor = validRotorSnapshot(retained?.snapshot) ? retained!.snapshot : null;
   const connected = !!rotor?.owner && rotorProjection(rotor).connected && retained?.available === true;
-  const turn = async (event: FormEvent) => {
-    event.preventDefault(); const target = Number(bearing); setFeedback(null);
+  const move = async (target: number, label: string) => {
+    setFeedback(null);
     if (!rotor?.owner || !connected || !Number.isFinite(target) || target < 0 || target > 360) {
-      setFeedback({ message: "Refresh a connected rotor and enter a bearing from 0° to 360°.", error: true }); return;
+      setFeedback({ message: "Refresh a connected rotor and use a bearing from 0° to 360°.", error: true }); return;
     }
-    try { await onManual?.(); await session.goto(rotor.owner, rotor.generation, target); }
+    try { await onManual?.(); await session.goto(rotor.owner, rotor.generation, target, label); }
     catch (cause) { setFeedback({ message: cause instanceof Error ? cause.message : "Manual rotor Goto failed.", error: true,
       gotoOperation: session.getSnapshot().pending ?? undefined }); }
+  };
+  const turn = async (event: FormEvent) => {
+    event.preventDefault(); await move(Number(bearing), "Manual bearing");
   };
   const park = async () => {
     if (!rotor?.owner || rotor.owner !== "hamlib" || !connected || !onPark || parkingRef.current) return;
@@ -62,6 +66,10 @@ export function ManualRotorControl({ context, observation, session = manualRotor
   return <section className="live-station-card" aria-label="Manual rotor Goto">{!hideHeading && <h3>Manual rotor Goto</h3>}
     <form className="live-station-inline" onSubmit={event => void turn(event)}><label>Bearing °<input aria-label="Manual rotor bearing degrees" type="number" min="0" max="360" value={bearing} onChange={event => setBearing(event.target.value)} /></label>
       <button disabled={state.busy || !!state.pending || !connected || !bearing.trim()}>Turn rotor</button>
+      {target?.shortPathBearing != null && <button type="button" disabled={state.busy || !!state.pending || !connected}
+        onClick={() => void move(target.shortPathBearing!, `${target.callsign} SP`)}>Move SP</button>}
+      {target?.longPathBearing != null && <button type="button" disabled={state.busy || !!state.pending || !connected}
+        onClick={() => void move(target.longPathBearing!, `${target.callsign} LP`)}>Move LP</button>}
       <button type="button" aria-label="Stop rotor" disabled={!rotor?.owner || stopping} onClick={() => void stop()}>{stopping ? "Stopping…" : "Stop"}</button>
       {rotor?.owner === "hamlib" && onPark && <button type="button" aria-label="Park rotor" disabled={!connected || parking}
         onClick={() => void park()}>{parking ? "Parking…" : "Park"}</button>}</form>

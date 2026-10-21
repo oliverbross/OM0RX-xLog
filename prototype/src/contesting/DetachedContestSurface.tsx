@@ -13,6 +13,7 @@ import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
 import BandMaps from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
+import { connectMonitorContext, observedReceiveBandwidthHz, type MonitorContext } from "../live/monitorContext";
 import "./DetachedContestSurface.css";
 import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
 
@@ -141,6 +142,10 @@ type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
 function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
     projectionRevision:number;send:Send}) {
+  const [stationContext,setStationContext]=useState<MonitorContext|null>(null);
+  useEffect(()=>{if(panelID!=="band-maps")return;const connection=connectMonitorContext(setStationContext,()=>setStationContext(null));
+    return()=>connection.dispose();},[panelID]);
+  const receiveBandwidth=panelID==="band-maps"?observedReceiveBandwidthHz(stationContext):null;
   const [menu,setMenu]=useState<null|{spotID:string;x:number;y:number;requestedX:number;requestedY:number;origin:HTMLElement}>(null);
   const menuRef=useRef<HTMLDivElement|null>(null);
   const selected=projection.selectedSpotID===null?null:projection.spots.find(spot=>spot.id===projection.selectedSpotID)??null;
@@ -179,6 +184,7 @@ function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"ban
       <button type="button" role="menuitem" onClick={closeMenu}>Cancel</button>
     </div>}</>;
   if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact spots={projection.spots}
+    observedReceiveBandwidthHz={receiveBandwidth}
     radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace="contest" selectedSpotId={projection.selectedSpotID}
     onSpotContextMenu={contextMenu} onSelect={spot=>select(String(spot.id))}
     selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once. Right-click for spot actions."/></section>;

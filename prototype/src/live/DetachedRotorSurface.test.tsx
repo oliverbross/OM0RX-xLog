@@ -21,7 +21,7 @@ beforeEach(() => {
   native.listen.mockImplementation(async (_name, callback) => { event = callback; return native.dispose; });
   native.invoke.mockResolvedValue({ revision: 0, available: false, snapshot: null });
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); window.history.replaceState({}, "", "/"); vi.useRealTimers(); });
 
 it("subscribes to retained observations without starting device polling or motion/setup commands", async () => {
   const { unmount } = render(<DetachedRotorSurface />);
@@ -161,6 +161,32 @@ it("routes manual Goto through the existing durable admission and never directly
   const admitted = native.invoke.mock.calls.find(([command, args]) => command === "manual_rotor_request" && args.params.action === "manual_rotor_goto");
   expect(admitted?.[1].params).toMatchObject({ rotor_owner: "native_dcu1", rotor_generation: 7, bearing: 212 });
   expect(native.invoke.mock.calls.some(([command]) => command === "worker_request")).toBe(false);
+});
+
+it("shows the current contest target and routes LP through the same durable manual admission", async () => {
+  const operatingContext="00000000-0000-4000-8000-000000000001", sessionID="00000000-0000-4000-8000-000000000002",
+    workspaceGeneration="00000000-0000-4000-8000-000000000003";
+  window.history.replaceState({}, "", `/?view=rotor&scope=contesting&operatingContext=${operatingContext}&sessionID=${sessionID}&workspaceGeneration=${workspaceGeneration}`);
+  const retained = observation();
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "rotor_telemetry_snapshot") return retained;
+    if (command === "contest_rotor_target") return { available:true, projectionRevision:8, callsign:"DL1AAA", shortPathBearing:123.4, longPathBearing:303.4 };
+    if (command === "manual_rotor_request" && args.params.action === "snapshot") return {
+      generation:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", revision:4, last_receipt:null, worker_generation:3, rotor:retained,
+    };
+    if (command === "manual_rotor_request" && args.params.action === "manual_rotor_goto") return {
+      operation_id:args.params.operation_id, request:{action:"manual_rotor_goto"}, status:"acknowledged",
+    };
+    throw new Error(`Unexpected ${command}`);
+  });
+  render(<DetachedRotorSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByLabelText("Contest rotor target").textContent).toContain("DL1AAA");
+  expect(screen.getByLabelText("Contest rotor target").textContent).toContain("SP 123.4° · LP 303.4°");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name:"Move LP" })); });
+  const admitted=native.invoke.mock.calls.find(([command,args])=>command==="manual_rotor_request"&&args.params.action==="manual_rotor_goto");
+  expect(admitted?.[1].params).toMatchObject({rotor_owner:"native_dcu1",rotor_generation:7,bearing:303.4,label:"DL1AAA LP"});
+  expect(native.invoke.mock.calls.some(([command])=>command==="rotor_goto")).toBe(false);
 });
 
 it("offers Hamlib Park only and verifies the existing fenced worker acknowledgement", async () => {

@@ -76,6 +76,22 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
     .toMatchObject({panelID,action:"spot_set_marked_only",params:{markedOnly:true}}));
 });
 
+it("shows fresh observed receive-filter bandwidth only on the contest Band Map",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=band-maps"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:1,selectedSpotID:null,markedOnly:false,spots:[sharedSpot],busy:false};
+  const selectionID="00000000-0000-4000-8000-000000000004",now=Date.now();
+  native.invoke.mockImplementation(async command=>command==="contest_surface_snapshot"?{...snapshot,panelID:"band-maps",projection:view}:
+    command==="monitor_context_snapshot"?{epoch:"00000000-0000-4000-8000-000000000005",revision:1,
+      selection:{provider:"direct_tci",generation:2,selection_id:selectionID},
+      radio:{available:true,revision:1,received_at_ms:now,provider:"direct_tci",selection_id:selectionID,selection_generation:2,
+        snapshot:{source:"direct_tci",generated_at:now/1000,radio:{connected:true,observed:true},station:{radio_stale:false},
+          tci:{filter_lower_hz:-500,filter_upper_hz:500}}},rotor:{available:false,snapshot:null}}:
+    Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);
+  expect((await screen.findByLabelText("Observed receive-filter bandwidth")).textContent).toBe("RX filter 1,000 Hz");
+});
+
 it("opens Cluster spot actions from the keyboard, clamps them after resize, and restores row focus",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
   const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,

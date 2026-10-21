@@ -6,6 +6,8 @@ import { useAutoRotor } from "./useAutoRotor";
 import { ManualRotorControl } from "./ManualRotorControl";
 import { rotorCommandParams, validRotorSnapshot } from "./rotorControl";
 import { workerRequest } from "../worker";
+import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestRotorTarget,
+  type ContestRotorTarget, type ContestSurfaceContext } from "../contesting/contestSurfaceNative";
 import "./DetachedTaskSurface.css";
 
 /** Retained observations and the existing native automatic-rotor controller.
@@ -17,6 +19,20 @@ export function DetachedRotorSurface() {
   const [arming, setArming] = useState(false);
   const latest = useRef({ snapshot, available }); latest.current = { snapshot, available };
   const active = useRef(true), armingRef = useRef(false);
+  const contestContext = (() => {
+    if (new URLSearchParams(window.location.search).get("scope") !== "contesting") return null;
+    try { const { panelID, ...context } = contestSurfaceContextFromSearch(window.location.search); return panelID === "rotor" ? context : null; }
+    catch { return null; }
+  })() as ContestSurfaceContext | null;
+  const [contestTarget, setContestTarget] = useState<ContestRotorTarget | null>(null);
+  useEffect(() => {
+    if (!contestContext) { setContestTarget(null); return; }
+    let mounted = true, stop: (() => void) | undefined;
+    const refresh = async () => { try { const value = await readContestRotorTarget(contestContext); if (mounted) setContestTarget(value); }
+      catch { if (mounted) setContestTarget(null); } };
+    void refresh(); void onContestSurfaceWake(() => void refresh()).then(dispose => { if (mounted) stop = dispose; else dispose(); });
+    return () => { mounted = false; stop?.(); };
+  }, [contestContext?.operatingContext, contestContext?.sessionID, contestContext?.workspaceGeneration]);
   useEffect(() => {
     active.current = true;
     const dispose = connectRotorTelemetry(value => { setSnapshot(value); setAvailable(true); }, () => setAvailable(false));
@@ -50,7 +66,9 @@ export function DetachedRotorSurface() {
     <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth} path="SP" />
     <div className="live-station-readback"><div><span role="status">{current ? "Observed bearing" : snapshot ? "Position unavailable or stale" : "No rotor observation available"}</span>
       <strong>{validBearing ? `${rotor.azimuth.toFixed(1)}°` : "Unavailable"}</strong></div></div></div>
-    <div className="detached-rotor-details"><div className="live-actions detached-rotor-actions">
+    <div className="detached-rotor-details">{contestTarget?.available && <div className="live-station-readback" aria-label="Contest rotor target"><div>
+      <span>{contestTarget.callsign}</span><strong>SP {contestTarget.shortPathBearing == null ? "—" : `${contestTarget.shortPathBearing.toFixed(1)}°`} · LP {contestTarget.longPathBearing == null ? "—" : `${contestTarget.longPathBearing.toFixed(1)}°`}</strong>
+    </div></div>}<div className="live-actions detached-rotor-actions">
       <label title="Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns.">
         <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
           onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
@@ -58,7 +76,9 @@ export function DetachedRotorSurface() {
         onClick={() => { void changeAutomatic(false); }}>Off</button>
     </div>
     {(autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
-    <ManualRotorControl observation={{ available: current, snapshot }}
+    <ManualRotorControl observation={{ available: current, snapshot }} target={contestTarget?.available && contestTarget.callsign ? {
+      callsign: contestTarget.callsign, shortPathBearing: contestTarget.shortPathBearing, longPathBearing: contestTarget.longPathBearing,
+    } : null}
       onManual={() => automatic.state?.armed ? changeAutomatic(false) : undefined}
       onPark={parkCurrent} hideHeading /></div>
   </section></main></div>;
