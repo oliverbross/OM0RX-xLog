@@ -811,3 +811,45 @@ remote Wavelog upload receipt for C5R.
 - Physical real-station and remote Wavelog receipt checks remain separate
   acceptance boundaries, including a fresh remote receipt for the earlier C5R
   investigation.
+
+## Post-1.3.0 source continuation: N1MM packet output
+
+Source `0ac570bd` restores the original manual's N1MM configuration page and
+connects its optional UDP output through the existing Python contest host. The
+page retains the xLog appearance and the original Station Name, Operator Name,
+Radio, Contact, Lookup and Score controls, including space-separated
+`host:port` destinations. Existing flat setup keys and legacy host/port values
+are preserved; the feature is disabled by default.
+
+The sender preserves the original `RadioInfo`, `contactinfo`,
+`contactreplace`, `contactdelete`, `lookupinfo` and `scoreinfo` XML roots and
+packet defaults. Contact, correction and deletion packets are derived from the
+authoritative committed row. Publication happens only after the SQLite
+mutation commits; replaying an admitted operation does not resend its packets.
+Actual UDP requires both the operator's global/per-packet choices and the
+production-only native capability `XLOG_CONTEST_N1MM_UDP_ALLOWED=1`. The
+Contesting Test launcher never grants that capability.
+
+Supporting checks at this exact source boundary:
+
+- the complete Python contest-host suite passed 288 tests; the added focused
+  packet suite also covers all six roots, destination fan-out, the native
+  capability fence, correction/delete identity, invalid destinations and
+  no-resend operation replay;
+- the Configuration Settings and detached-geometry suites passed 59 tests,
+  including legacy destination migration and a 1x-to-2x display-scale move;
+- the native runtime-profile suite passed 13 tests, and the frontend production
+  build completed with only the existing chunk-size warning;
+- the N1MM tab grid is now data-driven and the configuration resize handler
+  converts each event using the current display scale. The unimplemented
+  `clearOnVFOChange` choice is no longer presented as working, but its saved
+  value is retained.
+
+This is implemented source, not installed-app acceptance. No external N1MM UDP
+receiver or packet consumer was used, and no new signed application was built
+for this batch. A broader `PythonContestLaneTests` run passed eight of nine
+tests; its WSJT-X snapshot case read the process-global installed preference
+`active_contest` instead of the disposable test's expected
+`ordinary_logbook`. The operator's saved preference was not changed. That
+test-isolation leak is separate from the N1MM route and remains to be corrected
+before the next broad release gate.
