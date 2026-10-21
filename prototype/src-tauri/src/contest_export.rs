@@ -359,18 +359,36 @@ fn validate_format(bytes: &[u8], format: ExportFormat) -> Result<(), String> {
         ExportFormat::Cabrillo => {
             bytes.starts_with(b"START-OF-LOG: 3.0\r\n") && bytes.ends_with(b"END-OF-LOG:\r\n")
         }
-        ExportFormat::Adif => {
-            bytes.starts_with(b"<ADIF_VER:5>3.1.7")
-                && bytes
-                    .windows(b"<EOH>\r\n".len())
-                    .any(|value| value == b"<EOH>\r\n")
-        }
+        ExportFormat::Adif => valid_adif(bytes),
     };
     if valid {
         Ok(())
     } else {
         Err("Prepared contest export format does not match.".into())
     }
+}
+
+fn valid_adif(bytes: &[u8]) -> bool {
+    // The Python contest owner deliberately preserves the original Not1MM
+    // preamble, while the native contest exporter starts directly at ADIF_VER.
+    let document = bytes
+        .strip_prefix(b"Not1MM ADIF export\r\n")
+        .unwrap_or(bytes);
+    let prefix = b"<ADIF_VER:5>";
+    if !document.starts_with(prefix) {
+        return false;
+    }
+    let Some(version) = document.get(prefix.len()..prefix.len() + 5) else {
+        return false;
+    };
+    version[0].is_ascii_digit()
+        && version[1] == b'.'
+        && version[2].is_ascii_digit()
+        && version[3] == b'.'
+        && version[4].is_ascii_digit()
+        && document[..document.len().min(16 * 1024)]
+            .windows(b"<EOH>\r\n".len())
+            .any(|value| value == b"<EOH>\r\n")
 }
 
 fn verify_available(
@@ -686,6 +704,9 @@ mod tests {
 
     fn bytes() -> Vec<u8> {
         b"START-OF-LOG: 3.0\r\nEND-OF-LOG:\r\n".to_vec()
+    }
+    fn not1mm_adif_bytes() -> Vec<u8> {
+        b"Not1MM ADIF export\r\n<ADIF_VER:5>3.1.5\r\n<EOH>\r\n<CALL:5>K1ABC<EOR>\r\n".to_vec()
     }
     fn coordinate(data: &[u8]) -> PreparedCoordinate {
         PreparedCoordinate {
@@ -1285,6 +1306,32 @@ mod tests {
         );
         assert_eq!(*dialog.lock().unwrap(), 0);
         assert!(writes.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn original_not1mm_adif_passes_the_native_format_boundary_and_is_published() {
+        let data = not1mm_adif_bytes();
+        let mut worker = TestWorker::new(data.clone());
+        worker.coordinate.format = ExportFormat::Adif;
+        let (result, dialog, writes) = run(
+            &worker,
+            &TestAdmission::passing(),
+            Some(PathBuf::from("out.adi")),
+            false,
+        );
+        assert_eq!(result.status, SaveStatus::Saved, "{:?}", result.message);
+        assert_eq!(*dialog.lock().unwrap(), 1);
+        assert_eq!(
+            writes.lock().unwrap().as_slice(),
+            &[(PathBuf::from("out.adi"), data)]
+        );
+        for invalid in [
+            b"Not1MM ADIF export\r\n<ADIF_VER:5>3.1.5\r\n".as_slice(),
+            b"Unexpected preamble\r\n<ADIF_VER:5>3.1.5\r\n<EOH>\r\n".as_slice(),
+            b"Not1MM ADIF export\r\n<ADIF_VER:5>3.15X\r\n<EOH>\r\n".as_slice(),
+        ] {
+            assert!(validate_format(invalid, ExportFormat::Adif).is_err());
+        }
     }
 
     #[test]
