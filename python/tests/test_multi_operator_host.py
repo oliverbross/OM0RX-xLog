@@ -73,6 +73,7 @@ class MultiOperatorHostTests(unittest.TestCase):
             "fromCursor": {"revision": cursor.get("revision", 0),
                            "sequence": cursor.get("sequence", 0)},
             "toCursor": {"revision": changes["nextRevision"], "sequence": changes["nextSequence"]},
+            "historyComplete": not changes["hasMore"],
             "changes": deepcopy(changes["changes"]),
         }
         if reservation is not None:
@@ -452,7 +453,60 @@ class MultiOperatorHostTests(unittest.TestCase):
         self.assertGreaterEqual(len(second["changes"]), 1)
         self.assertNotEqual(first["changes"][0]["sequence"], second["changes"][0]["sequence"])
 
-    def test_replica_binding_rejects_existing_log_and_stale_local_revision(self):
+    def test_replica_reconciles_exact_complete_history_without_duplicate_qso_or_serial(self):
+        serial_request = uid()
+        self.reserve(serial_request)
+        qso_id = uid()
+        self.remote(action="commit", qsoID=qso_id, timestamp="2026-10-22 03:40:00",
+                    frequencyHz=14025000, serialRequestID=serial_request,
+                    fields={"callsign": "K1ABC", "other_2": "303"})
+        complete = self.call("multi_changes", requestID=uid(), afterRevision=0,
+                             afterSequence=0, limit=100)
+        self.assertFalse(complete["hasMore"])
+
+        replica_session, replica_workspace, replica_projection = self.create_replica_session()
+        replica_store = self.host.database(replica_session)
+        restored = deepcopy(self.host.database(self.session).exec_sql(
+            "SELECT * FROM DXLOG WHERE ID=?", (qso_id,)))
+        restored["ContestNR"] = replica_store.current_contest
+        replica_store.log_contact(restored)
+        identity = self.host.database(self.session).exec_sql(
+            "SELECT raw_fields,country,deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
+        replica_store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,?)",
+                                   (qso_id, identity["raw_fields"], identity["country"], identity["deleted"]))
+        replica_store.conn.commit()
+
+        next_reservation = self.reserve(uid())
+        with self.assertRaises(HostError) as failure:
+            self.apply_replica(replica_session, replica_workspace, replica_projection,
+                               complete, next_reservation,
+                               mutate=lambda params: params.update(historyComplete=False))
+        self.assertEqual(failure.exception.code, "replica_history_incomplete")
+        self.assertFalse(replica_store.replica())
+        rebound, _ = self.apply_replica(replica_session, replica_workspace, replica_projection,
+                                        complete, next_reservation)
+        self.assertEqual(rebound["replicaCursor"],
+                         {"revision": complete["nextRevision"], "sequence": complete["nextSequence"]})
+        self.assertEqual(replica_store.exec_sql(
+            "SELECT count(*) AS n FROM DXLOG WHERE ID=?", (qso_id,))["n"], 1)
+        self.assertEqual(replica_store.exec_sql("SELECT count(*) AS n FROM xlog_serial")["n"], 1)
+        self.assertEqual(rebound["projection"]["authoritySerialRequestID"],
+                         next_reservation["requestID"])
+
+        self.host.close(); self.host = Host(self.root)
+        reopened = self.host.dispatch({"id": uid(), "method": "projection",
+                                      "params": {"sessionID": replica_session}})["projection"]
+        empty = self.call("multi_changes", requestID=uid(),
+                          afterRevision=reopened["replicaCursor"]["revision"],
+                          afterSequence=reopened["replicaCursor"]["sequence"], limit=100)
+        polled, _ = self.apply_replica(replica_session, replica_workspace, reopened, empty)
+        self.assertEqual(polled["replicaCursor"], reopened["replicaCursor"])
+        self.assertEqual(self.host.database(replica_session).exec_sql(
+            "SELECT count(*) AS n FROM DXLOG")["n"], 1)
+        self.assertEqual(self.host.database(replica_session).exec_sql(
+            "SELECT count(*) AS n FROM xlog_serial")["n"], 1)
+
+    def test_replica_binding_rejects_divergent_log_and_stale_local_revision(self):
         replica_session, replica_workspace, replica_projection = self.create_replica_session()
         changed = self.host.dispatch({"id": uid(), "method": "draft_apply", "params": {
             "sessionID": replica_session, "operationID": uid(),
@@ -468,7 +522,7 @@ class MultiOperatorHostTests(unittest.TestCase):
         with self.assertRaises(HostError) as failure:
             self.apply_replica(replica_session, replica_workspace, local_commit["projection"],
                                empty, reservation)
-        self.assertEqual(failure.exception.code, "replica_not_empty")
+        self.assertEqual(failure.exception.code, "replica_history_conflict")
 
         clean_session, clean_workspace, clean_projection = self.create_replica_session()
         stale = deepcopy(clean_projection)

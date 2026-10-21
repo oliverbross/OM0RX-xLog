@@ -1593,7 +1593,7 @@ class Host:
         store, state = desk.database, desk.state
         required = {"sessionID", "workspaceGeneration", "operationID", "expectedRevision",
                     "authority", "fromCursor", "toCursor", "changes"}
-        allowed = required | {"draftID", "authoredQSOID", "nextReservation"}
+        allowed = required | {"draftID", "authoredQSOID", "nextReservation", "historyComplete"}
         require(required <= set(params) <= allowed, "Replica apply fields are invalid")
         authority = params["authority"]
         authority_keys = {"sessionID", "workspaceGeneration", "pluginID", "sourceRevision",
@@ -1608,6 +1608,7 @@ class Host:
         end = self.replica_cursor(params["toCursor"], "destination")
         require(end >= start, "Replica cursor moved backwards", "stale_cursor")
         bound = store.replica()
+        reconciling_history = False
         if bound:
             require((bound["master_session_id"], bound["master_workspace_generation"],
                      bound["coordination_digest"]) ==
@@ -1619,9 +1620,20 @@ class Host:
         else:
             count = store.exec_sql("SELECT count(*) AS count FROM DXLOG WHERE ContestNR=?",
                                    (store.current_contest,))["count"]
-            require(count == 0 and start == (0, 0),
-                    "A replica can bind only to an empty contest log at cursor zero", "replica_not_empty")
+            identity_count = store.exec_sql(
+                "SELECT count(*) AS count FROM xlog_qso_identity")["count"]
+            require(start == (0, 0),
+                    "A replica can bind only from the beginning of authority history", "replica_not_empty")
+            reconciling_history = count > 0 or identity_count > 0
+            require(not reconciling_history or params.get("historyComplete") is True,
+                    "A non-empty replica can bind only from one complete authority history page",
+                    "replica_history_incomplete")
             store.conn.execute("DELETE FROM xlog_serial WHERE qso_id IS NULL")
+            if reconciling_history:
+                # Replace local audit provenance only after the complete page
+                # proves that its durable end-state is byte-for-byte identical.
+                # The surrounding transaction rolls this back on any mismatch.
+                store.conn.execute("DELETE FROM xlog_qso_audit")
             store.conn.execute("INSERT INTO xlog_replica VALUES(1,?,?,?,?,?)",
                                (authority["sessionID"], authority["workspaceGeneration"],
                                 authority["coordinationDigest"], 0, 0))
@@ -1635,6 +1647,7 @@ class Host:
             require(params.get("draftID") == state["draft"]["id"], "Draft changed", "stale_draft")
         authored_seen = False
         touched = {}
+        reconciled_rows, reconciled_identities = {}, {}
         change_keys = {"sequence", "revision", "requestID", "qsoID", "kind", "before", "after",
                        "reason", "beforeIdentity", "afterIdentity"}
         for change in changes:
@@ -1665,8 +1678,10 @@ class Host:
             before_identity, after_identity = change["beforeIdentity"], change["afterIdentity"]
             require(after_identity is not None and isinstance(after_identity, dict),
                     "Replica change lacks durable identity data", "replica_change_unsupported")
-            current = store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
-            current_identity = self.replica_identity(store, qso_id)
+            current = (reconciled_rows.get(qso_id) if reconciling_history else
+                       store.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None)
+            current_identity = (reconciled_identities.get(qso_id) if reconciling_history else
+                                self.replica_identity(store, qso_id))
             require(canonical(current) == canonical(before) and canonical(current_identity) == canonical(before_identity),
                     "Replica contact differs from the authoritative before-image", "replica_conflict")
             require((kind == "commit" and before is None and after is not None) or
@@ -1678,7 +1693,10 @@ class Host:
                     type(after_identity["deleted"]) is bool and
                     after_identity["deleted"] == (kind == "delete"),
                     "Replica identity image is invalid")
-            if kind == "commit":
+            if reconciling_history:
+                reconciled_rows[qso_id] = after
+                reconciled_identities[qso_id] = after_identity
+            elif kind == "commit":
                 store.log_contact(deepcopy(after))
                 store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,?)",
                                    (qso_id, canonical(after_identity["rawFields"]),
@@ -1705,6 +1723,33 @@ class Host:
                 "Replica page cursor does not exactly cover its changes", "replica_conflict")
         require(authored is None or authored_seen, "Authored contact is absent from this replica page",
                 "replica_conflict")
+        if reconciling_history:
+            expected_rows = {qso_id: row for qso_id, row in reconciled_rows.items() if row is not None}
+            actual_rows = {row["ID"]: row for row in store.exec_sql_mult(
+                "SELECT * FROM DXLOG WHERE ContestNR=?", (store.current_contest,))}
+            normalized_expected_rows = {}
+            if set(actual_rows) == set(expected_rows):
+                # The pinned Not1MM schema normalizes a few wire values through
+                # SQLite affinity (for example "002" -> 2) and omits transient
+                # Dirty. Normalize with the same store boundary, then restore
+                # the untouched local row before deciding whether it matches.
+                for qso_id, expected in expected_rows.items():
+                    store.change_contact(deepcopy(expected))
+                    normalized_expected_rows[qso_id] = store.exec_sql(
+                        "SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
+                    store.change_contact(deepcopy(actual_rows[qso_id]))
+            identity_rows = store.exec_sql_mult(
+                "SELECT id,raw_fields,country,deleted FROM xlog_qso_identity")
+            actual_identities = {
+                row["id"]: {"rawFields": json.loads(row["raw_fields"]),
+                            "country": json.loads(row["country"]) if row["country"] else None,
+                            "deleted": bool(row["deleted"])}
+                for row in identity_rows
+            }
+            require(canonical(actual_rows) == canonical(normalized_expected_rows) and
+                    canonical(actual_identities) == canonical(reconciled_identities),
+                    "The local log is not an exact copy of the complete authority history",
+                    "replica_history_conflict")
         reservation = params.get("nextReservation")
         needs_reservation = (requires_serial(state) and
                              (not bound or authored is not None or

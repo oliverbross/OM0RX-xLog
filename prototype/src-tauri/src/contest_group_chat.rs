@@ -1145,12 +1145,23 @@ where
             }
             if current.authority.lease.as_ref().is_some_and(|lease| {
                 lease.expires_at_ms > now_ms()
-                    && (lease.station_id != frame.station_id || lease.lease_id != frame.lease_id)
+                    && (lease.station_id != frame.station_id
+                        || lease.session_id != frame.session_id
+                        || lease.workspace_generation != frame.workspace_generation)
             }) {
                 current.authority.status = "lease_conflict";
                 current.authority.lease = None;
                 current.authority.pending.clear();
                 current.authority.remote_persistence_verified = false;
+                return None;
+            }
+            if current.authority.lease.as_ref().is_some_and(|lease| {
+                lease.expires_at_ms > now_ms()
+                    && lease.lease_id != frame.lease_id
+                    && frame.expires_at_ms <= lease.expires_at_ms
+            }) {
+                // A delayed lease from the previous process must not roll a
+                // client back after it adopted a newer same-master lease.
                 return None;
             }
             if current.authority.lease.as_ref().is_some_and(|lease| {
@@ -1160,7 +1171,11 @@ where
                     || lease.session_id != frame.session_id
                     || lease.workspace_generation != frame.workspace_generation
             }) {
+                current.authority.pending.clear();
+                current.authority.replies.clear();
+                current.authority.reply_order.clear();
                 current.authority.remote_persistence_verified = false;
+                current.authority.status = "leasing";
             }
             current.authority.lease = Some(Lease {
                 station_id: frame.station_id,
@@ -2119,6 +2134,98 @@ mod tests {
         assert_eq!(
             current.authority.replies[&request.request_id].1["result"]["revision"],
             9
+        );
+    }
+
+    #[test]
+    fn same_master_process_restart_rebinds_to_newer_lease_and_retries_persisted_request() {
+        let (master_configuration, master, client_configuration, client) = authority_fixture();
+        let request = AuthorityRequest {
+            request_id: "77777777-7777-4777-8777-777777777777".into(),
+            operation: AuthorityOperation::SerialReserve,
+            params: serde_json::json!({"frequencyHz":14025000}),
+        };
+        let old_lease_packet = refresh_lease_packet(&master).unwrap();
+        process_authority_wire(
+            &old_lease_packet,
+            &client_configuration,
+            &client,
+            |_| unreachable!(),
+        );
+        let old_lease_id = client
+            .lock()
+            .unwrap()
+            .authority
+            .lease
+            .as_ref()
+            .unwrap()
+            .lease_id
+            .clone();
+        let _lost_request = staged_request(&client, &request);
+
+        std::thread::sleep(Duration::from_millis(2));
+        let restarted_master = Arc::new(Mutex::new(SharedState::for_owner(
+            parse_context(&context()).unwrap(),
+            &master_configuration,
+        )));
+        let restarted_lease_packet = refresh_lease_packet(&restarted_master).unwrap();
+        process_authority_wire(
+            &restarted_lease_packet,
+            &client_configuration,
+            &client,
+            |_| unreachable!(),
+        );
+        let new_lease_id = client
+            .lock()
+            .unwrap()
+            .authority
+            .lease
+            .as_ref()
+            .unwrap()
+            .lease_id
+            .clone();
+        assert_ne!(new_lease_id, old_lease_id);
+        assert_eq!(client.lock().unwrap().authority.status, "leasing");
+        assert!(client.lock().unwrap().authority.pending.is_empty());
+
+        // A delayed advertisement from the stopped process cannot roll the
+        // client back after the newer expiry/lease pair has been adopted.
+        process_authority_wire(
+            &old_lease_packet,
+            &client_configuration,
+            &client,
+            |_| unreachable!(),
+        );
+        assert_eq!(
+            client
+                .lock()
+                .unwrap()
+                .authority
+                .lease
+                .as_ref()
+                .unwrap()
+                .lease_id,
+            new_lease_id
+        );
+
+        let retry = staged_request(&client, &request);
+        let calls = std::cell::Cell::new(0);
+        let reply =
+            process_authority_wire(&retry, &master_configuration, &restarted_master, |_| {
+                calls.set(calls.get() + 1);
+                Ok(
+                    serde_json::json!({"id":request.request_id,"ok":true,"result":{
+                        "requestID":request.request_id,"serial":17,"replayed":true
+                    }}),
+                )
+            })
+            .unwrap();
+        process_authority_wire(&reply, &client_configuration, &client, |_| unreachable!());
+        assert_eq!(calls.get(), 1);
+        assert_eq!(client.lock().unwrap().authority.status, "connected");
+        assert_eq!(
+            client.lock().unwrap().authority.replies[&request.request_id].1["result"]["serial"],
+            17
         );
     }
 }

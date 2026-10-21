@@ -187,6 +187,7 @@ impl SyncPageRequest {
                 serde_json::to_value(&self.from_cursor).unwrap(),
             ),
             ("toCursor".into(), serde_json::to_value(next).unwrap()),
+            ("historyComplete".into(), Value::Bool(!has_more)),
             // This is the exact authenticated page value. It is never decoded
             // into a renderer-owned representation before local application.
             ("changes".into(), Value::Array(page.clone())),
@@ -362,6 +363,7 @@ mod tests {
             prepared.request["params"]["toCursor"],
             json!({"revision":5,"sequence":9})
         );
+        assert_eq!(prepared.request["params"]["historyComplete"], false);
         assert!(prepared.request["params"].get("projection").is_none());
     }
 
