@@ -4,6 +4,74 @@ This checkpoint records demonstrated desktop behavior for the original executabl
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
 port or a public macOS release is finished.
 
+## Installed 1.2.96 batched milestone — 21 October
+
+- Exact candidate and installed application source:
+  `98fbe99c815141af0acfdeccfd1c0452762a0fdd` on
+  `codex/not1mm-contesting`, pushed to GitHub with a clean working tree.
+- The executable catalog contains 54 of the 94 byte-pinned original plugins.
+  This batch adds the Estonian Field Day, LL KV, Manual Key and Open plugins,
+  plus HADX, Helvetia, PACC and SPDX, through the existing Python/SQLite host.
+- The shared workflow batch adds original-plugin ADIF export, original-plugin
+  score recalculation, imported Call History in Check Partial, and the bounded
+  Edit Keys actions for explicit Run/S&P, focus, CW speed and F1–F12 macros.
+- No additional Python-to-JSON-to-Swift contest-rule translation was added.
+
+Broad exact-source checks before the two native-route repairs passed 216 Python
+tests, 3,772 frontend tests across 271 files, 755 Rust tests, four Swift Call
+History lane tests, TypeScript compilation and the production/window bundle
+checks. The subsequent native recalculation repair passed its Rust and Python
+regressions. The final ADIF validator repair passed 21 focused Rust tests and
+the Python host preparation regression. These are supporting checks rather than
+desktop proof.
+
+The exact-source isolated package report at
+`/private/tmp/om0rx-xlog-1.2.96-not1mm-acceptance-98fbe99c-20261021.json`
+has SHA-256
+`9ffd1582af21594751d7af2d5849d0312d939431b95a08112dd246980a990b15`
+and records schema 1, status `passed`, `embeddedUi: true`, `worker: true`,
+`station_io: false` and all 35 of 35 checks true. The signed Contesting Test
+hashes are:
+
+- Executable: `11a0fcd52714480705911c1730ea0cdac5735b168385d362150f3e4908437181`
+- Swift worker: `e193d7582e6559ae0dd607499b17cfbf2c18a2f2d956847faaf94079f72ad818`
+- Not1MM runtime provenance: `c64ac12de05d01cad6056a6473064de45d95be9ed8b4f8551d2156f8fc414f22`
+
+The same exact source was packaged, signed and installed at
+`/Applications/OM0RX-xLog.app`. Deep strict signature verification passed for
+Developer ID team `4WCMQ4U946`. Installed hashes are:
+
+- Production executable: `40fe53020ba685a3f106475b13895acb9f70e814c383865f371676437a49cf6d`
+- Production Swift worker: `6e0a4b9b2e84248ff02492be9a476df0150c400af23eb1f4c47cfbd3ba4bc498`
+- Production Not1MM runtime provenance: `c4eb2dfc77ce47119b80dad5da1a67df1fce88e94c9353034a420294e54995c3`
+
+Actual installed-application QA opened the separate Main Logging, Log Display,
+Check Partial and Edit Keys windows through the native Contest menu. Each
+exposed standard macOS close, minimize and zoom controls. Main Logging restored
+the existing CQ WPX CW draft (`VK8R`, 599/599, 001/002, S&P, 25 WPM).
+Recalculation completed through the visible Log Display without an uncertain
+receipt and retained that draft. Export ADIF opened the native Save panel and
+wrote `/private/tmp/OM0RX-CQ-WPX-CW-disposable-98fbe99c.adi`; SHA-256 is
+`b164d8e09840e2f1b8750d3168fb3dca734c7646d054b0926a783180bb71cc70`.
+The file has the original Not1MM ADIF 3.1.5 preamble and header. No contact was
+added or changed during this acceptance run.
+
+The first installed 1.2.96 check exposed that recalculation was omitted from the
+native worker allowlist; `7fff7628` fixed it. The next packaged check exposed
+that the native saver required ADIF 3.1.7 at byte zero while the original Python
+host emits an exact Not1MM preamble followed by ADIF 3.1.5; `98fbe99c` now
+admits only that bounded form or a header at byte zero and retains malformed
+artifact rejection. The superseded `7fff7628` installed bundle was removed
+after the exact-source replacement; application data, contest databases, normal
+logs and settings were not moved or deleted.
+
+This is an implementation checkpoint, not the complete port: 40 original
+plugins and their complete contest-specific workflows remain. Phone ESM remains
+nontransmitting without audio/PTT authority. No physical RF, amplifier, rotor,
+live peer, sponsor-rule certification or notarization was demonstrated.
+Gatekeeper still reports `Unnotarized Developer ID`, so 1.2.96 is not a public
+macOS release.
+
 ## Installed 1.2.95 milestone — 21 October
 
 - Exact candidate and installed application source:
