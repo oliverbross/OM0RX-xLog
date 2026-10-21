@@ -1,7 +1,7 @@
 import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
 
 export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "callsign-intelligence", "monitor", "propagation",
-  "alerts", "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster"] as const;
+  "alerts", "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting"] as const;
 export type ContestSurfacePanelID = typeof contestSurfacePanelIDs[number];
 export const contestInputFieldIDs = ["callsign", "sent", "receive", "other_1", "other_2"] as const;
 export type ContestInputFieldID = typeof contestInputFieldIDs[number];
@@ -109,6 +109,10 @@ export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   lastHourQsoPerHour: number | null; last10QsoPerHour: number | null; last100QsoPerHour: number | null;
   sinceHourUTC: number; sinceHourQso: number; runQso: number; searchAndPounceQso: number;
   hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
+export type ContestScoreReportingSurfaceProjection = { schemaVersion: 1; status: "ready";
+  score: ContestStatisticsScore; intervalMinutes: number; reportingEnabled: false; availability: "configuration-only";
+  reason: string; services: { id: "hamscore" | "contestonlinescore" | "contest-run"; name: string; url: string;
+    transportSecurity: "https" | "legacy-http" }[]; busy: boolean };
 type ContestMatrixSurfaceProjectionV1 = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
 export type ContestMatrixSurfaceProjectionV4 = { schemaVersion: 4; status: "ready"; title: string;
@@ -139,7 +143,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
   ContestCheckSurfaceProjection | ContestStatisticsSurfaceProjection | ContestRatesSurfaceProjection | ContestMatrixSurfaceProjection |
-  ContestLogSurfaceProjection | ContestSpotSurfaceProjection | ContestRemoteVFOSurfaceProjection;
+  ContestLogSurfaceProjection | ContestSpotSurfaceProjection | ContestRemoteVFOSurfaceProjection | ContestScoreReportingSurfaceProjection;
 
 export const validContestSurfaceUUID = (value: unknown): value is string => typeof value === "string" &&
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
@@ -419,6 +423,16 @@ function validRemoteVFOProjection(value: Record<string, unknown>) {
     optionalFrequency(value.radioFrequencyHz) && optionalFrequency(value.contestFrequencyHz) &&
     text(value.band, 16) && text(value.mode, 16) && typeof value.busy === "boolean";
 }
+function validScoreReportingProjection(value: Record<string, unknown>) {
+  const services = value.services;
+  return exact(value, ["schemaVersion", "status", "score", "intervalMinutes", "reportingEnabled", "availability", "reason", "services", "busy"]) &&
+    (value.score === null || validStatisticsScore(value.score)) && uint(value.intervalMinutes, 1_440) && (value.intervalMinutes as number) >= 1 &&
+    value.reportingEnabled === false && value.availability === "configuration-only" && text(value.reason, 512) &&
+    Array.isArray(services) && services.length === 3 && services.every(service => record(service) &&
+      exact(service, ["id", "name", "url", "transportSecurity"]) && oneOf(service.id, ["hamscore", "contestonlinescore", "contest-run"]) &&
+      text(service.name, 80) && text(service.url, 256) && oneOf(service.transportSecurity, ["https", "legacy-http"])) &&
+    typeof value.busy === "boolean";
+}
 
 export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, value: unknown): value is ContestSurfaceProjection {
   const projection = record(value) ? value : undefined;
@@ -437,6 +451,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
   if (panelID === "awards" || panelID === "chaser-dx") return validMatrixProjection(projection);
   if (panelID === "logbook") return validLogProjection(projection);
   if (panelID === "station-control") return validRemoteVFOProjection(projection);
+  if (panelID === "score-reporting") return validScoreReportingProjection(projection);
   return false;
 }
 

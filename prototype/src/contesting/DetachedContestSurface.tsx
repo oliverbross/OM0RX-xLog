@@ -7,7 +7,7 @@ import { contestSurfaceContextFromSearch, onContestSurfaceWake, readContestSurfa
   type ContestSurfaceContext, type ContestSurfaceSnapshot, type ContestSurfaceTerminalReceipt } from "./contestSurfaceNative";
 import { contestInputFieldIDs, type ContestInputFieldID, type ContestSurfaceAction, type ContestSurfaceActionEnvelope,
   type ContestRatesSurfaceProjection, type ContestMatrixSurfaceProjection, type ContestSpotSurfaceProjection,
-  type ContestStatisticsSurfaceProjection } from "./contestSurfaceProtocol";
+  type ContestStatisticsSurfaceProjection, type ContestScoreReportingSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestTextField, ContestCandidates, ContestScoreSummary } from "./ContestPresentation";
 import { contestKeyChord, functionKeyForContestAction, resolveContestKeyBinding,
   type ContestKeyBindingAction, type ContestKeyBindingContext } from "./contestKeyBindings";
@@ -121,6 +121,7 @@ function Surface({ context }: { context: Context }) {
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
       : snapshot.panelID === "monitor" ? <Rates projection={projection as ContestRatesSurfaceProjection}/>
+      : snapshot.panelID === "score-reporting" ? <ScoreReporting projection={projection as ContestScoreReportingSurfaceProjection}/>
       : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
       : snapshot.panelID === "logbook" ? editorOnly
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
@@ -135,6 +136,30 @@ function Surface({ context }: { context: Context }) {
           projection={projection as Extract<typeof projection, { spots: unknown }>} projectionRevision={snapshot.projectionRevision} send={send}/>
       : null}
   </main>;
+}
+
+function ScoreReporting({ projection }: { projection: ContestScoreReportingSurfaceProjection }) {
+  const score = projection.score;
+  return <section className="contest-score-reporting" aria-label="Real-time score reporting">
+    <header><p className="contest-score-reporting-kicker">Not1MM RTC compatibility</p><h1>Score Reporting</h1>
+      <p>Review the current Python-owned score and the scoreboard settings required by the original workflow.</p></header>
+    <div className="contest-score-reporting-summary" aria-label="Current contest score">
+      <div><span>QSOs</span><strong>{score?.qsos ?? "—"}</strong></div><div><span>Points</span><strong>{score?.points ?? "—"}</strong></div>
+      <div><span>Multipliers</span><strong>{score?.multipliers ?? "—"}</strong></div><div><span>Claimed score</span><strong>{score?.claimedScore ?? "—"}</strong></div>
+    </div>
+    <fieldset disabled aria-describedby="rtc-disabled-reason"><legend>Online scoreboard</legend>
+      <label><input type="checkbox" checked={projection.reportingEnabled} readOnly/> Periodically send XML score</label>
+      <label>Service<select defaultValue={projection.services[0]?.id}>{projection.services.map(service =>
+        <option key={service.id} value={service.id}>{service.name}</option>)}</select></label>
+      <label>Username<input type="text" autoComplete="username" value="" readOnly/></label>
+      <label>Password<input type="password" autoComplete="current-password" value="" readOnly/></label>
+      <label>Interval (minutes)<input type="number" min={1} value={projection.intervalMinutes} readOnly/></label>
+    </fieldset>
+    <p id="rtc-disabled-reason" className="contest-score-reporting-boundary" role="status"><strong>Sending is disabled.</strong> {projection.reason}</p>
+    <ul className="contest-score-reporting-services">{projection.services.map(service => <li key={service.id}>
+      <span>{service.name}</span><code>{service.url}</code>{service.transportSecurity === "legacy-http" && <em>Legacy HTTP endpoint — not eligible for credentials.</em>}
+    </li>)}</ul>
+  </section>;
 }
 
 type SendResult={applied:boolean;projectionRevision:number|null};

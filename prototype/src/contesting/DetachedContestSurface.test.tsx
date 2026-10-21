@@ -148,6 +148,29 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   expect(document.querySelector("dl")).toBeNull();
 });
 
+it("shows the pinned RTC services and current score without enabling unsafe credential or network work", async () => {
+  window.history.replaceState({}, "", search.replace("view=active-qso", "view=score-reporting"));
+  const view = { schemaVersion:1, status:"ready", score:{qsos:42,points:315,multipliers:18,claimedScore:5670,
+    multiplierLabels:["K"],multiplierDisplayLabels:["United States"],sourceVerification:"verified"},
+    intervalMinutes:2,reportingEnabled:false,availability:"configuration-only",
+    reason:"Automatic posting is unavailable until xLog has a secure credential store and a bounded, retry-safe HTTPS reporter.",
+    services:[
+      {id:"hamscore",name:"Real Time Contest Server",url:"https://hamscore.com/postxml/",transportSecurity:"https"},
+      {id:"contestonlinescore",name:"Contest Online ScoreBoard",url:"https://contestonlinescore.com/post/",transportSecurity:"https"},
+      {id:"contest-run",name:"Live Contest Score",url:"http://contest.run",transportSecurity:"legacy-http"},
+    ],busy:false } as const;
+  expect(validContestSurfaceProjection("score-reporting",view)).toBe(true);
+  expect(validContestSurfaceProjection("score-reporting",{...view,reportingEnabled:true})).toBe(false);
+  native.invoke.mockResolvedValue({...snapshot,panelID:"score-reporting",projection:view}); render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("heading",{name:"Score Reporting"})).toBeTruthy();
+  expect(screen.getByLabelText("Current contest score").textContent).toContain("5670");
+  expect(screen.getByLabelText("Periodically send XML score").matches(":disabled")).toBe(true);
+  expect(screen.getByLabelText("Username").matches(":disabled")).toBe(true);
+  expect(screen.getByRole("status").textContent).toContain("Sending is disabled");
+  expect(screen.getByText("http://contest.run").closest("li")?.textContent).toContain("Legacy HTTP endpoint");
+  expect(native.invoke.mock.calls.every(([command])=>command==="contest_surface_snapshot")).toBe(true);
+});
+
 it("allows the compact Statistics table to fit the supported 400px window minimum", () => {
   const css = readFileSync(`${process.cwd()}/src/contesting/DetachedContestSurface.css`, "utf8");
   expect(css).toContain(".contest-surface-statistics-scroll { flex:1; width:100%; min-width:0; min-height:0; overflow:auto;");

@@ -35,6 +35,7 @@ it("accepts only known contest setup and window intents", () => {
   expect(contestSetupDialogRoutes).toEqual(["contest-dialog-operator", "contest-dialog-station", "contest-dialog-configuration", "contest-dialog-digital", "contest-dialog-macros", "contest-dialog-keys", "contest-dialog-rover", "contest-dialog-about"]);
   expect(contestMenuPanelIDs).toContain("qrz-details");
   expect(contestMenuPanelIDs).toContain("group-chat");
+  expect(contestMenuPanelIDs).toContain("score-reporting");
   for (const screen of ["contest-setup", ...contestSetupDialogRoutes, ...contestMenuPanelIDs.map(id => `contest-window-${id}`)]) {
     expect(isContestMenuRoute(screen)).toBe(true);
     expect(validWorkspaceNavigation({ revision: 1, screen })).toBe(true);

@@ -1616,6 +1616,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       sinceHourQso: Number(rates.sinceHourQso), runQso: Number(rates.runQso),
       searchAndPounceQso: Number(rates.searchAndPounceQso), hourRunQso: Number(rates.hourRunQso),
       hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso), busy: busy || retiring };
+    unavailable["score-reporting"] = { schemaVersion: 1, status: "ready", score: scoreView,
+      intervalMinutes: 2, reportingEnabled: false, availability: "configuration-only",
+      reason: "Automatic posting is unavailable until xLog has a secure credential store and a bounded, retry-safe HTTPS reporter.",
+      services: [
+        { id: "hamscore", name: "Real Time Contest Server", url: "https://hamscore.com/postxml/", transportSecurity: "https" },
+        { id: "contestonlinescore", name: "Contest Online ScoreBoard", url: "https://contestonlinescore.com/post/", transportSecurity: "https" },
+        { id: "contest-run", name: "Live Contest Score", url: "http://contest.run", transportSecurity: "legacy-http" },
+      ], busy: busy || retiring };
     // An empty worker matrix is a valid tracker with no worked multipliers yet.
     // Missing matrices remain unavailable for plugins that do not expose them.
     if (projection.matrixTrackers?.includes("countries") && Array.isArray(matrices.countries)) {
@@ -2111,7 +2119,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
         if (!setupOnly) setManager(false); void openContestCallHistoryWindow(surfaceContext); }}/>
       : projection ? <><section className="contest-snapshot" aria-label="Contest identity"><div><span>Station</span><strong>{stationCall}</strong></div><div><span>Engine</span><strong>Not1MM Python</strong></div><div><span>Plugin</span><strong>{projection.pluginID}</strong></div><div><span>Revision</span><strong>{projection.revision}</strong></div><div><span>Source</span><small>{projection.sourceRevision.slice(0, 12)} · {projection.referenceID}</small></div></section>{detachedAvailable
-        ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
+        ? <section className="contest-welcome"><h2>Contest windows are ready</h2><p>Use the Contest menu to open and position Main Logging, Check Partial, Stats, Rates, Score Reporting, Logbook, Band Map, Cluster, Rotator, DXCC, Zone and Remote VFO windows.</p></section>
         : <section className="contest-welcome"><h2>Preserved contest session</h2><p>This session predates detached contest windows for the current xLog workspace. Its Python/SQLite log is preserved; create a current-workspace contest before opening independent windows.</p></section>}</> : <section className="contest-welcome"><h2>Open a contest session</h2></section>}
     <div hidden aria-hidden="true">{checkPanel}</div>
   </main>;

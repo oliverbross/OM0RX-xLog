@@ -182,3 +182,21 @@
   .contest-surface-entry .contest-surface-main-fields > .contest-surface-intent:first-child { grid-column:1 / -1; }
   .contest-surface-contact-footer { grid-template-columns:2fr 1fr; }
 }
+.contest-score-reporting { min-height:100%; box-sizing:border-box; padding:24px; color:var(--text-primary,#e8edf5); background:linear-gradient(145deg,#111923,#0b1119); }
+.contest-score-reporting header h1 { margin:.15rem 0 .35rem; font-size:1.65rem; }
+.contest-score-reporting header p { margin:.2rem 0; color:var(--text-secondary,#aab6c7); }
+.contest-score-reporting-kicker { color:#63c6ff!important; font-size:.72rem; font-weight:750; letter-spacing:.13em; text-transform:uppercase; }
+.contest-score-reporting-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:18px 0; }
+.contest-score-reporting-summary div { padding:12px; border:1px solid #2a3b50; border-radius:8px; background:#152131; }
+.contest-score-reporting-summary span { display:block; color:#9aa9bc; font-size:.72rem; text-transform:uppercase; }
+.contest-score-reporting-summary strong { display:block; margin-top:4px; font-size:1.25rem; }
+.contest-score-reporting fieldset { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0; padding:16px; border:1px solid #2a3b50; border-radius:8px; }
+.contest-score-reporting fieldset>label { display:grid; gap:5px; font-size:.82rem; }
+.contest-score-reporting fieldset>label:first-of-type { grid-column:1/-1; display:flex; align-items:center; gap:8px; }
+.contest-score-reporting input,.contest-score-reporting select { box-sizing:border-box; width:100%; padding:8px 10px; color:#8f9bad; border:1px solid #31445b; border-radius:6px; background:#0d1621; }
+.contest-score-reporting-boundary { padding:12px 14px; border-left:3px solid #ffb454; background:#2b2418; color:#e9d9b8; }
+.contest-score-reporting-services { display:grid; gap:8px; padding:0; list-style:none; }
+.contest-score-reporting-services li { display:grid; grid-template-columns:minmax(170px,.8fr) 1fr; gap:4px 12px; padding:10px 12px; border-bottom:1px solid #243448; }
+.contest-score-reporting-services code { overflow-wrap:anywhere; color:#8ed7ff; }
+.contest-score-reporting-services em { grid-column:2; color:#ffba73; font-size:.75rem; }
+@media(max-width:540px){.contest-score-reporting-summary{grid-template-columns:1fr 1fr}.contest-score-reporting fieldset{grid-template-columns:1fr}.contest-score-reporting-services li{grid-template-columns:1fr}.contest-score-reporting-services em{grid-column:1}}

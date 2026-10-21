@@ -84,7 +84,7 @@ pub const SUPPORTED_WINDOWS: [WindowSpec; 23] = [
     WindowSpec { id: "antenna", title: "OM0RX-xLog — Antenna Reference", width: 780.0, height: 600.0 },
 ];
 pub const CONTEST_LABEL_PREFIX: &str = "contest--";
-pub const CONTEST_WINDOWS: [WindowSpec; 16] = [
+pub const CONTEST_WINDOWS: [WindowSpec; 17] = [
     WindowSpec { id: "active-qso", title: "OM0RX-xLog Contest — Main Logging", width: 800.0, height: 480.0 },
     WindowSpec { id: "call-history", title: "OM0RX-xLog Contest — Call History", width: 840.0, height: 360.0 },
     WindowSpec { id: "qrz-details", title: "OM0RX-xLog Contest — QRZ Details", width: 520.0, height: 420.0 },
@@ -92,6 +92,7 @@ pub const CONTEST_WINDOWS: [WindowSpec; 16] = [
     WindowSpec { id: "band-maps", title: "OM0RX-xLog Contest — Band Map", width: 520.0, height: 500.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog Contest — Check Partial", width: 660.0, height: 500.0 },
     WindowSpec { id: "monitor", title: "OM0RX-xLog Contest — Rates", width: 340.0, height: 300.0 },
+    WindowSpec { id: "score-reporting", title: "OM0RX-xLog Contest — Score Reporting", width: 620.0, height: 540.0 },
     WindowSpec { id: "propagation", title: "OM0RX-xLog Contest — Stats", width: 520.0, height: 140.0 },
     WindowSpec { id: "alerts", title: "OM0RX-xLog Contest — Alerts", width: 780.0, height: 600.0 },
     WindowSpec { id: "awards", title: "OM0RX-xLog Contest — DXCC", width: 920.0, height: 300.0 },
@@ -126,6 +127,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
         "band-maps" => &[(380.0, 760.0), (520.0, 700.0)],
         "callsign-intelligence" => &[(700.0, 620.0)],
         "monitor" => &[(780.0, 600.0)],
+        "score-reporting" => &[],
         "propagation" => &[(800.0, 480.0), (520.0, 380.0), (520.0, 220.0)],
         "rotor" => &[(700.0, 600.0)],
         "station-control" => &[(900.0, 700.0), (900.0, 680.0)],
@@ -176,6 +178,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "dx-cluster" => (720.0, 420.0),
                 "rotor" => (420.0, 360.0),
                 "monitor" => (300.0, 240.0),
+                "score-reporting" => (480.0, 420.0),
                 "station-control" => (420.0, 300.0),
                 "awards" => (560.0, 240.0),
                 "chaser-dx" => (520.0, 240.0),
@@ -390,7 +393,7 @@ mod tests {
         let ids: BTreeSet<_> = CONTEST_WINDOWS.iter().map(|window| window.id).collect();
         assert_eq!(ids.len(), CONTEST_WINDOWS.len());
         assert_eq!(ids, BTreeSet::from(["active-qso", "alerts", "awards", "band-maps", "call-history", "group-chat", "qrz-details", "callsign-intelligence",
-            "chaser-dx", "dx-cluster", "edit-contact", "logbook", "monitor", "propagation", "rotor", "station-control"]));
+            "chaser-dx", "dx-cluster", "edit-contact", "logbook", "monitor", "propagation", "rotor", "score-reporting", "station-control"]));
         let titles = CONTEST_WINDOWS.iter().map(|window| (window.id, window.title)).collect::<std::collections::HashMap<_, _>>();
         for (panel, title) in [
             ("callsign-intelligence", "OM0RX-xLog Contest — Check Partial"),
@@ -398,6 +401,7 @@ mod tests {
             ("logbook", "OM0RX-xLog Contest — Log Display"),
             ("edit-contact", "OM0RX-xLog Contest — Edit Contact"),
             ("monitor", "OM0RX-xLog Contest — Rates"),
+            ("score-reporting", "OM0RX-xLog Contest — Score Reporting"),
             ("station-control", "OM0RX-xLog Contest — Remote VFO"),
             ("alerts", "OM0RX-xLog Contest — Alerts"),
             ("group-chat", "OM0RX-xLog Contest — Group Chat"),
@@ -512,6 +516,7 @@ mod tests {
             ("propagation", (400.0, 140.0)), ("alerts", (320.0, 220.0)),
             ("band-maps", (420.0, 420.0)), ("dx-cluster", (720.0, 420.0)),
             ("rotor", (420.0, 360.0)), ("monitor", (300.0, 240.0)),
+            ("score-reporting", (480.0, 420.0)),
             ("station-control", (420.0, 300.0)), ("awards", (560.0, 240.0)),
             ("chaser-dx", (520.0, 240.0)),
         ];
