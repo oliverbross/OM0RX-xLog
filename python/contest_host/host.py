@@ -14,7 +14,7 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
-from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
+from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
@@ -30,9 +30,12 @@ PLUGIN_ID = "cq_ww_cw"
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
-BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
-VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb"}
-MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS}
+BAND_LABELS = {1.8: "160m", 3.5: "80m", 7.0: "40m", 14.0: "20m", 21.0: "15m", 28.0: "10m",
+               50.0: "6m", 144.0: "2m", 222.0: "1.25m", 432.0: "70cm", 902.0: "33cm", 1296.0: "23cm"}
+VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
+                        "arrl_field_day", *ARRL_VHF_PLUGINS}
+MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
+                      "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS}
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -425,16 +428,22 @@ class Desk:
                 "RSGB 80M CC supports only 80 metres", "invalid_frequency")
         require(self.state["pluginID"] != "rsgb_commonwealth_beru" or band != 1.8,
                 "RSGB Commonwealth BERU supports only 80 through 10 metres", "invalid_frequency")
+        require(BAND_LABELS[band] in PLUGIN_REGISTRY[self.state["pluginID"]].bands,
+                f'{PLUGIN_REGISTRY[self.state["pluginID"]].name} does not support {BAND_LABELS[band]}',
+                "invalid_frequency")
         return band
 
     @staticmethod
     def band(frequency):
         for low, high, band in ((1800000, 2000000, 1.8), (3500000, 4000000, 3.5),
                                 (7000000, 7300000, 7.0), (14000000, 14350000, 14.0),
-                                (21000000, 21450000, 21.0), (28000000, 29700000, 28.0)):
+                                 (21000000, 21450000, 21.0), (28000000, 29700000, 28.0),
+                                 (50000000, 54000000, 50.0), (144000000, 148000000, 144.0),
+                                 (222000000, 225000000, 222.0), (420000000, 450000000, 432.0),
+                                 (902000000, 928000000, 902.0), (1240000000, 1300000000, 1296.0)):
             if low <= frequency <= high:
                 return band
-        raise HostError("invalid_frequency", "Frequency is outside CQ WW bands")
+        raise HostError("invalid_frequency", "Frequency is outside supported contest bands")
 
     def projection(self):
         if (self.state.get("setup", {}).get("preferences", {}).get("callHistory", True) is not False
@@ -1197,6 +1206,9 @@ class Host:
                 "ARRL 160 supports only 160 metres", "invalid_frequency")
         require(plugin_id != "arrl_10m" or Desk.band(frequency) == 28.0,
                 "ARRL 10M supports only 10 metres", "invalid_frequency")
+        require(BAND_LABELS[Desk.band(frequency)] in PLUGIN_REGISTRY[plugin_id].bands,
+                f'{PLUGIN_REGISTRY[plugin_id].name} does not support {BAND_LABELS[Desk.band(frequency)]}',
+                "invalid_frequency")
         station, reference = deepcopy(params.get("station")), deepcopy(params.get("reference"))
         require(isinstance(station, dict) and isinstance(reference, dict), "Station and reference are required")
         call = text(station.get("Call", ""), 32).upper()
@@ -1252,6 +1264,15 @@ class Host:
         if plugin_id == "arrl_160m":
             require(re.fullmatch(r"[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
                     "ARRL 160 sent exchange must be an ARRL/RAC section or CQ zone")
+        if plugin_id == "arrl_field_day":
+            require(re.fullmatch(r"[0-9]{1,2}[A-Fa-f] [A-Za-z]{2,4}", str(settings["SentExchange"])) is not None,
+                    "ARRL Field Day sent exchange must be CLASS SECTION")
+        if plugin_id == "arrl_rtty_ru":
+            require(re.fullmatch(r"#|[A-Za-z]{1,4}", str(settings["SentExchange"])) is not None,
+                    "ARRL RTTY Roundup sent exchange must be #, state or province")
+        if plugin_id in ARRL_VHF_PLUGINS:
+            require(re.fullmatch(r"[A-Ra-r]{2}[0-9]{2}", str(settings["SentExchange"])) is not None,
+                    "ARRL VHF sent exchange must be a 4-character grid square")
         if plugin_id in EA_MAJESTAD_PLUGINS:
             require(re.fullmatch(r"#|[A-Za-z]{1,4}", str(settings["SentExchange"])) is not None,
                     "King of Spain sent exchange must be # or a province")
@@ -1468,6 +1489,27 @@ class Host:
                     "Resolve the contact country before logging ARRL 160")
             require(re.fullmatch(r"[A-Za-z0-9]{1,6}", fields["other_2"]) is not None,
                     "ARRL 160 received exchange must be an ARRL/RAC section or CQ zone")
+        elif desk.state["pluginID"] == "arrl_field_day":
+            require(re.fullmatch(r"[0-9]{1,2}[A-Fa-f]", fields["other_1"]) is not None
+                    and re.fullmatch(r"[A-Za-z]{2,4}", fields["other_2"]) is not None,
+                    "ARRL Field Day received exchange must be CLASS and SECTION")
+        elif desk.state["pluginID"] == "arrl_rtty_ru":
+            require(re.fullmatch(r"[A-Za-z]{1,4}|[0-9]+", fields["other_2"]) is not None,
+                    "ARRL RTTY Roundup received exchange must be a state, province or positive serial")
+            if fields["other_2"].isdigit():
+                require(0 < int(fields["other_2"]) <= 9223372036854775807,
+                        "ARRL RTTY Roundup received serial must be a positive SQLite integer")
+            if requires_serial(desk.state):
+                require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0,
+                        "ARRL RTTY Roundup sent serial must be positive")
+            else:
+                require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
+                        "ARRL RTTY Roundup sent exchange must match contest setup")
+        elif desk.state["pluginID"] in ARRL_VHF_PLUGINS:
+            require(re.fullmatch(r"[A-Ra-r]{2}[0-9]{2}", fields["other_2"]) is not None,
+                    "ARRL VHF received exchange must be a 4-character grid square")
+            require(fields["other_1"].upper() == str(desk.state["settings"]["SentExchange"]).upper(),
+                    "ARRL VHF sent grid must match contest setup")
         elif desk.state["pluginID"] in EA_MAJESTAD_PLUGINS:
             require(re.fullmatch(r"[A-Za-z]{1,4}|[0-9]+", fields["other_2"]) is not None,
                     "King of Spain received exchange must be a province or positive serial")
@@ -1612,8 +1654,11 @@ class Host:
             if (desk.state["pluginID"] == "arrl_10m"
                     or desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                     or desk.state["pluginID"] in REF_PLUGINS
-                    or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS):
-                pattern = (r"[A-Za-z0-9]{1,6}" if desk.state["pluginID"] == "arrl_10m"
+                    or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS
+                    or desk.state["pluginID"] == "arrl_rtty_ru"
+                    or desk.state["pluginID"] in ARRL_VHF_PLUGINS):
+                pattern = (r"[A-Ra-r]{2}[0-9]{2}" if desk.state["pluginID"] in ARRL_VHF_PLUGINS else
+                           r"[A-Za-z0-9]{1,6}" if desk.state["pluginID"] == "arrl_10m"
                            or desk.state["pluginID"] in REF_PLUGINS else r"[A-Za-z]{1,4}|[0-9]+")
                 require(re.fullmatch(pattern, updated["other_1"]) is not None,
                         "Historical sent exchange must be a serial or location code")
@@ -1638,6 +1683,7 @@ class Host:
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
             preserve_sent = (desk.state["pluginID"] == "cq_ww_rtty"
+                             or desk.state["pluginID"] == "arrl_field_day"
                              or desk.state["pluginID"] != "arrl_10m" and desk.state["pluginID"] in {
                                  "cwt", "k1usn_sst", *TEN_TEN_PLUGINS, *NAME_SPC_ENTRY_PLUGINS,
                                  *ARRL_DX_PLUGINS, *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS, "arrl_160m"

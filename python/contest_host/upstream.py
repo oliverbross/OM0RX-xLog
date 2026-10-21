@@ -306,6 +306,15 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
                 ),
             ])
+        if plugin_id in {"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"}:
+            # DXLOG stores the canonical band as REAL while these original
+            # plugins compare it with digit-only strings.
+            replacements.extend([
+                ('if _band in ["50", "144"]:', 'if _band in [50.0, 144.0]:'),
+                ('if _band in ["222", "432"]:', 'if _band in [222.0, 432.0]:'),
+                ('if _band in ["902", "1296"]:', 'if _band in [902.0, 1296.0]:'),
+                ('if _band in ["2300+"]:', 'if _band in [2300.0]:'),
+            ])
         if plugin_id == "es_manual_key":
             replacements.extend([
                 ("\n    if (\n        time_period_2 is not None\n        and time_period_1 is not None",

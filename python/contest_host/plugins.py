@@ -79,6 +79,22 @@ PLUGIN_REGISTRY = MappingProxyType({
                        sent_exchange_hint="State/Province, serial or ITU region"),
     "arrl_160m": Plugin("ARRL 160-Meter", bands=("160m",),
                         sent_exchange_hint="ARRL/RAC section or DX CQ zone"),
+    "arrl_field_day": Plugin("ARRL Field Day", modes=("CW", "SSB", "RTTY", "AM", "FM"),
+                             bands=("160m", "80m", "40m", "20m", "15m", "10m",
+                                    "6m", "2m", "1.25m", "70cm", "33cm", "23cm"),
+                             sent_exchange_hint="Class + ARRL/RAC section"),
+    "arrl_rtty_ru": Plugin("ARRL RTTY Roundup", conditional_serial=True,
+                           bands=("80m", "40m", "20m", "15m", "10m"), modes=RTTY_MODES,
+                           sent_exchange_hint="State/province or #"),
+    "arrl_vhf_jan": Plugin("ARRL VHF JAN", modes=("CW", "SSB", "RTTY", "AM", "FM"),
+                           bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm"),
+                           sent_exchange_hint="4-character grid square"),
+    "arrl_vhf_jun": Plugin("ARRL VHF JUN", modes=("CW", "SSB", "RTTY", "AM", "FM"),
+                           bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm"),
+                           sent_exchange_hint="4-character grid square"),
+    "arrl_vhf_sep": Plugin("ARRL VHF SEP", modes=("CW", "SSB", "RTTY", "AM", "FM"),
+                           bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm"),
+                           sent_exchange_hint="4-character grid square"),
     "ea_majestad_cw": Plugin("His Maj. King of Spain Contest, CW", conditional_serial=True,
                              sent_exchange_hint="Province or #"),
     "ea_majestad_ssb": Plugin("His Maj. King of Spain Contest, SSB", conditional_serial=True,
@@ -121,10 +137,11 @@ SENTNR_FIELD_PLUGINS = SERIAL_PLUGINS | CONDITIONAL_SERIAL_PLUGINS
 TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"})
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test"})
 NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
-RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty"})
+RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty", "arrl_rtty_ru"})
 CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty",
                                        "aadx_cw", "aadx_ssb", "euhfc", "iaru_hf"})
-DISPLAY_SENTNR_PLUGINS = frozenset({"euhfc", "iaru_hf"})
+DISPLAY_SENTNR_PLUGINS = frozenset({"euhfc", "iaru_hf", "arrl_rtty_ru",
+                                    "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 ARRL_DX_PLUGINS = frozenset({"arrl_dx_cw", "arrl_dx_ssb"})
 JIDX_PLUGINS = frozenset({"jidx_cw", "jidx_ph"})
 AADX_PLUGINS = frozenset({"aadx_cw", "aadx_ssb"})
@@ -134,7 +151,9 @@ REF_PLUGINS = frozenset({"ref_cw", "ref_ssb"})
 RSGB_PLUGINS = frozenset({"rsgb_80m_cc", "rsgb_commonwealth_beru"})
 ESTONIAN_PLUGINS = frozenset({"es_field_day", "es_ll_kv", "es_manual_key", "es_open"})
 EUROPEAN_DX_PLUGINS = frozenset({"hadx", "helvetia", "pacc", "spdx"})
+ARRL_VHF_PLUGINS = frozenset({"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
-    "euhfc", "arrl_10m", "arrl_160m",
+    "euhfc", "arrl_10m", "arrl_160m", "arrl_field_day", "arrl_rtty_ru",
 }) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS | REF_PLUGINS | RSGB_PLUGINS | ESTONIAN_PLUGINS | EUROPEAN_DX_PLUGINS
+SIMPLE_MULTIPLIER_PLUGINS |= ARRL_VHF_PLUGINS

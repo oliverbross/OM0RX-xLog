@@ -223,6 +223,17 @@ import time and fails if the pinned source differs:
     replay. Phone ESM remains non-transmitting and adds no audio/PTT authority.
     This admission does not claim organizer certification.
 
+21. ARRL Field Day, ARRL RTTY Roundup and the January, June and September
+    ARRL VHF contests execute their unchanged modules from the pinned revision.
+    The host validates their class/section, state/province-or-serial and grid
+    exchanges, admits the original HF/VHF mode and band policies, and retains
+    each contact's historical sent serial or grid during correction. Original
+    duplicate, point, multiplier, ESM, Cabrillo and ADIF callbacks remain
+    authoritative. The three VHF modules receive one finite import overlay that
+    compares their digit-only band literals with the REAL canonical band values
+    stored by the pinned database; January's 4/8-point microwave table and the
+    June/September 3/4-point tables remain distinct original behavior.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -253,6 +264,11 @@ Original SHA-256:
 | plugins/cq_160_ssb.py | db03be688702e523a3d532fabc59e84e689668438e3c3038501a0d82a8b55804 |
 | plugins/euhfc.py | 2bec874fc12149a4ab76683b30459141c49f13f5d8423b2dd7c7e263ff68b683 |
 | plugins/iaru_hf.py | f8697ee440ee60b85ab88ea499f749294cf379130fa5a4b90fe7ccdb63bc3cde |
+| plugins/arrl_field_day.py | c048a3f302063fb8bd575eac9bf06d637af8f1fab995b843c4228367aaa8efa8 |
+| plugins/arrl_rtty_ru.py | 51ec034028d5afa0d2788acb4e718d9699a198b2392dde2dbe78a0abfad31df6 |
+| plugins/arrl_vhf_jan.py | 692e8456947e307c15ae04c8ffe56a38f5f9475c22973a30d80b3879aeecb990 |
+| plugins/arrl_vhf_jun.py | dd7d4183aa106125b3223aca6e2479341a8264995ea5b0261357301325573aff |
+| plugins/arrl_vhf_sep.py | 571558e52d5de8fa886f9b4ce7e49a9a86d045b495d732da43ada9c6f36f3656 |
 | plugins/es_field_day.py | b0dbe23dc1d41aa313eaa76955a7999be3a2066f404daacb66a9cd33dd9d94b4 |
 | plugins/es_ll_kv.py | 68996afb0fd28d9f7e0f31481bea7644e9a2a7391ad384301e7cff43edf37a61 |
 | plugins/es_manual_key.py | 785c7367ea9f3d19b11c40bc2d890564e13f1e34dd91c61ba5739b875a9ac9db |

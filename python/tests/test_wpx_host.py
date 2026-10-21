@@ -42,7 +42,8 @@ class WPXHostTests(unittest.TestCase):
                          ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
                      "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone",
             "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb",
-             "euhfc", "iaru_hf", "arrl_10m", "arrl_160m", "ea_majestad_cw", "ea_majestad_ssb",
+             "euhfc", "iaru_hf", "arrl_10m", "arrl_160m", "arrl_field_day", "arrl_rtty_ru",
+             "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep", "ea_majestad_cw", "ea_majestad_ssb",
              "ref_cw", "ref_ssb", "rsgb_80m_cc", "rsgb_commonwealth_beru",
              "es_field_day", "es_ll_kv", "es_manual_key", "es_open",
              "hadx", "helvetia", "pacc", "spdx"])
