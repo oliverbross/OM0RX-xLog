@@ -372,12 +372,23 @@ fn publish_after_admission(
     projection: Value,
 ) -> Result<(), String> {
     let panel = state.panels.entry(panel_id.into()).or_default();
-    if panel
-        .projection
-        .as_ref()
-        .is_some_and(|(revision, _)| projection_revision <= *revision)
-    {
-        return Err("The contest surface projection revision did not advance.".into());
+    if let Some((revision, current)) = panel.projection.as_ref() {
+        if projection_revision < *revision {
+            return Err(
+                "Contest Setup is out of date. Close and reopen it before continuing.".into(),
+            );
+        }
+        if projection_revision == *revision {
+            if projection == *current {
+                // React StrictMode can replay the owner publication during setup.
+                // Treat only the exact current coordinate as an idempotent success;
+                // a divergent same-revision projection remains a rejected replay.
+                return Ok(());
+            }
+            return Err(
+                "Contest Setup changed unexpectedly. Close and reopen it before continuing.".into(),
+            );
+        }
     }
     panel.projection = Some((projection_revision, projection));
     Ok(())
@@ -3142,10 +3153,6 @@ mod tests {
             json!({"draftID":"draft","expectedDraftRevision":2}),
         );
         publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"})).unwrap();
-        assert!(
-            publish_after_admission(&mut state, "active-qso", 7, json!({"status":"ready"}))
-                .is_err()
-        );
         let mut stale = envelope.clone();
         stale["projectionRevision"] = json!(6);
         let stale_checked = validate_action_envelope(&stale).unwrap();
@@ -3182,6 +3189,38 @@ mod tests {
         assert_eq!(state.panels["active-qso"].receipts.len(), 1);
         state.panels.get_mut("active-qso").unwrap().receipts.clear();
         assert!(submit_checked(&mut state, "active-qso", &checked, checked_value()).is_err());
+    }
+
+    #[test]
+    fn setup_publication_replay_accepts_only_the_exact_current_projection() {
+        let mut state = State {
+            context: Some(context()),
+            ..State::default()
+        };
+        let current = json!({"schemaVersion":1,"status":"unavailable"});
+        publish_after_admission(&mut state, "active-qso", 7, current.clone()).unwrap();
+
+        // The main React owner is mounted under StrictMode, so ordinary New
+        // Contest setup can replay this exact UI/native publication.
+        publish_after_admission(&mut state, "active-qso", 7, current.clone()).unwrap();
+
+        let conflicting = publish_after_admission(
+            &mut state,
+            "active-qso",
+            7,
+            json!({"schemaVersion":1,"status":"ready"}),
+        )
+        .unwrap_err();
+        assert_eq!(
+            conflicting,
+            "Contest Setup changed unexpectedly. Close and reopen it before continuing."
+        );
+        let stale = publish_after_admission(&mut state, "active-qso", 6, current).unwrap_err();
+        assert_eq!(
+            stale,
+            "Contest Setup is out of date. Close and reopen it before continuing."
+        );
+        assert_eq!(state.panels["active-qso"].projection.as_ref().unwrap().0, 7);
     }
 
     #[test]
