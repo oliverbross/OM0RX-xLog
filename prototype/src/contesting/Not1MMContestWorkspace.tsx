@@ -640,6 +640,38 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     }, 10_000);
     return () => { cancelled = true; sequence += 1; window.clearInterval(timer); };
   }, [projection?.sessionID, request]);
+  useEffect(() => {
+    const sessionID = projection?.sessionID, generation = projection?.workspaceGeneration;
+    if (!sessionID || !generation) return;
+    let cancelled = false, inFlight = false;
+    const poll = async () => {
+      if (cancelled || inFlight || busyRef.current) return;
+      const observed = projectionRef.current;
+      if (!observed || observed.sessionID !== sessionID || observed.workspaceGeneration !== generation) return;
+      const inputVersion = editVersionRef.current;
+      const inputsWereBuffered = !sameFields(fieldsRef.current, projectionFields(observed));
+      inFlight = true;
+      try {
+        const read = await result<{ projection: Projection }>("contest_draft_get", {
+          sessionID, workspaceGeneration: generation,
+        });
+        const next = read.projection, current = projectionRef.current;
+        if (cancelled || !current || current.sessionID !== sessionID || current.workspaceGeneration !== generation ||
+            next.sessionID !== sessionID || next.workspaceGeneration !== generation || next.revision <= current.revision) return;
+        // WSJT-X/JTDX and multi-operator peers mutate the authoritative Python
+        // session outside this renderer. Adopt that newer revision so every
+        // detached projection is republished, while retaining any locally
+        // buffered operator input that has not reached the host yet.
+        const preserveInputs = inputsWereBuffered || editVersionRef.current !== inputVersion;
+        acceptProjection(next, preserveInputs ? Number.MIN_SAFE_INTEGER : inputVersion);
+        await refresh(sessionID, next, logOffset);
+      } catch {
+        // A transient read must not disturb the last admitted contest surface.
+      } finally { inFlight = false; }
+    };
+    const timer = window.setInterval(() => { void poll(); }, 1_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [projection?.sessionID, projection?.workspaceGeneration, logOffset, request]);
   const openSession = async (session: Session) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");

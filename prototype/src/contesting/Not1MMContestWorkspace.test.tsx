@@ -619,6 +619,49 @@ it("refreshes the current contest Rates snapshot every ten seconds", async () =>
   expect(rateCalls.at(-1)?.[1]).toEqual({sessionID:current.sessionID});
 });
 
+it("adopts an externally committed digital revision and republishes Log and Stats", async () => {
+  let current = projection();
+  let revisionPoll: (() => void) | undefined;
+  vi.spyOn(window, "setInterval").mockImplementation(((handler: TimerHandler, timeout?: number) => {
+    if (timeout === 1_000 && typeof handler === "function") revisionPoll = handler as () => void;
+    return 1;
+  }) as typeof window.setInterval);
+  const digitalRow = { ID:"digital-qso", TS:"2026-10-22 14:40:00", Call:"VK8ZY", Freq:14080,
+    SNT:"599", RCV:"599", ZN:29, SentNr:15, WPXPrefix:"VK8", CountryPrefix:"VK", Points:3, Band:14, Mode:"RTTY" };
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    const result = method === "contest_catalog" ? { plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}] } :
+      method === "contest_sessions" ? { sessions:[] } : method === "contest_create" ? { projection:current } :
+      method === "contest_draft_get" ? { projection:current } : method === "contest_log_page" ? {
+        sessionID:current.sessionID, revision:current.revision, rows:current.revision === 2 ? [digitalRow] : [],
+        total:current.revision === 2 ? 1 : 0, offset:0, limit:20 } : method === "contest_score" ? {
+        sessionID:current.sessionID, revision:current.revision, score:current.score, matrices:{countries:[],zones:[]},
+        statistics:current.revision === 2 ? { rows:[{band:"20m",qsos:1,calls:1,cw:0,phone:0,digital:1,wpx:1,points:3}],
+          total:{band:"TOTAL",qsos:1,calls:1,cw:0,phone:0,digital:1,wpx:1,points:3} } : statisticsFor(current) } : null;
+    if (!result) throw new Error(method);
+    return { id:crypto.randomUUID(), ok:true, result };
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections.propagation.total.qsos).toBe(0));
+  expect(revisionPoll).toBeTypeOf("function");
+
+  current = { ...projection(2), score:{qsos:1,points:3,countries:1,zones:1,total:3} };
+  await act(async () => { revisionPoll?.(); });
+
+  await waitFor(() => expect(surfaceOwner.current.projections.propagation).toMatchObject({
+    schemaVersion:3, status:"ready", total:{qsos:1,digital:1,points:3},
+  }));
+  expect(surfaceOwner.current.projections.logbook).toMatchObject({
+    status:"ready", sessionRevision:2, page:{total:1, rows:[{qsoID:"digital-qso"}]},
+  });
+  expect(request.mock.calls.find(([method]) => method === "contest_draft_get")?.[1]).toEqual({
+    sessionID:current.sessionID, workspaceGeneration:current.workspaceGeneration,
+  });
+});
+
 it("publishes exact Statistics v3 once per score refresh without adding a statistics timer", async () => {
   const current={...projection(4),score:{qsos:2,points:6,countries:1,zones:1,total:12}};
   let poll:(()=>void)|undefined;
