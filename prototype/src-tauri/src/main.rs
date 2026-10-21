@@ -962,6 +962,26 @@ fn contest_desk_is_open<'a>(labels: impl IntoIterator<Item = &'a str>) -> bool {
     labels.into_iter().any(contest_desk_window)
 }
 
+fn contest_desk_focus_label(labels: &[String]) -> Option<String> {
+    labels.iter().find(|label| label.as_str() == "contest--active-qso")
+        .or_else(|| labels.iter().find(|label| contest_desk_window(label)))
+        .cloned()
+}
+
+fn present_active_workspace(app: &tauri::AppHandle) -> Result<(), String> {
+    let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
+    if let Some(label) = contest_desk_focus_label(&labels) {
+        if let Some(main) = app.get_webview_window("main") {
+            main.hide().map_err(|error| error.to_string())?;
+        }
+        let contest = app.get_webview_window(&label).ok_or("The active contest window is unavailable.")?;
+        contest.unminimize().map_err(|error| error.to_string())?;
+        contest.show().and_then(|_| contest.set_focus()).map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    ensure_main_workspace(app).map(|_| ())
+}
+
 fn enters_contest_desk(label: &str, method: &str) -> bool {
     label == CONTEST_SETUP_WINDOW && matches!(method, "contest_create" | "contest_session_create" | "contest_open")
 }
@@ -2899,6 +2919,12 @@ async fn close_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main workspace can close itself".into()); }
     validate_editor_transition(window.label())?;
     detached_geometry::flush(&window);
+    let app = window.app_handle().clone();
+    let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
+    if contest_desk_is_open(labels.iter().map(String::as_str)) {
+        window.hide().map_err(|error| error.to_string())?;
+        return present_active_workspace(&app);
+    }
     window.destroy().map_err(|error| error.to_string())
 }
 
@@ -3118,8 +3144,8 @@ fn main() {
     let builder = if acceptance::use_production_singleton(isolated) {
         builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
             let app = app.clone();
-            tauri::async_runtime::spawn_blocking(move || if let Err(error) = ensure_main_workspace(&app) {
-                eprintln!("Could not recover main workspace: {error}");
+            tauri::async_runtime::spawn_blocking(move || if let Err(error) = present_active_workspace(&app) {
+                eprintln!("Could not recover active workspace: {error}");
             });
         }))
     } else { builder };
@@ -3250,8 +3276,8 @@ fn main() {
             #[cfg(target_os = "macos")]
             if matches!(event, tauri::RunEvent::Reopen { .. }) {
                 let app = app.clone();
-                tauri::async_runtime::spawn_blocking(move || if let Err(error) = ensure_main_workspace(&app) {
-                    eprintln!("Could not recover main workspace: {error}");
+                tauri::async_runtime::spawn_blocking(move || if let Err(error) = present_active_workspace(&app) {
+                    eprintln!("Could not recover active workspace: {error}");
                 });
             }
             if matches!(event, tauri::RunEvent::Exit) {
@@ -3267,7 +3293,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, contest_desk_is_open, contest_desk_window, enters_contest_desk, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, enters_contest_desk, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
@@ -3311,8 +3337,17 @@ mod workspace_layout_tests {
     }
 
     #[test]
+    fn dock_and_close_recovery_prefer_contest_main_logging() {
+        let labels = vec!["main".into(), "contest--propagation".into(), "contest--active-qso".into()];
+        assert_eq!(contest_desk_focus_label(&labels).as_deref(), Some("contest--active-qso"));
+        let without_main_logging = vec!["main".into(), "contest--monitor".into()];
+        assert_eq!(contest_desk_focus_label(&without_main_logging).as_deref(), Some("contest--monitor"));
+        assert_eq!(contest_desk_focus_label(&["main".into(), "contest--edit-contact".into()]), None);
+    }
+
+    #[test]
     fn contest_window_open_is_setup_owner_only_and_bounded_to_connected_tools() {
-        for panel in ["active-qso", "call-history", "group-chat", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
+        for panel in ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "score-reporting", "logbook", "band-maps", "rotor", "dx-cluster", "awards", "chaser-dx", "station-control"] {
             assert!(super::validate_contest_window_open("contest-setup", panel).is_ok());
             for label in ["main", "contest--active-qso", "contest--logbook", "logbook", "settings", ""] {
                 assert!(super::validate_contest_window_open(label, panel).is_err());
