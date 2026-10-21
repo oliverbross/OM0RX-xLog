@@ -2095,6 +2095,11 @@ it("does not open Main Logging until its ready projection is published", async (
   releasePublication();
   await expect(opening).resolves.toBe(true);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "active-qso");
+  await expect(route!("contest-window-score-reporting")).resolves.toBe(true);
+  await expect(route!("contest-window-rotor")).resolves.toBe(true);
+  expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "score-reporting");
+  expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}), "rotor");
+  expect(request.mock.calls.some(([method]) => method === "contest_draft_apply")).toBe(false);
 });
 
 it("acknowledges a native contest window command with Setup after startup finds no session", async () => {

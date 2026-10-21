@@ -846,14 +846,15 @@ fn validate_projection(panel_id: &str, value: &Value) -> Result<(), String> {
         "propagation" if schema_version == 2 => validate_statistics_projection_v2(projection),
         "propagation" if schema_version == 3 => validate_statistics_projection_v3(projection),
         "monitor" if schema_version == 1 => validate_rate_projection(projection),
+        "score-reporting" if schema_version == 1 => validate_score_reporting_projection(projection),
         "awards" | "chaser-dx" if schema_version == 1 || schema_version == 4 => {
             validate_matrix_projection(projection)
         }
         "logbook" if schema_version == 1 => validate_logbook_projection(projection),
         "band-maps" | "dx-cluster" if schema_version == 2 => validate_spot_projection(projection),
         "station-control" if schema_version == 1 => validate_remote_vfo_projection(projection),
-        "active-qso" | "qrz-details" | "callsign-intelligence" | "propagation" | "monitor" | "awards"
-        | "chaser-dx" | "logbook" => {
+        "active-qso" | "qrz-details" | "callsign-intelligence" | "propagation" | "monitor"
+        | "score-reporting" | "awards" | "chaser-dx" | "logbook" => {
             Err("The contest surface projection schema is invalid.".into())
         }
         _ => Err("That contest surface has no ready projection schema.".into()),
@@ -1445,6 +1446,67 @@ fn validate_statistics_score(value: &Value) -> Result<(), String> {
         "score source verification",
     )?;
     Ok(())
+}
+
+fn validate_score_reporting_projection(value: &Map<String, Value>) -> Result<(), String> {
+    exact(
+        value,
+        &[
+            "schemaVersion",
+            "status",
+            "score",
+            "intervalMinutes",
+            "reportingEnabled",
+            "availability",
+            "reason",
+            "services",
+            "busy",
+        ],
+        "score reporting projection",
+    )?;
+    validate_statistics_score(&value["score"])?;
+    let interval = uint_value(
+        &value["intervalMinutes"],
+        1_440,
+        "score reporting interval",
+    )?;
+    if interval == 0 {
+        return Err("The score reporting interval is invalid.".into());
+    }
+    if value["reportingEnabled"] != Value::Bool(false) {
+        return Err("Automatic score reporting is not available.".into());
+    }
+    enum_value(
+        &value["availability"],
+        &["configuration-only"],
+        "score reporting availability",
+    )?;
+    text_value(&value["reason"], 512, false, "score reporting reason")?;
+    let services = array(&value["services"], 3, "score reporting services")?;
+    if services.len() != 3 {
+        return Err("The score reporting services are incomplete.".into());
+    }
+    for service in services {
+        let service = object(service, "score reporting service")?;
+        exact(
+            service,
+            &["id", "name", "url", "transportSecurity"],
+            "score reporting service",
+        )?;
+        enum_value(
+            &service["id"],
+            &["hamscore", "contestonlinescore", "contest-run"],
+            "score reporting service",
+        )?;
+        text_value(&service["name"], 80, false, "score reporting service name")?;
+        text_value(&service["url"], 256, false, "score reporting service URL")?;
+        enum_value(
+            &service["transportSecurity"],
+            &["https", "legacy-http"],
+            "score reporting transport security",
+        )?;
+    }
+    boolean(&value["busy"], "score reporting busy state")
 }
 
 fn validate_rate_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -2713,6 +2775,29 @@ mod tests {
         assert!(validate_projection("propagation", &missing_display).is_err());
         assert!(validate_projection("propagation", &statistics_v2()).is_ok());
         assert!(validate_projection("propagation", &statistics_v3()).is_ok());
+        let score_reporting = json!({"schemaVersion":1,"status":"ready","score":{
+                "qsos":12,"points":12,"multipliers":10,"claimedScore":120,
+                "multiplierLabels":["country:K"],"multiplierDisplayLabels":["United States"],
+                "sourceVerification":"verified"},
+            "intervalMinutes":2,"reportingEnabled":false,"availability":"configuration-only",
+            "reason":"Secure automatic posting is not configured.","services":[
+                {"id":"hamscore","name":"Real Time Contest Server","url":"https://hamscore.com/postxml/","transportSecurity":"https"},
+                {"id":"contestonlinescore","name":"Contest Online ScoreBoard","url":"https://contestonlinescore.com/post/","transportSecurity":"https"},
+                {"id":"contest-run","name":"Live Contest Score","url":"http://contest.run","transportSecurity":"legacy-http"}
+            ],"busy":false});
+        assert!(validate_projection("score-reporting", &score_reporting).is_ok());
+        let mut enabled_reporting = score_reporting.clone();
+        enabled_reporting["reportingEnabled"] = json!(true);
+        assert!(validate_projection("score-reporting", &enabled_reporting).is_err());
+        let mut malformed_service = score_reporting.clone();
+        malformed_service["services"][0]["transportSecurity"] = json!("plaintext");
+        assert!(validate_projection("score-reporting", &malformed_service).is_err());
+        let mut extra_field = score_reporting.clone();
+        extra_field["retry"] = json!(true);
+        assert!(validate_projection("score-reporting", &extra_field).is_err());
+        let mut wrong_schema = score_reporting;
+        wrong_schema["schemaVersion"] = json!(2);
+        assert!(validate_projection("score-reporting", &wrong_schema).is_err());
         let native_rates = json!({"schemaVersion":1,"status":"ready","lastHourQsoPerHour":null,
             "last10QsoPerHour":120.5,"last100QsoPerHour":null,"sinceHourUTC":19,"sinceHourQso":2,
             "runQso":2,"searchAndPounceQso":1,"hourRunQso":1,"hourSearchAndPounceQso":0,"busy":false});
