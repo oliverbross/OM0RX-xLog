@@ -247,8 +247,9 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       case "Cluster": content = managed("Cluster", "Manage servers, secure passwords, filters and connections there."); break;
       case "Group": content = <div className="contest-manual-stack">
         {check("network", "multiEnabled", "Enable Renfield Group Network")}
+        {check("network", "multiMaster", "Be the master")}
         {field("network", "stationName", "Unique Station Name")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}
-        <p role="status">Group Chat and best-effort repeated contact publication to Renfield are available. Renfield responses are unverified transport acknowledgements: they do not prove remote persistence or clear the local retry ledger. Shared serial allocation and server dupe inquiries remain unavailable.</p>
+        <p role="status">Group Chat and legacy Renfield contact publication use the shared multicast owner. “Be the master” enables xLog’s contest-fenced authority protocol on an isolated trusted LAN; it is not peer-authenticated across an untrusted network. Legacy acknowledgements remain transport-only.</p>
       </div>; break;
       case "N1MM": content = <div className="contest-manual-stack">
         {check("network", "n1mmEnabled", "Send N1MM packets")}

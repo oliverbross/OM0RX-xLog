@@ -177,8 +177,8 @@ class TransTasmanHostTests(unittest.TestCase):
         store = Store(path)
         try:
             self.assertEqual(store.exec_sql("SELECT * FROM xlog_serial"),
-                             {"draft_id": "old-draft", "serial": 7, "operation_id": "old-operation", "scope": "contest"})
-            store.conn.execute("INSERT INTO xlog_serial VALUES(?,?,?,?)", ("new-draft", 7, "new-operation", "band:7.0"))
+                             {"draft_id": "old-draft", "serial": 7, "operation_id": "old-operation", "scope": "contest", "qso_id": None})
+            store.conn.execute("INSERT INTO xlog_serial(draft_id,serial,operation_id,scope) VALUES(?,?,?,?)", ("new-draft", 7, "new-operation", "band:7.0"))
         finally:
             store.close()
 

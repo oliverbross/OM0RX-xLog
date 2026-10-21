@@ -161,18 +161,18 @@ it("shows the bounded Renfield capabilities and pinned multicast default", () =>
   for (const label of ["CQ", "His Call", "Exchange", "AGN", "My Call", "QRZ", "QSO B4", "Auto CQ Delay (Seconds)", "Use Call History"]) expect(screen.getByLabelText(label)).toBeTruthy();
   expect(screen.queryByLabelText("Use RTC score reporting")).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: "Group" }));
-  for (const label of ["Enable Renfield Group Network", "Unique Station Name", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  for (const label of ["Enable Renfield Group Network", "Be the master", "Unique Station Name", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
   expect((screen.getByLabelText("Multicast Group") as HTMLInputElement).value).toBe("239.1.1.1");
-  expect(screen.queryByLabelText("Connect to server")).toBeNull(); expect(screen.queryByLabelText("Be the master")).toBeNull();
-  expect(screen.getByRole("status").textContent).toContain("unverified transport acknowledgements");
-  expect(screen.getByRole("status").textContent).toContain("do not prove remote persistence or clear the local retry ledger");
-  expect(screen.getByRole("status").textContent).toContain("Shared serial allocation and server dupe inquiries remain unavailable");
+  expect(screen.queryByLabelText("Connect to server")).toBeNull();
+  expect(screen.getByRole("status").textContent).toContain("isolated trusted LAN");
+  expect(screen.getByRole("status").textContent).toContain("not peer-authenticated");
+  expect(screen.getByRole("status").textContent).toContain("Legacy acknowledgements remain transport-only");
 });
-it("migrates the obsolete multicast default without exposing or clearing saved master state", async () => {
+it("migrates the obsolete multicast default and exposes saved master state", async () => {
   const p = props(); p.value.network.multicastGroup = "224.1.1.1"; p.value.network.multiMaster = true;
   render(<ContestSetupPanel {...p} initialTab="Group"/>);
   expect((screen.getByLabelText("Multicast Group") as HTMLInputElement).value).toBe("239.1.1.1");
-  expect(screen.queryByLabelText("Be the master")).toBeNull();
+  expect((screen.getByLabelText("Be the master") as HTMLInputElement).checked).toBe(true);
   open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(p.onSave.mock.calls[0][0].network).toMatchObject({ multicastGroup: "239.1.1.1", multiMaster: true });
 });

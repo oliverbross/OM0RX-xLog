@@ -2,11 +2,19 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ContestSurfaceContext } from "./contestSurfaceNative";
 
 export const maxContestChatBytes = 512;
-export type ContestGroupChatConfiguration = { enabled: boolean; multicastGroup: string; multicastPort: number; interface: string; operator: string; stationName: string };
+export type ContestGroupChatConfiguration = { enabled: boolean; multicastGroup: string; multicastPort: number; interface: string; operator: string; stationName: string; multiMaster: boolean; contestIdentity: string };
 export type ContestGroupChatMessage = { sequence: number; sender: string; message: string; receivedAtMs: number };
+export type ContestGroupAuthoritySnapshot = {
+  role: "disabled" | "master" | "client";
+  status: "disabled" | "leasing" | "discovering" | "connected" | "lease_lost" | "lease_conflict" | "revoked";
+  masterStation: string | null; sessionID: string | null; workspaceGeneration: string | null;
+  leaseExpiresAtMs: number | null; reconnectCursor: number;
+};
+export type ContestGroupAuthorityOperation = "serialReserve" | "dupeInquiry" | "contactApply" | "changes";
 export type ContestGroupChatSnapshot = { status: "disabled" | "connected" | "error"; error: string | null; enabled: boolean;
   operator: string; multicastGroup: string; multicastPort: number; messages: ContestGroupChatMessage[]; unverifiedTransportAcknowledgements: string[];
-  capabilities: { chat: boolean; contactPublication: boolean; remotePersistenceVerified: false; sharedSerial: false; duplicateInquiry: false; authorityLimitation: string } };
+  capabilities: { chat: boolean; contactPublication: boolean; remotePersistenceVerified: boolean; sharedSerial: boolean; duplicateInquiry: boolean; authorityLimitation: string };
+  authority: ContestGroupAuthoritySnapshot };
 const bytes = (value: string) => new TextEncoder().encode(value).length;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const contextValid = (value: ContestSurfaceContext) => uuid.test(value.operatingContext) && uuid.test(value.sessionID) && uuid.test(value.workspaceGeneration);
@@ -22,7 +30,8 @@ export function contestGroupChatContextFromSearch(search: string): ContestSurfac
 
 function validSnapshot(value: unknown, maximumHistory = 200): value is ContestGroupChatSnapshot {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const snapshot = value as Record<string, unknown>, messages = snapshot.messages;
+  const snapshot = value as Record<string, unknown>, messages = snapshot.messages,
+    authority = snapshot.authority as Record<string, unknown> | undefined;
   return ["disabled", "connected", "error"].includes(String(snapshot.status)) &&
     (snapshot.error === null || typeof snapshot.error === "string" && bytes(snapshot.error) <= 1024) &&
     typeof snapshot.enabled === "boolean" && typeof snapshot.operator === "string" && bytes(snapshot.operator) <= 32 &&
@@ -31,15 +40,31 @@ function validSnapshot(value: unknown, maximumHistory = 200): value is ContestGr
     Array.isArray(snapshot.unverifiedTransportAcknowledgements) && snapshot.unverifiedTransportAcknowledgements.length <= 500 && snapshot.unverifiedTransportAcknowledgements.every(item => typeof item === "string" && uuid.test(item)) &&
     !!snapshot.capabilities && typeof snapshot.capabilities === "object" && !Array.isArray(snapshot.capabilities) &&
     (snapshot.capabilities as Record<string, unknown>).chat === true && typeof (snapshot.capabilities as Record<string, unknown>).contactPublication === "boolean" &&
-    (snapshot.capabilities as Record<string, unknown>).remotePersistenceVerified === false &&
-    (snapshot.capabilities as Record<string, unknown>).sharedSerial === false && (snapshot.capabilities as Record<string, unknown>).duplicateInquiry === false &&
+    typeof (snapshot.capabilities as Record<string, unknown>).remotePersistenceVerified === "boolean" &&
+    typeof (snapshot.capabilities as Record<string, unknown>).sharedSerial === "boolean" && typeof (snapshot.capabilities as Record<string, unknown>).duplicateInquiry === "boolean" &&
     typeof (snapshot.capabilities as Record<string, unknown>).authorityLimitation === "string" && bytes(String((snapshot.capabilities as Record<string, unknown>).authorityLimitation)) <= 512 &&
+    !!authority && ["disabled", "master", "client"].includes(String(authority.role)) &&
+    ["disabled", "leasing", "discovering", "connected", "lease_lost", "lease_conflict", "revoked"].includes(String(authority.status)) &&
+    (authority.masterStation === null || typeof authority.masterStation === "string" && bytes(authority.masterStation) <= 64) &&
+    (authority.sessionID === null || typeof authority.sessionID === "string" && uuid.test(authority.sessionID)) &&
+    (authority.workspaceGeneration === null || typeof authority.workspaceGeneration === "string" && uuid.test(authority.workspaceGeneration)) &&
+    (authority.leaseExpiresAtMs === null || Number.isSafeInteger(authority.leaseExpiresAtMs) && Number(authority.leaseExpiresAtMs) >= 0) &&
+    Number.isSafeInteger(authority.reconnectCursor) && Number(authority.reconnectCursor) >= 0 &&
     Array.isArray(messages) && messages.length <= maximumHistory && messages.every(item => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return false;
       const message = item as Record<string, unknown>;
       return Number.isSafeInteger(message.sequence) && Number(message.sequence) >= 0 && typeof message.sender === "string" && bytes(message.sender) <= 32 &&
         typeof message.message === "string" && bytes(message.message) <= maxContestChatBytes && Number.isSafeInteger(message.receivedAtMs) && Number(message.receivedAtMs) >= 0;
     });
+}
+
+export async function requestContestGroupAuthority(context: ContestSurfaceContext, operation: ContestGroupAuthorityOperation,
+    params: Record<string, unknown>, requestID = crypto.randomUUID()) {
+  if (!contextValid(context) || !uuid.test(requestID) || !params || typeof params !== "object" || Array.isArray(params))
+    throw new Error("The Group authority request could not be verified.");
+  const value = await invoke("contest_group_authority_request", { ...context, request: { requestID, operation, params } });
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("The Group authority returned an invalid response.");
+  return value as Record<string, unknown>;
 }
 
 export async function configureContestGroupChat(context: ContestSurfaceContext, configuration: ContestGroupChatConfiguration) {

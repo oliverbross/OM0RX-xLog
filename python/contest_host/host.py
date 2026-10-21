@@ -221,6 +221,16 @@ def reserved_sent_exchange(state, serial):
     return value
 
 
+def serial_scope(state, frequency):
+    scope = "contest"
+    if ((state["pluginID"] == "trans_tasman"
+         and state["settings"].get("OperatorCategory", "") != "SINGLE-OP")
+            or (state["pluginID"] == "john_moyle_field_day"
+                and state["settings"].get("OperatorCategory", "") in {"MULTI-OP", "MULTI-TWO"})):
+        scope = f"band:{Desk.band(frequency)}"
+    return scope
+
+
 def validate_ca_exchange(contest, exchange, setup=False):
     """Accept upstream CQP tokens and its documented county-line syntax."""
     value = str(exchange).upper().strip()
@@ -874,7 +884,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "multi_contact_apply"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -1124,6 +1134,8 @@ class Host:
         self.verify_engine(state)
         if method.startswith("history_"):
             return self.callhistory(store, state, method, params)
+        if method in {"multi_serial_reserve", "multi_dupe_inquiry", "multi_changes"}:
+            return self.coordinate(store, state, method, params)
         if method == "rates":
             # Capture the revision, log and clock in one SQLite read snapshot.
             store.conn.execute("BEGIN")
@@ -1366,8 +1378,97 @@ class Host:
                 "generation": generation, "digest": digest,
                 "activation": store.callhistory_status()}
 
+    def coordinate(self, store, state, method, params):
+        request_id = identifier(params.get("requestID"))
+        payload = canonical({"method": method, "params": params})
+        store.begin()
+        try:
+            previous = store.exec_sql(
+                "SELECT payload,result FROM xlog_operation WHERE operation_id=?", (request_id,)
+            )
+            if previous:
+                require(previous["payload"] == payload,
+                        "Request ID was already used with another payload", "payload_conflict")
+                result = json.loads(previous["result"])
+                result["replayed"] = True
+                store.finish(True)
+                return result
+            current = store.state(state["sessionID"])
+            self.verify_engine(current)
+            require(params.get("workspaceGeneration") == workspace_generation(current),
+                    "Multi-operator workspace changed", "stale_context")
+            common = {"sessionID", "workspaceGeneration", "requestID"}
+            if method == "multi_serial_reserve":
+                require(set(params) == common | {"frequencyHz"}, "Unexpected shared serial fields")
+                require(requires_serial(current), "This contest does not use serial numbers", "serial_unsupported")
+                frequency = params.get("frequencyHz")
+                require(type(frequency) is int, "Shared serial frequency must be integer Hz")
+                Desk(store, current, self.commit).contest_band(frequency)
+                scope = serial_scope(current, frequency)
+                reservation = store.reserve_shared_serial(request_id, scope)
+                result = {"sessionID": current["sessionID"],
+                          "workspaceGeneration": workspace_generation(current),
+                          "requestID": request_id, "revision": current["revision"],
+                          "scope": scope, "serial": reservation["serial"],
+                          "sentExchange": reserved_sent_exchange(current, reservation["serial"]),
+                          "replayed": False}
+            elif method == "multi_dupe_inquiry":
+                require(set(params) == common | {"call", "frequencyHz", "mode", "timestamp"},
+                        "Unexpected dupe inquiry fields")
+                call = text(params.get("call"), 32).strip().upper()
+                require(re.fullmatch(r"[A-Z0-9/]{3,32}", call) is not None, "Complete callsign required")
+                frequency = params.get("frequencyHz")
+                require(type(frequency) is int, "Dupe inquiry frequency must be integer Hz")
+                mode = text(params.get("mode"), 16).strip().upper()
+                require(mode in PLUGIN_REGISTRY[current["pluginID"]].modes,
+                        "Dupe inquiry mode is not supported by this contest")
+                timestamp = text(params.get("timestamp"), 19)
+                try:
+                    require(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == timestamp,
+                            "Timestamp must be UTC YYYY-MM-DD HH:MM:SS")
+                except ValueError as error:
+                    raise HostError("invalid_request", "Invalid UTC timestamp") from error
+                desk = Desk(store, current, self.commit)
+                band = desk.contest_band(frequency)
+                result = {"sessionID": current["sessionID"],
+                          "workspaceGeneration": workspace_generation(current),
+                          "requestID": request_id, "revision": current["revision"],
+                          "call": call, "band": BAND_LABELS[band], "mode": mode,
+                          "timestamp": timestamp,
+                          "isDupe": bool(desk.is_dupe(call, band, timestamp, mode)),
+                          "replayed": False}
+            else:
+                require(set(params) == common | {"afterRevision", "limit"},
+                        "Unexpected contact change fields")
+                after, limit = params.get("afterRevision"), params.get("limit")
+                require(type(after) is int and 0 <= after <= current["revision"],
+                        "Invalid contact change revision", "stale_cursor")
+                require(type(limit) is int and 1 <= limit <= 100, "Invalid contact change page limit")
+                rows = store.contact_changes(after, limit + 1)
+                has_more = len(rows) > limit
+                rows = rows[:limit]
+                changes = [{"sequence": row["sequence"], "revision": row["revision"],
+                            "requestID": row["operation_id"], "qsoID": row["qso_id"],
+                            "kind": row["kind"], "before": json.loads(row["before_json"]),
+                            "after": json.loads(row["after_json"]), "reason": row["reason"]}
+                           for row in rows]
+                next_revision = rows[-1]["revision"] if has_more else current["revision"]
+                result = {"sessionID": current["sessionID"],
+                          "workspaceGeneration": workspace_generation(current),
+                          "requestID": request_id, "afterRevision": after,
+                          "currentRevision": current["revision"], "nextRevision": next_revision,
+                          "hasMore": has_more, "changes": changes, "replayed": False}
+            store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)",
+                               (request_id, payload, canonical(result)))
+            store.finish(True)
+            return result
+        except BaseException:
+            store.finish(False)
+            raise
+
     def mutate(self, store, session_id, method, params):
-        operation = identifier(params.get("operationID"))
+        operation = identifier(params.get("requestID") if method == "multi_contact_apply"
+                               else params.get("operationID"))
         payload = canonical({"method": method, "params": params})
         store.begin()
         try:
@@ -1404,9 +1505,10 @@ class Host:
             else:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
-                if method == "digital_ingest":
+                if method in {"digital_ingest", "multi_contact_apply"}:
                     require(params.get("workspaceGeneration") == workspace_generation(state),
-                            "Digital destination belongs to another workspace", "stale_context")
+                            "Contact destination belongs to another workspace", "stale_context")
+                if method == "digital_ingest":
                     semantic = params.get("semanticIdentity")
                     require(isinstance(semantic, str) and re.fullmatch(r"[0-9a-f]{64}", semantic) is not None,
                             "Invalid digital contact identity")
@@ -1421,7 +1523,8 @@ class Host:
                         store.finish(True)
                         self.remember_active_session(session_id)
                         return result
-                require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
+                if method != "multi_contact_apply":
+                    require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
             self._operation = operation
             self._n1mm_events = []
             if new_session:
@@ -1669,6 +1772,67 @@ class Host:
                                    (params["semanticIdentity"], committed[0], operation))
             elif method in {"qso_correct", "qso_delete"}:
                 self.change(desk, method, params)
+            elif method == "multi_contact_apply":
+                common = {"sessionID", "workspaceGeneration", "requestID", "action", "qsoID"}
+                action = params.get("action")
+                require(action in {"commit", "correct", "delete"}, "Unknown remote contact action")
+                qso_id = identifier(params.get("qsoID"))
+                if action == "commit":
+                    required = common | {"timestamp", "frequencyHz", "fields"}
+                    allowed = required | {"mode", "operator", "countries", "referenceID", "serialRequestID"}
+                    require(required <= set(params) <= allowed, "Remote contact commit fields are invalid")
+                    require(not store.exec_sql("SELECT ID FROM DXLOG WHERE ID=?", (qso_id,)),
+                            "Remote contact identity already exists", "contact_conflict")
+                    local_draft = deepcopy(state["draft"])
+                    frequency = params.get("frequencyHz")
+                    require(type(frequency) is int, "Frequency must be integer Hz")
+                    if requires_serial(state):
+                        serial_request = identifier(params.get("serialRequestID"))
+                        scope = serial_scope(state, frequency)
+                        reservation = store.exec_sql(
+                            "SELECT serial,qso_id FROM xlog_serial WHERE draft_id=? AND scope=?",
+                            (serial_request, scope),
+                        )
+                        require(bool(reservation), "Shared serial reservation does not exist", "serial_not_found")
+                        require(reservation["qso_id"] in {None, qso_id},
+                                "Shared serial reservation was already consumed", "serial_consumed")
+                        state["draft"]["id"] = serial_request
+                        state["draft"]["serial"] = reservation["serial"]
+                        serial_field = "sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1"
+                        state["draft"]["fields"][serial_field] = reserved_sent_exchange(state, reservation["serial"])
+                        desk = Desk(store, state, self.commit)
+                        store.conn.execute(
+                            "UPDATE xlog_serial SET qso_id=? WHERE draft_id=? AND scope=?",
+                            (qso_id, serial_request, scope),
+                        )
+                    else:
+                        require("serialRequestID" not in params,
+                                "This contest does not accept shared serial reservations", "serial_unsupported")
+                    self.apply_fields(desk, params)
+                    self.commit(desk, qso_id, params.get("timestamp"), operator=params.get("operator"))
+                    generated_draft = state["draft"]["id"]
+                    if generated_draft != local_draft["id"]:
+                        store.conn.execute("DELETE FROM xlog_serial WHERE draft_id=? AND qso_id IS NULL",
+                                           (generated_draft,))
+                    state["draft"] = local_draft
+                    desk = Desk(store, state, self.commit)
+                else:
+                    required = common | {"baseRevision"}
+                    allowed = (required | {"fields", "timestamp", "frequencyHz", "operator", "countries",
+                                           "referenceID", "reason"} if action == "correct"
+                               else required | {"reason"})
+                    require(required <= set(params) <= allowed, "Remote contact change fields are invalid")
+                    require("baseRevision" in params and type(params["baseRevision"]) is int,
+                            "Remote correction/delete requires a base revision")
+                    latest = store.latest_qso_revision(qso_id)
+                    require(latest > 0 and params["baseRevision"] == latest,
+                            "Contact changed after the remote snapshot", "contact_conflict")
+                    identity = store.exec_sql("SELECT deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
+                    require(bool(identity) and not identity["deleted"],
+                            "Contact was deleted after the remote snapshot", "contact_conflict")
+                    if action == "correct":
+                        require("fields" in params, "Remote correction fields are required")
+                    self.change(desk, "qso_correct" if action == "correct" else "qso_delete", params)
             desk.persist()
             state["revision"] += 1
             store.save_state(state)
@@ -1679,6 +1843,9 @@ class Host:
             if method == "setup_save":
                 result["setup"] = deepcopy(state["setup"])
                 result["effectiveMacros"] = self.effective_macros(state)
+            if method == "multi_contact_apply":
+                result.update({"requestID": operation, "qsoID": qso_id, "action": action,
+                               "changeRevision": store.latest_qso_revision(qso_id)})
             if legacy_summary is not None:
                 result["legacyImport"] = legacy_summary
             for index, action in enumerate(result["actions"]):
@@ -2582,7 +2749,7 @@ class Host:
         except ValueError as error:
             raise HostError("invalid_request", "Digital contact timestamp is invalid") from error
 
-    def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None):
+    def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None, operator=None):
         fields = desk.values()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
         self.validate_exchange(desk, fields)
@@ -2597,7 +2764,7 @@ class Host:
         except (ValueError, TypeError) as error:
             raise HostError("invalid_request", "Invalid UTC timestamp") from error
         contact = desk.contact_for(fields, qso_id, timestamp,
-                                   frequency or desk.state["draft"]["frequencyHz"], base=base)
+                                   frequency or desk.state["draft"]["frequencyHz"], base=base, operator=operator)
         try:
             desk.database.log_contact(contact)
         except sqlite3.IntegrityError as error:
@@ -2612,7 +2779,7 @@ class Host:
                                           "agcw_qrp", "rda_contest", "rdxc", *FINAL_VHF_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
-        self.audit(desk.database, qso_id, "commit", None, contact)
+        self.audit(desk.database, qso_id, "commit", None, contact, revision=desk.state["revision"] + 1)
         if self._n1mm_events is not None:
             self._n1mm_events.append(("contact", deepcopy(contact)))
         desk.state["draft"]["id"] = str(uuid.uuid4())
@@ -2790,7 +2957,8 @@ class Host:
                 "UPDATE xlog_legacy_row_receipt SET current_fields=? WHERE target_qso_id=?",
                 (canonical(after), qso_id),
             )
-        self.audit(desk.database, qso_id, "delete" if method == "qso_delete" else "correct", before, after, reason)
+        self.audit(desk.database, qso_id, "delete" if method == "qso_delete" else "correct", before, after, reason,
+                   revision=desk.state["revision"] + 1)
         if self._n1mm_events is not None:
             emitted = deepcopy(before if method == "qso_delete" else after)
             if method != "qso_delete":
@@ -2887,8 +3055,13 @@ class Host:
             for qso_id, value in points.items():
                 desk.database.conn.execute("UPDATE DXLOG SET Points=? WHERE ID=?", (value, qso_id))
 
-    def audit(self, store, qso_id, kind, before, after, reason=""):
-        store.conn.execute("INSERT INTO xlog_qso_audit(operation_id,qso_id,kind,before_json,after_json,reason) VALUES(?,?,?,?,?,?)", (self._operation, qso_id, kind, canonical(before), canonical(after), reason))
+    def audit(self, store, qso_id, kind, before, after, reason="", revision=None):
+        require(type(revision) is int and revision > 0, "Contact audit revision is required")
+        store.conn.execute(
+            "INSERT INTO xlog_qso_audit(revision,operation_id,qso_id,kind,before_json,after_json,reason) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (revision, self._operation, qso_id, kind, canonical(before), canonical(after), reason),
+        )
 
     @staticmethod
     def matrices(store):

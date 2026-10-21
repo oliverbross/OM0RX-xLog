@@ -2570,6 +2570,18 @@ fn contest_group_network_acknowledgements(window: tauri::WebviewWindow,
 }
 
 #[tauri::command]
+async fn contest_group_authority_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
+    operating_context: String,
+    session_i_d: String, workspace_generation: String,
+    request: contest_group_chat::AuthorityRequest) -> Result<serde_json::Value, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    runtime_profile::require_external_io_disabled()?;
+    let key = format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation);
+    tauri::async_runtime::spawn_blocking(move || app.state::<contest_group_chat::GroupChat>()
+        .authority_request(&key, request)).await.map_err(|_| "Group authority task failed.".to_string())?
+}
+
+#[tauri::command]
 fn contest_voice_prepare(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
     params: contest_voice::PrepareBatchRequest) -> Result<Vec<contest_voice::PreparedVoice>, String> {
     runtime_profile::require_external_io_disabled()?;
@@ -3145,6 +3157,7 @@ fn main() {
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
+            contest_group_authority_request,
             contest_voice_prepare, contest_voice_ptt,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,

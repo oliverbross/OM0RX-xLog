@@ -46,11 +46,15 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_session(id TEXT PRIMARY KEY, state TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_operation(operation_id TEXT PRIMARY KEY, payload TEXT NOT NULL, result TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_output_claim(operation_id TEXT PRIMARY KEY);
-            CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT PRIMARY KEY, serial INTEGER NOT NULL UNIQUE, operation_id TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT NOT NULL, serial INTEGER NOT NULL,
+                operation_id TEXT NOT NULL, scope TEXT NOT NULL, qso_id TEXT UNIQUE,
+                PRIMARY KEY(draft_id,scope), UNIQUE(scope,serial));
             CREATE TABLE IF NOT EXISTS xlog_qso_identity(id TEXT PRIMARY KEY, raw_fields TEXT NOT NULL, country TEXT, deleted INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS xlog_digital_receipt(semantic_identity TEXT PRIMARY KEY,
                 qso_id TEXT NOT NULL UNIQUE, operation_id TEXT NOT NULL UNIQUE);
-            CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL, before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, revision INTEGER NOT NULL,
+                operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL,
+                before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_legacy_import(source_identity TEXT PRIMARY KEY, source_digest TEXT NOT NULL,
                 source_contest_nr INTEGER NOT NULL, source_path_name TEXT NOT NULL, imported_rows INTEGER NOT NULL,
                 source_settings TEXT NOT NULL, source_station TEXT, plugin_id TEXT NOT NULL);
@@ -74,13 +78,39 @@ class Store(DataBase):
                 BEGIN IMMEDIATE;
                 ALTER TABLE xlog_serial RENAME TO xlog_serial_legacy;
                 CREATE TABLE xlog_serial(draft_id TEXT NOT NULL, serial INTEGER NOT NULL,
-                    operation_id TEXT NOT NULL, scope TEXT NOT NULL,
+                    operation_id TEXT NOT NULL, scope TEXT NOT NULL, qso_id TEXT UNIQUE,
                     PRIMARY KEY(draft_id,scope), UNIQUE(scope,serial));
-                INSERT INTO xlog_serial SELECT draft_id,serial,operation_id,'contest' FROM xlog_serial_legacy;
+                INSERT INTO xlog_serial(draft_id,serial,operation_id,scope)
+                    SELECT draft_id,serial,operation_id,'contest' FROM xlog_serial_legacy;
                 DROP TABLE xlog_serial_legacy;
                 COMMIT;
             """)
-        self.conn.commit()
+        # Repair each independently observable migration artifact on every open.
+        # A prior process may have stopped after ALTER but before index creation
+        # or audit backfill, so column presence alone is not a completion receipt.
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(xlog_serial)")}
+            if "qso_id" not in columns:
+                self.conn.execute("ALTER TABLE xlog_serial ADD qso_id TEXT")
+            self.conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS xlog_serial_qso ON xlog_serial(qso_id)")
+            audit_columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(xlog_qso_audit)")}
+            if "revision" not in audit_columns:
+                self.conn.execute("ALTER TABLE xlog_qso_audit ADD revision INTEGER")
+            for row in self.conn.execute("SELECT sequence,operation_id FROM xlog_qso_audit WHERE revision IS NULL"):
+                receipt = self.conn.execute(
+                    "SELECT result FROM xlog_operation WHERE operation_id=?", (row["operation_id"],)
+                ).fetchone()
+                try:
+                    revision = json.loads(receipt["result"])["revision"] if receipt else row["sequence"]
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                    revision = row["sequence"]
+                self.conn.execute("UPDATE xlog_qso_audit SET revision=? WHERE sequence=?",
+                                  (revision, row["sequence"]))
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
 
     def connect(self, database):
         self.database = database
@@ -283,6 +313,33 @@ class Store(DataBase):
             "SELECT count(*) AS count FROM DXLOG WHERE Band=? AND substr(Call,-1)=substr(?,-1) "
             "AND ContestNR=? AND (TS<? OR (TS=? AND rowid<(SELECT rowid FROM DXLOG WHERE ID=?)))",
             (band, call, self.current_contest, timestamp, timestamp, qso_id),
+        )
+
+    def reserve_shared_serial(self, request_id, scope):
+        reservation = self.exec_sql(
+            "SELECT serial,qso_id FROM xlog_serial WHERE draft_id=? AND scope=?", (request_id, scope)
+        )
+        if reservation:
+            return reservation
+        serial = self.exec_sql(
+            "SELECT coalesce(max(serial),0)+1 AS serial FROM xlog_serial WHERE scope=?", (scope,)
+        )["serial"]
+        self.conn.execute(
+            "INSERT INTO xlog_serial(draft_id,serial,operation_id,scope,qso_id) VALUES(?,?,?,?,NULL)",
+            (request_id, serial, request_id, scope),
+        )
+        return {"serial": serial, "qso_id": None}
+
+    def latest_qso_revision(self, qso_id):
+        return self.exec_sql(
+            "SELECT coalesce(max(revision),0) AS revision FROM xlog_qso_audit WHERE qso_id=?", (qso_id,)
+        )["revision"]
+
+    def contact_changes(self, after_revision, limit):
+        return self.exec_sql_mult(
+            "SELECT sequence,revision,operation_id,qso_id,kind,before_json,after_json,reason "
+            "FROM xlog_qso_audit WHERE revision>? ORDER BY revision ASC,sequence ASC LIMIT ?",
+            (after_revision, limit),
         )
 
     def close(self):

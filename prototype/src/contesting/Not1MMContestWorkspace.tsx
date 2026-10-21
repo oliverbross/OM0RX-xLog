@@ -208,6 +208,9 @@ function sameFields(left: Record<string, string>, right: Record<string, string>)
   return [...keys].every(key => (left[key] ?? "") === (right[key] ?? ""));
 }
 
+const groupContestIdentity = (value: ContestSetupDocument) => [value.pluginID.trim().toLowerCase(),
+  String(value.settings.StartDate ?? "").trim(), String(value.station.Call ?? "").trim().toUpperCase()].join("|");
+
 function canonicalWorkedAt(value: unknown) {
   const normalized = `${String(value ?? "").replace(" ", "T")}Z`;
   const parsed = new Date(normalized);
@@ -1674,10 +1677,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       interface: String(setup.network.interface ?? "0.0.0.0"),
       operator: setup.operator.trim().toUpperCase(),
       stationName: String(setup.network.stationName ?? "").trim(),
+      multiMaster: setup.network.multiMaster === true,
+      contestIdentity: groupContestIdentity(setup),
     }).catch(cause => setError(errorMessage(cause)));
   }, [setupOnly, surfaceContext?.operatingContext, surfaceContext?.sessionID, surfaceContext?.workspaceGeneration,
     setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface,
-    setup.network.stationName, setup.operator]);
+    setup.network.stationName, setup.network.multiMaster, setup.operator, setup.pluginID, setup.settings.StartDate, setup.station.Call]);
 
   useEffect(() => {
     if (!setupOnly || !surfaceContext || setup.network.multiEnabled !== true) return;
@@ -1693,6 +1698,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           interface: String(setup.network.interface ?? "0.0.0.0"),
           operator: setup.operator.trim().toUpperCase(),
           stationName: String(setup.network.stationName ?? "").trim(),
+          multiMaster: setup.network.multiMaster === true,
+          contestIdentity: groupContestIdentity(setup),
         });
         // Pinned Renfield responds even when its SQLite write fails. Drain these
         // transport observations, but never use them to retire the Dirty ledger.
@@ -1717,7 +1724,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     return () => { stopped = true; window.clearInterval(timer); };
   }, [setupOnly, surfaceContext?.operatingContext, surfaceContext?.sessionID, surfaceContext?.workspaceGeneration,
     setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface,
-    setup.network.stationName, setup.operator, request]);
+    setup.network.stationName, setup.network.multiMaster, setup.operator, setup.pluginID, setup.settings.StartDate, setup.station.Call, request]);
 
   useEffect(() => {
     if (!registerMenuRoute) return;
