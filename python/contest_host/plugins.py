@@ -103,6 +103,14 @@ PLUGIN_REGISTRY = MappingProxyType({
                             sent_exchange_hint="Seniority + serial"),
     "es_open": Plugin("ES OPEN", serial=True, modes=("CW", "SSB"),
                       allow_duplicate_commit=True, sent_exchange_hint="Serial number"),
+    "hadx": Plugin("HA DX", conditional_serial=True, modes=("CW", "SSB"),
+                   sent_exchange_hint="# or County"),
+    "helvetia": Plugin("HELVETIA", conditional_serial=True, modes=("CW", "SSB"),
+                       sent_exchange_hint="Canton or #"),
+    "pacc": Plugin("PACC", conditional_serial=True, modes=("CW", "SSB"),
+                   sent_exchange_hint="# or Province"),
+    "spdx": Plugin("SPDX", conditional_serial=True, modes=("CW", "SSB"),
+                   sent_exchange_hint="Province/Territory"),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -125,7 +133,8 @@ EA_MAJESTAD_PLUGINS = frozenset({"ea_majestad_cw", "ea_majestad_ssb"})
 REF_PLUGINS = frozenset({"ref_cw", "ref_ssb"})
 RSGB_PLUGINS = frozenset({"rsgb_80m_cc", "rsgb_commonwealth_beru"})
 ESTONIAN_PLUGINS = frozenset({"es_field_day", "es_ll_kv", "es_manual_key", "es_open"})
+EUROPEAN_DX_PLUGINS = frozenset({"hadx", "helvetia", "pacc", "spdx"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
     "euhfc", "arrl_10m", "arrl_160m",
-}) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS | REF_PLUGINS | RSGB_PLUGINS | ESTONIAN_PLUGINS
+}) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS | REF_PLUGINS | RSGB_PLUGINS | ESTONIAN_PLUGINS | EUROPEAN_DX_PLUGINS

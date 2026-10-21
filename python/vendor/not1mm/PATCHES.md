@@ -214,6 +214,15 @@ import time and fails if the pinned source differs:
     phone ESM remains non-transmitting and adds no audio/PTT authority. This host
     admission does not claim organizer certification or installed-app acceptance.
 
+20. HA DX, Helvetia, PACC and SPDX execute their unchanged mixed-mode modules
+    from the pinned revision. The host supports each original conditional
+    serial/location exchange, band-and-mode duplicate policy, point function,
+    multiplier SQL, persistence and Cabrillo callback. A finite SPDX overlay
+    restores the missing f-string prefix in its multiplier query; a Helvetia
+    overlay adds the host's stable rowid tie-break for same-second multiplier
+    replay. Phone ESM remains non-transmitting and adds no audio/PTT authority.
+    This admission does not claim organizer certification.
+
 Original SHA-256:
 
 | Source | SHA-256 |
@@ -248,6 +257,10 @@ Original SHA-256:
 | plugins/es_ll_kv.py | 68996afb0fd28d9f7e0f31481bea7644e9a2a7391ad384301e7cff43edf37a61 |
 | plugins/es_manual_key.py | 785c7367ea9f3d19b11c40bc2d890564e13f1e34dd91c61ba5739b875a9ac9db |
 | plugins/es_open.py | 5b9563e0df2cb275ee1e13ac3d6d8653d566c74d922fdab9d6f4779b03618333 |
+| plugins/hadx.py | 4a5d1d86471a8e4e41cf163aafa32539efc5bb57056c20efc298478024799812 |
+| plugins/helvetia.py | 104e062b918a78f442f1b23bdb9e08963477a63364367389a8148d3180651c71 |
+| plugins/pacc.py | 0e7e85adba1a463c1d8e22648378badda26b3dad651cd74f7044209faccabb1a |
+| plugins/spdx.py | a36affddfe6b530ad552c9f193527a7ba15acbfa04b93446e1571ae014727125 |
 | lib/database.py | 855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8 |
 | lib/plugin_common.py | 09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737 |
 | lib/ham_utility.py | dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2 |

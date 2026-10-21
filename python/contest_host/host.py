@@ -18,7 +18,7 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
-                      ESTONIAN_PLUGINS,
+                      ESTONIAN_PLUGINS, EUROPEAN_DX_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
@@ -32,7 +32,7 @@ INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BANDS = {1.8, 3.5, 7.0, 14.0, 21.0, 28.0}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb"}
-MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "es_field_day", "es_ll_kv", "es_open"}
+MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS}
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -984,6 +984,9 @@ class Host:
                 if state["pluginID"] in REF_PLUGINS:
                     require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", zone) is not None,
                             "REF sent exchange must be #, a department or a prefix")
+                if state["pluginID"] in EUROPEAN_DX_PLUGINS:
+                    require(re.fullmatch(r"#|[A-Za-z]{1,4}", zone) is not None,
+                            "National DX sent exchange must be # or a location code")
                 if state["pluginID"] in ESTONIAN_PLUGINS:
                     require(setup["settings"].get("SentExchange") == "#",
                             "Estonian contests require # as the serial exchange")
@@ -1013,7 +1016,8 @@ class Host:
                         or state["pluginID"] in DISPLAY_SENTNR_PLUGINS
                         or state["pluginID"] == "arrl_10m"
                         or state["pluginID"] in EA_MAJESTAD_PLUGINS
-                        or state["pluginID"] in REF_PLUGINS):
+                        or state["pluginID"] in REF_PLUGINS
+                        or state["pluginID"] in EUROPEAN_DX_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1254,6 +1258,9 @@ class Host:
         if plugin_id in REF_PLUGINS:
             require(re.fullmatch(r"#|[A-Za-z0-9]{1,6}", str(settings["SentExchange"])) is not None,
                     "REF sent exchange must be #, a department or a prefix")
+        if plugin_id in EUROPEAN_DX_PLUGINS:
+            require(re.fullmatch(r"#|[A-Za-z]{1,4}", str(settings["SentExchange"])) is not None,
+                    "National DX sent exchange must be # or a location code")
         if plugin_id in ESTONIAN_PLUGINS:
             require(settings["SentExchange"] == "#",
                     "Estonian contests require # as the serial exchange")
@@ -1285,7 +1292,8 @@ class Host:
                      or plugin_id in DISPLAY_SENTNR_PLUGINS
                      or plugin_id == "arrl_10m"
                      or plugin_id in EA_MAJESTAD_PLUGINS
-                     or plugin_id in REF_PLUGINS else "", "")))}}
+                     or plugin_id in REF_PLUGINS
+                     or plugin_id in EUROPEAN_DX_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if not requires_serial(state):
@@ -1486,6 +1494,20 @@ class Host:
             else:
                 require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
                         "REF sent department/prefix must match contest setup")
+        elif desk.state["pluginID"] in EUROPEAN_DX_PLUGINS:
+            received = fields["other_2"]
+            require(re.fullmatch(r"[A-Za-z]{1,4}|[0-9]+", received) is not None,
+                    "National DX received exchange must be a location code or positive serial")
+            if received.isdigit():
+                require(0 < int(received) <= 9223372036854775807,
+                        "National DX received serial must be a positive SQLite integer")
+            if requires_serial(desk.state):
+                require(fields["other_1"].isdigit()
+                        and 0 < int(fields["other_1"]) <= 9223372036854775807,
+                        "National DX sent serial must be a positive SQLite integer")
+            else:
+                require(fields["other_1"] == str(desk.state["settings"]["SentExchange"]),
+                        "National DX sent location must match contest setup")
         elif desk.state["pluginID"] in RSGB_PLUGINS:
             received = fields["other_2"]
             match = re.fullmatch(r"([0-9]+)(?:\s+[Hh][Qq])?", received)
@@ -1546,7 +1568,8 @@ class Host:
         country = desk.state["reference"]["countries"].get(contact["Call"])
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
-                                       *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS}:
+                                       *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
+                                       *EUROPEAN_DX_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1588,7 +1611,8 @@ class Host:
             correction_fields = params.get("fields", {})
             if (desk.state["pluginID"] == "arrl_10m"
                     or desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
-                    or desk.state["pluginID"] in REF_PLUGINS):
+                    or desk.state["pluginID"] in REF_PLUGINS
+                    or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS):
                 pattern = (r"[A-Za-z0-9]{1,6}" if desk.state["pluginID"] == "arrl_10m"
                            or desk.state["pluginID"] in REF_PLUGINS else r"[A-Za-z]{1,4}|[0-9]+")
                 require(re.fullmatch(pattern, updated["other_1"]) is not None,
@@ -1618,7 +1642,8 @@ class Host:
                                  "cwt", "k1usn_sst", *TEN_TEN_PLUGINS, *NAME_SPC_ENTRY_PLUGINS,
                                  *ARRL_DX_PLUGINS, *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS, "arrl_160m"
                              }
-                             or desk.state["pluginID"] in {"arrl_10m", *EA_MAJESTAD_PLUGINS, *REF_PLUGINS}
+                             or desk.state["pluginID"] in {"arrl_10m", *EA_MAJESTAD_PLUGINS, *REF_PLUGINS,
+                                                          *EUROPEAN_DX_PLUGINS}
                              and "other_1" not in correction_fields)
             if preserve_sent:
                 # Received-name edits must not replace the exchange actually
@@ -1626,7 +1651,8 @@ class Host:
                 after["SentNr"] = before["SentNr"]
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
-                  or desk.state["pluginID"] in ESTONIAN_PLUGINS):
+                  or desk.state["pluginID"] in ESTONIAN_PLUGINS
+                  or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS):
                 after["SentNr"] = (int(updated["other_1"]) if updated["other_1"].isdigit()
                                    else updated["other_1"].upper())
             else:

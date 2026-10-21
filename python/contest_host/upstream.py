@@ -285,6 +285,27 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 ("\n    if (\n        time_period_3 is not None\n        and time_period_4 is not None",
                  "\n    elif (\n        time_period_3 is not None\n        and time_period_4 is not None"),
             ])
+        if plugin_id == "spdx":
+            # The pinned module omitted the f-string prefix, so its multiplier
+            # query contains a literal Python expression and cannot execute.
+            replacements.append((
+                '"where ContestNR = {self.database.current_contest} and typeof(NR) = \'text\';"',
+                'f"where ContestNR = {self.database.current_contest} and typeof(NR) = \'text\';"',
+            ))
+        if plugin_id == "helvetia":
+            # Stable replay for contacts sharing the same UTC second.
+            replacements.extend([
+                (
+                    'f"select count(*) as canton_count from dxlog where  TS < \'{time_stamp}\' "',
+                    'f"select count(*) as canton_count from dxlog where  (TS < \'{time_stamp}\' OR "\n'
+                    '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+                ),
+                (
+                    'f"select count(*) as dxcc_count from dxlog where TS < \'{time_stamp}\' "',
+                    'f"select count(*) as dxcc_count from dxlog where (TS < \'{time_stamp}\' OR "\n'
+                    '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+                ),
+            ])
         if plugin_id == "es_manual_key":
             replacements.extend([
                 ("\n    if (\n        time_period_2 is not None\n        and time_period_1 is not None",
