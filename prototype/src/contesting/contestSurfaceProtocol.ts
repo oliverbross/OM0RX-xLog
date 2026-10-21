@@ -62,7 +62,7 @@ export type ContestLogEditDetails = { rxFrequency: string; contest: string; coun
   zone: string; section: string; check: string; precedence: string; multiplier1: string; multiplier2: string; multiplier3: string;
   wpx: string; exchange: string; run: string; radio: string; grid: string; misc: string; roverQTH: string };
 export type ContestPluginLogRow = { qsoID: string; values: string[] };
-export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; country: string | null; cqZone: number | null; ituZone: number | null;
+export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; cwSpeedStepWpm: number; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
 export type ContestEntrySurfaceProjection = { schemaVersion: 1; status: "ready";
   manual?: ContestManualContext;
@@ -176,8 +176,9 @@ const pluginColumnsValid = (value: unknown): value is string[] => Array.isArray(
 const pluginRowsValid = (value: unknown, columns: number, maximum: number) => Array.isArray(value) && value.length <= maximum &&
   value.every(row => record(row) && exact(row, ["qsoID", "values"]) && text(row.qsoID, 160) &&
     Array.isArray(row.values) && row.values.length === columns && row.values.every(item => text(item, 512, true)));
-const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
+const manualContextValid = (value: unknown) => record(value) && exact(value, ["operator", "cwSpeedWpm", "cwSpeedStepWpm", "country", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm", "qsos", "multipliers", "total"]) &&
   text(value.operator, 32, true) && (value.country === null || text(value.country, 160, true)) &&
+  typeof value.cwSpeedStepWpm === "number" && Number.isInteger(value.cwSpeedStepWpm) && value.cwSpeedStepWpm >= 1 && value.cwSpeedStepWpm <= 10 &&
   ["cwSpeedWpm", "cqZone", "ituZone", "headingDegrees", "longPathHeadingDegrees", "distanceKm"].every(key => value[key] === null || typeof value[key] === "number" && Number.isFinite(value[key]) && (value[key] as number) >= 0) &&
   ["qsos", "multipliers", "total"].every(key => uint(value[key]));
 const draft = (value: Record<string, unknown>, extras: string[], optional: string[] = []) => optionalKeys(value, ["draftID", "expectedDraftRevision", ...extras], optional) &&

@@ -51,7 +51,8 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
   return { name: "CQ WW CW", operator: stationCall, pluginID: "cq_ww_cw",
     station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "", LicenseClass: "", Latitude: "", Longitude: "", STXeq: "", SPowe: "", SAnte: "", SAntH1: "", SAntH2: "", ARRLSection: "", RoverQTH: "", Club: "" },
     settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "N/A", Soapbox: "" },
-    preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcIntervalMinutes: 2,
+    preferences: { cwSpeed: 25, cwSpeedStep: 1, cwRSTFormat: "5NN", cwSerialPaddingCharacter: "T", cwSerialPaddingLength: 3,
+      cwSerialOne: "1", cwSerialNine: "9", cwSerialZero: "0", rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
       spaceTabs: true, prefillExchange: true, callHistory: true, clearOnVFOChange: false, scp: true, showQRZDetails: false, darkMode: true,
@@ -152,6 +153,18 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
       if (!Number.isFinite(autoCQDelay) || autoCQDelay < 1 || autoCQDelay > 3600)
         throw new Error("Auto CQ Delay must be between 1 and 3600 seconds.");
       document.preferences.autoCQDelay = autoCQDelay;
+      const cwSpeedStep = Number(document.preferences.cwSpeedStep);
+      if (!Number.isInteger(cwSpeedStep) || cwSpeedStep < 1 || cwSpeedStep > 10)
+        throw new Error("CW speed step must be an integer from 1 to 10 WPM.");
+      document.preferences.cwSpeedStep = cwSpeedStep;
+      const cwSerialPaddingLength = Number(document.preferences.cwSerialPaddingLength);
+      if (!Number.isInteger(cwSerialPaddingLength) || cwSerialPaddingLength < 1 || cwSerialPaddingLength > 10)
+        throw new Error("CW serial padding length must be an integer from 1 to 10.");
+      document.preferences.cwSerialPaddingLength = cwSerialPaddingLength;
+      if (!["5NN", "599", "ENN"].includes(String(document.preferences.cwRSTFormat))) throw new Error("Choose a supported CW RST format.");
+      if (!["0", "O", "T"].includes(String(document.preferences.cwSerialPaddingCharacter))) throw new Error("Choose a supported CW serial padding character.");
+      if (!["1", "A"].includes(String(document.preferences.cwSerialOne)) || !["9", "N"].includes(String(document.preferences.cwSerialNine)) ||
+          !["0", "O", "T"].includes(String(document.preferences.cwSerialZero))) throw new Error("Choose supported CW serial substitutions.");
       if (view === "Edit Keys") document.preferences.keyBindings = encodeContestKeyBindings(
         validateContestKeyBindings(encodeContestKeyBindings(bindingValue)));
       if (view === "Choose a Contest") {
@@ -167,6 +180,9 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const textArea = (section: "settings" | "preferences", key: string, label: string) => <label><span>{label}</span><textarea rows={3} value={String(draft[section][key] ?? "")} onChange={event => update(section, key, event.target.value)}/></label>;
   const selectValues = (values: string[], current: unknown) => [...new Set([...values, ...(current === undefined ? [] : [String(current)])])];
   const choice = (section: "settings" | "preferences", key: string, label: string, values: string[]) => field(section, key, label, "text", selectValues(values, draft[section][key]));
+  const boundedPreferenceNumber = (key: string, label: string, minimum: number, maximum: number) =>
+    <label className="contest-setup-field"><span title={label}>{label}</span><input type="number" min={minimum} max={maximum}
+      value={String(draft.preferences[key] ?? "")} onChange={event => update("preferences", key, event.target.value === "" ? "" : Number(event.target.value))}/></label>;
   const bindingValue = readContestKeyBindings(draft.preferences.keyBindings);
   const setBindings = (next: ContestKeyBinding[]) => update("preferences", "keyBindings", encodeContestKeyBindings(next));
   const selectedPlugin = catalog.find(plugin => plugin.id === draft.pluginID);
@@ -242,7 +258,16 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         break;
       }
       case "CAT": content = managed("Radio", "Use the shared radio selection, saved connection and observed status."); break;
-      case "CW": content = managed("CW", "Choose the shared radio or WinKeyer output there. Contest messages remain in Edit Macros; sending requires the existing output controls."); break;
+      case "CW": content = <div className="contest-manual-stack">
+        {managed("CW", "Choose the shared radio or WinKeyer output there. Contest messages remain in Edit Macros; sending requires the existing output controls.")}
+        {boundedPreferenceNumber("cwSpeedStep", "Speed increment for PgUp/PgDown (WPM)", 1, 10)}
+        {choice("preferences", "cwRSTFormat", "Send 599 RST as", ["5NN", "599", "ENN"])}
+        {choice("preferences", "cwSerialPaddingCharacter", "Serial number padding character", ["0", "O", "T"])}
+        {boundedPreferenceNumber("cwSerialPaddingLength", "Serial number padding length", 1, 10)}
+        {choice("preferences", "cwSerialOne", "Send serial digit 1 as", ["1", "A"])}
+        {choice("preferences", "cwSerialNine", "Send serial digit 9 as", ["9", "N"])}
+        {choice("preferences", "cwSerialZero", "Send serial digit 0 as", ["0", "O", "T"])}
+      </div>; break;
       case "Rotator": content = managed("Rotator", "Use the shared rotor configuration and observed status."); break;
       case "Cluster": content = managed("Cluster", "Manage servers, secure passwords, filters and connections there."); break;
       case "Group": content = <div className="contest-manual-stack">

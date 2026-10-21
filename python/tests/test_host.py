@@ -896,6 +896,28 @@ class HostTests(unittest.TestCase):
         self.assertEqual(context["fields"]["callsign"], "K1ABC")
         self.assertEqual(context["fields"]["other_1"], "15")
         self.assertEqual(context["fields"]["other_2"], "5")
+        self.assertEqual(context["cwFormatting"], {"cwSpeedStep": 1, "cwRSTFormat": "5NN",
+            "cwSerialPaddingCharacter": "T", "cwSerialPaddingLength": 3,
+            "cwSerialOne": "1", "cwSerialNine": "9", "cwSerialZero": "0"})
+        setup = self.read("setup_get")["setup"]
+        preferences = {**setup["preferences"], "cwSpeedStep": 5, "cwRSTFormat": "ENN",
+                       "cwSerialPaddingCharacter": "O", "cwSerialPaddingLength": 4,
+                       "cwSerialOne": "A", "cwSerialNine": "N", "cwSerialZero": "T"}
+        self.mutate("setup_save", setup={**setup, "preferences": preferences})
+        configured = self.read("cw_context")
+        self.assertEqual(configured["cwFormatting"], {key: preferences[key] for key in (
+            "cwSpeedStep", "cwRSTFormat", "cwSerialPaddingCharacter", "cwSerialPaddingLength",
+            "cwSerialOne", "cwSerialNine", "cwSerialZero")})
+        self.assertEqual(configured["fields"]["other_1"], "15")
+
+    def test_setup_rejects_out_of_range_cw_formatting_preferences(self):
+        setup = self.read("setup_get")["setup"]
+        invalid = ({"cwSpeedStep": 0}, {"cwSpeedStep": True}, {"cwRSTFormat": "NNN"},
+                   {"cwSerialPaddingCharacter": "A"}, {"cwSerialPaddingLength": 11},
+                   {"cwSerialOne": "T"}, {"cwSerialNine": "A"}, {"cwSerialZero": "N"})
+        for update in invalid:
+            with self.subTest(update=update), self.assertRaises(HostError):
+                self.mutate("setup_save", setup={**setup, "preferences": {**setup["preferences"], **update}})
 
     def test_export_actual_plugin_and_no_home_write(self):
         self.log()

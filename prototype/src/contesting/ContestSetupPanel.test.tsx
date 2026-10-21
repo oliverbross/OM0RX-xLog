@@ -33,6 +33,23 @@ it("separates original File dialogs from Configuration Settings and keeps manual
   fireEvent.keyDown(screen.getByRole("tab", { name: "CAT" }), { key: "ArrowRight" });
   expect(screen.getByRole("tab", { name: "CW" }).getAttribute("aria-selected")).toBe("true");
 });
+it("edits and saves the bounded original Not1MM CW formatting preferences", async () => {
+  const p = props(); render(<ContestSetupPanel {...p} initialTab="CW"/>);
+  expect(screen.getByLabelText("Speed increment for PgUp/PgDown (WPM)")).toHaveProperty("value", "1");
+  expect(screen.getByLabelText("Send 599 RST as")).toHaveProperty("value", "5NN");
+  expect(screen.getByLabelText("Serial number padding character")).toHaveProperty("value", "T");
+  expect(screen.getByLabelText("Serial number padding length")).toHaveProperty("value", "3");
+  fireEvent.change(screen.getByLabelText("Speed increment for PgUp/PgDown (WPM)"), { target: { value: "5" } });
+  fireEvent.change(screen.getByLabelText("Send 599 RST as"), { target: { value: "ENN" } });
+  fireEvent.change(screen.getByLabelText("Serial number padding character"), { target: { value: "O" } });
+  fireEvent.change(screen.getByLabelText("Serial number padding length"), { target: { value: "4" } });
+  fireEvent.change(screen.getByLabelText("Send serial digit 1 as"), { target: { value: "A" } });
+  fireEvent.change(screen.getByLabelText("Send serial digit 9 as"), { target: { value: "N" } });
+  fireEvent.change(screen.getByLabelText("Send serial digit 0 as"), { target: { value: "T" } });
+  open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(p.onSave.mock.calls[0][0].preferences).toMatchObject({ cwSpeedStep: 5, cwRSTFormat: "ENN",
+    cwSerialPaddingCharacter: "O", cwSerialPaddingLength: 4, cwSerialOne: "A", cwSerialNine: "N", cwSerialZero: "T" });
+});
 it("opens Edit Macros as a separate native dialog when Contest Setup owns window routing", async () => {
   const p = props(), onOpenDialog = vi.fn();
   render(<ContestSetupPanel {...p} onOpenDialog={onOpenDialog}/>);
@@ -324,7 +341,7 @@ it("hands shared services to xLog without duplicate editable settings and keeps 
     expect(screen.getByRole("status").textContent).toContain(`Managed by xLog ${service} settings`);
     expect(screen.getByRole("button", { name: `Open xLog ${service} settings` })).toBeTruthy();
     if (tab === "Lookup") expect(screen.getByRole("checkbox", { name: "Show QRZ details" })).toBeTruthy();
-    else expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
+    else if (tab !== "CW") expect(screen.getByRole("tabpanel").querySelector("input,select,textarea")).toBeNull();
   }
   fireEvent.click(screen.getByRole("tab", { name: "Sound" }));
   expect(screen.queryByRole("button", { name: /Open xLog/ })).toBeNull();

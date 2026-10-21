@@ -111,7 +111,7 @@ it("opens Cluster spot actions from the keyboard, clamps them after resize, and 
 });
 
 it("renders validated manual main context without manufacturing headings or distance",async()=>{
-  const manual={operator:"OM0RX/P",cwSpeedWpm:27,country:"Germany",cqZone:14,ituZone:28,
+  const manual={operator:"OM0RX/P",cwSpeedWpm:27,cwSpeedStepWpm:1,country:"Germany",cqZone:14,ituZone:28,
     headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null,qsos:42,multipliers:17,total:2142};
   const view={...projection,manual};
   expect(validContestSurfaceProjection("active-qso",view)).toBe(true);
@@ -691,6 +691,25 @@ it("renders Entry v2 sent and simulation state and forwards an exact style actio
   await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")).toBe(true));
   expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="entry_operator_style")?.[1])
     .toMatchObject({panelID:"active-qso",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5,value:"search-and-pounce"}});
+});
+
+it("uses the configured CW speed step for buttons and PgUp/PgDown with station bounds",async()=>{
+  const manual={operator:"OM0RX",cwSpeedWpm:98,cwSpeedStepWpm:5,country:null,cqZone:null,ituZone:null,
+    headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null,qsos:0,multipliers:0,total:0};
+  const v2={...snapshot,projection:{...projection,schemaVersion:2,manual,
+    descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null},
+      keyBindings:[{context:"*",key:"PgUp",action:"CW_SPEED_UP"},{context:"*",key:"PgDown",action:"CW_SPEED_DOWN"}]},
+    operator:null}};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return v2;
+    if(command==="contest_surface_action")return{requestID:args.requestID,status:"applied",projectionRevision:7};
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);await screen.findByLabelText("Current CW speed");
+  fireEvent.click(screen.getByLabelText("Increase CW speed"));
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_set_cw_speed"&&args.params.value===100)).toBe(true));
+  fireEvent.keyDown(screen.getByRole("region",{name:"Main Logging"}),{key:"PageDown"});
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="entry_set_cw_speed"&&args.params.value===93)).toBe(true));
 });
 
 it("keeps original SSB macros visible but disabled with Voice WAV guidance when output is unconfigured",async()=>{

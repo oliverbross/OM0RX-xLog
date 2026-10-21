@@ -224,10 +224,12 @@ impl Session {
                     || action["kind"] != "function_key" {
                     return Err("Contest output identity could not be verified.".into());
                 }
+                let rst = format_contest_rst(action["fields"]["sent"].as_str().ok_or("Pinned contest CW report unavailable")?, &canonical["cwFormatting"])?;
+                let serial = format_contest_serial(action["sentSerial"].as_str().ok_or("Pinned contest CW serial unavailable")?, &canonical["cwFormatting"])?;
                 let mut frozen = canonical.clone();
                 frozen["context"] = json!({"MYCALL":action["stationCall"],"CALL":action["fields"]["callsign"],
-                    "RST":action["fields"]["sent"],"EXCHANGE":action["sentExchange"],
-                    "SERIAL":action["sentSerial"],"SENTNR":action["sentSerial"],"NAME":"","GRID":canonical["context"]["GRID"]});
+                    "RST":rst,"EXCHANGE":action["sentExchange"],
+                    "SERIAL":serial,"SENTNR":serial,"NAME":"","GRID":canonical["context"]["GRID"]});
                 messages.push(expand_template(&frozen, action["template"].as_str().ok_or("Pinned contest CW template unavailable")?,
                     target["limit"].as_u64().unwrap_or(80) as usize)?);
             }
@@ -372,13 +374,40 @@ impl Session {
     }
 }
 fn same_contest_authority(a: &Value, b: &Value) -> bool {
-    a["contestSessionID"].is_string() && ["worker", "generation", "settingsRevision", "contestSessionID", "provider", "selection", "profile"]
+    a["contestSessionID"].is_string() && ["worker", "generation", "settingsRevision", "contestSessionID", "provider", "selection", "profile", "cwFormatting"]
         .iter().all(|key| a[*key] == b[*key])
 }
 fn same_target(a: &Value, b: &Value) -> bool {
     ["output", "provider", "generation", "worker", "selection"].iter().all(|key| a[key] == b[key])
 }
 fn allowed(byte: u8) -> bool { byte.is_ascii_alphanumeric() || b" /?=+.,-".contains(&byte) }
+fn cw_formatting<'a>(formatting: &'a Value, key: &str) -> Result<&'a str, String> {
+    formatting[key].as_str().ok_or_else(|| format!("Invalid contest CW formatting preference: {key}"))
+}
+fn format_contest_rst(rst: &str, formatting: &Value) -> Result<String, String> {
+    let style = cw_formatting(formatting, "cwRSTFormat")?;
+    if !matches!(style, "5NN" | "599" | "ENN") { return Err("Invalid contest CW RST format".into()); }
+    if style == "ENN" && rst == "599" { return Ok("ENN".into()); }
+    Ok(if matches!(style, "5NN" | "ENN") { rst.replace('9', "N") } else { rst.into() })
+}
+fn format_contest_serial(serial: &str, formatting: &Value) -> Result<String, String> {
+    // A contest without a serial authority must not acquire a synthetic
+    // padding-only serial merely because a macro mentions the token.
+    if serial.is_empty() { return Ok(String::new()); }
+    let padding = cw_formatting(formatting, "cwSerialPaddingCharacter")?;
+    let one = cw_formatting(formatting, "cwSerialOne")?;
+    let nine = cw_formatting(formatting, "cwSerialNine")?;
+    let zero = cw_formatting(formatting, "cwSerialZero")?;
+    if !matches!(padding, "0" | "O" | "T") || !matches!(one, "1" | "A") ||
+        !matches!(nine, "9" | "N") || !matches!(zero, "0" | "O" | "T") {
+        return Err("Invalid contest CW serial formatting".into());
+    }
+    let width = formatting["cwSerialPaddingLength"].as_u64().filter(|value| (1..=10).contains(value))
+        .ok_or("Invalid contest CW serial padding length")? as usize;
+    let mut result = serial.trim_start_matches('0').replace('1', one).replace('9', nine).replace('0', zero);
+    if result.len() < width { result = format!("{}{}", padding.repeat(width - result.len()), result); }
+    Ok(result)
+}
 fn expand(canonical: &Value, id: u64, limit: usize) -> Result<String, String> {
     let macro_value = canonical["profile"]["macros"].as_array().and_then(|values| values.iter().find(|value| value["id"] == id && value["enabled"] == true)).ok_or("This macro is disabled or is not saved.")?;
     let source = macro_value["text"].as_str().ok_or("Invalid CW template")?;
@@ -420,12 +449,14 @@ mod tests {
             let mut after = canonical.clone(); after["draftRevision"] = json!(revision); after["draftID"] = json!("next-draft");
             after["context"]["CALL"] = json!("");
             if params["changeSettings"] == true { after["settingsRevision"] = json!(999); }
+            let sent_serial = params["testSentSerial"].as_str().unwrap_or("");
+            let template = params["testTemplate"].as_str().unwrap_or("{CALL} {RST} {EXCHANGE}");
             *self.canonical.lock().unwrap() = after;
             Ok(json!({"operationID":params["operationID"],"sessionID":canonical["contestSessionID"],"revision":revision,
                 "projection":{"revision":revision,"draftID":"next-draft"},"replayed":params["replayed"] == true,
                 "actions":[{"kind":"function_key","key":"F2","sessionID":canonical["contestSessionID"],"draftID":canonical["draftID"],
-                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15","sentSerial":"",
-                    "template":"{CALL} {RST} {EXCHANGE}"}]}))
+                    "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15","sentSerial":sent_serial,
+                    "template":template}]}))
         }
         fn claim_contest_output(&self, _: &Value, result: &Value) -> Result<(), String> {
             if self.claims.lock().unwrap().insert(result["operationID"].as_str().unwrap().into()) { Ok(()) }
@@ -450,6 +481,8 @@ mod tests {
     fn fixture() -> (Arc<Session>, Arc<Fake>, Arc<AtomicU64>) {
         let backend = Arc::new(Fake { canonical: Mutex::new(json!({"settingsRevision":1,"draftRevision":2,
             "profile":{"macros":[{"id":1,"enabled":true,"text":"{CALL} DE {MYCALL} {RST} K"}]},
+            "cwFormatting":{"cwRSTFormat":"5NN","cwSerialPaddingCharacter":"T","cwSerialPaddingLength":3,
+                "cwSerialOne":"1","cwSerialNine":"9","cwSerialZero":"0"},
             "context":{"CALL":"K1ABC","MYCALL":"OM0RX","RST":"599"}})),
             target: Mutex::new(json!({"output":"radio","provider":"direct_agent","generation":7,"worker":4,"selection":"choice","limit":128})),
             writes: Mutex::new(vec![]), claims: Mutex::new(BTreeSet::new()), lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
@@ -484,8 +517,39 @@ mod tests {
         let (session, backend, mut client) = contest_ready();
         let reply = contest_call(&mut client, &session, json!({}));
         assert_eq!(reply["canonical"]["context"]["CALL"], ""); assert_eq!(reply["armed"], true);
-        assert!(backend.writes.lock().unwrap().iter().any(|(action,text,_)| action=="send" && text.as_deref()==Some("K1ABC 599 15")));
+        assert!(backend.writes.lock().unwrap().iter().any(|(action,text,_)| action=="send" && text.as_deref()==Some("K1ABC 5NN 15")));
         assert_eq!(backend.claims.lock().unwrap().len(), 1);
+    }
+    #[test]
+    fn contest_cw_formatting_matches_original_not1mm_without_changing_raw_values() {
+        let mut formatting = json!({"cwRSTFormat":"5NN","cwSerialPaddingCharacter":"T","cwSerialPaddingLength":3,
+            "cwSerialOne":"A","cwSerialNine":"N","cwSerialZero":"T"});
+        assert_eq!(format_contest_rst("599", &formatting).unwrap(), "5NN");
+        assert_eq!(format_contest_serial("001", &formatting).unwrap(), "TTA");
+        assert_eq!(format_contest_serial("190", &formatting).unwrap(), "ANT");
+        assert_eq!(format_contest_serial("", &formatting).unwrap(), "");
+        formatting["cwRSTFormat"] = json!("ENN");
+        assert_eq!(format_contest_rst("599", &formatting).unwrap(), "ENN");
+        assert_eq!(format_contest_rst("579", &formatting).unwrap(), "57N");
+        formatting["cwRSTFormat"] = json!("599");
+        formatting["cwSerialPaddingCharacter"] = json!("0");
+        formatting["cwSerialPaddingLength"] = json!(4);
+        assert_eq!(format_contest_rst("599", &formatting).unwrap(), "599");
+        assert_eq!(format_contest_serial("8", &formatting).unwrap(), "0008");
+        assert_eq!(format_contest_serial("12345", &formatting).unwrap(), "A2345");
+    }
+    #[test]
+    fn contest_output_formats_the_frozen_rst_and_serial_only_at_native_expansion() {
+        let (session, backend, mut client) = contest_ready();
+        { let mut canonical = backend.canonical.lock().unwrap();
+            canonical["cwFormatting"] = json!({"cwRSTFormat":"ENN","cwSerialPaddingCharacter":"T","cwSerialPaddingLength":3,
+                "cwSerialOne":"A","cwSerialNine":"N","cwSerialZero":"T"}); }
+        client.call(&session, "stop").unwrap(); ready(&mut client, &session);
+        let reply = contest_call(&mut client, &session, json!({"testSentSerial":"001","testTemplate":"{RST} {SENTNR}"}));
+        assert_eq!(reply["error"], "");
+        assert!(backend.writes.lock().unwrap().iter().any(|(action,text,_)| action == "send" && text.as_deref() == Some("ENN TTA")));
+        assert_eq!(reply["contestResult"]["actions"][0]["sentSerial"], "001");
+        assert_eq!(reply["contestResult"]["actions"][0]["fields"]["sent"], "599");
     }
     #[test]
     fn contest_replay_and_authority_change_never_send() {

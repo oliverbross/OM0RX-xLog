@@ -136,13 +136,14 @@ impl Backend for Native {
                 || !contest["revision"].is_u64() || !contest["draftID"].is_string()
                 || !contest["sessionID"].is_string() || !contest["stationCall"].is_string()
                 || !contest["sentExchange"].is_string() || !contest["sentSerial"].is_string()
+                || !contest["cwFormatting"].is_object()
                 || !fields["callsign"].is_string() || !fields["sent"].is_string()
                 || !fields["other_1"].is_string() {
                 return Err("CW canonical contest revisions are unavailable.".into());
             }
             return Ok(json!({"worker":worker,"generation":settings["generation"],"settingsRevision":settings["revision"],
                 "draftRevision":contest["revision"],"draftID":contest["draftID"],"contestSessionID":contest["sessionID"],
-                "provider":provider,"selection":selection,"profile":profile,
+                "provider":provider,"selection":selection,"profile":profile,"cwFormatting":contest["cwFormatting"],
                 "context":{"MYCALL":contest["stationCall"],"CALL":fields["callsign"],"RST":fields["sent"],
                     "NAME":"","GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":contest["sentSerial"],
                     "SENTNR":contest["sentSerial"],"EXCHANGE":contest["sentExchange"]}}));

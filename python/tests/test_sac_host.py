@@ -94,6 +94,12 @@ class SACHostCase:
                           fields["other_1"]["readOnly"], fields["other_2"]["label"]),
                          (self.report, self.report, "SentNR", "001", True, "RcvNR"))
         if self.mode == "CW":
+            setup = self.read("setup_get")["setup"]
+            self.mutate("setup_save", setup={**setup, "preferences": {**setup["preferences"],
+                "cwRSTFormat": "ENN", "cwSerialPaddingCharacter": "T", "cwSerialPaddingLength": 4,
+                "cwSerialOne": "A", "cwSerialNine": "N", "cwSerialZero": "T"}})
+            context = self.read("cw_context")
+            self.assertEqual((context["fields"]["sent"], context["sentSerial"]), (self.report, "001"))
             action = self.mutate("function_key", key="F3")["actions"][0]
             self.assertEqual((action["template"], action["sentSerial"]),
                              ("{RST} {SENTNR}", "001"))

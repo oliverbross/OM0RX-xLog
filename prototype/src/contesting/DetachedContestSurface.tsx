@@ -395,7 +395,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       else if(action==="MARK_SPOT")await send({action:"entry_mark_spot",params},current.projectionRevision);
       else if(action==="TUNE_SPOT")await send({action:"entry_tune_spot",params},current.projectionRevision);
       else {const speed=currentProjection.manual?.cwSpeedWpm;if(typeof speed!=="number")return;
-        const value=action==="CW_SPEED_UP"?Math.min(100,speed+1):Math.max(5,speed-1);
+        const step=currentProjection.manual?.cwSpeedStepWpm??1;
+        const value=action==="CW_SPEED_UP"?Math.min(100,speed+step):Math.max(5,speed-step);
         if(value!==speed)await send({action:"entry_set_cw_speed",params:{...params,value}},current.projectionRevision);}
     })();};
   const onKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{const target=event.target instanceof HTMLElement?event.target:null;
@@ -452,8 +453,8 @@ function Entry({ projection, disabled, sending, projectionRevision, send, refres
       <div role="group" aria-label="Run and S&P">{([['run','Run'],['search-and-pounce','S&P']] as const).map(([value,label])=><label key={value}><input type="radio" name="contest-operating-style" checked={operator?.style===value} disabled={!operator||disabled||operator.pending!==null}
         onChange={()=>void send({action:"entry_operator_style",params:{...base,value}},projectionRevision)}/>{label}</label>)}</div>
       {projection.draft.mode==="CW"&&<div className="contest-surface-speed" role="group" aria-label="CW speed"><output aria-label={projection.manual?.cwSpeedWpm==null?"CW speed unavailable":"Current CW speed"}>{projection.manual?.cwSpeedWpm??"—"}</output>
-        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm-1}},projectionRevision)}>−</button>
-        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>void send({action:"entry_set_cw_speed",params:{...base,value:projection.manual.cwSpeedWpm+1}},projectionRevision)}>+</button></div>}
+        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm<=5} aria-label="Decrease CW speed" onClick={()=>{const speed=projection.manual?.cwSpeedWpm;if(speed!=null)void send({action:"entry_set_cw_speed",params:{...base,value:Math.max(5,speed+(projection.manual?.cwSpeedStepWpm??1)*-1)}},projectionRevision)}}>−</button>
+        <button disabled={disabled||projection.manual?.cwSpeedWpm==null||projection.manual.cwSpeedWpm>=100} aria-label="Increase CW speed" onClick={()=>{const speed=projection.manual?.cwSpeedWpm;if(speed!=null)void send({action:"entry_set_cw_speed",params:{...base,value:Math.min(100,speed+(projection.manual?.cwSpeedStepWpm??1))}},projectionRevision)}}>+</button></div>}
       {operator?.autoCQ?.active&&<div className="contest-surface-auto-cq" role="status"><span>Auto CQ</span><progress aria-label="Auto CQ countdown" max={operator.autoCQ.delaySeconds*1000} value={Math.max(0,operator.autoCQ.delaySeconds*1000-(operator.autoCQ.remainingMs??0))}/></div>}</div>
       {projection.schemaVersion===2&&operator&&<><div className="contest-surface-macros" role="group" aria-label="Function key macros">{Array.from({length:12},(_,index)=>{const key=`F${index+1}`,item=operator.functionKeys.find((item:any)=>item.key===key),label=item?.macro??"Unassigned";return <button type="button" key={key}
         className={item?.highlighted?"contest-primary":undefined} disabled={disabled||!item||!operator.outputAvailable||operator.status==="uncertain"||phoneMode&&!operator.armed}

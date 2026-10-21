@@ -74,6 +74,9 @@ ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmA
 # missing values on restore; new setup documents explicitly choose upstream defaults.
 LEGACY_ESM = {"useESM": True, "sendCorrectedCall": True, "esmCQ": "F1", "esmExchange": "F3",
               "esmQRZ": "F4", "esmAGN": "F9", "esmHisCall": "F2", "esmMyCall": "F5", "esmQsoB4": "DISABLED"}
+CW_FORMATTING_DEFAULTS = {"cwSpeedStep": 1, "cwRSTFormat": "5NN", "cwSerialPaddingCharacter": "T",
+                          "cwSerialPaddingLength": 3, "cwSerialOne": "1", "cwSerialNine": "9",
+                          "cwSerialZero": "0"}
 N1MM_DESTINATIONS = {
     "Radio": ("n1mmRadioDestinations", "n1mmRadioPort", 12060),
     "Contact": ("n1mmContactDestinations", "n1mmContactPort", 12061),
@@ -89,6 +92,21 @@ def esm_preferences(preferences):
     for key in ESM_ROLES.values():
         require(isinstance(result[key], str) and result[key] in {"DISABLED", *(f"F{i}" for i in range(1, 13))},
                 f"{key} must be F1-F12 or DISABLED")
+    return result
+
+
+def cw_formatting_preferences(preferences):
+    """Return the finite original Not1MM CW presentation preferences."""
+    result = {key: preferences.get(key, default) for key, default in CW_FORMATTING_DEFAULTS.items()}
+    require(type(result["cwSpeedStep"]) is int and 1 <= result["cwSpeedStep"] <= 10,
+            "cwSpeedStep must be an integer from 1 to 10")
+    require(result["cwRSTFormat"] in {"5NN", "599", "ENN"}, "Invalid CW RST format")
+    require(result["cwSerialPaddingCharacter"] in {"0", "O", "T"}, "Invalid CW serial padding character")
+    require(type(result["cwSerialPaddingLength"]) is int and 1 <= result["cwSerialPaddingLength"] <= 10,
+            "cwSerialPaddingLength must be an integer from 1 to 10")
+    require(result["cwSerialOne"] in {"1", "A"}, "Invalid CW serial 1 substitution")
+    require(result["cwSerialNine"] in {"9", "N"}, "Invalid CW serial 9 substitution")
+    require(result["cwSerialZero"] in {"0", "O", "T"}, "Invalid CW serial 0 substitution")
     return result
 
 
@@ -1294,6 +1312,7 @@ class Host:
             return {"sessionID": session_id, "revision": state["revision"],
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
+                    "cwFormatting": cw_formatting_preferences(state.get("setup", {}).get("preferences", {})),
                     "sentExchange": str(state["settings"]["SentExchange"]),
                     "sentSerial": (str(desk.current_sn) if state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
                                    else desk.other_1.text()
@@ -2446,6 +2465,7 @@ class Host:
                             "Setup values must be supported scalars")
                     require(type(item) is not float or math.isfinite(item), "Setup numbers must be finite")
         esm_preferences(value["preferences"])
+        cw_formatting_preferences(value["preferences"])
         n1mm_preferences(value["network"])
         macros = value["macros"]
         require(isinstance(macros, list) and len(macros) <= 24, "At most 24 macros are supported")

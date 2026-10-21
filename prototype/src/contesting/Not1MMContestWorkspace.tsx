@@ -1545,6 +1545,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     unavailable["active-qso"] = {
       schemaVersion: 2, status: "ready",
       manual: {operator:projection.operator ?? "", cwSpeedWpm:projection.cwSpeedWpm ?? null,
+        cwSpeedStepWpm:Number.isInteger(setup.preferences.cwSpeedStep) && Number(setup.preferences.cwSpeedStep) >= 1 && Number(setup.preferences.cwSpeedStep) <= 10 ? Number(setup.preferences.cwSpeedStep) : 1,
         country:callContext?.country ?? null, cqZone:callContext?.cqZone ?? null, ituZone:callContext?.ituZone ?? null,
         headingDegrees:callContext?.headingDegrees ?? null, longPathHeadingDegrees:callContext?.longPathHeadingDegrees ?? null,
         distanceKm:callContext?.distanceKm ?? null, qsos:projection.score.qsos, multipliers:projection.score.multipliers ?? projection.score.countries + projection.score.zones, total:projection.score.total},
