@@ -192,6 +192,24 @@ const contactJournalKey = "xlog.integration.contactEdit.main.v1";
 const logbookMutationJournalKey = "xlog.integration.logbookMutation.main.v1";
 const settingsJournalKey = "xlog.integration.settings.main.v1";
 const rotorConfigurationJournalKey = "xlog.integration.rotorConfiguration.main.v1";
+const workspaceStartupRetryDelays = [75, 175, 350];
+const workspaceStartupAdmissionFailures = new Set([
+  "Prototype worker is busy; try again",
+  "Station service unavailable; retry the request",
+  "Station service unavailable",
+]);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : typeof cause === "string" ? cause : "";
+}
+async function retryWorkspaceStartupRead<T>(read: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try { return await read(); }
+    catch (cause) {
+      if (!workspaceStartupAdmissionFailures.has(errorMessage(cause)) || attempt >= workspaceStartupRetryDelays.length) throw cause;
+      await new Promise(resolve => setTimeout(resolve, workspaceStartupRetryDelays[attempt]));
+    }
+  }
+}
 function storedDraftValue(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
 function legacyDraftValue(): Data | null {
   try { const value = JSON.parse(storedDraftValue("xlog.integration.draft") || "null");
@@ -778,10 +796,15 @@ function MainLiveApp() {
     const revision = ++reloadRevision.current;
     setWorkspacePending(true);
     try {
-    const state = await request("workspace_status");
+    const state = await retryWorkspaceStartupRead(() => request("workspace_status"));
     if (state.workspace_exists) {
       await preferenceWrite.current.catch(() => {});
-      const [, , , loaded] = await Promise.all([settingsSession.load(), loadRotorConfiguration(), draftSession.load(), request("workspace_preferences_load")]);
+      const [, , , loaded] = await Promise.all([
+        retryWorkspaceStartupRead(() => settingsSession.load()),
+        retryWorkspaceStartupRead(() => loadRotorConfiguration()),
+        retryWorkspaceStartupRead(() => draftSession.load()),
+        retryWorkspaceStartupRead(() => request("workspace_preferences_load")),
+      ]);
       if (revision !== reloadRevision.current) return;
       const prior = loaded.preferences as WorkspacePreferences;
       const migrated = loaded.stored ? null : migrateLegacyBandMaps(prior, localStorage);
