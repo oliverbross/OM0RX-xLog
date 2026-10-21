@@ -153,6 +153,14 @@ export async function closeContestContactEditorWindow(): Promise<void> {
   await invoke("contest_contact_editor_close");
 }
 
+export async function postContestSpot(callsign: string, frequencyHz: number): Promise<void> {
+  const call = callsign.trim().toUpperCase();
+  if (!/^[A-Z0-9/-]{2,24}$/.test(call) || !Number.isSafeInteger(frequencyHz) || frequencyHz <= 0)
+    throw new Error("A valid callsign and contest frequency are required before posting a spot.");
+  if (!isTauri()) throw new Error("Posting a contest spot requires the native application.");
+  await invoke("contest_post_spot", { callsign: call, frequencyHz });
+}
+
 export async function onContestSurfaceWake(refresh: () => void): Promise<UnlistenFn> {
   return listen(contestSurfaceEvent, () => refresh());
 }

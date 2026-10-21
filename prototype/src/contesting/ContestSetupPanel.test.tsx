@@ -128,6 +128,13 @@ it("preserves legacy N1MM endpoints while offering all four original packet rows
   open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(p.onSave.mock.calls[0][0].network).toMatchObject({ n1mmHost: "192.0.2.1", n1mmContactPort: 12061, n1mmRadioDestinations: "192.0.2.2:12060 192.0.2.3:12060" });
 });
+it("uses the selected plugin's complete advertised band choices", () => {
+  const p = props(), supportedBands = ["6m", "2m", "1.25m", "13cm", "2mm"];
+  (p.catalog[0] as typeof p.catalog[0] & { supportedBands: string[] }).supportedBands = supportedBands;
+  render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
+  for (const band of supportedBands) expect(screen.getByLabelText(band)).toBeTruthy();
+  expect(screen.queryByLabelText("20m")).toBeNull();
+});
 it("keeps ESM mappings, Call History and score reporting together in Options and networking in Group", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings");
   fireEvent.click(screen.getByRole("tab", { name: "Options" }));

@@ -2565,6 +2565,18 @@ fn cluster_session_selection(window: tauri::WebviewWindow, app: tauri::AppHandle
 }
 
 #[tauri::command]
+async fn contest_post_spot(window: tauri::WebviewWindow, app: tauri::AppHandle,
+    state: tauri::State<'_, acceptance::Acceptance>, callsign: String, frequency_hz: u64) -> Result<(), String> {
+    let label = window.label().to_owned();
+    let isolated = runtime_profile::isolated(state.path.is_some());
+    if label != "contest-setup" { return Err("Only Contest Setup can post a contest spot.".into()); }
+    if isolated { return Err("External services and station I/O are disabled in OM0RX-xLog Contesting Test.".into()); }
+    let owner = cluster_session::owner(&app)?;
+    tauri::async_runtime::spawn_blocking(move || owner.post_contest_spot(&label, isolated, &callsign, frequency_hz))
+        .await.map_err(|_| "Contest spot task failed".to_string())?
+}
+
+#[tauri::command]
 async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
     let screen = detached_dock_screen(window.label())?;
     validate_editor_transition(window.label())?;
@@ -2957,7 +2969,7 @@ fn main() {
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
-            detached_cluster_ready, cluster_session_selection, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
+            detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
              acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,
             acceptance::acceptance_screen, acceptance::acceptance_desk_size,

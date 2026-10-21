@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { completeContestSurfaceAction, contestSurfaceContextFromSearch, nextContestSurfaceAction, nextContestSurfaceEscape, onContestSurfaceWake,
   openContestContactEditorWindow, closeContestContactEditorWindow, publishContestSurface, readContestSurfaceSnapshot,
-  submitContestSurfaceAction } from "./contestSurfaceNative";
+  postContestSpot, submitContestSurfaceAction } from "./contestSurfaceNative";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), tauri: true }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => native.tauri }));
@@ -37,6 +37,14 @@ describe("contest native surface bridge", () => {
     expect(native.invoke.mock.calls).toEqual([
       ["contest_contact_editor_open", context], ["contest_contact_editor_close"],
     ]);
+  });
+
+  it("posts a normalized contest spot only through the narrow native command", async () => {
+    native.invoke.mockResolvedValue(undefined);
+    await postContestSpot(" om0rx ", 14_025_500);
+    expect(native.invoke).toHaveBeenCalledWith("contest_post_spot", { callsign: "OM0RX", frequencyHz: 14_025_500 });
+    await expect(postContestSpot("OM0RX\nshow/password", 14_025_500)).rejects.toThrow("valid callsign");
+    expect(native.invoke).toHaveBeenCalledOnce();
   });
 
   it("submits one exact action and rejects a coercible malformed receipt", async () => {

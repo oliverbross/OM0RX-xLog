@@ -40,7 +40,8 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restor
 const operatingContext = "44444444-4444-4444-8444-444444444444";
 const workspaceGeneration = "33333333-3333-4333-8333-333333333333";
 const workspaceProps = { operatingContext, workspaceGeneration, stationCall: "OM0RX", radioFrequencyHz: 14_025_000,
-  spots: [] as any[], cluster: null, stationTune: vi.fn(async () => ({ accepted:true, confirmed:true })) };
+  spots: [] as any[], cluster: null, stationTune: vi.fn(async () => ({ accepted:true, confirmed:true })),
+  contestSpot: vi.fn(async () => ({ accepted:true, confirmed:true })) };
 const unavailableSCP = () => ({ id: "scp-status", ok: true,
   result: { dataset: null, unavailableReason: "not_imported" } });
 const unavailableHistory = () => ({ id: "history-status", ok: true,
@@ -261,6 +262,18 @@ const operationalRequest=(current:()=>ReturnType<typeof projection>)=>vi.fn(asyn
   if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
 });
 
+it("routes the visible SPOT_DX action through the owned native contest spot adapter", async () => {
+  const current=projection(1,{callsign:"dl1abc"}),request=operationalRequest(()=>current),contestSpot=vi.fn(async()=>({accepted:true}));
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} contestSpot={contestSpot}/>);
+  await createContestThroughSetup();
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"active-qso",projectionRevision:1,requestID:crypto.randomUUID(),action:"entry_spot",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}}));
+  expect(contestSpot).toHaveBeenCalledExactlyOnceWith("DL1ABC",14_025_000);
+  expect(request.mock.calls.some(([method])=>method==="cluster_command")).toBe(false);
+});
+
 it("marks only the exact typed callsign at the current observed VFO and creates a local overlay spot",async()=>{
   const current=projection(1,{callsign:"DL1ABC"}),request=operationalRequest(()=>current);
   const shared=[{id:"partial",callsign:"DL1ABCD",frequencyKHz:14025,band:"20m",mode:"CW"},
@@ -367,13 +380,56 @@ it("routes detached ADIF export and manual recalculation through the active Pyth
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.canExportAdif).toBe(true));
   const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
     panelID:"logbook",projectionRevision:1,requestID:crypto.randomUUID()} as const;
-  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_export_adif",params:{}}));
+  await act(async()=>expect(surfaceOwner.current.handle({...envelope,action:"log_export_adif",params:{}})).resolves.toBe("native-completed"));
   expect(preparedFormat).toBe("adif");
   expect(nativeExport.save).toHaveBeenCalledWith(expect.objectContaining({format:"adif"}),expect.objectContaining({requestID:envelope.requestID}));
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_recalculate",
     params:{expectedSessionRevision:current.revision}}));
   expect(recalculation).toMatchObject({sessionID:current.sessionID,expectedRevision:4,draftID:current.draftID});
   await waitFor(()=>expect(surfaceOwner.current.projections.logbook.sessionRevision).toBe(5));
+});
+
+it.each([
+  [{status:"cancelled",artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",sha256:"b".repeat(64)}, "ADIF save cancelled."],
+  [{status:"failed",artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",sha256:"b".repeat(64),message:"Disk is full."}, "Disk is full."],
+] as const)("consumes native terminal export completion for %s", async (saveResult, message) => {
+  const current:any={...projection(),exportFormats:["adif" as const]};
+  nativeExport.save.mockResolvedValue(saveResult);
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW",supportedBands:["160m","80m","40m","20m","15m","10m"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],offset:0,limit:20,total:0}:method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:
+      method==="contest_export_prepare"?{artifactID:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",sessionID:current.sessionID,
+        workspaceGeneration,revision:current.revision,byteLength:128,sha256:"b".repeat(64),format:params.format}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const log=surfaceOwner.current.projections.logbook;
+  const action={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"logbook",
+    projectionRevision:log.sessionRevision,requestID:crypto.randomUUID(),action:"log_export_adif",params:{}} as const;
+  await act(async()=>expect(surfaceOwner.current.handle(action)).resolves.toBe("native-completed"));
+  expect(await screen.findByText(message)).toBeTruthy();
+});
+
+it("leaves pre-native export failures for the React action owner to reject", async () => {
+  const current:any={...projection(),exportFormats:["adif" as const]};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"CQ WW CW",supportedBands:["160m","80m","40m","20m","15m","10m"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],offset:0,limit:20,total:0}:method==="contest_score"?{score:current.score,matrices:{countries:[],zones:[]}}:null;
+    if(method==="contest_export_prepare")throw new Error("Export preparation failed.");
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const log=surfaceOwner.current.projections.logbook;
+  await act(async()=>expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:log.sessionRevision,requestID:crypto.randomUUID(),action:"log_export_adif",params:{}}))
+    .rejects.toThrow("Export preparation failed."));
+  expect(nativeExport.save).not.toHaveBeenCalled();
 });
 const statisticsFor = (current: ReturnType<typeof projection>) => ({
   rows: current.score.qsos ? [{band:"20m",qsos:current.score.qsos,calls:current.score.qsos,cw:current.score.qsos,
@@ -1446,7 +1502,7 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={undefined}/>);
   fireEvent.change(screen.getByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:initial}});
   await createContestThroughSetup();
-  expect(await screen.findByText("Connect the selected radio or enter a valid HF contest frequency before creating a contest.")).toBeTruthy();
+  expect(await screen.findByText("Connect the selected radio or enter a frequency on a band supported by this contest before creating a contest.")).toBeTruthy();
   expect(screen.queryByText("Contest created.")).toBeNull();
   expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(false);
   expect(screen.getByRole("button", {name:"OK"})).toBeTruthy();
@@ -1455,6 +1511,34 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(true));
   expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz:7_025_125});
   expect(screen.getByRole("heading", { name:"Contest Setup", level:1 })).toBeTruthy();
+});
+
+it.each([
+  { frequencyHz:50_125_000, band:50, supportedBands:["6m","2m"], created:true },
+  { frequencyHz:144_200_000, band:144, supportedBands:["6m","2m"], created:true },
+  { frequencyHz:222_100_000, band:222, supportedBands:["1.25m"], created:true },
+  { frequencyHz:2_300_100_000, band:2300, supportedBands:["13cm"], created:true },
+  { frequencyHz:134_100_000_000, band:134000, supportedBands:["2mm"], created:true },
+  { frequencyHz:50_125_000, band:50, supportedBands:["160m","80m","40m","20m","15m","10m"], created:false },
+])("admits $frequencyHz outside HF only when the plugin supports its band ($created)", async ({frequencyHz,band,supportedBands,created}) => {
+  let current:any={...projection(),frequencyHz,band,supportedBands};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    const result=method==="contest_catalog"?{plugins:[{id:"cq_ww_cw",name:"VHF Test",supportedBands}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?(current={...current,frequencyHz:params.frequencyHz},{projection:current}):
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={frequencyHz}/>);
+  await createContestThroughSetup();
+  if(created) {
+    expect(request.mock.calls.find(([method])=>method==="contest_create")?.[1]).toMatchObject({frequencyHz});
+    await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].descriptor.bands).toEqual(supportedBands));
+  }
+  else {
+    expect(request.mock.calls.some(([method])=>method==="contest_create")).toBe(false);
+    expect(await screen.findByText(/frequency on a band supported by this contest before creating/)).toBeTruthy();
+  }
 });
 
 it("restores the saved manual frequency when reopening a session without CAT", async () => {
@@ -1861,6 +1945,42 @@ it("keeps a lost focus reply uncertain and never reports a following failed ESM 
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,fieldID:"other_2"}})).rejects.toBeInstanceOf(ContestMutationUncertain);
   await expect(surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"entry_operator_key",
     params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,key:"Enter",focusedField:"other_2"}})).rejects.toThrow("Session changed");
+});
+
+it.each([
+  { label:"unchanged", callsign:undefined },
+  { label:"callsign-only", callsign:"DL1XYZ" },
+])("preserves original raw plugin fields on a $label contact correction", async ({callsign}) => {
+  let current:any=projection(), corrected:Record<string,any>|null=null;
+  const raw_fields={callsign:"DL1ABC",sent:"579",receive:"589",other_1:"ORIGINAL-SENT",other_2:"ORIGINAL-RCVD"};
+  const row={ID:"qso-raw",TS:"2026-10-19 08:00:00",Call:"DL1ABC",Freq:14025,Band:14,Mode:"CW",
+    SNT:"599",RCV:"599",SentNr:999,ZN:99,Operator:"OM0RX",Points:1,raw_fields};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any;
+    if(method==="contest_catalog")result={plugins:[{id:"cq_ww_cw",name:"CQ WW CW",supportedBands:["160m","80m","40m","20m","15m","10m"]}]};
+    else if(method==="contest_sessions")result={sessions:[]};
+    else if(method==="contest_create")result={projection:current};
+    else if(method==="contest_log_page")result={rows:[row],offset:0,limit:20,total:1};
+    else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
+    else if(method==="contest_qso_correct"){corrected=params;current={...current,revision:current.revision+1};result={projection:current,actions:[],messages:[]};}
+    else throw new Error(method);
+    return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  const log=surfaceOwner.current.projections.logbook;
+  const envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"logbook",
+    projectionRevision:log.sessionRevision,requestID:crypto.randomUUID()} as const;
+  await act(async()=>surfaceOwner.current.handle({...envelope,action:"log_edit_begin",params:{qsoID:"qso-raw"}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook.editing).toMatchObject({
+    callsign:"DL1ABC",sentReport:"579",receivedReport:"589",receivedFields:[
+      expect.objectContaining({id:"other_1",value:"ORIGINAL-SENT"}),expect.objectContaining({id:"other_2",value:"ORIGINAL-RCVD"})]}));
+  if(callsign) await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_set_text",
+    params:{qsoID:"qso-raw",field:"callsign",value:callsign}}));
+  await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_save",
+    params:{qsoID:"qso-raw",expectedSessionRevision:current.revision}}));
+  expect((corrected as Record<string,any>|null)?.fields).toEqual({...raw_fields,callsign:callsign??raw_fields.callsign});
 });
 
 it("pages, edits, and deletes through the detached Log owner actions", async () => {

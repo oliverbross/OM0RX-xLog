@@ -8,6 +8,7 @@ import { loadStationSession, type RadioID, type StationSession } from "../live/s
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 import type { SetupView } from "./ContestSetupPanel";
 import { tuneContestSpot } from "./contestSpotTune";
+import { postContestSpot } from "./contestSurfaceNative";
 
 type Data = Record<string, any>;
 type MenuHandler = (route: string) => boolean | Promise<boolean>;
@@ -170,7 +171,7 @@ export function DetachedContestSetupSurface() {
     {error ? <p className="contest-alert is-error" role="alert">{error}</p> : <p role="status">Loading contest setup…</p>}
   </main>;
   return <Not1MMContestWorkspace setupOnly request={(method, params = {}) => framedWorkerRequest(method, params)}
-    serviceRequest={request} stationTune={tuneContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
+    serviceRequest={request} stationTune={tuneContestSpot} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={Array.isArray(cluster?.snapshot?.spots) ? cluster.snapshot.spots : []} cluster={cluster}
     registerMenuRoute={registerMenuRoute} onSetupViewChange={resizeForSetupView}/>;

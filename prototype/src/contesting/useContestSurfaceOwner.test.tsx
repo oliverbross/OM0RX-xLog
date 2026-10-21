@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { contestSurfacePanelIDs, type ContestEntrySurfaceProjection, type ContestSurfaceActionEnvelope, type ContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { ContestMutationUncertain } from "./client";
-import { useContestSurfaceOwner } from "./useContestSurfaceOwner";
+import { useContestSurfaceOwner, type ContestSurfaceActionDisposition } from "./useContestSurfaceOwner";
 
 const native=vi.hoisted(()=>({invoke:vi.fn(),listen:vi.fn(),wake:null as null|(()=>void),wakes:[] as (()=>void)[]}));
 vi.mock("@tauri-apps/api/core",()=>({invoke:native.invoke,isTauri:()=>true}));
@@ -12,7 +12,7 @@ const context={operatingContext:"00000000-0000-4000-8000-000000000001",sessionID
 const unavailable=()=>Object.fromEntries(contestSurfacePanelIDs.map(id=>[id,{schemaVersion:1,status:"unavailable"}])) as Record<(typeof contestSurfacePanelIDs)[number],ContestSurfaceProjection>;
 const entry:ContestEntrySurfaceProjection={schemaVersion:1,status:"ready",session:{name:"Test",ruleName:"Rule",mode:"CW"},draft:{draftID:"draft-1",revision:5,callsign:"",sentReport:"599",receivedReport:"599",receivedFields:[],frequencyHz:null,frequencyText:"",frequencyError:"",band:"20m",mode:"CW",dupe:{state:"unchecked",reason:""},validation:{errors:[],warnings:[]},reservedSerial:null},busy:false,dirty:false,uncertain:false};
 const action=(revision:number):ContestSurfaceActionEnvelope=>({...context,scope:"contesting",panelID:"active-qso",projectionRevision:revision,requestID:crypto.randomUUID(),action:"entry_commit",params:{draftID:"draft-1",expectedDraftRevision:5}});
-function Harness({projections,handle,report=vi.fn(),capture}:{projections:ReturnType<typeof unavailable>;handle:(value:ContestSurfaceActionEnvelope)=>Promise<void>;
+function Harness({projections,handle,report=vi.fn(),capture}:{projections:ReturnType<typeof unavailable>;handle:(value:ContestSurfaceActionEnvelope)=>Promise<ContestSurfaceActionDisposition>;
     report?:(message:string)=>void;capture?:(wait:()=>Promise<void>)=>void}){
   const wait=useContestSurfaceOwner({context,projections,handle,report});capture?.(wait);return null;
 }
@@ -146,6 +146,22 @@ it("confirms a successful action by retrying the exact completion after its firs
   await waitFor(()=>expect(completed).toHaveLength(2));expect(report).not.toHaveBeenCalled();
   expect(completed[0]).toEqual(completed[1]);expect(completed[0]).toMatchObject({outcome:"applied"});
   expect(completed.some(item=>item.outcome==="rejected")).toBe(false);
+});
+
+it("does not complete an action again when its native command returned a terminal completion",async()=>{
+  const queued=action(1),completed:Record<string,unknown>[]=[];let delivered=false;
+  native.invoke.mockImplementation(async(command:string,args:Record<string,unknown>)=>{
+    if(command==="contest_surface_publish"||command==="contest_surface_context_close")return;
+    if(command==="contest_surface_escape_next")return null;
+    if(command==="contest_surface_action_next"){if(delivered)return null;delivered=true;return queued;}
+    if(command==="contest_surface_action_complete"){completed.push(args);return;}
+    throw new Error(command);
+  });
+  const handle=vi.fn(async()=>"native-completed" as const);
+  render(<Harness projections={{...unavailable(),"active-qso":entry}} handle={handle}/>);
+  await waitFor(()=>expect(handle).toHaveBeenCalledOnce());
+  await act(async()=>{await Promise.resolve();});
+  expect(completed).toEqual([]);
 });
 
 it("leaves the native receipt uncertain when the admitted worker mutation outcome is unknown",async()=>{

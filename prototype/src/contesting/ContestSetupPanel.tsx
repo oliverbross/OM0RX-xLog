@@ -22,7 +22,7 @@ const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Co
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
   effectiveMacros?: ContestSetupMacro[];
-  catalog: Array<{ id: string; name: string; modes?: string[]; sentExchangeHint?: string; overlayChoices?: string[] }>;
+  catalog: Array<{ id: string; name: string; modes?: string[]; supportedBands?: string[]; sentExchangeHint?: string; overlayChoices?: string[] }>;
   busy?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
@@ -155,6 +155,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const bindingValue = readContestKeyBindings(draft.preferences.keyBindings);
   const setBindings = (next: ContestKeyBinding[]) => update("preferences", "keyBindings", encodeContestKeyBindings(next));
   const selectedPlugin = catalog.find(plugin => plugin.id === draft.pluginID);
+  const supportedBandChoices = selectedPlugin?.supportedBands?.length ? selectedPlugin.supportedBands
+    : ["160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
   const pluginModes = selectedPlugin?.modes ?? [];
   const modeChoices = pluginModes.length > 1
     ? [...pluginModes, ...(pluginModes.includes("MIXED") ? [] : ["MIXED"])]
@@ -187,7 +189,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
     <hr/>
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}
-    {choice("settings", "BandCategory", "Band", ["ALL", "160M", "80M", "40M", "20M", "15M", "10M", "6M", "2M", "1.25M", "70CM", "33CM", "23CM"])}
+    {choice("settings", "BandCategory", "Band", ["ALL", ...supportedBandChoices.map(band => band.toUpperCase())])}
     {choice("settings", "PowerCategory", "Power", ["HIGH", "LOW", "QRP"])}
     {field("settings", "ModeCategory", "Mode", "text", selectValues(modeChoices, draft.settings.ModeCategory), modeChoices.length === 1)}
     {choice("settings", "OverlayCategory", "Overlay", overlayChoices)}
@@ -224,7 +226,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       case "Cluster": content = managed("Cluster", "Manage servers, secure passwords, filters and connections there."); break;
       case "Group": content = <div className="contest-manual-stack">{check("network", "multiEnabled", "Connect to server")}{check("network", "multiMaster", "Be the master")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}</div>; break;
       case "N1MM": content = <div className="contest-manual-stack">{check("network", "n1mmEnabled", "Send N1MM packets")}{row(field("network", "stationName", "Station Name"), field("network", "n1mmOperatorName", "Operator Name"))}{(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}</div>; break;
-      case "Bands": content = <div className="contest-manual-bands">{[["160m", "80m", "40m", "20m", "15m", "10m"], ["6m", "2m", "1.25m", "70cm", "33cm", "23cm"]].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
+      case "Bands": content = <div className="contest-manual-bands">{[supportedBandChoices.slice(0, Math.ceil(supportedBandChoices.length / 2)), supportedBandChoices.slice(Math.ceil(supportedBandChoices.length / 2))].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
       case "Options": content = <div className="contest-options-columns">
         <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">

@@ -335,6 +335,34 @@ impl ClusterSession {
         Ok(response)
     }
 
+    pub fn post_contest_spot(&self, label: &str, isolated: bool, callsign: &str, frequency_hz: u64) -> Result<(), String> {
+        if label != "contest-setup" {
+            return Err("Only Contest Setup can post a contest spot.".into());
+        }
+        if isolated {
+            return Err("External services and station I/O are disabled in OM0RX-xLog Contesting Test.".into());
+        }
+        let callsign = callsign.trim().to_ascii_uppercase();
+        if !(2..=24).contains(&callsign.len())
+            || !callsign.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-'))
+            || frequency_hz == 0
+        {
+            return Err("A valid callsign and contest frequency are required before posting a spot.".into());
+        }
+        let frequency_khz = frequency_hz as f64 / 1_000.0;
+        let frequency = format!("{frequency_khz:.3}").trim_end_matches('0').trim_end_matches('.').to_owned();
+        let request = json!({
+            "id": uuid::Uuid::new_v4().to_string(),
+            "method": "cluster_command",
+            "params": { "command": format!("DX {frequency} {callsign}") }
+        });
+        let response = self.request(request)?;
+        if response["ok"] != true {
+            return Err(response["error"]["message"].as_str().unwrap_or("The cluster rejected the contest spot.").into());
+        }
+        Ok(())
+    }
+
     pub fn select(&self, selected: Option<String>) -> Result<(), String> {
         self.active()?;
         let mut state = self
@@ -659,6 +687,29 @@ mod tests {
             events.lock().unwrap().last().unwrap()["response"]["query"],
             "changed"
         );
+    }
+
+    #[test]
+    fn contest_setup_posts_one_bounded_dx_command_and_test_profile_never_reaches_transport() {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let recorded = requests.clone();
+        let owner = ClusterSession::new(Arc::new(move |request| {
+            recorded.lock().unwrap().push(request.clone());
+            Ok(reply(&request, "posted"))
+        }), Arc::new(|_| {}));
+
+        owner.post_contest_spot("contest-setup", false, "om0rx", 14_025_500).unwrap();
+        let captured = requests.lock().unwrap();
+        assert_eq!(captured.len(), 1);
+        assert_eq!(captured[0]["method"], "cluster_command");
+        assert_eq!(captured[0]["params"], json!({"command":"DX 14025.5 OM0RX"}));
+        drop(captured);
+
+        assert!(owner.post_contest_spot("contest-setup", true, "OM0RX", 14_025_500)
+            .unwrap_err().contains("External services"));
+        assert!(owner.post_contest_spot("main", false, "OM0RX", 14_025_500)
+            .unwrap_err().contains("Only Contest Setup"));
+        assert_eq!(requests.lock().unwrap().len(), 1);
     }
 
     #[test]

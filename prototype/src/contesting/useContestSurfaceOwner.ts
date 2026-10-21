@@ -6,8 +6,9 @@ import { contestSurfacePanelIDs, validContestSurfaceUUID, type ContestSurfaceAct
   type ContestSurfacePanelID, type ContestSurfaceProjection } from "./contestSurfaceProtocol";
 
 type Projections = Record<ContestSurfacePanelID, ContestSurfaceProjection>;
+export type ContestSurfaceActionDisposition = void | "native-completed";
 type Owner = { context: ContestSurfaceContext | null; projections: Projections;
-  handle: (action: ContestSurfaceActionEnvelope) => Promise<void>; report: (message: string) => void };
+  handle: (action: ContestSurfaceActionEnvelope) => Promise<ContestSurfaceActionDisposition>; report: (message: string) => void };
 const boundedMessage = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)).slice(0, 512);
 const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["action"]>([
   "entry_set_text", "entry_set_exchange", "entry_set_frequency_text", "entry_set_band", "entry_set_mode", "assistance_query",
@@ -58,7 +59,8 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
             if (projectionsRef.current[action.panelID].status !== "ready")
               throw new Error("The requested contest panel is not available.");
             admitted = true;
-            await handleRef.current(action);
+            const disposition = await handleRef.current(action);
+            if (disposition === "native-completed") continue;
           } catch (cause) {
             // `next` has already marked the native receipt uncertain. Once a
             // mutation may have reached the worker, never rewrite that receipt

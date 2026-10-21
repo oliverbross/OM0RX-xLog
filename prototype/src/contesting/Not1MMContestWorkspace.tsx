@@ -28,6 +28,7 @@ type ContestFunctionKey = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
 type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; total: number };
+type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value: number };
 type StatisticsState = { sessionID: string; revision: number; rows: ContestStatisticsRow[]; total: ContestStatisticsRow };
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; sourceRevision: string; referenceID: string;
@@ -68,6 +69,7 @@ type Props = {
   request: Request;
   serviceRequest: Request;
   stationTune: (frequencyHz: number, mode: string) => Promise<unknown>;
+  contestSpot: (callsign: string, frequencyHz: number) => Promise<unknown>;
   operatingContext: string;
   workspaceGeneration: string;
   stationCall: string;
@@ -90,9 +92,27 @@ export const contestSpotWorkflowMaxEntries = 2_000;
 export const contestSpotWorkflowMaxBytes = 1_048_576;
 export const contestSpotWorkflowTTLms = 7 * 24 * 60 * 60 * 1_000;
 const logPageSize = 20;
-const bandLabels: Record<string, string> = { "1.8": "160m", "3.5": "80m", "7": "40m", "14": "20m", "21": "15m", "28": "10m" };
 const contestBands = ["160m", "80m", "40m", "20m", "15m", "10m"];
-const setupBandChoices = [...contestBands, "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
+// Compatibility for protocol-v1/older test catalogs. The current host supplies
+// these definitions from the pinned Not1MM plan and remains the authority.
+const fallbackBandDefinitions: ContestBandDefinition[] = [
+  ["160m",1_800_000,2_000_000,1.8],["80m",3_500_000,4_000_000,3.5],["40m",7_000_000,7_300_000,7],
+  ["20m",14_000_000,14_350_000,14],["15m",21_000_000,21_450_000,21],["10m",28_000_000,29_700_000,28],
+  ["6m",50_000_000,54_000_000,50],["2m",144_000_000,148_000_000,144],["1.25m",222_000_000,225_000_000,222],
+  ["70cm",420_000_000,450_000_000,432],["33cm",902_000_000,928_000_000,902],["23cm",1_240_000_000,1_300_000_000,1296],
+  ["13cm",2_300_000_000,2_450_000_000,2300],["9cm",3_300_000_000,3_500_000_000,3300],
+  ["6cm",5_650_000_000,5_925_000_000,5650],["3cm",10_000_000_000,10_500_000_000,10000],
+  ["1.25cm",24_000_000_000,24_250_000_000,24000],["6mm",47_000_000_000,47_200_000_000,47000],
+  ["4mm",75_500_000_000,81_000_000_000,75500],["2.5mm",119_980_000_000,123_000_000_000,119980],
+  ["2mm",134_000_000_000,149_000_000_000,134000],["1mm",241_000_000_000,250_000_000_000,241000],
+  ["submm",300_000_000_000,7_500_000_000_000,300000],
+].map(([id, lowHz, highHz, value]) => ({ id: String(id), lowHz: Number(lowHz), highHz: Number(highHz), value: Number(value) }));
+const validBandDefinitions = (value: unknown): ContestBandDefinition[] => Array.isArray(value) ? value.filter((item): item is ContestBandDefinition => {
+  const band = item as Partial<ContestBandDefinition>;
+  return typeof band?.id === "string" && band.id.length > 0 && Number.isSafeInteger(band.lowHz) && Number.isSafeInteger(band.highHz) &&
+    Number(band.lowHz) >= 0 && Number(band.highHz) > Number(band.lowHz) && typeof band.value === "number" && Number.isFinite(band.value);
+}) : [];
+const defaultBandLabels: Record<string, string> = Object.fromEntries(fallbackBandDefinitions.map(band => [String(band.value), band.id]));
 const contestPhoneIntentPlugins = new Set(["arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "euhfc", "iaru_hf", "arrl_10m"]);
 const serialPrefixPlugins = new Set(["cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"]);
 const sweepstakesPlugins = new Set(["arrl_ss_cw", "arrl_ss_phone"]);
@@ -106,16 +126,15 @@ const activeContestKeyBindings = (value: unknown) => {
 };
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
-const cqwwFrequency = (value: unknown): number | null => {
+const contestFrequency = (value: unknown, supportedBands: readonly string[], bandDefinitions: readonly ContestBandDefinition[]): number | null => {
   const frequency = typeof value === "number" ? Math.round(value) : NaN;
   if (!Number.isSafeInteger(frequency)) return null;
-  return [[1_800_000, 2_000_000], [3_500_000, 4_000_000], [7_000_000, 7_300_000],
-    [14_000_000, 14_350_000], [21_000_000, 21_450_000], [28_000_000, 29_700_000]]
-    .some(([low, high]) => frequency >= low && frequency <= high) ? frequency : null;
+  const band = bandDefinitions.find(definition => frequency >= definition.lowHz && frequency < definition.highHz)?.id;
+  return band && supportedBands.includes(band) ? frequency : null;
 };
-const manualFrequency = (value: string): number | null => {
+const manualFrequency = (value: string, supportedBands: readonly string[], bandDefinitions: readonly ContestBandDefinition[]): number | null => {
   const mhz = Number(value.trim());
-  return Number.isFinite(mhz) ? cqwwFrequency(mhz * 1_000_000) : null;
+  return Number.isFinite(mhz) ? contestFrequency(mhz * 1_000_000, supportedBands, bandDefinitions) : null;
 };
 
 function restoredSetup(stationCall: string): ContestSetupDocument {
@@ -193,10 +212,10 @@ function correctionExchangeValues(row: Data, pluginID?: string) {
   if (pluginID === "k1usn_sst") return { other_1: String(row.Name ?? ""), other_2: String(row.Sect ?? "") };
   return { other_1: String(row.SentNr ?? ""), other_2: receivedExchange(row, pluginID) };
 }
-function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
+function logRows(rows: Data[], pluginID?: string, labels: Record<string, string> = defaultBandLabels): ContestLogRow[] {
   return rows.map(row => ({
     qsoID: String(row.ID ?? ""), workedAt: canonicalWorkedAt(row.TS), callsign: String(row.Call ?? ""),
-    band: bandLabels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
+    band: labels[String(row.Band)] ?? String(row.Band ?? ""), mode: String(row.Mode ?? "CW"),
     sentExchange: String(row.SentNr ?? ""), receivedExchange: receivedExchange(row, pluginID),
     points: Number(row.Points ?? 0), multiplierLabels: pluginID === "icwc_mst" || pluginID === "cwo" ? []
       : pluginID && serialPrefixPlugins.has(pluginID) ? [String(row.WPXPrefix ?? "")].filter(Boolean)
@@ -350,7 +369,7 @@ function multiplierMatrix(title: string, tracker: "dxcc" | "zone", values: Data[
   const rows = new Map<string, Record<string, number>>();
   for (const item of values) {
     const label = String(item.value ?? "").trim() || "Unknown";
-    const band = bandLabels[String(item.band)] ?? String(item.band ?? "");
+    const band = defaultBandLabels[String(item.band)] ?? String(item.band ?? "");
     if (!contestBands.includes(band)) continue;
     const counts = rows.get(label) ?? Object.fromEntries(contestBands.map(value => [value, 0]));
     counts[band] = Number(item.qsos ?? 0); rows.set(label, counts);
@@ -371,9 +390,12 @@ function boundedDigitalSnapshot(value: unknown): ContestDigitalSnapshot | undefi
     running: source.running, status: source.status, receive_only: source.receive_only };
 }
 
-export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
+export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
+  const [bandDefinitions, setBandDefinitions] = useState<ContestBandDefinition[]>(fallbackBandDefinitions);
+  const bandLabels = useMemo<Record<string, string>>(() => Object.fromEntries(
+    bandDefinitions.map(band => [String(band.value), band.id])), [bandDefinitions]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({}), fieldsRef = useRef<Record<string, string>>({});
   const [rows, setRows] = useState<Data[]>([]), [score, setScore] = useState<Score | null>(null), [matrices, setMatrices] = useState<Data>({});
@@ -386,11 +408,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
   const [digitalSnapshot, setDigitalSnapshot] = useState<ContestDigitalSnapshot | undefined>();
+  const setupBandChoices = useMemo(() => bandDefinitions.map(band => band.id), [bandDefinitions]);
+  const setupSupportedBands = useMemo(() => {
+    const bands = catalog.find(item => item.id === setup.pluginID)?.supportedBands;
+    return Array.isArray(bands) && bands.length ? bands as string[] : setupBandChoices;
+  }, [catalog, setup.pluginID, setupBandChoices]);
+  const activeSupportedBands = projection?.supportedBands?.length ? projection.supportedBands : setupSupportedBands;
   const configuredBands = useMemo(() => {
     const selected = Array.isArray(setup.preferences.bands) ? setup.preferences.bands : contestBands;
-    const supported = projection?.supportedBands?.length ? projection.supportedBands : setupBandChoices;
-    return setupBandChoices.filter(band => selected.includes(band) && supported.includes(band));
-  }, [setup.preferences.bands, projection?.supportedBands]);
+    const supported = projection?.supportedBands?.length ? projection.supportedBands : setupSupportedBands;
+    const configured = setupBandChoices.filter(band => selected.includes(band) && supported.includes(band));
+    return configured.length ? configured : setupBandChoices.filter(band => supported.includes(band));
+  }, [setup.preferences.bands, projection?.supportedBands, setupBandChoices, setupSupportedBands]);
   const [effectiveMacros, setEffectiveMacros] = useState<ContestSetupMacro[] | undefined>();
   const [phoneSimulationArmed, setPhoneSimulationArmed] = useState(false);
   const [phoneSimulationPending, setPhoneSimulationPending] = useState(false);
@@ -421,10 +450,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;
   const selectedRadioFrequencyHz = typeof radioFrequencyHz === "number" && Number.isSafeInteger(radioFrequencyHz) &&
-    radioFrequencyHz >= 0 && radioFrequencyHz <= 100_000_000_000 ? radioFrequencyHz : null;
-  const observedFrequencyHz = cqwwFrequency(selectedRadioFrequencyHz);
-  const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz);
-  const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+    radioFrequencyHz >= 0 ? radioFrequencyHz : null;
+  const observedFrequencyHz = contestFrequency(selectedRadioFrequencyHz, activeSupportedBands, bandDefinitions);
+  const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz, activeSupportedBands, bandDefinitions);
+  const operationFrequencyHz = selectedRadioFrequencyHz === null ? fallbackFrequencyHz : observedFrequencyHz;
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
     sessionID:projection?.sessionID??""}),[operatingContext,workspaceGeneration,projection?.sessionID]);
@@ -584,7 +613,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           result<Data>("contest_catalog"), result<{ sessions: Session[]; activeSessionID?: string | null }>("contest_sessions"),
         ]);
         if (!active) return;
-        setCatalog(Array.isArray(available.plugins) ? available.plugins : []); setSessions(list.sessions);
+        const hostBands = validBandDefinitions(available.bandDefinitions);
+        setCatalog(Array.isArray(available.plugins) ? available.plugins : []);
+        setBandDefinitions(hostBands.length ? hostBands : fallbackBandDefinitions); setSessions(list.sessions);
         const stored = localStorage.getItem(activeSessionKey);
         const hostActive = list.activeSessionID
           ? list.sessions.find(session => session.sessionID === list.activeSessionID) : undefined;
@@ -633,7 +664,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   };
   const flushDraft = async (supplied = projectionRef.current): Promise<Projection | null> => {
     if (!supplied) return null;
-    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before continuing.");
+    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before continuing.");
     const values = { ...fieldsRef.current }, inputVersion = editVersionRef.current;
     if (sameFields(values, projectionFields(supplied)) && operationFrequencyHz === supplied.frequencyHz) return supplied;
     const changed = await mutate("contest_draft_apply", supplied, { fields: values, frequencyHz: operationFrequencyHz });
@@ -760,7 +791,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     if (phoneController) { phoneSimulationControllerRef.current = phoneController; setPhoneSimulationPending(true); }
     try {
       const confirmed = await runMutation(async base => {
-    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before using ESM.");
+    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before using ESM.");
     if (base.mode !== "CW")
       return mutate(method, base, { fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra });
     const operationID = crypto.randomUUID();
@@ -848,7 +879,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   const createSession = async (document: ContestSetupDocument) => {
     const contestCall = String(document.station.Call || stationCall).trim().toUpperCase();
     if (!contestCall) throw new Error("Configure the xLog station callsign before creating a contest.");
-    if (operationFrequencyHz === null) throw new Error("Connect the selected radio or enter a valid HF contest frequency before creating a contest.");
+    const catalogBands = catalog.find(item => item.id === document.pluginID)?.supportedBands;
+    const supportedBands = Array.isArray(catalogBands) && catalogBands.length ? catalogBands as string[] : bandDefinitions.map(band => band.id);
+    const frequencyHz = selectedRadioFrequencyHz === null ? manualFrequency(manualFrequencyMHz, supportedBands, bandDefinitions)
+      : contestFrequency(selectedRadioFrequencyHz, supportedBands, bandDefinitions);
+    if (frequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before creating a contest.");
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError("");
     try {
@@ -859,7 +894,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       const created = await result<MutationResult>("contest_create", { sessionID, workspaceGeneration,
         operationID: crypto.randomUUID(), expectedRevision: 0,
         pluginID: document.pluginID, name: document.name.trim() || "CQ WW CW", station: { ...document.station, Call: contestCall },
-        operator: document.operator.trim().toUpperCase() || contestCall, frequencyHz: operationFrequencyHz,
+        operator: document.operator.trim().toUpperCase() || contestCall, frequencyHz,
         settings: document.settings });
       const saved = await mutate("contest_setup_save", created.projection, { setup: document }) as MutationResult & { setup: ContestSetupDocument; effectiveMacros?: ContestSetupMacro[] };
       setEffectiveMacros(saved.effectiveMacros);
@@ -935,8 +970,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   };
   const chooseSpot = async (spot: BandMapSpot, throwFailures = false) => {
     const frequencyHz = Math.round(Number(spot.frequencyKHz) * 1000);
-    if (cqwwFrequency(frequencyHz) === null) {
-      if (throwFailures) throw new Error("That spot has no valid HF contest frequency.");
+    if (contestFrequency(frequencyHz, activeSupportedBands, bandDefinitions) === null) {
+      if (throwFailures) throw new Error("That spot is outside the active contest's supported bands.");
       return;
     }
     const next = await runMutation(async base => {
@@ -959,14 +994,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const exportFormats=active.exportFormats??["cabrillo","adif"];
     if(!exportFormats.includes(format)){const failure=new Error(`${format==="adif"?"ADIF":"Cabrillo"} export is not supported by this contest.`);
       setError(failure.message);if(throwFailures)throw failure;return;}
+    let nativeOwnsCompletion = false;
     busyRef.current = true; setBusy(true); setError("");
     try {
       const prepared = await result<ContestExportSavePrepared & { filename?: string }>("contest_export_prepare", { sessionID: active.sessionID, format });
+      nativeOwnsCompletion = completion !== undefined;
       const saved = await nativeContestExportSave(prepared, completion);
       if (saved.status === "saved") setNotice(`Saved ${saved.filename}.`);
       else if (saved.status === "cancelled") setNotice(`${format === "adif" ? "ADIF" : "Cabrillo"} save cancelled.`);
-      else { setError(saved.message); if (throwFailures) throw new Error(saved.message); }
-    } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
+      else setError(saved.message);
+      return completion ? "native-completed" as const : undefined;
+    } catch (cause) { setError(errorMessage(cause)); if (nativeOwnsCompletion) return "native-completed" as const; if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
 
@@ -980,20 +1018,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     try {
       await flushDraftRef.current();
       const exchange = correctionExchangeValues(row, active?.pluginID);
-      setEditing(row); setEditCall(String(row.Call ?? "")); setEditZone(exchange.other_2);
+      const raw = row.raw_fields && typeof row.raw_fields === "object" && !Array.isArray(row.raw_fields) ? row.raw_fields as Record<string, unknown> : {};
+      setEditing({ ...row, raw_fields: raw }); setEditCall(String(raw.callsign ?? row.Call ?? "")); setEditZone(String(raw.other_2 ?? exchange.other_2));
       setEditTimestamp(String(row.TS ?? "")); setEditFrequencyMHz((Number(row.Freq ?? 0) / 1000).toFixed(6));
-      setEditOperator(String(row.Operator ?? "")); setEditSent(String(row.SNT ?? "")); setEditReceived(String(row.RCV ?? ""));
-      setEditSentExchange(exchange.other_1); setCorrectionReason("Operator correction");
+      setEditOperator(String(row.Operator ?? "")); setEditSent(String(raw.sent ?? row.SNT ?? "")); setEditReceived(String(raw.receive ?? row.RCV ?? ""));
+      setEditSentExchange(String(raw.other_1 ?? exchange.other_1)); setCorrectionReason("Operator correction");
       setDeletionReason("Operator deletion"); setConfirmDelete(false);
     } catch (cause) { setError(errorMessage(cause)); if (throwFailures) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   };
   const saveCorrection = async (reason: string, throwFailures = false) => { if (!editing) return null;
-    const frequencyHz = manualFrequency(editFrequencyMHz);
-    if (frequencyHz === null) throw new Error("Enter a valid HF contest frequency before saving the correction.");
+    const frequencyHz = manualFrequency(editFrequencyMHz, activeSupportedBands, bandDefinitions);
+    if (frequencyHz === null) throw new Error("Enter a frequency on a band supported by this contest before saving the correction.");
+    const originalFields = editing.raw_fields && typeof editing.raw_fields === "object" && !Array.isArray(editing.raw_fields)
+      ? editing.raw_fields as Record<string, unknown> : {};
     const next = await runMutation(base => mutate("contest_qso_correct", base, { qsoID: editing.ID,
       timestamp: editTimestamp, frequencyHz, operator: editOperator,
-      fields: { callsign: editCall.toUpperCase(), sent: editSent, receive: editReceived,
+      fields: { ...originalFields, callsign: editCall.toUpperCase(), sent: editSent, receive: editReceived,
         other_1: editSentExchange, other_2: editZone }, reason }), true, true, false, throwFailures);
     if (next) { setEditing(null); setConfirmDelete(false); }
     return next;
@@ -1057,7 +1098,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const receivedZone = projection.fields.find(field => field.id === "other_2");
     const sentZone = projection.fields.find(field => field.id === "other_1");
     const reportsVisible = projection.fields.some(field => field.id === "sent" && field.visible);
-    const editedFrequencyHz = editing ? manualFrequency(editFrequencyMHz) : null;
+    const editedFrequencyHz = editing ? manualFrequency(editFrequencyMHz, activeSupportedBands, bandDefinitions) : null;
     const callContext = projection.callContext?.callsign === partialQuery ? projection.callContext : undefined;
     unavailable["active-qso"] = {
       schemaVersion: 2, status: "ready",
@@ -1072,7 +1113,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         receivedFields: receivedExchangeFields.map(field => ({ id: field.id, label: field.label,
           value: currentFields[field.id] ?? "", required: true, maximumUTF8Bytes: field.id === "other_1" ? 32 : 128 })),
         frequencyHz, frequencyText: frequencyHz === null ? "" : String(frequencyHz),
-        frequencyError: frequencyHz === null ? "Enter a valid HF contest frequency." : "",
+        frequencyError: frequencyHz === null ? "Enter a frequency on a band supported by this contest." : "",
         band: bandLabels[String(projection.band)] ?? String(projection.band), mode: projection.mode,
         dupe: { state: projection.dupe ? "duplicate" : "clear", reason: projection.dupe
           ? projection.dupeExplanation ?? "Worked on this band." : "Clear for this contest." },
@@ -1120,7 +1161,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
       schemaVersion: 1, status: "ready", sessionRevision: projection.revision,
       canExportCabrillo: projection.exportFormats?.includes("cabrillo")??true,
       canExportAdif: projection.exportFormats?.includes("adif")??true,
-      page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID) },
+      page: { offset: logOffset, limit: logPageSize, total: logTotal, rows: logRows(rows, projection.pluginID, bandLabels) },
       ...(pluginColumns.length ? { exchangeLayout: "plugin" as const, pluginColumns,
         pluginRows:not1mmLogRows(rows,pluginColumns), pluginPartialRows:not1mmLogRows(partialRows,pluginColumns) }
         : { manualRows:manualRows(rows), partialRows:manualRows(partialRows) }),
@@ -1134,7 +1175,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           { id: "other_2", label: receivedZone?.label || "Received exchange", value: editZone, required: true, maximumUTF8Bytes: 128 },
         ],
         frequencyHz: editedFrequencyHz, editFrequencyText: editedFrequencyHz === null ? "" : String(editedFrequencyHz),
-        frequencyError: editedFrequencyHz === null ? "Enter a valid HF contest frequency." : "",
+        frequencyError: editedFrequencyHz === null ? "Enter a frequency on a band supported by this contest." : "",
         correctionReason, confirmDelete, deletionReason,
       } : null,
       busy: busy || retiring,
@@ -1194,6 +1235,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
+    bandDefinitions, bandLabels,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
     sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId]);
 
@@ -1262,8 +1304,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         await persistFields(action.params.fieldID, action.params.value.toUpperCase()); return;
       case "entry_set_frequency_text": {
         if (observedFrequencyHz !== null) throw new Error("Frequency follows the selected xLog radio and cannot be edited here.");
-        const frequencyHz = /^\d+$/.test(action.params.value) ? cqwwFrequency(Number(action.params.value)) : null;
-        if (frequencyHz === null) throw new Error("Enter a valid HF contest frequency in Hz.");
+        const frequencyHz = /^\d+$/.test(action.params.value) ? contestFrequency(Number(action.params.value), activeSupportedBands, bandDefinitions) : null;
+        if (frequencyHz === null) throw new Error("Enter a frequency in Hz on a band supported by this contest.");
         setManualFrequencyMHz((frequencyHz / 1_000_000).toFixed(6));
         await runMutation(base => mutate("contest_draft_apply", base, { fields: fieldsRef.current, frequencyHz }), false, false, false, true);
         return;
@@ -1299,14 +1341,15 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         if(!callsign)throw new Error("Enter a callsign before spotting it.");
         if(frequencyHz===null)throw new Error("A valid contest frequency is required before spotting a callsign.");
         const frequencyKHz=(frequencyHz/1000).toFixed(3).replace(/\.0+$/,"").replace(/(\.\d*?)0+$/,"$1");
-        await serviceRequest("cluster_command",{command:`dx ${callsign} ${frequencyKHz}`});
+        await contestSpot(callsign, frequencyHz);
         setNotice(`Spotted ${callsign} on ${frequencyKHz} kHz through the existing xLog cluster connection.`);return;
       }
       case "entry_mark_spot": {
         const callsign=(fieldsRef.current.callsign??"").trim().toUpperCase();
         if(!callsign)throw new Error("Enter the exact callsign to mark or unmark.");
-        if(selectedRadioFrequencyHz===null||selectedRadioFrequencyHz<=0)throw new Error("A current observed xLog radio frequency is required to mark a callsign.");
-        const frequencyKHz=selectedRadioFrequencyHz/1_000,receivedAt=Date.now()/1_000-978_307_200;
+        const admittedFrequencyHz=contestFrequency(selectedRadioFrequencyHz,activeSupportedBands,bandDefinitions);
+        if(admittedFrequencyHz===null)throw new Error("A current observed xLog radio frequency on a band supported by this contest is required to mark a callsign.");
+        const frequencyKHz=admittedFrequencyHz/1_000,receivedAt=Date.now()/1_000-978_307_200;
         const existing=allWorkflowSpots.find(spot=>spot.callsign===callsign&&Math.round(spot.frequencyKHz*1_000)===selectedRadioFrequencyHz);
         const spot:ContestSurfaceSpot=existing??{id:`contest-mark:${selectedRadioFrequencyHz}:${callsign}`,receivedAt,clusterName:"Contest",
           spotter:stationCall,spotterContinent:null,frequencyKHz,frequencyText:frequencyKHz.toFixed(3),callsign,comment:"Marked from Main Logging",
@@ -1374,10 +1417,10 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
           await persistFields("callsign", historyCandidate.callsign);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
-      case "log_export_cabrillo": await exportLog("cabrillo", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
-        workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision }); return;
-      case "log_export_adif": await exportLog("adif", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
-        workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision }); return;
+      case "log_export_cabrillo": return exportLog("cabrillo", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
+        workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision });
+      case "log_export_adif": return exportLog("adif", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
+        workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision });
       case "log_recalculate":
         if (action.params.expectedSessionRevision !== active.revision) throw new Error("The contest log changed before recalculation started.");
         if (await runMutation(base => mutate("contest_recalculate", base), true, true, false, true))
@@ -1404,8 +1447,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         return;
       case "log_edit_set_frequency_text": {
         requireEditing(action.params.qsoID);
-        const frequencyHz = /^\d+$/.test(action.params.value) ? cqwwFrequency(Number(action.params.value)) : null;
-        if (frequencyHz === null) throw new Error("Enter a valid HF contest frequency in Hz.");
+        const frequencyHz = /^\d+$/.test(action.params.value) ? contestFrequency(Number(action.params.value), activeSupportedBands, bandDefinitions) : null;
+        if (frequencyHz === null) throw new Error("Enter a frequency in Hz on a band supported by this contest.");
         setEditFrequencyMHz((frequencyHz / 1_000_000).toFixed(6)); return;
       }
       case "log_edit_set_band":
@@ -1534,7 +1577,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     onSelect={applyAssistanceCallsign} onSurfaceChange={setSCPSurface}/>}<p className="contest-source">{projection?.history || "Type a call to query Not1MM call history."}</p><p>{projection?.dupe
       ? projection.dupeExplanation ?? "Worked in this contest" : projection?.countryResolved ? "Country resolved · not a duplicate" : "No country match yet"}</p></section>;
   const matrixPanel = <section className="contest-score" aria-label="Country and zone matrices"><h2>Countries / zones</h2><div className="contest-multipliers">{[...(matrices.countries ?? []), ...(matrices.zones ?? [])].map((item: Data, index: number) => <span key={`${item.value}-${item.band}-${index}`}>{item.value || "Unknown"} · {bandLabels[String(item.band)] ?? item.band} · {item.qsos}</span>)}</div></section>;
-  const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><div className="contest-log-actions"><button type="button" disabled={busy} onClick={() => void exportLog("cabrillo")}><Download size={14}/>Cabrillo</button><button type="button" disabled={busy} onClick={() => void exportLog("adif")}><Download size={14}/>ADIF</button><button type="button" disabled={busy} onClick={() => void runMutation(base => mutate("contest_recalculate", base))}>Recalculate</button></div></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
+  const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><div className="contest-log-actions"><button type="button" disabled={busy} onClick={() => void exportLog("cabrillo")}><Download size={14}/>Cabrillo</button><button type="button" disabled={busy} onClick={() => void exportLog("adif")}><Download size={14}/>ADIF</button><button type="button" disabled={busy} onClick={() => void runMutation(base => mutate("contest_recalculate", base))}>Recalculate</button></div></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/></div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID, bandLabels)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)} selectionHint="Select a spot to load the active Not1MM draft and tune the selected xLog radio once."/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
   const showSetup = setupOnly || manager;
@@ -1556,7 +1599,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     </div>}
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
       catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name),
-        modes: item.modes, sentExchangeHint: item.sentExchangeHint, overlayChoices: item.overlayChoices }))} busy={busy || retiring}
+        modes: item.modes, supportedBands: item.supportedBands,
+        sentExchangeHint: item.sentExchangeHint, overlayChoices: item.overlayChoices }))} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }
