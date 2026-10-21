@@ -7,7 +7,93 @@ port or a public macOS release is finished.
 > **Status chronology:** the newest milestone is always documented first. Every
 > later section in this file is retained as historical evidence for its named
 > candidate only. In particular, earlier 46/94, 64/94 and HF-only limitations
-> do not describe the current source or the installed 1.2.100 milestone.
+> do not describe the current source or the installed 1.2.101 milestone.
+
+## Installed 1.2.101 migration and normal-log milestone — 21 October
+
+- Exact executable source: `cba6e3c7cae2c3dfa48d3410998821dc5d3312fb`
+  on `codex/not1mm-contesting`. The logical batch is `e2a801fa` (lossless
+  legacy import), `a1e6ebd6` (receipt-backed normal-log transfer), `9d53899d`
+  (native separate-window workflow), `9009608f` (candidate identity),
+  `6ae224fd` (portable decoding), `0e83f3d6` (post-import context refresh) and
+  `cba6e3c7` (restart/session-restore refresh). All are pushed to GitHub.
+- All 94 byte-pinned original Not1MM Python plugins remain registered and
+  executable through the Python/SQLite host. The original plugins remain the
+  contest authority; no Swift rule translation, JSON rule language or parallel
+  contest service was introduced.
+- Legacy Not1MM SQLite databases can now be previewed and imported into a new
+  xLog-owned contest session through the native file owner. The import preserves
+  raw plugin fields, contest metadata, source/QSO digests and provenance rather
+  than reconstructing exchanges through generic columns.
+- An active contest can be copied into the normal xLog logbook through the
+  existing logbook owner. Durable per-session/QSO receipts make retries and
+  restarts duplicate-safe, and conflicts remain non-overwriting and visible for
+  review. Import activation now refreshes the same transfer window, and selecting
+  the Active contest tab refreshes restored native context after application
+  restart.
+- The Contest menu exposes this work in the separate xLog-styled **Import or
+  Transfer Log** window. The normal logbook and contest database remain separate;
+  the transfer is an explicit copy with retained source identity, not a lossy ADIF
+  merge.
+
+The coherent milestone checks passed 280 Python tests, 3,826 frontend tests across
+272 files, 737 Rust unit tests plus 26 Rust integration tests, the complete Swift
+package suite, TypeScript compilation and the production frontend build. The
+focused final transfer-window regression passed 6/6. CI run `39581002087` passed
+for exact executable source `cba6e3c7`. These are supporting checks, not packaged
+desktop proof.
+
+The packaged application's native acceptance report is
+`/private/tmp/xlog-1.2.101-cba6e3c7-native-acceptance.json`; SHA-256 is
+`2a960a339784b1e0809f65750543ffdc8a12710935b23fadbcd45f435cb6475b`.
+It records status `passed`, embedded UI and worker present, station I/O disabled,
+and all 35 of 35 checks true.
+
+The exact-source candidate was incrementally packaged from the canonical checkout,
+signed and installed at `/Applications/OM0RX-xLog.app`. The previous application
+is retained recoverably at
+`/Applications/OM0RX-xLog-1.2.101-pre-transfer-context-fix-2026-10-21.app`, and the
+older 1.2.100 backup remains at
+`/Applications/OM0RX-xLog-1.2.100-backup-2026-10-21.app`. Deep strict signature
+verification passed for Developer ID team `4WCMQ4U946`; Gatekeeper reports
+`Unnotarized Developer ID`, so this is not notarized public-release acceptance.
+Candidate and installed hashes match:
+
+- Production executable: `cdf6333ac686f8b607349234e92315916bdf41af2d7d747e2e00b2d985819279`
+- Swift worker: `dbb55deeedc1b339efb36b63e5dfd348b0a78b59a134103908259502c17aff0f`
+- Not1MM runtime provenance: `97b57f266edc19693d40f26c762aec3cfe11fa5343382b05d7f57a53e955fb45`
+- Not1MM source manifest: `b7303ee4ea62f4e8e296ab6dea38ccf6086d0d84756874e0319b0638fd9f9aeb`
+
+Runtime provenance records Python 3.12.4, exact source `cba6e3c7` and no source
+changes. The acceptance-ledger commit containing this section follows that source
+as documentation only and is not represented as part of the executable.
+
+Actual production-bundle QA opened the installed 1.2.101 application and verified
+the Contest menu and the separate Import or Transfer Log window with standard
+macOS close, minimize and zoom controls. No production contest or normal-log data
+was changed during that inspection.
+
+The exact `cba6e3c7` nontransmitting packaged test application then exercised a
+fresh legacy CQ WW CW database with two contacts. Its preview showed the original
+contest, `cq_ww_cw` plugin, UTC range and received exchanges `04` and `25`; import
+created a two-contact active session. Transfer preview reported 2 new / 0 already
+transferred, commit added both contacts, and a second preview reported 0 new / 2
+already transferred with the commit control disabled. The detached normal Logbook
+showed `VE3XYZ` on 20 m at 14.026 MHz and `JA1XYZ` on 40 m at 7.026 MHz. After
+quitting and relaunching the same packaged application, selecting the Active
+contest tab restored the two-contact CQ WW CW session, and preview still reported
+0 new / 2 already transferred. This demonstrates installed-window import,
+transfer, duplicate prevention, normal-log readback and restart persistence while
+external services and station I/O were disabled.
+
+This remains a milestone, not completion of the full Not1MM port. Required EDI
+writers and native routing are implemented, but a successful installed Save-panel
+EDI export remains unaccepted. Production phone/audio/PTT operation, real digital
+modem/keying and destination routing, multi-operator shared serial/log/network
+behavior, physical RF/station behavior, sponsor-rule certification, notarization
+and public-release acceptance remain incomplete or unaccepted. All 94 plugins in
+the executable registry do not by themselves establish every contest-specific
+operator workflow.
 
 ## Installed 1.2.100 reviewed-workflow milestone — 21 October
 
