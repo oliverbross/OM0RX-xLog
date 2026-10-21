@@ -15,5 +15,6 @@ export async function loadContestWindowSurface(query: URLSearchParams): Promise<
   if(view==="qrz-details")return(await import("./DetachedContestQRZDetailsSurface")).DetachedContestQRZDetailsSurface;
   if(view==="group-chat")return(await import("./DetachedContestGroupChat")).DetachedContestGroupChat;
   if(view==="rotor")return(await import("../live/DetachedRotorSurface")).DetachedRotorSurface;
+  if(view==="station-control")return(await import("../live/DetachedStationControlSurface")).DetachedStationControlSurface;
   return(await import("./DetachedContestSurface")).DetachedContestSurface;
 }

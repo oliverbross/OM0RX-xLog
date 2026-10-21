@@ -5,6 +5,7 @@ import { loadContestWindowSurface } from "./loadContestWindowSurface";
 import { loadWindowSurface } from "../windowSurface";
 import { ContestLogTransferWindow } from "./ContestLogTransferWindow";
 import { DetachedRotorSurface } from "../live/DetachedRotorSurface";
+import { DetachedStationControlSurface } from "../live/DetachedStationControlSurface";
 
 it("routes QRZ Details to its dedicated contest renderer", async () => {
   await expect(loadContestWindowSurface(new URLSearchParams("view=qrz-details&scope=contesting")))
@@ -24,6 +25,13 @@ it("keeps ordinary projected contest panels on the generic renderer", async () =
 it("reuses the shared Rotor surface for the contest rotor window", async () => {
   await expect(loadContestWindowSurface(new URLSearchParams("view=rotor&scope=contesting")))
     .resolves.toBe(DetachedRotorSurface);
+});
+
+it("routes contest Remote VFO to the compact shared station renderer", async () => {
+  await expect(loadContestWindowSurface(new URLSearchParams("view=station-control&scope=contesting")))
+    .resolves.toBe(DetachedStationControlSurface);
+  await expect(loadWindowSurface("?view=station-control&scope=contesting"))
+    .resolves.toBe(DetachedStationControlSurface);
 });
 
 it("routes Import or Transfer Log to its dedicated renderer", async () => {
