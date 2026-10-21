@@ -547,6 +547,46 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 ('if _band in ["2300+"]:', 'if _band >= 2300.0:'),
                 ('if themode in ("LSB", "USB", "AM"):', 'if themode in ("LSB", "USB", "AM", "FM"):'),
             ])
+        if plugin_id == "cq_ww_vhf":
+            # DXLOG persists the host's canonical numeric band. Keep the source
+            # scoring while adapting that boundary.
+            replacements.extend([
+                ('if band in ("50.0", "6"):', 'if float(band) == 50.0:'),
+                ('if band in ("144.0", "2"):', 'if float(band) == 144.0:'),
+            ])
+        if plugin_id == "john_moyle_field_day":
+            # Duplicate checks must use the contact timestamp during correction
+            # and replay. A rowid tie-break makes same-second WPX allocation stable.
+            replacements.extend([
+                ('now = datetime.datetime.now(datetime.UTC)',
+                 'now = datetime.datetime.fromisoformat(self.dupe_timestamp).replace(tzinfo=datetime.UTC)'),
+                ('        TS < ?\n        and WPXPrefix = ?',
+                 '        (TS < ? OR (TS = ? AND rowid < (SELECT rowid FROM dxlog WHERE ID = ?)))\n'
+                 '        and WPXPrefix = ?'),
+                ('        (time_stamp, wpx, contest_nr, band, mode_group, block),',
+                 '        (time_stamp, time_stamp, self.contact.get("ID", ""), wpx, contest_nr, band, mode_group, block),'),
+            ])
+        if plugin_id == "nac_vhf":
+            # The original settings label is not a durable per-QSO band. Derive
+            # the GHz factor from the contact's canonical numeric band instead.
+            replacements.append((
+                'return GHZ_MULT.get(str(self.contest_settings.get("BandCategory", "")), 1)',
+                'band = float(self.contact.get("Band", 0) or 0)\n'
+                '    return 7 if band >= 47000 else 6 if band >= 24000 else 5 if band >= 10000 else '\
+                '4 if band >= 5650 else 3 if band >= 3300 else 2 if band >= 2300 else 1',
+            ))
+        if plugin_id == "ta_vhf_uhf_contest":
+            replacements.append((
+                '        "50": 1,\n        "144": 2,\n        "432": 3,',
+                '        "50.0": 1,\n        "144.0": 2,\n        "432.0": 3,',
+            ))
+        if plugin_id == "vhf_sprint":
+            replacements.extend([
+                ('if _band in ["50", "144"]:', 'if _band in [50.0, 144.0]:'),
+                ('if _band in ["222", "432"]:', 'if _band in [222.0, 432.0]:'),
+                ('if _band in ["902", "1296"]:', 'if _band in [902.0, 1296.0]:'),
+                ('if _band in ["2300+"]:', 'if float(_band) >= 2300.0:'),
+            ])
         if plugin_id == "arrl_field_day":
             replacements.append(
                 ('if themode in ("LSB", "USB", "FM"):', 'if themode in ("LSB", "USB", "FM", "AM"):')

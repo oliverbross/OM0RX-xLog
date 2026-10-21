@@ -17,12 +17,21 @@ export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Clust
 export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
 export type ContestAudioOutput = { deviceID: string; label: string };
+export type ContestSetupCatalogEntry = { id: string; name: string; modes?: string[]; supportedBands?: string[]; sentExchangeHint?: string; overlayChoices?: string[] };
 export type SetupView = "Station Settings" | "New Contest" | "Choose a Contest" | "Edit Current Contest" | "Configuration Settings" | "Digital Setup" | "Edit Macros" | "Edit Keys";
 const setupViews: SetupView[] = ["Station Settings", "New Contest", "Choose a Contest", "Edit Current Contest", "Configuration Settings", "Digital Setup", "Edit Macros", "Edit Keys"];
+const cqWWVHFModeCategories = ["CW", "SSB", "FM", "DIGITAL", "SSB+CW", "SSB+CW+DIGITAL"];
+const digitalModeAliases = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
+function setupModeChoices(plugin?: { id: string; modes?: string[] }): string[] {
+  if (plugin?.id === "cq_ww_vhf") return cqWWVHFModeCategories;
+  const modes = plugin?.modes ?? [];
+  return modes.length > 1 ? [...modes, ...(modes.includes("MIXED") || modes.every(mode => digitalModeAliases.has(mode)) ? [] : ["MIXED"])]
+    : modes.length ? modes : ["CW", "SSB", "RTTY", "MIXED", "DIGI"];
+}
 type Props = {
   value: ContestSetupDocument; sessions: ContestSetupSession[]; activeSessionID?: string;
   effectiveMacros?: ContestSetupMacro[];
-  catalog: Array<{ id: string; name: string; modes?: string[]; supportedBands?: string[]; sentExchangeHint?: string; overlayChoices?: string[] }>;
+  catalog: ContestSetupCatalogEntry[];
   busy?: boolean; error?: string; initialTab?: ContestSetupTab | "Station" | "Contest" | "N1MM+" | "Call History" | "Macros" | "Key bindings" | "Digital" | "Multi-Multi";
   onSave: (value: ContestSetupDocument) => Promise<void>;
   onCreate: (value: ContestSetupDocument) => Promise<void>;
@@ -157,10 +166,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   const selectedPlugin = catalog.find(plugin => plugin.id === draft.pluginID);
   const supportedBandChoices = selectedPlugin?.supportedBands?.length ? selectedPlugin.supportedBands
     : ["160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm"];
-  const pluginModes = selectedPlugin?.modes ?? [];
-  const modeChoices = pluginModes.length > 1
-    ? [...pluginModes, ...(pluginModes.includes("MIXED") ? [] : ["MIXED"])]
-    : pluginModes.length ? pluginModes : ["CW", "SSB", "RTTY", "MIXED", "DIGI"];
+  const modeChoices = setupModeChoices(selectedPlugin);
   const overlayChoices = selectedPlugin?.overlayChoices?.length ? selectedPlugin.overlayChoices : ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"];
   let content: ReactNode = null;
   if (view === "Station Settings") content = <div className="contest-station-form">
@@ -183,12 +189,19 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
   else if (view === "New Contest" || view === "Edit Current Contest") content = <div className="contest-parameters">
     <p>Select Contest Type for {view === "New Contest" ? "New" : "Current"} Log</p>
     <label><span>Log Type</span><select value={draft.pluginID} disabled={view === "Edit Current Contest"} onChange={event => { const plugin = catalog.find(item => item.id === event.target.value);
-      setDraft(current => ({ ...current, pluginID: event.target.value, settings: { ...current.settings, SentExchange: "",
-        ModeCategory: plugin?.modes?.length === 1 ? plugin.modes[0] : current.settings.ModeCategory,
-        OverlayCategory: plugin?.overlayChoices?.[0] ?? "N/A" } })); }}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
+      setDraft(current => {
+        const modes = setupModeChoices(plugin), currentMode = String(current.settings.ModeCategory ?? "");
+        const mode = modes.includes(currentMode) ? currentMode : modes.includes("MIXED") ? "MIXED" : modes[0] ?? currentMode;
+        const bands = plugin?.supportedBands ?? [], currentBand = String(current.settings.BandCategory ?? "ALL");
+        const band = currentBand === "ALL" || bands.some(item => item.toUpperCase() === currentBand) ? currentBand : "ALL";
+        return { ...current, pluginID: event.target.value,
+          settings: { ...current.settings, SentExchange: "", ModeCategory: mode, BandCategory: band,
+            OverlayCategory: plugin?.overlayChoices?.[0] ?? "N/A" },
+          preferences: bands.length ? { ...current.preferences, bands: [...bands] } : current.preferences };
+      }); }}>{catalog.map(plugin => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></label>
     {<label><span>Start UTC</span><input type="datetime-local" step="1" value={String(draft.settings.StartDate ?? "").replace(" ", "T")} onChange={event => update("settings", "StartDate", (event.target.value.length === 16 ? event.target.value + ":00" : event.target.value).replace("T", " "))}/></label>}
     <hr/>
-    {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "CHECKLOG"])}
+    {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "MULTI-TWO", "CHECKLOG"])}
     {choice("settings", "BandCategory", "Band", ["ALL", ...supportedBandChoices.map(band => band.toUpperCase())])}
     {choice("settings", "PowerCategory", "Power", ["HIGH", "LOW", "QRP"])}
     {field("settings", "ModeCategory", "Mode", "text", selectValues(modeChoices, draft.settings.ModeCategory), modeChoices.length === 1)}

@@ -1,12 +1,13 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
-import type { ContestSetupDocument } from "./ContestSetupPanel";
+import type { ContestSetupCatalogEntry, ContestSetupDocument } from "./ContestSetupPanel";
 
 export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "macros" | "keys" | "rover" | "about";
 export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number };
   running: boolean; status: string; receive_only: boolean };
 export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"]; action: "save" | "start" | "stop" };
 export type SetupDialogAuxiliary = { roverLocation: string; activeSessionID?: string; effectiveMacros?: ContestSetupDocument["macros"];
+  catalog?: ContestSetupCatalogEntry[];
   diagnostics: { engine: string; plugin: string; version: string; source: string; reference: string };
   digital?: ContestDigitalSnapshot };
 export type SetupDialogSnapshot = { epoch: string; context: string; revision: number; document: ContestSetupDocument; auxiliary: SetupDialogAuxiliary };

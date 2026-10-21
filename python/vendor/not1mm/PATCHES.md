@@ -27,6 +27,12 @@ source's additional generic `DIG`, `FSK`, and `PKT` strings remain outside this
 bounded mode contract. The pinned RDA `SPECIAL_DX` source list is empty, so no
 current-year C1/C2 ten-point calls are invented by the host.
 
+The 94-plugin source pin adds the unchanged `cq_ww_vhf.py`, `darc_vhf.py`,
+`john_moyle_field_day.py`, `labre_rs_digi.py`, `nac_vhf.py`,
+`ta_vhf_uhf_contest.py`, and `vhf_sprint.py` bytes from the same revision.
+Their manifest hashes and finite registry order complete the original 94-plugin
+source set; this source pin does not claim host acceptance.
+
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
 CQ WPX RTTY,

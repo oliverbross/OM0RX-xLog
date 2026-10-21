@@ -4,7 +4,7 @@ import BandMaps, { type BandMapSpot } from "../live/BandMaps";
 import ClusterPanel from "../live/ClusterPanel";
 import { useSharedCW } from "../live/useSharedCW";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
-import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupMacro, type SetupView } from "./ContestSetupPanel";
+import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupCatalogEntry, type ContestSetupDocument, type ContestSetupMacro, type SetupView } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
 import { ContestEntryFields, ContestLogTable, ContestScoreSummary, ContestTextField, type ContestLogRow } from "./ContestPresentation";
 import { nativeContestExportSave, type ContestExportSavePrepared } from "./contestExportSave";
@@ -422,6 +422,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
   const [digitalSnapshot, setDigitalSnapshot] = useState<ContestDigitalSnapshot | undefined>();
+  const setupCatalog = useMemo<ContestSetupCatalogEntry[]>(() => catalog.map(item => ({ id: String(item.id), name: String(item.name),
+    modes: item.modes, supportedBands: item.supportedBands,
+    sentExchangeHint: item.sentExchangeHint, overlayChoices: item.overlayChoices })), [catalog]);
   const setupBandChoices = useMemo(() => bandDefinitions.map(band => band.id), [bandDefinitions]);
   const setupSupportedBands = useMemo(() => {
     const bands = catalog.find(item => item.id === setup.pluginID)?.supportedBands;
@@ -939,7 +942,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     return () => { active = false; window.clearInterval(timer); };
   }, [setupOnly, serviceRequest]);
   useContestSetupDialogs({ enabled: setupOnly, context: `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`,
-    document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", activeSessionID: projection?.sessionID,
+    document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", activeSessionID: projection?.sessionID, catalog: setupCatalog,
       effectiveMacros, diagnostics: {
       engine: "Not1MM Python", plugin: projection?.pluginID ?? "No open contest",
       version: projection?.ruleIdentity?.version ?? "26.10.11", source: projection?.sourceRevision ?? "7c8b499225a73f7f8f792246881bd7aefc05452f",
@@ -1612,9 +1615,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)}/>
     </div>}
     {showSetup ? <ContestSetupPanel value={setup} effectiveMacros={effectiveMacros} sessions={sessions} activeSessionID={projection?.sessionID}
-      catalog={catalog.map(item => ({ id: String(item.id), name: String(item.name),
-        modes: item.modes, supportedBands: item.supportedBands,
-        sentExchangeHint: item.sentExchangeHint, overlayChoices: item.overlayChoices }))} busy={busy || retiring}
+      catalog={setupCatalog} busy={busy || retiring}
       onSave={saveSetup} onCreate={createSession} onOpen={session => openSession(session as Session)} onOpenSettings={openContestSetupService}
       onOpenDialog={setupOnly ? openContestSetupDialog : undefined} onViewChange={onSetupViewChange}
       onOpenCallHistory={() => { if (!surfaceContext) { setError("Open a contest before opening Call History."); return; }

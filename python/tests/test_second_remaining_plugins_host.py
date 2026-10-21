@@ -75,7 +75,7 @@ class SecondRemainingPluginTests(unittest.TestCase):
         return host.dispatch({"id": uid(), "method": method, "params": {"sessionID": session, **params}})
 
     def test_exact_sources_catalog_and_dynamic_contracts(self):
-        self.assertEqual(len(PLUGIN_REGISTRY), 87)
+        self.assertEqual(len(PLUGIN_REGISTRY), 94)
         for plugin_id, digest in HASHES.items():
             source = VENDOR / f"not1mm/plugins/{plugin_id}.py"
             self.assertEqual(sha256(source.read_bytes()).hexdigest(), digest)

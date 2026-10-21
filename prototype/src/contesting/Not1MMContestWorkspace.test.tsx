@@ -253,6 +253,50 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it("projects the final seven plugin contracts into the compact contest setup form", async () => {
+  const rttyModes = ["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D", "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"];
+  const vhfAndUp = ["6m", "4m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"];
+  const plugins = [
+    { id:"cq_ww_vhf", name:"CQ WW VHF", supportedBands:["6m", "2m"], modes:["CW", "SSB", "FM", ...rttyModes], sentExchangeHint:"4-character grid square", overlayChoices:["N/A"] },
+    { id:"darc_vhf", name:"DARC VHF", supportedBands:["2m", "70cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"], modes:["CW", "SSB", "FM"], sentExchangeHint:"# + 6char grid", overlayChoices:["N/A"] },
+    { id:"john_moyle_field_day", name:"John Moyle Field Day", supportedBands:["160m", "80m", "40m", "20m", "15m", "10m", ...vhfAndUp.slice(0, -1)], modes:["CW", "SSB", "FM", "AM"], sentExchangeHint:"#", overlayChoices:["N/A"] },
+    { id:"labre_rs_digi", name:"LABRE-RS Digi", supportedBands:["80m", "40m", "20m", "15m", "10m"], modes:rttyModes, sentExchangeHint:"4-character grid square", overlayChoices:["N/A"] },
+    { id:"nac_vhf", name:"NAC VHF", supportedBands:vhfAndUp.slice(0, -1), modes:["CW", "SSB"], sentExchangeHint:"# + 6char grid", overlayChoices:["N/A"] },
+    { id:"ta_vhf_uhf_contest", name:"TA VHF UHF", supportedBands:["6m", "2m", "70cm"], modes:["CW", "SSB"], sentExchangeHint:"# + 6char grid", overlayChoices:["N/A"] },
+    { id:"vhf_sprint", name:"VHF SPRINT", supportedBands:["6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"], modes:["CW", "SSB"], sentExchangeHint:"4-character grid square", overlayChoices:["N/A"] },
+  ];
+  const setup = newContestSetup("OM0RX");
+  setup.pluginID = plugins[0].id;
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(setup));
+  let created: Record<string, any> | undefined;
+  const request = vi.fn(async (method:string, params?:Record<string, any>) => {
+    if (method === "contest_create") created = params;
+    return { id:crypto.randomUUID(), ok:true,
+      result:method === "contest_catalog" ? {plugins} : method === "contest_sessions" ? {sessions:[]} : null };
+  });
+  render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"New Contest"}));
+  const logType = screen.getByLabelText("Log Type") as HTMLSelectElement;
+  expect(Array.from(logType.options).map(option => option.value)).toEqual(plugins.map(plugin => plugin.id));
+  for (const plugin of plugins) {
+    fireEvent.change(logType, {target:{value:plugin.id}});
+    expect(Array.from((screen.getByLabelText("Band") as HTMLSelectElement).options).map(option => option.value))
+      .toEqual(["ALL", ...plugin.supportedBands.map(band => band.toUpperCase())]);
+    expect(Array.from((screen.getByLabelText("Mode") as HTMLSelectElement).options).map(option => option.value))
+      .toEqual(plugin.id === "cq_ww_vhf" ? ["CW", "SSB", "FM", "DIGITAL", "SSB+CW", "SSB+CW+DIGITAL"]
+        : plugin.id === "labre_rs_digi" ? plugin.modes : [...plugin.modes, "MIXED"]);
+    expect(Array.from((screen.getByLabelText("Overlay") as HTMLSelectElement).options).map(option => option.value)).toEqual(["N/A"]);
+    expect(screen.getByLabelText(plugin.sentExchangeHint)).toBeTruthy();
+  }
+  expect(Array.from((screen.getByLabelText("Operator") as HTMLSelectElement).options).map(option => option.value))
+    .toContain("MULTI-TWO");
+  fireEvent.change(logType, {target:{value:"labre_rs_digi"}});
+  expect((screen.getByLabelText("Mode") as HTMLSelectElement).value).toBe("RTTY");
+  fireEvent.click(screen.getByRole("button", {name:"OK"}));
+  await waitFor(() => expect(created?.settings.ModeCategory).toBe("RTTY"));
+  expect(screen.getByRole("region", {name:"Contest Setup"}).getAttribute("data-setup-view")).toBe("New Contest");
+});
+
 it("projects WIA-like wide-band and aliased modes through the canonical detached surface contract", async () => {
   const bands = ["2190m", "630m", "560m", "160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m",
     "10m", "8m", "6m", "5m", "4m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm"];

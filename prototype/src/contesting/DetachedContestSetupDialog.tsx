@@ -211,7 +211,7 @@ export function DetachedContestSetupDialog() {
   const title = kind === "station" ? "Station Settings" : kind === "macros" ? "Edit Macros" : kind === "keys" ? "Edit Keys" : "Configuration Settings";
   return <main ref={shell} className="contest-workspace contest-setup-dialog" data-dialog-kind={kind} aria-label={title}>
     {error && <><p role="alert">{error}</p><button type="button" onClick={() => void closeContestSetupDialog()}>Cancel</button></>}
-    {snapshot ? <ContestSetupPanel value={snapshot.document} sessions={[]} catalog={[]} detachedDialog={kind}
+    {snapshot ? <ContestSetupPanel value={snapshot.document} sessions={[]} catalog={snapshot.auxiliary.catalog ?? []} detachedDialog={kind}
       activeSessionID={snapshot.auxiliary.activeSessionID} effectiveMacros={snapshot.auxiliary.effectiveMacros}
       initialTab={kind === "station" ? "Station" : kind === "macros" ? "Macros" : kind === "keys" ? "Key bindings" : "Lookup"} onCancel={closeContestSetupDialog}
       onContentChange={() => requestConfigurationFit.current()}

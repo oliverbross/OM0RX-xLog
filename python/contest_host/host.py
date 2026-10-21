@@ -44,12 +44,18 @@ VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad
                         "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                         *EUROPEAN_HF_PLUGINS, "ca_qso_party", "canada_day", "cqws",
                         "darc_schwaben", "winter_field_day", "rda_contest", "rdxc",
-                        "rsgb_iota", "ukeidx", "wia_remembrance"}
+                        "rsgb_iota", "ukeidx", "wia_remembrance", "cq_ww_vhf", "darc_vhf",
+                        "john_moyle_field_day", "nac_vhf", "ta_vhf_uhf_contest", "vhf_sprint"}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
                       "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS,
                       *CENTRAL_EUROPEAN_PLUGINS, "ari_40_80", "ca_qso_party", "canada_day",
                       "cqws", "darc_schwaben", "winter_field_day"}
-MIXED_MODE_PLUGINS |= {"rda_contest", "rdxc", "rsgb_iota", "ukeidx", "wia_remembrance"}
+MIXED_MODE_PLUGINS |= {"rda_contest", "rdxc", "rsgb_iota", "ukeidx", "wia_remembrance",
+                       "cq_ww_vhf", "darc_vhf", "john_moyle_field_day", "nac_vhf",
+                       "ta_vhf_uhf_contest", "vhf_sprint"}
+GRID4_EXCHANGE_PLUGINS = frozenset({"cq_ww_vhf", "labre_rs_digi", "vhf_sprint"})
+SERIAL_GRID6_PLUGINS = frozenset({"darc_vhf", "nac_vhf", "ta_vhf_uhf_contest"})
+FINAL_VHF_PLUGINS = GRID4_EXCHANGE_PLUGINS | SERIAL_GRID6_PLUGINS | frozenset({"john_moyle_field_day"})
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -176,6 +182,31 @@ def validate_ca_exchange(contest, exchange, setup=False):
 def valid_raem_coordinates(value):
     match = re.fullmatch(r"([0-9]{1,2})([NS])([0-9]{1,3})([WO])", str(value).upper())
     return bool(match and int(match[1]) <= 90 and int(match[3]) <= 180)
+
+
+def valid_grid4(value):
+    return re.fullmatch(r"[A-Ra-r]{2}[0-9]{2}", str(value)) is not None
+
+
+def normalize_cq_vhf_grid(value):
+    source = str(value).upper().strip()
+    candidate = source.split()[0] if source else ""
+    candidate = candidate[:4] if len(candidate) >= 4 else candidate
+    return candidate if len(candidate) == 4 and candidate[:2].isalpha() and candidate[2:].isdigit() else ""
+
+
+def valid_grid6(value):
+    return re.fullmatch(r"[A-Ra-r]{2}[0-9]{2}[A-Xa-x]{2}", str(value)) is not None
+
+
+def validate_final_vhf_setup(plugin_id, state, exchange):
+    if plugin_id == "cq_ww_vhf":
+        require(bool(normalize_cq_vhf_grid(exchange)), "Sent exchange must contain a 4-character grid square")
+    elif plugin_id in GRID4_EXCHANGE_PLUGINS:
+        require(valid_grid4(exchange), "Sent exchange must be a 4-character grid square")
+    if plugin_id in SERIAL_GRID6_PLUGINS:
+        require(valid_grid6(state["station"].get("GridSquare", "")),
+                "Station grid must be a 6-character Maidenhead locator")
 
 
 def validate_batch2_setup(plugin_id, state, exchange):
@@ -365,6 +396,7 @@ class Desk:
                      "esm_send_corrected_call": esm["sendCorrectedCall"]}
         self.actions, self.messages, self.highlights = [], [], set()
         self.prev_call = ""
+        self.RoverLocation = str(state.get("roverLocation", "")).upper()
         # Original plugins may notify Not1MM's optional log window after a
         # multiplier rebuild. xLog projects the rebuilt database directly.
         self.log_window = None
@@ -504,6 +536,7 @@ class Desk:
         from not1mm.lib.ham_utility import calculate_wpx_prefix
         rover_location = (base.get("RoverLocation", "") if base is not None else
                           self.state.get("roverLocation") or self.state["station"].get("RoverQTH", ""))
+        self.RoverLocation = str(rover_location).upper()
         self.contact.update({"ID": qso_id, "Call": call, "TS": timestamp, "Freq": frequency / 1000,
             "Band": band, "Operator": operator or self.state["operator"],
             "RoverLocation": str(rover_location).upper(),
@@ -526,6 +559,10 @@ class Desk:
                 # Keep the category with the row so setup edits cannot rewrite
                 # the historical power multiplier during a score rebuild.
                 self.contact["Power"] = str(self.state["settings"].get("PowerCategory", "")).upper()
+            if self.state["pluginID"] in SERIAL_GRID6_PLUGINS:
+                # Distance scoring belongs to the station locator in force when
+                # the QSO was logged, not a later setup edit.
+                self.contact["MiscText"] = str(self.state["station"].get("GridSquare", "")).upper()
         self.contact_is_dupe = int(self.is_dupe(call, band, timestamp, self.contact["Mode"]))
         self.contest.set_contact_vars(self)
         if self.state["pluginID"] in ARRL_DX_PLUGINS:
@@ -600,7 +637,7 @@ class Desk:
             self.history_info.setText("")
         # Rebuild Not1MM's non-transmitting ESM presentation on every read so
         # highlights survive reopen/refresh without emitting an output intent.
-        if self.use_esm:
+        if self.use_esm and hasattr(self.contest, "process_esm"):
             self.contest.process_esm(self, getattr(self, self.current_widget), False)
         call = self.parsed_call()
         fields = []
@@ -662,6 +699,12 @@ class Desk:
                 "columns": self.contest.columns, "score": self.score()}
 
     def score(self):
+        if self.state["pluginID"] == "nac_vhf":
+            points = self.database.fetch_points().get("Points") or 0
+            squares = self.contest.show_mults(self)
+            return {"qsos": self.contest.show_qso(self), "points": points,
+                    "countries": 0, "zones": 0, "gridSquares": squares,
+                    "multipliers": squares, "total": self.contest.calc_score(self) or 0}
         if self.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
             points = self.database.fetch_points().get("Points") or 0
             return {"qsos": self.contest.show_qso(self), "points": points,
@@ -1133,6 +1176,9 @@ class Host:
                 operator = text(setup["operator"], 32)
                 require(bool(operator.strip()), "Operator is required")
                 zone = str(setup["settings"].get("SentExchange", ""))
+                if state["pluginID"] == "cq_ww_vhf":
+                    zone = normalize_cq_vhf_grid(zone)
+                    setup["settings"]["SentExchange"] = zone
                 if state["pluginID"] == "wia_remembrance":
                     setup["settings"].setdefault(
                         "ContestUTCOffsetMinutes", state["settings"].get("ContestUTCOffsetMinutes", 0))
@@ -1210,9 +1256,13 @@ class Host:
                 validation_state = {"pluginID": state["pluginID"], "station": setup["station"],
                                     "reference": state["reference"]}
                 validate_batch2_setup(state["pluginID"], validation_state, zone)
+                validate_final_vhf_setup(state["pluginID"], validation_state, zone)
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
-                allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
+                if state["pluginID"] == "cq_ww_vhf":
+                    allowed_categories = {*modes, "MIXED", "DIGITAL", "SSB+CW", "SSB+CW+DIGITAL"}
+                else:
+                    allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
                 require(setup["settings"].get("ModeCategory", mode) in allowed_categories,
                         f"Selected plugin requires {mode} mode" if len(modes) == 1 else
                         f"Selected plugin requires a supported {mode} submode")
@@ -1220,9 +1270,14 @@ class Host:
                 setup["settings"].setdefault("SentExchange", "")
                 setup["settings"].setdefault("ModeCategory", mode)
                 setup["settings"].setdefault("OverlayCategory", "N/A")
-                state["operatingMode"] = operating_mode(state)
-                if setup["settings"]["ModeCategory"] != "MIXED":
-                    state["operatingMode"] = setup["settings"]["ModeCategory"]
+                category = setup["settings"]["ModeCategory"]
+                current_mode = operating_mode(state)
+                if category == "DIGITAL":
+                    state["operatingMode"] = current_mode if current_mode not in {"CW", "SSB", "FM"} else "RTTY"
+                elif category in modes:
+                    state["operatingMode"] = category
+                else:
+                    state["operatingMode"] = current_mode if current_mode in modes else mode
                 state.update({"setup": setup, "name": setup["name"], "operator": operator,
                               "station": deepcopy(setup["station"]), "settings": deepcopy(setup["settings"])})
                 if state["pluginID"] == "ea_rtty" and zone != "#":
@@ -1237,6 +1292,8 @@ class Host:
                     state["draft"]["fields"]["other_1"] = zone.upper()
                 if state["pluginID"] in {"rsgb_iota", "ukeidx"} and not requires_serial(state):
                     state["draft"]["fields"]["other_1"] = zone.upper()
+                if state["pluginID"] in GRID4_EXCHANGE_PLUGINS:
+                    state["draft"]["fields"]["other_1"] = zone.upper()
                 self.reserve_serial(store, state)
                 # Recreate the adapter with effective settings/macros before returning
                 # the projection, and rescore if the station country changed.
@@ -1248,7 +1305,8 @@ class Host:
                         or state["pluginID"] == "arrl_10m"
                         or state["pluginID"] in EA_MAJESTAD_PLUGINS
                         or state["pluginID"] in REF_PLUGINS
-                        or state["pluginID"] in EUROPEAN_DX_PLUGINS):
+                        or state["pluginID"] in EUROPEAN_DX_PLUGINS
+                        or state["pluginID"] in GRID4_EXCHANGE_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1257,7 +1315,13 @@ class Host:
             elif method == "rover_location":
                 location = text(params.get("location", ""), 10).strip().upper()
                 require(bool(location), "Enter the current rover location")
+                if state["pluginID"] == "cq_ww_vhf":
+                    location = normalize_cq_vhf_grid(location)
+                    require(bool(location), "CQ WW VHF rover location must contain a 4-character grid square")
                 state["roverLocation"] = location
+                desk.RoverLocation = location
+                if state["pluginID"] == "cq_ww_vhf":
+                    desk.other_1.setText(location)
             elif method == "recalculate":
                 # Manual recalculation is a durable, replay-safe operation over
                 # the complete Python-owned log. Keep the operator's in-progress
@@ -1451,6 +1515,8 @@ class Host:
             require(isinstance(value, (str, int)) and not isinstance(value, bool), "Station/settings values must be text or integer")
             text(str(value), 512)
         settings.setdefault("SentExchange", "")
+        if plugin_id == "cq_ww_vhf":
+            settings["SentExchange"] = normalize_cq_vhf_grid(settings["SentExchange"])
         if plugin_id == "wia_remembrance":
             offset = settings["ContestUTCOffsetMinutes"]
             require(type(offset) is int and -720 <= offset <= 840,
@@ -1542,15 +1608,23 @@ class Host:
                     "Winter Field Day sent exchange must be CLASS SECTION")
         setup_state = {"pluginID": plugin_id, "station": station, "reference": {"countries": countries}}
         validate_batch2_setup(plugin_id, setup_state, settings["SentExchange"])
+        validate_final_vhf_setup(plugin_id, setup_state, settings["SentExchange"])
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
-        allowed_categories = {*modes, "MIXED"} if plugin_id in MIXED_MODE_PLUGINS else set(modes)
+        if plugin_id == "cq_ww_vhf":
+            allowed_categories = {*modes, "MIXED", "DIGITAL", "SSB+CW", "SSB+CW+DIGITAL"}
+        else:
+            allowed_categories = {*modes, "MIXED"} if plugin_id in MIXED_MODE_PLUGINS else set(modes)
         require(settings["ModeCategory"] in allowed_categories,
                 f"Selected plugin requires {mode} mode" if len(modes) == 1 else
                 f"Selected plugin requires a supported {mode} submode")
         settings.setdefault("OverlayCategory", "N/A")
-        live_mode = params.get("mode", mode) if settings["ModeCategory"] == "MIXED" else settings["ModeCategory"]
+        mixed_category = settings["ModeCategory"] in {"MIXED", "SSB+CW", "SSB+CW+DIGITAL"}
+        if settings["ModeCategory"] == "DIGITAL":
+            live_mode = params.get("mode", "RTTY")
+        else:
+            live_mode = params.get("mode", mode) if mixed_category else settings["ModeCategory"]
         require(live_mode in modes, f"Selected plugin requires a supported {mode} submode")
         report = default_report(live_mode)
         received_report = "" if plugin_id == "ca_qso_party" else report
@@ -1580,13 +1654,17 @@ class Host:
                        and "#" not in str(settings["SentExchange"])
                        or plugin_id in {"rsgb_iota", "ukeidx"}
                        and "#" not in str(settings["SentExchange"])
-                       or plugin_id == "darc_schwaben" and settings["SentExchange"] != "#" else "", "")))}}
+                       or plugin_id == "darc_schwaben" and settings["SentExchange"] != "#"
+                       or plugin_id in GRID4_EXCHANGE_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if not requires_serial(state):
             return
         scope = "contest"
-        if state["pluginID"] == "trans_tasman" and state["settings"].get("OperatorCategory", "") != "SINGLE-OP":
+        if ((state["pluginID"] == "trans_tasman"
+             and state["settings"].get("OperatorCategory", "") != "SINGLE-OP")
+                or (state["pluginID"] == "john_moyle_field_day"
+                    and state["settings"].get("OperatorCategory", "") in {"MULTI-OP", "MULTI-TWO"})):
             scope = f'band:{Desk.band(state["draft"]["frequencyHz"])}'
         reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=? AND scope=?",
                                      (state["draft"]["id"], scope))
@@ -1957,6 +2035,23 @@ class Host:
             require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0
                     and fields["other_2"].isdigit() and int(fields["other_2"]) > 0,
                     "WIA Remembrance licensed years must be positive integers")
+        elif desk.state["pluginID"] == "cq_ww_vhf":
+            require(bool(normalize_cq_vhf_grid(fields["other_1"]))
+                    and bool(normalize_cq_vhf_grid(fields["other_2"])),
+                    "Sent and received exchanges must contain 4-character grid squares")
+        elif desk.state["pluginID"] in GRID4_EXCHANGE_PLUGINS:
+            require(valid_grid4(fields["other_1"]) and valid_grid4(fields["other_2"]),
+                    "Sent and received exchanges must be 4-character grid squares")
+        elif desk.state["pluginID"] in SERIAL_GRID6_PLUGINS:
+            require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0,
+                    "Sent serial must be a positive integer")
+            received_serial, received_grid = desk.contest.parse_exchange(desk)
+            require(str(received_serial).isdigit() and int(received_serial) > 0 and valid_grid6(received_grid),
+                    "Received exchange must contain a positive serial and 6-character grid")
+        elif desk.state["pluginID"] == "john_moyle_field_day":
+            require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0
+                    and fields["other_2"].isdigit() and int(fields["other_2"]) > 0,
+                    "John Moyle sent and received serials must be positive integers")
         elif desk.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
             pass
         elif desk.state["pluginID"] in QSO_PARTY_PLUGINS:
@@ -2038,7 +2133,7 @@ class Host:
                                         *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                                          *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS,
                                          "ca_qso_party", "canada_day", "cqws", "winter_field_day",
-                                         "agcw_qrp", "rda_contest", "rdxc"}:
+                                          "agcw_qrp", "rda_contest", "rdxc", *FINAL_VHF_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -2176,6 +2271,11 @@ class Host:
                                              "stew_perry_topband", "ukeidx", "wia_remembrance"}:
                 # Original setters own these plugins' scalar/composite sent fields.
                 pass
+            elif desk.state["pluginID"] in FINAL_VHF_PLUGINS:
+                # These original setters own grid and/or serial fields. The edit
+                # path began with this row's raw fields, so unrelated corrections
+                # retain the exchange exactly as logged.
+                pass
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
                   or desk.state["pluginID"] in ESTONIAN_PLUGINS
@@ -2210,10 +2310,13 @@ class Host:
         replay_callsign = desk.callsign.text()
         configured_station_grid = desk.station.get("GridSquare", "")
         configured_power_category = desk.state["settings"].get("PowerCategory", "")
+        configured_rover_location = desk.RoverLocation
         try:
             desk.database.conn.execute("DELETE FROM DXLOG")
             for row in rows:
                 desk.contact = row
+                if desk.state["pluginID"] == "cq_ww_vhf":
+                    desk.RoverLocation = str(row.get("RoverLocation", ""))
                 desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
                 if desk.contact_is_dupe:
                     duplicate_ids.add(row["ID"])
@@ -2247,6 +2350,8 @@ class Host:
                     desk.state["settings"]["SentExchange"] = historical_sent
                     desk.contest_settings["SentExchange"] = historical_sent
                     desk.other_2.setText(str(row.get("NR", "")))
+                if desk.state["pluginID"] in SERIAL_GRID6_PLUGINS:
+                    desk.station["GridSquare"] = str(row.get("MiscText", configured_station_grid))
                 row["Points"] = desk.contest.points(desk)
                 points[row["ID"]] = row["Points"]
                 desk.database.log_contact(row)
@@ -2256,6 +2361,7 @@ class Host:
             desk.station["GridSquare"] = configured_station_grid
             desk.state["settings"]["PowerCategory"] = configured_power_category
             desk.contest_settings["PowerCategory"] = configured_power_category
+            desk.RoverLocation = configured_rover_location
             desk.other_2.setText(replay_received_exchange)
             desk.other_1.setText(replay_other_1)
             desk.callsign.setText(replay_callsign)

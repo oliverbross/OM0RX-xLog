@@ -38,6 +38,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const snapshot = () => ({ epoch: "owner", context: "workspace/session", revision: 2, document: newContestSetup("OM0RX"),
   auxiliary:{roverLocation:"",activeSessionID:"session",effectiveMacros:[{mode:"R" as const,key:"F1",label:"CQ",template:"CQ {MYCALL}"}],
+    catalog:[{id:"cq_ww_cw",name:"CQ WW CW",modes:["CW"],supportedBands:["160m","80m","40m","20m","15m","10m"]}],
     diagnostics:{engine:"Not1MM Python",plugin:"cq_ww_cw",version:"26.10.11",source:"source",reference:"reference"}} });
 function open(kind: "station" | "configuration" | "macros" | "keys") {
   window.history.replaceState({}, "", `?view=contest-setup-${kind}`);
@@ -86,6 +87,18 @@ it("keeps the original Configuration tab order and fields", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   expect(screen.getByLabelText("160m")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Edit Keys" })).toBeNull();
+});
+it("uses the active plugin's exact bands in the detached Configuration window", async () => {
+  window.history.replaceState({}, "", "?view=contest-setup-configuration");
+  const value = snapshot();
+  value.document.pluginID = "darc_vhf";
+  value.auxiliary.catalog = [{id:"darc_vhf",name:"DARC VHF",modes:["CW","SSB","FM"],
+    supportedBands:["2m","70cm","23cm","13cm","9cm","6cm","3cm"]}];
+  native.invoke.mockImplementation(async (_command, { method }) => method === "snapshot" ? value : null);
+  render(<DetachedContestSetupDialog/>);
+  fireEvent.click(await screen.findByRole("tab", { name: "Bands" }));
+  for (const band of ["2m","70cm","23cm","13cm","9cm","6cm","3cm"]) expect(screen.getByLabelText(band)).toBeTruthy();
+  expect(screen.queryByLabelText("160m")).toBeNull();
 });
 it("edits effective Run and S&P macros through one revision-fenced owner save", async () => {
   open("macros");

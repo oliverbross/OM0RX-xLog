@@ -11,6 +11,10 @@ FULL_PINNED_BANDS = (
     "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm",
     "1mm", "submm",
 )
+VHF_AND_UP_BANDS = (
+    "6m", "4m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm",
+    "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm",
+)
 
 
 @dataclass(frozen=True)
@@ -209,6 +213,33 @@ PLUGIN_REGISTRY = MappingProxyType({
                                      "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
                               modes=("CW", "SSB", "FM", *RTTY_MODES), sent_exchange_hint="Years licensed",
                               overlay_choices=("N/A",)),
+    "cq_ww_vhf": Plugin("CQ WW VHF", bands=("6m", "2m"),
+                        modes=("CW", "SSB", "FM", *RTTY_MODES),
+                        sent_exchange_hint="4-character grid square", overlay_choices=("N/A",)),
+    "darc_vhf": Plugin("DARC VHF", serial=True,
+                       bands=("2m", "70cm", "23cm", "13cm", "9cm", "6cm", "3cm", "1.25cm",
+                              "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
+                       modes=("CW", "SSB", "FM"), sent_exchange_hint="# + 6char grid",
+                       overlay_choices=("N/A",)),
+    "john_moyle_field_day": Plugin(
+        "John Moyle Field Day", serial=True,
+        bands=("160m", "80m", "40m", "20m", "15m", "10m", *VHF_AND_UP_BANDS[:-1]),
+        modes=("CW", "SSB", "FM", "AM"), sent_exchange_hint="#", overlay_choices=("N/A",),
+    ),
+    "labre_rs_digi": Plugin("LABRE-RS Digi", bands=("80m", "40m", "20m", "15m", "10m"),
+                            modes=RTTY_MODES, sent_exchange_hint="4-character grid square",
+                            overlay_choices=("N/A",)),
+    "nac_vhf": Plugin("NAC VHF", serial=True, bands=VHF_AND_UP_BANDS[:-1],
+                      modes=("CW", "SSB"), sent_exchange_hint="# + 6char grid",
+                      overlay_choices=("N/A",)),
+    "ta_vhf_uhf_contest": Plugin("TA VHF UHF", serial=True, bands=("6m", "2m", "70cm"),
+                                 modes=("CW", "SSB"), sent_exchange_hint="# + 6char grid",
+                                 overlay_choices=("N/A",), export_formats=("adif",)),
+    "vhf_sprint": Plugin("VHF SPRINT",
+                         bands=("6m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm",
+                                "6cm", "3cm", "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
+                         modes=("CW", "SSB"), sent_exchange_hint="4-character grid square",
+                         overlay_choices=("N/A",)),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -220,7 +251,7 @@ TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_p
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test"})
 NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
 RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty", "arrl_rtty_ru",
-                          "ea_rtty", "wia_remembrance"})
+                          "ea_rtty", "wia_remembrance", "cq_ww_vhf", "labre_rs_digi"})
 CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty",
                                        "aadx_cw", "aadx_ssb", "euhfc", "iaru_hf", "eudx", "lz-dx", "cqws"})
 DISPLAY_SENTNR_PLUGINS = frozenset({"euhfc", "iaru_hf", "eudx", "lz-dx", "arrl_rtty_ru",
@@ -238,7 +269,8 @@ CENTRAL_EUROPEAN_PLUGINS = frozenset({"ari_dx", "darc_xmas", "eudx", "lz-dx", "w
 EUROPEAN_HF_PLUGINS = frozenset({"ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"})
 TYPE4_UTILITY_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn"})
 NO_MULTIPLIER_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "darc_schwaben",
-                                   "raem", "stew_perry_topband", "wia_remembrance"})
+                                   "raem", "stew_perry_topband", "wia_remembrance", "darc_vhf",
+                                   "ta_vhf_uhf_contest"})
 QSO_PARTY_PLUGINS = frozenset({"qso_party_rst", "qso_party_sn"})
 SENT_FIELD_SERIAL_PLUGINS = frozenset({"qso_party_sn", "ca_qso_party", "raem"})
 SSA_MT_PLUGINS = frozenset({"ssa_mt_cw", "ssa_mt_ssb"})
@@ -253,3 +285,5 @@ SIMPLE_MULTIPLIER_PLUGINS |= EUROPEAN_HF_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= QSO_PARTY_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= frozenset({"ca_qso_party", "canada_day", "cqws", "winter_field_day"})
 SIMPLE_MULTIPLIER_PLUGINS |= frozenset({"agcw_qrp", "rda_contest", "rdxc", "rsgb_iota", "ukeidx"})
+SIMPLE_MULTIPLIER_PLUGINS |= frozenset({"cq_ww_vhf", "john_moyle_field_day", "labre_rs_digi",
+                                        "vhf_sprint"})
