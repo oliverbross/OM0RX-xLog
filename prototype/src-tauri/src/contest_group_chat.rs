@@ -1,7 +1,8 @@
 //! One bounded multicast owner for the active Not1MM contest Group Chat.
 //! This is operator text only: it never dispatches worker, CAT, PTT, CW or RF actions.
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use serde_json::Value;
+use std::collections::{BTreeSet, VecDeque};
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -14,6 +15,7 @@ const MAX_DATAGRAM_BYTES: usize = 2_048;
 const MAX_MESSAGE_BYTES: usize = 512;
 const MAX_SENDER_BYTES: usize = 32;
 const MAX_HISTORY: usize = 200;
+const MAX_RECEIPTS: usize = 500;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -23,6 +25,7 @@ pub struct Configuration {
     pub multicast_port: u16,
     pub interface: String,
     pub operator: String,
+    pub station_name: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -30,6 +33,15 @@ struct WireChat {
     cmd: String,
     sender: String,
     message: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WireResponse {
+    cmd: String,
+    recipient: String,
+    subject: String,
+    unique_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -51,6 +63,18 @@ pub struct Snapshot {
     pub multicast_group: String,
     pub multicast_port: u16,
     pub messages: Vec<Message>,
+    pub contact_receipts: Vec<String>,
+    pub capabilities: Capabilities,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Capabilities {
+    pub chat: bool,
+    pub contact_publication: bool,
+    pub shared_serial: bool,
+    pub duplicate_inquiry: bool,
+    pub authority_limitation: &'static str,
 }
 
 #[derive(Debug)]
@@ -59,6 +83,8 @@ struct SharedState {
     error: Option<String>,
     next_sequence: u64,
     messages: VecDeque<Message>,
+    outstanding_contacts: BTreeSet<String>,
+    contact_receipts: VecDeque<String>,
 }
 
 impl Default for SharedState {
@@ -68,6 +94,8 @@ impl Default for SharedState {
             error: None,
             next_sequence: 1,
             messages: VecDeque::new(),
+            outstanding_contacts: BTreeSet::new(),
+            contact_receipts: VecDeque::new(),
         }
     }
 }
@@ -205,6 +233,54 @@ impl GroupChat {
         Ok(())
     }
 
+    pub fn publish_contact(&self, context: &str, contact: Value) -> Result<(), String> {
+        let slot = self
+            .0
+            .lock()
+            .map_err(|_| "Group network owner is unavailable.")?;
+        let owner = slot
+            .as_ref()
+            .ok_or("Group network has not been configured for the active contest.")?;
+        if owner.context != context {
+            return Err("That contact publication belongs to an expired contest context.".into());
+        }
+        if !owner.configuration.enabled {
+            return Err("Group networking is disabled in Contest Setup.".into());
+        }
+        let worker = owner.worker.as_ref().ok_or("Group networking is not connected.")?;
+        let (qso_id, packet) = post_packet(&owner.configuration, contact)?;
+        {
+            let mut state = owner
+                .state
+                .lock()
+                .map_err(|_| "Group network state is unavailable.")?;
+            state.outstanding_contacts.insert(qso_id.clone());
+        }
+        if let Err(error) = worker.socket.send_to(
+            &packet,
+            SocketAddrV4::new(
+                owner.configuration.multicast_group.parse().map_err(|_| "Group multicast address is invalid.")?,
+                owner.configuration.multicast_port,
+            ),
+        ) {
+            if let Ok(mut state) = owner.state.lock() {
+                state.outstanding_contacts.remove(&qso_id);
+            }
+            return Err(format!("Contest contact publication failed: {error}"));
+        }
+        Ok(())
+    }
+
+    pub fn take_contact_receipts(&self, context: &str) -> Result<Vec<String>, String> {
+        let slot = self.0.lock().map_err(|_| "Group network owner is unavailable.")?;
+        let owner = slot.as_ref().ok_or("Group network has not been configured for the active contest.")?;
+        if owner.context != context {
+            return Err("Those contact receipts belong to an expired contest context.".into());
+        }
+        let mut state = owner.state.lock().map_err(|_| "Group network state is unavailable.")?;
+        Ok(state.contact_receipts.drain(..).collect())
+    }
+
     pub fn shutdown(&self) {
         if let Ok(mut owner) = self.0.lock() {
             *owner = None;
@@ -230,6 +306,10 @@ fn validate_configuration(value: &Configuration) -> Result<(), String> {
     validate_text(&value.operator, MAX_SENDER_BYTES, "Operator")?;
     if value.enabled && value.operator.trim().is_empty() {
         return Err("Set the contest operator before enabling Group Chat.".into());
+    }
+    validate_text(&value.station_name, MAX_SENDER_BYTES, "Station name")?;
+    if value.enabled && value.station_name.trim().is_empty() {
+        return Err("Set a unique station name before enabling Group networking.".into());
     }
     let group: Ipv4Addr = value
         .multicast_group
@@ -290,6 +370,7 @@ fn start_worker(
     let stop = Arc::new(AtomicBool::new(false));
     let stopped = stop.clone();
     let shared = state.clone();
+    let receiver_configuration = configuration.clone();
     let thread = std::thread::Builder::new()
         .name("xlog-contest-group-chat".into())
         .spawn(move || {
@@ -297,9 +378,7 @@ fn start_worker(
             while !stopped.load(Ordering::Acquire) {
                 match receive.recv_from(&mut datagram) {
                     Ok((length, _)) if length <= MAX_DATAGRAM_BYTES => {
-                        if let Ok(message) = parse_wire(&datagram[..length]) {
-                            push_message(&shared, message);
-                        }
+                        process_wire(&datagram[..length], &receiver_configuration, &shared);
                     }
                     Ok(_) => {}
                     Err(error)
@@ -338,6 +417,43 @@ fn parse_wire(bytes: &[u8]) -> Result<WireChat, String> {
     validate_text(&message.sender, MAX_SENDER_BYTES, "Chat sender")?;
     validate_text(&message.message, MAX_MESSAGE_BYTES, "Chat message")?;
     Ok(message)
+}
+
+fn process_wire(bytes: &[u8], configuration: &Configuration, state: &Arc<Mutex<SharedState>>) {
+    if bytes.len() > MAX_DATAGRAM_BYTES || !bytes.is_ascii() {
+        return;
+    }
+    let Ok(value) = serde_json::from_slice::<Value>(bytes) else { return; };
+    match value.get("cmd").and_then(Value::as_str) {
+        Some("CHAT") => {
+            if let Ok(message) = serde_json::from_value::<WireChat>(value) {
+                if validate_text(&message.sender, MAX_SENDER_BYTES, "Chat sender").is_ok()
+                    && validate_text(&message.message, MAX_MESSAGE_BYTES, "Chat message").is_ok()
+                {
+                    push_message(state, message);
+                }
+            }
+        }
+        Some("RESPONSE") => {
+            let Ok(response) = serde_json::from_value::<WireResponse>(value) else { return; };
+            if response.cmd != "RESPONSE"
+                || response.subject != "POST"
+                || response.recipient != configuration.station_name
+            {
+                return;
+            }
+            let Ok(mut current) = state.lock() else { return; };
+            if current.outstanding_contacts.remove(&response.unique_id)
+                && !current.contact_receipts.contains(&response.unique_id)
+            {
+                current.contact_receipts.push_back(response.unique_id);
+                while current.contact_receipts.len() > MAX_RECEIPTS {
+                    current.contact_receipts.pop_front();
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 fn push_message(state: &Arc<Mutex<SharedState>>, wire: WireChat) {
@@ -379,6 +495,14 @@ fn snapshot(owner: &Owner) -> Result<Snapshot, String> {
         multicast_group: owner.configuration.multicast_group.clone(),
         multicast_port: owner.configuration.multicast_port,
         messages: state.messages.iter().cloned().collect(),
+        contact_receipts: state.contact_receipts.iter().cloned().collect(),
+        capabilities: Capabilities {
+            chat: true,
+            contact_publication: true,
+            shared_serial: false,
+            duplicate_inquiry: false,
+            authority_limitation: "Pinned Renfield GET_SN and ISDUPE replies have no request identity; loss, retry or reordering cannot be correlated safely.",
+        },
     })
 }
 
@@ -413,6 +537,35 @@ fn wire_packet(sender: &str, message: &str) -> Vec<u8> {
     .into_bytes()
 }
 
+fn post_packet(configuration: &Configuration, contact: Value) -> Result<(String, Vec<u8>), String> {
+    let mut object = contact
+        .as_object()
+        .cloned()
+        .ok_or("Contest contact publication is invalid.")?;
+    let qso_id = object
+        .get("ID")
+        .and_then(Value::as_str)
+        .filter(|value| uuid::Uuid::parse_str(value).is_ok())
+        .ok_or("Contest contact publication has no valid QSO identity.")?
+        .to_owned();
+    let contest = object
+        .get("ContestName")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty() && value.len() <= 128)
+        .ok_or("Contest contact publication has no contest identity.")?;
+    if contest.chars().any(|character| character == '\0') {
+        return Err("Contest contact publication has an invalid contest identity.".into());
+    }
+    object.insert("cmd".into(), Value::String("POST".into()));
+    object.insert("Operator".into(), Value::String(configuration.operator.clone()));
+    object.insert("NetBiosName".into(), Value::String(configuration.station_name.clone()));
+    let packet = serde_json::to_vec(&object).map_err(|_| "Contest contact publication could not be encoded.")?;
+    if packet.len() > MAX_DATAGRAM_BYTES {
+        return Err("Contest contact publication exceeds the pinned Renfield datagram limit.".into());
+    }
+    Ok((qso_id, packet))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -423,6 +576,7 @@ mod tests {
             multicast_port: 2239,
             interface: "0.0.0.0".into(),
             operator: "OM0RX".into(),
+            station_name: "xlog-a".into(),
         }
     }
 
@@ -512,5 +666,76 @@ mod tests {
         assert!(parse_wire(br#"{"cmd":"ISDUPE","Call":"K1ABC","Band":14,"Mode":"CW"}"#).is_err());
         assert!(parse_wire(br#"{"cmd":"POST","ID":"one"}"#).is_err());
         assert!(parse_wire(br#"{"cmd":"CHAT","sender":"OM0RX","message":"Run is clear"}"#).is_ok());
+    }
+
+    #[test]
+    fn pinned_serial_and_dupe_queries_are_explicitly_fail_closed() {
+        let chat = GroupChat::default();
+        let snapshot = chat
+            .configure("context/session/generation".into(), configuration(false))
+            .unwrap();
+        assert!(!snapshot.capabilities.shared_serial);
+        assert!(!snapshot.capabilities.duplicate_inquiry);
+        assert!(snapshot.capabilities.authority_limitation.contains("no request identity"));
+    }
+
+    #[test]
+    fn post_publication_uses_stable_uuid_and_pinned_recipient_fields() {
+        let qso_id = "11111111-1111-4111-8111-111111111111";
+        let (identity, packet) = post_packet(
+            &configuration(true),
+            serde_json::json!({"ID":qso_id,"ContestName":"CQ-WW-CW","Call":"K1ABC","Dirty":1}),
+        )
+        .unwrap();
+        assert_eq!(identity, qso_id);
+        let value: Value = serde_json::from_slice(&packet).unwrap();
+        assert_eq!(value["cmd"], "POST");
+        assert_eq!(value["Operator"], "OM0RX");
+        assert_eq!(value["NetBiosName"], "xlog-a");
+    }
+
+    #[test]
+    fn two_peers_accept_only_their_outstanding_receipts_under_loss_and_reordering() {
+        let first = Arc::new(Mutex::new(SharedState::default()));
+        let second = Arc::new(Mutex::new(SharedState::default()));
+        let one = "11111111-1111-4111-8111-111111111111";
+        let two = "22222222-2222-4222-8222-222222222222";
+        first.lock().unwrap().outstanding_contacts.extend([one.into(), two.into()]);
+        second.lock().unwrap().outstanding_contacts.insert(two.into());
+        let mut first_configuration = configuration(true);
+        let mut second_configuration = configuration(true);
+        second_configuration.station_name = "xlog-b".into();
+
+        let response = |recipient: &str, id: &str| serde_json::to_vec(&serde_json::json!({
+            "cmd":"RESPONSE","recipient":recipient,"subject":"POST","unique_id":id
+        })).unwrap();
+        // The first response is lost. A later receipt arrives out of order, and
+        // multicast delivers it to both simulated peers.
+        let two_for_first = response("xlog-a", two);
+        process_wire(&two_for_first, &first_configuration, &first);
+        process_wire(&two_for_first, &second_configuration, &second);
+        process_wire(&response("xlog-a", one), &first_configuration, &first);
+        process_wire(&two_for_first, &first_configuration, &first); // duplicate frame
+        assert_eq!(first.lock().unwrap().contact_receipts.iter().cloned().collect::<Vec<_>>(), [two, one]);
+        assert!(second.lock().unwrap().contact_receipts.is_empty());
+
+        process_wire(&response("xlog-b", two), &second_configuration, &second);
+        assert_eq!(second.lock().unwrap().contact_receipts.iter().cloned().collect::<Vec<_>>(), [two]);
+    }
+
+    #[test]
+    fn restart_and_stale_or_foreign_frames_cannot_retire_a_new_session_contact() {
+        let qso_id = "11111111-1111-4111-8111-111111111111";
+        let restarted = Arc::new(Mutex::new(SharedState::default()));
+        let packet = serde_json::to_vec(&serde_json::json!({
+            "cmd":"RESPONSE","recipient":"xlog-a","subject":"POST","unique_id":qso_id
+        })).unwrap();
+        process_wire(&packet, &configuration(true), &restarted);
+        assert!(restarted.lock().unwrap().contact_receipts.is_empty());
+        restarted.lock().unwrap().outstanding_contacts.insert(qso_id.into());
+        process_wire(&serde_json::to_vec(&serde_json::json!({
+            "cmd":"RESPONSE","recipient":"foreign","subject":"POST","unique_id":qso_id
+        })).unwrap(), &configuration(true), &restarted);
+        assert!(restarted.lock().unwrap().contact_receipts.is_empty());
     }
 }

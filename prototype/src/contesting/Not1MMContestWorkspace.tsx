@@ -20,7 +20,8 @@ import { openContestSetupService } from "./contestSetupServices";
 import { openContestSetupDialog, useContestSetupDialogs, type ContestDigitalSave, type ContestDigitalSnapshot } from "./contestSetupDialogs";
 import { defaultContestKeyBindings, encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings } from "./contestKeyBindings";
 import { setContestCWSpeed } from "./contestStationControl";
-import { configureContestGroupChat, openContestGroupChatWindow } from "./contestGroupChat";
+import { configureContestGroupChat, openContestGroupChatWindow, publishContestGroupContact,
+  takeContestGroupContactReceipts } from "./contestGroupChat";
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
@@ -1573,9 +1574,55 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       multicastPort: Number(setup.network.multicastPort ?? 2239),
       interface: String(setup.network.interface ?? "0.0.0.0"),
       operator: setup.operator.trim().toUpperCase(),
+      stationName: String(setup.network.stationName ?? "").trim(),
     }).catch(cause => setError(errorMessage(cause)));
   }, [setupOnly, surfaceContext?.operatingContext, surfaceContext?.sessionID, surfaceContext?.workspaceGeneration,
-    setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface, setup.operator]);
+    setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface,
+    setup.network.stationName, setup.operator]);
+
+  useEffect(() => {
+    if (!setupOnly || !surfaceContext || setup.network.multiEnabled !== true) return;
+    let stopped = false, running = false;
+    const reconcile = async () => {
+      if (stopped || running) return;
+      running = true;
+      try {
+        await configureContestGroupChat(surfaceContext, {
+          enabled: true,
+          multicastGroup: String(setup.network.multicastGroup ?? "239.1.1.1"),
+          multicastPort: Number(setup.network.multicastPort ?? 2239),
+          interface: String(setup.network.interface ?? "0.0.0.0"),
+          operator: setup.operator.trim().toUpperCase(),
+          stationName: String(setup.network.stationName ?? "").trim(),
+        });
+        for (const qsoID of await takeContestGroupContactReceipts(surfaceContext)) {
+          if (stopped) return;
+          const current = projectionRef.current;
+          if (!current || current.sessionID !== surfaceContext.sessionID || current.workspaceGeneration !== surfaceContext.workspaceGeneration) return;
+          unwrap(await request("contest_network_confirm", { sessionID: current.sessionID,
+            workspaceGeneration: current.workspaceGeneration, qsoID }));
+        }
+        const current = projectionRef.current;
+        if (!current || current.sessionID !== surfaceContext.sessionID || current.workspaceGeneration !== surfaceContext.workspaceGeneration) return;
+        const pending = unwrap<{ sessionID:string; workspaceGeneration:string; contacts:Record<string,unknown>[] }>(
+          await request("contest_network_pending", { sessionID: current.sessionID,
+            workspaceGeneration: current.workspaceGeneration, limit: 100 }));
+        if (pending.sessionID !== current.sessionID || pending.workspaceGeneration !== current.workspaceGeneration || !Array.isArray(pending.contacts))
+          throw new Error("The contest contact publication queue is stale or malformed.");
+        for (const contact of pending.contacts) {
+          if (stopped) return;
+          await publishContestGroupContact(surfaceContext, contact);
+        }
+      } catch (cause) {
+        if (!stopped) setError(errorMessage(cause));
+      } finally { running = false; }
+    };
+    void reconcile();
+    const timer = window.setInterval(() => void reconcile(), 2_000);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [setupOnly, surfaceContext?.operatingContext, surfaceContext?.sessionID, surfaceContext?.workspaceGeneration,
+    setup.network.multiEnabled, setup.network.multicastGroup, setup.network.multicastPort, setup.network.interface,
+    setup.network.stationName, setup.operator, request]);
 
   useEffect(() => {
     if (!registerMenuRoute) return;

@@ -1000,6 +1000,38 @@ class Host:
             return {"sessionID": session_id, "revision": state["revision"],
                     "setup": setup,
                     "effectiveMacros": self.effective_macros(state)}
+        if method == "network_pending":
+            require(set(params) == {"sessionID", "workspaceGeneration", "limit"},
+                    "Unexpected network pending fields")
+            require(params["workspaceGeneration"] == workspace_generation(state),
+                    "Contest network context is stale", "stale_generation")
+            limit = params["limit"]
+            require(type(limit) is int and 1 <= limit <= 100,
+                    "Invalid network pending limit")
+            rows = store.exec_sql_mult(
+                "SELECT * FROM DXLOG WHERE ContestNR=? AND Dirty=1 ORDER BY TS ASC,rowid ASC LIMIT ?",
+                (store.current_contest, limit),
+            )
+            return {"sessionID": session_id, "workspaceGeneration": workspace_generation(state),
+                    "revision": state["revision"], "contacts": rows}
+        if method == "network_confirm":
+            require(set(params) == {"sessionID", "workspaceGeneration", "qsoID"},
+                    "Unexpected network confirmation fields")
+            require(params["workspaceGeneration"] == workspace_generation(state),
+                    "Contest network context is stale", "stale_generation")
+            qso_id = identifier(params["qsoID"])
+            row = store.exec_sql(
+                "SELECT ID,Dirty FROM DXLOG WHERE ID=? AND ContestNR=?",
+                (qso_id, store.current_contest),
+            )
+            require(bool(row), "Network contact does not belong to this contest", "not_found")
+            if row["Dirty"]:
+                store.exec_sql_commit(
+                    "UPDATE DXLOG SET Dirty=0 WHERE ID=? AND ContestNR=?",
+                    (qso_id, store.current_contest),
+                )
+            return {"sessionID": session_id, "workspaceGeneration": workspace_generation(state),
+                    "qsoID": qso_id, "confirmed": True}
         if method == "check_partial":
             query = text(params.get("query", ""), 32).upper()
             require(re.fullmatch(r"[A-Z0-9/]{1,32}", query) is not None, "Partial callsign must contain letters, digits or slash")

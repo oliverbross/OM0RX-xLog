@@ -2530,6 +2530,32 @@ fn contest_group_chat_send(window: tauri::WebviewWindow,
         &format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), &message))
 }
 
+#[tauri::command]
+fn contest_group_network_snapshot(window: tauri::WebviewWindow,
+    state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
+    session_i_d: String, workspace_generation: String) -> Result<contest_group_chat::Snapshot, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    state.snapshot(&format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation))
+}
+
+#[tauri::command]
+fn contest_group_network_publish(window: tauri::WebviewWindow,
+    state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
+    session_i_d: String, workspace_generation: String, contact: serde_json::Value) -> Result<(), String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    with_contest_group_chat_external_io(|| state.publish_contact(
+        &format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation), contact))
+}
+
+#[tauri::command]
+fn contest_group_network_receipts(window: tauri::WebviewWindow,
+    state: tauri::State<'_, contest_group_chat::GroupChat>, operating_context: String,
+    session_i_d: String, workspace_generation: String) -> Result<Vec<String>, String> {
+    let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
+    state.take_contact_receipts(
+        &format!("{}/{}/{}", context.operating_context, context.session_id, context.workspace_generation))
+}
+
 fn validate_contest_window_open(label: &str, panel_id: &str) -> Result<(), String> {
     validate_contest_surface_main_caller(label)?;
     workspace_navigation::contest_window_panel(panel_id)
@@ -3057,6 +3083,7 @@ fn main() {
             contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
+            contest_group_network_snapshot, contest_group_network_publish, contest_group_network_receipts,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,
             workspace_mode_present, workspace_canvas_close_ack,
             workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,

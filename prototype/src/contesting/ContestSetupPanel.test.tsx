@@ -141,16 +141,17 @@ it("uses the selected plugin's complete advertised band choices", () => {
   for (const band of supportedBands) expect(screen.getByLabelText(band)).toBeTruthy();
   expect(screen.queryByLabelText("20m")).toBeNull();
 });
-it("shows Group Chat as the only Multi-Op network capability with the pinned multicast default", () => {
+it("shows the bounded Renfield capabilities and pinned multicast default", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings");
   fireEvent.click(screen.getByRole("tab", { name: "Options" }));
   for (const label of ["CQ", "His Call", "Exchange", "AGN", "My Call", "QRZ", "QSO B4", "Auto CQ Delay (Seconds)", "Use Call History"]) expect(screen.getByLabelText(label)).toBeTruthy();
   expect(screen.queryByLabelText("Use RTC score reporting")).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: "Group" }));
-  for (const label of ["Enable Group Chat", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  for (const label of ["Enable Renfield Group Network", "Unique Station Name", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
   expect((screen.getByLabelText("Multicast Group") as HTMLInputElement).value).toBe("239.1.1.1");
   expect(screen.queryByLabelText("Connect to server")).toBeNull(); expect(screen.queryByLabelText("Be the master")).toBeNull();
-  expect(screen.getByRole("status").textContent).toBe("Group Chat is the only available Multi-Op network capability. Shared serials, dupe checks, log synchronization, and master/client control are not available.");
+  expect(screen.getByRole("status").textContent).toContain("idempotent contact publication");
+  expect(screen.getByRole("status").textContent).toContain("Shared serial allocation and server dupe inquiries remain unavailable");
 });
 it("migrates the obsolete multicast default without exposing or clearing saved master state", async () => {
   const p = props(); p.value.network.multicastGroup = "224.1.1.1"; p.value.network.multiMaster = true;

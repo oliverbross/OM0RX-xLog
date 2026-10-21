@@ -15,7 +15,8 @@ afterEach(() => cleanup());
 
 it("renders bounded sender history and highlights own-operator mentions", async () => {
   native.invoke.mockResolvedValue({ status:"connected", error:null, enabled:true, operator:"OM0RX", multicastGroup:"239.1.1.1", multicastPort:2239,
-    messages:[{sequence:1,sender:"VK6ABC",message:"OM0RX please QSY",receivedAtMs:1},{sequence:2,sender:"N0CALL",message:"all clear",receivedAtMs:2}] });
+    messages:[{sequence:1,sender:"VK6ABC",message:"OM0RX please QSY",receivedAtMs:1},{sequence:2,sender:"N0CALL",message:"all clear",receivedAtMs:2}],
+    contactReceipts:[], capabilities:{chat:true,contactPublication:true,sharedSerial:false,duplicateInquiry:false,authorityLimitation:"Replies are not correlated."} });
   render(<DetachedContestGroupChat />);
   expect((await screen.findByText("OM0RX please QSY")).classList.contains("mentions-operator")).toBe(true);
   expect(screen.getByText("all clear").classList.contains("mentions-operator")).toBe(false);
@@ -25,7 +26,7 @@ it("renders bounded sender history and highlights own-operator mentions", async 
 
 it("sends Enter as one CHAT request and clears only after success", async () => {
   native.invoke.mockImplementation(async (command: string) => command === "contest_group_chat_snapshot" ?
-    { status:"connected", error:null, enabled:true, operator:"OM0RX", multicastGroup:"239.1.1.1", multicastPort:2239, messages:[] } : undefined);
+    { status:"connected", error:null, enabled:true, operator:"OM0RX", multicastGroup:"239.1.1.1", multicastPort:2239, messages:[], contactReceipts:[], capabilities:{chat:true,contactPublication:true,sharedSerial:false,duplicateInquiry:false,authorityLimitation:"Replies are not correlated."} } : undefined);
   render(<DetachedContestGroupChat />);
   const input = await screen.findByRole("textbox", { name:"Message" });
   fireEvent.change(input, { target:{ value:"hello group" } }); fireEvent.submit(input.closest("form")!);
@@ -34,7 +35,7 @@ it("sends Enter as one CHAT request and clears only after success", async () => 
 });
 
 it("truthfully disables input when group networking is off", async () => {
-  native.invoke.mockResolvedValue({ status:"disabled", error:null, enabled:false, operator:"OM0RX", multicastGroup:"239.1.1.1", multicastPort:2239, messages:[] });
+  native.invoke.mockResolvedValue({ status:"disabled", error:null, enabled:false, operator:"OM0RX", multicastGroup:"239.1.1.1", multicastPort:2239, messages:[], contactReceipts:[], capabilities:{chat:true,contactPublication:true,sharedSerial:false,duplicateInquiry:false,authorityLimitation:"Replies are not correlated."} });
   render(<DetachedContestGroupChat />);
   expect(await screen.findByText("Group networking is disabled in Contest Setup.")).toBeTruthy();
   expect((screen.getByRole("textbox", { name:"Message" }) as HTMLInputElement).disabled).toBe(true);

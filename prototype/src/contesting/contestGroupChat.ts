@@ -2,10 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ContestSurfaceContext } from "./contestSurfaceNative";
 
 export const maxContestChatBytes = 512;
-export type ContestGroupChatConfiguration = { enabled: boolean; multicastGroup: string; multicastPort: number; interface: string; operator: string };
+export type ContestGroupChatConfiguration = { enabled: boolean; multicastGroup: string; multicastPort: number; interface: string; operator: string; stationName: string };
 export type ContestGroupChatMessage = { sequence: number; sender: string; message: string; receivedAtMs: number };
 export type ContestGroupChatSnapshot = { status: "disabled" | "connected" | "error"; error: string | null; enabled: boolean;
-  operator: string; multicastGroup: string; multicastPort: number; messages: ContestGroupChatMessage[] };
+  operator: string; multicastGroup: string; multicastPort: number; messages: ContestGroupChatMessage[]; contactReceipts: string[];
+  capabilities: { chat: boolean; contactPublication: boolean; sharedSerial: false; duplicateInquiry: false; authorityLimitation: string } };
 const bytes = (value: string) => new TextEncoder().encode(value).length;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const contextValid = (value: ContestSurfaceContext) => uuid.test(value.operatingContext) && uuid.test(value.sessionID) && uuid.test(value.workspaceGeneration);
@@ -27,6 +28,11 @@ function validSnapshot(value: unknown, maximumHistory = 200): value is ContestGr
     typeof snapshot.enabled === "boolean" && typeof snapshot.operator === "string" && bytes(snapshot.operator) <= 32 &&
     typeof snapshot.multicastGroup === "string" && snapshot.multicastGroup.length <= 15 &&
     Number.isInteger(snapshot.multicastPort) && Number(snapshot.multicastPort) >= 1 && Number(snapshot.multicastPort) <= 65535 &&
+    Array.isArray(snapshot.contactReceipts) && snapshot.contactReceipts.length <= 500 && snapshot.contactReceipts.every(item => typeof item === "string" && uuid.test(item)) &&
+    !!snapshot.capabilities && typeof snapshot.capabilities === "object" && !Array.isArray(snapshot.capabilities) &&
+    (snapshot.capabilities as Record<string, unknown>).chat === true && typeof (snapshot.capabilities as Record<string, unknown>).contactPublication === "boolean" &&
+    (snapshot.capabilities as Record<string, unknown>).sharedSerial === false && (snapshot.capabilities as Record<string, unknown>).duplicateInquiry === false &&
+    typeof (snapshot.capabilities as Record<string, unknown>).authorityLimitation === "string" && bytes(String((snapshot.capabilities as Record<string, unknown>).authorityLimitation)) <= 512 &&
     Array.isArray(messages) && messages.length <= maximumHistory && messages.every(item => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return false;
       const message = item as Record<string, unknown>;
@@ -51,6 +57,24 @@ export async function sendContestGroupChat(context: ContestSurfaceContext, messa
   if (!contextValid(context) || bytes(message) > maxContestChatBytes || message.includes("\0"))
     throw new Error("The chat message is invalid or too long.");
   await invoke("contest_group_chat_send", { ...context, message });
+}
+export async function readContestGroupNetwork(context: ContestSurfaceContext) {
+  if (!contextValid(context)) throw new Error("The Group network context could not be verified.");
+  const value = await invoke("contest_group_network_snapshot", { ...context });
+  if (!validSnapshot(value)) throw new Error("The Group network state could not be verified.");
+  return value;
+}
+export async function publishContestGroupContact(context: ContestSurfaceContext, contact: Record<string, unknown>) {
+  if (!contextValid(context) || !contact || typeof contact !== "object" || Array.isArray(contact))
+    throw new Error("The contest contact publication is invalid.");
+  await invoke("contest_group_network_publish", { ...context, contact });
+}
+export async function takeContestGroupContactReceipts(context: ContestSurfaceContext) {
+  if (!contextValid(context)) throw new Error("The Group network receipt context could not be verified.");
+  const value = await invoke("contest_group_network_receipts", { ...context });
+  if (!Array.isArray(value) || value.length > 500 || !value.every(item => typeof item === "string" && uuid.test(item)))
+    throw new Error("The Group network contact receipts could not be verified.");
+  return value as string[];
 }
 export async function openContestGroupChatWindow(context: ContestSurfaceContext) {
   if (!contextValid(context)) throw new Error("The Group Chat window context could not be verified.");

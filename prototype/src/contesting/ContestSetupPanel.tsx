@@ -244,9 +244,9 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       case "Rotator": content = managed("Rotator", "Use the shared rotor configuration and observed status."); break;
       case "Cluster": content = managed("Cluster", "Manage servers, secure passwords, filters and connections there."); break;
       case "Group": content = <div className="contest-manual-stack">
-        {check("network", "multiEnabled", "Enable Group Chat")}
-        {field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}
-        <p role="status">Group Chat is the only available Multi-Op network capability. Shared serials, dupe checks, log synchronization, and master/client control are not available.</p>
+        {check("network", "multiEnabled", "Enable Renfield Group Network")}
+        {field("network", "stationName", "Unique Station Name")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}
+        <p role="status">Group Chat and idempotent contact publication to a Renfield server are available. Shared serial allocation and server dupe inquiries remain unavailable because the pinned replies cannot be correlated safely after packet loss or reordering.</p>
       </div>; break;
       case "Bands": content = <div className="contest-manual-bands">{[supportedBandChoices.slice(0, Math.ceil(supportedBandChoices.length / 2)), supportedBandChoices.slice(Math.ceil(supportedBandChoices.length / 2))].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
       case "Options": content = <div className="contest-options-columns">

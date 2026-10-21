@@ -125,6 +125,38 @@ class HostTests(unittest.TestCase):
         self.assertEqual((fields["callsign"], fields["sent"], fields["receive"], fields["other_2"]),
                          ("", "599", "599", ""))
 
+    def test_network_publication_ledger_replays_until_exact_receipt(self):
+        first = self.log(minute=0)
+        second = self.log("DL1ABC", "14", minute=1)
+        scope = {"workspaceGeneration": self.workspace, "limit": 100}
+        pending = self.read("network_pending", **scope)
+        self.assertEqual([row["ID"] for row in pending["contacts"]], [first, second])
+        self.assertTrue(all(row["Dirty"] == 1 for row in pending["contacts"]))
+
+        confirmed = self.read("network_confirm", workspaceGeneration=self.workspace, qsoID=second)
+        self.assertEqual(confirmed["qsoID"], second)
+        self.assertTrue(confirmed["confirmed"])
+        # Duplicate receipts are idempotent; only the exact UUID is retired.
+        self.read("network_confirm", workspaceGeneration=self.workspace, qsoID=second)
+        replay = self.read("network_pending", **scope)
+        self.assertEqual([row["ID"] for row in replay["contacts"]], [first])
+
+        self.host.close()
+        self.host = Host(self.root)
+        restarted = self.read("network_pending", **scope)
+        self.assertEqual([row["ID"] for row in restarted["contacts"]], [first])
+
+    def test_network_publication_rejects_stale_foreign_and_unknown_receipts(self):
+        qso = self.log()
+        with self.assertRaises(HostError) as stale:
+            self.read("network_pending", workspaceGeneration=uid(), limit=100)
+        self.assertEqual(stale.exception.code, "stale_generation")
+        with self.assertRaises(HostError) as unknown:
+            self.read("network_confirm", workspaceGeneration=self.workspace, qsoID=uid())
+        self.assertEqual(unknown.exception.code, "not_found")
+        self.assertEqual([row["ID"] for row in self.read(
+            "network_pending", workspaceGeneration=self.workspace, limit=100)["contacts"]], [qso])
+
     def test_rover_location_is_persisted_for_future_contacts_only(self):
         first = self.log(minute=0)
         changed = self.mutate("rover_location", location="fn20")
