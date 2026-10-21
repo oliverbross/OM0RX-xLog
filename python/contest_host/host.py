@@ -1501,6 +1501,17 @@ class Host:
                 def commit_digital(current):
                     require(not committed, "Original digital handler attempted more than one commit")
                     qso_id = str(uuid.UUID(params["semanticIdentity"][:32]))
+                    # The original digital handlers populate an otherwise empty
+                    # contact before saving it. Stamp the same contest ownership
+                    # metadata as an operator-entered new contact before passing
+                    # those handler-owned fields through as the commit base.
+                    current.contact.update({
+                        "ContestNR": current.pref["contest"],
+                        "ContestName": current.contest.cabrillo_name,
+                        "StationPrefix": current.station["Call"],
+                        "IsRunQSO": int(current.pref["run_state"]),
+                        "Run1Run2": 1,
+                    })
                     self.commit(current, qso_id, self.digital_timestamp(packet),
                                 base=current.contact, frequency=self.digital_frequency(packet))
                     committed.append(qso_id)

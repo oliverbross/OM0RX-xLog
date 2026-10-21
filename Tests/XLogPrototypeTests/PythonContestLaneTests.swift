@@ -218,6 +218,14 @@ for line in sys.stdin:
         XCTAssertTrue(replayDuplicate)
         let log = try await lane.handle(method: "contest_log", params: ["sessionID": session, "offset": 0, "limit": 10])
         XCTAssertEqual(log["total"] as? Int, 1)
+        let row = try XCTUnwrap((log["rows"] as? [[String: Any]])?.first)
+        XCTAssertEqual((row["ContestNR"] as? NSNumber)?.intValue, 1)
+        XCTAssertEqual(row["ContestName"] as? String, "CQ-WW-RTTY")
+        XCTAssertEqual(row["StationPrefix"] as? String, "OM0RX")
+        let score = try await lane.handle(method: "contest_score", params: ["sessionID": session])
+        let statistics = try XCTUnwrap(score["statistics"] as? [String: Any])
+        let total = try XCTUnwrap(statistics["total"] as? [String: Any])
+        XCTAssertEqual((total["qsos"] as? NSNumber)?.intValue, 1)
 
         _ = try await lane.handle(method: "contest_session_create", params: [
             "sessionID": UUID().uuidString.lowercased(), "workspaceGeneration": UUID().uuidString.lowercased(),
