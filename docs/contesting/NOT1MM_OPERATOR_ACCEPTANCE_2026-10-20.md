@@ -854,24 +854,37 @@ tests; its WSJT-X snapshot case read the process-global installed preference
 test-isolation leak is separate from the N1MM route and remains to be corrected
 before the next broad release gate.
 
-## Post-1.3.0 source continuation: multi-operator authority foundation
+## Post-1.3.0 source continuation: multi-operator authority workflow
 
-Source `957e53e953031d8f3e236a2dd825d690bbeb35ab` adds the persistence and
-transport foundation for authoritative multi-operator operation without adding
-a second station service. The Python contest host is the only SQLite writer and
-now provides durable, request-idempotent routes for shared serial reservation,
-duplicate inquiry, remote contact commit/correction/deletion and ordered change
-replay across restart. Serial allocation is transactionally unique and remote
-correction/deletion is fenced by the latest revision of the target QSO.
+Source `fe03f4f1798d3d7aaffbe847495571e63e7a8962` completes the visible
+trusted-LAN master/client logging path on top of the authority foundation from
+`957e53e953031d8f3e236a2dd825d690bbeb35ab`, without adding a second station
+service. The Python contest host remains the only SQLite writer and provides
+durable, request-idempotent shared serial reservation, duplicate inquiry,
+contact commit/correction/deletion and ordered change replay across restart.
+Serial allocation is transactionally unique; remote correction/deletion is
+fenced by the latest revision of the target QSO.
 
-The existing Group Chat multicast owner now supports an optional master/client
-v1 protocol alongside legacy Renfield CHAT/POST traffic. It carries correlated
+The existing Group Chat multicast owner supports the optional master/client v1
+protocol alongside legacy Renfield CHAT/POST traffic. It carries correlated
 request, session, workspace, lease, revision-cursor and contest identities;
 requests from a different plugin/start-UTC/station-call fingerprint are rejected
 before lease adoption or worker dispatch. Replay caches are bounded, lease loss
-revokes pending work, and native forwarding is restricted to the four approved
-`contest_multi_*` routes. Configuration exposes the original **Be the master**
-choice and Group Chat displays the current authority role/status.
+revokes pending work, and native forwarding remains restricted to the approved
+authority routes. Configuration exposes the original **Be the master** choice
+and Group Chat displays the current authority role/status.
+
+Main Logging now uses that authority for initial serial reservation, duplicate
+display, commit, correction and deletion. The native sync command fetches the
+master's authenticated pages internally; the renderer cannot inject a replay
+page or cursor. A client binds an empty local contest as a durable read replica,
+applies only complete consecutive pages, and preserves authoritative raw fields,
+country identity and per-contact revision. Direct entry, Enter/ESM and function
+keys share the same authority-aware commit owner; they fail closed when the
+client has no valid lease. Pending commit/correction/deletion identity and exact
+payload are persisted before transmission, so a timeout, reconnect or restart
+retries the same operation rather than creating a second QSO. Corrupt active
+pending evidence requires explicit quarantine and master-log review.
 
 The trust boundary is intentionally narrow and explicit: this is correlation on
 an isolated trusted multicast LAN, not cryptographic peer authentication against
@@ -881,22 +894,28 @@ successful `contactApply`; serial or dupe replies alone do not claim persistence
 
 Supporting checks at this exact source boundary:
 
-- the complete Python contest-host suite passed **292 tests**, including
-  concurrent unique serials, exact replay/payload conflict, stale workspace,
-  snapshot-stable dupe inquiry, remote-QSO conflict fencing, paged restart
-  replay, and repair of an interrupted schema migration;
-- the combined contest workflow/UI selection passed **144 tests**, the focused
-  Group/configuration set passed **41 tests**, TypeScript checking passed, and
-  the production frontend build completed with only the existing chunk warning;
-- the native Group Chat/authority suite passed **18 tests**, including invalid
-  lease tags, cross-contest multicast isolation, duplicate/lost frame replay,
-  lease loss/reconnect and persistence-capability truthfulness;
-- a read-only cross-review confirmed the contest-identity and migration blockers
-  were corrected and found no further P1/P2 issue in those fixes.
+- the complete Python contest-host suite passed **301 tests**, including
+  concurrent serials, exact replay/payload conflict, stale workspace,
+  snapshot-stable dupe inquiry, correction/deletion revision fencing, complete
+  paged restart replay, interrupted migration repair, replica restart and
+  rejection of omitted or unsupported historical changes;
+- the complete frontend suite passed **3,868 tests in 273 files** plus the two
+  Node acceptance checks. Focused authority/UI coverage exercises lease
+  bootstrap, replica catch-up, serial reuse, Enter/ESM fail-closed behavior,
+  durable ambiguous-operation recovery and quarantine of corrupt active-scope
+  pending evidence;
+- the native Group/worker checks passed **92 tests** across the selected suites,
+  including generation/context fencing, authenticated internal page fetch,
+  page-size limits and rejection of generic renderer access to authority data;
+- TypeScript checking and the production frontend build passed, with only the
+  existing Vite chunk-size warning; a final read-only cross-review found no
+  actionable defect in the completed client/replica boundary.
 
-This is implemented source, not installed-app or multi-host acceptance. Main
-Logging still commits locally and publishes through the legacy path; it does not
-yet call the new authority routes for serial allocation, dupe display, contact
-commit or change replay. Therefore shared multi-operator logging is still
-unfinished and no new 1.3.0 package was built for this batch. The next batch is
-the visible Main Logging integration followed by two-host safe acceptance.
+This remains implemented source, not installed two-machine acceptance. No new
+1.3.0 package has yet been built from `fe03f4f1`, and no second Mac exercised
+real multicast loss/reconnect while both operators logged. The first replica
+must be an empty local contest; histories predating the required authority
+identity cannot be adopted automatically. Master failover/rebind is not
+implemented, and trusted-LAN correlation is not cryptographic peer identity.
+Those are exact remaining multi-operator limits, not a claim that shared logging
+is accepted merely because the routes and automated workflows now pass.
