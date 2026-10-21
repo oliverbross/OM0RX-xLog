@@ -80,7 +80,10 @@ it("prepares the exact active snapshot and commits only after confirmation", asy
 it("refreshes the native active session after legacy import so it can transfer immediately", async () => {
   const api=fixture();
   const importedContext={workspaceGeneration:"30000000-0000-4000-8000-000000000001",stationCall:"OM0RX",sessionID:"20000000-0000-4000-8000-000000000002",expectedRevision:2,contestName:"Imported CQ WW CW",qsoCount:2};
-  vi.mocked(api.context).mockResolvedValueOnce({workspaceGeneration:importedContext.workspaceGeneration,stationCall:"OM0RX"}).mockResolvedValue(importedContext);
+  vi.mocked(api.context)
+    .mockResolvedValueOnce({workspaceGeneration:importedContext.workspaceGeneration,stationCall:"OM0RX"})
+    .mockResolvedValueOnce({workspaceGeneration:importedContext.workspaceGeneration,stationCall:"OM0RX"})
+    .mockResolvedValue(importedContext);
   render(<ContestLogTransferWindow api={api}/>);
   fireEvent.click(screen.getByRole("tab",{name:/Active contest/}));
   await screen.findByText("Open a contest session in Contest Setup before preparing a transfer.");
@@ -101,4 +104,16 @@ it("refreshes the native active session after legacy import so it can transfer i
   await waitFor(()=>expect(api.transfer).toHaveBeenCalledExactlyOnceWith("contest_log_transfer_prepare",{
     sessionID:importedContext.sessionID,workspaceGeneration:importedContext.workspaceGeneration,expectedRevision:2,
   }));
+});
+
+it("refreshes a restored native session when the active-transfer tab is selected", async () => {
+  const api=fixture();
+  const restored={workspaceGeneration:"30000000-0000-4000-8000-000000000001",stationCall:"OM0RX",sessionID:"20000000-0000-4000-8000-000000000003",expectedRevision:4,contestName:"Restored CQ WW CW",qsoCount:2};
+  vi.mocked(api.context).mockResolvedValueOnce({workspaceGeneration:restored.workspaceGeneration,stationCall:"OM0RX"}).mockResolvedValue(restored);
+  render(<ContestLogTransferWindow api={api}/>);
+  await waitFor(()=>expect(api.context).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("tab",{name:/Active contest/}));
+  await screen.findByText("Restored CQ WW CW");
+  expect(api.context).toHaveBeenCalledTimes(2);
+  expect((screen.getByRole("button",{name:"Preview transfer"}) as HTMLButtonElement).disabled).toBe(false);
 });

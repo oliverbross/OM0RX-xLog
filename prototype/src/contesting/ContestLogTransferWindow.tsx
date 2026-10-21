@@ -80,6 +80,11 @@ export function ContestLogTransferWindow({ api = contestLogTransferAPI }: { api?
     } catch (cause) { setError(message(cause)); }
     finally { setBusy(false); }
   };
+  const showTransfer = async () => {
+    setMode("transfer"); setConfirming(null); setTransfer(null); setError("");
+    try { setContext(await api.context()); }
+    catch (cause) { setError(message(cause)); }
+  };
 
   return <main className="contest-workspace contest-transfer" aria-label="Import or Transfer Log">
     <header className="contest-header">
@@ -88,7 +93,7 @@ export function ContestLogTransferWindow({ api = contestLogTransferAPI }: { api?
     </header>
     <div className="contest-transfer-tabs" role="tablist" aria-label="Log operation">
       <button role="tab" aria-selected={mode === "legacy"} onClick={() => { setMode("legacy"); setConfirming(null); }}><FileUp size={15}/> Legacy Not1MM</button>
-      <button role="tab" aria-selected={mode === "transfer"} onClick={() => { setMode("transfer"); setConfirming(null); }}><ArrowRightLeft size={15}/> Active contest to Logbook</button>
+      <button role="tab" aria-selected={mode === "transfer"} onClick={() => { void showTransfer(); }}><ArrowRightLeft size={15}/> Active contest to Logbook</button>
     </div>
     {error && <p className="contest-alert is-error" role="alert">{error}</p>}
     {notice && <p className="contest-alert" role="status">{notice}</p>}
