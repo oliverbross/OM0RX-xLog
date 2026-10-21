@@ -71,10 +71,22 @@ public enum ARRLVHFDeclarativeDefinitions {
         let sentGrid = ContestExchangeFieldDescriptor(
             id: grid.id, label: "Sent grid", acceptedKinds: grid.acceptedKinds,
             maximumUTF8Bytes: grid.maximumUTF8Bytes, adifField: .myGridSquare)
-        let modeProfiles: [ContestModeProfile] = category == nil ? [
-            .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", report: noReport),
-            .init(mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", report: noReport),
-        ] : officialPreviewModeProfiles
+        let modeProfiles: [ContestModeProfile]
+        let supportedModes: Set<String>
+        if category == nil {
+            // Keep the original source-preview construction byte-compatible with
+            // the accepted 7357645 materialization on supported Swift runtimes.
+            let report = ContestReportDescriptor(
+                format: .none, defaultSent: "", defaultReceived: "", maximumUTF8Bytes: 0)
+            modeProfiles = [
+                .init(mode: "CW", adifMode: "CW", cabrilloQSOType: "CW", report: report),
+                .init(mode: "SSB", adifMode: "SSB", cabrilloQSOType: "PH", report: report),
+            ]
+            supportedModes = ["CW", "SSB"]
+        } else {
+            modeProfiles = officialPreviewModeProfiles
+            supportedModes = Set(modeProfiles.map(\.mode))
+        }
         let entry = ContestEntryDescriptor(
             cabrilloFormatterVersion: "arrl-vhf-source-preview-1",
             cabrilloProjectionFormatterVersion: "arrl-vhf-source-preview-1",
@@ -103,8 +115,7 @@ public enum ARRLVHFDeclarativeDefinitions {
             edition: "contest-sw-26.10.11",
             displayName: displayName(for: season) + previewSuffix,
             cabrilloName: "ARRL-VHF",
-            supportedBands: Set(points(for: season).keys),
-            supportedModes: Set(modeProfiles.map(\.mode)), entry: entry,
+            supportedBands: Set(points(for: season).keys), supportedModes: supportedModes, entry: entry,
             sourceProvenance: provenance(for: season, category: category),
             dupePolicy: category == nil ? .perBand : .perBandStationGridPair,
             multiplierPolicy: .maidenheadGrid, gridMultiplier: .init(receivedFieldID: "grid"),
