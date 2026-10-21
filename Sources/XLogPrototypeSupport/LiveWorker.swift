@@ -649,9 +649,11 @@ public actor LiveWorker {
          "contest_scp_select", "contest_scp_import_private"].contains(method)
     }
 
+    #if os(macOS)
     static func wsjtxRoute(for module: WorkerOperatingModule) -> WSJTXLoggingRoute {
         module == .normalLogging ? .normalLogging : .contestSurfaceOrdinaryLogbook
     }
+    #endif
 
     static func fencesOnlineLogDelivery(method: String, params: [String: Any]) -> Bool {
         let credentialAccounts: Set<String> = [
