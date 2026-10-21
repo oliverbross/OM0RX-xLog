@@ -1588,12 +1588,15 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   expect(screen.getByRole("heading", { name:"Contest Setup", level:1 })).toBeTruthy();
 });
 
-it("uses a valid manual VHF frequency when the observed radio frequency is stale and outside the selected contest", async () => {
+it.each([
+  { manual:"50.125", frequencyHz:50_125_000, band:50 },
+  { manual:"144.200", frequencyHz:144_200_000, band:144 },
+])("uses manual $manual MHz when the observed radio frequency is stale and outside the selected VHF contest", async ({manual,frequencyHz,band}) => {
   const saved = newContestSetup("OM0RX");
   saved.pluginID = "cq_ww_vhf";
   localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
   let current: any = { ...projection(), pluginID:"cq_ww_vhf", pluginName:"CQ WW VHF",
-    supportedBands:["6m","2m"], frequencyHz:50_125_000, band:50 };
+    supportedBands:["6m","2m"], frequencyHz, band };
   const request = vi.fn(async (method:string, params:Record<string,unknown>={}) => {
     const support = workspaceSupport(method, params, current); if (support) return support;
     const result = method === "contest_catalog" ? {plugins:[{id:"cq_ww_vhf",name:"CQ WW VHF",supportedBands:["6m","2m"]}]} :
@@ -1605,10 +1608,10 @@ it("uses a valid manual VHF frequency when the observed radio frequency is stale
   });
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}
     radioFrequencyHz={14_348_000}/>);
-  fireEvent.change(await screen.findByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:"50.125"}});
+  fireEvent.change(await screen.findByRole("textbox", {name:"Manual frequency MHz"}), {target:{value:manual}});
   await createContestThroughSetup();
   await waitFor(() => expect(request.mock.calls.some(([method]) => method === "contest_create")).toBe(true));
-  expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz:50_125_000});
+  expect(request.mock.calls.find(([method]) => method === "contest_create")?.[1]).toMatchObject({frequencyHz});
 });
 
 it.each([
