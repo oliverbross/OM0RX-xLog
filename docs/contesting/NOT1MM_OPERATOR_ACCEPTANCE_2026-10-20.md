@@ -4,6 +4,86 @@ This checkpoint records demonstrated desktop behavior for the original executabl
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
 port or a public macOS release is finished.
 
+## Installed 1.2.99 batched milestone — 21 October
+
+- Exact candidate and installed application source:
+  `735b1eac159ce0167bfe71b9e63b6c159e39c8a5` on
+  `codex/not1mm-contesting`, pushed to GitHub with a clean working tree.
+- All 94 byte-pinned original Not1MM Python plugins are registered and executable
+  through the existing Python/SQLite host. No contest rules were translated into
+  Swift or a new rule language. Registry coverage is not complete operator
+  acceptance for every contest.
+- Edit Contact now reads and writes the stored original `raw_fields`; unchanged
+  saves and callsign-only corrections preserve unrelated plugin fields instead of
+  reconstructing them from generic columns.
+- Shared entry, manual/observed frequency, spot and correction paths use the
+  selected plugin's bands and the existing band/frequency definitions rather than
+  an HF-only six-band list.
+- A committed QSO clears the original plugin's received fields for the next contact
+  while retaining configured sent values and serial allocation. Historical
+  `RoverLocation` and its Cabrillo row survive unrelated corrections.
+- Post Spot uses the dedicated admitted native route through xLog's existing
+  cluster owner, including test-profile restrictions. Native Save-panel completion
+  is the sole terminal export owner, preventing a second React completion from
+  producing a false error after success or cancellation.
+
+Focused regressions cover raw-field editor roundtrips, next-contact clearing,
+historical rover corrections, VHF entry, admitted native spot transport and export
+completion across the visible UI/native/Python-host boundaries. The complete
+frontend suite passed 3,811 tests across 271 files before the final backend-only
+portability repairs. The final primary CI run `39557625842` passed, and the
+exact-source portability run `39557668408` passed on macOS, Linux and Windows.
+Local Swift worker, native-admission and focused host checks also passed. These are
+supporting automated checks, not packaged-desktop proof.
+
+The exact-source package acceptance report is
+`/private/tmp/om0rx-xlog-1.2.99-not1mm-acceptance-735b1eac-20261021.json`.
+Its SHA-256 is
+`66b9fe107dccf8d9e5d765146488876e60dfb876d783f389c8b114347638b2d1`;
+it records schema 1, status `passed`, `embeddedUi: true`, `worker: true`,
+`station_io: false`, and all 35 of 35 checks true.
+
+The exact-source candidate was incrementally packaged, signed and installed at
+`/Applications/OM0RX-xLog.app`. Deep strict verification passed for Developer ID
+team `4WCMQ4U946`; Gatekeeper reports `Unnotarized Developer ID`. Candidate and
+installed hashes match:
+
+- Production executable: `fe2ce8adeb652e0f842d5b639e66eb90dbbcd50023a219f667cd4ae2cff51aaa`
+- Swift worker: `7f642f0a20b2e9eabe254ffc872a1ff7d6bc0752b9c05d4a7fdf1fa4b045d1fb`
+- Not1MM runtime provenance: `55015fff226a7fa7e2730fd6f6a8b9c8e4d7697d1d5c909d82b59db91ecda8d7`
+- Not1MM source manifest: `b7303ee4ea62f4e8e296ab6dea38ccf6086d0d84756874e0319b0638fd9f9aeb`
+
+Actual installed-application QA created a disposable CQ WW VHF contest and used
+the separate Contest Setup, Main Logging, Log Display and Edit Contact windows,
+all with standard macOS close, minimize and zoom controls. A 50.125 MHz CW QSO
+with `VK8ZZZ` (`JN88`/`PH57`) scored one point and one multiplier; its received
+grid and callsign cleared after commit. Manual frequency entry then admitted
+144.200 MHz and selected 2 m. A 144.200 MHz CW QSO with `VK2ZZZ`
+(`JN88`/`QF56`) scored two points, produced a two-QSO/two-multiplier score of six,
+and again cleared the received grid and callsign. The first frequency update
+needed the existing visible stale-edit retry; `Apply edit again` admitted it
+without losing the draft.
+
+Opening `VK2ZZZ` in the visible editor showed the original 2 m band, sent grid
+`JN88` and received grid `QF56`. An unchanged save returned to Log Display with
+both grids intact. Native Cabrillo export completed through the Save panel without
+a false terminal error at
+`/private/tmp/OM0RX-CQ-WW-VHF-disposable-735b1eac.log`; SHA-256 is
+`0c0c1be815258c2ccea09fa6c474a8a4b2e98e11611e023abce715ef322c4bcb`.
+The file contains `CONTEST: CQ-VHF-SSBCW`, `CATEGORY-MODE: CW` and correct 50 and
+144 MHz QSO rows with both grids. After quitting and relaunching the installed
+application, Contest Log Display restored the same two contacts, frequencies,
+grids and point values. The normal integrated logbook still showed 68,430 contacts,
+so the disposable contest workflow did not replace or truncate normal-log data.
+
+This is a meaningful implementation checkpoint, not full Not1MM acceptance.
+Every registered plugin still needs its contest-specific operator workflow
+accepted. EDI export where required, production digital packet routing,
+phone/audio/PTT operation, real multi-operator peer behavior, normal-log transfer
+and migration remain incomplete or unaccepted. No physical RF, amplifier, rotor,
+sponsor-rule certification, notarization or public-release acceptance was
+demonstrated. The packaged CQ WW VHF workflow above exercised CW only.
+
 ## Installed 1.2.97 batched milestone — 21 October
 
 - Exact candidate and installed application source:
