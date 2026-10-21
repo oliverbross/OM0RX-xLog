@@ -283,10 +283,12 @@ const sameSpotWorkflowScope=(workflow:SpotWorkflow,scope:SpotWorkflowScope)=>wor
   workflow.sessionID===scope.sessionID&&workflow.workspaceGeneration===scope.workspaceGeneration;
 export const contestSpotWorkflowStorageKey=(scope:SpotWorkflowScope)=>`${spotWorkflowKey}:${encodeURIComponent(scope.operatingContext)}:${encodeURIComponent(scope.workspaceGeneration)}:${encodeURIComponent(scope.sessionID)}`;
 export function compactContestSpotWorkflow(workflow:SpotWorkflow,authoritativeSpotIDs?:ReadonlySet<string>,nowMs=Date.now()):SpotWorkflow{
-  let rows=Object.entries(workflow.entries).filter(([,entry])=>Number.isFinite(entry.updatedAt)&&entry.updatedAt>=0&&
+  const originalRows=Object.entries(workflow.entries);
+  let rows=originalRows.filter(([,entry])=>Number.isFinite(entry.updatedAt)&&entry.updatedAt>=0&&
     nowMs-entry.updatedAt<=contestSpotWorkflowTTLms&&(!authoritativeSpotIDs||entry.spot.marked||authoritativeSpotIDs.has(entry.spot.id)))
     .sort(([leftID,left],[rightID,right])=>right.updatedAt-left.updatedAt||leftID.localeCompare(rightID)).slice(0,contestSpotWorkflowMaxEntries);
-  let compacted={...workflow,entries:Object.fromEntries(rows)};
+  const unchanged=rows.length===originalRows.length&&rows.every(([id,entry],index)=>originalRows[index]?.[0]===id&&originalRows[index]?.[1]===entry);
+  let compacted=unchanged?workflow:{...workflow,entries:Object.fromEntries(rows)};
   while(rows.length&&new TextEncoder().encode(JSON.stringify(compacted)).length>contestSpotWorkflowMaxBytes){
     rows=rows.slice(0,Math.floor(rows.length/2));compacted={...workflow,entries:Object.fromEntries(rows)};
   }
@@ -449,6 +451,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
   }, [spotSelectionContext, spotIDSignature, selectedSpotId, visibleWorkflowSpots]);
   useEffect(()=>{if(spotWorkflowScope.sessionID&&!sameSpotWorkflowScope(spotWorkflow,spotWorkflowScope))
     setSpotWorkflow(restoredSpotWorkflow(spotWorkflowScope));},[spotWorkflowScope,spotWorkflow]);
+  useEffect(()=>{if(sameSpotWorkflowScope(spotWorkflow,spotWorkflowScope)&&effectiveSpotWorkflow!==spotWorkflow)
+    setSpotWorkflow(current=>current===spotWorkflow?effectiveSpotWorkflow:current);},[effectiveSpotWorkflow,spotWorkflow,spotWorkflowScope]);
   useEffect(()=>{if(effectiveSpotWorkflow.sessionID&&sameSpotWorkflowScope(spotWorkflow,spotWorkflowScope))
     persistContestSpotWorkflow(localStorage,effectiveSpotWorkflow);},[effectiveSpotWorkflow,spotWorkflow,spotWorkflowScope]);
   const configuredAutoCQDelay = Number(setup.preferences.autoCQDelay ?? 15);
@@ -1230,7 +1234,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
     const workflowBase=(current:SpotWorkflow)=>sameSpotWorkflowScope(current,spotWorkflowScope)?current:effectiveSpotWorkflow;
     switch (action.action) {
       case "spot_select": {
-        const spot=allWorkflowSpots.find(candidate=>candidate.id===action.params.spotID);
+        const spot=visibleWorkflowSpots.find(candidate=>candidate.id===action.params.spotID);
         if(!spot)throw new Error("That shared spot is no longer available.");
         await chooseSpot(spot, true); return;
       }

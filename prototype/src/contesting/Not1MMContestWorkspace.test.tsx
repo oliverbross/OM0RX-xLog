@@ -292,6 +292,43 @@ it("reconciles a hidden marked-only selection and rejects Ctrl-G tuning it",asyn
   expect(tune).not.toHaveBeenCalled();
 });
 
+it("rejects a current-revision native selection for a spot hidden by marked-only",async()=>{
+  const current=projection(),request=operationalRequest(()=>current),tune=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const shared=[{id:"hidden",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"}];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune} spots={shared as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots).toHaveLength(1));
+  const entry=surfaceOwner.current.projections["active-qso"],base={operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,projectionRevision:entry.draft.revision,requestID:crypto.randomUUID()};
+  await act(async()=>surfaceOwner.current.handle({...base,panelID:"band-maps",action:"spot_set_marked_only",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,markedOnly:true}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({markedOnly:true,spots:[]}));
+  const appliesBefore=request.mock.calls.filter(([method])=>method==="contest_draft_apply").length;
+  await expect(surfaceOwner.current.handle({...base,panelID:"band-maps",requestID:crypto.randomUUID(),action:"spot_select",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,spotID:"hidden"}}))
+    .rejects.toThrow("That shared spot is no longer available");
+  expect(tune).not.toHaveBeenCalled();
+  expect(request.mock.calls.filter(([method])=>method==="contest_draft_apply")).toHaveLength(appliesBefore);
+});
+
+it("drops stale confirmed overlay state when authority disappears and reappears in the same mount",async()=>{
+  const current=projection(),request=operationalRequest(()=>current);
+  const authoritative={id:"returning",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW",receivedAt:10};
+  const props={request,serviceRequest:request,...workspaceProps};
+  const view=render(<Not1MMContestWorkspace {...props} spots={[authoritative] as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots).toHaveLength(1));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"band-maps",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),action:"spot_confirm",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,spotID:"returning"}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0].receivedAt).not.toBe(10));
+  view.rerender(<Not1MMContestWorkspace {...props} spots={[]}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots).toEqual([]));
+  const scope={operatingContext,sessionID:current.sessionID,workspaceGeneration};
+  await waitFor(()=>expect(decodeContestSpotWorkflow(localStorage.getItem(contestSpotWorkflowStorageKey(scope)),scope).entries).toEqual({}));
+  view.rerender(<Not1MMContestWorkspace {...props} spots={[authoritative] as any}/>);
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots[0]).toMatchObject({id:"returning",receivedAt:10}));
+});
+
 it("projects Python exportFormats and rejects an unsupported Cabrillo owner action",async()=>{
   const current={...projection(),exportFormats:["adif" as const]},request=operationalRequest(()=>current);
   render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
