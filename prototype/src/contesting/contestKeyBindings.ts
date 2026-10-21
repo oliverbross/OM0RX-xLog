@@ -57,7 +57,7 @@ export const defaultContestKeyBindings: ContestKeyBinding[] = [
   { context: "Callsign", key: "Down", action: "NEXT_SPOT" },
   { context: "*", key: "Ctrl+S", action: "SPOT_DX" },
   { context: "*", key: "Ctrl+M", action: "MARK_SPOT" },
-  { context: "*", key: "Ctrl+T", action: "TUNE_SPOT" },
+  { context: "*", key: "Ctrl+G", action: "TUNE_SPOT" },
   { context: "*", key: "PgUp", action: "CW_SPEED_UP" },
   { context: "*", key: "PgDown", action: "CW_SPEED_DOWN" },
   { context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" },
@@ -140,7 +140,12 @@ function decodedRows(value: unknown): ContestKeyBinding[] | null {
 export function readContestKeyBindings(value: unknown): ContestKeyBinding[] {
   const rows = decodedRows(value);
   if (!rows) return structuredClone(defaultContestKeyBindings);
-  const supported = rows.flatMap(row => {
+  const legacyDefaults = rows.length === defaultContestKeyBindings.length && rows.every(row =>
+    defaultContestKeyBindings.some(item => item.context === row.context && item.action === row.action &&
+      (row.action === "TUNE_SPOT" ? row.key === "Ctrl+T" && item.key === "Ctrl+G" : item.key === row.key)));
+  const migrated = legacyDefaults ? rows.map(row => row.action === "TUNE_SPOT" && row.key === "Ctrl+T"
+    ? { ...row, key: "Ctrl+G" } : row) : rows;
+  const supported = migrated.flatMap(row => {
     const action = (row.action as string) === "WIPE" ? "CLEAR_INPUTS" : row.action;
     return contextSet.has(row.context) && actionSet.has(action)
       ? [{ context: row.context, key: row.key, action: action as ContestKeyBindingAction }] : [];

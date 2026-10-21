@@ -22,7 +22,7 @@ describe("contest key bindings", () => {
     expect(contestKeyBindingActions).not.toEqual(expect.arrayContaining(["VFO_UP", "ROTATE"]));
     expect(defaultContestKeyBindings).toEqual(expect.arrayContaining([
       {context:"*",key:"Ctrl+S",action:"SPOT_DX"},{context:"*",key:"Ctrl+M",action:"MARK_SPOT"},
-      {context:"*",key:"Ctrl+T",action:"TUNE_SPOT"},
+      {context:"*",key:"Ctrl+G",action:"TUNE_SPOT"},
     ]));
   });
 
@@ -35,6 +35,13 @@ describe("contest key bindings", () => {
       { context: "*", key: "Ctrl+W", action: "WIPE", description: "old" },
       { context: "*", key: "Ctrl+Shift+K", action: "TOGGLE_CW_INPUT", description: "not yet owned" },
     ]))).toEqual([{ context: "*", key: "Ctrl+W", action: "CLEAR_INPUTS" }]);
+    const legacyDefaults=defaultContestKeyBindings.map(row=>row.action==="TUNE_SPOT"?{...row,key:"Ctrl+T"}:row);
+    expect(readContestKeyBindings(encodeContestKeyBindings(legacyDefaults))).toEqual(defaultContestKeyBindings);
+    expect(readContestKeyBindings(encodeContestKeyBindings([{context:"*",key:"Ctrl+T",action:"TUNE_SPOT"}]))).toEqual([
+      {context:"*",key:"Ctrl+T",action:"TUNE_SPOT"},
+    ]);
+    const customizedDefaults=legacyDefaults.map(row=>row.action==="TUNE_SPOT"?{...row,key:"Alt+G"}:row);
+    expect(readContestKeyBindings(encodeContestKeyBindings(customizedDefaults))).toEqual(customizedDefaults);
   });
 
   it("reads Not1MM's key-to-action map and keeps context precedence", () => {

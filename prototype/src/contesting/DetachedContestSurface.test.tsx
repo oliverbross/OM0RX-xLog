@@ -76,6 +76,24 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
     .toMatchObject({panelID,action:"spot_set_marked_only",params:{markedOnly:true}}));
 });
 
+it("opens Cluster spot actions from the keyboard, clamps them after resize, and restores row focus",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14_025_000,
+    connectedClusters:1,loadedSpots:1,selectedSpotID:null,markedOnly:false,spots:[{...sharedSpot,marked:false}],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID:"dx-cluster",projection:view}:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
+  Object.defineProperty(window,"innerWidth",{configurable:true,value:320});Object.defineProperty(window,"innerHeight",{configurable:true,value:240});
+  render(<DetachedContestSurface/>);const row=(await screen.findByLabelText("DL1ABC spot")).closest("tr")!;row.focus();
+  fireEvent.keyDown(row,{key:"Enter"});
+  await waitFor(()=>expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="spot_select")).toBe(true));
+  fireEvent.keyDown(row,{key:"F10",shiftKey:true});const menu=await screen.findByRole("menu",{name:"Spot actions for DL1ABC"});
+  vi.spyOn(menu,"getBoundingClientRect").mockReturnValue({x:0,y:0,left:0,top:0,right:150,bottom:120,width:150,height:120,toJSON:()=>({})});
+  fireEvent(window,new Event("resize"));
+  await waitFor(()=>{expect(Number.parseInt(menu.style.left)).toBeLessThanOrEqual(162);expect(Number.parseInt(menu.style.top)).toBeLessThanOrEqual(112);});
+  fireEvent.keyDown(menu,{key:"ArrowDown"});expect(document.activeElement).toBe(screen.getByRole("menuitem",{name:"Mark"}));
+  fireEvent.keyDown(menu,{key:"Escape"});await waitFor(()=>expect(document.activeElement).toBe(row));
+});
+
 it("renders validated manual main context without manufacturing headings or distance",async()=>{
   const manual={operator:"OM0RX/P",cwSpeedWpm:27,country:"Germany",cqZone:14,ituZone:28,
     headingDegrees:null,longPathHeadingDegrees:null,distanceKm:null,qsos:42,multipliers:17,total:2142};
@@ -339,6 +357,15 @@ it.each([
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
     panelID:"logbook",projectionRevision:6,action,params,
   }));
+});
+
+it("hides Cabrillo when the Python contest projection only admits ADIF export",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:false,canExportAdif:true,
+    page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false};
+  native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});render(<DetachedContestSurface/>);
+  expect(await screen.findByRole("button",{name:"Export ADIF…"})).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Export Cabrillo…"})).toBeNull();
 });
 
 it("uses supplied full-log and cluster calls in their manual Check Partial columns",async()=>{
@@ -686,7 +713,7 @@ it("executes a field-context Not1MM key binding",async()=>{
     .toMatchObject({action:"entry_step_spot",params:{direction:"next"}}));
 });
 
-it.each([["s","entry_spot"],["m","entry_mark_spot"],["t","entry_tune_spot"]] as const)(
+it.each([["s","entry_spot"],["m","entry_mark_spot"],["g","entry_tune_spot"]] as const)(
   "routes Ctrl-%s through the bounded %s Edit Keys action",async(key,action)=>{
   const bindingAction={entry_spot:"SPOT_DX",entry_mark_spot:"MARK_SPOT",entry_tune_spot:"TUNE_SPOT"}[action];
   const view={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14025000,frequencyError:""},

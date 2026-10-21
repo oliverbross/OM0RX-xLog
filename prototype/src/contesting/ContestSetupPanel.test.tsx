@@ -216,7 +216,9 @@ it("uses the original Edit Keys table and saves key changes", async () => {
   expect(Array.from((screen.getByLabelText("action 1") as HTMLSelectElement).options).map(option => option.value)).not.toEqual(expect.arrayContaining([
       "VFO_UP", "ROTATE",
   ]));
-  open("Add"); expect(screen.getByLabelText("key 9")).toBeTruthy(); open("Remove"); expect(screen.queryByLabelText("key 9")).toBeNull();
+  const initialRows=screen.getAllByLabelText(/^key \d+$/).length;
+  open("Add");const addedKey=screen.getByLabelText(`key ${initialRows+1}`);expect(addedKey).toBeTruthy();
+  fireEvent.click(addedKey);open("Remove");expect(screen.queryByLabelText(`key ${initialRows+1}`)).toBeNull();
   fireEvent.change(screen.getByLabelText("key 1"), { target: { value: "Alt+R" } }); open("OK");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(JSON.parse(String(p.onSave.mock.calls[0][0].preferences.keyBindings))[0]).toEqual(["*", "Alt+R", "TOGGLE_RUN"]);

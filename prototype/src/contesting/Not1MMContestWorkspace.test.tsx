@@ -2,8 +2,9 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, projectContestSpotWorkflow,
-  updateContestSpotWorkflow } from "./Not1MMContestWorkspace";
+import { compactContestSpotWorkflow, contestSpotWorkflowMaxBytes, contestSpotWorkflowMaxEntries, contestSpotWorkflowStorageKey,
+  contestSpotWorkflowTTLms, decodeContestSpotWorkflow, encodeContestSpotWorkflow, Not1MMContestWorkspace, persistContestSpotWorkflow,
+  projectContestSpotWorkflow, updateContestSpotWorkflow } from "./Not1MMContestWorkspace";
 import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
@@ -114,16 +115,61 @@ it("persists exact confirm, mark, marked-only and delete spot lifecycle semantic
     statusHex:"",bandHex:"",modeHex:"",marked:false};
   const spots=[{...base,id:"one",callsign:"DL1ABC",frequencyKHz:14025},{...base,id:"collision",callsign:"DL2ABC",frequencyKHz:14025.1},
     {...base,id:"other",callsign:"DL3ABC",frequencyKHz:14025.2}];
-  let workflow=decodeContestSpotWorkflow(null,"session-1");
-  workflow=updateContestSpotWorkflow(workflow,spots,"one","confirm",false,200);
+  const scope={operatingContext:"radio:one",sessionID:"session-1",workspaceGeneration:"generation-1"};
+  let workflow=decodeContestSpotWorkflow(null,scope,1_000);
+  workflow=updateContestSpotWorkflow(workflow,spots,"one","confirm",false,200,1_000);
   expect(projectContestSpotWorkflow(spots,workflow,false).map(spot=>[spot.id,spot.receivedAt])).toEqual([["one",200],["other",1]]);
-  workflow=updateContestSpotWorkflow(workflow,projectContestSpotWorkflow(spots,workflow,false),"one","mark",true,201);
+  workflow=updateContestSpotWorkflow(workflow,projectContestSpotWorkflow(spots,workflow,false),"one","mark",true,201,1_001);
   workflow={...workflow,markedOnly:true};
-  const restored=decodeContestSpotWorkflow(encodeContestSpotWorkflow(workflow),"session-1");
+  const restored=decodeContestSpotWorkflow(encodeContestSpotWorkflow(workflow,1_002),scope,1_002);
   expect(projectContestSpotWorkflow(spots,restored).map(spot=>[spot.id,spot.marked])).toEqual([["one",true]]);
-  workflow=updateContestSpotWorkflow(restored,projectContestSpotWorkflow(spots,restored,false),"one","delete");
+  workflow=updateContestSpotWorkflow(restored,projectContestSpotWorkflow(spots,restored,false),"one","delete",false,202,1_002);
   expect(projectContestSpotWorkflow(spots,workflow,false).map(spot=>spot.id)).toEqual(["other"]);
-  expect(decodeContestSpotWorkflow("{bad","session-1")).toEqual({sessionID:"session-1",markedOnly:false,entries:{}});
+  expect(decodeContestSpotWorkflow("{bad",scope)).toEqual({...scope,markedOnly:false,entries:{}});
+});
+
+it("namespaces, expires, compacts and quota-retries bounded persisted spot overlays",()=>{
+  const scopeA={operatingContext:"radio:one",sessionID:"session-a",workspaceGeneration:"generation-1"};
+  const scopeB={operatingContext:"radio:one",sessionID:"session-b",workspaceGeneration:"generation-1"};
+  expect(contestSpotWorkflowStorageKey(scopeA)).not.toBe(contestSpotWorkflowStorageKey(scopeB));
+  const base={receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
+    callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,
+    aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:true};
+  const now=contestSpotWorkflowTTLms+10_000,entries=Object.fromEntries(Array.from({length:contestSpotWorkflowMaxEntries+25},(_,index)=>{
+    const id=`spot-${index}`;return[id,{spot:{...base,id,callsign:`D${index}`},deleted:false,updatedAt:now-index}];
+  }));
+  const compacted=compactContestSpotWorkflow({...scopeA,markedOnly:false,entries} as any,undefined,now);
+  expect(Object.keys(compacted.entries).length).toBeGreaterThan(0);
+  expect(Object.keys(compacted.entries).length).toBeLessThanOrEqual(contestSpotWorkflowMaxEntries);
+  expect(new TextEncoder().encode(encodeContestSpotWorkflow(compacted,now)).length).toBeLessThanOrEqual(contestSpotWorkflowMaxBytes);
+  const expired=JSON.stringify({...scopeA,markedOnly:false,entries:{old:{spot:{...base,id:"old"},deleted:false,updatedAt:now-contestSpotWorkflowTTLms-1}}});
+  expect(decodeContestSpotWorkflow(expired,scopeA,now).entries).toEqual({});
+  expect(decodeContestSpotWorkflow(" ".repeat(contestSpotWorkflowMaxBytes+1),scopeA,now).entries).toEqual({});
+  const scopedStorage=new Map<string,string>(),mapStorage={setItem:(key:string,value:string)=>{scopedStorage.set(key,value);}};
+  const workflowA={...scopeA,markedOnly:true,entries:{}} as any;
+  const workflowB={...scopeB,markedOnly:false,entries:{}} as any;
+  expect(persistContestSpotWorkflow(mapStorage,workflowA,now)).toBe(true);expect(persistContestSpotWorkflow(mapStorage,workflowB,now)).toBe(true);
+  expect(decodeContestSpotWorkflow(scopedStorage.get(contestSpotWorkflowStorageKey(scopeA))!,scopeA,now).markedOnly).toBe(true);
+  expect(decodeContestSpotWorkflow(scopedStorage.get(contestSpotWorkflowStorageKey(scopeB))!,scopeB,now).markedOnly).toBe(false);
+  const saved=new Map<string,string>(),storage={setItem:vi.fn((key:string,value:string)=>{
+    if(value.length>20_000)throw new DOMException("Quota exceeded","QuotaExceededError");saved.set(key,value);
+  })};
+  expect(persistContestSpotWorkflow(storage,compacted,now)).toBe(true);expect(storage.setItem.mock.calls.length).toBeGreaterThan(1);
+  expect(saved.has(contestSpotWorkflowStorageKey(scopeA))).toBe(true);
+});
+
+it("never resurrects dropped confirmed or unmarked authority while retaining a marked local overlay",()=>{
+  const scope={operatingContext:"radio:one",sessionID:"session-1",workspaceGeneration:"generation-1"},now=1_000;
+  const spot={id:"one",receivedAt:1,clusterName:"SK6AW",spotter:"K1ABC",spotterContinent:null,frequencyKHz:14025,frequencyText:"14025",
+    callsign:"DL1ABC",comment:"CQ",band:"20m",mode:"CW",country:"Germany",adif:230,continent:"EU",cqZone:14,ituZone:28,
+    callStatus:"New",dxccStatus:"New",workedBefore:null,specialTags:[],score:80,scoreReasons:[],aggregateCount:1,
+    aggregateSpotters:["K1ABC"],source:"DX Cluster",statusHex:"",bandHex:"",modeHex:"",marked:false};
+  const confirmed=updateContestSpotWorkflow(decodeContestSpotWorkflow(null,scope,now),[spot],spot.id,"confirm",false,2,now);
+  expect(projectContestSpotWorkflow([],confirmed,false)).toEqual([]);
+  const marked=updateContestSpotWorkflow(confirmed,[spot],spot.id,"mark",true,3,now+1);
+  expect(projectContestSpotWorkflow([],marked,false).map(item=>item.id)).toEqual(["one"]);
+  const reconciled=compactContestSpotWorkflow(confirmed,new Set(),now+1);expect(reconciled.entries).toEqual({});
 });
 
 it("persists station settings before the first contest exists", async () => {
@@ -204,6 +250,57 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
     ["callsign", "Call", true, ""], ["sent", "SNT", true, "599"], ["receive", "RCV", true, "599"],
     ["other_1", "", false, "15"], ["other_2", "CQ Zone", true, ""],
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
+});
+
+const operationalRequest=(current:()=>ReturnType<typeof projection>)=>vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+  const active=current(),support=workspaceSupport(method,params,active);if(support)return support;
+  if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+  const result=method==="contest_catalog"?{plugins:[]}:method==="contest_sessions"?{sessions:[]}:
+    method==="contest_create"?{projection:active}:method==="contest_log_page"?{rows:[],total:0}:
+    method==="contest_score"?{score:active.score}:null;
+  if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+});
+
+it("marks only the exact typed callsign at the current observed VFO and creates a local overlay spot",async()=>{
+  const current=projection(1,{callsign:"DL1ABC"}),request=operationalRequest(()=>current);
+  const shared=[{id:"partial",callsign:"DL1ABCD",frequencyKHz:14025,band:"20m",mode:"CW"},
+    {id:"exact-away",callsign:"DL1ABC",frequencyKHz:14026,band:"20m",mode:"CW"}];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={shared as any}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots).toHaveLength(2));
+  const entry=surfaceOwner.current.projections["active-qso"],envelope={operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,panelID:"active-qso",projectionRevision:entry.draft.revision,requestID:crypto.randomUUID(),
+    action:"entry_mark_spot",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}};
+  await act(async()=>surfaceOwner.current.handle(envelope));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].spots.some((spot:any)=>spot.callsign==="DL1ABC"&&spot.frequencyKHz===14025&&spot.marked)).toBe(true));
+  expect(surfaceOwner.current.projections["band-maps"].spots.some((spot:any)=>spot.callsign==="DL1ABCD"&&spot.marked)).toBe(false);
+  expect(surfaceOwner.current.projections["band-maps"].spots.find((spot:any)=>spot.id==="exact-away").marked).toBe(false);
+});
+
+it("reconciles a hidden marked-only selection and rejects Ctrl-G tuning it",async()=>{
+  const current=projection(),request=operationalRequest(()=>current),tune=vi.fn(async()=>({accepted:true,confirmed:true}));
+  const shared=[{id:"hidden",callsign:"DL1ABC",frequencyKHz:14025,band:"20m",mode:"CW"}];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} stationTune={tune}
+    spots={shared as any} selectedSpotId="hidden"/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].selectedSpotID).toBe("hidden"));
+  const entry=surfaceOwner.current.projections["active-qso"],base={operatingContext,scope:"contesting",sessionID:current.sessionID,
+    workspaceGeneration,projectionRevision:entry.draft.revision,requestID:crypto.randomUUID()};
+  await act(async()=>surfaceOwner.current.handle({...base,panelID:"band-maps",action:"spot_set_marked_only",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,markedOnly:true}}));
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"]).toMatchObject({markedOnly:true,selectedSpotID:null,spots:[]}));
+  await expect(surfaceOwner.current.handle({...base,panelID:"active-qso",requestID:crypto.randomUUID(),action:"entry_tune_spot",
+    params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision}})).rejects.toThrow("No selected or matching shared spot");
+  expect(tune).not.toHaveBeenCalled();
+});
+
+it("projects Python exportFormats and rejects an unsupported Cabrillo owner action",async()=>{
+  const current={...projection(),exportFormats:["adif" as const]},request=operationalRequest(()=>current);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections.logbook).toMatchObject({canExportCabrillo:false,canExportAdif:true}));
+  const log=surfaceOwner.current.projections.logbook;
+  await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"logbook",projectionRevision:log.sessionRevision,requestID:crypto.randomUUID(),action:"log_export_cabrillo",params:{}}))
+    .rejects.toThrow("Cabrillo export is not supported");
+  expect(request.mock.calls.some(([method])=>method==="contest_export_prepare")).toBe(false);
 });
 
 it("routes detached ADIF export and manual recalculation through the active Python owner", async () => {

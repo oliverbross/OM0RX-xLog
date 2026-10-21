@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent,
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent, type Ref } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -141,27 +141,42 @@ type Send = (action: ContestSurfaceAction, projectionRevision:number,
   options?:{requestID?:string;safePresentation?:boolean;bypassQueue?:boolean}) => Promise<SendResult>;
 function ContestSpots({panelID,projection,projectionRevision,send}:{panelID:"band-maps"|"dx-cluster";projection:ContestSpotSurfaceProjection;
     projectionRevision:number;send:Send}) {
-  const [menu,setMenu]=useState<null|{spotID:string;x:number;y:number}>(null);
+  const [menu,setMenu]=useState<null|{spotID:string;x:number;y:number;requestedX:number;requestedY:number;origin:HTMLElement}>(null);
+  const menuRef=useRef<HTMLDivElement|null>(null);
   const selected=projection.selectedSpotID===null?null:projection.spots.find(spot=>spot.id===projection.selectedSpotID)??null;
   const select=(spotID:string)=>void send({action:"spot_select",params:{draftID:projection.draftID,
     expectedDraftRevision:projection.draftRevision,spotID}},projectionRevision);
-  const act=(action:ContestSurfaceAction)=>{setMenu(null);void send(action,projectionRevision);};
-  const contextMenu=(spot:{id?:unknown},event:ReactMouseEvent<HTMLElement>)=>{
-    event.preventDefault();event.stopPropagation();setMenu({spotID:String(spot.id),x:event.clientX,y:event.clientY});
+  const closeMenu=()=>setMenu(current=>{queueMicrotask(()=>{if(current?.origin.isConnected)current.origin.focus();});return null;});
+  const act=(action:ContestSurfaceAction)=>{closeMenu();void send(action,projectionRevision);};
+  const contextMenu=(spot:{id?:unknown},event:ReactMouseEvent<HTMLElement>|ReactKeyboardEvent<HTMLElement>)=>{
+    event.preventDefault();event.stopPropagation();const origin=event.currentTarget,rect=origin.getBoundingClientRect();
+    const pointer="clientX" in event&&event.clientX>0&&event.clientY>0;
+    const requestedX=pointer?event.clientX:rect.left+Math.min(rect.width,24),requestedY=pointer?event.clientY:rect.top+Math.min(rect.height,24);
+    setMenu({spotID:String(spot.id),x:requestedX,y:requestedY,requestedX,requestedY,origin});
   };
   const target=menu&&projection.spots.find(spot=>spot.id===menu.spotID);
+  useLayoutEffect(()=>{if(!menu)return;const clamp=()=>{const rect=menuRef.current?.getBoundingClientRect(),margin=8,
+      width=rect?.width??160,height=rect?.height??150,x=Math.max(margin,Math.min(menu.requestedX,window.innerWidth-width-margin)),
+      y=Math.max(margin,Math.min(menu.requestedY,window.innerHeight-height-margin));
+      setMenu(current=>current&&(current.x!==x||current.y!==y)?{...current,x,y}:current);};
+    clamp();window.addEventListener("resize",clamp);return()=>window.removeEventListener("resize",clamp);},[menu?.spotID,menu?.requestedX,menu?.requestedY]);
+  useEffect(()=>{if(menu&&!target)closeMenu();},[menu,target]);
   const workflow=<><div className="contest-spot-toolbar"><label><input type="checkbox" checked={projection.markedOnly}
     onChange={event=>act({action:"spot_set_marked_only",params:{draftID:projection.draftID,expectedDraftRevision:projection.draftRevision,
       markedOnly:event.currentTarget.checked}})}/>Marked only</label><span>{selected?`Selected ${selected.callsign}`:"No selected spot"}</span></div>
-    {menu&&target&&<div className="contest-spot-menu" role="menu" aria-label={`Spot actions for ${target.callsign}`}
-      style={{left:menu.x,top:menu.y}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();setMenu(null);}}}>
+    {menu&&target&&<div ref={menuRef} className="contest-spot-menu" role="menu" aria-label={`Spot actions for ${target.callsign}`}
+      style={{left:menu.x,top:menu.y}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();closeMenu();return;}
+        if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;event.preventDefault();
+        const items=[...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')],current=items.indexOf(document.activeElement as HTMLElement);
+        const index=event.key==="Home"?0:event.key==="End"?items.length-1:event.key==="ArrowDown"?(current+1)%items.length:(current-1+items.length)%items.length;
+        items[index]?.focus();}}>
       <button type="button" role="menuitem" autoFocus onClick={()=>act({action:"spot_confirm",params:{draftID:projection.draftID,
         expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Confirm</button>
       <button type="button" role="menuitem" onClick={()=>act({action:"spot_set_marked",params:{draftID:projection.draftID,
         expectedDraftRevision:projection.draftRevision,spotID:target.id,marked:!target.marked}})}>{target.marked?"Unmark":"Mark"}</button>
       <button type="button" role="menuitem" onClick={()=>act({action:"spot_delete",params:{draftID:projection.draftID,
         expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Delete</button>
-      <button type="button" role="menuitem" onClick={()=>setMenu(null)}>Cancel</button>
+      <button type="button" role="menuitem" onClick={closeMenu}>Cancel</button>
     </div>}</>;
   if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact spots={projection.spots}
     radioFrequencyHz={projection.radioFrequencyHz??undefined} storageNamespace="contest" selectedSpotId={projection.selectedSpotID}
@@ -550,7 +565,7 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
   const partialRows=projection.partialRows??[], pluginPartialRows=projection.pluginPartialRows??[];
   return <section className="contest-surface-log"><header><h1>Log Display</h1>
-  <div className="contest-surface-log-actions"><button disabled={disabled||sending||!projection.canExportCabrillo} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>
+  <div className="contest-surface-log-actions">{projection.canExportCabrillo&&<button disabled={disabled||sending} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>}
   <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></header>
   <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
