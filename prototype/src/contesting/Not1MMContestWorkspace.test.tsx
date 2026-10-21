@@ -380,7 +380,7 @@ it("projects CWT Name as received input and admits edits through the detached ow
     else if(method==="contest_score")result={score:current.score,matrices:{countries:[],zones:[]}};
     else if(method==="contest_draft_apply"){
       applied=params;current={...current,revision:current.revision+1,fields:current.fields.map((field:any)=>
-        ({...field,value:(params.fields as Record<string,string>)[field.id]??field.value}))};
+        ({...field,value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
       result={projection:current,actions:[],messages:[]};
     }else throw new Error(method);
     return{id:crypto.randomUUID(),ok:true,result};
@@ -1137,7 +1137,7 @@ it("publishes imported plugin history to Check Partial and clears it with the ne
       method==="contest_score"?{score:current.score}:method==="contest_check_partial"?{rows:[]}:null;
     if(method==="contest_draft_apply"){
       current={...current,revision:current.revision+1,fields:current.fields.map(field=>
-        ({...field,value:(params.fields as Record<string,string>)[field.id]??field.value}))};
+        ({...field,value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
       result={projection:current,actions:[],messages:[]};
     }else if(method==="contest_qso_commit"){
       current={...current,revision:current.revision+1,history:"",fields:current.fields.map(field=>
