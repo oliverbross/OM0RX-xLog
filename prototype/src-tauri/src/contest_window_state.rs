@@ -105,8 +105,12 @@ pub fn labels(directory: &Path) -> Result<Vec<String>, String> {
     let _guard = lock()
         .lock()
         .map_err(|_| "Contest window state is unavailable.")?;
-    Ok(read(directory)?
-        .open
+    let mut open = read(directory)?.open;
+    // Every activated contest gets the standard operating desk. The saved set
+    // may add auxiliary tools, but closing Main Logging (or another standard
+    // window) in one session must not strand the next New/Open Contest flow.
+    open.extend(DEFAULT_OPEN.into_iter().map(str::to_owned));
+    Ok(open
         .into_iter()
         .map(|panel| {
             crate::workspace_windows::WorkspaceWindowIdentity::new(
@@ -149,8 +153,19 @@ mod tests {
         remember(directory.path(), "contest--logbook", true).unwrap();
         remember(directory.path(), "contest--active-qso", true).unwrap();
         remember(directory.path(), "contest--active-qso", false).unwrap();
-        assert!(!labels(directory.path()).unwrap().contains(&"contest--active-qso".to_owned()));
+        assert!(labels(directory.path()).unwrap().contains(&"contest--active-qso".to_owned()));
         assert!(remember(directory.path(), "logbook", true).is_err());
+    }
+
+    #[test]
+    fn every_session_restores_the_standard_contest_desk_alongside_remembered_tools() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(path(directory.path()), br#"{"version":2,"open":["rotor"]}"#).unwrap();
+        let restored = labels(directory.path()).unwrap();
+        for label in default_labels() {
+            assert!(restored.contains(&label), "missing standard contest window {label}");
+        }
+        assert!(restored.contains(&"contest--rotor".to_owned()));
     }
 
     #[test]

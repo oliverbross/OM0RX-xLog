@@ -952,6 +952,16 @@ fn contest_desk_window(label: &str) -> bool {
             && identity.panel_id != "edit-contact")
 }
 
+fn normal_workspace_window(label: &str) -> bool {
+    label == "main" || label == CONTEST_SETUP_WINDOW ||
+        workspace_windows::WorkspaceWindowIdentity::parse_native_label(label)
+            .is_ok_and(|identity| identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging)
+}
+
+fn contest_desk_is_open<'a>(labels: impl IntoIterator<Item = &'a str>) -> bool {
+    labels.into_iter().any(contest_desk_window)
+}
+
 fn enters_contest_desk(label: &str, method: &str) -> bool {
     label == CONTEST_SETUP_WINDOW && matches!(method, "contest_create" | "contest_session_create" | "contest_open")
 }
@@ -972,11 +982,14 @@ fn present_contest_desk(app: &tauri::AppHandle,
             if !labels.iter().any(|label| contest_desk_window(label)) {
                 return Err("The contest desk did not open a usable window; the xLog main window remains available.".into());
             }
-            if let Some(main) = app.get_webview_window("main") {
-                validate_editor_transition(main.label())?;
-                detached_geometry::flush(&main);
-                main.destroy().map_err(|error| error.to_string())?;
+            let windows = app.webview_windows();
+            for window in windows.values().filter(|window| normal_workspace_window(window.label())) {
+                if window.label() == "main" { validate_editor_transition(window.label())?; }
+                window.hide().map_err(|error| error.to_string())?;
             }
+            let main_logging = app.get_webview_window("contest--active-qso")
+                .ok_or("The contest desk did not retain Main Logging; the xLog main window remains available.")?;
+            main_logging.show().and_then(|_| main_logging.set_focus()).map_err(|error| error.to_string())?;
             return Ok(());
         }
         if Instant::now() >= deadline {
@@ -2954,7 +2967,14 @@ fn main() {
         .on_window_event(|window, event| {
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    if contest_voice::needs_shutdown_barrier() {
+                    let labels = window.app_handle().webview_windows().into_keys().collect::<Vec<_>>();
+                    if contest_desk_is_open(labels.iter().map(String::as_str)) {
+                        // The contest desk owns the active application lifetime.
+                        // Keep the normal controller available for Dock reopen and
+                        // return it to the background instead of terminating Tauri.
+                        api.prevent_close();
+                        if let Err(error) = window.hide() { eprintln!("Could not hide the normal xLog workspace: {error}"); }
+                    } else if contest_voice::needs_shutdown_barrier() {
                         api.prevent_close();
                         if contest_voice::begin_window_close_barrier() {
                             let app = window.app_handle().clone();
@@ -3247,7 +3267,7 @@ fn main() {
 
 #[cfg(test)]
 mod workspace_layout_tests {
-    use super::{WorkspaceLayout, DraftWake, contest_desk_window, enters_contest_desk, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
+    use super::{WorkspaceLayout, DraftWake, contest_desk_is_open, contest_desk_window, enters_contest_desk, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
 
@@ -3260,6 +3280,23 @@ mod workspace_layout_tests {
         for label in ["main", "contest-setup", "contest--edit-contact", "contest--unknown", "logbook", ""] {
             assert!(!contest_desk_window(label), "accepted non-desk lifetime {label}");
         }
+    }
+
+    #[test]
+    fn contest_desk_hides_normal_windows_but_retains_contest_children() {
+        for label in ["main", "contest-setup", "logbook", "band-maps", "settings"] {
+            assert!(normal_workspace_window(label), "normal workspace window not classified: {label}");
+        }
+        for label in ["contest--active-qso", "contest--band-maps", "contest--logbook", "contest-setup-operator", ""] {
+            assert!(!normal_workspace_window(label), "contest/non-workspace window misclassified: {label}");
+        }
+    }
+
+    #[test]
+    fn any_standard_contest_child_keeps_the_app_alive_when_main_closes() {
+        assert!(contest_desk_is_open(["settings", "contest--active-qso"]));
+        assert!(contest_desk_is_open(["contest--dx-cluster"]));
+        assert!(!contest_desk_is_open(["main", "contest-setup", "contest--edit-contact"]));
     }
 
     #[test]
