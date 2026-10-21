@@ -49,7 +49,9 @@ fn digital(value: &Value) -> bool {
     let configuration = &value["configuration"];
     let address = configuration["address"].as_str().unwrap_or("");
     let port = configuration["port"].as_u64().unwrap_or(0);
+    let destination = configuration["destination"].as_str().unwrap_or("ordinary_logbook");
     configuration.is_object() && configuration["enabled"].is_boolean() && !address.is_empty() && address.len() <= 45
+        && matches!(destination, "ordinary_logbook" | "active_contest")
         && (1..=65_535).contains(&port) && matches!(value["action"].as_str(), Some("save" | "start" | "stop"))
 }
 fn owner(label: &str) -> Result<(), String> {
@@ -186,12 +188,17 @@ mod tests {
     fn digital_requests_are_bounded_and_owned() {
         let mut s = State::default(); let snapshot = publish(&mut s);
         let mut request = snapshot.clone(); request["requestID"] = json!("digital-1");
-        request["digital"] = json!({"configuration":{"enabled":false,"address":"224.0.0.1","port":2237},"action":"start"});
+        request["digital"] = json!({"configuration":{"enabled":false,"address":"224.0.0.1","port":2237,
+            "destination":"active_contest"},"action":"start"});
         assert_eq!(s.request("contest-setup-digital","submit",request.clone()).unwrap()["status"],"pending");
         assert!(s.request("contest-setup-digital","submit",request).is_ok());
         let mut invalid = snapshot; invalid["requestID"] = json!("digital-2");
         invalid["digital"] = json!({"configuration":{"enabled":false,"address":"","port":0},"action":"connect"});
         assert!(s.request("contest-setup-digital","submit",invalid).is_err());
+        let mut invalid_destination = publish(&mut s); invalid_destination["requestID"] = json!("digital-3");
+        invalid_destination["digital"] = json!({"configuration":{"enabled":false,"address":"127.0.0.1","port":2237,
+            "destination":"another_contest"},"action":"start"});
+        assert!(s.request("contest-setup-digital","submit",invalid_destination).is_err());
     }
     #[test]
     fn fences_changed_document_context_and_owner() {

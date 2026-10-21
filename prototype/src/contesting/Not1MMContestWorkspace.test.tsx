@@ -83,8 +83,9 @@ it("opens all separate setup dialogs from the hub and Contest menu before a sess
 });
 
 it("routes Digital logging saves, starts, and stops through the real host service", async () => {
-  const digital = { configuration:{enabled:false,address:"224.0.0.1",port:2237}, running:false,
-    status:"Stopped", receive_only:true, received_count:17, activity:{spots:[{}]} };
+  const digital = { configuration:{enabled:false,address:"224.0.0.1",port:2237,destination:"ordinary_logbook"}, running:false,
+    status:"Stopped", receive_only:true, contest_target_supported:true,
+    active_contest:{session_id:"contest",plugin_id:"cq_ww_rtty"}, received_count:17, activity:{spots:[{}]} };
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
     if (method === "contest_catalog") return { id:crypto.randomUUID(),ok:true,result:{plugins:[]} };
     if (method === "contest_sessions") return { id:crypto.randomUUID(),ok:true,result:{sessions:[]} };
@@ -96,7 +97,8 @@ it("routes Digital logging saves, starts, and stops through the real host servic
   });
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
   await waitFor(() => expect(setupDialogOwner.current?.auxiliary.digital).toEqual({
-    configuration:digital.configuration,running:false,status:"Stopped",receive_only:true,
+    configuration:digital.configuration,running:false,status:"Stopped",receive_only:true,contest_target_supported:true,
+    active_contest:digital.active_contest,
   }));
 
   const saveDigital = setupDialogOwner.current.saveDigital;

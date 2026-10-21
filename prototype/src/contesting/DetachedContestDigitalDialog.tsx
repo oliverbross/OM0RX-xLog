@@ -32,16 +32,22 @@ export function DetachedContestDigitalDialog() {
   };
   const digital = snapshot?.auxiliary.digital;
   return <main className="contest-digital-dialog" aria-label="Digital logging setup">
-    <header><div><h1>Digital logging</h1><p>Configure xLog’s native receive-only WSJT-X service. Logged contacts go to the ordinary xLog log, not the open Not1MM contest log.</p></div>
+    <header><div><h1>Digital logging</h1><p>Configure xLog’s native receive-only WSJT-X service and choose the destination for accepted contacts.</p></div>
       <span className={digital?.running ? "is-listening" : "is-inactive"}>{digital?.running ? "Listening" : digital ? "Stopped" : "Unavailable"}</span></header>
     <section aria-labelledby="wsjtx-heading">
-      <div className="digital-section-heading"><div><h2 id="wsjtx-heading">WSJT-X / JTDX</h2><p>Logged contacts arrive over UDP after you accept the external app’s Log QSO dialog and are saved by Normal Logging.</p></div><strong>Ordinary log · receive only</strong></div>
+      <div className="digital-section-heading"><div><h2 id="wsjtx-heading">WSJT-X / JTDX</h2><p>Logged contacts arrive over UDP after you accept the external app’s Log QSO dialog and are saved to the selected destination.</p></div><strong>{draft?.destination === "active_contest" ? "Active contest" : "Ordinary log"} · receive only</strong></div>
       {draft ? <div className="digital-fields"><label><span>Multicast or loopback address</span><input autoFocus aria-label="WSJT-X UDP address" value={draft.address}
         onChange={event => setDraft({...draft,address:event.target.value.trim()})}/></label><label><span>UDP port</span><input aria-label="WSJT-X UDP port" type="number" min="1" max="65535" value={draft.port}
-        onChange={event => setDraft({...draft,port:Number(event.target.value)})}/></label></div>
+        onChange={event => setDraft({...draft,port:Number(event.target.value)})}/></label>
+        <label><span>Logged-contact destination</span><select aria-label="WSJT-X logging destination" value={draft.destination}
+          onChange={event => setDraft({...draft,destination:event.target.value as "ordinary_logbook" | "active_contest"})}>
+          <option value="ordinary_logbook">Ordinary log</option>
+          <option value="active_contest" disabled={!digital?.contest_target_supported}>Active contest</option>
+        </select></label></div>
         : <p role="status">The xLog WSJT-X host is not available. Reopen Contest Setup after the station service is ready.</p>}
       <p className="digital-reference">Original Not1MM defaults: <code>224.0.0.1:2237</code>. xLog also permits <code>127.0.0.1</code> for one-computer operation.</p>
       <p className="digital-safety">This listener does not send decodes, replies, CAT commands, or PTT. Configure WSJT-X/JTDX radio control independently.</p>
+      {digital?.contest_target_supported && digital.active_contest && <p className="digital-safety">Active contest routes through the original <code>{digital.active_contest.plugin_id}</code> digital handler. Changing or closing that contest stops this listener; late packets are rejected.</p>}
     </section>
     <section aria-labelledby="fldigi-heading" className="is-unavailable"><div className="digital-section-heading"><div><h2 id="fldigi-heading">fldigi</h2><p>Original Not1MM receives logged QSOs at <code>127.0.0.1:9876</code> and sends F1–F12 through XML-RPC.</p></div><strong>Not integrated</strong></div>
       <dl><div><dt>XML-RPC</dt><dd>Enable in fldigi</dd></div><div><dt>Contest</dt><dd>Generic Contest</dd></div><div><dt>Text Capture Order</dt><dd><code>CALL EXCHANGE</code></dd></div></dl>

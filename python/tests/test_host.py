@@ -98,6 +98,7 @@ class HostTests(unittest.TestCase):
         response = self.call("contest_catalog", {})
         catalog = response["plugins"]
         plugins = {plugin["id"]: plugin for plugin in catalog}
+        self.assertFalse(plugins["cq_ww_cw"]["digitalLoggingSupported"])
         self.assertEqual(plugins["trans_tasman"]["supportedBands"], ["160m", "80m", "40m"])
         self.assertEqual(plugins["cq_ww_cw"]["supportedBands"],
                          ["160m", "80m", "40m", "20m", "15m", "10m"])
@@ -107,6 +108,15 @@ class HostTests(unittest.TestCase):
         self.assertEqual(bands["13cm"], {"id": "13cm", "lowHz": 2_300_000_000,
                                         "highHz": 2_450_000_000, "value": 2300.0})
         self.assertEqual(set(bands), {band for plugin in plugins.values() for band in plugin["supportedBands"]})
+
+    def test_digital_ingest_rejects_plugin_without_original_handler(self):
+        with self.assertRaisesRegex(HostError, "no original digital logging handler") as failure:
+            self.mutate("digital_ingest", workspaceGeneration=self.workspace,
+                        semanticIdentity="1" * 64,
+                        packet={"CALL": "K1ABC", "MODE": "FT8", "FREQ": "14.074000",
+                                "QSO_DATE": "20261020", "TIME_ON": "081500"})
+        self.assertEqual(failure.exception.code, "digital_unsupported")
+        self.assertEqual(self.read("log")["total"], 0)
 
     def test_commit_restores_default_reports_for_next_draft(self):
         self.mutate("draft_apply", fields={"sent": "579", "receive": "589"})

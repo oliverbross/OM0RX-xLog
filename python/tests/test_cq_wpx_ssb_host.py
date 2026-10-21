@@ -103,6 +103,7 @@ class CQWPXSSBHostTests(unittest.TestCase):
             "supportedBands": ["160m", "80m", "40m", "20m", "15m", "10m"],
             "sentExchangeHint": "Sent Exchange",
             "overlayChoices": ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"],
+            "digitalLoggingSupported": False,
             "exportFormats": ["cabrillo", "adif"],
         })
         view = self.read("projection")["projection"]

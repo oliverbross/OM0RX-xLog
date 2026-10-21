@@ -401,8 +401,13 @@ function boundedDigitalSnapshot(value: unknown): ContestDigitalSnapshot | undefi
   if (!configuration || typeof configuration.enabled !== "boolean" || typeof configuration.address !== "string" ||
       typeof configuration.port !== "number" || typeof source.running !== "boolean" || typeof source.status !== "string" ||
       typeof source.receive_only !== "boolean") return undefined;
-  return { configuration: { enabled: configuration.enabled, address: configuration.address, port: configuration.port },
-    running: source.running, status: source.status, receive_only: source.receive_only };
+  const destination = configuration.destination === "active_contest" ? "active_contest" : "ordinary_logbook";
+  const active = source.active_contest as Record<string, unknown> | null | undefined;
+  return { configuration: { enabled: configuration.enabled, address: configuration.address, port: configuration.port, destination },
+    running: source.running, status: source.status, receive_only: source.receive_only,
+    contest_target_supported: source.contest_target_supported === true,
+    active_contest: active && typeof active.session_id === "string" && typeof active.plugin_id === "string"
+      ? { session_id: active.session_id, plugin_id: active.plugin_id } : null };
 }
 
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,

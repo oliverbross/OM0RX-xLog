@@ -48,6 +48,8 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_output_claim(operation_id TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT PRIMARY KEY, serial INTEGER NOT NULL UNIQUE, operation_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_qso_identity(id TEXT PRIMARY KEY, raw_fields TEXT NOT NULL, country TEXT, deleted INTEGER NOT NULL DEFAULT 0);
+            CREATE TABLE IF NOT EXISTS xlog_digital_receipt(semantic_identity TEXT PRIMARY KEY,
+                qso_id TEXT NOT NULL UNIQUE, operation_id TEXT NOT NULL UNIQUE);
             CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL, before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_legacy_import(source_identity TEXT PRIMARY KEY, source_digest TEXT NOT NULL,
                 source_contest_nr INTEGER NOT NULL, source_path_name TEXT NOT NULL, imported_rows INTEGER NOT NULL,

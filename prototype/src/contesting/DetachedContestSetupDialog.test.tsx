@@ -303,7 +303,7 @@ it("uses one owner save for a repeated native request after a lost completion", 
 it("routes Digital logging changes through the existing setup owner", async () => {
   const source = snapshot(), saveDigital = vi.fn(async () => {}), report = vi.fn();
   const pending = { ...source, requestID:"digital-1", kind:"digital", digital:{
-    configuration:{enabled:false,address:"224.0.0.1",port:2237}, action:"start" } };
+    configuration:{enabled:false,address:"224.0.0.1",port:2237,destination:"ordinary_logbook"}, action:"start" } };
   let delivered = false;
   native.invoke.mockImplementation(async (_command, { method }) => {
     if (method === "next" && !delivered) { delivered = true; return pending; }
@@ -319,7 +319,7 @@ it("routes Digital logging changes through the existing setup owner", async () =
 it("returns a real Digital host rejection to the dialog receipt", async () => {
   const source = snapshot(), report = vi.fn(), failure = new Error("WSJT-X port is already in use");
   const pending = { ...source, requestID:"digital-failed", kind:"digital", digital:{
-    configuration:{enabled:true,address:"224.0.0.1",port:2237}, action:"start" } };
+    configuration:{enabled:true,address:"224.0.0.1",port:2237,destination:"ordinary_logbook"}, action:"start" } };
   let delivered = false;
   native.invoke.mockImplementation(async (_command, { method }) => {
     if (method === "next" && !delivered) { delivered = true; return pending; }

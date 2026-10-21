@@ -3,8 +3,10 @@ import { useEffect, useRef } from "react";
 import type { ContestSetupCatalogEntry, ContestSetupDocument } from "./ContestSetupPanel";
 
 export type SetupDialogKind = "operator" | "station" | "configuration" | "digital" | "macros" | "keys" | "rover" | "about";
-export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number };
-  running: boolean; status: string; receive_only: boolean };
+export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number;
+    destination: "ordinary_logbook" | "active_contest" };
+  running: boolean; status: string; receive_only: boolean; contest_target_supported: boolean;
+  active_contest?: { session_id: string; plugin_id: string } | null };
 export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"]; action: "save" | "start" | "stop" };
 export type SetupDialogAuxiliary = { roverLocation: string; activeSessionID?: string; effectiveMacros?: ContestSetupDocument["macros"];
   catalog?: ContestSetupCatalogEntry[];

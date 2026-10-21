@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Darwin
+import XLogCore
 
 protocol WSJTXDatagramReceiving: AnyObject {
     func start(address: String, port: UInt16) throws
@@ -193,6 +194,13 @@ public enum WSJTXLoggingRoute: String, Sendable {
     case contestSurfaceOrdinaryLogbook = "active_contest_surface"
 }
 
+public struct WSJTXContestDestination: Equatable, Sendable {
+    public let sessionID: String
+    public let workspaceGeneration: String
+    public let pluginID: String
+    public let sourceRevision: String
+}
+
 public actor LiveWSJTXBridge {
     public static let shared = LiveWSJTXBridge()
 
@@ -209,6 +217,8 @@ public actor LiveWSJTXBridge {
     private var workspaceSuspensionDepth = 0
     private var terminalShutdown = false
     private var onImported: (@Sendable () -> Void)?
+    private var contestDestination: WSJTXContestDestination?
+    private var contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)?
     private var receivedCount = 0
     private var importedCount = 0
     private var duplicateCount = 0
@@ -252,7 +262,7 @@ public actor LiveWSJTXBridge {
 
     public func suspendForWorkspaceChange() {
         workspaceSuspensionDepth += 1
-        stopReceiver(); configuration = nil; status = "Paused for workspace change"
+        stopReceiver(); configuration = nil; retireContestDestination(); status = "Paused for workspace change"
     }
     public func finishWorkspaceChange() {
         guard workspaceSuspensionDepth > 0 else { return }
@@ -262,25 +272,42 @@ public actor LiveWSJTXBridge {
     }
     public func stopForShutdown() {
         terminalShutdown = true
-        stopReceiver(); status = "Worker stopped"
+        stopReceiver(); retireContestDestination(); status = "Worker stopped"
     }
 
     public func handle(method: String, params: [String: Any],
-                       route: WSJTXLoggingRoute = .normalLogging) throws -> [String: Any] {
+                       route: WSJTXLoggingRoute = .normalLogging,
+                       contestDestinationProvider: (@Sendable () async throws -> WSJTXContestDestination)? = nil,
+                       contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)? = nil) async throws -> [String: Any] {
+        let availableContest = try? await contestDestinationProvider?()
+        if let current = contestDestination, current != availableContest {
+            stopReceiver(); retireContestDestination()
+            status = "The active contest changed; the digital destination was retired."
+        }
         switch method {
         case "wsjtx_snapshot":
             try require(params, allowed: [])
-            return try snapshot(route: route)
+            return try snapshot(route: route, availableContest: availableContest)
         case "wsjtx_configure":
             try require(params, allowed: ["configuration"], required: ["configuration"])
             try requireStartAvailable()
             try requireWorkspace()
             guard let value = params["configuration"] as? [String: Any] else { throw invalid() }
-            let next = try decode(value)
-            try save(next); configuration = next
+            let (next, destination) = try decode(value)
+            if destination == "active_contest" {
+                guard let lease = availableContest, let contestImporter else {
+                    throw WorkerFailure("digital_unsupported", "The active contest cannot receive WSJT-X logged contacts.")
+                }
+                self.contestDestination = lease
+                self.contestImporter = contestImporter
+            } else { retireContestDestination() }
+            let persisted = destination == "active_contest"
+                ? WSJTXBridgeConfiguration(enabled: false, address: next.address, port: next.port)
+                : next
+            try save(persisted); configuration = next
             if !next.enabled { stopReceiver(); status = "Off" }
             else if receiver != nil { stopReceiver(); status = "Settings saved; restart the listener." }
-            return try snapshot(route: route)
+            return try snapshot(route: route, availableContest: availableContest)
         case "wsjtx_start":
             try require(params, allowed: [])
             try requireStartAvailable()
@@ -288,14 +315,14 @@ public actor LiveWSJTXBridge {
             let config = try load()
             guard config.enabled else { throw WorkerFailure("wsjtx_disabled", "Enable WSJT-X logging before starting the listener.") }
             try startReceiver(config)
-            return try snapshot(route: route)
+            return try snapshot(route: route, availableContest: availableContest)
         case "wsjtx_stop":
             try require(params, allowed: [])
             var config = try load(); config.enabled = false
             stopReceiver()
             if (try? workspaceAvailable()) == true { try save(config) }
-            configuration = config; status = "Off"
-            return try snapshot(route: route)
+            configuration = config; retireContestDestination(); status = "Off"
+            return try snapshot(route: route, availableContest: availableContest)
         default:
             throw WorkerFailure("method_not_allowed", "Unknown WSJT-X logging method.")
         }
@@ -317,13 +344,28 @@ public actor LiveWSJTXBridge {
             guard let message = try WSJTXMessageParser.loggedADIF(from: data) else {
                 ignoredCount += 1; status = "Listening; a non-log WSJT-X message was ignored."; return
             }
-            let result = try importer(message.text)
+            let duplicate: Bool
+            let imported: Int
+            if let destination = contestDestination, let contestImporter {
+                let records = ADIFParser().records(in: message.text)
+                guard records.count == 1, records[0].fields.count <= 64 else { throw WSJTXMessageError.invalid }
+                duplicate = try await contestImporter(records[0], destination)
+                imported = duplicate ? 0 : 1
+            } else {
+                let result = try importer(message.text)
+                duplicate = result.skipped > 0
+                imported = result.imported
+            }
             guard receiverGeneration == generation else { return }
-            importedCount += result.imported
-            duplicateCount += result.skipped
-            status = result.imported > 0 ? "Logged \(result.imported) WSJT-X contact locally."
+            importedCount += imported
+            duplicateCount += duplicate ? 1 : 0
+            status = imported > 0 ? (contestDestination == nil ? "Logged 1 WSJT-X contact locally." : "Logged 1 WSJT-X contact to the active contest.")
                 : "WSJT-X contact already exists; duplicate suppressed."
-            if result.imported > 0 { onImported?() }
+            if imported > 0 { onImported?() }
+        } catch let failure as ContestLaneError where ["stale_context", "contest_session_inactive"].contains(failure.code) {
+            guard receiverGeneration == generation else { return }
+            rejectedCount += 1; stopReceiver(); retireContestDestination()
+            status = "The contest changed; the late WSJT-X contact was rejected and the listener stopped."
         } catch {
             guard receiverGeneration == generation else { return }
             rejectedCount += 1
@@ -360,6 +402,11 @@ public actor LiveWSJTXBridge {
         activity.reset()
     }
 
+    private func retireContestDestination() {
+        contestDestination = nil
+        contestImporter = nil
+    }
+
     private func requireStartAvailable() throws {
         if terminalShutdown {
             throw WorkerFailure("worker_stopping", "The WSJT-X listener cannot start while the application is shutting down.")
@@ -374,7 +421,8 @@ public actor LiveWSJTXBridge {
         if event.hasPrefix("UDP listener failed") { stopReceiver(); status = "WSJT-X UDP listener failed and stopped." }
     }
 
-    private func snapshot(route: WSJTXLoggingRoute = .normalLogging) throws -> [String: Any] {
+    private func snapshot(route: WSJTXLoggingRoute = .normalLogging,
+                          availableContest: WSJTXContestDestination? = nil) throws -> [String: Any] {
         let config = try load()
         let now = UInt64(Date().timeIntervalSince1970 * 1000)
         let inputs = activity.classificationInputs(now: now)
@@ -400,9 +448,13 @@ public actor LiveWSJTXBridge {
                 }
             }
         }
-        return ["configuration": ["enabled": config.enabled, "address": config.address, "port": Int(config.port)],
-                "logging_destination": "ordinary_logbook", "request_origin": route.rawValue,
-                "contest_target_supported": false, "mutation_available": true,
+        let destination = contestDestination == nil ? "ordinary_logbook" : "active_contest"
+        let activeContest: Any = availableContest.map { ["session_id": $0.sessionID, "plugin_id": $0.pluginID] } ?? NSNull()
+        return ["configuration": ["enabled": config.enabled, "address": config.address, "port": Int(config.port),
+                                  "destination": destination],
+                "logging_destination": destination, "request_origin": route.rawValue,
+                "contest_target_supported": availableContest != nil, "mutation_available": true,
+                "active_contest": activeContest,
                 "running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "duplicate_count": duplicateCount, "ignored_count": ignoredCount, "rejected_count": rejectedCount,
                 "dropped_count": ingress.droppedCount, "status": status, "receive_only": true,
@@ -431,13 +483,16 @@ public actor LiveWSJTXBridge {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configurationURL.path)
     }
 
-    private func decode(_ object: [String: Any]) throws -> WSJTXBridgeConfiguration {
-        guard Set(object.keys) == ["enabled", "address", "port"], let enabled = object["enabled"] as? Bool,
+    private func decode(_ object: [String: Any]) throws -> (WSJTXBridgeConfiguration, String) {
+        let keys = Set(object.keys), baseKeys: Set<String> = ["enabled", "address", "port"]
+        guard (keys == baseKeys || keys == baseKeys.union(["destination"])), let enabled = object["enabled"] as? Bool,
               let address = object["address"] as? String, let port = object["port"] as? NSNumber,
               CFGetTypeID(port) != CFBooleanGetTypeID(), port.doubleValue.rounded() == port.doubleValue,
               (1...65_535).contains(port.intValue) else { throw invalid() }
+        let destination = object["destination"] as? String ?? "ordinary_logbook"
+        guard ["ordinary_logbook", "active_contest"].contains(destination) else { throw invalid() }
         let value = WSJTXBridgeConfiguration(enabled: enabled, address: address, port: UInt16(port.intValue))
-        try validate(value); return value
+        try validate(value); return (value, destination)
     }
 
     private func validate(_ value: WSJTXBridgeConfiguration) throws {

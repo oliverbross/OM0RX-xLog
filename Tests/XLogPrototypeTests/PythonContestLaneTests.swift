@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import XLogCore
 @testable import XLogPrototypeSupport
 
 final class PythonContestLaneTests: XCTestCase {
@@ -171,6 +172,7 @@ for line in sys.stdin:
         let fileManager = FileManager.default
         let candidates = [
             ProcessInfo.processInfo.environment["XLOG_TEST_PYTHON312"],
+            "/opt/local/bin/python3.12",
             "/opt/homebrew/bin/python3.12",
             "/usr/local/bin/python3.12",
         ].compactMap { $0 }
@@ -178,6 +180,56 @@ for line in sys.stdin:
             throw XCTSkip("Python 3.12 was not provided for the actual-plugin bridge test.")
         }
         return URL(fileURLWithPath: path)
+    }
+
+    func testOriginalDigitalHandlerIsLeasedDeduplicatedAndRetiredOnContestSwitch() async throws {
+        let root = repositoryRoot()
+        let basePath = FileManager.default.temporaryDirectory.path
+            .replacingOccurrences(of: "/var/", with: "/private/var/")
+            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
+        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
+            .appendingPathComponent("xlog-digital-lane-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python", isDirectory: true)))
+        let session = UUID().uuidString.lowercased(), workspace = UUID().uuidString.lowercased()
+        _ = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": session, "workspaceGeneration": workspace,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_rtty", "frequencyHz": 14_080_000,
+            "station": ["Call": "OM0RX", "GridSquare": "JN88", "ARRLSection": "DX"],
+            "settings": ["SentExchange": "15", "ModeCategory": "RTTY", "OperatorCategory": "SINGLE-OP",
+                         "BandCategory": "ALL", "PowerCategory": "LOW"],
+        ])
+        let destination = try await lane.digitalDestination()
+        let record = ADIFRecord(fields: [
+            "CALL": "K1ABC", "MODE": "RTTY", "FREQ": "14.080000", "BAND": "20M",
+            "QSO_DATE": "20261020", "TIME_ON": "081500", "RST_SENT": "599", "RST_RCVD": "599",
+            "CQZ": "5", "STATE": "CT",
+        ])
+        let firstDuplicate = try await lane.ingestDigital(record, destination: destination)
+        let replayDuplicate = try await lane.ingestDigital(record, destination: destination)
+        XCTAssertFalse(firstDuplicate)
+        XCTAssertTrue(replayDuplicate)
+        let log = try await lane.handle(method: "contest_log", params: ["sessionID": session, "offset": 0, "limit": 10])
+        XCTAssertEqual(log["total"] as? Int, 1)
+
+        _ = try await lane.handle(method: "contest_session_create", params: [
+            "sessionID": UUID().uuidString.lowercased(), "workspaceGeneration": UUID().uuidString.lowercased(),
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_cw", "frequencyHz": 14_025_000,
+            "station": ["Call": "OM0RX", "GridSquare": "JN88"], "settings": ["SentExchange": "15"],
+        ])
+        do {
+            _ = try await lane.digitalDestination()
+            XCTFail("A contest without an original digital handler must not expose a destination.")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "digital_unsupported") }
+        do {
+            _ = try await lane.ingestDigital(record, destination: destination)
+            XCTFail("A retired contest destination must reject late packets.")
+        } catch let error as ContestLaneError { XCTAssertEqual(error.code, "stale_context") }
+        await lane.shutdown()
     }
 
     private func repositoryRoot() -> URL {

@@ -1,5 +1,6 @@
 import Foundation
 import XContestCore
+import XLogCore
 
 public enum WorkerOperatingModule: String, Sendable, Equatable {
     case normalLogging = "normal_logging"
@@ -625,8 +626,18 @@ public actor LiveWorker {
                     result = try await LiveSpotBridge.shared.handle(method: method, params: params)
                 } else if method.hasPrefix("wsjtx_") {
                     let route = Self.wsjtxRoute(for: operatingModule)
+                    var destinationProvider: (@Sendable () async throws -> WSJTXContestDestination)?
+                    var contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)?
+                    if operatingModule == .contesting, let lane = pythonContestLane {
+                        destinationProvider = { try await lane.digitalDestination() }
+                        contestImporter = { record, destination in
+                            try await lane.ingestDigital(record, destination: destination)
+                        }
+                    }
                     result = try await LiveWSJTXBridge.shared.handle(
-                        method: method, params: params, route: route)
+                        method: method, params: params, route: route,
+                        contestDestinationProvider: destinationProvider,
+                        contestImporter: contestImporter)
                 } else {
                     result = try await services.handle(method: method, params: params)
                 }

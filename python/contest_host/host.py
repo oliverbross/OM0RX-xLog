@@ -678,6 +678,7 @@ class Desk:
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
+                "digitalLoggingSupported": callable(getattr(self.contest, "ft8_handler", None)),
                 "matrixTrackers": list(plugin.matrix_trackers),
                 "exportFormats": list(plugin.export_formats),
                 "workspaceGeneration": workspace_generation(self.state),
@@ -796,7 +797,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -892,7 +893,8 @@ class Host:
                                   "sourceRevision": SOURCE_REVISION, "modes": list(plugin.modes),
                                    "supportedBands": list(plugin.bands),
                                   "sentExchangeHint": plugin.sent_exchange_hint,
-                                  "overlayChoices": list(plugin.overlay_choices)}
+                                  "overlayChoices": list(plugin.overlay_choices),
+                                  "digitalLoggingSupported": callable(getattr(load_plugin(key), "ft8_handler", None))}
                                   | {"exportFormats": list(plugin.export_formats)}
                                  for key, plugin in PLUGIN_REGISTRY.items()],
                     "bandDefinitions": list(BAND_DEFINITIONS), "protocolVersion": 1}
@@ -1207,6 +1209,23 @@ class Host:
             else:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
+                if method == "digital_ingest":
+                    require(params.get("workspaceGeneration") == workspace_generation(state),
+                            "Digital destination belongs to another workspace", "stale_context")
+                    semantic = params.get("semanticIdentity")
+                    require(isinstance(semantic, str) and re.fullmatch(r"[0-9a-f]{64}", semantic) is not None,
+                            "Invalid digital contact identity")
+                    receipt = store.exec_sql(
+                        "SELECT qso_id FROM xlog_digital_receipt WHERE semantic_identity=?", (semantic,))
+                    if receipt:
+                        desk = Desk(store, state, self.commit)
+                        result = {"operationID": operation, "sessionID": session_id,
+                                  "revision": state["revision"], "projection": desk.projection(),
+                                  "actions": [], "messages": [], "replayed": True,
+                                  "digitalDuplicate": True, "qsoID": receipt["qso_id"]}
+                        store.finish(True)
+                        self.remember_active_session(session_id)
+                        return result
                 require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
             self._operation = operation
             if new_session:
@@ -1413,6 +1432,34 @@ class Host:
                 if "fields" in params or "frequencyHz" in params or "countries" in params or "mode" in params:
                     self.apply_fields(desk, params)
                 self.commit(desk, params.get("qsoID"), params.get("timestamp"))
+            elif method == "digital_ingest":
+                packet = self.digital_packet(state, params)
+                plugin_handler = getattr(desk.contest, "ft8_handler", None)
+                require(callable(plugin_handler), "This contest has no original digital logging handler",
+                        "digital_unsupported")
+                countries = params.get("countries", {})
+                require(isinstance(countries, dict) and len(countries) <= 1,
+                        "Invalid digital country reference")
+                for call, country in countries.items():
+                    require(call == packet["CALL"] and isinstance(country, dict),
+                            "Digital country reference does not match the contact")
+                    state["reference"]["countries"][call] = country
+                committed = []
+                def commit_digital(current):
+                    require(not committed, "Original digital handler attempted more than one commit")
+                    qso_id = str(uuid.UUID(params["semanticIdentity"][:32]))
+                    self.commit(current, qso_id, self.digital_timestamp(packet),
+                                base=current.contact, frequency=self.digital_frequency(packet))
+                    committed.append(qso_id)
+                desk._commit = commit_digital
+                set_self = getattr(desk.contest, "set_self", None)
+                if callable(set_self):
+                    set_self(desk)
+                plugin_handler(packet)
+                require(len(committed) == 1, "Original digital handler did not commit the contact",
+                        "digital_handler_failed")
+                store.conn.execute("INSERT INTO xlog_digital_receipt VALUES(?,?,?)",
+                                   (params["semanticIdentity"], committed[0], operation))
             elif method in {"qso_correct", "qso_delete"}:
                 self.change(desk, method, params)
             desk.persist()
@@ -1420,6 +1467,8 @@ class Host:
             store.save_state(state)
             result = {"operationID": operation, "sessionID": session_id, "revision": state["revision"],
                       "projection": desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
+            if method == "digital_ingest":
+                result.update({"digitalDuplicate": False, "qsoID": committed[0]})
             if method == "setup_save":
                 result["setup"] = deepcopy(state["setup"])
                 result["effectiveMacros"] = self.effective_macros(state)
@@ -2279,7 +2328,51 @@ class Host:
                 require(exchange is not None and 0 < int(exchange[1]) <= 9223372036854775807,
                         "ICWC received exchange must be NAME SERIAL with one space and a positive SQLite serial")
 
-    def commit(self, desk, qso_id=None, timestamp=None):
+    def digital_packet(self, state, params):
+        packet = params.get("packet")
+        require(isinstance(packet, dict) and 1 <= len(packet) <= 64,
+                "Digital contact must contain a bounded ADIF record")
+        allowed = {"CALL", "GRIDSQUARE", "MODE", "SUBMODE", "RST_SENT", "RST_RCVD",
+                   "QSO_DATE", "TIME_ON", "QSO_DATE_OFF", "TIME_OFF", "BAND", "FREQ",
+                   "STATION_CALLSIGN", "MY_GRIDSQUARE", "CONTEST_ID", "SRX", "SRX_STRING",
+                   "STX", "STX_STRING", "CLASS", "ARRL_SECT", "STATE", "CQZ", "ITUZ",
+                   "NAME", "TX_PWR", "OPERATOR", "MY_CITY", "MY_STATE", "COUNTRY"}
+        require(set(packet) <= allowed and all(isinstance(value, str) and len(value.encode("utf-8")) <= 512
+                                               for value in packet.values()),
+                "Digital contact contains unsupported or oversized fields")
+        call = packet.get("CALL", "").strip().upper()
+        require(re.fullmatch(r"[A-Z0-9/]{3,32}", call) is not None, "Complete callsign required")
+        packet = {key: value.strip() for key, value in packet.items()}
+        packet["CALL"] = call
+        self.digital_frequency(packet)
+        self.digital_timestamp(packet)
+        require(packet.get("MODE") or packet.get("SUBMODE"), "Digital contact mode is required")
+        return packet
+
+    @staticmethod
+    def digital_frequency(packet):
+        try:
+            frequency = float(packet.get("FREQ", "")) * 1_000_000
+        except (TypeError, ValueError) as error:
+            raise HostError("invalid_request", "Digital contact frequency is invalid") from error
+        require(math.isfinite(frequency) and 0 < frequency <= 7_500_000_000_000,
+                "Digital contact frequency is invalid")
+        return round(frequency)
+
+    @staticmethod
+    def digital_timestamp(packet):
+        date = packet.get("QSO_DATE_OFF") or packet.get("QSO_DATE") or ""
+        time_value = packet.get("TIME_OFF") or packet.get("TIME_ON") or ""
+        require(re.fullmatch(r"[0-9]{8}", date) is not None and re.fullmatch(r"[0-9]{4}(?:[0-9]{2})?", time_value) is not None,
+                "Digital contact timestamp is invalid")
+        if len(time_value) == 4:
+            time_value += "00"
+        try:
+            return datetime.strptime(date + time_value, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError as error:
+            raise HostError("invalid_request", "Digital contact timestamp is invalid") from error
+
+    def commit(self, desk, qso_id=None, timestamp=None, base=None, frequency=None):
         fields = desk.values()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
         self.validate_exchange(desk, fields)
@@ -2293,7 +2386,8 @@ class Host:
             require(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S") == timestamp, "Timestamp must be UTC YYYY-MM-DD HH:MM:SS")
         except (ValueError, TypeError) as error:
             raise HostError("invalid_request", "Invalid UTC timestamp") from error
-        contact = desk.contact_for(fields, qso_id, timestamp, desk.state["draft"]["frequencyHz"])
+        contact = desk.contact_for(fields, qso_id, timestamp,
+                                   frequency or desk.state["draft"]["frequencyHz"], base=base)
         try:
             desk.database.log_contact(contact)
         except sqlite3.IntegrityError as error:

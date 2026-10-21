@@ -7,7 +7,7 @@
 .digital-section-heading strong,.contest-digital-dialog header>span { flex:none; font-size:12px; font-weight:600; }
 .is-listening { color:var(--success,#12d6a0); }.is-inactive,.is-unavailable .digital-section-heading strong { color:var(--warning,#f3b23c); }
 .digital-fields { display:grid; grid-template-columns:minmax(220px,2fr) minmax(120px,1fr); gap:10px; }
-.digital-fields label { display:grid; gap:5px; }.digital-fields input { box-sizing:border-box; width:100%; min-height:30px; font:inherit; }
+.digital-fields label { display:grid; gap:5px; }.digital-fields :is(input,select) { box-sizing:border-box; width:100%; min-height:30px; font:inherit; }
 .digital-safety { padding:9px 10px; border-radius:7px; background:var(--control,#101f34); }
 .contest-digital-dialog dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .contest-digital-dialog dl div { display:grid; gap:2px; }.contest-digital-dialog dt { color:var(--secondary,#92a7bf); font-size:11px; }.contest-digital-dialog dd { margin:0; }

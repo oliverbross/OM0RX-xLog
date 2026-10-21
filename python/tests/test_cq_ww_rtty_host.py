@@ -81,6 +81,7 @@ class CQWWRTTYHostTests(unittest.TestCase):
         self.assertEqual(item["modes"][0], "RTTY")
         self.assertIn("USB-D", item["modes"])
         self.assertEqual(item["sentExchangeHint"], "CQ Zone + (state/VE area)")
+        self.assertTrue(item["digitalLoggingSupported"])
 
         view = self.read("projection")["projection"]
         fields = {field["id"]: field for field in view["fields"]}
@@ -194,6 +195,29 @@ class CQWWRTTYHostTests(unittest.TestCase):
         export = self.read("export")["content"]
         line = next(line.split() for line in export.splitlines() if line.startswith("QSO:"))
         self.assertEqual(line[5:], ["OM0RX", "599", "15", "DX", "K1ABC", "599", "04", "MA"])
+
+    def test_original_digital_handler_commits_once_and_semantic_duplicate_replays(self):
+        semantic = "1" * 64
+        packet = {"CALL": "K1ABC", "MODE": "RTTY", "FREQ": "14.080000",
+                  "QSO_DATE": "20261020", "TIME_ON": "081500", "RST_SENT": "599",
+                  "RST_RCVD": "599", "CQZ": "5", "STATE": "CT"}
+        first = self.mutate("digital_ingest", workspaceGeneration=self.workspace,
+                            semanticIdentity=semantic, packet=packet)
+        self.assertFalse(first["digitalDuplicate"])
+        self.assertEqual(self.read("log")["total"], 1)
+
+        duplicate = self.mutate("digital_ingest", workspaceGeneration=self.workspace,
+                                semanticIdentity=semantic, packet=packet)
+        self.assertTrue(duplicate["digitalDuplicate"])
+        self.assertEqual(duplicate["qsoID"], first["qsoID"])
+        self.assertEqual(self.read("log")["total"], 1)
+
+        self.host.close()
+        self.host = Host(self.root)
+        reopened = self.mutate("digital_ingest", workspaceGeneration=self.workspace,
+                               semanticIdentity=semantic, packet=packet)
+        self.assertTrue(reopened["digitalDuplicate"])
+        self.assertEqual(self.read("log")["total"], 1)
 
 
 if __name__ == "__main__":

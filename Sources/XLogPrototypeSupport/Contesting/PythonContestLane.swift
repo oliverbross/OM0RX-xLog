@@ -1,5 +1,6 @@
 import Foundation
 import XContestCore
+import XLogCore
 
 /// Application-relative launch information for the bundled Not1MM host.
 /// Production never searches PATH or a user Python installation.
@@ -101,6 +102,55 @@ actor PythonContestLane {
                 activeProjection = projection
             }
             return result
+        }
+        tail = Task { _ = try? await operation.value }
+        return try await operation.value
+    }
+
+    func digitalDestination() throws -> WSJTXContestDestination {
+        guard let projection = activeProjection,
+              projection["digitalLoggingSupported"] as? Bool == true,
+              let sessionID = projection["sessionID"] as? String,
+              let workspaceGeneration = projection["workspaceGeneration"] as? String,
+              let pluginID = projection["pluginID"] as? String,
+              let sourceRevision = projection["sourceRevision"] as? String,
+              sessionID == activeSessionID, workspaceGeneration == activeWorkspaceGeneration else {
+            throw ContestLaneError.confirmed("digital_unsupported",
+                "The active contest has no original Not1MM digital logging handler.")
+        }
+        return .init(sessionID: sessionID, workspaceGeneration: workspaceGeneration,
+                     pluginID: pluginID, sourceRevision: sourceRevision)
+    }
+
+    func ingestDigital(_ record: ADIFRecord, destination: WSJTXContestDestination) async throws -> Bool {
+        let previous = tail
+        let operation = Task { [self] in
+            await previous?.value
+            guard destination == (try? digitalDestination()),
+                  let projection = activeProjection,
+                  let revision = (projection["revision"] as? NSNumber)?.uint64Value,
+                  let semanticIdentity = record.semanticIdentityHash,
+                  let call = record["CALL"]?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                  !call.isEmpty else {
+                throw ContestLaneError.confirmed("stale_context",
+                    "The digital contact belongs to a retired contest destination.")
+            }
+            var params: [String: Any] = [
+                "sessionID": destination.sessionID,
+                "workspaceGeneration": destination.workspaceGeneration,
+                "operationID": UUID().uuidString.lowercased(),
+                "expectedRevision": revision,
+                "semanticIdentity": semanticIdentity,
+                "packet": record.fields,
+            ]
+            if let country = countryWire(call) { params["countries"] = [call: country] }
+            let result = try await perform(method: "contest_digital_ingest", params: params)
+            guard destination == (try? digitalDestination()) else {
+                throw ContestLaneError.confirmed("stale_context",
+                    "The contest changed before the digital contact was confirmed.")
+            }
+            if let next = result["projection"] as? [String: Any] { activeProjection = next }
+            return result["digitalDuplicate"] as? Bool == true
         }
         tail = Task { _ = try? await operation.value }
         return try await operation.value

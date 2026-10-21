@@ -109,6 +109,7 @@ class ARRLSweepstakesPhoneHostTests(unittest.TestCase):
             "supportedBands": ["160m", "80m", "40m", "20m", "15m", "10m"],
             "sentExchangeHint": "Prec Call Check Section",
             "overlayChoices": ["N/A"],
+            "digitalLoggingSupported": False,
             "exportFormats": ["cabrillo", "adif"],
         })
         view = self.read("projection")["projection"]
