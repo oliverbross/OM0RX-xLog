@@ -307,7 +307,8 @@ public actor LiveWSJTXBridge {
                        contestDestinationProvider: (@Sendable () async throws -> WSJTXContestDestination)? = nil,
                        contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)? = nil) async throws -> [String: Any] {
         let availableContest = try? await contestDestinationProvider?()
-        if let current = contestDestination, current != availableContest {
+        if route == .contestSurfaceOrdinaryLogbook,
+           let current = contestDestination, current != availableContest {
             stopReceiver(); retireContestDestination()
             var config = try load()
             if config.destination == "active_contest" {

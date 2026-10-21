@@ -197,6 +197,10 @@ final class LiveWSJTXBridgeTests: XCTestCase {
         XCTAssertEqual(restoredReceiver.started?.0, "239.255.0.1")
         _ = try await bridge.handle(method: "wsjtx_start", params: [:], route: .contestSurfaceOrdinaryLogbook,
             contestDestinationProvider: provider, contestImporter: contestImporter)
+        let unrelatedWindowSnapshot = try await bridge.handle(method: "wsjtx_snapshot", params: [:])
+        XCTAssertEqual(unrelatedWindowSnapshot["logging_destination"] as? String, "active_contest",
+            "An unscoped poll from another detached window must not retire the trusted contest destination.")
+        XCTAssertEqual(unrelatedWindowSnapshot["running"] as? Bool, true)
         await bridge.ingest(datagram()); await bridge.ingest(datagram())
         let active = try await bridge.handle(method: "wsjtx_snapshot", params: [:], route: .contestSurfaceOrdinaryLogbook,
             contestDestinationProvider: provider, contestImporter: contestImporter)
