@@ -540,64 +540,103 @@ public enum ContestDefinitionError: Error, Equatable {
 }
 
 private enum ContestCanonicalJSON {
+    private indirect enum Value: Decodable {
+        case object([String: Value])
+        case array([Value])
+        case string(String)
+        case integer(Int64)
+        case boolean(Bool)
+        case null
+
+        init(from decoder: Decoder) throws {
+            if let keyed = try? decoder.container(keyedBy: ContestDefinitionCodingKey.self) {
+                var object: [String: Value] = [:]
+                for key in keyed.allKeys {
+                    object[key.stringValue] = try keyed.decode(Value.self, forKey: key)
+                }
+                self = .object(object)
+                return
+            }
+            if var unkeyed = try? decoder.unkeyedContainer() {
+                var array: [Value] = []
+                while !unkeyed.isAtEnd { array.append(try unkeyed.decode(Value.self)) }
+                self = .array(array)
+                return
+            }
+            let scalar = try decoder.singleValueContainer()
+            if scalar.decodeNil() { self = .null }
+            else if let value = try? scalar.decode(Bool.self) { self = .boolean(value) }
+            else if let value = try? scalar.decode(Int64.self) { self = .integer(value) }
+            else if let value = try? scalar.decode(String.self) { self = .string(value) }
+            else {
+                throw DecodingError.dataCorruptedError(
+                    in: scalar,
+                    debugDescription: "Canonical contest definitions support only integer JSON numbers.")
+            }
+        }
+    }
+
     static func encode<T: Encodable>(_ value: T) throws -> Data {
-        // Foundation's `.sortedKeys` used numeric ordering on older macOS releases.
-        // Re-emit object members in UTF-8 order so persisted identities are toolchain-stable.
+        // Foundation's JSON key ordering and slash escaping vary by platform/toolchain.
+        // Decode the bounded definition JSON and emit its bytes without Foundation writers.
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.withoutEscapingSlashes]
         let encoded = try encoder.encode(value)
-        let object = try JSONSerialization.jsonObject(with: encoded, options: [.fragmentsAllowed])
+        let object = try JSONDecoder().decode(Value.self, from: encoded)
         var result = Data()
         try append(object, to: &result)
         return result
     }
 
-    private static func append(_ value: Any, to result: inout Data) throws {
-        if let object = value as? [String: Any] {
+    private static func append(_ value: Value, to result: inout Data) throws {
+        switch value {
+        case let .object(object):
             result.append(UInt8(ascii: "{"))
             for (index, key) in object.keys.sorted(by: utf8LessThan).enumerated() {
                 if index > 0 { result.append(UInt8(ascii: ",")) }
-                try appendScalar(key, to: &result)
+                appendString(key, to: &result)
                 result.append(UInt8(ascii: ":"))
-                guard let member = object[key] else {
-                    throw EncodingError.invalidValue(
-                        object,
-                        .init(codingPath: [], debugDescription: "Canonical JSON object lost a member."))
-                }
+                guard let member = object[key] else { preconditionFailure("Sorted key lost its value") }
                 try append(member, to: &result)
             }
             result.append(UInt8(ascii: "}"))
-        } else if let array = value as? [Any] {
+        case let .array(array):
             result.append(UInt8(ascii: "["))
             for (index, member) in array.enumerated() {
                 if index > 0 { result.append(UInt8(ascii: ",")) }
                 try append(member, to: &result)
             }
             result.append(UInt8(ascii: "]"))
-        } else if value is NSNull {
+        case let .string(string):
+            appendString(string, to: &result)
+        case let .integer(integer):
+            result.append(contentsOf: String(integer).utf8)
+        case let .boolean(boolean):
+            result.append(contentsOf: (boolean ? "true" : "false").utf8)
+        case .null:
             result.append(contentsOf: "null".utf8)
-        } else {
-            try appendScalar(value, to: &result)
         }
     }
 
-    private static func appendScalar(_ value: Any, to result: inout Data) throws {
-        let wrapped = [value]
-        guard JSONSerialization.isValidJSONObject(wrapped) else {
-            throw EncodingError.invalidValue(
-                value,
-                .init(codingPath: [], debugDescription: "Canonical JSON encountered an invalid scalar."))
+    private static func appendString(_ value: String, to result: inout Data) {
+        result.append(UInt8(ascii: "\""))
+        let hex = Array("0123456789abcdef".utf8)
+        for byte in value.utf8 {
+            switch byte {
+            case UInt8(ascii: "\""): result.append(contentsOf: "\\\"".utf8)
+            case UInt8(ascii: "\\"): result.append(contentsOf: "\\\\".utf8)
+            case 0x08: result.append(contentsOf: "\\b".utf8)
+            case 0x09: result.append(contentsOf: "\\t".utf8)
+            case 0x0a: result.append(contentsOf: "\\n".utf8)
+            case 0x0c: result.append(contentsOf: "\\f".utf8)
+            case 0x0d: result.append(contentsOf: "\\r".utf8)
+            case 0x00...0x1f:
+                result.append(contentsOf: "\\u00".utf8)
+                result.append(hex[Int(byte >> 4)])
+                result.append(hex[Int(byte & 0x0f)])
+            default: result.append(byte)
+            }
         }
-        let encoded = try JSONSerialization.data(
-            withJSONObject: wrapped,
-            options: [.withoutEscapingSlashes])
-        guard encoded.count >= 2, encoded.first == UInt8(ascii: "["),
-              encoded.last == UInt8(ascii: "]") else {
-            throw EncodingError.invalidValue(
-                value,
-                .init(codingPath: [], debugDescription: "Canonical JSON scalar wrapper was malformed."))
-        }
-        result.append(encoded.dropFirst().dropLast())
+        result.append(UInt8(ascii: "\""))
     }
 
     private static func utf8LessThan(_ lhs: String, _ rhs: String) -> Bool {
