@@ -225,20 +225,20 @@ actor ContestLogTransferService {
     }
 
     private static func integer(_ value: Any?) -> Int64? {
-        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        guard let number = value as? NSNumber, !ContestLane.isJSONBoolean(number) else { return nil }
         let double = number.doubleValue
         guard double.isFinite, double.rounded() == double else { return nil }
         return Int64(exactly: double)
     }
     private func integer(_ value: Any?) -> Int64? { Self.integer(value) }
     private func double(_ value: Any?) -> Double? {
-        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        guard let number = value as? NSNumber, !ContestLane.isJSONBoolean(number) else { return nil }
         return number.doubleValue
     }
     private func string(_ value: Any?, maximum: Int) -> String? {
         let result: String
         if let value = value as? String { result = value }
-        else if let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() { result = number.stringValue }
+        else if let number = value as? NSNumber, !ContestLane.isJSONBoolean(number) { result = number.stringValue }
         else if value == nil || value is NSNull { return nil }
         else { return nil }
         return result.utf8.count <= maximum ? result : nil
