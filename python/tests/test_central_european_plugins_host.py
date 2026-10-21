@@ -1,11 +1,13 @@
 """Pinned ARI/DARC/EUDX/LZ/WAG plugins through the bounded host."""
 from copy import deepcopy
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
-from contest_host.host import Host, HostError
+from contest_host.host import Desk, Host, HostError
 from contest_host.upstream import VENDOR, load_plugin
 import test_host as fixtures
 
@@ -160,6 +162,59 @@ class CentralEuropeanPluginTests(unittest.TestCase):
         finally:
             host.close()
 
+    def test_correction_rejects_plugin_invalid_historical_sent_exchange(self):
+        cases = (("eudx", "28", "DL1ABC", "28", "999"),
+                 ("lz-dx", "28", "LZ1ABC", "SO", "BAD"))
+        for plugin_id, sent, call, received, invalid_sent in cases:
+            with self.subTest(plugin=plugin_id):
+                host, session, revision = self.create(plugin_id, sent)
+                try:
+                    qso = uid()
+                    _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=qso,
+                                              timestamp="2026-10-21 12:00:00",
+                                              fields={"callsign": call, "other_2": received})
+                    with self.assertRaisesRegex(HostError, "Historical sent exchange is invalid"):
+                        self.mutate(host, session, revision, "qso_correct", qsoID=qso,
+                                    fields={"other_1": invalid_sent})
+                    row = host.dispatch({"id": uid(), "method": "log",
+                                         "params": {"sessionID": session}})["rows"][0]
+                    self.assertEqual(str(row["SentNr"]), sent)
+                    self.assertEqual(str(row["NR"]), received)
+                finally:
+                    host.close()
+
+        host, session, revision = self.create("ari_dx", "#")
+        try:
+            qso = uid()
+            _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=qso,
+                                      timestamp="2026-10-21 12:01:00",
+                                      fields={"callsign": "I1ABC", "other_2": "RM"})
+            _, revision = self.mutate(host, session, revision, "qso_correct", qsoID=qso,
+                                      fields={"other_2": "MI"})
+            row = host.dispatch({"id": uid(), "method": "log",
+                                 "params": {"sessionID": session}})["rows"][0]
+            self.assertEqual((row["SentNr"], row["NR"]), (1, "MI"))
+        finally:
+            host.close()
+
+        host, session, revision = self.create("eudx", "EU01")
+        try:
+            qso = uid()
+            _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=qso,
+                                      timestamp="2026-10-21 12:02:00",
+                                      fields={"callsign": "DL1ABC", "other_2": "28"})
+            setup = host.dispatch({"id": uid(), "method": "setup_get",
+                                   "params": {"sessionID": session}})["setup"]
+            setup["settings"]["SentExchange"] = "28"
+            _, revision = self.mutate(host, session, revision, "setup_save", setup=setup)
+            _, revision = self.mutate(host, session, revision, "qso_correct", qsoID=qso,
+                                      fields={"other_2": "29"})
+            row = host.dispatch({"id": uid(), "method": "log",
+                                 "params": {"sessionID": session}})["rows"][0]
+            self.assertEqual((row["SentNr"], row["NR"]), ("EU01", 29))
+        finally:
+            host.close()
+
     def test_cw_and_phone_actions_stay_inside_host_output_contract(self):
         for mode, expected_type in (("CW", "function_key"), ("SSB", "voice_keyer")):
             with self.subTest(mode=mode):
@@ -171,6 +226,26 @@ class CentralEuropeanPluginTests(unittest.TestCase):
                     self.assertNotIn("audio", result["actions"][0])
                 finally:
                     host.close()
+
+    def test_eudx_rebuild_restores_temporary_exchange_state_on_error(self):
+        host, session, revision = self.create("eudx", "28")
+        try:
+            _, revision = self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
+                                      timestamp="2026-10-21 13:00:00",
+                                      fields={"callsign": "DL1ABC", "other_2": "28"})
+            store = host.database(session)
+            state = json.loads(store.exec_sql("SELECT state FROM xlog_session WHERE id=?", (session,))["state"])
+            desk = Desk(store, state, host.commit)
+            desk.other_2.setText("ACTIVE")
+            with patch.object(desk.contest, "points", side_effect=RuntimeError("score failure")):
+                with self.assertRaisesRegex(RuntimeError, "score failure"):
+                    host.rebuild(desk)
+            self.assertEqual(desk.state["settings"]["SentExchange"], "28")
+            self.assertEqual(desk.contest_settings["SentExchange"], "28")
+            self.assertEqual(desk.other_2.text(), "ACTIVE")
+            store.conn.rollback()
+        finally:
+            host.close()
 
 
 if __name__ == "__main__":

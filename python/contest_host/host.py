@@ -95,6 +95,23 @@ def validate_central_europe_sent_exchange(plugin_id, station_prefix, exchange):
         require(valid, "LZ DX sent exchange must be a district in LZ or ITU zone 1 to 90")
 
 
+def validate_central_europe_historical_sent_exchange(plugin_id, exchange):
+    """Validate the union of exchanges a past station setup could have sent."""
+    exchange = str(exchange)
+    positive_serial = exchange.isdigit() and 0 < int(exchange) <= 9223372036854775807
+    if plugin_id == "ari_dx":
+        valid = positive_serial or re.fullmatch(r"[A-Za-z]{2}", exchange) is not None
+    elif plugin_id in {"darc_xmas", "wag"}:
+        valid = re.fullmatch(r"[A-Za-z0-9]{1,6}", exchange) is not None
+    elif plugin_id == "eudx":
+        valid = (re.fullmatch(r"[A-Za-z]{2}[0-9]{2}", exchange) is not None
+                 or exchange.isdigit() and 1 <= int(exchange) <= 90)
+    else:
+        valid = (re.fullmatch(r"[A-Za-z]{2}", exchange) is not None
+                 or exchange.isdigit() and 1 <= int(exchange) <= 90)
+    require(valid, "Historical sent exchange is invalid for this contest")
+
+
 def identifier(value):
     require(isinstance(value, str), "UUID required")
     try:
@@ -1060,8 +1077,7 @@ class Host:
                         or state["pluginID"] == "arrl_10m"
                         or state["pluginID"] in EA_MAJESTAD_PLUGINS
                         or state["pluginID"] in REF_PLUGINS
-                        or state["pluginID"] in EUROPEAN_DX_PLUGINS
-                        or state["pluginID"] in DISPLAY_SENTNR_PLUGINS):
+                        or state["pluginID"] in EUROPEAN_DX_PLUGINS):
                     desk.other_1.setText(zone)
                 if state["pluginID"] in TEN_TEN_PLUGINS:
                     self.prefill(desk)
@@ -1352,8 +1368,7 @@ class Host:
                      or plugin_id == "arrl_10m"
                      or plugin_id in EA_MAJESTAD_PLUGINS
                      or plugin_id in REF_PLUGINS
-                      or plugin_id in EUROPEAN_DX_PLUGINS
-                      or plugin_id in DISPLAY_SENTNR_PLUGINS else "", "")))}}
+                       or plugin_id in EUROPEAN_DX_PLUGINS else "", "")))}}
 
     def reserve_serial(self, store, state):
         if not requires_serial(state):
@@ -1723,6 +1738,9 @@ class Host:
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
             correction_fields = params.get("fields", {})
+            if desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS:
+                validate_central_europe_historical_sent_exchange(
+                    desk.state["pluginID"], updated["other_1"])
             if (desk.state["pluginID"] == "arrl_10m"
                     or desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                     or desk.state["pluginID"] in REF_PLUGINS
@@ -1797,27 +1815,31 @@ class Host:
         rows = desk.database.fetch_all_contacts_asc()
         points, duplicate_ids = {}, set()
         configured_sent_exchange = desk.state["settings"].get("SentExchange", "")
-        desk.database.conn.execute("DELETE FROM DXLOG")
-        for row in rows:
-            desk.contact = row
-            desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
-            if desk.contact_is_dupe:
-                duplicate_ids.add(row["ID"])
-            if desk.state["pluginID"] in TEN_TEN_PLUGINS:
-                # The original points() reads the active exchange widget. During
-                # ordered replay, make that widget represent the row being scored.
-                desk.other_2.setText(row["NR"])
-            if desk.state["pluginID"] == "eudx":
-                # Its original points callback reads both exchange widgets and
-                # contest settings; replay each row with its historical values.
-                desk.other_2.setText(str(row["NR"]))
-                desk.state["settings"]["SentExchange"] = str(row["SentNr"])
-                desk.contest_settings["SentExchange"] = str(row["SentNr"])
-            row["Points"] = desk.contest.points(desk)
-            points[row["ID"]] = row["Points"]
-            desk.database.log_contact(row)
-        desk.state["settings"]["SentExchange"] = configured_sent_exchange
-        desk.contest_settings["SentExchange"] = configured_sent_exchange
+        replay_received_exchange = desk.other_2.text()
+        try:
+            desk.database.conn.execute("DELETE FROM DXLOG")
+            for row in rows:
+                desk.contact = row
+                desk.contact_is_dupe = int(desk.is_dupe(row["Call"], row["Band"], row["TS"], row["Mode"]))
+                if desk.contact_is_dupe:
+                    duplicate_ids.add(row["ID"])
+                if desk.state["pluginID"] in TEN_TEN_PLUGINS:
+                    # The original points() reads the active exchange widget. During
+                    # ordered replay, make that widget represent the row being scored.
+                    desk.other_2.setText(row["NR"])
+                if desk.state["pluginID"] == "eudx":
+                    # Its original points callback reads both exchange widgets and
+                    # contest settings; replay each row with its historical values.
+                    desk.other_2.setText(str(row["NR"]))
+                    desk.state["settings"]["SentExchange"] = str(row["SentNr"])
+                    desk.contest_settings["SentExchange"] = str(row["SentNr"])
+                row["Points"] = desk.contest.points(desk)
+                points[row["ID"]] = row["Points"]
+                desk.database.log_contact(row)
+        finally:
+            desk.state["settings"]["SentExchange"] = configured_sent_exchange
+            desk.contest_settings["SentExchange"] = configured_sent_exchange
+            desk.other_2.setText(replay_received_exchange)
         desk.contest.recalculate_mults(desk)
         if desk.state["pluginID"] == "rsgb_commonwealth_beru":
             # BERU's original callback deliberately reallocates the first three
