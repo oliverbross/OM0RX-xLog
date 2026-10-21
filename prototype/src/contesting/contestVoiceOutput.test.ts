@@ -59,4 +59,10 @@ describe("ContestVoiceOutput",()=>{
     await expect(h.output.play([action()],origin,"/profile","")).rejects.toThrow("digest");expect(h.ptt.acquire).not.toHaveBeenCalled();
   });
   it("rejects stale and replayed actions before any new I/O",async()=>{const h=harness();const stale={...action(),draftID:"50000000-0000-4000-8000-000000000005"};await expect(h.output.play([stale],origin,"/profile","")).rejects.toThrow("stale");expect(h.request).not.toHaveBeenCalled();await h.output.play([action()],origin,"/profile","");await expect(h.output.play([action()],origin,"/profile","")).rejects.toThrow("replayed");expect(h.request).toHaveBeenCalledTimes(1);});
+  it("retains the oldest replay tombstone after more than 256 actions in one scope",async()=>{const h=harness();
+    const values=Array.from({length:257},(_,index)=>({...action(),actionID:`40000000-0000-4000-8000-${index.toString(16).padStart(12,"0")}:0`}));
+    for(const value of values)await h.output.play([value],origin,"/profile","");
+    await expect(h.output.play([values[0]],origin,"/profile","")).rejects.toThrow("replayed");
+    expect(h.request).toHaveBeenCalledTimes(257);
+  });
 });

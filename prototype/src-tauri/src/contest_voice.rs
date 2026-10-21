@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -110,8 +110,9 @@ struct VoiceRuntime {
     shutting_down: bool,
     active_ptt: bool,
     pending_acquisitions: usize,
+    scope: Option<(String, String)>,
     prepared: HashMap<AdmissionKey, VoiceAdmission>,
-    consumed: VecDeque<AdmissionKey>,
+    consumed: HashSet<AdmissionKey>,
 }
 
 type AdmissionKey = (String, String, String);
@@ -122,6 +123,15 @@ fn admission_key(admission: &VoiceAdmission) -> AdmissionKey {
 
 fn request_key(request: &PrepareRequest) -> AdmissionKey {
     (request.session_id.clone(), request.workspace_generation.clone(), request.action_id.clone())
+}
+
+fn enter_scope(state: &mut VoiceRuntime, session_id: &str, workspace_generation: &str) {
+    let scope = (session_id.to_owned(), workspace_generation.to_owned());
+    if state.scope.as_ref() != Some(&scope) {
+        state.scope = Some(scope);
+        state.prepared.clear();
+        state.consumed.clear();
+    }
 }
 
 fn ensure_action_keys_available(state: &VoiceRuntime, keys: &[AdmissionKey]) -> Result<(), String> {
@@ -223,10 +233,11 @@ pub fn prepare_batch(
         keys.push(key);
     }
     {
-        let state = runtime().lock().map_err(|_| "Contest voice runtime unavailable")?;
+        let mut state = runtime().lock().map_err(|_| "Contest voice runtime unavailable")?;
         if state.shutting_down {
             return Err("Contest voice output is shutting down.".into());
         }
+        enter_scope(&mut state, active_session, active_workspace);
         ensure_action_keys_available(&state, &keys)?;
     }
     let mut prepared = Vec::with_capacity(request.requests.len());
@@ -239,6 +250,9 @@ pub fn prepare_batch(
         .map_err(|_| "Contest voice runtime unavailable")?;
     if state.shutting_down {
         return Err("Contest voice output is shutting down.".into());
+    }
+    if state.scope.as_ref() != Some(&(active_session.to_owned(), active_workspace.to_owned())) {
+        return Err("The contest voice context changed while audio was being prepared.".into());
     }
     for value in &prepared {
         let admission = VoiceAdmission {
@@ -482,10 +496,7 @@ fn validate_prepared_admissions(
     for admission in admissions {
         let key = admission_key(admission);
         state.prepared.remove(&key);
-        state.consumed.push_back(key);
-        while state.consumed.len() > 256 {
-            state.consumed.pop_front();
-        }
+        state.consumed.insert(key);
     }
     Ok(())
 }
@@ -606,6 +617,7 @@ pub fn acquire_ptt(
         if state.active_ptt {
             return Err("Contest voice PTT is already active.".into());
         }
+        enter_scope(&mut state, &context.session_id, &context.workspace_generation);
         validate_prepared_admissions(&mut state, &admissions)?;
     }
     let operation_id = match apply_ptt(app, true) {
@@ -921,6 +933,37 @@ mod tests {
         )
         .unwrap_err()
         .contains("replay denied"));
+    }
+
+    #[test]
+    fn consumed_tombstones_survive_more_than_256_actions_until_scope_changes() {
+        let mut state = VoiceRuntime::default();
+        enter_scope(&mut state, SESSION, WORKSPACE);
+        let mut oldest = None;
+        for _ in 0..300 {
+            let admission = VoiceAdmission {
+                session_id: SESSION.into(),
+                workspace_generation: WORKSPACE.into(),
+                draft_id: DRAFT.into(),
+                action_id: format!("{}:0", uuid::Uuid::new_v4()),
+                payload_sha256: "0".repeat(64),
+                manifest_sha256: "1".repeat(64),
+            };
+            let key = admission_key(&admission);
+            oldest.get_or_insert_with(|| key.clone());
+            state.prepared.insert(key, admission.clone());
+            validate_prepared_admissions(&mut state, &[admission]).unwrap();
+        }
+        let oldest = oldest.unwrap();
+        assert_eq!(state.consumed.len(), 300);
+        assert!(ensure_action_keys_available(&state, std::slice::from_ref(&oldest)).is_err());
+        enter_scope(
+            &mut state,
+            SESSION,
+            "50000000-0000-4000-8000-000000000005",
+        );
+        assert!(state.consumed.is_empty());
+        assert!(ensure_action_keys_available(&state, &[oldest]).is_ok());
     }
 
     #[test]

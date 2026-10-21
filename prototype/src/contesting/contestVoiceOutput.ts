@@ -70,7 +70,8 @@ export class ContestVoiceOutput {
   private acquisition:Promise<void>|null=null;
   private release:Promise<void>|null=null;
   private pttActive=false;
-  private consumed:string[]=[];
+  private consumed=new Set<string>();
+  private scope="";
   constructor(private readonly production:boolean,private readonly request:VoiceNative=native,private readonly ptt:VoicePTT=nativePTT,
     private readonly makeAudio:AudioFactory=audioFactory,private readonly createURL=(blob:Blob)=>URL.createObjectURL(blob),
     private readonly revokeURL=(url:string)=>URL.revokeObjectURL(url)){}
@@ -78,11 +79,13 @@ export class ContestVoiceOutput {
   async play(actions:ContestVoiceAction[],origin:ContestVoiceOrigin,profilePath:string,deviceID:string,external?:AbortSignal):Promise<void>{
     if(!this.production)throw new Error("Contest phone audio and PTT are disabled in the Contesting Test profile.");
     if(this.controller)throw new Error("Contest phone output is already active. Use Stop before sending another message.");
+    const scope=`${origin.sessionID}/${origin.workspaceGeneration}`;
+    if(this.scope!==scope){this.scope=scope;this.consumed.clear();}
     if(!profilePath.trim())throw new Error("Choose a voice WAV profile folder in Contest Sound settings before arming phone output.");
     if(!actions.length||actions.length>12)throw new Error("Invalid contest voice action batch.");
     const ids=new Set<string>();
     for(const action of actions){
-      if(!uuidIndex.test(action.actionID)||ids.has(action.actionID)||this.consumed.includes(action.actionID)||action.sessionID!==origin.sessionID||
+      if(!uuidIndex.test(action.actionID)||ids.has(action.actionID)||this.consumed.has(action.actionID)||action.sessionID!==origin.sessionID||
         action.workspaceGeneration!==origin.workspaceGeneration||action.draftID!==origin.draftID||action.sourceRevision!==origin.sourceRevision||
         action.kind!=="voice_keyer"||action.signal!=="phone"||action.mode!=="SSB"||typeof action.payload!=="string"||
         !/^[0-9a-f]{64}$/.test(action.payloadSHA256))throw new Error("The contest voice action is stale, replayed, or invalid; no audio or PTT action was taken.");
@@ -110,7 +113,7 @@ export class ContestVoiceOutput {
           const ready=waitFor(item,"canplaythrough",controller.signal,10_000);item.src=url;item.load();await ready;audio.push(item);
         }
       }
-      this.consumed=[...this.consumed,...ids].slice(-256);
+      for(const id of ids)this.consumed.add(id);
       if(controller.signal.aborted)throw new ContestVoiceStopped();
       const admissions=prepared.map(({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256})=>
         ({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256}));
