@@ -1,6 +1,10 @@
 import Foundation
 import XContestCore
+#if os(macOS)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 
 public enum WorkerOperatingModule: String, Sendable, Equatable {
     case normalLogging = "normal_logging"
