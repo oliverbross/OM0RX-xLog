@@ -462,17 +462,26 @@ function Matrix({ projection }: { projection: ContestMatrixSurfaceProjection }) 
   </section>;
 }
 function ManualLogTable({rows,disabled,onEdit,label}:{rows:any[];disabled:boolean;onEdit:(qsoID:string)=>void;label:string}) {
-  return <div className="contest-surface-log-scroll"><table aria-label={label}><thead><tr>{["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"].map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.qsoID}>
-    <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
+  const columns=["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","ZN","M2","PFX","PTS"];
+  return <div className="contest-surface-log-scroll"><table className="contest-surface-original-log" aria-label={label}><thead><tr>{columns.map(title=><th key={title} scope="col">{title}</th>)}</tr></thead><tbody>{rows.length===0
+    ? <tr className="contest-surface-empty-row"><td colSpan={columns.length}>{label === "Callsign partial matches" ? "No partial matches" : "No contacts"}</td></tr>
+    : rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
+      onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>
+    <td>{row.TS??new Date(row.workedAt).toISOString().slice(0,19).replace("T"," ")}</td><td><button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{row.Call??row.callsign}</button></td>
     <td>{row.Freq??"—"}</td><td>{row.SNT??"—"}</td><td>{row.RCV??"—"}</td>
-    <td>{row.ZN??"—"}</td><td>{row.SentNr??"—"}</td><td>{row.prefix??"—"}</td><td>{row.Points??row.points}</td></tr>)}</tbody></table></div>;
+    <td>{row.M1??""}</td><td>{row.ZN??"—"}</td><td>{row.M2??""}</td><td>{row.prefix??"—"}</td><td>{row.Points??row.points}</td></tr>)}</tbody></table></div>;
 }
 function PluginLogTable({columns,rows,disabled,onEdit,label}:{columns:string[];rows:{qsoID:string;values:string[]}[];
   disabled:boolean;onEdit:(qsoID:string)=>void;label:string}) {
   const callIndex=columns.indexOf("Call");
   return <div className="contest-surface-log-scroll"><table aria-label={label}><thead><tr>{columns.map((column,index)=><th key={`${column}-${index}`} scope="col">{column}</th>)}</tr></thead>
-    <tbody>{rows.map(row=><tr key={row.qsoID}>{row.values.map((value,index)=><td key={`${columns[index]}-${index}`}>{index===callIndex
-      ? <button disabled={disabled} onClick={()=>onEdit(row.qsoID)}>{value}</button>:value}</td>)}</tr>)}</tbody></table></div>;
+    <tbody>{rows.length===0?<tr className="contest-surface-empty-row"><td colSpan={columns.length}>{label === "Callsign partial matches" ? "No partial matches" : "No contacts"}</td></tr>
+      :rows.map(row=><tr key={row.qsoID} onDoubleClick={event=>{if(!disabled&&!(event.target as Element).closest("button"))onEdit(row.qsoID);}}
+        onContextMenu={event=>{event.preventDefault();if(!disabled)onEdit(row.qsoID);}}>{row.values.map((value,index)=><td key={`${columns[index]}-${index}`}>{index===callIndex
+      ? <button disabled={disabled} onDoubleClick={event=>event.stopPropagation()} onClick={()=>onEdit(row.qsoID)}>{value}</button>:value}</td>)}</tr>)}</tbody></table></div>;
+}
+function ReadOnlyContactField({label,value,wide=false}:{label:string;value:string;wide?:boolean}) {
+  return <div className={`contest-surface-readonly${wide?" contest-surface-editor-wide":""}`}><span>{label}</span><output>{value}</output></div>;
 }
 function ContactEditor({projection,disabled,sending,projectionRevision,receipts,send}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;receipts:ContestSurfaceTerminalReceipt[];send:Send}) {
   const editing=projection.editing;
@@ -480,22 +489,37 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
     <p>The selected contact is no longer being edited. Choose it again in Log Display.</p>
     <button type="button" onClick={()=>void closeContestContactEditorWindow()}>Close</button></section>;
   const finish=async(action:ContestSurfaceAction)=>{const result=await send(action,projectionRevision);if(result.applied)await closeContestContactEditorWindow();};
+  const details=editing.details??{};
   return <section className="contest-surface-contact-editor"><header><h1>Edit Contact</h1><span>{editing.callsign}</span></header>
     <div className="contest-surface-editor"><IntentInput label="Callsign" value={editing.callsign} identity={`${editing.qsoID}/callsign`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"callsign",value}})}/>
     <IntentInput label="TimeStamp (UTC)" value={editing.workedAt??""} identity={`${editing.qsoID}/timestamp`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"timestamp",value}})}/>
-    <IntentInput label="Frequency Hz" value={editing.editFrequencyText} identity={`${editing.qsoID}/frequency`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={11} send={send} action={value=>({action:"log_edit_set_frequency_text",params:{qsoID:editing.qsoID,value}})}/>
-    <div className="contest-surface-readonly"><span>Band / Mode</span><output>{editing.band} · {editing.mode}</output></div>
+    <ReadOnlyContactField label="RX" value={details.rxFrequency??""}/>
+    <IntentInput label="Tx Freq (Hz)" value={editing.editFrequencyText} identity={`${editing.qsoID}/frequency`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={11} send={send} action={value=>({action:"log_edit_set_frequency_text",params:{qsoID:editing.qsoID,value}})}/>
+    <ReadOnlyContactField label="Mode" value={editing.mode}/><ReadOnlyContactField label="Contest" value={details.contest??""}/>
     {editing.reportsVisible!==false&&<><IntentInput label="RST Sent" value={editing.sentReport} identity={`${editing.qsoID}/sentReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"sentReport",value}})}/>
       <IntentInput label="RST Rcv" value={editing.receivedReport} identity={`${editing.qsoID}/receivedReport`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={160} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"receivedReport",value}})}/></>}
+    <ReadOnlyContactField label="Country" value={details.country??""}/><ReadOnlyContactField label="Station Call" value={details.stationCall??""}/>
+    <ReadOnlyContactField label="Name" value={details.name??""}/><ReadOnlyContactField label="QTH" value={details.qth??""}/>
+    <ReadOnlyContactField label="Comment" value={details.comment??""} wide/>
+    <ReadOnlyContactField label="Nr" value={details.receivedNumber??""}/><ReadOnlyContactField label="Nr Sent" value={details.sentNumber??""}/>
+    <ReadOnlyContactField label="Points" value={details.points??""}/><ReadOnlyContactField label="Power" value={details.power??""}/>
+    <ReadOnlyContactField label="Zone" value={details.zone??""}/><ReadOnlyContactField label="Section" value={details.section??""}/>
+    <ReadOnlyContactField label="Multiplier 1" value={details.multiplier1??""}/><ReadOnlyContactField label="Band" value={editing.band}/>
+    <ReadOnlyContactField label="Check" value={details.check??""}/><ReadOnlyContactField label="Precedence" value={details.precedence??""}/>
+    <ReadOnlyContactField label="Multiplier 2" value={details.multiplier2??""}/><ReadOnlyContactField label="WPX" value={details.wpx??""}/>
+    <ReadOnlyContactField label="Exchange" value={details.exchange??""}/><ReadOnlyContactField label="Run 1/2" value={details.run??""}/>
+    <ReadOnlyContactField label="Multiplier 3" value={details.multiplier3??""}/><ReadOnlyContactField label="Radio" value={details.radio??""}/>
+    <ReadOnlyContactField label="Grid" value={details.grid??""}/>
+    <IntentInput label="Op" value={editing.operator??""} identity={`${editing.qsoID}/operator`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"operator",value}})}/>
+    <ReadOnlyContactField label="Misc" value={details.misc??""}/><ReadOnlyContactField label="Rover QTH" value={details.roverQTH??""}/>
     {editing.receivedFields.map((field:any)=><IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/exchange/${field.id}`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={field.maximumUTF8Bytes} send={send} action={value=>({action:"log_edit_set_exchange",params:{qsoID:editing.qsoID,fieldID:field.id,value}})}/>)}
-    <IntentInput label="Station Call" value={editing.operator??""} identity={`${editing.qsoID}/operator`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={32} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"operator",value}})}/>
     <IntentInput label="Correction note" value={editing.correctionReason} identity={`${editing.qsoID}/correctionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"correctionReason",value}})}/>
     </div>{editing.frequencyError&&<p role="alert">{editing.frequencyError}</p>}
     {editing.confirmDelete&&<div className="contest-surface-delete"><IntentInput label="Deletion reason" value={editing.deletionReason} identity={`${editing.qsoID}/deletionReason`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={1024} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"deletionReason",value}})}/>
       <button disabled={disabled||sending||!editing.deletionReason.trim()} onClick={()=>void finish({action:"log_edit_delete",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>Delete contact</button></div>}
-    <footer className="contest-surface-editor-actions"><button disabled={disabled||sending} onClick={()=>void finish({action:"log_edit_cancel",params:{qsoID:editing.qsoID}})}>Cancel</button>
-      <button disabled={disabled||sending} aria-pressed={editing.confirmDelete} onClick={()=>void send({action:"log_edit_confirm_delete",params:{qsoID:editing.qsoID,confirmed:!editing.confirmDelete}},projectionRevision)}>{editing.confirmDelete?"Keep contact":"Delete…"}</button>
-      <button disabled={disabled||sending||!!editing.frequencyError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>Save</button></footer>
+    <footer className="contest-surface-editor-actions"><button disabled={disabled||sending} aria-pressed={editing.confirmDelete} onClick={()=>void send({action:"log_edit_confirm_delete",params:{qsoID:editing.qsoID,confirmed:!editing.confirmDelete}},projectionRevision)}>{editing.confirmDelete?"Keep contact":"Delete…"}</button>
+      <button disabled={disabled||sending} onClick={()=>void finish({action:"log_edit_cancel",params:{qsoID:editing.qsoID}})}>Cancel</button>
+      <button disabled={disabled||sending||!!editing.frequencyError||!editing.correctionReason.trim()} onClick={()=>void finish({action:"log_edit_save",params:{qsoID:editing.qsoID,expectedSessionRevision:projection.sessionRevision}})}>OK</button></footer>
   </section>;
 }
 function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{projection:any;disabled:boolean;sending:boolean;projectionRevision:number;send:Send;openEditor:(qsoID:string)=>Promise<void>}) {
@@ -504,12 +528,11 @@ function Log({projection,disabled,sending,projectionRevision,send,openEditor}:{p
   <div className="contest-surface-log-actions"><button disabled={disabled||sending||!projection.canExportCabrillo} onClick={()=>void send({action:"log_export_cabrillo",params:{}},projectionRevision)}>Export Cabrillo…</button>
   <button disabled={disabled||sending||projection.canExportAdif!==true} onClick={()=>void send({action:"log_export_adif",params:{}},projectionRevision)}>Export ADIF…</button>
   <button disabled={disabled||sending} onClick={()=>void send({action:"log_recalculate",params:{expectedSessionRevision:projection.sessionRevision}},projectionRevision)}>Recalculate</button></div></header>
-  {projection.exchangeLayout==="plugin" ? <><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log"
-      onEdit={qsoID=>void openEditor(qsoID)}/>
-    {pluginPartialRows.length>0&&<PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches"
-      onEdit={qsoID=>void openEditor(qsoID)}/>}</>
-    : <><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/>
-      {partialRows.length>0&&<ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/>}</>}
+  <div className="contest-surface-log-panes">{projection.exchangeLayout==="plugin" ? <>
+    <section><h2>Chronological log</h2><PluginLogTable columns={projection.pluginColumns} rows={projection.pluginRows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
+    <section><h2>Callsign partial matches</h2><PluginLogTable columns={projection.pluginColumns} rows={pluginPartialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>
+    : <><section><h2>Chronological log</h2><ManualLogTable rows={projection.manualRows??projection.page.rows} disabled={disabled} label="Contest log" onEdit={qsoID=>void openEditor(qsoID)}/></section>
+      <section><h2>Callsign partial matches</h2><ManualLogTable rows={partialRows} disabled={disabled} label="Callsign partial matches" onEdit={qsoID=>void openEditor(qsoID)}/></section></>}</div>
   <footer><button disabled={disabled||projection.page.offset===0} onClick={()=>void send({action:"log_page",params:{offset:Math.max(0,projection.page.offset-projection.page.limit)}},projectionRevision)}>Previous</button>
     <span>{projection.page.total?`${projection.page.offset+1}–${projection.page.offset+projection.page.rows.length} of ${projection.page.total}`:"No contacts"}</span>
     <button disabled={disabled||projection.page.offset+projection.page.rows.length>=projection.page.total} onClick={()=>void send({action:"log_page",params:{offset:projection.page.offset+projection.page.limit}},projectionRevision)}>Next</button></footer></section>; }

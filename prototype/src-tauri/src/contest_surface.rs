@@ -1998,6 +1998,7 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         let worked_at = required_edit.remove("workedAt");
         let operator = required_edit.remove("operator");
         let reports_visible = required_edit.remove("reportsVisible");
+        let details = required_edit.remove("details");
         exact(
             &required_edit,
             &[
@@ -2026,6 +2027,22 @@ fn validate_logbook_projection(value: &Map<String, Value>) -> Result<(), String>
         if let Some(reports_visible) = reports_visible {
             boolean(&reports_visible, "log edit report visibility")?;
         }
+        if let Some(details) = details {
+            let details = object(&details, "log edit details")?;
+            exact(
+                details,
+                &[
+                    "rxFrequency", "contest", "country", "stationCall", "name", "qth", "comment",
+                    "receivedNumber", "sentNumber", "points", "power", "zone", "section", "check",
+                    "precedence", "multiplier1", "multiplier2", "multiplier3", "wpx", "exchange",
+                    "run", "radio", "grid", "misc", "roverQTH",
+                ],
+                "log edit details",
+            )?;
+            for field in details.values() {
+                text_value(field, 2048, true, "log edit detail")?;
+            }
+        }
         text_value(&edit["qsoID"], 160, false, "QSO ID")?;
         text_value(&edit["callsign"], 32, true, "log callsign")?;
         for key in ["band", "mode"] {
@@ -2053,7 +2070,7 @@ fn validate_manual_rows(value: &Value) -> Result<(), String> {
         let row = object(row, "manual log row")?;
         exact(
             row,
-            &["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "ZN", "SentNr", "prefix", "Points"],
+            &["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "M1", "ZN", "M2", "prefix", "Points"],
             "manual log row",
         )?;
         for field in row.values() {
@@ -2543,7 +2560,7 @@ mod tests {
                 "receivedReport":"599","receivedFields":[],"frequencyHz":null,"editFrequencyText":"bad",
                 "frequencyError":"Enter a frequency","correctionReason":"","confirmDelete":false,"deletionReason":""},"busy":false});
         assert!(validate_projection("logbook", &logbook).is_ok());
-        let not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"canExportCabrillo":true,"exchangeLayout":"plugin",
+        let mut not1mm_logbook = json!({"schemaVersion":1,"status":"ready","sessionRevision":4,"canExportCabrillo":true,"exchangeLayout":"plugin",
             "page":{"offset":0,"limit":20,"total":1,"rows":[{"qsoID":"qso","workedAt":"2026-10-18T00:00:00.000Z",
                 "callsign":"DL1AAA","band":"20m","mode":"CW","sentExchange":"599 15","receivedExchange":"599 14",
                 "points":3,"multiplierLabels":["Germany"]}]},
@@ -2554,7 +2571,15 @@ mod tests {
                 "band":"20m","mode":"CW","sentReport":"599","receivedReport":"599","receivedFields":[],
                 "frequencyHz":14025000,"editFrequencyText":"14025000","frequencyError":"","correctionReason":"Operator correction",
                 "confirmDelete":false,"deletionReason":"Operator deletion"},"busy":false});
+        not1mm_logbook["editing"]["details"] = json!({
+            "rxFrequency":"","contest":"CQWW","country":"DL","stationCall":"OM0RX","name":"","qth":"","comment":"",
+            "receivedNumber":"14","sentNumber":"15","points":"3","power":"100","zone":"14","section":"","check":"","precedence":"A",
+            "multiplier1":"Yes","multiplier2":"No","multiplier3":"","wpx":"DL1","exchange":"","run":"1","radio":"1","grid":"","misc":"","roverQTH":""
+        });
         assert!(validate_projection("logbook", &not1mm_logbook).is_ok());
+        let mut malformed_details = not1mm_logbook.clone();
+        malformed_details["editing"]["details"]["points"] = json!(3);
+        assert!(validate_projection("logbook", &malformed_details).is_err());
         let mut missing_call_column = not1mm_logbook.clone();
         missing_call_column["pluginColumns"][1] = json!("Station");
         assert!(validate_projection("logbook", &missing_call_column).is_err());

@@ -160,7 +160,7 @@ it("queries the full contest log for partials and retains raw rows beyond the di
   expect(request.mock.calls.find(([method])=>method==="contest_check_partial")?.[1]).toEqual({sessionID:current.sessionID,expectedRevision:9,query:"DL1",limit:500});
   expect(surfaceOwner.current.projections["callsign-intelligence"].clusterCalls).toEqual(["DL1XYZ"]);
   expect(surfaceOwner.current.projections.logbook.page.rows).toEqual([]);
-  expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"}]);
+  expect(surfaceOwner.current.projections.logbook.partialRows).toEqual([{qsoID:"off-page",TS:raw.TS,Call:raw.Call,Freq:"14025.125",SNT:"579",RCV:"589",M1:"",ZN:"14",M2:"",prefix:"DL1",Points:"3"}]);
   expect(surfaceOwner.current.projections["active-qso"].manual).toMatchObject({operator:"OM0RX/P",cwSpeedWpm:25,country:"Germany",cqZone:14,ituZone:28,qsos:25,multipliers:7,total:350,distanceKm:null});
   expect(surfaceOwner.current.projections["station-control"]).toEqual({schemaVersion:1,status:"ready",
     radioFrequencyHz:14_025_000,contestFrequencyHz:14_025_000,band:"20m",mode:"CW",busy:false});
@@ -419,7 +419,8 @@ it.each([
     current.fields=current.fields.map((field:any)=>({...field,visible:!["sent","receive"].includes(field.id),readOnly:false,
       label:field.id==="other_1"?(pluginID==="euhfc"?"":"Name"):field.id==="other_2"?exchangeLabel:field.label}));
     const row={ID:`${pluginID}-qso`,TS:"2026-10-20 09:00:00",Call:"K1ABC",Freq:14025,Band:14,Mode:"CW",
-      SNT:"599",RCV:"599",SentNr:"OLIVER",Operator:"OM0RX",Points:1,...exchangeRow};
+      SNT:"599",RCV:"599",SentNr:"OLIVER",Operator:"OM0RX",Points:1,ContestName:pluginName,CountryPrefix:"K",
+      StationPrefix:"OM0RX",Name:"ALICE",QTH:"BOSTON",Comment:"Original note",Power:100,GridSquare:"FN42",...exchangeRow};
     let corrected:Record<string,any>|null=null;
     const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
       const support=workspaceSupport(method,params,current);if(support)return support;
@@ -448,6 +449,8 @@ it.each([
       {id:"other_1",label:pluginID==="euhfc"?"Sent exchange":"Name",value:expectedOther1,required:true,maximumUTF8Bytes:32},
       {id:"other_2",label:exchangeLabel,value:expectedOther2,required:true,maximumUTF8Bytes:128},
     ]);
+    expect(surfaceOwner.current.projections.logbook.editing.details).toMatchObject({contest:pluginName,country:"K",stationCall:"OM0RX",
+      name:"ALICE",qth:"BOSTON",comment:"Original note",power:"100",grid:"FN42"});
     await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_save",
       params:{qsoID:row.ID,expectedSessionRevision:current.revision}}));
     expect(corrected).toMatchObject({qsoID:row.ID,fields:{other_1:expectedOther1,other_2:expectedOther2}});

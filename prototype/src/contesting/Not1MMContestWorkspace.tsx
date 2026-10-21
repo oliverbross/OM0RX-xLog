@@ -201,8 +201,24 @@ function logRows(rows: Data[], pluginID?: string): ContestLogRow[] {
 }
 function manualRows(rows: Data[]): ContestManualRow[] {
   return rows.map(row => ({ qsoID: String(row.ID ?? ""), TS: String(row.TS ?? ""), Call: String(row.Call ?? ""),
-    Freq: String(row.Freq ?? ""), SNT: String(row.SNT ?? ""), RCV: String(row.RCV ?? ""), ZN: String(row.ZN ?? ""),
-    SentNr: String(row.SentNr ?? ""), prefix: String(row.WPXPrefix || row.CountryPrefix || ""), Points: String(row.Points ?? "") }));
+    Freq: String(row.Freq ?? ""), SNT: String(row.SNT ?? ""), RCV: String(row.RCV ?? ""),
+    M1: row.IsMultiplier1 && row.IsMultiplier1 !== "0" ? "✓" : "", ZN: String(row.ZN ?? ""),
+    M2: row.IsMultiplier2 && row.IsMultiplier2 !== "0" ? "✓" : "",
+    prefix: String(row.WPXPrefix || row.CountryPrefix || ""), Points: String(row.Points ?? "") }));
+}
+const textValue = (value: unknown) => String(value ?? "");
+const multiplierValue = (value: unknown) => value === undefined || value === null || value === "" ? "" : value && value !== "0" ? "Yes" : "No";
+function logEditDetails(row: Data) {
+  return {
+    rxFrequency: textValue(row.QSXFreq), contest: textValue(row.ContestName), country: textValue(row.CountryPrefix),
+    stationCall: textValue(row.StationPrefix), name: textValue(row.Name), qth: textValue(row.QTH), comment: textValue(row.Comment),
+    receivedNumber: textValue(row.NR), sentNumber: textValue(row.SentNr), points: textValue(row.Points), power: textValue(row.Power),
+    zone: textValue(row.ZN), section: textValue(row.Sect), check: textValue(row.CK), precedence: textValue(row.Prec),
+    multiplier1: multiplierValue(row.IsMultiplier1), multiplier2: multiplierValue(row.IsMultiplier2),
+    multiplier3: multiplierValue(row.isMultiplier3), wpx: textValue(row.WPXPrefix), exchange: textValue(row.Exchange1),
+    run: textValue(row.Run1Run2), radio: textValue(row.RadioNR), grid: textValue(row.GridSquare), misc: textValue(row.MiscText),
+    roverQTH: textValue(row.RoverLocation),
+  };
 }
 const pluginColumnFields: Record<string, string> = {
   "YYYY-MM-DD HH:MM:SS": "TS", Snt: "SNT", Rcv: "RCV", RcvNr: "NR", WPX: "WPXPrefix",
@@ -1013,6 +1029,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, o
         : { manualRows:manualRows(rows), partialRows:manualRows(partialRows) }),
       editing: editing ? {
         qsoID: String(editing.ID ?? ""), workedAt: editTimestamp, operator: editOperator, callsign: editCall, reportsVisible,
+        details: logEditDetails(editing),
         band: bandLabels[String(editing.Band)] ?? String(editing.Band ?? ""), mode: String(editing.Mode ?? "CW"),
         sentReport: editSent, receivedReport: editReceived,
         receivedFields: [

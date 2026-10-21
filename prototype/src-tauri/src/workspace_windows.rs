@@ -99,7 +99,7 @@ pub const CONTEST_WINDOWS: [WindowSpec; 16] = [
     WindowSpec { id: "rotor", title: "OM0RX-xLog Contest — Rotator", width: 620.0, height: 420.0 },
     WindowSpec { id: "station-control", title: "OM0RX-xLog Contest — Remote VFO", width: 680.0, height: 420.0 },
     WindowSpec { id: "logbook", title: "OM0RX-xLog Contest — Log Display", width: 1120.0, height: 480.0 },
-    WindowSpec { id: "edit-contact", title: "OM0RX-xLog Contest — Edit Contact", width: 560.0, height: 540.0 },
+    WindowSpec { id: "edit-contact", title: "OM0RX-xLog Contest — Edit Contact", width: 720.0, height: 760.0 },
     WindowSpec { id: "dx-cluster", title: "OM0RX-xLog Contest — Cluster", width: 1040.0, height: 420.0 },
 ];
 pub fn supports_panel(scope: WorkspaceWindowScope, panel_id: &str) -> bool {
@@ -132,6 +132,7 @@ pub fn contest_default_size_migrations(label: &str) -> Option<(&'static [(f64, f
         "awards" => &[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0)],
         "chaser-dx" => &[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0)],
         "logbook" => &[(1280.0, 800.0), (1120.0, 700.0)],
+        "edit-contact" => &[(560.0, 540.0)],
         "dx-cluster" => &[(1180.0, 800.0), (1040.0, 680.0)],
         _ => return None,
     };
@@ -168,7 +169,7 @@ pub fn native_minimum(label: &str) -> (f64, f64) {
                 "group-chat" => (360.0, 240.0),
                 "callsign-intelligence" => (480.0, 420.0),
                 "logbook" => (760.0, 480.0),
-                "edit-contact" => (460.0, 420.0),
+                "edit-contact" => (500.0, 480.0),
         "propagation" => (400.0, 140.0),
                 "alerts" => (320.0, 220.0),
                 "band-maps" => (420.0, 420.0),
@@ -505,7 +506,7 @@ mod tests {
     fn contest_windows_use_scoped_compact_minima_without_changing_normal_tools() {
         let expected = [
             ("active-qso", (560.0, 360.0)), ("call-history", (620.0, 280.0)), ("qrz-details", (420.0, 260.0)),
-            ("edit-contact", (460.0, 420.0)),
+            ("edit-contact", (500.0, 480.0)),
             ("group-chat", (360.0, 240.0)),
             ("callsign-intelligence", (480.0, 420.0)), ("logbook", (760.0, 480.0)),
             ("propagation", (400.0, 140.0)), ("alerts", (320.0, 220.0)),
@@ -540,6 +541,7 @@ mod tests {
         assert_eq!(contest_default_size_migrations("contest--awards"), Some((&[(1280.0, 800.0), (920.0, 720.0), (920.0, 460.0)][..], (920.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--chaser-dx"), Some((&[(1180.0, 800.0), (760.0, 680.0), (760.0, 460.0)][..], (760.0, 300.0))));
         assert_eq!(contest_default_size_migrations("contest--logbook"), Some((&[(1280.0, 800.0), (1120.0, 700.0)][..], (1120.0, 480.0))));
+        assert_eq!(contest_default_size_migrations("contest--edit-contact"), Some((&[(560.0, 540.0)][..], (720.0, 760.0))));
         assert_eq!(contest_default_size_migrations("contest--dx-cluster"), Some((&[(1180.0, 800.0), (1040.0, 680.0)][..], (1040.0, 420.0))));
         for label in ["active-qso", "rotor", "station-control", "contest--alerts"] {
             assert_eq!(contest_default_size_migrations(label), None, "{label}");

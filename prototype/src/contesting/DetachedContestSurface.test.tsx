@@ -151,20 +151,21 @@ it("keeps Trans Tasman duplicates loggable and presents the original period expl
   expect(screen.getByLabelText("Current band and mode").textContent).toBe("CW1608040");
 });
 
-it.each(["legacy", "manual", "plugin"])("lets the %s log use the full pane when partial matches are empty",async layout=>{
+it.each(["legacy", "manual", "plugin"])("reserves chronological and partial-match panes for the %s log",async layout=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   const row={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
     sentExchange:"599",receivedExchange:"599",points:2,multiplierLabels:[]};
   const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
     page:{offset:0,limit:20,total:1,rows:[row]},editing:null,busy:false,
     ...(layout==="plugin"?{exchangeLayout:"plugin",pluginColumns:["Call"],pluginRows:[{qsoID:row.qsoID,values:[row.callsign]}],pluginPartialRows:[]}
-      :layout==="manual"?{manualRows:[{qsoID:row.qsoID,TS:"2026-10-20 12:00:00",Call:row.callsign,Freq:"14025",SNT:"599",RCV:"599",ZN:"5",SentNr:"1",prefix:"K1",Points:"2"}],partialRows:[]}:{})};
+      :layout==="manual"?{manualRows:[{qsoID:row.qsoID,TS:"2026-10-20 12:00:00",Call:row.callsign,Freq:"14025",SNT:"599",RCV:"599",M1:"✓",ZN:"5",M2:"",prefix:"K1",Points:"2"}],partialRows:[]}:{})};
   expect(validContestSurfaceProjection("logbook",view)).toBe(true);
   native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});render(<DetachedContestSurface/>);
   expect(await screen.findByRole("table",{name:"Contest log"})).toBeTruthy();
   expect(screen.getByRole("button",{name:"K1ABC"})).toBeTruthy();
-  expect(screen.queryByRole("table",{name:"Callsign partial matches"})).toBeNull();
-  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(1);
+  expect(screen.getByRole("table",{name:"Callsign partial matches"})).toBeTruthy();
+  expect(screen.getByText("No partial matches")).toBeTruthy();
+  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(2);
 });
 
 it("opens editing from Log Display in a separate native Edit Contact window",async()=>{
@@ -173,7 +174,7 @@ it("opens editing from Log Display in a separate native Edit Contact window",asy
     sentExchange:"599",receivedExchange:"599",points:2,multiplierLabels:[]};
   const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
     page:{offset:0,limit:20,total:1,rows:[row]},manualRows:[{qsoID:row.qsoID,TS:"2026-10-20 12:00:00",Call:row.callsign,
-      Freq:"14025",SNT:"599",RCV:"599",ZN:"5",SentNr:"1",prefix:"K1",Points:"2"}],partialRows:[],editing:null,busy:false};
+      Freq:"14025",SNT:"599",RCV:"599",M1:"✓",ZN:"5",M2:"",prefix:"K1",Points:"2"}],partialRows:[],editing:null,busy:false};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
     if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
     if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
@@ -183,6 +184,23 @@ it("opens editing from Log Display in a separate native Edit Contact window",asy
   render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"K1ABC"}));
   await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration}));
   expect(screen.queryByRole("heading",{name:"Edit Contact"})).toBeNull();
+});
+
+it.each(["doubleClick","contextMenu"] as const)("opens Edit Contact on log-row %s",async gesture=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
+  const row={qsoID:"logged-qso",workedAt:"2026-10-20T12:00:00.000Z",callsign:"K1ABC",band:"20m",mode:"CW",
+    sentExchange:"599",receivedExchange:"599",points:2,multiplierLabels:[]};
+  const manual={qsoID:row.qsoID,TS:"2026-10-20 12:00:00",Call:row.callsign,Freq:"14025",SNT:"599",RCV:"599",M1:"",ZN:"5",M2:"",prefix:"K1",Points:"2"};
+  const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,page:{offset:0,limit:20,total:1,rows:[row]},manualRows:[manual],partialRows:[],editing:null,busy:false};
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action")return {requestID:args.requestID,status:"applied"};
+    if(command==="contest_contact_editor_open")return;
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);const frequency=(await screen.findByText("14025")).closest("tr")!.children[2];
+  fireEvent[gesture](frequency);
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_open",{operatingContext,sessionID,workspaceGeneration}));
 });
 
 it("renders the original contact fields in the dedicated editor and closes after Save",async()=>{
@@ -205,9 +223,14 @@ it("renders the original contact fields in the dedicated editor and closes after
   expect(await screen.findByRole("heading",{name:"Edit Contact"})).toBeTruthy();
   expect(screen.getByLabelText("Callsign")).toHaveProperty("value","K1ABC");
   expect(screen.getByLabelText("TimeStamp (UTC)")).toHaveProperty("value","2026-10-20 12:00:00");
-  expect(screen.getByText("20m · CW")).toBeTruthy();
-  expect(screen.getByLabelText("Station Call")).toHaveProperty("value","OM0RX");
-  fireEvent.click(screen.getByRole("button",{name:"Save"}));
+  expect(screen.getByText("20m")).toBeTruthy();
+  expect(screen.getByText("CW")).toBeTruthy();
+  expect(screen.getByText("Station Call")).toBeTruthy();
+  expect(screen.getByLabelText("Op")).toHaveProperty("value","OM0RX");
+  for(const label of ["Contest","Country","Name","QTH","Comment","Nr","Nr Sent","Points","Power","Zone","Section",
+    "Check","Precedence","Multiplier 1","Multiplier 2","Multiplier 3","Band","WPX","Exchange","Run 1/2","Radio","Grid","Misc","Rover QTH"])
+    expect(screen.getByText(label)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"OK"}));
   await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_contact_editor_close",undefined));
   expect(native.invoke.mock.calls.find(([command])=>command==="contest_surface_action")?.[1]).toMatchObject({
     panelID:"logbook",action:"log_edit_save",params:{qsoID:"logged-qso",expectedSessionRevision:7},
@@ -244,14 +267,14 @@ it("lays out Edit Contact actions as a wrapping right-aligned native-style row",
 
 it("renders authoritative raw DXLOG values in the log and full-log partial table",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
-  const row={qsoID:"outside-current-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:"14025.125",SNT:"579",RCV:"589",ZN:"14",SentNr:"15",prefix:"DL1",Points:"3"};
+  const row={qsoID:"outside-current-page",TS:"2026-10-19 01:02:03",Call:"DL1ABC",Freq:"14025.125",SNT:"579",RCV:"589",M1:"✓",ZN:"14",M2:"",prefix:"DL1",Points:"3"};
   const view={schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,page:{offset:0,limit:20,total:1,rows:[]},manualRows:[row],partialRows:[row],editing:null,busy:false};
   expect(validContestSurfaceProjection("logbook",view)).toBe(true);
   expect(validContestSurfaceProjection("logbook",{...view,partialRows:[{...row,Freq:14025}]})).toBe(false);
   native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:view});render(<DetachedContestSurface/>);
   await screen.findByRole("heading",{name:"Log Display"});
   for(const name of ["Contest log","Callsign partial matches"])
-    expect(Array.from(screen.getByRole("table",{name}).querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual([row.TS,row.Call,row.Freq,row.SNT,row.RCV,row.ZN,row.SentNr,row.prefix,row.Points]);
+    expect(Array.from(screen.getByRole("table",{name}).querySelectorAll("tbody td")).map(cell=>cell.textContent)).toEqual([row.TS,row.Call,row.Freq,row.SNT,row.RCV,row.M1,row.ZN,row.M2,row.prefix,row.Points]);
   expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(2);
 });
 
@@ -656,15 +679,15 @@ it("retains the manual Check Partial Log, Master and Telnet columns with explici
   expect(screen.getByRole("button",{name:"OM0RX"})).toBeTruthy();
 });
 
-it("retains the main log headings without an empty partial pane when the log is empty",async()=>{
+it("retains the original log headings and an empty partial pane when the log is empty",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=logbook"));
   native.invoke.mockResolvedValue({...snapshot,panelID:"logbook",projection:{schemaVersion:1,status:"ready",sessionRevision:1,canExportCabrillo:true,
     page:{offset:0,limit:20,total:0,rows:[]},editing:null,busy:false}});
   render(<DetachedContestSurface/>);await screen.findByRole("heading",{name:"Log Display"});
   const table=screen.getByRole("table",{name:"Contest log"});
-  expect(Array.from(table.querySelectorAll("th")).map(cell=>cell.textContent)).toEqual(["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","ZN","NR","PFX","PTS"]);
-  expect(screen.queryByRole("table",{name:"Callsign partial matches"})).toBeNull();
-  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(1);
+  expect(Array.from(table.querySelectorAll("th")).map(cell=>cell.textContent)).toEqual(["YYYY-MM-DD HH:MM:SS","Call","Freq","Snt","Rcv","M1","ZN","M2","PFX","PTS"]);
+  expect(screen.getByRole("table",{name:"Callsign partial matches"})).toBeTruthy();
+  expect(document.querySelectorAll(".contest-surface-log-scroll")).toHaveLength(2);
 });
 
 it("serializes rapid Python tab-map focus changes and sends exact report focus to ESM",async()=>{

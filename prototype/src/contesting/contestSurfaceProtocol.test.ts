@@ -184,6 +184,15 @@ describe("contest native surface projection v1", () => {
     expect(validContestSurfaceProjection("logbook", entryProjection)).toBe(false);
   });
 
+  it("admits bounded source-backed Edit Contact details and rejects non-text metadata", () => {
+    const details={rxFrequency:"",contest:"CQWW",country:"K",stationCall:"OM0RX",name:"ALICE",qth:"BOSTON",comment:"Original",
+      receivedNumber:"14",sentNumber:"15",points:"3",power:"100",zone:"5",section:"CT",check:"67",precedence:"A",
+      multiplier1:"Yes",multiplier2:"No",multiplier3:"",wpx:"K1",exchange:"",run:"1",radio:"1",grid:"FN42",misc:"",roverQTH:""};
+    const projection={...logProjection,editing:{...logProjection.editing,details}};
+    expect(validContestSurfaceProjection("logbook",projection)).toBe(true);
+    expect(validContestSurfaceProjection("logbook",{...projection,editing:{...projection.editing,details:{...details,points:3}}})).toBe(false);
+  });
+
   it("admits bounded original phone macro labels and payloads in the simulation trace", () => {
     const phone = { ...entryProjectionV2, operator: { ...entryProjectionV2.operator,
       trace: [{ operationID:"operation-1:0", mode:"SSB", macro:"Their call", text:"K1ABC", status:"confirmed" }] } };

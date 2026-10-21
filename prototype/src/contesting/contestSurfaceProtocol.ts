@@ -47,7 +47,12 @@ export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
 };
 export type ContestSurfaceUnavailableProjection = { schemaVersion: 1; status: "unavailable" };
 export type ContestSurfaceReceivedField = { id: string; label: string; value: string; required: boolean; maximumUTF8Bytes: number };
-export type ContestManualRow = { qsoID: string; TS: string; Call: string; Freq: string; SNT: string; RCV: string; ZN: string; SentNr: string; prefix: string; Points: string };
+export type ContestManualRow = { qsoID: string; TS: string; Call: string; Freq: string; SNT: string; RCV: string;
+  M1: string; ZN: string; M2: string; prefix: string; Points: string };
+export type ContestLogEditDetails = { rxFrequency: string; contest: string; country: string; stationCall: string;
+  name: string; qth: string; comment: string; receivedNumber: string; sentNumber: string; points: string; power: string;
+  zone: string; section: string; check: string; precedence: string; multiplier1: string; multiplier2: string; multiplier3: string;
+  wpx: string; exchange: string; run: string; radio: string; grid: string; misc: string; roverQTH: string };
 export type ContestPluginLogRow = { qsoID: string; values: string[] };
 export type ContestManualContext = { operator: string; cwSpeedWpm: number | null; country: string | null; cqZone: number | null; ituZone: number | null;
   headingDegrees: number | null; longPathHeadingDegrees: number | null; distanceKm: number | null; qsos: number; multipliers: number; total: number };
@@ -122,7 +127,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
   pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
-  editing: null | { reportsVisible?: boolean; qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
+  editing: null | { reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
     receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
@@ -147,7 +152,7 @@ const exact = (value: Record<string, unknown>, keys: readonly string[]) => {
 const optionalKeys = (value: Record<string, unknown>, keys: readonly string[], optional: readonly string[]) =>
   exact(value, [...keys, ...optional.filter(key => key in value)]);
 const manualRowsValid = (value: unknown) => Array.isArray(value) && value.length <= 500 && value.every(row => record(row) &&
-  exact(row, ["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "ZN", "SentNr", "prefix", "Points"]) && Object.values(row).every(item => text(item, 160, true)));
+  exact(row, ["qsoID", "TS", "Call", "Freq", "SNT", "RCV", "M1", "ZN", "M2", "prefix", "Points"]) && Object.values(row).every(item => text(item, 160, true)));
 const pluginColumnsValid = (value: unknown): value is string[] => Array.isArray(value) && value.length > 0 && value.length <= 32 &&
   value.every(column => text(column, 64) && column === column.trim()) && new Set(value).size === value.length &&
   value.filter(column => column === "Call").length === 1;
@@ -331,12 +336,20 @@ function validLogProjection(value: Record<string, unknown>) {
         text(row.sentExchange, 2048, true) && text(row.receivedExchange, 2048, true) && uint(row.points) && texts(row.multiplierLabels, 32, 160); }) &&
     (!pluginLayout || Array.isArray(value.pluginRows) && value.pluginRows.length === pageRows.length && value.pluginRows.every((item, index) =>
       record(item) && record(pageRows[index]) && item.qsoID === pageRows[index].qsoID)) &&
-    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["reportsVisible"]) &&
+    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["reportsVisible", "details"]) &&
       (!("reportsVisible" in editing) || typeof editing.reportsVisible === "boolean") &&
+      (!("details" in editing) || validLogEditDetails(editing.details)) &&
       text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&
       text(editing.receivedReport, 160, true) && validReceivedFields(editing.receivedFields) && optionalFrequency(editing.frequencyHz) &&
       text(editing.editFrequencyText, 11, true) && text(editing.frequencyError, 512, true) && text(editing.correctionReason, 1024, true) &&
       typeof editing.confirmDelete === "boolean" && text(editing.deletionReason, 1024, true)) && typeof value.busy === "boolean";
+}
+
+const logEditDetailKeys = ["rxFrequency", "contest", "country", "stationCall", "name", "qth", "comment", "receivedNumber",
+  "sentNumber", "points", "power", "zone", "section", "check", "precedence", "multiplier1", "multiplier2", "multiplier3",
+  "wpx", "exchange", "run", "radio", "grid", "misc", "roverQTH"] as const;
+function validLogEditDetails(value: unknown): value is ContestLogEditDetails {
+  return record(value) && exact(value, logEditDetailKeys) && logEditDetailKeys.every(key => text(value[key], 2048, true));
 }
 
 function validRatesProjection(value: Record<string, unknown>) {

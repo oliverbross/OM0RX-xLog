@@ -31,12 +31,12 @@
 .contest-surface-contact-editor { overflow:hidden; }
 .contest-surface-contact-editor > header { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:6px 8px; border-bottom:1px solid var(--border); }
 .contest-surface-contact-editor > header span { color:var(--teal); font:600 15px ui-monospace,monospace; }
-.contest-surface-contact-editor .contest-surface-editor { grid-template-columns:repeat(2,minmax(0,1fr)); overflow-y:auto; }
-.contest-surface-contact-editor .contest-surface-intent:last-child { grid-column:1 / -1; }
+.contest-surface-contact-editor .contest-surface-editor { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:min-content; overflow-y:auto; overscroll-behavior:contain; }
+.contest-surface-contact-editor .contest-surface-intent:last-child,.contest-surface-editor-wide { grid-column:1 / -1; }
 .contest-surface-readonly { display:flex; flex-direction:column; gap:4px; min-width:0; color:var(--secondary); font-size:12px; }
 .contest-surface-readonly output { min-height:34px; padding:7px 8px; border:1px solid var(--border); border-radius:5px; color:var(--cyan); background:var(--control); font:inherit; }
 .contest-surface-contact-editor > .contest-surface-editor-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:8px; border-top:1px solid var(--border); }
-@container contest-detached (max-width:480px) { .contest-surface-contact-editor .contest-surface-editor { grid-template-columns:minmax(0,1fr); } .contest-surface-contact-editor .contest-surface-intent:last-child { grid-column:auto; } }
+@container contest-detached (max-width:480px) { .contest-surface-contact-editor .contest-surface-editor { grid-template-columns:minmax(0,1fr); } .contest-surface-contact-editor .contest-surface-intent:last-child,.contest-surface-editor-wide { grid-column:auto; } }
 .contest-surface-entry > header { align-items:center; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--panel); }
 .contest-surface-radio { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
 .contest-surface-radio output { color:var(--cyan); font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1; }
@@ -139,7 +139,21 @@
 .contest-surface-rates th { text-align:right; color:var(--secondary); }
 .contest-surface-rates td { width:84px; }
 .contest-surface-log { min-height:0; flex:1; }
-.contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto; border:1px solid var(--border); }
+.contest-surface-log-panes { display:grid; flex:1 1 0; grid-template-rows:minmax(100px,1fr) minmax(100px,1fr); min-height:0; gap:8px; }
+.contest-surface-log-panes > section { display:flex; flex-direction:column; min-width:0; min-height:0; gap:4px; }
+.contest-surface-log-scroll { flex:1; min-width:0; max-width:100%; min-height:100px; overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); }
+.contest-surface-log-scroll table { min-width:max-content; }
+.contest-surface-log-scroll .contest-surface-original-log { width:100%; min-width:720px; table-layout:fixed; }
+.contest-surface-original-log th:nth-child(1) { width:21%; }
+.contest-surface-original-log th:nth-child(2) { width:13%; }
+.contest-surface-original-log th:nth-child(3) { width:12%; }
+.contest-surface-original-log th:nth-child(4),.contest-surface-original-log th:nth-child(5) { width:9%; }
+.contest-surface-original-log th:nth-child(6),.contest-surface-original-log th:nth-child(7),.contest-surface-original-log th:nth-child(8) { width:6%; }
+.contest-surface-original-log th:nth-child(9) { width:10%; }
+.contest-surface-original-log th:nth-child(10) { width:8%; }
+.contest-surface-log-scroll :is(th,td) { overflow:hidden; text-overflow:ellipsis; }
+.contest-surface-log-scroll tbody tr:not(.contest-surface-empty-row) { cursor:default; }
+.contest-surface-empty-row td { color:var(--secondary); text-align:center !important; }
 .contest-surface-log-scroll th { position:sticky; top:0; color:var(--secondary); background:var(--panel); font:11px ui-monospace,monospace; }
 .contest-surface-log-scroll td { font:11px ui-monospace,monospace; padding:3px; }
 .contest-surface-log-scroll button { min-height:20px; padding:0; background:transparent; border:0; font:inherit; }
