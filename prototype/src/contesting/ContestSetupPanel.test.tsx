@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestSetupPanel, contestSetupTabs, loadContestAudioOutputs, newContestSetup, restoredESMPreferences, type ContestSetupDocument, type ContestSetupSession } from "./ContestSetupPanel";
-afterEach(() => { cleanup(); document.documentElement.style.removeProperty("zoom"); });
+afterEach(() => { cleanup(); vi.useRealTimers(); document.documentElement.style.removeProperty("zoom"); });
 function props() {
   return { value: newContestSetup("OM0RX"), sessions: [{ sessionID: "session", name: "October CQ WW", pluginID: "cq_ww_cw", revision: 1, workspaceGeneration: "generation", startUTC: "2026-10-24 00:00:00" }],
     activeSessionID: "session", catalog: [{ id: "cq_ww_cw", name: "CQ WW CW", modes: ["CW"], sentExchangeHint: "Sent Exchange", overlayChoices: ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"] }],
@@ -79,6 +79,13 @@ it("uses separate new and edit forms in original order, including UTC start and 
   open("OK");
   await waitFor(() => expect(p.onCreate).toHaveBeenCalledWith(expect.objectContaining({ name: "CQ WW CW", settings: expect.objectContaining({ StartDate: "2026-10-24 00:00:00", StationCategory: "PORTABLE" }) })));
   open("Edit Current Contest"); expect((screen.getByLabelText("Log Type") as HTMLSelectElement).disabled).toBe(true);
+});
+it("populates a new contest with the actual current UTC start instead of a visual-only date placeholder", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-21T09:41:02Z"));
+  const p = props();
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  expect((screen.getByLabelText("Start UTC") as HTMLInputElement).value).toBe("2026-10-21T09:41:02.000");
 });
 it("clears the CQ WW exchange and asks for the operator name when ICWC is selected", async () => {
   const p = props(); p.catalog.push({ id: "icwc_mst", name: "ICWC Medium Speed Test", modes: ["CW"],

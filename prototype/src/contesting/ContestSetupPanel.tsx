@@ -84,6 +84,10 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
   return result;
 }
 
+function currentUTCStart(): string {
+  return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
 /** Controlled, service-agnostic editor: the owner supplies revisioned durable saves. */
 export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, busy = false, error = "", initialTab = "Contest",
   onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
@@ -135,7 +139,8 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   function close() { setDraft(setupDraft(value)); setMessage(""); setView(null); }
   function open(next: SetupView) {
     const source = setupDraft(value);
-    setDraft(next === "New Contest" ? { ...source, settings: { ...source.settings, SentExchange: "" } } : source);
+    setDraft(next === "New Contest" ? { ...source,
+      settings: { ...source.settings, StartDate: currentUTCStart(), SentExchange: "" } } : source);
     setMessage(""); setView(next); setSelectedSession(activeSessionID ?? "");
   }
   function submit(event: FormEvent) {
