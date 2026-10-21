@@ -19,6 +19,7 @@
 .contest-setup-hub { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; padding:16px; }
 .contest-manual-stack,.contest-station-form { display:flex; flex-direction:column; gap:9px; }
 .contest-manual-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.contest-n1mm-identity-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .contest-manual-row>label:only-child { grid-column:1/-1; }
 .contest-station-form .contest-manual-row:nth-child(1)>label,.contest-station-form .contest-manual-row:nth-child(6)>label,.contest-station-form .contest-manual-row:nth-child(11)>label,.contest-station-form .contest-manual-row:nth-child(12)>label { grid-column:1; }
 .contest-parameters { display:flex; flex-direction:column; gap:4px; max-width:470px; margin:0 auto; width:100%; }
@@ -53,4 +54,4 @@
 .contest-binding-table th:nth-child(3) { width:25%; }
 .contest-binding-table :is(th,td,output) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .contest-binding-table output { display:block; }
-@media(max-width:620px) { .contest-manual-row { grid-template-columns:1fr; }.contest-station-form .contest-manual-row>label { grid-column:1!important; }.contest-options-columns { grid-template-columns:1fr; } }
+@media(max-width:620px) { .contest-manual-row,.contest-n1mm-identity-row { grid-template-columns:1fr; }.contest-station-form .contest-manual-row>label { grid-column:1!important; }.contest-options-columns { grid-template-columns:1fr; } }

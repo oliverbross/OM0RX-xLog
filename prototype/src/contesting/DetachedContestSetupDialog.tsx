@@ -65,7 +65,7 @@ export function DetachedContestSetupDialog() {
   }, []);
   useEffect(() => {
     if (kind !== "configuration" || !snapshot || !isTauri()) return;
-    let active = true, autoFit = false, frame = 0, scale = 1, acceptedSize: DialogSize | null = null, pendingFit = false;
+    let active = true, autoFit = false, frame = 0, acceptedSize: DialogSize | null = null, pendingFit = false;
     let inFlight: { target: DialogSize } | null = null, restoreInFlight: { target: DialogSize; generation: number } | null = null;
     let operatorSize: DialogSize | null = null, operatorGeneration = 0, restoreTimer: ReturnType<typeof setTimeout> | undefined;
     const programmaticTargets: DialogSize[] = [];
@@ -183,8 +183,7 @@ export function DetachedContestSetupDialog() {
     };
     requestConfigurationFit.current = fit;
     void Promise.all([nativeWindow.innerSize(), nativeWindow.scaleFactor()]).then(async ([size, initialScale]) => {
-      scale = initialScale;
-      const initial = size.toLogical(scale);
+      const initial = size.toLogical(initialScale);
       const restoredAutoFit = storedAutoFitSize && sameDialogSize(initial, storedAutoFitSize);
       const legacyAutoFit = Math.abs(initial.width - 820) < 0.5 && isManagedConfigurationDialogHeight(initial.height);
       if (!active || (!restoredAutoFit && !legacyAutoFit)) return;
@@ -192,8 +191,9 @@ export function DetachedContestSetupDialog() {
       // Absorb a resize notification already queued by native geometry restore;
       // only a later size different from our current/requested size is user-owned.
       acceptedSize = { width: initial.width, height: initial.height };
-      stopResize = await nativeWindow.onResized(({ payload }) => {
-        if (active) observedResize(payload.toLogical(scale));
+      stopResize = await nativeWindow.onResized(async ({ payload }) => {
+        const currentScale = await nativeWindow.scaleFactor();
+        if (active) observedResize(payload.toLogical(currentScale));
       });
       if (!active) { stopResize(); return; }
       observer = new ResizeObserver(fit);

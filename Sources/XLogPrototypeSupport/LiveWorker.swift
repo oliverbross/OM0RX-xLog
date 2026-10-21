@@ -190,7 +190,8 @@ public actor LiveWorker {
                 let configuration = try pythonContestConfiguration
                     ?? PythonContestHostConfiguration.bundled(
                         applicationSupport: applicationSupport)
-                pythonContestLane = try PythonContestLane(configuration: configuration)
+                pythonContestLane = try PythonContestLane(configuration: configuration,
+                    n1mmUDPAllowed: runtimeProfile.contestN1MMUDPAllowed)
                 pythonContestLaneInitializationError = nil
                 pythonContestAvailable = true
             } catch let error as ContestLaneError {

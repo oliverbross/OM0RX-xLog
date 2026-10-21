@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { contestKeyBindingActions, contestKeyBindingContexts, contestKeyBindingDescriptions, defaultContestKeyBindings,
   encodeContestKeyBindings, readContestKeyBindings, validateContestKeyBindings, type ContestKeyBinding } from "./contestKeyBindings";
 import "./ContestSetupPanel.css";
@@ -14,7 +14,7 @@ export type ContestSetupDocument = {
 };
 export type ContestSetupSession = { sessionID: string; name: string; pluginID: string; workspaceGeneration: string; revision: number; startUTC?: string };
 export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Cluster" | "Integrations" | "Rotator";
-export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "Bands", "Options"] as const;
+export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
 export type ContestAudioOutput = { deviceID: string; label: string };
 export type ContestSetupCatalogEntry = { id: string; name: string; modes?: string[]; supportedBands?: string[]; sentExchangeHint?: string; overlayChoices?: string[] };
@@ -57,7 +57,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
       spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, showQRZDetails: false, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
       n1mmHost: "127.0.0.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062, n1mmRadio: false, n1mmContact: false,
-      n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmOperatorName: "", multicastGroup: "239.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
+      n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmStationName: "", n1mmOperatorName: "", multicastGroup: "239.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
 }
 
 export function restoredESMPreferences(preferences: ContestSetupDocument["preferences"]): ContestSetupDocument["preferences"] {
@@ -94,7 +94,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
   const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
-  const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
+  const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
   const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
   const [selectedBinding, setSelectedBinding] = useState(0);
   const [audioOutputs, setAudioOutputs] = useState<ContestAudioOutput[] | null>(null);
@@ -250,13 +250,18 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         {field("network", "stationName", "Unique Station Name")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}
         <p role="status">Group Chat and best-effort repeated contact publication to Renfield are available. Renfield responses are unverified transport acknowledgements: they do not prove remote persistence or clear the local retry ledger. Shared serial allocation and server dupe inquiries remain unavailable.</p>
       </div>; break;
+      case "N1MM": content = <div className="contest-manual-stack">
+        {check("network", "n1mmEnabled", "Send N1MM packets")}
+        <div className="contest-n1mm-identity-row">{field("network", "n1mmStationName", "Station Name")}{field("network", "n1mmOperatorName", "Operator Name")}</div>
+        {(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}
+        <p>Enter each destination as <code>IP:port</code>. Separate multiple destinations with spaces.</p>
+      </div>; break;
       case "Bands": content = <div className="contest-manual-bands">{[supportedBandChoices.slice(0, Math.ceil(supportedBandChoices.length / 2)), supportedBandChoices.slice(Math.ceil(supportedBandChoices.length / 2))].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
       case "Options": content = <div className="contest-options-columns">
         <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">
           {field("preferences", "autoCQDelay", "Auto CQ Delay (Seconds)", "number")}
           {check("preferences", "callHistory", "Use Call History")}<hr/>
-          {check("preferences", "clearOnVFOChange", "Clear input fields in S&P when the VFO frequency changes")}
           {callHistoryPanel ?? (onOpenCallHistory ? <button type="button" onClick={onOpenCallHistory}>Open Call History</button> : null)}
         </div>
       </div>; break;
@@ -280,7 +285,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       if (kind && onOpenDialog) { void Promise.resolve().then(() => onOpenDialog(kind)).catch(cause => setMessage(cause instanceof Error ? cause.message : "Dialog could not open.")); }
       else open(name);
     }}>{name}</button>)}</div> :
-      <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections">{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => selectConfigurationTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); selectConfigurationTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
+      <form onSubmit={submit}>{configuration && <nav role="tablist" aria-label="Configuration settings sections" style={{ "--contest-setup-tab-count": contestSetupTabs.length } as CSSProperties}>{contestSetupTabs.map((name, index) => <button key={name} id={id + "-tab-" + index} type="button" role="tab" aria-selected={tab === name} aria-controls={id + "-panel"} tabIndex={tab === name ? 0 : -1} onClick={() => selectConfigurationTab(name)} onKeyDown={event => { const next = event.key === "ArrowRight" ? (index + 1) % contestSetupTabs.length : event.key === "ArrowLeft" ? (index + contestSetupTabs.length - 1) % contestSetupTabs.length : event.key === "Home" ? 0 : event.key === "End" ? contestSetupTabs.length - 1 : null; if (next !== null) { event.preventDefault(); selectConfigurationTab(contestSetupTabs[next]); document.getElementById(id + "-tab-" + next)?.focus(); } }}>{name}</button>)}</nav>}
         <fieldset disabled={disabled}><div id={id + "-panel"} role={configuration ? "tabpanel" : undefined} aria-labelledby={configuration ? id + "-tab-" + contestSetupTabs.indexOf(tab) : undefined} className="contest-manual-content">{content}</div></fieldset>
         <footer><button type="button" disabled={disabled} onClick={() => { if (detachedDialog) void onCancel?.(); else close(); }}>Cancel</button><button type="submit" className="contest-primary" disabled={disabled || (view === "Choose a Contest" && !selectedSession) || (!activeSessionID && ["Edit Current Contest", "Edit Macros", "Edit Keys"].includes(view ?? ""))}>{pending ? "Saving…" : detachedDialog || configuration ? "Save" : "OK"}</button></footer>
       </form>}

@@ -41,6 +41,7 @@ actor PythonContestLane {
     private let configuration: PythonContestHostConfiguration
     private let fileManager: FileManager
     private let reference: ContestReferenceData
+    private let n1mmUDPAllowed: Bool
     private var process: Process?
     private var input: FileHandle?
     private var output: FileHandle?
@@ -56,10 +57,11 @@ actor PythonContestLane {
     private var callHistoryLane: PythonContestCallHistoryLane?
 
     init(configuration: PythonContestHostConfiguration, fileManager: FileManager = .default,
-         reference: ContestReferenceData? = nil) throws {
+         reference: ContestReferenceData? = nil, n1mmUDPAllowed: Bool = false) throws {
         self.configuration = configuration
         self.fileManager = fileManager
         self.reference = try reference ?? ContestReferenceData.bundled()
+        self.n1mmUDPAllowed = n1mmUDPAllowed
         guard configuration.dataRootURL.isFileURL,
               configuration.launcherURL.isFileURL,
               configuration.executableURL.isFileURL else {
@@ -378,10 +380,7 @@ actor PythonContestLane {
         child.executableURL = configuration.executableURL
         child.arguments = ["-I", "-B", configuration.launcherURL.path,
                            "--data-root", configuration.dataRootURL.path]
-        child.environment = [
-            "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
-            "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
-        ]
+        child.environment = Self.childEnvironment(n1mmUDPAllowed: n1mmUDPAllowed)
         child.standardInput = standardInput
         child.standardOutput = standardOutput
         child.standardError = standardError
@@ -408,6 +407,15 @@ actor PythonContestLane {
         output = standardOutput.fileHandleForReading
         errorOutput = standardError.fileHandleForReading
         outputBuffer.removeAll(keepingCapacity: true)
+    }
+
+    static func childEnvironment(n1mmUDPAllowed: Bool) -> [String: String] {
+        var environment = [
+            "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
+            "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
+        ]
+        if n1mmUDPAllowed { environment["XLOG_CONTEST_N1MM_UDP_ALLOWED"] = "1" }
+        return environment
     }
 
     private func consume(_ data: Data) {

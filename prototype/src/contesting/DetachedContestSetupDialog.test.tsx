@@ -31,6 +31,7 @@ beforeEach(() => {
   native.mutationHandler = null;
   native.resizeObserverHandler = null;
   native.observedTargets = [];
+  native.scaleFactor.mockResolvedValue(2);
   native.innerSize.mockImplementation(async () => ({ toLogical: () => ({ width: 820, height: 320 }) }));
   native.onResized.mockImplementation(async handler => { native.resizeHandler = handler; return vi.fn(); });
   native.setSize.mockImplementation(async size => { queueMicrotask(() => native.resizeHandler?.({ payload: { toLogical: () => ({ width: size.width, height: size.height }) } })); });
@@ -151,6 +152,17 @@ it("re-fits a managed Configuration window when a tab replaces its content", asy
   await act(async () => native.resizeObserverHandler?.([], {} as ResizeObserver));
   await waitFor(() => expect(native.setSize).toHaveBeenCalled());
   expect(native.setSize.mock.calls.at(-1)?.[0].height).toBeLessThan(grown);
+});
+it("uses the current display scale when a Configuration resize crosses from 1x to 2x", async () => {
+  native.scaleFactor.mockResolvedValue(1);
+  native.innerSize.mockImplementation(async () => ({ toLogical: (scale: number) => ({ width: 820 / scale, height: 320 / scale }) }));
+  open("configuration");
+  await screen.findByRole("tab", { name: "Lookup" });
+  await waitFor(() => expect(native.resizeHandler).toBeTypeOf("function"));
+  native.scaleFactor.mockResolvedValue(2);
+  const toLogical = vi.fn((scale: number) => ({ width: 1640 / scale, height: 1000 / scale }));
+  await act(async () => native.resizeHandler?.({ payload: { toLogical } }));
+  await waitFor(() => expect(toLogical).toHaveBeenCalledWith(2));
 });
 it("measures intrinsic Configuration content instead of its capped scrolling shell", () => {
   const root = document.createElement("main"), content = document.createElement("section");
@@ -368,7 +380,7 @@ it("uses compact content-fit bounds while keeping dense configuration tabs fully
   expect(styles).toContain("data-dialog-kind=configuration");
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*height:auto[^}]*max-height:100dvh[^}]*overflow:hidden/);
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\.contest-setup fieldset[^}]*flex:1[^}]*min-height:0[^}]*overflow:auto/);
-  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\[role=tablist\][^}]*display:grid[^}]*grid-template-columns:repeat\(10,minmax\(0,1fr\)\)[^}]*overflow:visible/);
+  expect(styles).toMatch(/data-dialog-kind=configuration[^}]*\[role=tablist\][^}]*display:grid[^}]*grid-template-columns:repeat\(var\(--contest-setup-tab-count\),minmax\(0,1fr\)\)[^}]*overflow:visible/);
   expect(styles).toMatch(/data-dialog-kind=configuration[^}]*button\[role=tab\][^}]*min-width:0[^}]*font-size:clamp\(8px,1\.45vw,12px\)/);
   expect(styles).not.toMatch(/\[role=tablist\][^{]*\{[^}]*flex-wrap/);
   expect(styles).toContain(".contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }");

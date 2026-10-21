@@ -77,6 +77,11 @@ public enum AppRuntimeProfile: Equatable, Sendable {
         return false
     }
 
+    var contestN1MMUDPAllowed: Bool {
+        if case .production = self { return true }
+        return false
+    }
+
     var supportDirectory: URL? {
         if case .contestingTest(let root) = self { return root }
         return nil

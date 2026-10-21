@@ -26,7 +26,8 @@ it("separates original File dialogs from Configuration Settings and keeps manual
   expect(screen.queryByRole("tab")).toBeNull();
   open("Configuration Settings");
   expect(screen.getAllByRole("tab").map(item => item.textContent)).toEqual([...contestSetupTabs]);
-  expect([...contestSetupTabs]).toEqual(["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "Bands", "Options"]);
+  expect([...contestSetupTabs]).toEqual(["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"]);
+  expect(screen.getByRole("tablist").style.getPropertyValue("--contest-setup-tab-count")).toBe(String(contestSetupTabs.length));
   fireEvent.click(screen.getByRole("tab", { name: "CAT" })); open("Open xLog Radio settings");
   expect(p.onOpenSettings).toHaveBeenCalledWith("Radio");
   fireEvent.keyDown(screen.getByRole("tab", { name: "CAT" }), { key: "ArrowRight" });
@@ -124,15 +125,28 @@ it("selects an existing contest using a name/start table and commits only with O
   fireEvent.click(screen.getByText("October CQ WW")); expect(p.onOpen).not.toHaveBeenCalled();
   open("OK"); await waitFor(() => expect(p.onOpen).toHaveBeenCalledWith(p.sessions[0]));
 });
-it("preserves hidden legacy N1MM values without presenting unavailable packet controls", async () => {
-  const p = props(); p.value.network.n1mmHost = "192.0.2.1"; p.value.network.n1mmContactPort = 12061;
+it("edits the original N1MM packet controls and derives destinations from legacy host and ports", async () => {
+  const p = props();
+  Object.assign(p.value.network, { n1mmHost: "192.0.2.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062 });
   render(<ContestSetupPanel {...p}/>); open("Configuration Settings");
-  expect(screen.queryByRole("tab", { name: "N1MM" })).toBeNull();
-  expect(screen.queryByLabelText("Send N1MM packets")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "N1MM" }));
+  expect((screen.getByLabelText("Radio destinations") as HTMLInputElement).value).toBe("192.0.2.1:12060");
+  expect((screen.getByLabelText("Contact destinations") as HTMLInputElement).value).toBe("192.0.2.1:12061");
+  expect((screen.getByLabelText("Lookup destinations") as HTMLInputElement).value).toBe("192.0.2.1:12062");
+  expect((screen.getByLabelText("Score destinations") as HTMLInputElement).value).toBe("192.0.2.1:12060");
+  fireEvent.click(screen.getByLabelText("Send N1MM packets"));
+  fireEvent.click(screen.getByLabelText("Radio"));
+  fireEvent.change(screen.getByLabelText("Station Name"), { target: { value: "RUN" } });
+  fireEvent.change(screen.getByLabelText("Operator Name"), { target: { value: "OM0RX" } });
+  fireEvent.change(screen.getByLabelText("Radio destinations"), { target: { value: "127.0.0.1:12060 192.0.2.255:12060" } });
   fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   for (const band of ["6m", "2m", "1.25m", "70cm", "33cm", "23cm"]) expect(screen.getByLabelText(band)).toBeTruthy();
   open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
-  expect(p.onSave.mock.calls[0][0].network).toMatchObject({ n1mmHost: "192.0.2.1", n1mmContactPort: 12061 });
+  expect(p.onSave.mock.calls[0][0].network).toMatchObject({
+    n1mmHost: "192.0.2.1", n1mmContactPort: 12061, n1mmEnabled: true, n1mmRadio: true,
+    n1mmStationName: "RUN", n1mmOperatorName: "OM0RX",
+    n1mmRadioDestinations: "127.0.0.1:12060 192.0.2.255:12060", n1mmContactDestinations: "192.0.2.1:12061",
+  });
 });
 it("uses the selected plugin's complete advertised band choices", () => {
   const p = props(), supportedBands = ["6m", "2m", "1.25m", "13cm", "2mm"];
@@ -169,9 +183,9 @@ it("rejects an unsafe Auto CQ delay before saving", async () => {
   expect(await screen.findByText("Auto CQ Delay must be between 1 and 3600 seconds.")).toBeTruthy();
   expect(p.onSave).not.toHaveBeenCalled();
 });
-it.each([false, true])("keeps every detached Options control inside the two-column body with an embedded history panel=%s", async embedded => {
+it.each([false, true])("keeps every available detached Options control inside the two-column body with an embedded history panel=%s", async embedded => {
   const p = props(), onOpenCallHistory = vi.fn();
-  p.value.preferences.rtcIntervalMinutes = 3;
+  p.value.preferences.rtcIntervalMinutes = 3; p.value.preferences.clearOnVFOChange = true;
   render(<ContestSetupPanel {...p} initialTab="Options" detachedDialog="configuration" onOpenCallHistory={onOpenCallHistory}
     callHistoryPanel={embedded ? <section aria-label="Call history manager"><button type="button">Import local file</button></section> : undefined}/>);
   const panel = screen.getByRole("tabpanel"), columns = panel.querySelector(".contest-options-columns");
@@ -181,17 +195,17 @@ it.each([false, true])("keeps every detached Options control inside the two-colu
   expect(left.className).toBe("contest-manual-stack");
   expect(right.className).toBe("contest-manual-stack");
   expect(left.contains(screen.getByLabelText("Enable ESM"))).toBe(true);
-  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History", "Clear input fields in S&P when the VFO frequency changes"]) {
+  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History"]) {
     expect(right.contains(screen.getByLabelText(label))).toBe(true);
   }
   expect(screen.queryByLabelText("Use RTC score reporting")).toBeNull();
+  expect(screen.queryByLabelText("Clear input fields in S&P when the VFO frequency changes")).toBeNull();
   const historyControl = screen.getByRole("button", { name: embedded ? "Import local file" : "Open Call History" });
   expect(right.contains(historyControl)).toBe(true);
   const footer = screen.getByRole("button", { name: "Save" }).closest("footer")!;
   expect(panel.closest("fieldset")?.nextElementSibling).toBe(footer);
   if (!embedded) { fireEvent.click(historyControl); expect(onOpenCallHistory).toHaveBeenCalledOnce(); }
   else expect(screen.queryByRole("button", { name: "Open Call History" })).toBeNull();
-  fireEvent.click(screen.getByLabelText("Clear input fields in S&P when the VFO frequency changes"));
   open("Save");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(p.onSave.mock.calls[0][0].preferences).toMatchObject({ clearOnVFOChange: true, rtcIntervalMinutes: 3 });

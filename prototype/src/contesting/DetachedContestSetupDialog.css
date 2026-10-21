@@ -14,7 +14,7 @@
 .contest-setup-dialog[data-dialog-kind=configuration]>.contest-setup { height:auto; max-height:calc(100dvh - 24px); }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup>form { flex:1; min-height:0; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup fieldset { flex:1; min-height:0; overflow:auto; }
-.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup [role=tablist] { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:clamp(0px,.2vw,2px); overflow:visible; }
+.contest-setup-dialog[data-dialog-kind=configuration] .contest-setup [role=tablist] { display:grid; grid-template-columns:repeat(var(--contest-setup-tab-count),minmax(0,1fr)); gap:clamp(0px,.2vw,2px); overflow:visible; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup button[role=tab] { min-width:0; padding-inline:clamp(1px,.3vw,3px); font-size:clamp(8px,1.45vw,12px); }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-manual-content { min-height:0; }
 .contest-setup-dialog[data-dialog-kind=configuration] .contest-setup fieldset { padding-block:10px; }

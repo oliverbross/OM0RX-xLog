@@ -3,11 +3,14 @@ from copy import deepcopy
 from datetime import datetime, UTC
 import base64
 import hashlib
+import ipaddress
 import json
+import logging
 import math
 import os
 from pathlib import Path
 import re
+import socket
 import sqlite3
 from tempfile import TemporaryDirectory
 import uuid
@@ -15,6 +18,7 @@ import uuid
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
 from .legacy_import import LegacyImportError, inspect_source, row_digest
+from .n1mm import N1MMOutput
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
                       CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
@@ -69,6 +73,12 @@ ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmA
 # missing values on restore; new setup documents explicitly choose upstream defaults.
 LEGACY_ESM = {"useESM": True, "sendCorrectedCall": True, "esmCQ": "F1", "esmExchange": "F3",
               "esmQRZ": "F4", "esmAGN": "F9", "esmHisCall": "F2", "esmMyCall": "F5", "esmQsoB4": "DISABLED"}
+N1MM_DESTINATIONS = {
+    "Radio": ("n1mmRadioDestinations", "n1mmRadioPort", 12060),
+    "Contact": ("n1mmContactDestinations", "n1mmContactPort", 12061),
+    "Lookup": ("n1mmLookupDestinations", "n1mmLookupPort", 12062),
+    "Score": ("n1mmScoreDestinations", "n1mmScorePort", 12060),
+}
 
 
 def esm_preferences(preferences):
@@ -78,6 +88,48 @@ def esm_preferences(preferences):
     for key in ESM_ROLES.values():
         require(isinstance(result[key], str) and result[key] in {"DISABLED", *(f"F{i}" for i in range(1, 13))},
                 f"{key} must be F1-F12 or DISABLED")
+    return result
+
+
+def n1mm_preferences(network):
+    """Validate the finite N1MM settings while retaining the original flat-key migration path."""
+    require(isinstance(network, dict), "Network setup must be an object")
+    for key in ("n1mmEnabled", "n1mmRadio", "n1mmContact", "n1mmLookup", "n1mmScore"):
+        if key in network:
+            require(type(network[key]) is bool, f"{key} must be boolean")
+    for key in ("n1mmStationName", "n1mmOperatorName"):
+        if key in network:
+            text(network[key], 128)
+    host = str(network.get("n1mmHost", "127.0.0.1"))
+    result = {
+        "enabled": network.get("n1mmEnabled", False),
+        "stationName": str(network.get("n1mmStationName", network.get("stationName", ""))),
+        "operatorName": str(network.get("n1mmOperatorName", "")),
+    }
+    for kind, (destination_key, port_key, default_port) in N1MM_DESTINATIONS.items():
+        enabled = network.get(f"n1mm{kind}", False)
+        destinations = str(network.get(destination_key, f"{host}:{network.get(port_key, default_port)}")).strip()
+        if destinations:
+            for connection in destinations.split():
+                require(connection.count(":") == 1, f"Invalid N1MM {kind.lower()} destination")
+                address, raw_port = connection.split(":")
+                try:
+                    port = int(raw_port)
+                except ValueError as error:
+                    raise HostError("invalid_request", f"Invalid N1MM {kind.lower()} destination") from error
+                try:
+                    ipaddress.IPv4Address(address)
+                except ValueError:
+                    labels = address.split(".")
+                    require(len(address) <= 253 and all(
+                        re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label)
+                        for label in labels), f"Invalid N1MM {kind.lower()} destination")
+                require(str(port) == raw_port and 1 <= port <= 65535,
+                        f"Invalid N1MM {kind.lower()} destination")
+        require(not (result["enabled"] and enabled) or bool(destinations),
+                f"N1MM {kind.lower()} destination is required")
+        result[kind.lower()] = enabled
+        result[f"{kind.lower()}Destinations"] = destinations
     return result
 
 
@@ -832,11 +884,100 @@ class Host:
         self.stores = {}
         self.exports = {}
         self._operation = None
+        self._n1mm_events = None
+        self.n1mm = N1MMOutput()
+        # The trusted native launcher grants this only in the production profile.
+        self.n1mm_udp_allowed = os.environ.get("XLOG_CONTEST_N1MM_UDP_ALLOWED") == "1"
 
     def close(self):
         for store in self.stores.values():
             store.close()
         self.stores.clear()
+
+    @staticmethod
+    def n1mm_contact(state, row):
+        network = n1mm_preferences(state.get("setup", {}).get("network", {}))
+        operator = network["operatorName"] or str(row.get("Operator", state["operator"]))
+        frequency = str(round(float(row.get("Freq", 0)) * 100))
+        return {
+            "contestname": str(row.get("ContestName", "")).replace("-", ""),
+            "contestnr": row.get("ContestNR", 1), "timestamp": row.get("TS", ""),
+            "mycall": operator, "operator": operator, "band": row.get("Band", ""),
+            "rxfreq": frequency, "txfreq": frequency, "mode": row.get("Mode", ""),
+            "call": row.get("Call", ""), "oldcall": row.get("_n1mm_oldcall", row.get("Call", "")),
+            "countryprefix": row.get("CountryPrefix", ""), "wpxprefix": row.get("WPXPrefix", ""),
+            "stationprefix": row.get("StationPrefix", state["station"].get("Call", "")),
+            "continent": row.get("Continent", ""), "snt": row.get("SNT", ""),
+            "sntnr": row.get("SentNr", ""), "rcv": row.get("RCV", ""), "rcvnr": row.get("NR", ""),
+            "gridsquare": row.get("GridSquare", ""), "exchange1": row.get("Exchange1", ""),
+            "section": row.get("Sect", ""), "comment": row.get("Comment", ""), "qth": row.get("QTH", ""),
+            "name": row.get("Name", ""), "power": row.get("Power", ""), "misctext": row.get("MiscText", ""),
+            "zone": row.get("ZN", ""), "prec": row.get("Prec", ""), "ck": row.get("CK", ""),
+            "ismultiplier1": row.get("IsMultiplier1", 0), "ismultiplier2": row.get("IsMultiplier2", 0),
+            "ismultiplier3": row.get("IsMultiplier3", 0), "points": row.get("Points", 0),
+            "radionr": row.get("RadioNR", "1") or "1", "RoverLocation": row.get("RoverLocation", ""),
+            "RadioInterfaced": row.get("RadioInterfaced", 0), "NetworkedCompNr": row.get("NetworkedCompNr", 0),
+            "IsOriginal": row.get("IsOriginal", 1), "NetBiosName": socket.gethostname(),
+            "IsRunQSO": row.get("IsRunQSO", 0), "Run1Run2": row.get("Run1Run2", ""),
+            "ContactType": row.get("ContactType", ""), "StationName": network["stationName"],
+            "ID": row.get("ID", ""), "IsClaimedQso": row.get("CLAIMEDQSO", 1),
+        }
+
+    def publish_n1mm(self, state, method, params, desk, previous_network):
+        if not self.n1mm_udp_allowed:
+            return
+        try:
+            config = n1mm_preferences(state.get("setup", {}).get("network", {}))
+            if not config["enabled"]:
+                return
+            previous = n1mm_preferences(previous_network)
+            radio_changed = (method == "run_state"
+                             or method == "draft_apply" and bool({"frequencyHz", "mode"} & set(params))
+                             or method == "setup_save" and not (previous["enabled"] and previous["radio"]))
+            if config["radio"] and radio_changed:
+                frequency = str(state["draft"]["frequencyHz"] // 10)
+                self.n1mm.radio(config["radioDestinations"], {
+                    "StationName": config["stationName"], "Freq": frequency, "TXFreq": frequency,
+                    "Mode": operating_mode(state), "OpCall": config["operatorName"] or state["operator"],
+                    "IsRunning": str(state["run"]),
+                })
+            lookup_changed = method == "draft_apply" and "callsign" in params.get("fields", {})
+            if config["lookup"] and lookup_changed:
+                call = desk.parsed_call()
+                if call:
+                    self.n1mm.lookup(config["lookupDestinations"], {
+                        "call": call, "operator": config["operatorName"] or state["operator"],
+                        "mycall": config["operatorName"] or state["operator"],
+                        "stationprefix": state["station"].get("Call", ""),
+                        "StationName": config["stationName"],
+                    })
+            for event, row in self._n1mm_events or []:
+                if not config["contact"]:
+                    break
+                if event == "delete":
+                    self.n1mm.delete(config["contactDestinations"], {
+                        "timestamp": row.get("TS", ""), "call": row.get("Call", ""),
+                        "contestnr": row.get("ContestNR", 1), "StationName": config["stationName"],
+                        "ID": row.get("ID", ""),
+                    })
+                else:
+                    self.n1mm.contact(config["contactDestinations"], self.n1mm_contact(state, row),
+                                      replace=event == "replace")
+            if config["score"] and (self._n1mm_events or method in {"recalculate", "setup_save"}):
+                score = desk.score()
+                settings = state["settings"]
+                self.n1mm.score(config["scoreDestinations"], {
+                    "contest": desk.contest.cabrillo_name, "call": state["station"].get("Call", ""),
+                    "score": score["total"],
+                    "timestamp": now(), "class": {
+                        "ops": settings.get("OperatorCategory", ""), "mode": settings.get("ModeCategory", ""),
+                        "power": settings.get("PowerCategory", ""), "bands": settings.get("BandCategory", ""),
+                        "transmitter": settings.get("TransmitterCategory", ""),
+                    },
+                })
+        except Exception:
+            # A best-effort UDP publication cannot make a committed mutation uncertain.
+            logging.exception("N1MM UDP publication failed")
 
     @property
     def active_session_path(self):
@@ -1238,6 +1379,7 @@ class Host:
                 self.remember_active_session(session_id)
                 return result
             state = store.state(session_id)
+            previous_n1mm_network = deepcopy(state.get("setup", {}).get("network", {})) if state else {}
             expected = params.get("expectedRevision", 0)
             require(type(expected) is int and expected >= 0, "Revision must be a nonnegative integer")
             new_session = False
@@ -1281,6 +1423,7 @@ class Host:
                         return result
                 require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
             self._operation = operation
+            self._n1mm_events = []
             if new_session:
                 self.reserve_serial(store, state)
             legacy_summary = None
@@ -1543,12 +1686,14 @@ class Host:
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
             store.finish(True)
             self.remember_active_session(session_id)
+            self.publish_n1mm(state, method, params, desk, previous_n1mm_network)
             return result
         except BaseException:
             store.finish(False)
             raise
         finally:
             self._operation = None
+            self._n1mm_events = None
 
     @staticmethod
     def add_legacy_provenance(store, row):
@@ -1700,6 +1845,7 @@ class Host:
                             "Setup values must be supported scalars")
                     require(type(item) is not float or math.isfinite(item), "Setup numbers must be finite")
         esm_preferences(value["preferences"])
+        n1mm_preferences(value["network"])
         macros = value["macros"]
         require(isinstance(macros, list) and len(macros) <= 24, "At most 24 macros are supported")
         seen = set()
@@ -2467,6 +2613,8 @@ class Host:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
+        if self._n1mm_events is not None:
+            self._n1mm_events.append(("contact", deepcopy(contact)))
         desk.state["draft"]["id"] = str(uuid.uuid4())
         report = default_report(operating_mode(desk.state))
         desk.callsign.setText("")
@@ -2643,6 +2791,12 @@ class Host:
                 (canonical(after), qso_id),
             )
         self.audit(desk.database, qso_id, "delete" if method == "qso_delete" else "correct", before, after, reason)
+        if self._n1mm_events is not None:
+            emitted = deepcopy(before if method == "qso_delete" else after)
+            if method != "qso_delete":
+                emitted["_n1mm_oldcall"] = before["Call"]
+            self._n1mm_events.append(("delete" if method == "qso_delete" else "replace",
+                                      emitted))
         for name in INPUTS:
             getattr(desk, name).setText(old_fields[name])
 

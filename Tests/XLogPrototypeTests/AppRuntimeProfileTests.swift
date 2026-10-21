@@ -27,6 +27,20 @@ final class AppRuntimeProfileTests: XCTestCase {
             arguments: [AppRuntimeProfile.contestingArgument], executableURL: executable))
     }
 
+    func testContestHostN1MMUDPCapabilityIsProductionOnly() {
+        let production = PythonContestLane.childEnvironment(
+            n1mmUDPAllowed: AppRuntimeProfile.production.contestN1MMUDPAllowed)
+        let contestingTest = PythonContestLane.childEnvironment(n1mmUDPAllowed:
+            AppRuntimeProfile.contestingTest(supportRoot: URL(fileURLWithPath: "/tmp/contesting-test"))
+                .contestN1MMUDPAllowed)
+
+        XCTAssertEqual(production["XLOG_CONTEST_N1MM_UDP_ALLOWED"], "1")
+        XCTAssertNil(contestingTest["XLOG_CONTEST_N1MM_UDP_ALLOWED"])
+        XCTAssertEqual(Set(production.keys).subtracting(contestingTest.keys),
+                       ["XLOG_CONTEST_N1MM_UDP_ALLOWED"])
+        XCTAssertEqual(Set(contestingTest.keys).subtracting(production.keys), [])
+    }
+
     func testContestingBundleRequiresExplicitBoundProfile() throws {
         let (root, executable) = try bundledExecutable(identifier: AppRuntimeProfile.contestingBundleIdentifier)
         defer { try? FileManager.default.removeItem(at: root) }
