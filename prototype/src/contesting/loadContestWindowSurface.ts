@@ -9,6 +9,7 @@ export async function loadContestWindowSurface(query: URLSearchParams): Promise<
   if(view==="contest-setup-rover"||view==="contest-setup-about")
     return(await import("./DetachedContestAuxiliaryDialog")).DetachedContestAuxiliaryDialog;
   if(view==="contest-setup-digital")return(await import("./DetachedContestDigitalDialog")).DetachedContestDigitalDialog;
+  if(view==="contest-log-transfer")return(await import("./ContestLogTransferWindow")).ContestLogTransferWindow;
   if(view==="contest-setup")return(await import("./DetachedContestSetupSurface")).DetachedContestSetupSurface;
   if(view==="call-history")return(await import("./DetachedContestCallHistorySurface")).DetachedContestCallHistorySurface;
   if(view==="qrz-details")return(await import("./DetachedContestQRZDetailsSurface")).DetachedContestQRZDetailsSurface;

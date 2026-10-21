@@ -82,7 +82,10 @@ impl ContestWindowContextAuthority {
     pub fn begin(&mut self, module: &Value, request: &Value) -> Result<u64, String> {
         let operating_context = active_contest_context(module)?;
         let method = request["method"].as_str().unwrap_or("");
-        if !matches!(method, "contest_create" | "contest_session_create" | "contest_open") {
+        if !matches!(
+            method,
+            "contest_create" | "contest_session_create" | "contest_open" | "contest_legacy_import"
+        ) {
             return Err("Only a contest session open can establish detached window context.".into());
         }
         let supplied_context = canonical_uuid(&request["operatingContext"], "operating context")?;
@@ -253,6 +256,15 @@ mod tests {
         let ticket = authority.begin(&module(OPERATING_A), &request("contest_session_create", OPERATING_A, SESSION_A)).unwrap();
         assert_eq!(authority.complete(ticket, &module(OPERATING_A), &python_response(SESSION_A)).unwrap(),
             context(OPERATING_A, SESSION_A));
+
+        let imported = authority.begin(
+            &module(OPERATING_A),
+            &request("contest_legacy_import", OPERATING_A, SESSION_B),
+        ).unwrap();
+        assert_eq!(
+            authority.complete(imported, &module(OPERATING_A), &python_response(SESSION_B)).unwrap(),
+            context(OPERATING_A, SESSION_B),
+        );
     }
 
     #[test]

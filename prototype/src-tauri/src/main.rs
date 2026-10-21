@@ -56,6 +56,7 @@ mod contest_surface;
 mod contest_setup_services;
 mod contest_setup_dialogs;
 mod contest_group_chat;
+mod contest_log_transfer;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Emitter, LogicalSize, Manager};
@@ -82,7 +83,8 @@ fn routes_native_rotor_configuration(method: &str, isolated: bool) -> bool {
     !isolated && matches!(method, "workspace_rotor_configuration_save" | "backup_restore" | "workspace_create")
 }
 fn native_only_worker_method(method: &str) -> bool {
-    matches!(method, "contest_scp_import_private" | "contest_history_preview_private")
+    matches!(method, "contest_scp_import_private" | "contest_history_preview_private" |
+        "contest_legacy_preview" | "contest_legacy_import")
 }
 fn private_picker_final_admission(action: &str, pinned: u64, current: u64, exiting: bool, main_present: bool) -> Result<(), String> {
     if exiting || !main_present { return Err(format!("{action} was cancelled because the main window closed.")); }
@@ -147,6 +149,8 @@ mod contesting_test_native_admission_tests {
         let _test_lock=SCP_LEASE_TEST_LOCK.lock().unwrap();
         assert!(super::native_only_worker_method("contest_scp_import_private"));
         assert!(super::native_only_worker_method("contest_history_preview_private"));
+        assert!(super::native_only_worker_method("contest_legacy_preview"));
+        assert!(super::native_only_worker_method("contest_legacy_import"));
         assert!(!super::native_only_worker_method("contest_scp_query"));
         assert_eq!(super::CONTEST_SETUP_WINDOW, "contest-setup");
         assert_eq!(super::CONTEST_CALL_HISTORY_WINDOW, "contest--call-history");
@@ -637,6 +641,9 @@ fn append_logbook_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri
 
 fn append_contesting_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
     let contesting = Submenu::new(app, "Contest", true)?;
+    contesting.append(&MenuItem::with_id(app, contest_log_transfer::MENU_ID,
+        "Import or Transfer Log…", true, None::<&str>)?)?;
+    contesting.append(&PredefinedMenuItem::separator(app)?)?;
     for (route, title) in workspace_navigation::CONTEST_MENU_ITEMS {
         contesting.append(&MenuItem::with_id(app, format!("contest_menu_{route}"),
             title, true, None::<&str>)?)?;
@@ -850,6 +857,25 @@ fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Resu
         window.show().map_err(|error| error.to_string())?;
         window.set_focus().map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
+
+fn ensure_contest_log_transfer_window(app: &tauri::AppHandle) -> Result<(), String> {
+    ensure_contest_setup_window(app, false)?;
+    let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window(contest_log_transfer::WINDOW), || {
+        let mut builder = tauri::WebviewWindowBuilder::new(app, contest_log_transfer::WINDOW,
+            tauri::WebviewUrl::App("index.html?view=contest-log-transfer&scope=contesting".into()))
+            .title("OM0RX-xLog Contest — Import or Transfer Log")
+            .inner_size(720.0, 560.0).min_inner_size(520.0, 380.0).focused(true)
+            .incognito(app.state::<acceptance::Acceptance>().path.is_some());
+        if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
+        let window = builder.build().map_err(|error| error.to_string())?;
+        if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
+        Ok(window)
+    })?;
+    window.unminimize().map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -1924,7 +1950,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if let Some(object) = request.as_object_mut() { object.remove("operatingContext"); }
     if state.path.is_some() { acceptance::validate_local_request(&request)?; }
     if native_only_worker_method(method) {
-        return Err("Use the native SCP file chooser.".into());
+        return Err("Use the dedicated native file chooser.".into());
     }
     // Local acceptance has already passed its narrower synthetic-only request
     // whitelist above. Do not reject those admitted reads a second time merely
@@ -2804,6 +2830,13 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if event.id().0 == contest_log_transfer::MENU_ID {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = ensure_contest_log_transfer_window(&app) { eprintln!("Could not open contest log transfer: {error}"); }
+                });
+                return;
+            }
             if let Some(route) = workspace_navigation::contest_menu_route(&event.id().0) {
                 let app = app.clone(); let route = route.to_owned();
                 tauri::async_runtime::spawn(async move {
@@ -2885,6 +2918,7 @@ fn main() {
         .manage(acceptance::Acceptance::new(path))
         .manage(workspace_navigation::WorkspaceNavigation::default())
         .manage(contest_group_chat::GroupChat::default())
+        .manage(contest_log_transfer::LegacySourceLease::default())
         .setup(|app| {
             let module_path = app.path().app_data_dir().map_err(std::io::Error::other)?;
             operating_module::install(module_path).map_err(std::io::Error::other)?;
@@ -2964,6 +2998,8 @@ fn main() {
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,
             auto_rotor_snapshot, auto_rotor_set,
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
+            contest_log_transfer::contest_log_transfer_context, contest_log_transfer::contest_log_transfer_request,
+            contest_log_transfer::contest_legacy_choose_preview, contest_log_transfer::contest_legacy_import,
             contest_setup_dialog_open, contest_setup_dialog_request,
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_surface_action, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_publish, contest_surface_snapshot,

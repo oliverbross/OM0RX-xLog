@@ -6,7 +6,7 @@ export async function loadWindowSurface(search: string): Promise<ComponentType> 
   const query = new URLSearchParams(search), view = query.get("view");
   if (view === "station-control")
     return (await import("./live/DetachedStationControlSurface")).DetachedStationControlSurface;
-  if (view?.startsWith("contest-setup") || query.get("scope") === "contesting")
+  if (view?.startsWith("contest-setup") || view === "contest-log-transfer" || query.get("scope") === "contesting")
     return (await import("./contesting/loadContestWindowSurface")).loadContestWindowSurface(query);
   if (view === "operating-goals") return (await import("./live/DetachedOperatingGoalsSurface")).DetachedOperatingGoalsSurface;
   if (view === "previous-qsos") return (await import("./live/DetachedPreviousQSOsSurface")).DetachedPreviousQSOsSurface;

@@ -75,6 +75,7 @@ pub fn contest_setup_dialog_kind(route: &str) -> Option<&'static str> {
 pub fn contest_owner_foreground(id: &str) -> bool { id == "contest-setup" }
 pub fn contest_owner_dependent_window(label: &str) -> bool {
     label.starts_with("contest--")
+        || label == crate::contest_log_transfer::WINDOW
         || matches!(label, "contest-setup-operator" | "contest-setup-station" | "contest-setup-configuration" | "contest-setup-digital" | "contest-setup-macros" | "contest-setup-keys" | "contest-setup-rover" | "contest-setup-about")
 }
 pub fn contest_owner_can_retire<'a>(visible: bool, pending: bool,
@@ -165,6 +166,7 @@ mod tests {
         for label in ["contest-setup", "main", "rotor", "station-control", "contest-window-active-qso"] {
             assert!(!contest_owner_dependent_window(label));
         }
+        assert!(contest_owner_dependent_window(crate::contest_log_transfer::WINDOW));
         assert!(contest_owner_can_retire(false, false, std::iter::empty()));
         assert!(!contest_owner_can_retire(true, false, std::iter::empty()));
         assert!(!contest_owner_can_retire(false, true, std::iter::empty()));
