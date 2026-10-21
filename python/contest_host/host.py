@@ -19,11 +19,11 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
                       CQ_WW_PLUGINS,
                       DISPLAY_SENTNR_PLUGINS, EA_MAJESTAD_PLUGINS,
-                      ESTONIAN_PLUGINS, EUROPEAN_DX_PLUGINS,
+                      ESTONIAN_PLUGINS, EUROPEAN_DX_PLUGINS, EUROPEAN_HF_PLUGINS,
                       JIDX_PLUGINS,
                       NAME_SPC_ENTRY_PLUGINS, NAME_SPC_PLUGINS, PLUGIN_REGISTRY,
                       PLUGINS, REF_PLUGINS, RSGB_PLUGINS, RTTY_PLUGINS, SENTNR_FIELD_PLUGINS, SERIAL_PLUGINS,
-                      SIMPLE_MULTIPLIER_PLUGINS, TEN_TEN_PLUGINS)
+                      SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS)
 from .statistics import calculate_statistics
 from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
 
@@ -37,10 +37,11 @@ BAND_LABELS = {1.8: "160m", 3.5: "80m", 7.0: "40m", 14.0: "20m", 21.0: "15m", 28
                47000.0: "6mm", 75500.0: "4mm", 119980.0: "2.5mm", 134000.0: "2mm",
                241000.0: "1mm", 300000.0: "submm"}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
-                        "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}
+                        "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
+                        *EUROPEAN_HF_PLUGINS}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
                       "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS,
-                      *CENTRAL_EUROPEAN_PLUGINS}
+                      *CENTRAL_EUROPEAN_PLUGINS, "ari_40_80"}
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -193,6 +194,23 @@ def validate_estonian_setup(plugin_id, station, settings):
                 "ES Manual Key License Class must be two seniority digits")
 
 
+def validate_european_hf_setup(plugin_id, station_prefix, sent_exchange):
+    """Bound setup values required by the five original European HF plugins."""
+    exchange = str(sent_exchange).upper()
+    if plugin_id == "ari_40_80":
+        require(re.fullmatch(r"[A-Z0-9]{1,6}", exchange) is not None,
+                "ARI 40/80 sent automobile code must be 1 to 6 letters or digits")
+    elif plugin_id == "ea_rtty":
+        valid = (re.fullmatch(r"[A-Z]{1,2}", exchange) is not None
+                 if station_prefix.startswith("EA") else exchange == "#")
+        require(valid, "EA RTTY sent exchange must be an EA province or # outside EA")
+    elif plugin_id == "ok1wc":
+        require(exchange == "#", "OK1WC requires # as the serial exchange")
+    else:
+        require(re.fullmatch(r"[A-R]{2}[0-9]{2}[A-X]{2}", exchange) is not None,
+                "SSA MT sent exchange must be a 6-character locator")
+
+
 def now():
     return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -216,11 +234,11 @@ def workspace_generation(state):
 
 class Field:
     """Only the audited plugin field API; Python rejects unknown attributes."""
-    __slots__ = ("name", "value", "maximum", "visible", "accessible_name", "read_only", "enabled", "focused", "tooltip")
+    __slots__ = ("name", "value", "maximum", "visible", "accessible_name", "read_only", "enabled", "focused", "tooltip", "style_sheet")
 
     def __init__(self, name, value="", maximum=512):
         self.name, self.value, self.maximum, self.visible = name, "", maximum, True
-        self.accessible_name, self.read_only, self.enabled, self.focused, self.tooltip = "", False, True, False, ""
+        self.accessible_name, self.read_only, self.enabled, self.focused, self.tooltip, self.style_sheet = "", False, True, False, "", ""
         self.setText(value)
 
     def text(self):
@@ -251,6 +269,9 @@ class Field:
 
     def toolTip(self):
         return self.tooltip
+
+    def setStyleSheet(self, value):
+        self.style_sheet = text(value, 1024)
 
 
 class DigitalOutputSink:
@@ -307,7 +328,7 @@ class Desk:
         if state["pluginID"] in RTTY_PLUGINS:
             self.fldigi_util = DigitalOutputSink()
         self.contest.init_contest(self)
-        if requires_serial(state):
+        if requires_serial(state) and state["pluginID"] not in SSA_MT_PLUGINS:
             # Older hosts allowed this visible field to drift from the durable
             # reservation. Reconcile it on every load before any projection,
             # mutation, direct commit, or reopen can consume the stale value.
@@ -342,7 +363,8 @@ class Desk:
         context = {"sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
                    "fields": self.values(), "stationCall": self.station["Call"],
                    "sentExchange": str(self.contest_settings["SentExchange"]),
-                   "sentSerial": self.other_1.text() if self.state["pluginID"] in SENTNR_FIELD_PLUGINS else ""}
+                   "sentSerial": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS
+                                  else self.other_1.text() if self.state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
         if mode == "SSB":
             if self.state["pluginID"] not in VOICE_INTENT_PLUGINS:
                 return
@@ -377,7 +399,8 @@ class Desk:
             "SNT": self.sent.text(),
             "EXCHANGE": str(self.contest_settings["SentExchange"]),
             "EXCH": str(self.contest_settings["SentExchange"]),
-            "SENTNR": (str(self.contest_settings["SentExchange"])
+            "SENTNR": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS else
+                       str(self.contest_settings["SentExchange"])
                        if self.state["pluginID"] in CONFIGURED_SENTNR_PLUGINS
                        else self.other_1.text()),
         }
@@ -828,7 +851,9 @@ class Host:
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
                     "sentExchange": str(state["settings"]["SentExchange"]),
-                    "sentSerial": desk.other_1.text() if state["pluginID"] in SENTNR_FIELD_PLUGINS else ""}
+                    "sentSerial": (str(desk.current_sn) if state["pluginID"] in SSA_MT_PLUGINS
+                                   else desk.other_1.text()
+                                   if state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
         if method == "receipt":
             row = store.exec_sql("SELECT payload,result FROM xlog_operation WHERE operation_id=?", (identifier(params.get("operationID")),))
             return {"found": bool(row), "result": self.replay_result(json.loads(row["result"]), store) if row else None}
@@ -1051,6 +1076,9 @@ class Host:
                     require(setup["settings"].get("SentExchange") == "#",
                             "Estonian contests require # as the serial exchange")
                     validate_estonian_setup(state["pluginID"], setup["station"], setup["settings"])
+                if state["pluginID"] in EUROPEAN_HF_PLUGINS:
+                    validate_european_hf_setup(
+                        state["pluginID"], state["reference"]["countries"][call].get("primary_pfx", ""), zone)
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
@@ -1200,7 +1228,8 @@ class Host:
         # Durable database replay never re-emits a physical output intent.
         result = deepcopy(result)
         projection = result.get("projection")
-        if store and isinstance(projection, dict) and projection.get("reservedSerial") is not None:
+        if (store and isinstance(projection, dict) and projection.get("reservedSerial") is not None
+                and projection.get("pluginID") not in SSA_MT_PLUGINS):
             reservation = store.exec_sql("SELECT serial FROM xlog_serial WHERE draft_id=? AND serial=?",
                                          (projection.get("draftID"), projection.get("reservedSerial")))
             if reservation:
@@ -1340,6 +1369,9 @@ class Host:
             require(settings["SentExchange"] == "#",
                     "Estonian contests require # as the serial exchange")
             validate_estonian_setup(plugin_id, station, settings)
+        if plugin_id in EUROPEAN_HF_PLUGINS:
+            validate_european_hf_setup(
+                plugin_id, countries[call].get("primary_pfx", ""), settings["SentExchange"])
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1385,7 +1417,8 @@ class Host:
             store.conn.execute("INSERT INTO xlog_serial(draft_id,serial,operation_id,scope) VALUES(?,?,?,?)",
                                (state["draft"]["id"], serial, self._operation, scope))
         state["draft"]["serial"] = serial
-        state["draft"]["fields"]["other_1"] = reserved_sent_exchange(state, serial)
+        if state["pluginID"] not in SSA_MT_PLUGINS:
+            state["draft"]["fields"]["other_1"] = reserved_sent_exchange(state, serial)
 
     @staticmethod
     def countries(countries):
@@ -1427,7 +1460,8 @@ class Host:
             current.update(additions)
         fields = params.get("fields", {})
         require(isinstance(fields, dict) and set(fields) <= set(INPUTS), "Unknown draft field")
-        if not allow_reserved_serial_change and requires_serial(desk.state) and "other_1" in fields:
+        if (not allow_reserved_serial_change and requires_serial(desk.state)
+                and desk.state["pluginID"] not in SSA_MT_PLUGINS and "other_1" in fields):
             expected = reserved_sent_exchange(desk.state, desk.state["draft"].get("serial", ""))
             require(fields["other_1"] == expected,
                     "The sent serial is reserved by the contest host and cannot be changed", "serial_conflict")
@@ -1441,7 +1475,7 @@ class Host:
             desk.state["draft"]["frequencyHz"] = frequency
             if not allow_reserved_serial_change:
                 self.reserve_serial(desk.database, desk.state)
-                if requires_serial(desk.state):
+                if requires_serial(desk.state) and desk.state["pluginID"] not in SSA_MT_PLUGINS:
                     desk.current_sn = desk.state["draft"]["serial"]
                     desk.other_1.setText(reserved_sent_exchange(desk.state, desk.current_sn))
 
@@ -1637,6 +1671,34 @@ class Host:
                 valid = (re.fullmatch(r"[A-Za-z]{2}", received) is not None if contact_prefix == "LZ"
                          else received.isdigit() and 1 <= int(received) <= 90)
                 require(valid, "LZ DX received exchange must be a district in LZ or ITU zone 1 to 90")
+        elif desk.state["pluginID"] in EUROPEAN_HF_PLUGINS:
+            plugin_id = desk.state["pluginID"]
+            sent, received = fields["other_1"], fields["other_2"].upper()
+            if plugin_id == "ari_40_80":
+                require(re.fullmatch(r"[A-Z0-9]{1,6}", received) is not None,
+                        "ARI 40/80 received automobile code must be 1 to 6 letters or digits")
+            elif plugin_id == "ea_rtty":
+                contact = desk.cty_lookup(desk.callsign.text())
+                station = desk.cty_lookup(desk.station.get("Call", ""))
+                require(contact is not None and station is not None,
+                        "Resolve station and contact countries before logging EA RTTY")
+                contact_prefix = next(iter(contact.values())).get("primary_pfx", "")
+                station_prefix = next(iter(station.values())).get("primary_pfx", "")
+                sent_valid = (re.fullmatch(r"[A-Z]{1,2}", sent.upper()) is not None
+                              if station_prefix.startswith("EA") else sent.isdigit() and int(sent) > 0)
+                received_valid = (re.fullmatch(r"[A-Z]{1,2}", received) is not None
+                                  if contact_prefix.startswith("EA") else received.isdigit() and int(received) > 0)
+                require(sent_valid and received_valid,
+                        "EA RTTY exchange must be an EA province or a positive serial outside EA")
+            elif plugin_id == "ok1wc":
+                require(sent.isdigit() and int(sent) > 0 and received.isdigit() and int(received) > 0,
+                        "OK1WC sent and received serials must be positive integers")
+            else:
+                require(sent.isdigit() and 1 <= int(sent) <= 999
+                        and 1 <= int(desk.current_sn) <= 999,
+                        "SSA MT sent and received serials must be between 1 and 999")
+                require(desk.contest._check_locator(received),  # pylint: disable=protected-access
+                        "SSA MT received locator must be a valid 6-character Swedish locator")
         elif desk.state["pluginID"] in RSGB_PLUGINS:
             received = fields["other_2"]
             match = re.fullmatch(r"([0-9]+)(?:\s+[Hh][Qq])?", received)
@@ -1698,7 +1760,8 @@ class Host:
         desk.database.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)", (qso_id, canonical(fields), canonical(country)))
         if desk.state["pluginID"] in {"trans_tasman", "oceania_dx_cw", "oceania_dx_ssb",
                                        *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
-                                       *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}:
+                                        *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
+                                        *EUROPEAN_HF_PLUGINS}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1713,7 +1776,8 @@ class Host:
         if requires_serial(desk.state):
             self.reserve_serial(desk.database, desk.state)
             desk.current_sn = desk.state["draft"]["serial"]
-            desk.other_1.setText(desk.state["draft"]["fields"]["other_1"])
+            desk.other_1.setText("" if desk.state["pluginID"] in SSA_MT_PLUGINS
+                                 else desk.state["draft"]["fields"]["other_1"])
         desk.current_widget = "callsign"
 
     def change(self, desk, method, params):
@@ -1774,24 +1838,29 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
-            preserve_sent = (desk.state["pluginID"] == "cq_ww_rtty"
+            preserve_sent = (desk.state["pluginID"] in SSA_MT_PLUGINS
+                             or desk.state["pluginID"] == "cq_ww_rtty"
                              or desk.state["pluginID"] == "arrl_field_day"
                              or desk.state["pluginID"] != "arrl_10m" and desk.state["pluginID"] in {
                                  "cwt", "k1usn_sst", *TEN_TEN_PLUGINS, *NAME_SPC_ENTRY_PLUGINS,
                                  *ARRL_DX_PLUGINS, *CQ_160_PLUGINS, *DISPLAY_SENTNR_PLUGINS, "arrl_160m"
                              }
                              or desk.state["pluginID"] in {"arrl_10m", *EA_MAJESTAD_PLUGINS, *REF_PLUGINS,
-                                                           *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS}
+                                                           *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
+                                                           *EUROPEAN_HF_PLUGINS}
                              and "other_1" not in correction_fields)
             if preserve_sent:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
                 after["SentNr"] = before["SentNr"]
+                if desk.state["pluginID"] in SSA_MT_PLUGINS:
+                    after["GridSquare"] = before["GridSquare"]
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
                   or desk.state["pluginID"] in ESTONIAN_PLUGINS
                   or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS
-                  or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS):
+                  or desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS
+                  or desk.state["pluginID"] in EUROPEAN_HF_PLUGINS):
                 after["SentNr"] = (int(updated["other_1"]) if updated["other_1"].isdigit()
                                    else updated["other_1"].upper())
             else:

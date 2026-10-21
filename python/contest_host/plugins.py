@@ -142,6 +142,17 @@ PLUGIN_REGISTRY = MappingProxyType({
     "wag": Plugin("WAG", conditional_serial=True,
                   bands=("80m", "40m", "20m", "15m", "10m"), modes=("CW", "SSB"),
                   sent_exchange_hint="DOK/NM or #", overlay_choices=("N/A",)),
+    "ari_40_80": Plugin("ARI 40 80", bands=("80m", "40m"), modes=("CW", "SSB"),
+                        sent_exchange_hint="Automobile Code", overlay_choices=("N/A",)),
+    "ea_rtty": Plugin("EA RTTY", conditional_serial=True,
+                      bands=("80m", "40m", "20m", "15m", "10m"), modes=RTTY_MODES,
+                      sent_exchange_hint="Province or #", overlay_choices=("N/A",)),
+    "ok1wc": Plugin("OK1WC Memorial Contest (MWC)", serial=True, bands=("80m", "40m"),
+                    sent_exchange_hint="Serial number", overlay_choices=("N/A",)),
+    "ssa_mt_cw": Plugin("SSA MT CW", serial=True, bands=("80m", "40m"),
+                        sent_exchange_hint="Serial + locator", overlay_choices=("N/A",)),
+    "ssa_mt_ssb": Plugin("SSA MT SSB", serial=True, bands=("80m", "40m"), modes=("SSB",),
+                         sent_exchange_hint="Serial + locator", overlay_choices=("N/A",)),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -152,7 +163,8 @@ SENTNR_FIELD_PLUGINS = SERIAL_PLUGINS | CONDITIONAL_SERIAL_PLUGINS
 TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone"})
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test"})
 NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
-RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty", "arrl_rtty_ru"})
+RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty", "arrl_rtty_ru",
+                          "ea_rtty"})
 CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty",
                                        "aadx_cw", "aadx_ssb", "euhfc", "iaru_hf", "eudx", "lz-dx"})
 DISPLAY_SENTNR_PLUGINS = frozenset({"euhfc", "iaru_hf", "eudx", "lz-dx", "arrl_rtty_ru",
@@ -167,6 +179,8 @@ RSGB_PLUGINS = frozenset({"rsgb_80m_cc", "rsgb_commonwealth_beru"})
 ESTONIAN_PLUGINS = frozenset({"es_field_day", "es_ll_kv", "es_manual_key", "es_open"})
 EUROPEAN_DX_PLUGINS = frozenset({"hadx", "helvetia", "pacc", "spdx"})
 CENTRAL_EUROPEAN_PLUGINS = frozenset({"ari_dx", "darc_xmas", "eudx", "lz-dx", "wag"})
+EUROPEAN_HF_PLUGINS = frozenset({"ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"})
+SSA_MT_PLUGINS = frozenset({"ssa_mt_cw", "ssa_mt_ssb"})
 ARRL_VHF_PLUGINS = frozenset({"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
     "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb",
@@ -174,3 +188,4 @@ SIMPLE_MULTIPLIER_PLUGINS = frozenset({
 }) | JIDX_PLUGINS | AADX_PLUGINS | CQ_160_PLUGINS | EA_MAJESTAD_PLUGINS | REF_PLUGINS | RSGB_PLUGINS | ESTONIAN_PLUGINS | EUROPEAN_DX_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= ARRL_VHF_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= CENTRAL_EUROPEAN_PLUGINS
+SIMPLE_MULTIPLIER_PLUGINS |= EUROPEAN_HF_PLUGINS

@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from contest_host.host import Host, HostError
-from contest_host.plugins import PLUGIN_REGISTRY, PLUGINS, SERIAL_PLUGINS
+from contest_host.plugins import PLUGIN_REGISTRY, PLUGINS, RTTY_MODES, SERIAL_PLUGINS
 from contest_host import upstream
 
 
@@ -37,7 +37,7 @@ class PluginRegistryTests(unittest.TestCase):
             host = Host(Path(root).resolve())
             try:
                 catalog = host.dispatch({"id": "catalog", "method": "catalog", "params": {}})
-                self.assertEqual(len(catalog["plugins"]), 64)
+                self.assertEqual(len(catalog["plugins"]), 69)
                 self.assertEqual([(item["id"], item["name"]) for item in catalog["plugins"]], list(PLUGINS.items()))
                 sweepstakes = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_cw")
                 self.assertEqual(sweepstakes["modes"], ["CW"])
@@ -126,6 +126,20 @@ class PluginRegistryTests(unittest.TestCase):
                         "eudx": ("EUDXC", ["CW", "SSB"], "ITU zone or EU Union region"),
                         "lz-dx": ("LZ DX", ["CW", "SSB"], "District or ITU zone"),
                         "wag": ("WAG", ["CW", "SSB"], "DOK/NM or #"),
+                    },
+                )
+                european_hf = {item["id"]: item for item in catalog["plugins"]
+                               if item["id"] in {"ari_40_80", "ea_rtty", "ok1wc",
+                                                 "ssa_mt_cw", "ssa_mt_ssb"}}
+                self.assertEqual(
+                    {key: (item["name"], item["modes"], item["sentExchangeHint"])
+                     for key, item in european_hf.items()},
+                    {
+                        "ari_40_80": ("ARI 40 80", ["CW", "SSB"], "Automobile Code"),
+                        "ea_rtty": ("EA RTTY", list(RTTY_MODES), "Province or #"),
+                        "ok1wc": ("OK1WC Memorial Contest (MWC)", ["CW"], "Serial number"),
+                        "ssa_mt_cw": ("SSA MT CW", ["CW"], "Serial + locator"),
+                        "ssa_mt_ssb": ("SSA MT SSB", ["SSB"], "Serial + locator"),
                     },
                 )
             finally:

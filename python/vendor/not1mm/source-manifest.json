@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/oliverbross/contest-sw",
   "revision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
-  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb", "euhfc", "iaru_hf", "arrl_10m", "arrl_160m", "arrl_field_day", "arrl_rtty_ru", "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep", "ea_majestad_cw", "ea_majestad_ssb", "ref_cw", "ref_ssb", "rsgb_80m_cc", "rsgb_commonwealth_beru", "es_field_day", "es_ll_kv", "es_manual_key", "es_open", "hadx", "helvetia", "pacc", "spdx", "ari_dx", "darc_xmas", "eudx", "lz-dx", "wag"],
+  "registeredPlugins": ["cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty", "cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty", "arrl_ss_cw", "arrl_ss_phone", "arrl_dx_cw", "arrl_dx_ssb", "naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test", "weekly_rtty", "icwc_mst", "cwt", "cwo", "k1usn_sst", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb", "sac_cw", "sac_ssb", "iaru_fieldday_r1_cw", "iaru_fieldday_r1_ssb", "10_10_fall_cw", "10_10_spring_cw", "10_10_winter_phone", "10_10_summer_phone", "jidx_cw", "jidx_ph", "aadx_cw", "aadx_ssb", "cq_160_cw", "cq_160_ssb", "euhfc", "iaru_hf", "arrl_10m", "arrl_160m", "arrl_field_day", "arrl_rtty_ru", "arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep", "ea_majestad_cw", "ea_majestad_ssb", "ref_cw", "ref_ssb", "rsgb_80m_cc", "rsgb_commonwealth_beru", "es_field_day", "es_ll_kv", "es_manual_key", "es_open", "hadx", "helvetia", "pacc", "spdx", "ari_dx", "darc_xmas", "eudx", "lz-dx", "wag", "ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"],
   "sha256": {
     "not1mm/plugins/oceania_dx_ssb.py": "f60aee6006c4f2da8ee3fdb7d2c2c755a43a8b07897fdd3b6ea1d4592f81c1ee",
     "not1mm/plugins/oceania_dx_cw.py": "51d3234f98c3c7ae4c5343cef512545c1a4f41e37a685426724b860def85d664",
@@ -67,6 +67,11 @@
     "not1mm/plugins/eudx.py": "ae47db27143eebf8a0651ae023b3250058b81e14aa7e2d868a7777ace2975ae0",
     "not1mm/plugins/lz-dx.py": "a3f3f6b73c0310d78cbdc42cb234b93990575e67257069c42bbe1ca068ac974b",
     "not1mm/plugins/wag.py": "6435691dcf956c73111f6e66058d598a0fe9b0ef94b4cd38ded9a88f186c4276",
+    "not1mm/plugins/ari_40_80.py": "55f1ebfc1953a7d6fa65a3dec38adcb2e83e328921ffb07b51c83811f1afb192",
+    "not1mm/plugins/ea_rtty.py": "464596fc9b95101b2fe7960974753f7805566f8a1805a3ce55e99d3d409cb564",
+    "not1mm/plugins/ok1wc.py": "77d0c2e2dc72d43d56433d01b55222cc57b4215a67a7eecc910fa3d91b6a44ea",
+    "not1mm/plugins/ssa_mt_cw.py": "24edb651b2a74d327ca820be9d6fb12db9b35d27914c8d5ba88a6da1858dfa36",
+    "not1mm/plugins/ssa_mt_ssb.py": "cb05d6f0e99f49d9e134ef1e749436d97b2a162e337de9ab64fceddf9e4168ca",
     "not1mm/lib/database.py": "855840a01e80e82fc5d7e83c1e7e9f0f367e6db9be504944e0db0173e28e52e8",
     "not1mm/lib/plugin_common.py": "09872e00c1803b54937bdc449d3445cd97e66cdca4f0003a5fc805ff10236737",
     "not1mm/lib/ham_utility.py": "dd6261db3aa528cf1c13fdaaf7c1816106e2dfa33ff15c45c2a2fd5e0356adb2",

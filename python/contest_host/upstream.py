@@ -327,6 +327,25 @@ def load_plugin(plugin_id="cq_ww_cw"):
                     '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
                 ),
             ])
+        if plugin_id == "ok1wc":
+            # Original replay orders only by UTC second. Include the durable ID
+            # tie-break so two same-second QSOs cannot both claim one suffix.
+            replacements.append((
+                'self.database.fetch_band_lastletter_exists_before_me(\n'
+                '            self.contact.get("Band", ""), self.contact.get("Call", ""), time_stamp\n'
+                '        )',
+                'self.database.fetch_band_lastletter_exists_before_contact(\n'
+                '            self.contact.get("Band", ""), self.contact.get("Call", ""), time_stamp,\n'
+                '            self.contact.get("ID", "")\n'
+                '        )',
+            ))
+        if plugin_id in {"ssa_mt_cw", "ssa_mt_ssb"}:
+            # SQLite returns Band as numeric; the original replay concatenates
+            # it into a locator key as though it were already text.
+            replacements.append((
+                'key = exch[:4].upper() + ":" + band',
+                'key = exch[:4].upper() + ":" + str(band)',
+            ))
         if plugin_id == "lz-dx":
             # Stable replay for contacts sharing the same UTC second.
             replacements.extend([

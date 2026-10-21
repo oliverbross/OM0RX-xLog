@@ -244,5 +244,13 @@ class Store(DataBase):
             (wpx, self.current_contest, timestamp, timestamp, qso_id),
         )
 
+    def fetch_band_lastletter_exists_before_contact(self, band, call, timestamp, qso_id):
+        """Stable OK1WC multiplier lookup for contacts sharing one UTC second."""
+        return self.exec_sql(
+            "SELECT count(*) AS count FROM DXLOG WHERE Band=? AND substr(Call,-1)=substr(?,-1) "
+            "AND ContestNR=? AND (TS<? OR (TS=? AND rowid<(SELECT rowid FROM DXLOG WHERE ID=?)))",
+            (band, call, self.current_contest, timestamp, timestamp, qso_id),
+        )
+
     def close(self):
         self.conn.close()
