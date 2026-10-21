@@ -82,7 +82,7 @@ actor PythonContestLane {
             if let projection = result["projection"] as? [String: Any] {
                 activeProjection = projection
             }
-            if method == "contest_session_create" || method == "contest_create" {
+            if Self.createsSession(method) {
                 let projection = activeProjection
                 activeSessionID = projection?["sessionID"] as? String ?? result["sessionID"] as? String
                 activeWorkspaceGeneration = projection?["workspaceGeneration"] as? String
@@ -91,7 +91,7 @@ actor PythonContestLane {
                 activeSessionID = projection?["sessionID"] as? String
                 activeWorkspaceGeneration = projection?["workspaceGeneration"] as? String
             }
-            if ["contest_session_create", "contest_create", "contest_session_open", "contest_open"].contains(method),
+            if Self.createsSession(method) || ["contest_session_open", "contest_open"].contains(method),
                let lane = try? callHistory(),
                let activation = await lane.reconcileCurrent(), activation["state"] as? String == "active",
                let sessionID = activeSessionID,
@@ -265,9 +265,13 @@ actor PythonContestLane {
         throw ContestLaneError.confirmed(code, message)
     }
 
+    private static func createsSession(_ method: String) -> Bool {
+        ["contest_session_create", "contest_create", "contest_legacy_import"].contains(method)
+    }
+
     private func referencedParams(method: String, params: [String: Any]) throws -> [String: Any] {
         var result = params
-        if (method == "contest_session_create" || method == "contest_create"), result["reference"] == nil,
+        if Self.createsSession(method), result["reference"] == nil,
            let station = result["station"] as? [String: Any], let call = station["Call"] as? String {
             guard let country = countryWire(call) else {
                 throw ContestLaneError.confirmed("station_country_unresolved", "Resolve the station country before creating this contest.")

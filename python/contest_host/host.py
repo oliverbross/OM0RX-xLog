@@ -14,6 +14,7 @@ import uuid
 
 from .store import CALLHISTORY_COLUMNS, Store, canonical
 from .rates import calculate_rates
+from .legacy_import import LegacyImportError, inspect_source, row_digest
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
                       CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
@@ -795,7 +796,7 @@ class Desk:
 
 
 class Host:
-    MUTATIONS = {"session_create", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate"}
+    MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -930,8 +931,24 @@ class Host:
             active = self.active_session()
             return {"sessions": sessions,
                     "activeSessionID": active if active in {item["sessionID"] for item in sessions} else None}
+        if method == "legacy_preview":
+            require(set(params) in ({"sourcePath"}, {"sourcePath", "sourceContestNR"}),
+                    "Unexpected legacy preview fields")
+            contest_nr = params.get("sourceContestNR")
+            require(contest_nr is None or type(contest_nr) is int and contest_nr > 0,
+                    "Legacy contest number must be a positive integer")
+            try:
+                preview = inspect_source(text(params.get("sourcePath"), 4096), contest_nr)
+            except LegacyImportError as error:
+                raise HostError(error.code, str(error)) from error
+            for contest in preview["contests"]:
+                names = {contest["contestName"]}
+                contest["pluginCandidates"] = [plugin_id for plugin_id in PLUGIN_REGISTRY
+                                                if names & {load_plugin(plugin_id).name,
+                                                            load_plugin(plugin_id).cabrillo_name}]
+            return preview
         session_id = identifier(params.get("sessionID"))
-        store = self.database(session_id, method == "session_create")
+        store = self.database(session_id, method in {"session_create", "legacy_import"})
         if method in self.MUTATIONS:
             return self.mutate(store, session_id, method, params)
         state = store.state(session_id)
@@ -981,6 +998,7 @@ class Host:
                 )
                 for row in rows:
                     row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
+                    self.add_legacy_provenance(store, row)
                 return {"sessionID": session_id, "revision": state["revision"], "query": query,
                         "limit": limit, "total": total, "rows": rows}
             finally:
@@ -1054,6 +1072,7 @@ class Host:
             )
             for row in rows:
                 row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
+                self.add_legacy_provenance(store, row)
             return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
                     "total": store.exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],
                     "rows": rows}
@@ -1166,17 +1185,35 @@ class Host:
             state = store.state(session_id)
             expected = params.get("expectedRevision", 0)
             require(type(expected) is int and expected >= 0, "Revision must be a nonnegative integer")
+            new_session = False
             if method == "session_create":
                 require(state is None, "Session already exists", "session_exists")
                 require(expected == 0, "Creation revision must be zero")
                 state = self.new_state(session_id, params)
+                new_session = True
+            elif method == "legacy_import":
+                if state is None:
+                    require(expected == 0, "Creation revision must be zero")
+                    state = self.new_state(session_id, params)
+                    new_session = True
+                else:
+                    self.verify_engine(state)
+                    require(state.get("legacyImport") is not None,
+                            "Session already exists and is not this legacy import", "session_exists")
+                    require(params.get("workspaceGeneration") == workspace_generation(state),
+                            "Legacy import workspace changed", "stale_context")
+                    require(expected in {0, state["revision"]},
+                            "Session changed; refresh before reconciling import", "stale_revision")
             else:
                 require(state is not None, "Session does not exist", "not_found")
                 self.verify_engine(state)
                 require(expected == state["revision"], "Session changed; refresh before editing", "stale_revision")
             self._operation = operation
-            if method == "session_create":
+            if new_session:
                 self.reserve_serial(store, state)
+            legacy_summary = None
+            if method == "legacy_import":
+                legacy_summary = self.import_legacy(store, state, params)
             desk = Desk(store, state, self.commit)
             if method == "draft_apply":
                 self.apply_fields(desk, params)
@@ -1386,6 +1423,8 @@ class Host:
             if method == "setup_save":
                 result["setup"] = deepcopy(state["setup"])
                 result["effectiveMacros"] = self.effective_macros(state)
+            if legacy_summary is not None:
+                result["legacyImport"] = legacy_summary
             for index, action in enumerate(result["actions"]):
                 action["actionID"] = f"{operation}:{index}"
             store.conn.execute("INSERT INTO xlog_operation VALUES(?,?,?)", (operation, payload, canonical(result)))
@@ -1397,6 +1436,116 @@ class Host:
             raise
         finally:
             self._operation = None
+
+    @staticmethod
+    def add_legacy_provenance(store, row):
+        receipt = store.exec_sql(
+            "SELECT source_identity,source_digest,source_contest_nr,source_rowid,raw_fields "
+            "FROM xlog_legacy_row_receipt WHERE target_qso_id=?", (row["ID"],)
+        )
+        if receipt:
+            row["legacyProvenance"] = {
+                "sourceIdentity": receipt["source_identity"],
+                "sourceDigest": receipt["source_digest"],
+                "sourceContestNR": receipt["source_contest_nr"],
+                "sourceRowID": receipt["source_rowid"],
+                "rawFields": json.loads(receipt["raw_fields"]),
+            }
+
+    @staticmethod
+    def import_legacy(store, state, params):
+        required = {"sourcePath", "sourceIdentity", "sourceDigest", "sourceContestNR"}
+        require(required <= set(params), "Legacy source identity, digest and contest are required")
+        source_identity, source_digest = params.get("sourceIdentity"), params.get("sourceDigest")
+        contest_nr = params.get("sourceContestNR")
+        require(isinstance(source_identity, str) and re.fullmatch(r"[0-9a-f]{64}", source_identity),
+                "Invalid legacy source identity")
+        require(isinstance(source_digest, str) and re.fullmatch(r"[0-9a-f]{64}", source_digest),
+                "Invalid legacy source digest")
+        require(type(contest_nr) is int and contest_nr > 0, "Invalid legacy contest number")
+        try:
+            source = inspect_source(text(params.get("sourcePath"), 4096), contest_nr, include_rows=True)
+        except LegacyImportError as error:
+            raise HostError(error.code, str(error)) from error
+        if source["source"]["identity"] != source_identity:
+            raise HostError("source_identity_changed", "Legacy database is not the previewed source")
+        if source["source"]["digest"] != source_digest:
+            raise HostError("source_changed", "Legacy database changed after preview")
+        source_name = source["contest"]["contestName"]
+        plugin = load_plugin(state["pluginID"])
+        require(source_name in {plugin.name, plugin.cabrillo_name},
+                "Selected xLog plugin does not match the legacy contest plugin", "source_plugin_conflict")
+        existing = store.exec_sql("SELECT * FROM xlog_legacy_import WHERE source_identity=?", (source_identity,))
+        if existing:
+            require(existing["source_digest"] == source_digest
+                    and existing["source_contest_nr"] == contest_nr
+                    and existing["plugin_id"] == state["pluginID"],
+                    "Legacy source was already imported with different content or plugin", "source_conflict")
+        target_columns = {row["name"] for row in store.exec_sql_mult("PRAGMA table_info(DXLOG)")}
+        imported = 0
+        for source_row in source["rows"]:
+            source_rowid = source_row.pop("__source_rowid__")
+            raw = deepcopy(source_row)
+            try:
+                digest = row_digest(raw)
+            except LegacyImportError as error:
+                raise HostError(error.code, str(error)) from error
+            receipt = store.exec_sql(
+                "SELECT source_digest,row_digest,target_qso_id,raw_fields FROM xlog_legacy_row_receipt "
+                "WHERE source_identity=? AND source_contest_nr=? AND source_rowid=?",
+                (source_identity, contest_nr, source_rowid),
+            )
+            qso_id = str(uuid.uuid5(uuid.NAMESPACE_URL,
+                f"xlog:not1mm:{source_identity}:{contest_nr}:{source_rowid}:{digest}"))
+            if receipt:
+                require(receipt["source_digest"] == source_digest and receipt["row_digest"] == digest
+                        and receipt["target_qso_id"] == qso_id and receipt["raw_fields"] == canonical(raw),
+                        "Legacy row receipt conflicts with the current source", "source_row_conflict")
+                continue
+            copied = {key: value for key, value in raw.items() if key in target_columns}
+            copied["ID"], copied["ContestNR"] = qso_id, 1
+            columns = list(copied)
+            placeholders = ",".join("?" for _ in columns)
+            try:
+                store.conn.execute(f"INSERT INTO DXLOG({','.join(columns)}) VALUES({placeholders})",
+                                   tuple(copied[column] for column in columns))
+            except sqlite3.IntegrityError as error:
+                raise HostError("source_row_conflict", "Legacy row collides with another imported QSO") from error
+            editor_fields = Host.legacy_editor_fields(raw)
+            store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,0)",
+                               (qso_id, canonical(editor_fields), "null"))
+            store.conn.execute(
+                "INSERT INTO xlog_legacy_row_receipt VALUES(?,?,?,?,?,?,?,?)",
+                (source_identity, contest_nr, source_rowid, source_digest, digest, qso_id,
+                 canonical(raw), canonical(copied)),
+            )
+            imported += 1
+        if existing:
+            store.conn.execute("UPDATE xlog_legacy_import SET imported_rows=? WHERE source_identity=?",
+                               (len(source["rows"]), source_identity))
+        else:
+            store.conn.execute("INSERT INTO xlog_legacy_import VALUES(?,?,?,?,?,?,?,?)", (
+                source_identity, source_digest, contest_nr, Path(params["sourcePath"]).name,
+                len(source["rows"]), canonical(source["contest"]["settings"]),
+                canonical(source["station"]) if source["station"] is not None else None,
+                state["pluginID"],
+            ))
+        state["legacyImport"] = {"sourceIdentity": source_identity, "sourceDigest": source_digest,
+                                 "sourceContestNR": contest_nr, "sourcePlugin": source_name,
+                                 "rowCount": len(source["rows"])}
+        return {**state["legacyImport"], "importedRows": imported,
+                "reconciledRows": len(source["rows"]) - imported}
+
+    @staticmethod
+    def legacy_editor_fields(raw):
+        """Project an original plugin row into the finite editor without replacing its raw authority."""
+        return {
+            "callsign": str(raw.get("Call") or ""),
+            "sent": str(raw.get("SNT") or ""),
+            "receive": str(raw.get("RCV") or ""),
+            "other_1": str(raw.get("SentNr") or ""),
+            "other_2": str(raw.get("Exchange1") or raw.get("ZN") or ""),
+        }
 
     @staticmethod
     def default_setup(state):
@@ -2188,13 +2337,24 @@ class Host:
         require(bool(before), "QSO does not exist", "not_found")
         reason = text(params.get("reason", "Operator correction"), 512)
         old_fields = desk.values()
+        legacy = None
         if method == "qso_delete":
             desk.database.delete_contact(qso_id)
             desk.database.conn.execute("UPDATE xlog_qso_identity SET deleted=1 WHERE id=?", (qso_id,))
             after = None
         else:
-            identity = desk.database.exec_sql("SELECT raw_fields FROM xlog_qso_identity WHERE id=?", (qso_id,))
-            fields = json.loads(identity["raw_fields"])
+            legacy = desk.database.exec_sql(
+                "SELECT current_fields FROM xlog_legacy_row_receipt WHERE target_qso_id=?", (qso_id,)
+            )
+            if legacy:
+                # Imported contacts are edited from the complete plugin row last
+                # accepted by xLog. The five-field projection is only an editor
+                # view; it must never become the authority for untouched columns.
+                before = json.loads(legacy["current_fields"])
+                fields = self.legacy_editor_fields(before)
+            else:
+                identity = desk.database.exec_sql("SELECT raw_fields FROM xlog_qso_identity WHERE id=?", (qso_id,))
+                fields = json.loads(identity["raw_fields"])
             for name in INPUTS:
                 getattr(desk, name).setText(fields[name])
             changes = {"fields": params.get("fields", {})}
@@ -2319,6 +2479,11 @@ class Host:
             desk.database.conn.execute("UPDATE xlog_qso_identity SET raw_fields=?,country=? WHERE id=?", (canonical(updated), canonical(country), qso_id))
         self.rebuild(desk)
         after = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,)) or None
+        if method != "qso_delete" and legacy:
+            desk.database.conn.execute(
+                "UPDATE xlog_legacy_row_receipt SET current_fields=? WHERE target_qso_id=?",
+                (canonical(after), qso_id),
+            )
         self.audit(desk.database, qso_id, "delete" if method == "qso_delete" else "correct", before, after, reason)
         for name in INPUTS:
             getattr(desk, name).setText(old_fields[name])

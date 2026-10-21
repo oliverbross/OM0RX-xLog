@@ -35,6 +35,16 @@ Methods (an optional `contest_` prefix is accepted): `catalog`, `sessions`, `ses
 `cw_context`, `rates`, `check_partial`, `setup_get`, `setup_save`, `export`, `export_prepare`,
 `export_read`, `export_release`.
 
+Legacy Not1MM migration uses `legacy_preview` before `legacy_import`.
+`legacy_preview` accepts a native-selected `sourcePath` plus optional positive
+`sourceContestNR`; it opens the SQLite file read-only and returns its durable
+source identity, SHA-256 digest, contest/category counts, source settings,
+station and exact plugin candidates. `legacy_import` uses the normal creation
+envelope plus `sourcePath`, `sourceIdentity`, `sourceDigest` and
+`sourceContestNR`. The preview digest and source identity must still match, and
+the selected pinned plugin must match the legacy plugin name. Import owns a new
+xLog contest session; it never writes to the source database.
+
 Except catalog and sessions, requests contain canonical UUID `sessionID`. All mutations also
 contain stable UUID `operationID` and `expectedRevision`. Creation expects zero;
 subsequent mutations expect the current revision. Repeat the exact original
@@ -144,6 +154,14 @@ host metadata/draft, durable operation results, stable identity, audit and delet
 contact records. All QSO changes, score recalculation, draft changes and receipts
 commit together under `BEGIN IMMEDIATE`/`synchronous=FULL`. Timestamp/call
 collisions reject atomically instead of being silently ignored.
+
+Legacy imports additionally retain an import manifest and one durable receipt
+per source row. A retry with the same operation replays its receipt; a retry with
+a new operation reconciles the row receipts without semantic QSO deduplication.
+Log and partial-search rows expose `legacyProvenance` only for imported contacts,
+including the immutable original source row. The edit path keeps a separate
+receipt-backed current plugin row so callsign-only or unchanged corrections do
+not reconstruct unrelated fields from the five visible editor values.
 
 Only CQ WW CW is exposed. No serial allocator, migration, normal-log transfer,
 ADIF import, Not1MM macro editor or full plugin catalog is implemented here.

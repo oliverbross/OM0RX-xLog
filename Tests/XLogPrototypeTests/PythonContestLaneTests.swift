@@ -119,6 +119,54 @@ final class PythonContestLaneTests: XCTestCase {
         await lane.shutdown()
     }
 
+    func testLegacyImportInjectsReferenceAndOwnsImportedSession() async throws {
+        let temporary = FileManager.default.temporaryDirectory
+            .appendingPathComponent("xlog-legacy-lane-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        let python = try python312()
+        let launcher = temporary.appendingPathComponent("fixture_host.py")
+        try Data("""
+import json, sys
+for line in sys.stdin:
+    request = json.loads(line)
+    params = request["params"]
+    method = request["method"]
+    if method == "contest_legacy_import":
+        reference = params.get("reference", {})
+        country = reference.get("countries", {}).get("OM0RX")
+        if not reference.get("id") or not country:
+            response = {"id": request["id"], "ok": False, "error": {"code": "missing_reference", "message": "reference required", "outcome": "confirmed"}}
+        else:
+            projection = {"sessionID": params["sessionID"], "workspaceGeneration": params["workspaceGeneration"], "revision": 1, "draftID": "11111111-1111-4111-8111-111111111111", "referenceID": reference["id"], "ruleIdentity": {"id": "cq_ww_cw", "version": "1", "edition": "fixture", "sourceRevision": "fixture"}, "fields": []}
+            response = {"id": request["id"], "ok": True, "result": {"sessionID": params["sessionID"], "projection": projection}}
+    elif method == "contest_history_status":
+        response = {"id": request["id"], "ok": True, "result": {"activation": {"state": "inactive"}}}
+    else:
+        response = {"id": request["id"], "ok": False, "error": {"code": "unexpected", "message": method, "outcome": "confirmed"}}
+    print(json.dumps(response, separators=(",", ":")), flush=True)
+""".utf8).write(to: launcher)
+
+        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
+            executableURL: python, launcherURL: launcher,
+            dataRootURL: temporary.appendingPathComponent("Contesting/Python", isDirectory: true)))
+        let sessionID = UUID().uuidString.lowercased()
+        let workspaceGeneration = UUID().uuidString.lowercased()
+        let imported = try await lane.handle(method: "contest_legacy_import", params: [
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+            "operationID": UUID().uuidString.lowercased(), "expectedRevision": 0,
+            "pluginID": "cq_ww_cw", "frequencyHz": 14_025_000,
+            "station": ["Call": "OM0RX", "GridSquare": "JN88"],
+            "settings": ["SentExchange": "15", "ModeCategory": "CW"],
+        ])
+        let projection = try XCTUnwrap(imported["projection"] as? [String: Any])
+        XCTAssertEqual(projection["referenceID"] as? String, try ContestReferenceData.bundled().version)
+        _ = try await lane.handleCallHistory(method: "contest_history_status", params: [
+            "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+        ])
+        await lane.shutdown()
+    }
+
     private func python312() throws -> URL {
         let fileManager = FileManager.default
         let candidates = [

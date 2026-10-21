@@ -49,6 +49,13 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_serial(draft_id TEXT PRIMARY KEY, serial INTEGER NOT NULL UNIQUE, operation_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_qso_identity(id TEXT PRIMARY KEY, raw_fields TEXT NOT NULL, country TEXT, deleted INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS xlog_qso_audit(sequence INTEGER PRIMARY KEY, operation_id TEXT NOT NULL, qso_id TEXT NOT NULL, kind TEXT NOT NULL, before_json TEXT, after_json TEXT, reason TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_legacy_import(source_identity TEXT PRIMARY KEY, source_digest TEXT NOT NULL,
+                source_contest_nr INTEGER NOT NULL, source_path_name TEXT NOT NULL, imported_rows INTEGER NOT NULL,
+                source_settings TEXT NOT NULL, source_station TEXT, plugin_id TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_legacy_row_receipt(source_identity TEXT NOT NULL, source_contest_nr INTEGER NOT NULL,
+                source_rowid INTEGER NOT NULL, source_digest TEXT NOT NULL, row_digest TEXT NOT NULL,
+                target_qso_id TEXT NOT NULL UNIQUE, raw_fields TEXT NOT NULL, current_fields TEXT NOT NULL,
+                PRIMARY KEY(source_identity,source_contest_nr,source_rowid));
             CREATE TABLE IF NOT EXISTS xlog_callhistory_state(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
                 generation TEXT NOT NULL, digest TEXT NOT NULL, row_count INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_callhistory_stage_meta(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
