@@ -493,6 +493,10 @@ mod tests {
     #[test]
     fn validates_multicast_settings_and_operator_only_when_enabled() {
         let mut value = configuration(true);
+        assert_eq!(
+            (value.multicast_group.as_str(), value.multicast_port),
+            ("239.1.1.1", 2239)
+        );
         value.multicast_group = "127.0.0.1".into();
         assert!(validate_configuration(&value).is_err());
         value.multicast_group = "239.1.1.1".into();
@@ -500,5 +504,13 @@ mod tests {
         assert!(validate_configuration(&value).is_err());
         value.enabled = false;
         assert!(validate_configuration(&value).is_ok());
+    }
+
+    #[test]
+    fn accepts_only_group_chat_from_the_pinned_renfield_multicast_protocol() {
+        assert!(parse_wire(br#"{"cmd":"GET_SN","Operator":"OM0RX","NetBiosName":"xlog"}"#).is_err());
+        assert!(parse_wire(br#"{"cmd":"ISDUPE","Call":"K1ABC","Band":14,"Mode":"CW"}"#).is_err());
+        assert!(parse_wire(br#"{"cmd":"POST","ID":"one"}"#).is_err());
+        assert!(parse_wire(br#"{"cmd":"CHAT","sender":"OM0RX","message":"Run is clear"}"#).is_ok());
     }
 }

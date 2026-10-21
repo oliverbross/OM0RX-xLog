@@ -1858,7 +1858,7 @@ it("defers a native contest window command until the saved session is fully rest
   await expect(route!("contest-window-group-chat")).resolves.toBe(true);
   expect(groupChat.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}));
   await waitFor(() => expect(groupChat.configure).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}),
-    expect.objectContaining({enabled:false,multicastGroup:"224.1.1.1",multicastPort:2239,interface:"0.0.0.0"})));
+    expect.objectContaining({enabled:false,multicastGroup:"239.1.1.1",multicastPort:2239,interface:"0.0.0.0"})));
   await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
   expect(surfaceWindow.open).not.toHaveBeenCalledWith(expect.anything(), "qrz-details");
   expect((await screen.findByRole("alert")).textContent).toContain("Enable Show QRZ details");

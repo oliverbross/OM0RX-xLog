@@ -14,7 +14,7 @@ export type ContestSetupDocument = {
 };
 export type ContestSetupSession = { sessionID: string; name: string; pluginID: string; workspaceGeneration: string; revision: number; startUTC?: string };
 export type ContestSetupServiceTab = "Station" | "QRZ" | "Radio" | "CW" | "Cluster" | "Integrations" | "Rotator";
-export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"] as const;
+export const contestSetupTabs = ["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "Bands", "Options"] as const;
 export type ContestSetupTab = typeof contestSetupTabs[number];
 export type ContestAudioOutput = { deviceID: string; label: string };
 export type ContestSetupCatalogEntry = { id: string; name: string; modes?: string[]; supportedBands?: string[]; sentExchangeHint?: string; overlayChoices?: string[] };
@@ -57,7 +57,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
       spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, showQRZDetails: false, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
       n1mmHost: "127.0.0.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062, n1mmRadio: false, n1mmContact: false,
-      n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmOperatorName: "", multicastGroup: "224.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
+      n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmOperatorName: "", multicastGroup: "239.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
 }
 
 export function restoredESMPreferences(preferences: ContestSetupDocument["preferences"]): ContestSetupDocument["preferences"] {
@@ -77,6 +77,7 @@ function setupDraft(value: ContestSetupDocument): ContestSetupDocument {
   const defaults = newContestSetup(String(value.station.Call ?? ""));
   const result = structuredClone({ ...defaults, ...value, station: { ...defaults.station, ...value.station }, settings: { ...defaults.settings, ...value.settings }, preferences: { ...defaults.preferences, ...restoredESMPreferences(value.preferences) }, network: { ...defaults.network, ...value.network } });
   if (!String(result.settings.OverlayCategory ?? "").trim()) result.settings.OverlayCategory = "N/A";
+  if (result.network.multicastGroup === "224.1.1.1") result.network.multicastGroup = "239.1.1.1";
   for (const kind of ["Radio", "Contact", "Lookup", "Score"]) {
     const key = "n1mm" + kind + "Destinations";
     if (result.network[key] === undefined) result.network[key] = String(value.network.n1mmHost ?? "127.0.0.1") + ":" + String(value.network["n1mm" + kind + "Port"] ?? 12060);
@@ -93,7 +94,7 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
   onSave, onCreate, onOpen, onOpenSettings, servicePanels, callHistoryPanel, onOpenCallHistory, effectiveMacros, onOpenDialog, onContentChange, onViewChange, detachedDialog, onCancel }: Props) {
   const [draft, setDraft] = useState<ContestSetupDocument>(() => setupDraft(value));
   const [view, setView] = useState<SetupView | null>(initialTab === "Contest" ? null : initialTab === "Station" ? "Station Settings" : initialTab === "Macros" ? "Edit Macros" : initialTab === "Key bindings" ? "Edit Keys" : "Configuration Settings");
-  const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "N1MM+" ? "N1MM" : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
+  const [tab, setTab] = useState<ContestSetupTab>(contestSetupTabs.includes(initialTab as ContestSetupTab) ? initialTab as ContestSetupTab : initialTab === "Multi-Multi" ? "Group" : initialTab === "Call History" ? "Options" : "Lookup"), [message, setMessage] = useState("");
   const [selectedSession, setSelectedSession] = useState(activeSessionID ?? "");
   const [selectedBinding, setSelectedBinding] = useState(0);
   const [audioOutputs, setAudioOutputs] = useState<ContestAudioOutput[] | null>(null);
@@ -242,19 +243,17 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       case "CW": content = managed("CW", "Choose the shared radio or WinKeyer output there. Contest messages remain in Edit Macros; sending requires the existing output controls."); break;
       case "Rotator": content = managed("Rotator", "Use the shared rotor configuration and observed status."); break;
       case "Cluster": content = managed("Cluster", "Manage servers, secure passwords, filters and connections there."); break;
-      case "Group": content = <div className="contest-manual-stack">{check("network", "multiEnabled", "Connect to server")}{check("network", "multiMaster", "Be the master")}{field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}</div>; break;
-      case "N1MM": content = <div className="contest-manual-stack">{check("network", "n1mmEnabled", "Send N1MM packets")}{row(field("network", "stationName", "Station Name"), field("network", "n1mmOperatorName", "Operator Name"))}{(["Radio", "Contact", "Lookup", "Score"] as const).map(kind => <div key={kind} className="contest-packet-row">{check("network", "n1mm" + kind, kind)}{field("network", "n1mm" + kind + "Destinations", kind + " destinations")}</div>)}</div>; break;
+      case "Group": content = <div className="contest-manual-stack">
+        {check("network", "multiEnabled", "Enable Group Chat")}
+        {field("network", "multicastGroup", "Multicast Group")}{field("network", "multicastPort", "Multicast Port", "number")}{field("network", "interface", "Interface IP")}
+        <p role="status">Group Chat is the only available Multi-Op network capability. Shared serials, dupe checks, log synchronization, and master/client control are not available.</p>
+      </div>; break;
       case "Bands": content = <div className="contest-manual-bands">{[supportedBandChoices.slice(0, Math.ceil(supportedBandChoices.length / 2)), supportedBandChoices.slice(Math.ceil(supportedBandChoices.length / 2))].map((bands, column) => <div key={column}>{bands.map(band => <label key={band} className="contest-setup-check"><input type="checkbox" checked={Array.isArray(draft.preferences.bands) && draft.preferences.bands.includes(band)} onChange={event => { const current = Array.isArray(draft.preferences.bands) ? draft.preferences.bands : []; update("preferences", "bands", event.target.checked ? [...current, band] : current.filter(item => item !== band)); }}/><span>{band}</span></label>)}</div>)}</div>; break;
       case "Options": content = <div className="contest-options-columns">
         <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">
           {field("preferences", "autoCQDelay", "Auto CQ Delay (Seconds)", "number")}
           {check("preferences", "callHistory", "Use Call History")}<hr/>
-          {check("preferences", "rtcEnabled", "Use RTC score reporting")}
-          {choice("preferences", "rtcURL", "Score reporting URL", ["https://hamscore.com/postxml/", "https://contestsonlinescore.com/postscore.jsp", "https://contest.run/postscore"])}
-          {field("preferences", "rtcUsername", "Score reporting username")}
-          {field("preferences", "rtcPassword", "Score reporting password", "password")}
-          {field("preferences", "rtcIntervalMinutes", "Score posting interval (minutes)", "number")}
           {check("preferences", "clearOnVFOChange", "Clear input fields in S&P when the VFO frequency changes")}
           {callHistoryPanel ?? (onOpenCallHistory ? <button type="button" onClick={onOpenCallHistory}>Open Call History</button> : null)}
         </div>

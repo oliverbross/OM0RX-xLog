@@ -26,7 +26,7 @@ it("separates original File dialogs from Configuration Settings and keeps manual
   expect(screen.queryByRole("tab")).toBeNull();
   open("Configuration Settings");
   expect(screen.getAllByRole("tab").map(item => item.textContent)).toEqual([...contestSetupTabs]);
-  expect([...contestSetupTabs]).toEqual(["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "N1MM", "Bands", "Options"]);
+  expect([...contestSetupTabs]).toEqual(["Lookup", "Sound", "CAT", "CW", "Rotator", "Cluster", "Group", "Bands", "Options"]);
   fireEvent.click(screen.getByRole("tab", { name: "CAT" })); open("Open xLog Radio settings");
   expect(p.onOpenSettings).toHaveBeenCalledWith("Radio");
   fireEvent.keyDown(screen.getByRole("tab", { name: "CAT" }), { key: "ArrowRight" });
@@ -124,16 +124,15 @@ it("selects an existing contest using a name/start table and commits only with O
   fireEvent.click(screen.getByText("October CQ WW")); expect(p.onOpen).not.toHaveBeenCalled();
   open("OK"); await waitFor(() => expect(p.onOpen).toHaveBeenCalledWith(p.sessions[0]));
 });
-it("preserves legacy N1MM endpoints while offering all four original packet rows and full bands", async () => {
+it("preserves hidden legacy N1MM values without presenting unavailable packet controls", async () => {
   const p = props(); p.value.network.n1mmHost = "192.0.2.1"; p.value.network.n1mmContactPort = 12061;
-  render(<ContestSetupPanel {...p}/>); open("Configuration Settings"); fireEvent.click(screen.getByRole("tab", { name: "N1MM" }));
-  expect((screen.getByLabelText("Contact destinations") as HTMLInputElement).value).toBe("192.0.2.1:12061");
-  expect(screen.getByLabelText("Send N1MM packets")).toBeTruthy(); expect(screen.getByLabelText("Score")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("Radio destinations"), { target: { value: "192.0.2.2:12060 192.0.2.3:12060" } });
+  render(<ContestSetupPanel {...p}/>); open("Configuration Settings");
+  expect(screen.queryByRole("tab", { name: "N1MM" })).toBeNull();
+  expect(screen.queryByLabelText("Send N1MM packets")).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: "Bands" }));
   for (const band of ["6m", "2m", "1.25m", "70cm", "33cm", "23cm"]) expect(screen.getByLabelText(band)).toBeTruthy();
   open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
-  expect(p.onSave.mock.calls[0][0].network).toMatchObject({ n1mmHost: "192.0.2.1", n1mmContactPort: 12061, n1mmRadioDestinations: "192.0.2.2:12060 192.0.2.3:12060" });
+  expect(p.onSave.mock.calls[0][0].network).toMatchObject({ n1mmHost: "192.0.2.1", n1mmContactPort: 12061 });
 });
 it("uses the selected plugin's complete advertised band choices", () => {
   const p = props(), supportedBands = ["6m", "2m", "1.25m", "13cm", "2mm"];
@@ -142,12 +141,24 @@ it("uses the selected plugin's complete advertised band choices", () => {
   for (const band of supportedBands) expect(screen.getByLabelText(band)).toBeTruthy();
   expect(screen.queryByLabelText("20m")).toBeNull();
 });
-it("keeps ESM mappings, Call History and score reporting together in Options and networking in Group", () => {
+it("shows Group Chat as the only Multi-Op network capability with the pinned multicast default", () => {
   const p = props(); render(<ContestSetupPanel {...p}/>); open("Configuration Settings");
   fireEvent.click(screen.getByRole("tab", { name: "Options" }));
-  for (const label of ["CQ", "His Call", "Exchange", "AGN", "My Call", "QRZ", "QSO B4", "Auto CQ Delay (Seconds)", "Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  for (const label of ["CQ", "His Call", "Exchange", "AGN", "My Call", "QRZ", "QSO B4", "Auto CQ Delay (Seconds)", "Use Call History"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  expect(screen.queryByLabelText("Use RTC score reporting")).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: "Group" }));
-  for (const label of ["Connect to server", "Be the master", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  for (const label of ["Enable Group Chat", "Multicast Group", "Multicast Port", "Interface IP"]) expect(screen.getByLabelText(label)).toBeTruthy();
+  expect((screen.getByLabelText("Multicast Group") as HTMLInputElement).value).toBe("239.1.1.1");
+  expect(screen.queryByLabelText("Connect to server")).toBeNull(); expect(screen.queryByLabelText("Be the master")).toBeNull();
+  expect(screen.getByRole("status").textContent).toBe("Group Chat is the only available Multi-Op network capability. Shared serials, dupe checks, log synchronization, and master/client control are not available.");
+});
+it("migrates the obsolete multicast default without exposing or clearing saved master state", async () => {
+  const p = props(); p.value.network.multicastGroup = "224.1.1.1"; p.value.network.multiMaster = true;
+  render(<ContestSetupPanel {...p} initialTab="Group"/>);
+  expect((screen.getByLabelText("Multicast Group") as HTMLInputElement).value).toBe("239.1.1.1");
+  expect(screen.queryByLabelText("Be the master")).toBeNull();
+  open("Save"); await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
+  expect(p.onSave.mock.calls[0][0].network).toMatchObject({ multicastGroup: "239.1.1.1", multiMaster: true });
 });
 it("rejects an unsafe Auto CQ delay before saving", async () => {
   const p=props();render(<ContestSetupPanel {...p}/>);open("Configuration Settings");
@@ -158,6 +169,7 @@ it("rejects an unsafe Auto CQ delay before saving", async () => {
 });
 it.each([false, true])("keeps every detached Options control inside the two-column body with an embedded history panel=%s", async embedded => {
   const p = props(), onOpenCallHistory = vi.fn();
+  p.value.preferences.rtcIntervalMinutes = 3;
   render(<ContestSetupPanel {...p} initialTab="Options" detachedDialog="configuration" onOpenCallHistory={onOpenCallHistory}
     callHistoryPanel={embedded ? <section aria-label="Call history manager"><button type="button">Import local file</button></section> : undefined}/>);
   const panel = screen.getByRole("tabpanel"), columns = panel.querySelector(".contest-options-columns");
@@ -167,9 +179,10 @@ it.each([false, true])("keeps every detached Options control inside the two-colu
   expect(left.className).toBe("contest-manual-stack");
   expect(right.className).toBe("contest-manual-stack");
   expect(left.contains(screen.getByLabelText("Enable ESM"))).toBe(true);
-  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History", "Use RTC score reporting", "Score reporting URL", "Score reporting username", "Score reporting password", "Score posting interval (minutes)", "Clear input fields in S&P when the VFO frequency changes"]) {
+  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History", "Clear input fields in S&P when the VFO frequency changes"]) {
     expect(right.contains(screen.getByLabelText(label))).toBe(true);
   }
+  expect(screen.queryByLabelText("Use RTC score reporting")).toBeNull();
   const historyControl = screen.getByRole("button", { name: embedded ? "Import local file" : "Open Call History" });
   expect(right.contains(historyControl)).toBe(true);
   const footer = screen.getByRole("button", { name: "Save" }).closest("footer")!;
@@ -177,7 +190,6 @@ it.each([false, true])("keeps every detached Options control inside the two-colu
   if (!embedded) { fireEvent.click(historyControl); expect(onOpenCallHistory).toHaveBeenCalledOnce(); }
   else expect(screen.queryByRole("button", { name: "Open Call History" })).toBeNull();
   fireEvent.click(screen.getByLabelText("Clear input fields in S&P when the VFO frequency changes"));
-  fireEvent.change(screen.getByLabelText("Score posting interval (minutes)"), { target: { value: "3" } });
   open("Save");
   await waitFor(() => expect(p.onSave).toHaveBeenCalledOnce());
   expect(p.onSave.mock.calls[0][0].preferences).toMatchObject({ clearOnVFOChange: true, rtcIntervalMinutes: 3 });
