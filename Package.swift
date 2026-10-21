@@ -82,7 +82,7 @@ portableTargets.append(contentsOf: [
     .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
     .target(name: "XLogPrototypeSupport", dependencies: prototypeSupportDependencies),
     .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
-    .testTarget(name: "XLogPrototypeTests", dependencies: ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
+    .testTarget(name: "XLogPrototypeTests", dependencies: portableCrypto + ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
     .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
     .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
     .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
