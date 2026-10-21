@@ -169,9 +169,15 @@ impl Drop for RequestSlot {
 
 pub fn validate_request(request: &Value) -> Result<(), String> {
     let object = request.as_object().ok_or("Request must be an object")?;
+    let method = request["method"].as_str().ok_or("Method is required")?;
+    let trusted_contest_digital_scope = request["operatingModule"] == "contesting"
+        && matches!(method,
+            "wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop" |
+            "fldigi_snapshot" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send");
     if object
         .keys()
-        .any(|key| !["id", "method", "params"].contains(&key.as_str()))
+        .any(|key| !["id", "method", "params"].contains(&key.as_str())
+            && !(key == "operatingModule" && trusted_contest_digital_scope))
     {
         return Err("Unknown request property".into());
     }
@@ -179,7 +185,6 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
     if id.is_empty() || id.len() > 128 {
         return Err("Invalid request ID".into());
     }
-    let method = request["method"].as_str().ok_or("Method is required")?;
     if ![
         "health",
         "parse_adif",
@@ -1684,6 +1689,25 @@ mod tests {
         );
         assert!(validate_request(&json!({"id":"","method":"health","params":{}})).is_err());
         assert!(validate_request(&json!({"id":"a","method":"health","params":[]})).is_err());
+    }
+
+    #[test]
+    fn admits_only_the_native_contest_scope_for_digital_worker_requests() {
+        for method in ["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
+                       "fldigi_snapshot", "fldigi_configure", "fldigi_start", "fldigi_stop", "fldigi_send"] {
+            assert!(validate_request(&json!({
+                "id":"digital", "method":method, "params":{}, "operatingModule":"contesting"
+            })).is_ok(), "{method}");
+        }
+        assert!(validate_request(&json!({
+            "id":"digital", "method":"wsjtx_snapshot", "params":{}, "operatingModule":"normal_logging"
+        })).is_err());
+        assert!(validate_request(&json!({
+            "id":"digital", "method":"wsjtx_snapshot", "params":{}, "operatingModule":"unknown"
+        })).is_err());
+        assert!(validate_request(&json!({
+            "id":"contest", "method":"contest_open", "params":{}, "operatingModule":"contesting"
+        })).is_err());
     }
     #[test]
     fn bounds_request_size() {

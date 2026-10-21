@@ -3371,9 +3371,15 @@ mod workspace_layout_tests {
     fn contest_setup_digital_route_marks_only_owner_worker_requests_as_contesting() {
         use crate::operating_module::OperatingModule;
         for method in ["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
-                       "fldigi_snapshot", "fldigi_configure", "fldigi_start", "fldigi_stop"] {
-            assert_eq!(super::contest_setup_digital_worker_module("contest-setup", method),
-                       Some(OperatingModule::Contesting));
+                       "fldigi_snapshot", "fldigi_configure", "fldigi_start", "fldigi_stop", "fldigi_send"] {
+            let module = super::contest_setup_digital_worker_module("contest-setup", method);
+            assert_eq!(module, Some(OperatingModule::Contesting));
+            let mut request = serde_json::json!({"id":"digital", "method":method, "params":{}});
+            request["operatingModule"] = serde_json::to_value(module.unwrap()).unwrap();
+            assert!(crate::worker::validate_request(&request).is_ok(),
+                "the trusted native scope must cross the worker envelope boundary for {method}");
+            assert!(crate::worker::validate_surface("contest-setup", &request).is_ok(),
+                "the Contest Setup role must retain its admitted digital request for {method}");
             assert_eq!(super::contest_setup_digital_worker_module("contest-setup-digital", method), None);
             assert_eq!(super::contest_setup_digital_worker_module("main", method), None);
         }
