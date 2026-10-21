@@ -373,16 +373,34 @@ def load_plugin(plugin_id="cq_ww_cw"):
                  '| "PKTLSB"\n        ):\n            self.sent.setText("599")\n            self.receive.setText("599")'),
             ])
         if plugin_id in {"qso_party_rst", "qso_party_sn"}:
-            # Call-history diagnostics must not corrupt the worker's stdout JSON protocol.
-            replacements.append((
-                'print(f"{result=}")',
-                'logger.debug("call-history result: %s", result)',
-            ))
-            replacements.append((
-                'f"select count(*) as county_count from dxlog where  TS < \'{time_stamp}\' "',
-                'f"select count(*) as county_count from dxlog where (TS < \'{time_stamp}\' OR "\n'
-                '            f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
-            ))
+            # Keep operator-entered locations out of upstream SQL while retaining
+            # its exact uppercase comparison and stable same-second replay order.
+            replacements.extend([
+                (
+                    'query = (\n'
+                    '        f"select count(*) as county_count from dxlog where "\n'
+                    '        f"Exchange1 = \'{county}\' "\n'
+                    '        f"and ContestNR = {self.pref.get(\'contest\', \'1\')};"\n'
+                    '    )\n'
+                    '    result = self.database.exec_sql(query)',
+                    'result = self.database.qso_party_location_count(county)',
+                ),
+                (
+                    'query = (\n'
+                    '            f"select count(*) as county_count from dxlog where  TS < \'{time_stamp}\' "\n'
+                    '            f"and Exchange1 = \'{county.upper()}\' "\n'
+                    '            f"and ContestNR = {self.pref.get(\'contest\', \'1\')};"\n'
+                    '        )\n'
+                    '        result = self.database.exec_sql(query)',
+                    'result = self.database.qso_party_location_count_before(\n'
+                    '            county.upper(), time_stamp, contact.get("ID", "")\n'
+                    '        )',
+                ),
+                (
+                    'print(f"{result=}")',
+                    'logger.debug("call-history result: %s", result)',
+                ),
+            ])
         if plugin_id == "lz-dx":
             # Stable replay for contacts sharing the same UTC second.
             replacements.extend([

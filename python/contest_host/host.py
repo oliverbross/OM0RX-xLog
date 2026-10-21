@@ -1732,8 +1732,12 @@ class Host:
         elif desk.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
             pass
         elif desk.state["pluginID"] in QSO_PARTY_PLUGINS:
-            require(re.fullmatch(r"[A-Za-z0-9-]{1,15}", fields["other_1"]) is not None,
-                    "QSO Party location must be 1 to 15 letters, digits, or hyphens")
+            location = fields["other_1"]
+            require(len(location) <= 15
+                    and re.fullmatch(r"[A-Za-z0-9 .'/\-]+", location) is not None
+                    and re.search(r"[A-Za-z0-9]", location) is not None,
+                    "QSO Party location must be 1 to 15 letters, digits, spaces, apostrophes, "
+                    "periods, hyphens, or slashes")
             if desk.state["pluginID"] == "qso_party_sn":
                 require(fields["sent"].isdigit() and int(fields["sent"]) > 0
                         and fields["receive"].isdigit() and int(fields["receive"]) > 0,

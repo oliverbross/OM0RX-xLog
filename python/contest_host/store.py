@@ -245,6 +245,21 @@ class Store(DataBase):
             (self.current_contest,),
         )
 
+    def qso_party_location_count(self, location):
+        """Count an exact QSO-party location without interpolating operator input."""
+        return self.exec_sql(
+            "SELECT count(*) AS county_count FROM DXLOG WHERE Exchange1=? AND ContestNR=?",
+            (location, self.current_contest),
+        )
+
+    def qso_party_location_count_before(self, location, timestamp, qso_id):
+        """Count a location before one contact in the host's stable replay order."""
+        return self.exec_sql(
+            "SELECT count(*) AS county_count FROM DXLOG WHERE Exchange1=? AND ContestNR=? "
+            "AND (TS<? OR (TS=? AND rowid<(SELECT rowid FROM DXLOG WHERE ID=?)))",
+            (location, self.current_contest, timestamp, timestamp, qso_id),
+        )
+
     def fetch_wpx_exists_before_contact(self, wpx, timestamp, qso_id):
         """Pinned WPX lookup with the host's stable same-second replay order."""
         return self.exec_sql(

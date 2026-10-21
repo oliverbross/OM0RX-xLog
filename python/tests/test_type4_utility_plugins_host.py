@@ -175,7 +175,7 @@ class Type4UtilityPluginTests(unittest.TestCase):
                 finally:
                     host.close()
 
-    def test_qso_party_serial_replay_same_second_tie_and_location_sql_guard(self):
+    def test_qso_party_serial_replay_and_same_second_tie(self):
         host, root, session, revision = self.create("qso_party_sn")
         first_operation, first_qso = uid(), uid()
         try:
@@ -194,12 +194,6 @@ class Type4UtilityPluginTests(unittest.TestCase):
             rows = self.read(host, session, "log")["rows"]
             self.assertEqual([row["SentNr"] for row in reversed(rows)], [1, 2])
             self.assertEqual(sum(row["IsMultiplier1"] for row in rows), 1)
-            with self.assertRaisesRegex(HostError, "letters, digits, or hyphens"):
-                self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
-                            fields={"callsign": "K1ABC", "receive": "43", "other_1": "X';DELETE"})
-            with self.assertRaisesRegex(HostError, "letters, digits, or hyphens"):
-                self.mutate(host, session, revision, "qso_commit", qsoID=uid(),
-                            fields={"callsign": "K1ABC", "receive": "43", "other_1": "O'BRIEN"})
         finally:
             host.close()
         host = Host(root)
@@ -210,6 +204,52 @@ class Type4UtilityPluginTests(unittest.TestCase):
                              (3, "003"))
         finally:
             host.close()
+
+    def test_qso_party_locations_are_bounded_and_parameterized(self):
+        for plugin_id in ("qso_party_rst", "qso_party_sn"):
+            with self.subTest(plugin=plugin_id):
+                host, root, session, revision = self.create(plugin_id)
+                try:
+                    for index, location in enumerate(("O'BRIEN", "St John/2"), start=1):
+                        fields = {"callsign": f"K{index}ABC", "other_1": location}
+                        if plugin_id == "qso_party_sn":
+                            fields["receive"] = str(40 + index)
+                        _, revision = self.mutate(
+                            host, session, revision, "qso_commit", qsoID=uid(),
+                            timestamp=f"2026-10-21 14:00:0{index}", fields=fields,
+                        )
+                    _, revision = self.mutate(host, session, revision, "recalculate")
+                    rows_before = self.read(host, session, "log")["rows"]
+                    identities_before = [row["ID"] for row in rows_before]
+                    self.assertEqual(
+                        {row["Exchange1"] for row in rows_before}, {"O'BRIEN", "ST JOHN/2"}
+                    )
+                    self.assertEqual(sum(row["IsMultiplier1"] for row in rows_before), 2)
+
+                    invalid_locations = ("X';DELETE--", "NEW\nDROP", "NEW\x7f", "A" * 16)
+                    for location in invalid_locations:
+                        with self.subTest(plugin=plugin_id, rejected=repr(location)):
+                            with self.assertRaises(HostError):
+                                self.mutate(
+                                    host, session, revision, "qso_commit", qsoID=uid(),
+                                    fields={"callsign": "DL1ABC", "receive": "43",
+                                            "other_1": location},
+                                )
+                            self.assertEqual(
+                                [row["ID"] for row in self.read(host, session, "log")["rows"]],
+                                identities_before,
+                            )
+                finally:
+                    host.close()
+
+                host = Host(root)
+                try:
+                    _, revision = self.mutate(host, session, revision, "recalculate")
+                    restarted = self.read(host, session, "log")["rows"]
+                    self.assertEqual([row["ID"] for row in restarted], identities_before)
+                    self.assertEqual(sum(row["IsMultiplier1"] for row in restarted), 2)
+                finally:
+                    host.close()
 
     def test_dxpedition_prev_call_persists_between_native_esm_requests(self):
         host, _, session, revision = self.create("dxpedition")
