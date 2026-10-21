@@ -30,6 +30,7 @@ pub struct Configuration {
 
 #[derive(Clone, Debug, Deserialize)]
 struct WireChat {
+    #[allow(dead_code)]
     cmd: String,
     sender: String,
     message: String,
@@ -247,7 +248,10 @@ impl GroupChat {
         if !owner.configuration.enabled {
             return Err("Group networking is disabled in Contest Setup.".into());
         }
-        let worker = owner.worker.as_ref().ok_or("Group networking is not connected.")?;
+        let worker = owner
+            .worker
+            .as_ref()
+            .ok_or("Group networking is not connected.")?;
         let (qso_id, packet) = post_packet(&owner.configuration, contact)?;
         {
             let mut state = owner
@@ -259,7 +263,11 @@ impl GroupChat {
         if let Err(error) = worker.socket.send_to(
             &packet,
             SocketAddrV4::new(
-                owner.configuration.multicast_group.parse().map_err(|_| "Group multicast address is invalid.")?,
+                owner
+                    .configuration
+                    .multicast_group
+                    .parse()
+                    .map_err(|_| "Group multicast address is invalid.")?,
                 owner.configuration.multicast_port,
             ),
         ) {
@@ -272,12 +280,20 @@ impl GroupChat {
     }
 
     pub fn take_contact_receipts(&self, context: &str) -> Result<Vec<String>, String> {
-        let slot = self.0.lock().map_err(|_| "Group network owner is unavailable.")?;
-        let owner = slot.as_ref().ok_or("Group network has not been configured for the active contest.")?;
+        let slot = self
+            .0
+            .lock()
+            .map_err(|_| "Group network owner is unavailable.")?;
+        let owner = slot
+            .as_ref()
+            .ok_or("Group network has not been configured for the active contest.")?;
         if owner.context != context {
             return Err("Those contact receipts belong to an expired contest context.".into());
         }
-        let mut state = owner.state.lock().map_err(|_| "Group network state is unavailable.")?;
+        let mut state = owner
+            .state
+            .lock()
+            .map_err(|_| "Group network state is unavailable.")?;
         Ok(state.contact_receipts.drain(..).collect())
     }
 
@@ -405,6 +421,7 @@ fn start_worker(
     })
 }
 
+#[cfg(test)]
 fn parse_wire(bytes: &[u8]) -> Result<WireChat, String> {
     if bytes.len() > MAX_DATAGRAM_BYTES || !bytes.is_ascii() {
         return Err("Chat datagram is not bounded ASCII JSON.".into());
@@ -423,7 +440,9 @@ fn process_wire(bytes: &[u8], configuration: &Configuration, state: &Arc<Mutex<S
     if bytes.len() > MAX_DATAGRAM_BYTES || !bytes.is_ascii() {
         return;
     }
-    let Ok(value) = serde_json::from_slice::<Value>(bytes) else { return; };
+    let Ok(value) = serde_json::from_slice::<Value>(bytes) else {
+        return;
+    };
     match value.get("cmd").and_then(Value::as_str) {
         Some("CHAT") => {
             if let Ok(message) = serde_json::from_value::<WireChat>(value) {
@@ -435,14 +454,18 @@ fn process_wire(bytes: &[u8], configuration: &Configuration, state: &Arc<Mutex<S
             }
         }
         Some("RESPONSE") => {
-            let Ok(response) = serde_json::from_value::<WireResponse>(value) else { return; };
+            let Ok(response) = serde_json::from_value::<WireResponse>(value) else {
+                return;
+            };
             if response.cmd != "RESPONSE"
                 || response.subject != "POST"
                 || response.recipient != configuration.station_name
             {
                 return;
             }
-            let Ok(mut current) = state.lock() else { return; };
+            let Ok(mut current) = state.lock() else {
+                return;
+            };
             if current.outstanding_contacts.remove(&response.unique_id)
                 && !current.contact_receipts.contains(&response.unique_id)
             {
@@ -557,11 +580,20 @@ fn post_packet(configuration: &Configuration, contact: Value) -> Result<(String,
         return Err("Contest contact publication has an invalid contest identity.".into());
     }
     object.insert("cmd".into(), Value::String("POST".into()));
-    object.insert("Operator".into(), Value::String(configuration.operator.clone()));
-    object.insert("NetBiosName".into(), Value::String(configuration.station_name.clone()));
-    let packet = serde_json::to_vec(&object).map_err(|_| "Contest contact publication could not be encoded.")?;
+    object.insert(
+        "Operator".into(),
+        Value::String(configuration.operator.clone()),
+    );
+    object.insert(
+        "NetBiosName".into(),
+        Value::String(configuration.station_name.clone()),
+    );
+    let packet = serde_json::to_vec(&object)
+        .map_err(|_| "Contest contact publication could not be encoded.")?;
     if packet.len() > MAX_DATAGRAM_BYTES {
-        return Err("Contest contact publication exceeds the pinned Renfield datagram limit.".into());
+        return Err(
+            "Contest contact publication exceeds the pinned Renfield datagram limit.".into(),
+        );
     }
     Ok((qso_id, packet))
 }
@@ -662,7 +694,9 @@ mod tests {
 
     #[test]
     fn accepts_only_group_chat_from_the_pinned_renfield_multicast_protocol() {
-        assert!(parse_wire(br#"{"cmd":"GET_SN","Operator":"OM0RX","NetBiosName":"xlog"}"#).is_err());
+        assert!(
+            parse_wire(br#"{"cmd":"GET_SN","Operator":"OM0RX","NetBiosName":"xlog"}"#).is_err()
+        );
         assert!(parse_wire(br#"{"cmd":"ISDUPE","Call":"K1ABC","Band":14,"Mode":"CW"}"#).is_err());
         assert!(parse_wire(br#"{"cmd":"POST","ID":"one"}"#).is_err());
         assert!(parse_wire(br#"{"cmd":"CHAT","sender":"OM0RX","message":"Run is clear"}"#).is_ok());
@@ -676,7 +710,28 @@ mod tests {
             .unwrap();
         assert!(!snapshot.capabilities.shared_serial);
         assert!(!snapshot.capabilities.duplicate_inquiry);
-        assert!(snapshot.capabilities.authority_limitation.contains("no request identity"));
+        assert!(snapshot
+            .capabilities
+            .authority_limitation
+            .contains("no request identity"));
+    }
+
+    #[test]
+    fn simultaneous_peer_serial_requests_never_create_local_authority() {
+        let first = Arc::new(Mutex::new(SharedState::default()));
+        let second = Arc::new(Mutex::new(SharedState::default()));
+        let request_a = br#"{"cmd":"GET_SN","Operator":"OM0RX","NetBiosName":"xlog-a"}"#;
+        let request_b = br#"{"cmd":"GET_SN","Operator":"VK6ABC","NetBiosName":"xlog-b"}"#;
+        process_wire(request_a, &configuration(true), &first);
+        process_wire(request_b, &configuration(true), &first);
+        process_wire(request_a, &configuration(true), &second);
+        process_wire(request_b, &configuration(true), &second);
+        for state in [&first, &second] {
+            let state = state.lock().unwrap();
+            assert!(state.outstanding_contacts.is_empty());
+            assert!(state.contact_receipts.is_empty());
+            assert!(state.messages.is_empty());
+        }
     }
 
     #[test]
@@ -700,15 +755,26 @@ mod tests {
         let second = Arc::new(Mutex::new(SharedState::default()));
         let one = "11111111-1111-4111-8111-111111111111";
         let two = "22222222-2222-4222-8222-222222222222";
-        first.lock().unwrap().outstanding_contacts.extend([one.into(), two.into()]);
-        second.lock().unwrap().outstanding_contacts.insert(two.into());
-        let mut first_configuration = configuration(true);
+        first
+            .lock()
+            .unwrap()
+            .outstanding_contacts
+            .extend([one.into(), two.into()]);
+        second
+            .lock()
+            .unwrap()
+            .outstanding_contacts
+            .insert(two.into());
+        let first_configuration = configuration(true);
         let mut second_configuration = configuration(true);
         second_configuration.station_name = "xlog-b".into();
 
-        let response = |recipient: &str, id: &str| serde_json::to_vec(&serde_json::json!({
-            "cmd":"RESPONSE","recipient":recipient,"subject":"POST","unique_id":id
-        })).unwrap();
+        let response = |recipient: &str, id: &str| {
+            serde_json::to_vec(&serde_json::json!({
+                "cmd":"RESPONSE","recipient":recipient,"subject":"POST","unique_id":id
+            }))
+            .unwrap()
+        };
         // The first response is lost. A later receipt arrives out of order, and
         // multicast delivers it to both simulated peers.
         let two_for_first = response("xlog-a", two);
@@ -716,11 +782,29 @@ mod tests {
         process_wire(&two_for_first, &second_configuration, &second);
         process_wire(&response("xlog-a", one), &first_configuration, &first);
         process_wire(&two_for_first, &first_configuration, &first); // duplicate frame
-        assert_eq!(first.lock().unwrap().contact_receipts.iter().cloned().collect::<Vec<_>>(), [two, one]);
+        assert_eq!(
+            first
+                .lock()
+                .unwrap()
+                .contact_receipts
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            [two, one]
+        );
         assert!(second.lock().unwrap().contact_receipts.is_empty());
 
         process_wire(&response("xlog-b", two), &second_configuration, &second);
-        assert_eq!(second.lock().unwrap().contact_receipts.iter().cloned().collect::<Vec<_>>(), [two]);
+        assert_eq!(
+            second
+                .lock()
+                .unwrap()
+                .contact_receipts
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            [two]
+        );
     }
 
     #[test]
@@ -729,13 +813,23 @@ mod tests {
         let restarted = Arc::new(Mutex::new(SharedState::default()));
         let packet = serde_json::to_vec(&serde_json::json!({
             "cmd":"RESPONSE","recipient":"xlog-a","subject":"POST","unique_id":qso_id
-        })).unwrap();
+        }))
+        .unwrap();
         process_wire(&packet, &configuration(true), &restarted);
         assert!(restarted.lock().unwrap().contact_receipts.is_empty());
-        restarted.lock().unwrap().outstanding_contacts.insert(qso_id.into());
-        process_wire(&serde_json::to_vec(&serde_json::json!({
-            "cmd":"RESPONSE","recipient":"foreign","subject":"POST","unique_id":qso_id
-        })).unwrap(), &configuration(true), &restarted);
+        restarted
+            .lock()
+            .unwrap()
+            .outstanding_contacts
+            .insert(qso_id.into());
+        process_wire(
+            &serde_json::to_vec(&serde_json::json!({
+                "cmd":"RESPONSE","recipient":"foreign","subject":"POST","unique_id":qso_id
+            }))
+            .unwrap(),
+            &configuration(true),
+            &restarted,
+        );
         assert!(restarted.lock().unwrap().contact_receipts.is_empty());
     }
 }
