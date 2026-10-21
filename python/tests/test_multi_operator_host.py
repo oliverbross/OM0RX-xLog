@@ -453,58 +453,104 @@ class MultiOperatorHostTests(unittest.TestCase):
         self.assertGreaterEqual(len(second["changes"]), 1)
         self.assertNotEqual(first["changes"][0]["sequence"], second["changes"][0]["sequence"])
 
-    def test_replica_reconciles_exact_complete_history_without_duplicate_qso_or_serial(self):
-        serial_request = uid()
-        self.reserve(serial_request)
-        qso_id = uid()
-        self.remote(action="commit", qsoID=qso_id, timestamp="2026-10-22 03:40:00",
-                    frequencyHz=14025000, serialRequestID=serial_request,
-                    fields={"callsign": "K1ABC", "other_2": "303"})
-        complete = self.call("multi_changes", requestID=uid(), afterRevision=0,
-                             afterSequence=0, limit=100)
-        self.assertFalse(complete["hasMore"])
+    def test_nonempty_replica_stages_more_than_one_page_and_retries_after_restart(self):
+        qso_ids = []
+        for index in range(30):
+            serial_request = uid()
+            self.reserve(serial_request)
+            qso_id = uid()
+            qso_ids.append(qso_id)
+            self.remote(action="commit", qsoID=qso_id,
+                        timestamp=f"2026-10-22 03:40:{index:02d}", frequencyHz=14025000,
+                        serialRequestID=serial_request,
+                        fields={"callsign": "K1ABC", "other_2": str(300 + index)})
 
         replica_session, replica_workspace, replica_projection = self.create_replica_session()
         replica_store = self.host.database(replica_session)
-        restored = deepcopy(self.host.database(self.session).exec_sql(
-            "SELECT * FROM DXLOG WHERE ID=?", (qso_id,)))
-        restored["ContestNR"] = replica_store.current_contest
-        replica_store.log_contact(restored)
-        identity = self.host.database(self.session).exec_sql(
-            "SELECT raw_fields,country,deleted FROM xlog_qso_identity WHERE id=?", (qso_id,))
-        replica_store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,?)",
-                                   (qso_id, identity["raw_fields"], identity["country"], identity["deleted"]))
+        master_store = self.host.database(self.session)
+        for row in master_store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY ID"):
+            restored = deepcopy(row)
+            restored["ContestNR"] = replica_store.current_contest
+            replica_store.log_contact(restored)
+        for identity in master_store.exec_sql_mult(
+                "SELECT id,raw_fields,country,deleted FROM xlog_qso_identity ORDER BY id"):
+            replica_store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,?)",
+                                       (identity["id"], identity["raw_fields"],
+                                        identity["country"], identity["deleted"]))
         replica_store.conn.commit()
+        original_rows = replica_store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY ID")
+        original_serials = replica_store.exec_sql_mult(
+            "SELECT draft_id,serial,operation_id,scope,qso_id FROM xlog_serial ORDER BY serial")
 
+        first = self.call("multi_changes", requestID=uid(), afterRevision=0,
+                          afterSequence=0, limit=25)
+        self.assertEqual(len(first["changes"]), 25)
+        self.assertTrue(first["hasMore"])
         next_reservation = self.reserve(uid())
-        with self.assertRaises(HostError) as failure:
-            self.apply_replica(replica_session, replica_workspace, replica_projection,
-                               complete, next_reservation,
-                               mutate=lambda params: params.update(historyComplete=False))
-        self.assertEqual(failure.exception.code, "replica_history_incomplete")
+        staged, first_params = self.apply_replica(
+            replica_session, replica_workspace, replica_projection, first, next_reservation)
+        self.assertEqual(staged["replicaCursor"],
+                         {"revision": first["nextRevision"], "sequence": first["nextSequence"]})
         self.assertFalse(replica_store.replica())
-        rebound, _ = self.apply_replica(replica_session, replica_workspace, replica_projection,
-                                        complete, next_reservation)
-        self.assertEqual(rebound["replicaCursor"],
-                         {"revision": complete["nextRevision"], "sequence": complete["nextSequence"]})
-        self.assertEqual(replica_store.exec_sql(
-            "SELECT count(*) AS n FROM DXLOG WHERE ID=?", (qso_id,))["n"], 1)
-        self.assertEqual(replica_store.exec_sql("SELECT count(*) AS n FROM xlog_serial")["n"], 1)
-        self.assertEqual(rebound["projection"]["authoritySerialRequestID"],
-                         next_reservation["requestID"])
+        self.assertTrue(replica_store.replica_stage())
+        self.assertEqual(replica_store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY ID"),
+                         original_rows)
+        self.assertEqual(replica_store.exec_sql_mult(
+            "SELECT draft_id,serial,operation_id,scope,qso_id FROM xlog_serial ORDER BY serial"),
+            original_serials)
 
         self.host.close(); self.host = Host(self.root)
-        reopened = self.host.dispatch({"id": uid(), "method": "projection",
-                                      "params": {"sessionID": replica_session}})["projection"]
-        empty = self.call("multi_changes", requestID=uid(),
-                          afterRevision=reopened["replicaCursor"]["revision"],
-                          afterSequence=reopened["replicaCursor"]["sequence"], limit=100)
-        polled, _ = self.apply_replica(replica_session, replica_workspace, reopened, empty)
-        self.assertEqual(polled["replicaCursor"], reopened["replicaCursor"])
-        self.assertEqual(self.host.database(replica_session).exec_sql(
-            "SELECT count(*) AS n FROM DXLOG")["n"], 1)
-        self.assertEqual(self.host.database(replica_session).exec_sql(
-            "SELECT count(*) AS n FROM xlog_serial")["n"], 1)
+        replayed = self.host.dispatch({"id": uid(), "method": "multi_replica_apply",
+                                      "params": first_params})
+        self.assertTrue(replayed["replayed"])
+        self.assertEqual(replayed["replicaCursor"], staged["replicaCursor"])
+        second = self.call("multi_changes", requestID=uid(),
+                           afterRevision=staged["replicaCursor"]["revision"],
+                           afterSequence=staged["replicaCursor"]["sequence"], limit=25)
+        self.assertEqual(len(second["changes"]), 5)
+        self.assertFalse(second["hasMore"])
+        rebound, _ = self.apply_replica(replica_session, replica_workspace,
+                                        replayed["projection"], second)
+        rebound_store = self.host.database(replica_session)
+        self.assertEqual(rebound["replicaCursor"],
+                         {"revision": second["nextRevision"], "sequence": second["nextSequence"]})
+        self.assertEqual(rebound_store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY ID"),
+                         original_rows)
+        self.assertEqual(rebound_store.exec_sql(
+            "SELECT count(*) AS n FROM DXLOG")["n"], len(qso_ids))
+        self.assertEqual(rebound_store.exec_sql(
+            "SELECT count(*) AS n FROM xlog_qso_audit")["n"], len(qso_ids))
+        self.assertEqual(rebound_store.exec_sql("SELECT count(*) AS n FROM xlog_serial")["n"], 1)
+        self.assertEqual(rebound["projection"]["authoritySerialRequestID"],
+                         next_reservation["requestID"])
+        self.assertFalse(rebound_store.replica_stage())
+
+        replacement_authority = deepcopy(first["authority"])
+        replacement_authority.update(sessionID=uid(), workspaceGeneration=uid())
+        replacement_first = deepcopy(first)
+        replacement_first["authority"] = replacement_authority
+        replacement_reservation = deepcopy(self.reserve(uid()))
+        replacement_reservation["authority"] = replacement_authority
+        staged_rebind, _ = self.apply_replica(
+            replica_session, replica_workspace, rebound["projection"], replacement_first,
+            replacement_reservation,
+            mutate=lambda params: params.update(fromCursor={"revision": 0, "sequence": 0}))
+        self.assertEqual(rebound_store.replica()["master_session_id"], self.session)
+        self.assertEqual(rebound_store.replica_stage()["master_session_id"],
+                         replacement_authority["sessionID"])
+        self.assertEqual(rebound_store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY ID"),
+                         original_rows)
+        replacement_second = deepcopy(second)
+        replacement_second["authority"] = replacement_authority
+        rebound_again, _ = self.apply_replica(
+            replica_session, replica_workspace, staged_rebind["projection"], replacement_second)
+        self.assertEqual(rebound_store.replica()["master_session_id"],
+                         replacement_authority["sessionID"])
+        self.assertFalse(rebound_store.replica_stage())
+        self.assertEqual(rebound_store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY ID"),
+                         original_rows)
+        self.assertEqual(rebound_again["projection"]["authoritySerialRequestID"],
+                         replacement_reservation["requestID"])
 
     def test_replica_binding_rejects_divergent_log_and_stale_local_revision(self):
         replica_session, replica_workspace, replica_projection = self.create_replica_session()

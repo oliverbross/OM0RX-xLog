@@ -116,6 +116,7 @@ type Projection = {
   columns?: string[];
   history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
   replicaCursor?: { revision:number; sequence:number } | null;
+  replicaAuthority?: { sessionID:string; workspaceGeneration:string } | null;
   authoritySerialRequestID?: string | null;
 };
 type Session = { sessionID: string; workspaceGeneration: string; name: string; pluginID: string; sourceRevision: string; revision: number };
@@ -866,14 +867,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   };
   const syncReplica = async (authored?:{qsoID:string;draftID:string},{background=false}:{background?:boolean}={}) => {
     let active=projectionRef.current;if(!active)throw new Error("Open a contest before synchronising it.");
-    readyAuthority();
+    const authority=readyAuthority();
     if(background&&(busyRef.current||editingRef.current||
         !sameFields(fieldsRef.current,projectionFields(active))))return active;
     const context={operatingContext,sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration};
     const generation=authorityGenerationRef.current,inputVersion=editVersionRef.current,serialContest=active.reservedSerial!==null&&active.reservedSerial!==undefined;
-    let needsSerial=serialContest&&!active.authoritySerialRequestID;
+    let sameAuthority=active.replicaAuthority===undefined||active.replicaAuthority?.sessionID===authority.sessionID&&
+      active.replicaAuthority?.workspaceGeneration===authority.workspaceGeneration;
+    let needsSerial=serialContest&&(!active.authoritySerialRequestID||!sameAuthority);
     for(let page=0;page<200;page+=1){
-      const cursor=active.replicaCursor??{revision:0,sequence:0};
+      const cursor=sameAuthority?(active.replicaCursor??{revision:0,sequence:0}):{revision:0,sequence:0};
       const reserveThisPage=needsSerial&&!authored;
       const syncRequest={operationID:crypto.randomUUID(),changesRequestID:crypto.randomUUID(),expectedRevision:active.revision,
         fromCursor:cursor,limit:25,...(authored?{draftID:authored.draftID,authoredQSOID:authored.qsoID}:{}),
@@ -886,6 +889,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           !cursorResult||cursorResult.revision!==next.replicaCursor?.revision||cursorResult.sequence!==next.replicaCursor?.sequence)
         throw new Error("The native replica returned a mismatched local projection.");
       acceptProjection(next,inputVersion);active=next;
+      sameAuthority=active.replicaAuthority===undefined||active.replicaAuthority?.sessionID===authority.sessionID&&
+        active.replicaAuthority?.workspaceGeneration===authority.workspaceGeneration;
       if(reserveThisPage){if(!next.authoritySerialRequestID)throw new Error("The local replica did not bind its authoritative serial reservation.");needsSerial=false;}
       if(synced.authoredApplied){authored=undefined;needsSerial=serialContest;}
       if(!synced.hasMore&&!needsSerial){await refresh(next.sessionID,next,logOffset);return next;}

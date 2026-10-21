@@ -59,6 +59,16 @@ class Store(DataBase):
             CREATE TABLE IF NOT EXISTS xlog_replica(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
                 master_session_id TEXT NOT NULL, master_workspace_generation TEXT NOT NULL,
                 coordination_digest TEXT NOT NULL, revision INTEGER NOT NULL, sequence INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_replica_stage(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                master_session_id TEXT NOT NULL, master_workspace_generation TEXT NOT NULL,
+                coordination_digest TEXT NOT NULL, revision INTEGER NOT NULL, sequence INTEGER NOT NULL,
+                reservation_json TEXT);
+            CREATE TABLE IF NOT EXISTS xlog_replica_stage_qso(qso_id TEXT PRIMARY KEY,
+                row_json TEXT, identity_json TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS xlog_replica_stage_audit(sequence INTEGER PRIMARY KEY,
+                revision INTEGER NOT NULL, operation_id TEXT NOT NULL, qso_id TEXT NOT NULL,
+                kind TEXT NOT NULL, before_json TEXT, after_json TEXT, reason TEXT NOT NULL,
+                before_identity_json TEXT, after_identity_json TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS xlog_legacy_import(source_identity TEXT PRIMARY KEY, source_digest TEXT NOT NULL,
                 source_contest_nr INTEGER NOT NULL, source_path_name TEXT NOT NULL, imported_rows INTEGER NOT NULL,
                 source_settings TEXT NOT NULL, source_station TEXT, plugin_id TEXT NOT NULL);
@@ -354,6 +364,9 @@ class Store(DataBase):
 
     def replica(self):
         return self.exec_sql("SELECT * FROM xlog_replica WHERE singleton=1")
+
+    def replica_stage(self):
+        return self.exec_sql("SELECT * FROM xlog_replica_stage WHERE singleton=1")
 
 
     def close(self):

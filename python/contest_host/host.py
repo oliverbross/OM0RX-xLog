@@ -773,7 +773,11 @@ class Desk:
             speed = None
         plugin = PLUGIN_REGISTRY[self.state["pluginID"]]
         serial_field = allocated_serial_field(self.state)
-        replica = self.database.replica()
+        bound_replica = self.database.replica()
+        staged_replica = self.database.replica_stage()
+        replica = staged_replica or bound_replica
+        staged_reservation = (json.loads(staged_replica["reservation_json"])
+                              if staged_replica and staged_replica["reservation_json"] else None)
         return {"sessionID": self.state["sessionID"], "engine": "not1mm-python",
                 "pluginID": self.state["pluginID"], "pluginName": PLUGINS[self.state["pluginID"]],
                 "reservedSerial": self.current_sn if requires_serial(self.state) else None,
@@ -781,7 +785,11 @@ class Desk:
                 "coordinationIdentity": coordination_identity(self.state),
                 "replicaCursor": ({"revision": replica["revision"], "sequence": replica["sequence"]}
                                   if replica else None),
-                "authoritySerialRequestID": self.state.get("replicaReservation", {}).get("requestID"),
+                "replicaAuthority": ({"sessionID": replica["master_session_id"],
+                                      "workspaceGeneration": replica["master_workspace_generation"]}
+                                     if replica else None),
+                "authoritySerialRequestID": ((staged_reservation or {}).get("requestID") or
+                                             self.state.get("replicaReservation", {}).get("requestID")),
                 "sourceRevision": SOURCE_REVISION,
                 "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"), "version": "26.10.11",
                                  "edition": "not1mm-python", "sourceRevision": SOURCE_REVISION},
@@ -1608,13 +1616,26 @@ class Host:
         end = self.replica_cursor(params["toCursor"], "destination")
         require(end >= start, "Replica cursor moved backwards", "stale_cursor")
         bound = store.replica()
-        reconciling_history = False
-        if bound:
-            require((bound["master_session_id"], bound["master_workspace_generation"],
-                     bound["coordination_digest"]) ==
-                    (authority["sessionID"], authority["workspaceGeneration"],
-                     authority["coordinationDigest"]),
-                    "Replica authority changed", "authority_mismatch")
+        stage = store.replica_stage()
+        authority_key = (authority["sessionID"], authority["workspaceGeneration"],
+                         authority["coordinationDigest"])
+        if stage and (stage["master_session_id"], stage["master_workspace_generation"],
+                      stage["coordination_digest"]) != authority_key:
+            require(start == (0, 0), "Replica staging authority changed", "authority_mismatch")
+            # A superseded stage has never changed the local log. Discard it
+            # atomically only when the authenticated replacement starts at the
+            # beginning of its own history.
+            store.conn.execute("DELETE FROM xlog_replica_stage_audit")
+            store.conn.execute("DELETE FROM xlog_replica_stage_qso")
+            store.conn.execute("DELETE FROM xlog_replica_stage")
+            stage = None
+        reconciling_history = bool(stage)
+        staging_history = bool(stage)
+        if stage:
+            require(start == (stage["revision"], stage["sequence"]),
+                    "Replica staging cursor is stale", "stale_cursor")
+        elif bound and (bound["master_session_id"], bound["master_workspace_generation"],
+                        bound["coordination_digest"]) == authority_key:
             require(start == (bound["revision"], bound["sequence"]),
                     "Replica cursor is stale", "stale_cursor")
         else:
@@ -1622,21 +1643,23 @@ class Host:
                                    (store.current_contest,))["count"]
             identity_count = store.exec_sql(
                 "SELECT count(*) AS count FROM xlog_qso_identity")["count"]
+            reconciling_history = bool(bound) or count > 0 or identity_count > 0
             require(start == (0, 0),
                     "A replica can bind only from the beginning of authority history", "replica_not_empty")
-            reconciling_history = count > 0 or identity_count > 0
-            require(not reconciling_history or params.get("historyComplete") is True,
-                    "A non-empty replica can bind only from one complete authority history page",
-                    "replica_history_incomplete")
-            store.conn.execute("DELETE FROM xlog_serial WHERE qso_id IS NULL")
             if reconciling_history:
-                # Replace local audit provenance only after the complete page
-                # proves that its durable end-state is byte-for-byte identical.
-                # The surrounding transaction rolls this back on any mismatch.
-                store.conn.execute("DELETE FROM xlog_qso_audit")
-            store.conn.execute("INSERT INTO xlog_replica VALUES(1,?,?,?,?,?)",
-                               (authority["sessionID"], authority["workspaceGeneration"],
-                                authority["coordinationDigest"], 0, 0))
+                require(type(params.get("historyComplete")) is bool,
+                        "Replica history paging state is missing", "replica_history_incomplete")
+                store.conn.execute("DELETE FROM xlog_replica_stage_audit")
+                store.conn.execute("DELETE FROM xlog_replica_stage_qso")
+                store.conn.execute("DELETE FROM xlog_replica_stage")
+                store.conn.execute("INSERT INTO xlog_replica_stage VALUES(1,?,?,?,?,?,NULL)",
+                                   (*authority_key, 0, 0))
+                stage = store.replica_stage()
+                staging_history = True
+            else:
+                store.conn.execute("DELETE FROM xlog_serial WHERE qso_id IS NULL")
+                store.conn.execute("INSERT INTO xlog_replica VALUES(1,?,?,?,?,?)",
+                                   (*authority_key, 0, 0))
         changes = params["changes"]
         require(isinstance(changes, list) and len(changes) <= 100, "Replica change page is invalid")
         previous = start
@@ -1647,7 +1670,13 @@ class Host:
             require(params.get("draftID") == state["draft"]["id"], "Draft changed", "stale_draft")
         authored_seen = False
         touched = {}
-        reconciled_rows, reconciled_identities = {}, {}
+        staged_rows = (store.exec_sql_mult(
+            "SELECT qso_id,row_json,identity_json FROM xlog_replica_stage_qso")
+                       if staging_history else [])
+        reconciled_rows = {row["qso_id"]: json.loads(row["row_json"])
+                           for row in staged_rows}
+        reconciled_identities = {row["qso_id"]: json.loads(row["identity_json"])
+                                 for row in staged_rows}
         change_keys = {"sequence", "revision", "requestID", "qsoID", "kind", "before", "after",
                        "reason", "beforeIdentity", "afterIdentity"}
         for change in changes:
@@ -1696,6 +1725,11 @@ class Host:
             if reconciling_history:
                 reconciled_rows[qso_id] = after
                 reconciled_identities[qso_id] = after_identity
+                store.conn.execute(
+                    "INSERT INTO xlog_replica_stage_qso VALUES(?,?,?) "
+                    "ON CONFLICT(qso_id) DO UPDATE SET row_json=excluded.row_json,identity_json=excluded.identity_json",
+                    (qso_id, canonical(after), canonical(after_identity)),
+                )
             elif kind == "commit":
                 store.log_contact(deepcopy(after))
                 store.conn.execute("INSERT INTO xlog_qso_identity VALUES(?,?,?,?)",
@@ -1710,11 +1744,13 @@ class Host:
                 store.delete_contact(qso_id)
                 store.conn.execute("UPDATE xlog_qso_identity SET raw_fields=?,country=?,deleted=1 WHERE id=?",
                                    (canonical(after_identity["rawFields"]), canonical(after_identity["country"]), qso_id))
+            audit_table = "xlog_replica_stage_audit" if staging_history else "xlog_qso_audit"
             store.conn.execute(
-                "INSERT INTO xlog_qso_audit(revision,operation_id,qso_id,kind,before_json,after_json,reason,"
-                "before_identity_json,after_identity_json) VALUES(?,?,?,?,?,?,?,?,?)",
-                (change["revision"], request_id, qso_id, kind, canonical(before), canonical(after),
-                 change["reason"], canonical(before_identity) if before_identity is not None else None,
+                f"INSERT INTO {audit_table}(sequence,revision,operation_id,qso_id,kind,before_json,after_json,reason,"
+                "before_identity_json,after_identity_json) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (change["sequence"], change["revision"], request_id, qso_id, kind,
+                 canonical(before), canonical(after), change["reason"],
+                 canonical(before_identity) if before_identity is not None else None,
                  canonical(after_identity)),
             )
             touched[qso_id] = after
@@ -1723,6 +1759,27 @@ class Host:
                 "Replica page cursor does not exactly cover its changes", "replica_conflict")
         require(authored is None or authored_seen, "Authored contact is absent from this replica page",
                 "replica_conflict")
+        reservation = params.get("nextReservation")
+        if staging_history:
+            staged_reservation = (json.loads(stage["reservation_json"])
+                                  if stage and stage["reservation_json"] else None)
+            if reservation is not None:
+                self.validate_replica_reservation(desk, reservation, authority)
+                require(staged_reservation is None or canonical(staged_reservation) == canonical(reservation),
+                        "Replica staging serial reservation changed", "serial_conflict")
+                staged_reservation = reservation
+            if requires_serial(state):
+                require(staged_reservation is not None,
+                        "Replica staging requires the next master reservation", "serial_not_found")
+            else:
+                require(staged_reservation is None,
+                        "This replica contest does not use serials", "serial_unsupported")
+            store.conn.execute(
+                "UPDATE xlog_replica_stage SET revision=?,sequence=?,reservation_json=? WHERE singleton=1",
+                (end[0], end[1], canonical(staged_reservation) if staged_reservation is not None else None),
+            )
+            if params.get("historyComplete") is not True:
+                return {"revision": end[0], "sequence": end[1]}
         if reconciling_history:
             expected_rows = {qso_id: row for qso_id, row in reconciled_rows.items() if row is not None}
             actual_rows = {row["ID"]: row for row in store.exec_sql_mult(
@@ -1750,9 +1807,19 @@ class Host:
                     canonical(actual_identities) == canonical(reconciled_identities),
                     "The local log is not an exact copy of the complete authority history",
                     "replica_history_conflict")
-        reservation = params.get("nextReservation")
+            store.conn.execute("DELETE FROM xlog_qso_audit")
+            store.conn.execute(
+                "INSERT INTO xlog_qso_audit(sequence,revision,operation_id,qso_id,kind,before_json,after_json,reason,"
+                "before_identity_json,after_identity_json) "
+                "SELECT sequence,revision,operation_id,qso_id,kind,before_json,after_json,reason,"
+                "before_identity_json,after_identity_json FROM xlog_replica_stage_audit ORDER BY sequence"
+            )
+            store.conn.execute("DELETE FROM xlog_replica")
+            store.conn.execute("INSERT INTO xlog_replica VALUES(1,?,?,?,?,?)",
+                               (*authority_key, end[0], end[1]))
+            reservation = staged_reservation
         needs_reservation = (requires_serial(state) and
-                             (not bound or authored is not None or
+                             (not bound or staging_history or authored is not None or
                               not self.replica_reservation_valid(desk)))
         if requires_serial(state):
             if needs_reservation:
@@ -1783,6 +1850,10 @@ class Host:
         elif not requires_serial(state):
             state.pop("replicaReservation", None)
         store.conn.execute("UPDATE xlog_replica SET revision=?,sequence=? WHERE singleton=1", end)
+        if staging_history:
+            store.conn.execute("DELETE FROM xlog_replica_stage_audit")
+            store.conn.execute("DELETE FROM xlog_replica_stage_qso")
+            store.conn.execute("DELETE FROM xlog_replica_stage")
         return {"revision": end[0], "sequence": end[1]}
 
     def mutate(self, store, session_id, method, params):
@@ -3135,8 +3206,8 @@ class Host:
         desk.prev_call = ""
         desk.current_widget = "callsign"
 
-    def install_replica_reservation(self, desk, reservation, authority):
-        state, store = desk.state, desk.database
+    def validate_replica_reservation(self, desk, reservation, authority):
+        state = desk.state
         keys = {"requestID", "scope", "serial", "sentExchange", "allocatedFieldID", "authority"}
         require(isinstance(reservation, dict) and set(reservation) == keys,
                 "Replica serial reservation is invalid")
@@ -3150,6 +3221,12 @@ class Host:
                 reservation["sentExchange"] == reserved_sent_exchange(state, serial) and
                 reservation["allocatedFieldID"] == allocated_serial_field(state),
                 "Replica serial reservation does not match this draft", "serial_conflict")
+        return request_id, serial, scope
+
+    def install_replica_reservation(self, desk, reservation, authority):
+        state, store = desk.state, desk.database
+        keys = {"requestID", "scope", "serial", "sentExchange", "allocatedFieldID", "authority"}
+        request_id, serial, scope = self.validate_replica_reservation(desk, reservation, authority)
         store.conn.execute("DELETE FROM xlog_serial WHERE draft_id=? AND qso_id IS NULL",
                            (state["draft"]["id"],))
         store.conn.execute(
