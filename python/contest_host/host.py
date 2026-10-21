@@ -27,17 +27,14 @@ from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_E
                       SENT_FIELD_SERIAL_PLUGINS, SIMPLE_MULTIPLIER_PLUGINS, SSA_MT_PLUGINS, TEN_TEN_PLUGINS,
                       TYPE4_UTILITY_PLUGINS)
 from .statistics import calculate_statistics
-from .upstream import adapt_cw_template, load_plugin, load_cw_macros, verify_source
+from .upstream import adapt_cw_template, load_plugin, load_cw_macros, pinned_band_definitions, verify_source
 
 PLUGIN_ID = "cq_ww_cw"
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
-BAND_LABELS = {1.8: "160m", 3.5: "80m", 7.0: "40m", 14.0: "20m", 21.0: "15m", 28.0: "10m",
-               50.0: "6m", 144.0: "2m", 222.0: "1.25m", 432.0: "70cm", 902.0: "33cm", 1296.0: "23cm",
-               2300.0: "13cm", 3300.0: "9cm", 5650.0: "6cm", 10000.0: "3cm", 24000.0: "1.25cm",
-               47000.0: "6mm", 75500.0: "4mm", 119980.0: "2.5mm", 134000.0: "2mm",
-               241000.0: "1mm", 300000.0: "submm"}
+BAND_DEFINITIONS = pinned_band_definitions()
+BAND_LABELS = {definition["value"]: definition["id"] for definition in BAND_DEFINITIONS}
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
                         "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                         *EUROPEAN_HF_PLUGINS}
@@ -441,7 +438,8 @@ class Desk:
         band = self.band(frequency)
         self.contact = deepcopy(base) if base is not None else self.database.get_empty().copy()
         from not1mm.lib.ham_utility import calculate_wpx_prefix
-        rover_location = self.state.get("roverLocation") or self.state["station"].get("RoverQTH", "")
+        rover_location = (base.get("RoverLocation", "") if base is not None else
+                          self.state.get("roverLocation") or self.state["station"].get("RoverQTH", ""))
         self.contact.update({"ID": qso_id, "Call": call, "TS": timestamp, "Freq": frequency / 1000,
             "Band": band, "Operator": operator or self.state["operator"],
             "RoverLocation": str(rover_location).upper(),
@@ -515,20 +513,9 @@ class Desk:
 
     @staticmethod
     def band(frequency):
-        for low, high, band in ((1800000, 2000000, 1.8), (3500000, 4000000, 3.5),
-                                (7000000, 7300000, 7.0), (14000000, 14350000, 14.0),
-                                 (21000000, 21450000, 21.0), (28000000, 29700000, 28.0),
-                                 (50000000, 54000000, 50.0), (144000000, 148000000, 144.0),
-                                 (222000000, 225000000, 222.0), (420000000, 450000000, 432.0),
-                                 (902000000, 928000000, 902.0), (1240000000, 1300000000, 1296.0),
-                                 (2300000000, 2449999999, 2300.0), (3300000000, 3499999999, 3300.0),
-                                 (5650000000, 5924999999, 5650.0), (10000000000, 10499999999, 10000.0),
-                                 (24000000000, 24249999999, 24000.0), (47000000000, 47199999999, 47000.0),
-                                 (75500000000, 80999999999, 75500.0), (119980000000, 122999999999, 119980.0),
-                                 (134000000000, 148999999999, 134000.0), (241000000000, 249999999999, 241000.0),
-                                 (300000000000, 7499999999999, 300000.0)):
-            if low <= frequency <= high:
-                return band
+        for definition in BAND_DEFINITIONS:
+            if definition["lowHz"] <= frequency < definition["highHz"]:
+                return definition["value"]
         raise HostError("invalid_frequency", "Frequency is outside supported contest bands")
 
     def projection(self):
@@ -757,10 +744,12 @@ class Host:
             verify_source()
             return {"plugins": [{"id": key, "name": plugin.name, "engine": "not1mm-python",
                                   "sourceRevision": SOURCE_REVISION, "modes": list(plugin.modes),
+                                   "supportedBands": list(plugin.bands),
                                   "sentExchangeHint": plugin.sent_exchange_hint,
                                   "overlayChoices": list(plugin.overlay_choices)}
                                   | {"exportFormats": list(plugin.export_formats)}
-                                 for key, plugin in PLUGIN_REGISTRY.items()], "protocolVersion": 1}
+                                 for key, plugin in PLUGIN_REGISTRY.items()],
+                    "bandDefinitions": list(BAND_DEFINITIONS), "protocolVersion": 1}
         if method == "sessions":
             sessions = []
             for directory in sorted(self.root.iterdir()):
@@ -904,9 +893,17 @@ class Host:
             require(type(offset) is int and offset >= 0 and type(limit) is int and 1 <= limit <= 100, "Invalid page")
             expected = params.get("expectedRevision")
             require(expected is None or expected == state["revision"], "Contest changed before the next log page", "stale_revision")
+            rows = store.exec_sql_mult(
+                "SELECT d.*,i.raw_fields FROM DXLOG AS d "
+                "LEFT JOIN xlog_qso_identity AS i ON i.id=d.ID "
+                "ORDER BY d.TS DESC,d.rowid DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )
+            for row in rows:
+                row["raw_fields"] = json.loads(row["raw_fields"]) if row["raw_fields"] else {}
             return {"sessionID": session_id, "revision": state["revision"], "offset": offset, "limit": limit,
                     "total": store.exec_sql("SELECT count(*) AS n FROM DXLOG")["n"],
-                    "rows": store.exec_sql_mult("SELECT * FROM DXLOG ORDER BY TS DESC,rowid DESC LIMIT ? OFFSET ?", (limit, offset))}
+                    "rows": rows}
         if method == "export":
             return self.export(desk)
         if method == "export_prepare":
@@ -1814,7 +1811,10 @@ class Host:
         desk.sent.setText(report)
         desk.receive.setText(report)
         desk.other_2.setText("")
-        if desk.state["pluginID"] in {"cwt", "k1usn_sst", "cq_ww_rtty", *NAME_SPC_ENTRY_PLUGINS}:
+        if desk.state["pluginID"] in {
+            "cwt", "k1usn_sst", "cq_ww_rtty", "general_logging",
+            *NAME_SPC_ENTRY_PLUGINS, *QSO_PARTY_PLUGINS,
+        }:
             desk.other_1.setText("")
         if requires_serial(desk.state):
             self.reserve_serial(desk.database, desk.state)

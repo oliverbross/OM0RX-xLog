@@ -94,6 +94,20 @@ class HostTests(unittest.TestCase):
         with self.assertRaisesRegex(HostError, "Sent CQ zone must be 1 to 40"):
             self.host.new_state(params["sessionID"], params)
 
+    def test_catalog_exposes_supported_bands_before_projection(self):
+        response = self.call("contest_catalog", {})
+        catalog = response["plugins"]
+        plugins = {plugin["id"]: plugin for plugin in catalog}
+        self.assertEqual(plugins["trans_tasman"]["supportedBands"], ["160m", "80m", "40m"])
+        self.assertEqual(plugins["cq_ww_cw"]["supportedBands"],
+                         ["160m", "80m", "40m", "20m", "15m", "10m"])
+        bands = {band["id"]: band for band in response["bandDefinitions"]}
+        self.assertEqual(bands["1.25m"], {"id": "1.25m", "lowHz": 222_000_000,
+                                         "highHz": 225_000_000, "value": 222.0})
+        self.assertEqual(bands["13cm"], {"id": "13cm", "lowHz": 2_300_000_000,
+                                        "highHz": 2_450_000_000, "value": 2300.0})
+        self.assertEqual(set(bands), {band for plugin in plugins.values() for band in plugin["supportedBands"]})
+
     def test_commit_restores_default_reports_for_next_draft(self):
         self.mutate("draft_apply", fields={"sent": "579", "receive": "589"})
         self.log()
@@ -295,7 +309,8 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("setup_get")["setup"], setup)
         new_qso = self.log("DL1ABC", "14", 1)
         rows = {row["ID"]: row for row in self.read("log")["rows"]}
-        self.assertEqual(rows[qso], before)
+        self.assertEqual({key: value for key, value in rows[qso].items() if key != "raw_fields"}, before)
+        self.assertEqual(rows[qso]["raw_fields"]["other_2"], "5")
         self.assertEqual((rows[new_qso]["Operator"], rows[new_qso]["StationPrefix"], rows[new_qso]["SentNr"]),
                          ("OM0RX/P", "OM1ABC", 16))
         self.assertEqual((rows[qso]["IsRunQSO"], rows[qso]["Run1Run2"]), (0, 1))
@@ -761,12 +776,14 @@ class HostTests(unittest.TestCase):
             self.assertEqual(after[key], value, key)
         allowed = {"TS", "Call", "Freq", "Band", "Operator", "SNT", "RCV", "SentNr", "ZN", "NR",
                    "CountryPrefix", "Continent", "WPXPrefix", "Points", "IsMultiplier1", "IsMultiplier2",
-                   "isMultiplier3", "Dirty"}
+                   "isMultiplier3", "Dirty", "raw_fields"}
         self.assertLessEqual({key for key in before if before[key] != after[key]}, allowed)
         audit = store.exec_sql(
             "SELECT before_json,after_json FROM xlog_qso_audit WHERE qso_id=? AND kind='correct'", (qso,))
-        self.assertEqual(json.loads(audit["before_json"]), before)
-        self.assertEqual(json.loads(audit["after_json"]), after)
+        self.assertEqual(json.loads(audit["before_json"]),
+                         {key: value for key, value in before.items() if key != "raw_fields"})
+        self.assertEqual(json.loads(audit["after_json"]),
+                         {key: value for key, value in after.items() if key != "raw_fields"})
 
     def test_unknown_country_retained_and_station_country_required(self):
         self.log("XX1TEST", "10")

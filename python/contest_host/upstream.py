@@ -4,6 +4,7 @@ Original bytes remain in vendor. No contest expressions or SQL are converted.
 The overlaid modules have only imports/output destination adjusted.
 """
 from importlib import import_module, util
+from functools import lru_cache
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -14,6 +15,19 @@ from .plugins import PLUGIN_REGISTRY, RTTY_PLUGINS
 
 VENDOR = Path(__file__).resolve().parents[1] / "vendor/not1mm/upstream"
 _verified = False
+
+
+@lru_cache(maxsize=1)
+def pinned_band_definitions():
+    """Return the pinned Not1MM band plan without inventing UI-side edges."""
+    verify_source()
+    if str(VENDOR) not in sys.path:
+        sys.path.insert(0, str(VENDOR))
+    bands = import_module("not1mm.lib.ham_utility").BANDS
+    advertised = {band for plugin in PLUGIN_REGISTRY.values() for band in plugin.bands}
+    return tuple({"id": band.name, "lowHz": round(band.start * 1000),
+                  "highHz": round(band.end * 1000), "value": band.band_mhz}
+                 for band in bands if band.name in advertised)
 
 
 def verify_source():

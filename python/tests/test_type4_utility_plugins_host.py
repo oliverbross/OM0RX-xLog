@@ -112,6 +112,86 @@ class Type4UtilityPluginTests(unittest.TestCase):
                 finally:
                     host.close()
 
+    def test_received_fields_clear_between_contacts_and_log_returns_raw_fields(self):
+        cases = {
+            "general_logging": (
+                {"callsign": "K1ABC", "other_1": "Alice", "other_2": "portable"},
+                {"callsign": "DL1ABC"},
+            ),
+            "qso_party_rst": (
+                {"callsign": "K1ABC", "other_1": "NEW"},
+                {"callsign": "DL1ABC", "other_1": "CA"},
+            ),
+            "qso_party_sn": (
+                {"callsign": "K1ABC", "receive": "42", "other_1": "NEW"},
+                {"callsign": "DL1ABC", "receive": "43", "other_1": "TX"},
+            ),
+        }
+        for plugin_id, (first_fields, second_fields) in cases.items():
+            with self.subTest(plugin=plugin_id):
+                host, _, session, revision = self.create(plugin_id)
+                try:
+                    _, revision = self.mutate(
+                        host, session, revision, "qso_commit", qsoID=uid(),
+                        timestamp="2026-10-21 10:30:00", fields=first_fields,
+                    )
+                    projection = self.read(host, session, "projection")["projection"]
+                    projected = {item["id"]: item["value"] for item in projection["fields"]}
+                    self.assertEqual(projected["other_1"], "")
+                    if plugin_id == "qso_party_sn":
+                        self.assertEqual((projection["reservedSerial"], projected["sent"]), (2, "002"))
+
+                    _, revision = self.mutate(
+                        host, session, revision, "qso_commit", qsoID=uid(),
+                        timestamp="2026-10-21 10:30:01", fields=second_fields,
+                    )
+                    rows = list(reversed(self.read(host, session, "log")["rows"]))
+                    first_raw = {"callsign": "", "sent": "599", "receive": "599",
+                                 "other_1": "", "other_2": ""}
+                    second_raw = dict(first_raw)
+                    if plugin_id == "qso_party_sn":
+                        first_raw["sent"], second_raw["sent"] = "001", "002"
+                    first_raw.update(first_fields)
+                    second_raw.update(second_fields)
+                    self.assertEqual(rows[0]["raw_fields"], first_raw)
+                    self.assertEqual(rows[1]["raw_fields"], second_raw)
+                    if plugin_id == "general_logging":
+                        self.assertEqual(rows[1]["Name"], "")
+                    else:
+                        self.assertEqual(rows[1]["Exchange1"], second_fields["other_1"])
+                    if plugin_id == "qso_party_sn":
+                        projection = self.read(host, session, "projection")["projection"]
+                        projected = {item["id"]: item["value"] for item in projection["fields"]}
+                        self.assertEqual((projection["reservedSerial"], projected["sent"]), (3, "003"))
+                finally:
+                    host.close()
+
+    def test_correction_preserves_historical_rover_location_and_cabrillo(self):
+        host, _, session, revision = self.create("qso_party_rst")
+        qso_id = uid()
+        try:
+            _, revision = self.mutate(host, session, revision, "rover_location", location="FN20")
+            _, revision = self.mutate(
+                host, session, revision, "qso_commit", qsoID=qso_id,
+                timestamp="2026-10-21 10:45:00",
+                fields={"callsign": "K1ABC", "receive": "579", "other_1": "NEW"},
+            )
+            _, revision = self.mutate(host, session, revision, "rover_location", location="FN21")
+            _, revision = self.mutate(
+                host, session, revision, "qso_correct", qsoID=qso_id,
+                fields={"receive": "589"}, reason="Correct received report",
+            )
+            row = self.read(host, session, "log")["rows"][0]
+            self.assertEqual((row["RoverLocation"], row["RCV"]), ("FN20", "589"))
+            qso_line = next(
+                line for line in self.read(host, session, "export")["content"].splitlines()
+                if line.startswith("QSO:")
+            )
+            self.assertIn("FN20", qso_line)
+            self.assertNotIn("FN21", qso_line)
+        finally:
+            host.close()
+
     def test_draft_commit_edit_delete_restart_replay_and_historical_sent_fields(self):
         host, root, session, revision = self.create("qso_party_sn")
         first, second = uid(), uid()
@@ -226,7 +306,7 @@ class Type4UtilityPluginTests(unittest.TestCase):
                     )
                     self.assertEqual(sum(row["IsMultiplier1"] for row in rows_before), 2)
 
-                    invalid_locations = ("X';DELETE--", "NEW\nDROP", "NEW\x7f", "A" * 16)
+                    invalid_locations = ("", "X';DELETE--", "NEW\nDROP", "NEW\x7f", "A" * 16)
                     for location in invalid_locations:
                         with self.subTest(plugin=plugin_id, rejected=repr(location)):
                             with self.assertRaises(HostError):

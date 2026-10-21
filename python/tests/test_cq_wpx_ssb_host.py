@@ -100,6 +100,7 @@ class CQWPXSSBHostTests(unittest.TestCase):
         self.assertEqual(item, {
             "id": "cq_wpx_ssb", "name": "CQ WPX SSB", "engine": "not1mm-python",
             "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f", "modes": ["SSB"],
+            "supportedBands": ["160m", "80m", "40m", "20m", "15m", "10m"],
             "sentExchangeHint": "Sent Exchange",
             "overlayChoices": ["N/A", "CLASSIC", "ROOKIE", "TB-WIRES", "YOUTH"],
             "exportFormats": ["cabrillo", "adif"],

@@ -106,6 +106,7 @@ class ARRLSweepstakesPhoneHostTests(unittest.TestCase):
             "engine": "not1mm-python",
             "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
             "modes": ["SSB"],
+            "supportedBands": ["160m", "80m", "40m", "20m", "15m", "10m"],
             "sentExchangeHint": "Prec Call Check Section",
             "overlayChoices": ["N/A"],
             "exportFormats": ["cabrillo", "adif"],
