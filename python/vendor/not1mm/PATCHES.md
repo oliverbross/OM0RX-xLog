@@ -12,6 +12,21 @@ CW, SSB, RTTY, AM, and FM modes the bounded host can score and export. Runtime-o
 CQP and WFD export overlays read each contact's host-persisted historical sent
 exchange from `MiscText`, preventing later setup edits from rewriting Cabrillo.
 
+The 87-plugin progression adds unchanged pinned sources for AGCW QRP, RAEM,
+RDA Contest, RDXC, RSGB-IOTA, Stew Perry Topband, UKEI-DX, and WIA Remembrance.
+Finite runtime overlays make UKEI bonus scoring and WIA scoring/three-hour duplicate
+checks use the QSO timestamp, retain RAEM's per-QSO sent coordinates for export,
+avoid duplicating AGCW's complete literal sent exchange when no `#` placeholder
+is configured, and add stable row-id tie-breaks to same-second multiplier replay. WIA's intended
+inclusive 0100-0600 local-time bonus captures the machine's UTC offset when the
+contest session is created and persists that offset with the setup, because the
+pinned source has no station-timezone field; historical recalculation is therefore
+stable if the application later runs in another timezone. Its 160-metre comparison
+is adapted to the host's numeric band values. WIA exposes the host's concrete RTTY aliases; the
+source's additional generic `DIG`, `FSK`, and `PKT` strings remain outside this
+bounded mode contract. The pinned RDA `SPECIAL_DX` source list is empty, so no
+current-year C1/C2 ten-point calls are invented by the host.
+
 The source is executed, not translated into contest definitions. The finite
 registry supports CQ WW CW, CQ WW SSB, CQ WW RTTY, CQ WPX CW, CQ WPX SSB,
 CQ WPX RTTY,

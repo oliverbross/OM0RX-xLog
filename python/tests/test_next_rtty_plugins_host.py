@@ -275,7 +275,7 @@ class RTTYCatalogOrderTests(unittest.TestCase):
                     {"id": uid(), "method": "catalog", "params": {}})["plugins"]]
             finally:
                 host.close()
-            self.assertEqual(len(ids), 79)
+            self.assertEqual(len(ids), 87)
         self.assertEqual(ids[3:6], ["cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty"])
         self.assertEqual(ids[10:15], ["naqp_cw", "naqp_ssb", "naqp_rtty",
                                       "phone_weekly_test", "weekly_rtty"])
@@ -284,8 +284,10 @@ class RTTYCatalogOrderTests(unittest.TestCase):
                          ["ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"])
         self.assertEqual(ids[old_tail + 5:old_tail + 10],
                          ["dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn"])
-        self.assertEqual(ids[-5:],
+        self.assertEqual(ids[-13:-8],
                          ["ca_qso_party", "canada_day", "cqws", "darc_schwaben", "winter_field_day"])
+        self.assertEqual(ids[-8:], ["agcw_qrp", "raem", "rda_contest", "rdxc", "rsgb_iota",
+                                    "stew_perry_topband", "ukeidx", "wia_remembrance"])
 
 
 if __name__ == "__main__":

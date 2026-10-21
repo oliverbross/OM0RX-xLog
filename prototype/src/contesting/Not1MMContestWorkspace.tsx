@@ -29,6 +29,7 @@ type Request = (method: string, params?: Record<string, unknown>) => Promise<unk
 type Field = { id: string; label: string; accessibleName: string; value: string; visible: boolean; readOnly: boolean; enabled: boolean };
 type Score = { qsos: number; points: number; countries: number; zones: number; multipliers?: number; uniqueCalls?: number; prefixes?: number; sections?: number; headquarters?: number; total: number };
 type ContestBandDefinition = { id: string; lowHz: number; highHz: number; value: number };
+type ContestSurfaceMode = "CW" | "SSB" | "RTTY" | "AM" | "FM";
 type StatisticsState = { sessionID: string; revision: number; rows: ContestStatisticsRow[]; total: ContestStatisticsRow };
 type Projection = {
   sessionID: string; engine: "not1mm-python"; pluginID: string; pluginName?: string; reservedSerial?: number | null; sourceRevision: string; referenceID: string;
@@ -38,7 +39,7 @@ type Projection = {
   matrixTrackers?: Array<"countries" | "zones">;
   exportFormats?: Array<"cabrillo" | "adif">;
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
-  supportedBands?: string[]; supportedModes?: Array<"CW" | "SSB" | "RTTY" | "AM" | "FM">; allowDuplicateCommit?: boolean;
+  supportedBands?: string[]; supportedModes?: string[]; allowDuplicateCommit?: boolean;
   columns?: string[];
   history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
@@ -123,6 +124,19 @@ const contestTabMap = (value: Record<string, string>) => Object.fromEntries(Obje
 const activeContestKeyBindings = (value: unknown) => {
   try { return validateContestKeyBindings(encodeContestKeyBindings(readContestKeyBindings(value))); }
   catch { return structuredClone(defaultContestKeyBindings); }
+};
+const rttyContestModeAliases = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
+  "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
+const canonicalContestSurfaceMode = (value: unknown): ContestSurfaceMode | null => {
+  const mode = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (mode === "CW" || mode === "SSB" || mode === "AM" || mode === "FM") return mode;
+  if (mode === "LSB" || mode === "USB" || mode === "PH" || mode === "PHONE") return "SSB";
+  return rttyContestModeAliases.has(mode) ? "RTTY" : null;
+};
+const contestSurfaceModes = (values: readonly unknown[], fallback: unknown): ContestSurfaceMode[] => {
+  const modes = values.map(canonicalContestSurfaceMode).filter((mode): mode is ContestSurfaceMode => mode !== null);
+  const fallbackMode = canonicalContestSurfaceMode(fallback);
+  return [...new Set(modes.length ? modes : fallbackMode ? [fallbackMode] : ["CW"] as ContestSurfaceMode[])];
 };
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message :
   typeof cause === "string" && cause.trim() ? cause : "Contest operation failed.";
@@ -1121,7 +1135,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
         reservedSerial,
       },
       descriptor: {
-        bands: configuredBands, modes: projection.supportedModes?.length ? projection.supportedModes : ["CW"], reportsVisible,
+        bands: configuredBands, modes: contestSurfaceModes(projection.supportedModes ?? [], projection.mode), reportsVisible,
         allowDuplicateCommit: projection.allowDuplicateCommit ?? false, automaticSerial: reservedSerial !== null,
         advanceOnSpace: (projection.advanceOnSpace ?? ["callsign"]).filter(contestInputFieldID),
         keyBindings: activeContestKeyBindings(setup.preferences.keyBindings),

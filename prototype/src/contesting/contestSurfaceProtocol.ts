@@ -258,7 +258,7 @@ function validEntryProjectionV2(value: Record<string, unknown>) {
     (!("reportsVisible" in descriptor) || typeof descriptor.reportsVisible === "boolean") &&
     (!("allowDuplicateCommit" in descriptor) || typeof descriptor.allowDuplicateCommit === "boolean") &&
     (!("automaticSerial" in descriptor) || typeof descriptor.automaticSerial === "boolean") &&
-    texts(descriptor.bands, 32, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
+    texts(descriptor.bands, 64, 16) && new Set(descriptor.bands as string[]).size === (descriptor.bands as string[]).length &&
     Array.isArray(descriptor.modes) && descriptor.modes.length <= 5 &&
     descriptor.modes.every(item => oneOf(item, ["CW", "SSB", "RTTY", "AM", "FM"])) &&
     new Set(descriptor.modes).size === descriptor.modes.length && sentFieldsValid && serialValid && advanceOnSpaceValid && keyBindingsValid && operatorValid;

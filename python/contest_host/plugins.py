@@ -186,6 +186,29 @@ PLUGIN_REGISTRY = MappingProxyType({
     "winter_field_day": Plugin("Winter Field Day", bands=FULL_PINNED_BANDS,
                                modes=("CW", "SSB", "RTTY", "AM", "FM"),
                                sent_exchange_hint="Class + section", overlay_choices=("N/A",)),
+    "agcw_qrp": Plugin("AGCW QRP", conditional_serial=True,
+                       bands=("80m", "40m", "20m", "15m", "10m"),
+                       sent_exchange_hint="# power-class member-number", overlay_choices=("N/A",)),
+    "raem": Plugin("RAEM", serial=True, bands=("80m", "40m", "20m", "15m", "10m"),
+                   sent_exchange_hint="Latitude/longitude", overlay_choices=("N/A",)),
+    "rda_contest": Plugin("RDA Contest", conditional_serial=True, modes=("CW", "SSB"),
+                          sent_exchange_hint="# or RDA code", overlay_choices=("N/A",)),
+    "rdxc": Plugin("RDXC", serial=True, modes=("CW", "SSB"),
+                   sent_exchange_hint="Serial or oblast", overlay_choices=("N/A",)),
+    "rsgb_iota": Plugin("RSGB-IOTA", conditional_serial=True,
+                        bands=("80m", "40m", "20m", "15m", "10m"), modes=("CW", "SSB"),
+                        sent_exchange_hint="# or # and IOTA reference", overlay_choices=("N/A",)),
+    "stew_perry_topband": Plugin("Stew Perry Topband", bands=("160m",),
+                                 sent_exchange_hint="4-character grid square", overlay_choices=("N/A",)),
+    "ukeidx": Plugin("UKEI-DX", conditional_serial=True,
+                     bands=("80m", "40m", "20m", "15m", "10m"), modes=("CW", "SSB"),
+                     sent_exchange_hint="# or # and district", overlay_choices=("N/A",)),
+    "wia_remembrance": Plugin("WIA REMEMBRANCE", conditional_serial=True,
+                              bands=("160m", "80m", "40m", "20m", "15m", "10m", "6m", "2m",
+                                     "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm", "6cm", "3cm",
+                                     "1.25cm", "6mm", "4mm", "2.5mm", "2mm", "1mm", "submm"),
+                              modes=("CW", "SSB", "FM", *RTTY_MODES), sent_exchange_hint="Years licensed",
+                              overlay_choices=("N/A",)),
 })
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
@@ -197,7 +220,7 @@ TEN_TEN_PLUGINS = frozenset({"10_10_fall_cw", "10_10_spring_cw", "10_10_winter_p
 NAME_SPC_PLUGINS = frozenset({"naqp_cw", "naqp_ssb", "naqp_rtty", "phone_weekly_test"})
 NAME_SPC_ENTRY_PLUGINS = NAME_SPC_PLUGINS | frozenset({"weekly_rtty"})
 RTTY_PLUGINS = frozenset({"cq_ww_rtty", "cq_wpx_rtty", "naqp_rtty", "weekly_rtty", "arrl_rtty_ru",
-                          "ea_rtty"})
+                          "ea_rtty", "wia_remembrance"})
 CONFIGURED_SENTNR_PLUGINS = frozenset({"cq_ww_rtty", "naqp_rtty", "weekly_rtty",
                                        "aadx_cw", "aadx_ssb", "euhfc", "iaru_hf", "eudx", "lz-dx", "cqws"})
 DISPLAY_SENTNR_PLUGINS = frozenset({"euhfc", "iaru_hf", "eudx", "lz-dx", "arrl_rtty_ru",
@@ -214,9 +237,10 @@ EUROPEAN_DX_PLUGINS = frozenset({"hadx", "helvetia", "pacc", "spdx"})
 CENTRAL_EUROPEAN_PLUGINS = frozenset({"ari_dx", "darc_xmas", "eudx", "lz-dx", "wag"})
 EUROPEAN_HF_PLUGINS = frozenset({"ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb"})
 TYPE4_UTILITY_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn"})
-NO_MULTIPLIER_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "darc_schwaben"})
+NO_MULTIPLIER_PLUGINS = frozenset({"dxpedition", "general_logging", "randomgram", "darc_schwaben",
+                                   "raem", "stew_perry_topband", "wia_remembrance"})
 QSO_PARTY_PLUGINS = frozenset({"qso_party_rst", "qso_party_sn"})
-SENT_FIELD_SERIAL_PLUGINS = frozenset({"qso_party_sn", "ca_qso_party"})
+SENT_FIELD_SERIAL_PLUGINS = frozenset({"qso_party_sn", "ca_qso_party", "raem"})
 SSA_MT_PLUGINS = frozenset({"ssa_mt_cw", "ssa_mt_ssb"})
 ARRL_VHF_PLUGINS = frozenset({"arrl_vhf_jan", "arrl_vhf_jun", "arrl_vhf_sep"})
 SIMPLE_MULTIPLIER_PLUGINS = frozenset({
@@ -228,3 +252,4 @@ SIMPLE_MULTIPLIER_PLUGINS |= CENTRAL_EUROPEAN_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= EUROPEAN_HF_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= QSO_PARTY_PLUGINS
 SIMPLE_MULTIPLIER_PLUGINS |= frozenset({"ca_qso_party", "canada_day", "cqws", "winter_field_day"})
+SIMPLE_MULTIPLIER_PLUGINS |= frozenset({"agcw_qrp", "rda_contest", "rdxc", "rsgb_iota", "ukeidx"})

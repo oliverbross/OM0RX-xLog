@@ -50,7 +50,9 @@ class WPXHostTests(unittest.TestCase):
              "ari_dx", "darc_xmas", "eudx", "lz-dx", "wag",
              "ari_40_80", "ea_rtty", "ok1wc", "ssa_mt_cw", "ssa_mt_ssb",
               "dxpedition", "general_logging", "randomgram", "qso_party_rst", "qso_party_sn",
-              "ca_qso_party", "canada_day", "cqws", "darc_schwaben", "winter_field_day"])
+              "ca_qso_party", "canada_day", "cqws", "darc_schwaben", "winter_field_day",
+              "agcw_qrp", "raem", "rda_contest", "rdxc", "rsgb_iota", "stew_perry_topband",
+              "ukeidx", "wia_remembrance"])
         self.assertEqual(load_plugin("cq_wpx_cw").__file__, str(VENDOR / "not1mm/plugins/cq_wpx_cw.py"))
         view = self.read("session_open")["projection"]
         self.assertEqual(view["pluginID"], "cq_wpx_cw")

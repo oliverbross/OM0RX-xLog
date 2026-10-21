@@ -253,6 +253,37 @@ const projection = (revision = 1, values: Record<string, string> = {}) => ({
   ].map(([id, label, visible, value]) => ({ id, label, accessibleName: label, visible, value: values[id as string] ?? value, readOnly: false, enabled: true })),
 });
 
+it("projects WIA-like wide-band and aliased modes through the canonical detached surface contract", async () => {
+  const bands = ["2190m", "630m", "560m", "160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m",
+    "10m", "8m", "6m", "5m", "4m", "2m", "1.25m", "70cm", "33cm", "23cm", "13cm", "9cm"];
+  const bandDefinitions = bands.map((id,index) => ({id,lowHz:(index+1)*1_000_000_000,highHz:(index+1)*1_000_000_000+1_000_000,value:index+100}));
+  bandDefinitions[bands.indexOf("20m")] = {id:"20m",lowHz:14_000_000,highHz:14_350_000,value:14};
+  const supportedModes = ["CW", "SSB", "FM", "RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
+    "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"];
+  const setup = newContestSetup("OM0RX");
+  setup.pluginID = "wia_remembrance";
+  setup.preferences.bands = bands;
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(setup));
+  const current: any = { ...projection(3), pluginID:"wia_remembrance", pluginName:"WIA REMEMBRANCE",
+    supportedBands:bands, supportedModes, matrixTrackers:[] };
+  const request = vi.fn(async (method:string, params:Record<string,unknown>={}) => {
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    const result=method==="contest_catalog"?{bandDefinitions,plugins:[{id:"wia_remembrance",name:"WIA REMEMBRANCE",supportedBands:bands,modes:supportedModes}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score}:null;
+    if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"]?.status).toBe("ready"));
+  const entry=surfaceOwner.current.projections["active-qso"];
+  expect(entry.descriptor.bands).toEqual(bands);
+  expect(entry.descriptor.modes).toEqual(["CW","SSB","FM","RTTY"]);
+  expect(current.supportedModes).toEqual(supportedModes);
+  expect(validContestSurfaceProjection("active-qso",entry)).toBe(true);
+});
+
 const operationalRequest=(current:()=>ReturnType<typeof projection>)=>vi.fn(async(method:string,params:Record<string,unknown>={})=>{
   const active=current(),support=workspaceSupport(method,params,active);if(support)return support;
   if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();

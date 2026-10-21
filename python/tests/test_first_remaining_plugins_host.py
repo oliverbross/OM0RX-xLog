@@ -71,7 +71,7 @@ class FirstRemainingPluginTests(unittest.TestCase):
                               "params": {"sessionID": session, **params}})
 
     def test_exact_sources_catalog_and_band_mode_contracts(self):
-        self.assertEqual(len(PLUGIN_REGISTRY), 79)
+        self.assertEqual(len(PLUGIN_REGISTRY), 87)
         for plugin_id, digest in HASHES.items():
             with self.subTest(plugin=plugin_id):
                 source = VENDOR / f"not1mm/plugins/{plugin_id}.py"

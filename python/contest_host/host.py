@@ -43,11 +43,13 @@ CQWS_EXCHANGES = frozenset({
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
                         "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                         *EUROPEAN_HF_PLUGINS, "ca_qso_party", "canada_day", "cqws",
-                        "darc_schwaben", "winter_field_day"}
+                        "darc_schwaben", "winter_field_day", "rda_contest", "rdxc",
+                        "rsgb_iota", "ukeidx", "wia_remembrance"}
 MIXED_MODE_PLUGINS = {"euhfc", "iaru_hf", "arrl_10m", "arrl_field_day", *ARRL_VHF_PLUGINS,
                       "es_field_day", "es_ll_kv", "es_open", *EUROPEAN_DX_PLUGINS,
                       *CENTRAL_EUROPEAN_PLUGINS, "ari_40_80", "ca_qso_party", "canada_day",
                       "cqws", "darc_schwaben", "winter_field_day"}
+MIXED_MODE_PLUGINS |= {"rda_contest", "rdxc", "rsgb_iota", "ukeidx", "wia_remembrance"}
 ESTONIAN_REGIONS = frozenset({
     "HM", "HR", "IV", "JG", "JR", "LN", "LV", "PL",
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
@@ -138,12 +140,19 @@ def requires_serial(state):
     plugin_id = state["pluginID"]
     return (plugin_id in SERIAL_PLUGINS
             or plugin_id in CONDITIONAL_SERIAL_PLUGINS
-            and "#" in str(state["settings"].get("SentExchange", "")))
+            and "#" in str(state["settings"].get("SentExchange", ""))
+            or plugin_id == "rda_contest" and not rda_station_is_russian(state))
+
+
+def rda_station_is_russian(state):
+    station = state.get("station", {}).get("Call", "")
+    entity = state.get("reference", {}).get("countries", {}).get(station, {}).get("entity", "")
+    return entity in {"European Russia", "Asiatic Russia", "Kaliningrad"}
 
 
 def reserved_sent_exchange(state, serial):
     value = str(serial).zfill(3)
-    if state["pluginID"] == "canada_day":
+    if state["pluginID"] in {"canada_day", "rsgb_iota", "ukeidx"}:
         return str(state["settings"].get("SentExchange", "#")).replace("#", value)
     if state["pluginID"] == "es_field_day":
         return f'{value} {str(state["station"].get("State", "")).upper()}'
@@ -162,6 +171,40 @@ def validate_ca_exchange(contest, exchange, setup=False):
     if len(parts) == 1:
         valid = valid or value in contest.CA_MULTS or value == "DX"
     require(valid, "CQP exchange must be a valid state, province, DX, or slash-separated CA counties")
+
+
+def valid_raem_coordinates(value):
+    match = re.fullmatch(r"([0-9]{1,2})([NS])([0-9]{1,3})([WO])", str(value).upper())
+    return bool(match and int(match[1]) <= 90 and int(match[3]) <= 180)
+
+
+def validate_batch2_setup(plugin_id, state, exchange):
+    value = str(exchange).upper().strip()
+    if plugin_id == "agcw_qrp":
+        require(re.fullmatch(r"(?:#|[0-9]+) (?:VLP|QRP|MP|QRO) (?:NM|[0-9]+)", value) is not None,
+                "AGCW QRP sent exchange must be # or SERIAL, then POWER and MEMBER (or NM)")
+    elif plugin_id == "raem":
+        require(valid_raem_coordinates(value), "RAEM sent exchange must be latitude/longitude such as 33N117W")
+    elif plugin_id == "rda_contest":
+        require((rda_station_is_russian(state) and re.fullmatch(r"[A-Z]{2}-?[0-9]{2}", value) is not None)
+                or (not rda_station_is_russian(state) and value == "#"),
+                "RDA sent exchange must be an RDA code for Russian stations or # elsewhere")
+    elif plugin_id == "rdxc":
+        require(value == "#", "RDXC sent exchange must be #")
+    elif plugin_id == "rsgb_iota":
+        require(re.fullmatch(r"(?:#|0*[1-9][0-9]*)(?: [A-Z]{2}-?[0-9]{3})?", value) is not None,
+                "RSGB IOTA sent exchange must be # with an optional IOTA reference")
+    elif plugin_id == "stew_perry_topband":
+        station_grid = str(state["station"].get("GridSquare", "")).upper()
+        require(re.fullmatch(r"[A-R]{2}[0-9]{2}(?:[A-X]{2})?", station_grid) is not None
+                and value == station_grid[:4],
+                "Stew Perry sent exchange must match the 4-character prefix of the station grid")
+    elif plugin_id == "ukeidx":
+        require(re.fullmatch(r"(?:#|0*[1-9][0-9]*)(?: [A-Z0-9]{1,4})?", value) is not None,
+                "UKEI DX sent exchange must be # with an optional district")
+    elif plugin_id == "wia_remembrance":
+        require(value == "#" or value.isdigit() and int(value) > 0,
+                "WIA Remembrance sent exchange must be # or positive licensed years")
 
 
 def validate_cwo_names(station, sent_exchange):
@@ -473,8 +516,16 @@ class Desk:
             self.contact.update({"QSXFreq": frequency / 1000, "Mode": radio_mode, "ContestNR": 1,
                 "ContestName": self.contest.cabrillo_name, "StationPrefix": self.station["Call"],
                 "IsRunQSO": int(self.pref["run_state"]), "Run1Run2": 1})
-            if self.state["pluginID"] in {"ca_qso_party", "winter_field_day"}:
+            if self.state["pluginID"] in {"ca_qso_party", "winter_field_day", "raem"}:
                 self.contact["MiscText"] = str(self.state["settings"].get("SentExchange", "")).upper()
+            if self.state["pluginID"] == "stew_perry_topband":
+                sent_grid = str(self.state["settings"].get("SentExchange", "")).upper()
+                station_grid = str(self.state["station"].get("GridSquare", "")).upper()
+                self.contact["MiscText"] = f"{sent_grid}|{station_grid}"
+                # Stew Perry's QSO points include the entrant power category.
+                # Keep the category with the row so setup edits cannot rewrite
+                # the historical power multiplier during a score rebuild.
+                self.contact["Power"] = str(self.state["settings"].get("PowerCategory", "")).upper()
         self.contact_is_dupe = int(self.is_dupe(call, band, timestamp, self.contact["Mode"]))
         self.contest.set_contact_vars(self)
         if self.state["pluginID"] in ARRL_DX_PLUGINS:
@@ -599,7 +650,9 @@ class Desk:
                     if operating_mode(self.state) == "SSB"
                     else operating_mode(self.state),
                 )),
-                "dupeExplanation": ("Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."
+                "dupeExplanation": ("Worked on this band and mode within the preceding three hours."
+                                    if self.state["pluginID"] == "wia_remembrance" else
+                                    "Worked on this band and mode in this 2-hour UTC block (08–10, 10–12, 12–14)."
                                     if self.contest.dupe_type == 5 else
                                     "Worked in this contest." if self.contest.dupe_type == 1 else
                                     "Worked on this band and mode." if self.contest.dupe_type == 3 else
@@ -662,6 +715,12 @@ class Desk:
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
                     "countries": countries, "zones": 0, "exchangeBandMultipliers": brazilian_units,
                     "multipliers": countries + brazilian_units, "total": self.contest.calc_score(self)}
+        if self.state["pluginID"] in {"rda_contest", "rdxc"}:
+            countries, subdivisions = self.contest.show_mults(self, rtc=True)
+            subdivision_name = "rdaDistricts" if self.state["pluginID"] == "rda_contest" else "oblasts"
+            return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
+                    "countries": countries, "zones": 0, subdivision_name: subdivisions,
+                    "multipliers": countries + subdivisions, "total": self.contest.calc_score(self)}
         if self.state["pluginID"] in SIMPLE_MULTIPLIER_PLUGINS:
             multipliers = self.contest.show_mults(self)
             return {"qsos": self.contest.show_qso(self), "points": self.database.fetch_points().get("Points") or 0,
@@ -1074,6 +1133,12 @@ class Host:
                 operator = text(setup["operator"], 32)
                 require(bool(operator.strip()), "Operator is required")
                 zone = str(setup["settings"].get("SentExchange", ""))
+                if state["pluginID"] == "wia_remembrance":
+                    setup["settings"].setdefault(
+                        "ContestUTCOffsetMinutes", state["settings"].get("ContestUTCOffsetMinutes", 0))
+                    offset = setup["settings"]["ContestUTCOffsetMinutes"]
+                    require(type(offset) is int and -720 <= offset <= 840,
+                            "WIA contest local UTC offset must be whole minutes from -720 to 840")
                 if state["pluginID"] == "cq_ww_rtty":
                     validate_cq_ww_rtty_sent_exchange(setup["settings"].get("SentExchange", ""))
                 elif state["pluginID"] in CQ_WW_PLUGINS:
@@ -1142,6 +1207,9 @@ class Host:
                 if state["pluginID"] == "winter_field_day":
                     require(re.fullmatch(r"[0-9]{1,2}[A-Za-z] [A-Za-z0-9]{2,4}", zone) is not None,
                             "Winter Field Day sent exchange must be CLASS SECTION")
+                validation_state = {"pluginID": state["pluginID"], "station": setup["station"],
+                                    "reference": state["reference"]}
+                validate_batch2_setup(state["pluginID"], validation_state, zone)
                 modes = PLUGIN_REGISTRY[state["pluginID"]].modes
                 mode = modes[0]
                 allowed_categories = {*modes, "MIXED"} if state["pluginID"] in MIXED_MODE_PLUGINS else set(modes)
@@ -1162,6 +1230,12 @@ class Host:
                 if state["pluginID"] == "darc_schwaben" and zone != "#":
                     state["draft"]["fields"]["other_1"] = zone.upper()
                 if state["pluginID"] == "canada_day" and "#" not in zone:
+                    state["draft"]["fields"]["other_1"] = zone.upper()
+                if state["pluginID"] == "agcw_qrp" and not requires_serial(state):
+                    state["draft"]["fields"]["other_1"] = zone.upper()
+                if state["pluginID"] in {"rda_contest", "wia_remembrance"} and not requires_serial(state):
+                    state["draft"]["fields"]["other_1"] = zone.upper()
+                if state["pluginID"] in {"rsgb_iota", "ukeidx"} and not requires_serial(state):
                     state["draft"]["fields"]["other_1"] = zone.upper()
                 self.reserve_serial(store, state)
                 # Recreate the adapter with effective settings/macros before returning
@@ -1303,8 +1377,9 @@ class Host:
                                          (projection.get("draftID"), projection.get("reservedSerial")))
             if reservation:
                 expected = str(reservation["serial"]).zfill(3)
+                allocated_field = "sent" if projection.get("pluginID") in SENT_FIELD_SERIAL_PLUGINS else "other_1"
                 for field in projection.get("fields", []):
-                    if field.get("id") == "other_1":
+                    if field.get("id") == allocated_field:
                         field["value"], field["readOnly"] = expected, True
         result["actions"] = []
         result["replayed"] = True
@@ -1368,10 +1443,18 @@ class Host:
         require(call in countries, "Resolve the station country before creating this contest", "station_country_unresolved")
         settings = deepcopy(params.get("settings", {}))
         require(isinstance(settings, dict), "Settings must be an object")
+        if plugin_id == "wia_remembrance":
+            local_offset = datetime.now().astimezone().utcoffset()
+            settings.setdefault("ContestUTCOffsetMinutes",
+                                int(local_offset.total_seconds() // 60) if local_offset is not None else 0)
         for value in [*station.values(), *settings.values()]:
             require(isinstance(value, (str, int)) and not isinstance(value, bool), "Station/settings values must be text or integer")
             text(str(value), 512)
         settings.setdefault("SentExchange", "")
+        if plugin_id == "wia_remembrance":
+            offset = settings["ContestUTCOffsetMinutes"]
+            require(type(offset) is int and -720 <= offset <= 840,
+                    "WIA contest local UTC offset must be whole minutes from -720 to 840")
         if plugin_id == "cq_ww_rtty":
             validate_cq_ww_rtty_sent_exchange(settings["SentExchange"])
         elif plugin_id in CQ_WW_PLUGINS:
@@ -1457,6 +1540,8 @@ class Host:
         if plugin_id == "winter_field_day":
             require(re.fullmatch(r"[0-9]{1,2}[A-Za-z] [A-Za-z0-9]{2,4}", str(settings["SentExchange"])) is not None,
                     "Winter Field Day sent exchange must be CLASS SECTION")
+        setup_state = {"pluginID": plugin_id, "station": station, "reference": {"countries": countries}}
+        validate_batch2_setup(plugin_id, setup_state, settings["SentExchange"])
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -1489,6 +1574,12 @@ class Host:
                      or plugin_id in REF_PLUGINS
                        or plugin_id in EUROPEAN_DX_PLUGINS
                        or plugin_id == "canada_day" and "#" not in str(settings["SentExchange"])
+                       or plugin_id == "agcw_qrp" and "#" not in str(settings["SentExchange"])
+                       or plugin_id in {"rda_contest", "wia_remembrance"}
+                       and not (plugin_id == "rda_contest" and not rda_station_is_russian(setup_state))
+                       and "#" not in str(settings["SentExchange"])
+                       or plugin_id in {"rsgb_iota", "ukeidx"}
+                       and "#" not in str(settings["SentExchange"])
                        or plugin_id == "darc_schwaben" and settings["SentExchange"] != "#" else "", "")))}}
 
     def reserve_serial(self, store, state):
@@ -1822,6 +1913,50 @@ class Host:
             require(re.fullmatch(r"[0-9]{1,2}[A-Za-z]", fields["other_1"]) is not None
                     and re.fullmatch(r"[A-Za-z0-9]{2,4}", fields["other_2"]) is not None,
                     "Winter Field Day received exchange must be CLASS and SECTION")
+        elif desk.state["pluginID"] == "agcw_qrp":
+            configured = str(desk.state["settings"]["SentExchange"]).upper()
+            require((requires_serial(desk.state)
+                     and fields["other_1"].isdigit() and int(fields["other_1"]) > 0)
+                    or (not requires_serial(desk.state) and fields["other_1"].upper() == configured),
+                    "AGCW QRP sent exchange must match the configured fixed value or a positive serial")
+            require(re.fullmatch(r"[0-9]+[ /](?:VLP|QRP|MP|QRO)[ /](?:NM|[0-9]+)",
+                                 fields["other_2"].upper()) is not None,
+                    "AGCW QRP received exchange must be SERIAL POWER MEMBER (or NM)")
+        elif desk.state["pluginID"] == "raem":
+            require(fields["sent"].isdigit() and int(fields["sent"]) > 0
+                    and fields["other_1"].isdigit() and int(fields["other_1"]) > 0,
+                    "RAEM sent and received serials must be positive")
+            require(valid_raem_coordinates(fields["other_2"]),
+                    "RAEM received coordinates must look like 33N117W")
+        elif desk.state["pluginID"] in {"rda_contest", "rdxc"}:
+            if desk.state["pluginID"] == "rdxc" or not rda_station_is_russian(desk.state):
+                require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0,
+                        "Sent serial must be positive")
+            else:
+                require(fields["other_1"].upper() == str(desk.state["settings"]["SentExchange"]).upper(),
+                        "RDA sent district must match contest setup")
+            require(re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{0,15}|[0-9]+", fields["other_2"]) is not None,
+                    "Received exchange must be a positive serial or district/oblast code")
+            if fields["other_2"].isdigit():
+                require(int(fields["other_2"]) > 0, "Received serial must be positive")
+        elif desk.state["pluginID"] == "rsgb_iota":
+            require(re.fullmatch(r"0*[1-9][0-9]*(?: [A-Za-z]{2}-?[0-9]{3})?", fields["other_1"]) is not None,
+                    "RSGB IOTA sent exchange must contain a positive serial and optional IOTA reference")
+            require(re.fullmatch(r"0*[1-9][0-9]*(?: [A-Za-z]{2}-?[0-9]{3})?", fields["other_2"]) is not None,
+                    "RSGB IOTA received exchange must be SERIAL with an optional IOTA reference")
+        elif desk.state["pluginID"] == "stew_perry_topband":
+            require(re.fullmatch(r"[A-Ra-r]{2}[0-9]{2}", fields["other_1"]) is not None,
+                    "Stew Perry received exchange must be a 4-character grid")
+        elif desk.state["pluginID"] == "ukeidx":
+            require(re.fullmatch(r"0*[1-9][0-9]*(?: [A-Za-z0-9]{1,4})?", fields["other_1"]) is not None,
+                    "UKEI DX sent exchange must contain a positive serial and optional district")
+            require(re.fullmatch(r"(?:0*[1-9][0-9]*(?: [A-Za-z0-9]{1,4})?|0*[1-9][0-9]*[A-Za-z]{2})",
+                                 fields["other_2"]) is not None,
+                    "UKEI DX received exchange must be SERIAL with an optional district")
+        elif desk.state["pluginID"] == "wia_remembrance":
+            require(fields["other_1"].isdigit() and int(fields["other_1"]) > 0
+                    and fields["other_2"].isdigit() and int(fields["other_2"]) > 0,
+                    "WIA Remembrance licensed years must be positive integers")
         elif desk.state["pluginID"] in NO_MULTIPLIER_PLUGINS:
             pass
         elif desk.state["pluginID"] in QSO_PARTY_PLUGINS:
@@ -1902,7 +2037,8 @@ class Host:
                                        *AADX_PLUGINS, *CQ_160_PLUGINS, *ESTONIAN_PLUGINS,
                                         *EUROPEAN_DX_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                                          *EUROPEAN_HF_PLUGINS, *QSO_PARTY_PLUGINS,
-                                         "ca_qso_party", "canada_day", "cqws", "winter_field_day"}:
+                                         "ca_qso_party", "canada_day", "cqws", "winter_field_day",
+                                         "agcw_qrp", "rda_contest", "rdxc"}:
             self.rebuild(desk)
             contact = desk.database.exec_sql("SELECT * FROM DXLOG WHERE ID=?", (qso_id,))
         self.audit(desk.database, qso_id, "commit", None, contact)
@@ -1916,6 +2052,7 @@ class Host:
             "cwt", "k1usn_sst", "cq_ww_rtty", "general_logging",
             *NAME_SPC_ENTRY_PLUGINS, *QSO_PARTY_PLUGINS,
             "ca_qso_party", "winter_field_day",
+            "raem", "stew_perry_topband",
         }:
             desk.other_1.setText("")
         if requires_serial(desk.state):
@@ -1973,6 +2110,14 @@ class Host:
                     self.validate_exchange(desk, updated)
                 finally:
                     desk.state["settings"]["SentExchange"] = original
+            elif (desk.state["pluginID"] in {"agcw_qrp", "rda_contest"}
+                  and "other_1" not in correction_fields):
+                original = desk.state["settings"]["SentExchange"]
+                desk.state["settings"]["SentExchange"] = updated["other_1"]
+                try:
+                    self.validate_exchange(desk, updated)
+                finally:
+                    desk.state["settings"]["SentExchange"] = original
             else:
                 self.validate_exchange(desk, updated)
             timestamp = params.get("timestamp", before["TS"])
@@ -2006,7 +2151,10 @@ class Host:
                              or desk.state["pluginID"] == "cqws"
                              or desk.state["pluginID"] == "ca_qso_party" and "sent" not in correction_fields
                              or desk.state["pluginID"] in {"canada_day", "darc_schwaben"}
-                             and "other_1" not in correction_fields)
+                             and "other_1" not in correction_fields
+                             or desk.state["pluginID"] in {"agcw_qrp", "rda_contest"}
+                             and "other_1" not in correction_fields
+                             or desk.state["pluginID"] == "raem" and "sent" not in correction_fields)
             if preserve_sent:
                 # Received-name edits must not replace the exchange actually
                 # sent with the session's current setup value.
@@ -2019,8 +2167,14 @@ class Host:
                 pass
             elif desk.state["pluginID"] == "ca_qso_party":
                 after["SentNr"] = int(updated["sent"])
+            elif desk.state["pluginID"] == "raem":
+                after["SentNr"] = int(updated["sent"])
             elif desk.state["pluginID"] in {"canada_day", "darc_schwaben", "winter_field_day"}:
                 # Original setters already own their heterogeneous sent fields.
+                pass
+            elif desk.state["pluginID"] in {"agcw_qrp", "rda_contest", "rdxc", "rsgb_iota",
+                                             "stew_perry_topband", "ukeidx", "wia_remembrance"}:
+                # Original setters own these plugins' scalar/composite sent fields.
                 pass
             elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
@@ -2052,6 +2206,10 @@ class Host:
         points, duplicate_ids = {}, set()
         configured_sent_exchange = desk.state["settings"].get("SentExchange", "")
         replay_received_exchange = desk.other_2.text()
+        replay_other_1 = desk.other_1.text()
+        replay_callsign = desk.callsign.text()
+        configured_station_grid = desk.station.get("GridSquare", "")
+        configured_power_category = desk.state["settings"].get("PowerCategory", "")
         try:
             desk.database.conn.execute("DELETE FROM DXLOG")
             for row in rows:
@@ -2069,13 +2227,38 @@ class Host:
                     desk.other_2.setText(str(row["NR"]))
                     desk.state["settings"]["SentExchange"] = str(row["SentNr"])
                     desk.contest_settings["SentExchange"] = str(row["SentNr"])
+                if desk.state["pluginID"] == "raem":
+                    # Score replay against the coordinates actually sent for
+                    # this QSO, not a later setup edit.
+                    historical_coordinates = str(row.get("MiscText", configured_sent_exchange))
+                    desk.state["settings"]["SentExchange"] = historical_coordinates
+                    desk.contest_settings["SentExchange"] = historical_coordinates
+                    desk.other_2.setText(str(row.get("Exchange1", "")))
+                    desk.callsign.setText(str(row.get("Call", "")))
+                if desk.state["pluginID"] == "stew_perry_topband":
+                    historical_grid = str(row.get("MiscText", configured_station_grid))
+                    desk.station["GridSquare"] = historical_grid.partition("|")[2] or historical_grid
+                    historical_power = str(row.get("Power", configured_power_category))
+                    desk.state["settings"]["PowerCategory"] = historical_power
+                    desk.contest_settings["PowerCategory"] = historical_power
+                    desk.other_1.setText(str(row.get("Exchange1", "")))
+                if desk.state["pluginID"] == "rsgb_iota":
+                    historical_sent = str(row.get("SentNr", configured_sent_exchange))
+                    desk.state["settings"]["SentExchange"] = historical_sent
+                    desk.contest_settings["SentExchange"] = historical_sent
+                    desk.other_2.setText(str(row.get("NR", "")))
                 row["Points"] = desk.contest.points(desk)
                 points[row["ID"]] = row["Points"]
                 desk.database.log_contact(row)
         finally:
             desk.state["settings"]["SentExchange"] = configured_sent_exchange
             desk.contest_settings["SentExchange"] = configured_sent_exchange
+            desk.station["GridSquare"] = configured_station_grid
+            desk.state["settings"]["PowerCategory"] = configured_power_category
+            desk.contest_settings["PowerCategory"] = configured_power_category
             desk.other_2.setText(replay_received_exchange)
+            desk.other_1.setText(replay_other_1)
+            desk.callsign.setText(replay_callsign)
         desk.contest.recalculate_mults(desk)
         if desk.state["pluginID"] == "ca_qso_party":
             seen = set()

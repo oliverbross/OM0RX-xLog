@@ -104,8 +104,9 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
 def overlay(name, replacements):
     path = VENDOR.joinpath(*name.split(".")).with_suffix(".py")
     source = path.read_text(encoding="utf-8")
-    for original, replacement in replacements:
-        if source.count(original) != 1:
+    for item in replacements:
+        original, replacement, expected = (*item, 1) if len(item) == 2 else item
+        if source.count(original) != expected:
             raise RuntimeError(f"Pinned overlay no longer matches {name}")
         source = source.replace(original, replacement)
     spec = util.spec_from_file_location(name, path)
@@ -219,6 +220,87 @@ def load_plugin(plugin_id="cq_ww_cw"):
                 'f"{self.contest_settings.get(\'SentExchange\', \'\').ljust(9).upper()}"',
                 'f"{str(contact.get(\'MiscText\', self.contest_settings.get(\'SentExchange\', \'\'))).ljust(9).upper()}"',
             ))
+        if plugin_id == "raem":
+            replacements.append((
+                'f"{self.contest_settings.get(\'SentExchange\', \'\').ljust(14).upper()}"',
+                'f"{str(contact.get(\'MiscText\', self.contest_settings.get(\'SentExchange\', \'\'))).ljust(14).upper()}"',
+            ))
+        if plugin_id == "stew_perry_topband":
+            replacements.append((
+                'f"{self.contest_settings.get(\'SentExchange\', \'\').ljust(9).upper()}"',
+                'f"{str(contact.get(\'MiscText\', self.contest_settings.get(\'SentExchange\', \'\'))).split(\'|\', 1)[0].ljust(9).upper()}"',
+            ))
+        if plugin_id == "ukeidx":
+            replacements.extend([
+                (
+                    'zt = datetime.datetime.now(datetime.UTC).isoformat(" ")[11:16]',
+                    'zt = str(self.contact.get("TS", ""))[11:16]',
+                ),
+                ('["3.5", "7"]', '[3.5, 7.0]', 8),
+            ])
+        if plugin_id == "wia_remembrance":
+            replacements.extend([
+                (
+                    'self.contact.get("Band", 0) == "1.8"',
+                    'float(self.contact.get("Band", 0)) == 1.8',
+                ),
+                (
+                    '100 >= int(datetime.datetime.now().astimezone().strftime("%H%M")) <= 600',
+                    '100 <= int((datetime.datetime.strptime(self.contact.get("TS", ""), "%Y-%m-%d %H:%M:%S")'
+                    '.replace(tzinfo=datetime.UTC) + datetime.timedelta(minutes=int('
+                    'self.contest_settings.get("ContestUTCOffsetMinutes", 0)))).strftime("%H%M")) <= 600',
+                ),
+                (
+                    'now = datetime.datetime.now(datetime.UTC)\n            date_time = now.strftime("%Y-%m-%d %H:%M:%S")',
+                    'date_time = self.dupe_timestamp',
+                ),
+            ])
+        if plugin_id == "agcw_qrp":
+            replacements.extend([
+                (
+                    'self.contact["SentNr"] = self.other_1.text().upper() + self.contest_settings.get(\n'
+                    '        "SentExchange", "xxx xxx"\n    ).strip("#")',
+                    'configured = self.contest_settings.get("SentExchange", "xxx xxx")\n'
+                    '    self.contact["SentNr"] = (self.other_1.text().upper() + configured.strip("#")\n'
+                    '                              if "#" in configured else self.other_1.text().upper())',
+                ),
+                (
+                    'f"select count(*) as member_count from dxlog where  TS < \'{time_stamp}\' "',
+                    'f"select count(*) as member_count from dxlog where  (TS < \'{time_stamp}\' OR "\n'
+                    '                f"(TS = \'{time_stamp}\' AND rowid < (SELECT rowid FROM dxlog WHERE ID = \'{contact.get(\"ID\", \"\")}\'))) "',
+                ),
+            ])
+        if plugin_id in {"rda_contest", "rdxc"}:
+            replacements.extend([
+                (
+                    '"select count(*) as mult_count from dxlog where TS < ? and "',
+                    '"select count(*) as mult_count from dxlog where (TS < ? or (TS = ? and rowid < "\n'
+                    '                "(select rowid from dxlog where ID = ?))) and "',
+                ),
+                (
+                    'contact.get("TS", ""),\n                    rda_code,' if plugin_id == "rda_contest" else
+                    'contact.get("TS", ""),\n                    oblast,',
+                    'contact.get("TS", ""),\n                    contact.get("TS", ""),\n'
+                    '                    contact.get("ID", ""),\n                    '
+                    + ('rda_code,' if plugin_id == "rda_contest" else 'oblast,'),
+                ),
+                (
+                    '"select CountryPrefix from dxlog where TS < ? and "' if plugin_id == "rda_contest" else
+                    '"select CountryPrefix from dxlog where TS < ? and Band = ? "',
+                    ('"select CountryPrefix from dxlog where (TS < ? or (TS = ? and rowid < "\n'
+                     '                "(select rowid from dxlog where ID = ?))) and "')
+                    if plugin_id == "rda_contest" else
+                    ('"select CountryPrefix from dxlog where (TS < ? or (TS = ? and rowid < "\n'
+                     '                "(select rowid from dxlog where ID = ?))) and Band = ? "'),
+                ),
+                (
+                    'contact.get("TS", ""),\n                    self.pref.get("contest", "1"),' if plugin_id == "rda_contest" else
+                    'contact.get("TS", ""),\n                    band,',
+                    'contact.get("TS", ""),\n                    contact.get("TS", ""),\n'
+                    '                    contact.get("ID", ""),\n                    '
+                    + ('self.pref.get("contest", "1"),' if plugin_id == "rda_contest" else 'band,'),
+                ),
+            ])
         if plugin_id in {"ref_cw", "ref_ssb"}:
             # The pinned REF siblings inherited Helvetia's country-prefix
             # literal during multiplier replay, and their ESM accepted only
