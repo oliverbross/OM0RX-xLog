@@ -10,6 +10,9 @@ export type ContestSurfaceActionDisposition = void | "native-completed";
 type Owner = { context: ContestSurfaceContext | null; projections: Projections;
   handle: (action: ContestSurfaceActionEnvelope) => Promise<ContestSurfaceActionDisposition>; report: (message: string) => void };
 const boundedMessage = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)).slice(0, 512);
+const sameContext = (current: ContestSurfaceContext | null, expected: ContestSurfaceContext) =>
+  current?.operatingContext === expected.operatingContext && current.sessionID === expected.sessionID &&
+  current.workspaceGeneration === expected.workspaceGeneration;
 const rebasablePresentationActions = new Set<ContestSurfaceActionEnvelope["action"]>([
   "entry_set_text", "entry_set_exchange", "entry_set_frequency_text", "entry_set_band", "entry_set_mode", "assistance_query",
   "log_edit_set_text", "log_edit_set_exchange", "log_edit_set_frequency_text", "log_edit_set_band", "log_edit_confirm_delete",
@@ -30,12 +33,17 @@ export function useContestSurfaceOwner({ context, projections, handle, report }:
         !validContestSurfaceUUID(context.workspaceGeneration)) return;
     const revision = revisionRef.current, snapshot = projections;
     const publication = publishQueue.current.then(async () => {
-      if (contextRef.current?.sessionID !== context.sessionID || contextRef.current.workspaceGeneration !== context.workspaceGeneration) return;
+      if (!sameContext(contextRef.current, context)) return;
       await Promise.all(contestSurfacePanelIDs.map(panelID => publishContestSurface({ ...context, scope: "contesting", panelID,
         projectionRevision: revision, projection: snapshot[panelID] })));
     });
     currentPublication.current = publication;
-    publishQueue.current = publication.catch(cause => report(boundedMessage(cause)));
+    publishQueue.current = publication.catch(cause => {
+      // Native admission must still reject the old publication. A rejection
+      // that settles after its owner context changed is the expected session
+      // handoff, not an operator-facing failure in the newly active contest.
+      if (sameContext(contextRef.current, context)) report(boundedMessage(cause));
+    });
   }, [context?.operatingContext, context?.sessionID, context?.workspaceGeneration, key, report]);
 
   const waitForPublication = useCallback(() => currentPublication.current, []);
