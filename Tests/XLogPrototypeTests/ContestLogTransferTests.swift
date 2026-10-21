@@ -138,6 +138,78 @@ final class ContestLogTransferTests: XCTestCase {
         XCTAssertEqual((reopened["counts"] as? [String: Any])?["pending"] as? Int, 0)
     }
 
+    func testNativeServiceUsesPluginPersistedZoneAndExchangeSemanticsInNormalLogAndADIF() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let generation = try XCTUnwrap(
+            try logbook.handle(method: "workspace_status", params: [:])["generation"] as? String)
+        let sessionID = UUID().uuidString.lowercased()
+        let rows: [[String: Any]] = [
+            ["ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:00:00", "Call": "K1AAA",
+             "Freq": 14_025.0, "Mode": "CW", "ContestName": "CQ-WW-CW", "ZN": 5,
+             "SentNr": "15", "NR": "5", "raw_fields": ["other_1": "15", "other_2": "5"]],
+            ["ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:01:00", "Call": "VK4AAA",
+             "Freq": 14_026.0, "Mode": "CW", "ContestName": "IARU-HF", "ZN": "28",
+             "SentNr": "29", "NR": "28", "raw_fields": ["other_1": "29", "other_2": "28"]],
+            ["ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:02:00", "Call": "W1AW",
+             "Freq": 14_027.0, "Mode": "CW", "ContestName": "IARU-HF", "ZN": "ARRL",
+             "SentNr": "29", "NR": "ARRL", "raw_fields": ["other_1": "29", "other_2": "ARRL"]],
+            ["ID": UUID().uuidString.lowercased(), "TS": "2026-10-21 01:03:00", "Call": "N1CWT",
+             "Freq": 14_028.0, "Mode": "CW", "ContestName": "CW-OPS", "Name": "ALICE",
+             "SentNr": "OLIVER 4567", "NR": "ALICE 1234",
+             "raw_fields": ["other_1": "ALICE", "other_2": "1234"]],
+        ]
+        let source: ContestLogTransferService.ContestRequest = { method, _ in
+            if method == "contest_draft_get" {
+                return ["projection": ["sessionID": sessionID, "workspaceGeneration": generation,
+                    "revision": 1, "sourceRevision": "semantic-test"]]
+            }
+            return ["revision": 1, "total": rows.count, "rows": rows]
+        }
+        let transfer = ContestLogTransferService(logbook: logbook)
+        let prepared = try await transfer.handle(method: "contest_log_transfer_prepare", params: [
+            "sessionID": sessionID, "workspaceGeneration": generation, "expectedRevision": 1,
+        ], request: source)
+        let manifestID = try XCTUnwrap((prepared["manifest"] as? [String: Any])?["manifestID"] as? String)
+        let committed = try await transfer.handle(method: "contest_log_transfer_commit", params: [
+            "sessionID": sessionID, "workspaceGeneration": generation,
+            "expectedRevision": 1, "manifestID": manifestID,
+        ], request: source)
+        XCTAssertEqual((committed["counts"] as? [String: Any])?["inserted"] as? Int, rows.count)
+
+        let saved = Dictionary(uniqueKeysWithValues: try logbook.openedDatabase().fetchAll().map { ($0.call, $0) })
+        let cq = try XCTUnwrap(saved["K1AAA"])
+        XCTAssertEqual(cq.cqZone, "5"); XCTAssertEqual(cq.ituZone, "")
+        let iaru = try XCTUnwrap(saved["VK4AAA"])
+        XCTAssertEqual(iaru.cqZone, ""); XCTAssertEqual(iaru.ituZone, "28")
+        let headquarters = try XCTUnwrap(saved["W1AW"])
+        XCTAssertEqual(headquarters.cqZone, ""); XCTAssertEqual(headquarters.ituZone, "")
+        XCTAssertEqual(headquarters.extraFields["SRX_STRING"], "ARRL")
+        let cwt = try XCTUnwrap(saved["N1CWT"])
+        XCTAssertEqual(cwt.name, "ALICE")
+        XCTAssertEqual(cwt.extraFields["APP_XLOG_CONTEST_SENT_EXCHANGE"], "OLIVER 4567")
+        XCTAssertEqual(cwt.extraFields["APP_XLOG_CONTEST_RECEIVED_EXCHANGE"], "ALICE 1234")
+
+        let exported = Dictionary(uniqueKeysWithValues: ADIFExportSnapshot(contacts: Array(saved.values), scope: .all)
+            .records.map { ($0["CALL"]!, $0) })
+        XCTAssertEqual(exported["K1AAA"]?["CQZ"], "5"); XCTAssertNil(exported["K1AAA"]?["ITUZ"])
+        XCTAssertNil(exported["VK4AAA"]?["CQZ"]); XCTAssertEqual(exported["VK4AAA"]?["ITUZ"], "28")
+        XCTAssertNil(exported["W1AW"]?["CQZ"]); XCTAssertNil(exported["W1AW"]?["ITUZ"])
+        XCTAssertEqual(exported["W1AW"]?["SRX_STRING"], "ARRL")
+        XCTAssertEqual(exported["N1CWT"]?["NAME"], "ALICE")
+        XCTAssertEqual(exported["N1CWT"]?["STX_STRING"], "OLIVER 4567")
+        XCTAssertEqual(exported["N1CWT"]?["SRX_STRING"], "ALICE 1234")
+
+        let replay = try await transfer.handle(method: "contest_log_transfer_commit", params: [
+            "sessionID": sessionID, "workspaceGeneration": generation,
+            "expectedRevision": 1, "manifestID": manifestID,
+        ], request: source)
+        XCTAssertEqual((replay["counts"] as? [String: Any])?["alreadyTransferred"] as? Int, rows.count)
+        XCTAssertEqual(try logbook.openedDatabase().fetchAll().count, rows.count)
+    }
+
     func testNativeServicePreservesMicrowaveFrequenciesAndBands() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

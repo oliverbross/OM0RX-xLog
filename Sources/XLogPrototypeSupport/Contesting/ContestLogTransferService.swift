@@ -166,18 +166,25 @@ actor ContestLogTransferService {
             "APP_XLOG_CONTEST_SOURCE_REVISION": String(sourceRevision),
             "APP_XLOG_CONTEST_SOURCE_SHA256": sourceDigest,
         ]
-        if let value = string(row["ContestName"], maximum: 128), !value.isEmpty { extra["CONTEST_ID"] = value }
-        if let value = string(row["SentNr"], maximum: 128), !value.isEmpty { extra["STX_STRING"] = value }
-        if let value = string(row["NR"], maximum: 128), !value.isEmpty { extra["SRX_STRING"] = value }
-        if let raw = row["raw_fields"] as? [String: Any] {
-            if let value = string(raw["other_1"], maximum: 512), !value.isEmpty { extra["APP_XLOG_CONTEST_SENT_EXCHANGE"] = value }
-            if let value = string(raw["other_2"], maximum: 512), !value.isEmpty { extra["APP_XLOG_CONTEST_RECEIVED_EXCHANGE"] = value }
+        let contestName = string(row["ContestName"], maximum: 128) ?? ""
+        if !contestName.isEmpty { extra["CONTEST_ID"] = contestName }
+        if let value = string(row["SentNr"], maximum: 128), !value.isEmpty {
+            extra["STX_STRING"] = value
+            extra["APP_XLOG_CONTEST_SENT_EXCHANGE"] = value
         }
+        if let value = string(row["NR"], maximum: 128), !value.isEmpty {
+            extra["SRX_STRING"] = value
+            extra["APP_XLOG_CONTEST_RECEIVED_EXCHANGE"] = value
+        }
+        let sourceZone = string(row["ZN"], maximum: 8) ?? ""
+        let isIARUHF = contestName.uppercased() == "IARU-HF"
+        let cqZone = isIARUHF ? "" : sourceZone
+        let ituZone = isIARUHF && Int(sourceZone).map({ (1...90).contains($0) }) == true ? sourceZone : ""
         return QSO(call: call, start: start, band: band, mode: mode,
             submode: submode, frequencyHz: frequencyHz,
             rstSent: string(row["SNT"], maximum: 16), rstReceived: string(row["RCV"], maximum: 16),
             name: string(row["Name"], maximum: 128) ?? "", gridSquare: string(row["GridSquare"], maximum: 16) ?? "",
-            continent: string(row["Continent"], maximum: 8) ?? "", cqZone: string(row["ZN"], maximum: 8) ?? "",
+            continent: string(row["Continent"], maximum: 8) ?? "", cqZone: cqZone, ituZone: ituZone,
             qth: string(row["QTH"], maximum: 128) ?? "", comment: string(row["Comment"], maximum: 512) ?? "",
             txPower: string(row["Power"], maximum: 32) ?? "", operatorCall: string(row["Operator"], maximum: 32) ?? "",
             myCall: string(row["StationPrefix"], maximum: 32) ?? "", extraFields: extra)
