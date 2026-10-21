@@ -4,6 +4,72 @@ This checkpoint records demonstrated desktop behavior for the original executabl
 Not1MM Python/SQLite host inside xLog. It is not a claim that the complete Not1MM
 port or a public macOS release is finished.
 
+## Installed 1.2.97 batched milestone — 21 October
+
+- Exact candidate and installed application source:
+  `106ef154247983c125baf613d24659b551ad39ea` on
+  `codex/not1mm-contesting`, pushed to GitHub with a clean working tree.
+- The executable catalog contains 64 of the 94 byte-pinned original plugins.
+  This batch adds ARRL Field Day, ARRL RTTY Roundup, the January/June/September
+  ARRL VHF contests, ARI DX, DARC XMAS, EU-DX, LZ DX and WAG through the existing
+  Python/SQLite host. No contest rules were translated into Swift or JSON.
+- The shared UI batch restores Not1MM's two-pane Log Display/Edit Contact
+  workflow in separate xLog-styled windows. It keeps native correction and
+  deletion ownership, stale-revision protection and operating-draft isolation.
+- The ARRL VHF host now covers 13 cm through sub-millimetre bands, >=2300 MHz
+  scoring and AM/FM phone-report normalization. Central European correction
+  replay preserves plugin-specific historical sent exchanges.
+
+Exact-source automated checks passed 231 Python tests, 3,775 frontend tests
+across 271 files, 730 Rust unit tests and 26 Rust integration tests. The Swift
+worker built incrementally and its self-test passed; the production frontend,
+worker staging, cached Hamlib helper and macOS package checks also passed. These
+are supporting checks, not packaged-desktop proof.
+
+The packaged application's isolated acceptance report is
+`/private/tmp/om0rx-xlog-1.2.97-not1mm-acceptance-106ef154-20261021.json`.
+Its SHA-256 is
+`7ada7142b59e47d1b796a136c98d0d9242cb31e2b6bd47dd8a135691378912a4`;
+it records schema 1, status `passed`, `embeddedUi: true`, `worker: true`,
+`station_io: false`, and all 35 of 35 checks true.
+
+The exact-source candidate was incrementally packaged, signed and installed at
+`/Applications/OM0RX-xLog.app`. Deep strict verification passed for Developer
+ID team `4WCMQ4U946`; Gatekeeper reports `Unnotarized Developer ID`. Candidate
+and installed hashes match:
+
+- Production executable: `f2227cc44d266a35c262f3ef861fc8f066d65be429308f0240ff0fd00a91553d`
+- Swift worker: `38f0eeb59aed8cc4dd0da8698c445fc393de8ba849c95958f867eabb7af6e929`
+- Not1MM runtime provenance: `7cd86aae38dd4aec456f487195e0ca30a85daf980e75de8d6aae806e561e380a`
+- Not1MM source manifest: `7311ed3fee84b1f09d0004f2cd396a510803c761f66be083e0cd41d1778b71c8`
+
+Actual installed-application QA launched the production bundle and opened
+Contest Setup, Main Logging and Log Display through the native Contest menu as
+separate windows. Each exposed the standard macOS close, minimize and zoom
+controls. Main Logging restored the existing CQ WPX CW draft (`VK8R`, 599/599,
+001/002, S&P, 25 WPM), current 14.348 MHz state, original macro grid, heading
+and score projection. Log Display showed the always-present Chronological log
+and Callsign partial matches panes with original columns plus the existing
+native export/recalculate controls. The normal application simultaneously
+loaded its existing 68,411-contact logbook and live cluster; application data,
+contest databases, normal logs and settings were not moved or deleted. No QSO
+was added, corrected or deleted and no transmit-capable control was used during
+this check.
+
+After exact installed-source verification, the temporary 1.2.96 replacement
+bundle and twelve older 1.2.81–1.2.95 application bundles were deleted from
+`/Applications`, releasing 2.0 GB. Historical sections below retain their
+original checkpoint wording, but their statements that those bundles remain
+recoverable are superseded by this cleanup. Git history and acceptance records
+remain; Application Support, databases, logs and settings were untouched.
+
+This is an implementation checkpoint, not the complete port: 30 original
+plugins and their complete contest-specific workflows remain. The installed
+check did not have a disposable contact in this active contest, so the new
+Edit Contact presentation is covered by source regressions rather than a fresh
+production-window edit. No physical RF, audio, PTT, amplifier, rotor, live peer,
+sponsor-rule certification or notarization was demonstrated.
+
 ## Installed 1.2.96 batched milestone — 21 October
 
 - Exact candidate and installed application source:
