@@ -54,7 +54,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
     preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
-      spaceTabs: true, prefillExchange: true, callHistory: true, scp: true, showQRZDetails: false, darkMode: true,
+      spaceTabs: true, prefillExchange: true, callHistory: true, clearOnVFOChange: false, scp: true, showQRZDetails: false, darkMode: true,
       keyESM: "Enter", keyLog: "Ctrl+Enter", keyStop: "Escape", keyWipe: "Alt+W", keyRun: "Alt+R", keySearch: "Alt+S" }, network: { stationName: "", groupHost: "", groupPort: 12060,
       n1mmHost: "127.0.0.1", n1mmRadioPort: 12060, n1mmContactPort: 12061, n1mmLookupPort: 12062, n1mmRadio: false, n1mmContact: false,
       n1mmLookup: false, n1mmScore: false, n1mmEnabled: false, n1mmStationName: "", n1mmOperatorName: "", multicastGroup: "239.1.1.1", multicastPort: 2239, interface: "0.0.0.0", multiEnabled: false, multiMaster: false }, macros: [] };
@@ -262,7 +262,8 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
         <div className="contest-manual-stack">{check("preferences", "useESM", "Enable ESM")}{[["esmCQ", "CQ", "F1"], ["esmHisCall", "His Call", "F2"], ["esmExchange", "Exchange", "F3"], ["esmAGN", "AGN", "F9"], ["esmMyCall", "My Call", "F5"], ["esmQRZ", "QRZ", "F4"], ["esmQsoB4", "QSO B4", "DISABLED"]].map(([key, label, fallback]) => <label key={key}><span>{label}</span><select value={String(draft.preferences[key] ?? fallback)} onChange={event => update("preferences", key, event.target.value)}>{["DISABLED", ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1))].map(keyName => <option key={keyName}>{keyName}</option>)}</select></label>)}</div>
         <div className="contest-manual-stack">
           {field("preferences", "autoCQDelay", "Auto CQ Delay (Seconds)", "number")}
-          {check("preferences", "callHistory", "Use Call History")}<hr/>
+          {check("preferences", "callHistory", "Use Call History")}
+          {check("preferences", "clearOnVFOChange", "Clear input fields in S&P when the VFO frequency changes")}<hr/>
           {callHistoryPanel ?? (onOpenCallHistory ? <button type="button" onClick={onOpenCallHistory}>Open Call History</button> : null)}
         </div>
       </div>; break;

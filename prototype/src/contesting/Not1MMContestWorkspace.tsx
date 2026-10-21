@@ -566,6 +566,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     { context: "", spotID: null, externalSpotID: null });
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
+  const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
   const flushDraftRef = useRef<() => Promise<Projection | null>>(async () => projectionRef.current);
   const cw = useSharedCW(projection?.sessionID ?? "not1mm-no-session", retiring, setupOnly);
   projectionRef.current = projection; fieldsRef.current = fields;groupNetworkRef.current=groupNetwork;editingRef.current=editing;
@@ -1184,11 +1185,22 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   }, [projection?.focus, projection?.draftID, editing]);
 
   useEffect(() => {
-    if (!projection || observedFrequencyHz === null || projection.frequencyHz === observedFrequencyHz || busyRef.current || retiring) return;
+    if (!projection) return;
+    const previous = observedFrequencyRef.current;
+    if (observedFrequencyHz === null) {
+      observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: null };
+      return;
+    }
+    if (busyRef.current || retiring) return;
+    const freshObservedChange = previous.sessionID === projection.sessionID && previous.frequencyHz !== null &&
+      previous.frequencyHz !== observedFrequencyHz;
+    observedFrequencyRef.current = { sessionID: projection.sessionID, frequencyHz: observedFrequencyHz };
+    if (!freshObservedChange && projection.frequencyHz === observedFrequencyHz) return;
     void runMutation(base => mutate("contest_draft_apply", base, {
       fields: fieldsRef.current, frequencyHz: observedFrequencyHz,
+      ...(freshObservedChange ? { observedVFOChange: true } : {}),
     }), false, false, true);
-  }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, retiring]);
+  }, [observedFrequencyHz, projection?.sessionID, projection?.frequencyHz, busy, retiring]);
 
   const createSession = async (document: ContestSetupDocument) => {
     const contestCall = String(document.station.Call || stationCall).trim().toUpperCase();

@@ -195,11 +195,11 @@ it.each([false, true])("keeps every available detached Options control inside th
   expect(left.className).toBe("contest-manual-stack");
   expect(right.className).toBe("contest-manual-stack");
   expect(left.contains(screen.getByLabelText("Enable ESM"))).toBe(true);
-  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History"]) {
+  for (const label of ["Auto CQ Delay (Seconds)", "Use Call History", "Clear input fields in S&P when the VFO frequency changes"]) {
     expect(right.contains(screen.getByLabelText(label))).toBe(true);
   }
   expect(screen.queryByLabelText("Use RTC score reporting")).toBeNull();
-  expect(screen.queryByLabelText("Clear input fields in S&P when the VFO frequency changes")).toBeNull();
+  expect((screen.getByLabelText("Clear input fields in S&P when the VFO frequency changes") as HTMLInputElement).checked).toBe(true);
   const historyControl = screen.getByRole("button", { name: embedded ? "Import local file" : "Open Call History" });
   expect(right.contains(historyControl)).toBe(true);
   const footer = screen.getByRole("button", { name: "Save" }).closest("footer")!;

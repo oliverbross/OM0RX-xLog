@@ -1821,6 +1821,7 @@ class Host:
             if method == "draft_apply":
                 self.apply_fields(desk, params)
                 self.prefill(desk)
+                self.clear_received_fields_after_vfo_change(desk, params)
             elif method == "focus":
                 require(params.get("field") in INPUTS, "Unknown field")
                 desk.current_widget = params["field"]
@@ -2653,6 +2654,21 @@ class Host:
         if (desk.state.get("setup", {}).get("preferences", {}).get("callHistory", True) is not False
                 and hasattr(desk.contest, "check_call_history")):
             desk.contest.check_call_history(desk)
+
+    @staticmethod
+    def clear_received_fields_after_vfo_change(desk, params):
+        if "observedVFOChange" not in params:
+            return
+        require(type(params["observedVFOChange"]) is bool, "Observed VFO change flag must be boolean")
+        if (not params["observedVFOChange"] or desk.state["run"]
+                or desk.state.get("setup", {}).get("preferences", {}).get("clearOnVFOChange") is not True):
+            return
+        # Reports remain at their contest defaults (59/599); only the call and
+        # editable plugin exchange inputs belong to the next station worked.
+        for field, container in ((desk.callsign, desk.field0),
+                                 (desk.other_1, desk.field3), (desk.other_2, desk.field4)):
+            if container.visible and field.enabled and not field.read_only:
+                field.setText("")
 
     @staticmethod
     def validate_exchange(desk, fields):

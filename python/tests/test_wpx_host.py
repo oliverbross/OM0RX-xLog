@@ -124,6 +124,34 @@ class WPXHostTests(unittest.TestCase):
         self.assertEqual(self.fields()["other_1"], "003")
         self.assertEqual(saved["projection"]["score"]["qsos"], 1)
 
+    def test_observed_vfo_change_clears_only_received_sp_fields(self):
+        setup = self.read("setup_get")["setup"]
+        setup["preferences"].update(clearOnVFOChange=True, futureOption="preserved")
+        self.mutate("setup_save", setup=setup)
+        self.mutate("draft_apply", fields={"callsign": "K1ABC", "sent": "579",
+                                           "receive": "599", "other_2": "123"})
+        before = self.read("projection")["projection"]
+        serial = before["reservedSerial"]
+        sent_serial = self.fields()["other_1"]
+
+        changed = self.mutate("draft_apply", frequencyHz=14026000, observedVFOChange=True)["projection"]
+        fields = {field["id"]: field["value"] for field in changed["fields"]}
+        self.assertEqual(fields, {"callsign": "", "sent": "579", "receive": "599",
+                                  "other_1": sent_serial, "other_2": ""})
+        self.assertEqual(changed["reservedSerial"], serial)
+        self.assertEqual(self.read("setup_get")["setup"]["preferences"]["futureOption"], "preserved")
+
+        self.mutate("run_state", run=True)
+        self.mutate("draft_apply", fields={"callsign": "DL1ABC", "receive": "579", "other_2": "456"})
+        self.mutate("draft_apply", frequencyHz=14027000, observedVFOChange=True)
+        self.assertEqual({key: self.fields()[key] for key in ("callsign", "receive", "other_2")},
+                         {"callsign": "DL1ABC", "receive": "579", "other_2": "456"})
+
+        self.mutate("run_state", run=False)
+        self.mutate("draft_apply", frequencyHz=14028000)
+        self.assertEqual({key: self.fields()[key] for key in ("callsign", "receive", "other_2")},
+                         {"callsign": "DL1ABC", "receive": "579", "other_2": "456"})
+
     def test_prefixed_stale_serial_draft_is_reconciled_before_open_and_commit(self):
         store = self.host.database(self.session)
         state = store.state(self.session)

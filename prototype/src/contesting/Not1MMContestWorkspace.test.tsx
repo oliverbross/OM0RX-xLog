@@ -1817,6 +1817,35 @@ it.each(["", "10.1", "invalid"])("admits an offline contest only after the opera
   expect(screen.getByRole("heading", { name:"Contest Setup", level:1 })).toBeTruthy();
 });
 
+it("marks only a fresh observed VFO transition for authoritative S&P clearing", async () => {
+  const saved = newContestSetup("OM0RX");
+  saved.preferences.clearOnVFOChange = true;
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1", JSON.stringify(saved));
+  let current = projection(), observedApply: Record<string, unknown> | undefined;
+  const request = vi.fn(async (method:string, params:Record<string, any>={}) => {
+    const support = workspaceSupport(method, params, current); if (support) return support;
+    if (method === "contest_scp_status") return unavailableSCP();
+    if (method === "contest_history_status") return unavailableHistory();
+    let result: any = method === "contest_catalog" ? {plugins:[{id:"cq_ww_cw",name:"CQ WW CW"}]} :
+      method === "contest_sessions" ? {sessions:[]} : method === "contest_create" ? {projection:current} :
+      method === "contest_log_page" ? {rows:[],total:0} : method === "contest_score" ? {score:current.score} : null;
+    if (method === "contest_draft_apply") {
+      observedApply = params;
+      current = {...current, revision:current.revision + 1, frequencyHz:Number(params.frequencyHz)};
+      result = {projection:current, actions:[], messages:[]};
+    }
+    if (!result) throw new Error(method);
+    return {id:crypto.randomUUID(),ok:true,result};
+  });
+  const view = render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();
+  await waitFor(() => expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  expect(observedApply).toBeUndefined();
+
+  view.rerender(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} radioFrequencyHz={14_026_000}/>);
+  await waitFor(() => expect(observedApply).toMatchObject({frequencyHz:14_026_000, observedVFOChange:true}));
+});
+
 it.each([
   { manual:"50.125", frequencyHz:50_125_000, band:50 },
   { manual:"144.200", frequencyHz:144_200_000, band:144 },
