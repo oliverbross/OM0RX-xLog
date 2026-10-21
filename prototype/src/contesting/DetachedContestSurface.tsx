@@ -582,6 +582,7 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
   const finish=async(action:ContestSurfaceAction)=>{const result=await send(action,projectionRevision);if(result.applied)await closeContestContactEditorWindow();};
   const details=editing.details??{};
   const entryFields=Array.isArray(editing.entryFields)?editing.entryFields:null;
+  const entryLabels=new Set((entryFields??[]).map((field:any)=>String(field.label??"").trim().toLowerCase()));
   const renderedEntryFields=entryFields?entryFields.map((field:any)=>field.readOnly
     ?<ReadOnlyContactField key={field.id} label={field.label} value={field.value}/>
     :<IntentInput key={field.id} label={field.label} value={field.value} identity={`${editing.qsoID}/field/${field.id}`} projectionRevision={projectionRevision}
@@ -599,8 +600,9 @@ function ContactEditor({projection,disabled,sending,projectionRevision,receipts,
     <ReadOnlyContactField label="Mode" value={editing.mode}/><ReadOnlyContactField label="Contest" value={details.contest??""}/>
     {renderedEntryFields}
     <ReadOnlyContactField label="Country" value={details.country??""}/><ReadOnlyContactField label="Station Call" value={details.stationCall??""}/>
-    <ReadOnlyContactField label="Name" value={details.name??""}/><ReadOnlyContactField label="QTH" value={details.qth??""}/>
-    <ReadOnlyContactField label="Comment" value={details.comment??""} wide/>
+    {!entryLabels.has("name")&&<IntentInput label="Name" value={editing.name??details.name??""} identity={`${editing.qsoID}/name`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={20} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"name",value}})}/>}
+    {!entryLabels.has("qth")&&<IntentInput label="QTH" value={editing.qth??details.qth??""} identity={`${editing.qsoID}/qth`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={25} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"qth",value}})}/>}
+    {!entryLabels.has("comment")&&<IntentInput label="Comment" value={editing.comment??details.comment??""} identity={`${editing.qsoID}/comment`} projectionRevision={projectionRevision} receipts={receipts} disabled={disabled} maximumUTF8Bytes={60} send={send} action={value=>({action:"log_edit_set_text",params:{qsoID:editing.qsoID,field:"comment",value}})}/>}
     <ReadOnlyContactField label="Nr" value={details.receivedNumber??""}/><ReadOnlyContactField label="Nr Sent" value={details.sentNumber??""}/>
     <ReadOnlyContactField label="Points" value={details.points??""}/><ReadOnlyContactField label="Power" value={details.power??""}/>
     <ReadOnlyContactField label="Zone" value={details.zone??""}/><ReadOnlyContactField label="Section" value={details.section??""}/>

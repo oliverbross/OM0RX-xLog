@@ -171,7 +171,7 @@ const logProjection = { schemaVersion: 1, status: "ready", sessionRevision: 7, c
     sentExchange: "599 100", receivedExchange: "599 MA", points: 3, multiplierLabels: ["K"] }] },
   editing: { qsoID: "qso-1", workedAt: "2026-10-19T10:00:00Z", operator: "OM0RX", callsign: "K1ABC", band: "20m", mode: "CW", sentReport: "599", receivedReport: "599",
     receivedFields: [receivedField], frequencyHz: 14_025_000, editFrequencyText: "14.025A", frequencyError: "Use digits only",
-    correctionReason: "", confirmDelete: false, deletionReason: "" }, busy: false } as const;
+      name: "", qth: "", comment: "", correctionReason: "", confirmDelete: false, deletionReason: "" }, busy: false } as const;
 
 describe("contest native surface projection v1", () => {
   it("admits every ready projection only for its owning panel and exact unavailable projections for all roles", () => {

@@ -851,6 +851,22 @@ class HostTests(unittest.TestCase):
                          {key: value for key, value in after.items()
                           if key not in {"raw_fields", "change_revision"}})
 
+    def test_correction_updates_contact_metadata_and_preserves_it_on_unchanged_save(self):
+        qso = self.log()
+        self.mutate("qso_correct", qsoID=qso, fields={"Name": "Alice", "QTH": "Darwin", "Comment": "Paper log"})
+        edited = self.read("log", limit=1)["rows"][0]
+        self.assertEqual((edited["Name"], edited["QTH"], edited["Comment"]),
+                         ("Alice", "Darwin", "Paper log"))
+        self.assertEqual({key: edited["raw_fields"][key] for key in ("Name", "QTH", "Comment")},
+                         {"Name": "Alice", "QTH": "Darwin", "Comment": "Paper log"})
+
+        self.mutate("qso_correct", qsoID=qso, fields={})
+        unchanged = self.read("log", limit=1)["rows"][0]
+        self.assertEqual((unchanged["Name"], unchanged["QTH"], unchanged["Comment"]),
+                         ("Alice", "Darwin", "Paper log"))
+        self.assertEqual({key: unchanged["raw_fields"][key] for key in ("Name", "QTH", "Comment")},
+                         {"Name": "Alice", "QTH": "Darwin", "Comment": "Paper log"})
+
     def test_unknown_country_retained_and_station_country_required(self):
         self.log("XX1TEST", "10")
         self.assertEqual(self.read("log")["total"], 1)

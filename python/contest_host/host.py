@@ -37,6 +37,7 @@ from .upstream import adapt_cw_template, load_plugin, load_cw_macros, pinned_ban
 PLUGIN_ID = "cq_ww_cw"
 SOURCE_REVISION = "7c8b499225a73f7f8f792246881bd7aefc05452f"
 INPUTS = ("callsign", "sent", "receive", "other_1", "other_2")
+CONTACT_METADATA_FIELDS = {"Name": 20, "QTH": 25, "Comment": 60}
 FIELDS = INPUTS + ("snt_label", "rcv_label", "other_label", "exch_label", "history_info")
 BAND_DEFINITIONS = pinned_band_definitions()
 BAND_LABELS = {definition["value"]: definition["id"] for definition in BAND_DEFINITIONS}
@@ -3323,13 +3324,16 @@ class Host:
                 fields = json.loads(identity["raw_fields"])
             for name in INPUTS:
                 getattr(desk, name).setText(fields[name])
-            changes = {"fields": params.get("fields", {})}
+            correction_fields = params.get("fields", {})
+            require(isinstance(correction_fields, dict)
+                    and set(correction_fields) <= set(INPUTS) | set(CONTACT_METADATA_FIELDS),
+                    "Unknown correction field")
+            changes = {"fields": {name: value for name, value in correction_fields.items() if name in INPUTS}}
             if "countries" in params:
                 changes.update({"countries": params["countries"], "referenceID": params.get("referenceID")})
             self.apply_fields(desk, changes, allow_reserved_serial_change=True)
             updated = desk.values()
             require(re.fullmatch(r"[A-Z0-9/]{3,32}", desk.parsed_call()) is not None, "Complete callsign required")
-            correction_fields = params.get("fields", {})
             if desk.state["pluginID"] in CENTRAL_EUROPEAN_PLUGINS:
                 validate_central_europe_historical_sent_exchange(
                     desk.state["pluginID"], updated["other_1"])
@@ -3379,6 +3383,13 @@ class Host:
             operator = text(params.get("operator", before["Operator"]), 20)
             require(bool(operator.strip()), "Operator is required")
             after = desk.contact_for(updated, qso_id, timestamp, frequency, base=before, operator=operator)
+            for name, maximum in CONTACT_METADATA_FIELDS.items():
+                if name in correction_fields:
+                    after[name] = text(correction_fields[name], maximum)
+                # Persist the final plugin-normalized contact value as raw
+                # authority. An omitted generic field never overwrites a Name,
+                # QTH or Comment legitimately derived from an entry field.
+                updated[name] = text(after.get(name, before.get(name, "")), maximum)
             if desk.state["pluginID"] == "darc_schwaben" and not desk.contest.parse_exchange(updated["other_2"])[1]:
                 after["Exchange1"] = ""
             preserve_sent = (desk.state["pluginID"] in SSA_MT_PLUGINS

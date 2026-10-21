@@ -2513,13 +2513,16 @@ it("keeps a lost focus reply uncertain and never reports a following failed ESM 
 });
 
 it.each([
-  { label:"unchanged", callsign:undefined },
-  { label:"callsign-only", callsign:"DL1XYZ" },
-])("preserves original raw plugin fields on a $label contact correction", async ({callsign}) => {
+  { label:"unchanged", callsign:undefined, metadata:undefined },
+  { label:"callsign-only", callsign:"DL1XYZ", metadata:undefined },
+  { label:"metadata", callsign:undefined, metadata:{Name:"Alice",QTH:"Darwin",Comment:"Checked against paper log"} },
+])("preserves original raw plugin fields on a $label contact correction", async ({callsign,metadata}) => {
   let current:any=projection(), corrected:Record<string,any>|null=null;
-  const raw_fields={callsign:"DL1ABC",sent:"579",receive:"589",other_1:"ORIGINAL-SENT",other_2:"ORIGINAL-RCVD"};
+  const raw_fields={callsign:"DL1ABC",sent:"579",receive:"589",other_1:"ORIGINAL-SENT",other_2:"ORIGINAL-RCVD",
+    Name:"Original name",QTH:"Original QTH",Comment:"Original comment",plugin_owned:"retain exactly"};
   const row={ID:"qso-raw",TS:"2026-10-19 08:00:00",Call:"DL1ABC",Freq:14025,Band:14,Mode:"CW",
-    SNT:"599",RCV:"599",SentNr:999,ZN:99,Operator:"OM0RX",Points:1,raw_fields};
+    SNT:"599",RCV:"599",SentNr:999,ZN:99,Operator:"OM0RX",Points:1,
+    Name:raw_fields.Name,QTH:raw_fields.QTH,Comment:raw_fields.Comment,raw_fields};
   const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     const support=workspaceSupport(method,params,current);if(support)return support;
     if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
@@ -2543,9 +2546,14 @@ it.each([
       expect.objectContaining({id:"other_1",value:"ORIGINAL-SENT"}),expect.objectContaining({id:"other_2",value:"ORIGINAL-RCVD"})]}));
   if(callsign) await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_set_text",
     params:{qsoID:"qso-raw",field:"callsign",value:callsign}}));
+  if(metadata) for(const [field,value] of Object.entries(metadata)) await act(async()=>surfaceOwner.current.handle({
+    ...envelope,requestID:crypto.randomUUID(),action:"log_edit_set_text",
+    params:{qsoID:"qso-raw",field:field.toLowerCase(),value}}));
   await act(async()=>surfaceOwner.current.handle({...envelope,requestID:crypto.randomUUID(),action:"log_edit_save",
     params:{qsoID:"qso-raw",expectedSessionRevision:current.revision}}));
-  expect((corrected as Record<string,any>|null)?.fields).toEqual({...raw_fields,callsign:callsign??raw_fields.callsign});
+  const expected={...raw_fields,callsign:callsign??raw_fields.callsign} as Record<string,unknown>;
+  delete expected.Name;delete expected.QTH;delete expected.Comment;if(metadata)Object.assign(expected,metadata);
+  expect((corrected as Record<string,any>|null)?.fields).toEqual(expected);
 });
 
 it("pages, edits, and deletes through the detached Log owner actions", async () => {

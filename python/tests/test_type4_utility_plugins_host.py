@@ -1,6 +1,7 @@
 """Pinned Not1MM utility and dupe-type-4 plugins through the bounded host."""
 from copy import deepcopy
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -202,6 +203,16 @@ class Type4UtilityPluginTests(unittest.TestCase):
             )
             corrected = store.exec_sql("SELECT Call,Name,Comment FROM DXLOG WHERE ID=?", (qso_id,))
             self.assertEqual(corrected, {"Call": "OM1ABC", "Name": "Alice", "Comment": "portable"})
+            _, revision = self.mutate(
+                host, session, revision, "qso_correct", qsoID=qso_id,
+                fields={**partial["raw_fields"], "callsign": "OM1ABC", "other_1": "Bob"},
+                reason="Correct plugin-owned name",
+            )
+            corrected = store.exec_sql("SELECT Name,Comment FROM DXLOG WHERE ID=?", (qso_id,))
+            identity = json.loads(store.exec_sql(
+                "SELECT raw_fields FROM xlog_qso_identity WHERE id=?", (qso_id,))["raw_fields"])
+            self.assertEqual((corrected["Name"], corrected["Comment"]), ("Bob", "portable"))
+            self.assertEqual((identity["Name"], identity["Comment"]), ("Bob", "portable"))
         finally:
             host.close()
 

@@ -33,7 +33,7 @@ export type ContestSurfaceAction =
   | { action: "log_page"; params: { offset: number } }
   | { action: "log_edit_begin" | "log_edit_cancel"; params: { qsoID: string } }
   | { action: "log_edit_set_text"; params: { qsoID: string; field: "callsign" | "sentReport" | "receivedReport" |
-      "timestamp" | "operator" | "correctionReason" | "deletionReason"; value: string } }
+      "timestamp" | "operator" | "name" | "qth" | "comment" | "correctionReason" | "deletionReason"; value: string } }
   | { action: "log_edit_set_exchange"; params: { qsoID: string; fieldID: string; value: string } }
   | { action: "log_edit_set_frequency_text"; params: { qsoID: string; value: string } }
   | { action: "log_edit_set_band"; params: { qsoID: string; value: string } }
@@ -143,7 +143,7 @@ export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; s
   pluginColumns?: string[]; pluginRows?: ContestPluginLogRow[]; pluginPartialRows?: ContestPluginLogRow[];
   page: { offset: number; limit: number; total: number; rows: { qsoID: string; workedAt: string; callsign: string; band: string;
     mode: string; sentExchange: string; receivedExchange: string; points: number; multiplierLabels: string[] }[] };
-  editing: null | { reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; band: string; mode: string; sentReport: string; receivedReport: string;
+  editing: null | { reportsVisible?: boolean; details?: ContestLogEditDetails; qsoID: string; workedAt: string; operator: string; callsign: string; name?: string; qth?: string; comment?: string; band: string; mode: string; sentReport: string; receivedReport: string;
     entryFields?: ContestSurfaceReceivedField[]; receivedFields: ContestSurfaceReceivedField[]; frequencyHz: number | null; editFrequencyText: string; frequencyError: string;
     correctionReason: string; confirmDelete: boolean; deletionReason: string }; busy: boolean };
 export type ContestSurfaceProjection = ContestSurfaceUnavailableProjection | ContestEntrySurfaceProjection | ContestEntrySurfaceProjectionV2 |
@@ -350,10 +350,12 @@ function validLogProjection(value: Record<string, unknown>) {
         text(row.sentExchange, 2048, true) && text(row.receivedExchange, 2048, true) && uint(row.points) && texts(row.multiplierLabels, 32, 160); }) &&
     (!pluginLayout || Array.isArray(value.pluginRows) && value.pluginRows.length === pageRows.length && value.pluginRows.every((item, index) =>
       record(item) && record(pageRows[index]) && item.qsoID === pageRows[index].qsoID)) &&
-    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["entryFields", "reportsVisible", "details"]) &&
+    (value.editing === null || !!editing && optionalKeys(editing, ["qsoID", "workedAt", "operator", "callsign", "band", "mode", "sentReport", "receivedReport", "receivedFields", "frequencyHz", "editFrequencyText", "frequencyError", "correctionReason", "confirmDelete", "deletionReason"], ["entryFields", "reportsVisible", "details", "name", "qth", "comment"]) &&
       (!("reportsVisible" in editing) || typeof editing.reportsVisible === "boolean") &&
       (!("details" in editing) || validLogEditDetails(editing.details)) &&
-      text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&
+      text(editing.qsoID, 160) && text(editing.workedAt, 32) && text(editing.operator, 32, true) && text(editing.callsign, 32, true) &&
+      (!('name' in editing) || text(editing.name, 20, true)) && (!('qth' in editing) || text(editing.qth, 25, true)) &&
+      (!('comment' in editing) || text(editing.comment, 60, true)) && text(editing.band, 16) && text(editing.mode, 16) && text(editing.sentReport, 160, true) &&
       text(editing.receivedReport, 160, true) && (!("entryFields" in editing) || validReceivedFields(editing.entryFields)) &&
       validReceivedFields(editing.receivedFields) && optionalFrequency(editing.frequencyHz) &&
       text(editing.editFrequencyText, 11, true) && text(editing.frequencyError, 512, true) && text(editing.correctionReason, 1024, true) &&
@@ -493,7 +495,7 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "log_page") return exact(params, ["offset"]) && uint(params.offset, 1_000_000);
   if (action === "log_edit_begin" || action === "log_edit_cancel") return qso(params, []);
   if (action === "log_edit_set_text") return qso(params, ["field", "value"]) &&
-    oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);
+    oneOf(params.field, ["callsign", "sentReport", "receivedReport", "timestamp", "operator", "name", "qth", "comment", "correctionReason", "deletionReason"]) && text(params.value, 1024, true);
   if (action === "log_edit_set_exchange") return qso(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "log_edit_set_frequency_text") return qso(params, ["value"]) && text(params.value, 11, true);
   if (action === "log_edit_set_band") return qso(params, ["value"]) && text(params.value, 16);

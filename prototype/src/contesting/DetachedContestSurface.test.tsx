@@ -312,7 +312,7 @@ it.each(["doubleClick","contextMenu"] as const)("opens Edit Contact on log-row %
 it("renders the original contact fields in the dedicated editor and closes after Save",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
   const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
-    band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",
+    name:"Alice",qth:"Darwin",comment:"Paper log",band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",
     receivedFields:[{id:"other_1",label:"Sent exchange",value:"001",required:true,maximumUTF8Bytes:32},
       {id:"other_2",label:"Received exchange",value:"005",required:true,maximumUTF8Bytes:128}],
     frequencyHz:14025000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",
@@ -332,6 +332,9 @@ it("renders the original contact fields in the dedicated editor and closes after
   expect(screen.getByText("20m")).toBeTruthy();
   expect(screen.getByText("CW")).toBeTruthy();
   expect(screen.getByText("Station Call")).toBeTruthy();
+  expect(screen.getByLabelText("Name")).toHaveProperty("value","Alice");
+  expect(screen.getByLabelText("QTH")).toHaveProperty("value","Darwin");
+  expect(screen.getByLabelText("Comment")).toHaveProperty("value","Paper log");
   expect(screen.getByLabelText("Op")).toHaveProperty("value","OM0RX");
   for(const label of ["Contest","Country","Name","QTH","Comment","Nr","Nr Sent","Points","Power","Zone","Section",
     "Check","Precedence","Multiplier 1","Multiplier 2","Multiplier 3","Band","WPX","Exchange","Run 1/2","Radio","Grid","Misc","Rover QTH"])
@@ -343,10 +346,36 @@ it("renders the original contact fields in the dedicated editor and closes after
   });
 });
 
+it("uses General Logging entry fields as the single Name and Comment authority",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
+  const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
+    name:"stale generic name",qth:"Darwin",comment:"stale generic comment",band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",
+    entryFields:[{id:"other_1",label:"Name",value:"Alice",required:true,maximumUTF8Bytes:32,enabled:true,readOnly:false},
+      {id:"other_2",label:"Comment",value:"portable",required:true,maximumUTF8Bytes:128,enabled:true,readOnly:false}],receivedFields:[],
+    frequencyHz:14025000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",
+    confirmDelete:false,deletionReason:"Operator deletion"};
+  const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,
+    page:{offset:0,limit:20,total:1,rows:[]},manualRows:[],partialRows:[],editing,busy:false};
+  const actions:Record<string,any>[]=[];
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
+    if(command==="contest_surface_snapshot")return {...snapshot,panelID:"logbook",projection:view};
+    if(command==="contest_surface_action"){actions.push(args);return {requestID:args.requestID,status:"queued"};}
+    throw new Error(command);
+  });
+  render(<DetachedContestSurface/>);
+  const name=(await screen.findAllByLabelText("Name"))[0];
+  expect(screen.getAllByLabelText("Name")).toHaveLength(1);expect(screen.getAllByLabelText("Comment")).toHaveLength(1);
+  expect(screen.getAllByLabelText("QTH")).toHaveLength(1);
+  fireEvent.change(name,{target:{value:"Bob"}});
+  await waitFor(()=>expect(actions.some((action)=>action.action==="log_edit_set_exchange"&&
+    action.params.fieldID==="other_1"&&action.params.value==="Bob")).toBe(true));
+  expect(actions.some((action)=>action.action==="log_edit_set_text"&&action.params.field==="name")).toBe(false);
+});
+
 it("treats the native Edit Contact traffic-light close as Cancel before destroying the window",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
   const editing={qsoID:"logged-qso",workedAt:"2026-10-20 12:00:00",operator:"OM0RX",callsign:"K1ABC",reportsVisible:true,
-    band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",receivedFields:[],frequencyHz:14025000,
+    name:"",qth:"",comment:"",band:"20m",mode:"CW",sentReport:"599",receivedReport:"579",receivedFields:[],frequencyHz:14025000,
     editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:""};
   const view={schemaVersion:1,status:"ready",sessionRevision:7,canExportCabrillo:true,
     page:{offset:0,limit:20,total:1,rows:[]},manualRows:[],partialRows:[],editing,busy:false};
@@ -1227,7 +1256,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
 
 it("coalesces rapid log edits and resets the presentation buffer when the owner switches contacts",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
-  const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,workedAt:"2026-10-19T10:00:00Z",operator:"OM0RX",band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
+  const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,workedAt:"2026-10-19T10:00:00Z",operator:"OM0RX",name:"",qth:"",comment:"",band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
     frequencyHz:14_025_000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"});
   let current:any={...snapshot,panelID:"logbook",projectionRevision:3,projection:{schemaVersion:1,status:"ready",sessionRevision:8,canExportCabrillo:true,
     page:{offset:0,limit:20,total:2,rows:[]},editing:editing("qso-1","K1ABC"),busy:false},receipts:[]};const actions:Record<string,any>[]=[];

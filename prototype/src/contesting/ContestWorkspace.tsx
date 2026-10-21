@@ -580,6 +580,8 @@ export function ContestWorkspace({ request, operatingContext, createRequestID, d
         else if (action.params.field === "deletionReason") setDeletionReason(action.params.value);
         else if (action.params.field === "timestamp") changeQSO("originalUTC", action.params.value);
         else if (action.params.field === "operator") changeQSO("operatorCallsign", action.params.value);
+        else if (action.params.field === "name" || action.params.field === "qth" || action.params.field === "comment")
+          throw new Error("Contact metadata corrections require the Python contest host.");
         else changeQSO(action.params.field, action.params.value); return;
       case "log_edit_set_exchange":
         if (editing?.qso.qsoID !== action.params.qsoID) throw new Error("The contact editor changed.");
