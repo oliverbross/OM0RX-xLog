@@ -237,6 +237,7 @@ mod tests {
             "contest--edit-contact",
             "contest--callsign-intelligence",
             "contest--monitor",
+            "contest--score-reporting",
             "contest--awards",
             "contest--chaser-dx",
             "contest--band-maps",
