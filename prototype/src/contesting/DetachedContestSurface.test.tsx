@@ -148,27 +148,34 @@ it("renders Statistics v3 as the original compact table with TOTAL last", async 
   expect(document.querySelector("dl")).toBeNull();
 });
 
-it("shows the pinned RTC services and current score without enabling unsafe credential or network work", async () => {
+it("shows actionable bounded HTTPS RTC reporting separately from legacy and UDP paths", async () => {
   window.history.replaceState({}, "", search.replace("view=active-qso", "view=score-reporting"));
   const view = { schemaVersion:1, status:"ready", score:{qsos:42,points:315,multipliers:18,claimedScore:5670,
     multiplierLabels:["K"],multiplierDisplayLabels:["United States"],sourceVerification:"verified"},
-    intervalMinutes:2,reportingEnabled:false,availability:"configuration-only",
-    reason:"Automatic posting is unavailable until xLog has a secure credential store and a bounded, retry-safe HTTPS reporter.",
+    intervalMinutes:2,reportingEnabled:false,availability:"available",reason:"HTTPS RTC posting is separate from N1MM UDP.",
+    service:"hamscore",username:"OM0RX",credentialSaved:true,reportState:"disabled",lastOutcome:"Not sent yet.",nextAttempt:null,
     services:[
       {id:"hamscore",name:"Real Time Contest Server",url:"https://hamscore.com/postxml/",transportSecurity:"https"},
       {id:"contestonlinescore",name:"Contest Online ScoreBoard",url:"https://contestonlinescore.com/post/",transportSecurity:"https"},
       {id:"contest-run",name:"Live Contest Score",url:"http://contest.run",transportSecurity:"legacy-http"},
     ],busy:false } as const;
   expect(validContestSurfaceProjection("score-reporting",view)).toBe(true);
-  expect(validContestSurfaceProjection("score-reporting",{...view,reportingEnabled:true})).toBe(false);
-  native.invoke.mockResolvedValue({...snapshot,panelID:"score-reporting",projection:view}); render(<DetachedContestSurface/>);
+  expect(validContestSurfaceProjection("score-reporting",{...view,reportingEnabled:true,reportState:"scheduled"})).toBe(true);
+  native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>command==="contest_surface_snapshot"
+    ? {...snapshot,panelID:"score-reporting",projection:view}
+    : command==="contest_surface_action" ? {requestID:args.requestID,status:"applied",projectionRevision:7}
+    : Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);
   expect(await screen.findByRole("heading",{name:"Score Reporting"})).toBeTruthy();
   expect(screen.getByLabelText("Current contest score").textContent).toContain("5670");
-  expect(screen.getByLabelText("Periodically send XML score").matches(":disabled")).toBe(true);
-  expect(screen.getByLabelText("Username").matches(":disabled")).toBe(true);
-  expect(screen.getByRole("status").textContent).toContain("Sending is disabled");
+  expect(screen.getByLabelText("Periodically send XML score").matches(":disabled")).toBe(false);
+  expect(screen.getByLabelText("Username")).toHaveProperty("value","OM0RX");
+  expect(screen.getByRole("status").textContent).toContain("Not sent yet");
   expect(screen.getByText("http://contest.run").closest("li")?.textContent).toContain("Legacy HTTP endpoint");
-  expect(native.invoke.mock.calls.every(([command])=>command==="contest_surface_snapshot")).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Send score now"}));
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_surface_action",expect.objectContaining({
+    panelID:"score-reporting",action:"score_send_now",params:{},
+  })));
 });
 
 it("allows the compact Statistics table to fit the supported 400px window minimum", () => {

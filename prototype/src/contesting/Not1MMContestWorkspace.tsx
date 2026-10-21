@@ -28,6 +28,8 @@ import { ContestVoiceOutput, type ContestVoiceAction } from "./contestVoiceOutpu
 import "./ContestWorkspace.css";
 
 type Data = Record<string, any>;
+type RTCStatus={configured:boolean;enabled:boolean;service:string|null;username:string;interval_minutes:number;posting:boolean;
+  consecutive_failures:number;last_outcome:string;last_attempt:string|null;next_attempt:string|null};
 type ClientAction="commit"|"correct"|"delete";
 type PendingClientMutation={schemaVersion:1;localSessionID:string;localWorkspaceGeneration:string;authoritySessionID:string;
   authorityWorkspaceGeneration:string;draftID:string;action:ClientAction;baseRevision:number;requestID:string;qsoID:string;
@@ -234,10 +236,12 @@ function restoredSetup(stationCall: string): ContestSetupDocument {
     if (!raw) return defaults;
     const saved = JSON.parse(raw) as Partial<ContestSetupDocument>;
     if (!saved || typeof saved !== "object" || Array.isArray(saved)) return defaults;
+    const preferences={ ...defaults.preferences, ...restoredESMPreferences(saved.preferences ?? {}) };
+    delete preferences.rtcPassword;
     return { ...defaults, ...saved,
       station: { ...defaults.station, ...(saved.station ?? {}) },
       settings: { ...defaults.settings, ...(saved.settings ?? {}) },
-      preferences: { ...defaults.preferences, ...restoredESMPreferences(saved.preferences ?? {}) },
+      preferences,
       network: { ...defaults.network, ...(saved.network ?? {}) },
       macros: Array.isArray(saved.macros) ? saved.macros : defaults.macros };
   } catch { return defaults; }
@@ -519,6 +523,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const [retiring, setRetiring] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [create, setCreate] = useState({ name: "CQ WW CW", cqZone: "15" });
   const [setup, setSetup] = useState<ContestSetupDocument>(() => restoredSetup(stationCall));
+  const [rtcStatus,setRTCStatus]=useState<RTCStatus|null>(null),[rtcCredentialSaved,setRTCCredentialSaved]=useState(false);
+  const rtcConfigurationRef=useRef("");
   const [digitalSnapshot, setDigitalSnapshot] = useState<ContestDigitalSnapshot | undefined>();
   const [groupNetwork, setGroupNetwork] = useState<ContestGroupChatSnapshot | null>(null), groupNetworkRef=useRef<ContestGroupChatSnapshot|null>(null);
   const [authorityDupe,setAuthorityDupe]=useState<{key:string;isDupe:boolean}|null>(null);
@@ -576,6 +582,30 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
   const observedFrequencyHz = contestFrequency(selectedRadioFrequencyHz, activeSupportedBands, bandDefinitions);
   const fallbackFrequencyHz = manualFrequency(manualFrequencyMHz, activeSupportedBands, bandDefinitions);
   const operationFrequencyHz = observedFrequencyHz ?? fallbackFrequencyHz;
+
+  useEffect(()=>{
+    if(!projection||setupOnly||contestingTest)return;
+    const service=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
+    const url=service==="contestonlinescore"?"https://contestonlinescore.com/post/":"https://hamscore.com/postxml/";
+    const username=String(setup.preferences.rtcUsername??"").trim(),intervalMinutes=Math.max(1,Math.min(60,Number(setup.preferences.rtcIntervalMinutes)||2));
+    const enabled=setup.preferences.rtcEnabled===true,key=[projection.sessionID,projection.workspaceGeneration,service,username,intervalMinutes,enabled].join("|");
+    if(rtcConfigurationRef.current===key)return;rtcConfigurationRef.current=key;let current=true;
+    void Promise.allSettled([request("secret_status"),request("contest_rtc_configure",{sessionID:projection.sessionID,
+      workspaceGeneration:projection.workspaceGeneration,service,url,username,intervalMinutes,enabled})]).then(results=>{
+      if(!current)return;const secret=results[0],configured=results[1];
+      if(secret.status==="fulfilled")setRTCCredentialSaved((secret.value as Record<string,unknown>)["rtc-score-password"]===true);
+      if(configured.status==="fulfilled")setRTCStatus(configured.value as RTCStatus);
+      else setRTCStatus({configured:false,enabled:false,service,username,interval_minutes:intervalMinutes,posting:false,
+        consecutive_failures:0,last_outcome:enabled?"Reporting could not start. Save credentials and enable it again.":"Score reporting is disabled.",last_attempt:null,next_attempt:null});
+    });return()=>{current=false;};
+  },[projection?.sessionID,projection?.workspaceGeneration,setupOnly,contestingTest,setup.preferences.rtcURL,
+    setup.preferences.rtcUsername,setup.preferences.rtcIntervalMinutes,setup.preferences.rtcEnabled,request]);
+  useEffect(()=>{
+    if(!projection||setupOnly||contestingTest)return;
+    let current=true;
+    const refresh=()=>void request("contest_rtc_status").then(value=>{if(current)setRTCStatus(value as RTCStatus);},()=>{});
+    const timer=window.setInterval(refresh,5_000);return()=>{current=false;window.clearInterval(timer);};
+  },[projection?.sessionID,setupOnly,contestingTest,request]);
   const sharedSpots=useMemo(()=>contestSurfaceSpots(spots),[spots]);
   const spotWorkflowScope=useMemo<SpotWorkflowScope>(()=>({operatingContext,workspaceGeneration,
     sessionID:projection?.sessionID??""}),[operatingContext,workspaceGeneration,projection?.sessionID]);
@@ -1621,9 +1651,16 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       sinceHourQso: Number(rates.sinceHourQso), runQso: Number(rates.runQso),
       searchAndPounceQso: Number(rates.searchAndPounceQso), hourRunQso: Number(rates.hourRunQso),
       hourSearchAndPounceQso: Number(rates.hourSearchAndPounceQso), busy: busy || retiring };
+    const rtcService=setup.preferences.rtcURL==="https://contestonlinescore.com/post/"?"contestonlinescore":"hamscore";
+    const rtcOutcome=rtcStatus?.last_outcome??"Score reporting is disabled.";
+    const reportState=rtcStatus?.posting?"posting":rtcStatus?.enabled?"scheduled":rtcStatus?.consecutive_failures===3?"paused":
+      rtcStatus?.last_attempt&&rtcStatus.consecutive_failures===0?"sent":rtcStatus?.consecutive_failures?"failed":"disabled";
     unavailable["score-reporting"] = { schemaVersion: 1, status: "ready", score: scoreView,
-      intervalMinutes: 2, reportingEnabled: false, availability: "configuration-only",
-      reason: "Automatic posting is unavailable until xLog has a secure credential store and a bounded, retry-safe HTTPS reporter.",
+      intervalMinutes: rtcStatus?.interval_minutes??Math.max(1,Math.min(60,Number(setup.preferences.rtcIntervalMinutes)||2)),
+      reportingEnabled: rtcStatus?.enabled===true, availability: contestingTest?"unavailable":"available",
+      reason: "HTTPS RTC posting is separate from local score display and N1MM UDP score packets.", service:rtcService,
+      username:String(setup.preferences.rtcUsername??""),credentialSaved:rtcCredentialSaved,reportState,lastOutcome:rtcOutcome,
+      nextAttempt:rtcStatus?.next_attempt??null,
       services: [
         { id: "hamscore", name: "Real Time Contest Server", url: "https://hamscore.com/postxml/", transportSecurity: "https" },
         { id: "contestonlinescore", name: "Contest Online ScoreBoard", url: "https://contestonlinescore.com/post/", transportSecurity: "https" },
@@ -1646,7 +1683,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneOutputAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
-    bandDefinitions, bandLabels, digitalSnapshot,
+    bandDefinitions, bandLabels, digitalSnapshot,rtcStatus,rtcCredentialSaved,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
     sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId,configuredClient,authorityClientReady,authorityDupe]);
 
@@ -1850,6 +1887,30 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           await persistFields("callsign", historyCandidate.callsign);
         else throw new Error("The callsign candidate set is unavailable.");
         return;
+      case "score_configure": {
+        const urls={hamscore:"https://hamscore.com/postxml/",contestonlinescore:"https://contestonlinescore.com/post/"} as const;
+        if(action.params.enabled&&(!action.params.username.trim()||(!action.params.password&& !rtcCredentialSaved)))
+          throw new Error("Save the scoreboard username and password before enabling reports.");
+        if(action.params.password) {
+          await request("secret_save",{account:"rtc-score-password",value:action.params.password});
+          setRTCCredentialSaved(true);
+        }
+        const preferences={...setup.preferences,rtcEnabled:action.params.enabled,rtcURL:urls[action.params.service],
+          rtcUsername:action.params.username.trim(),rtcIntervalMinutes:action.params.intervalMinutes} as
+          typeof setup.preferences&{rtcPassword?:unknown};
+        delete preferences.rtcPassword;
+        const document={...setup,preferences};
+        const saved=await mutate("contest_setup_save",active,{setup:document}) as MutationResult&{setup:ContestSetupDocument};
+        acceptProjection(saved.projection);setSetup(saved.setup);
+        rtcConfigurationRef.current="";
+        const status=await request("contest_rtc_configure",{sessionID:action.sessionID,workspaceGeneration:action.workspaceGeneration,
+          service:action.params.service,url:urls[action.params.service],username:action.params.username.trim(),
+          intervalMinutes:action.params.intervalMinutes,enabled:action.params.enabled});
+        setRTCStatus(status as RTCStatus);return;
+      }
+      case "score_send_now": {
+        const status=await request("contest_rtc_send_now");setRTCStatus(status as RTCStatus);return;
+      }
       case "log_export_cabrillo": return exportLog("cabrillo", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,
         workspaceGeneration:action.workspaceGeneration, requestID:action.requestID, projectionRevision:action.projectionRevision });
       case "log_export_adif": return exportLog("adif", true, { operatingContext:action.operatingContext, sessionID:action.sessionID,

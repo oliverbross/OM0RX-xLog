@@ -51,7 +51,7 @@ export function newContestSetup(stationCall = ""): ContestSetupDocument {
   return { name: "CQ WW CW", operator: stationCall, pluginID: "cq_ww_cw",
     station: { Call: stationCall, Name: "", Email: "", Street1: "", Street2: "", City: "", State: "", Zip: "", Country: "", GridSquare: "", CQZone: "15", IARUZone: "", LicenseClass: "", Latitude: "", Longitude: "", STXeq: "", SPowe: "", SAnte: "", SAntH1: "", SAntH2: "", ARRLSection: "", RoverQTH: "", Club: "" },
     settings: { StartDate: "", StationCategory: "FIXED", SentExchange: "", OperatorCategory: "SINGLE-OP", AssistedCategory: "NON-ASSISTED", BandCategory: "ALL", PowerCategory: "HIGH", ModeCategory: "CW", TransmitterCategory: "ONE", OverlayCategory: "N/A", Soapbox: "" },
-    preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcPassword: "", rtcIntervalMinutes: 2,
+    preferences: { cwSpeed: 25, rtcEnabled: false, rtcURL: "https://hamscore.com/postxml/", rtcUsername: "", rtcIntervalMinutes: 2,
       bands: ["160m", "80m", "40m", "20m", "15m", "10m"], useESM: false, sendCorrectedCall: false,
       esmCQ: "DISABLED", esmExchange: "DISABLED", esmQRZ: "DISABLED", esmAGN: "DISABLED", esmHisCall: "DISABLED", esmMyCall: "DISABLED", esmQsoB4: "DISABLED", autoCQ: false, autoCQDelay: 15,
       spaceTabs: true, prefillExchange: true, callHistory: true, clearOnVFOChange: false, scp: true, showQRZDetails: false, darkMode: true,

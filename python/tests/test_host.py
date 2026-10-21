@@ -520,6 +520,19 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.read("score")["score"]["total"], 42)
         self.assertEqual(len(self.read("score")["matrices"]["zones"]), 3)
 
+    def test_rtc_payload_is_original_plugin_xml_and_generation_bound(self):
+        self.log()
+        result = self.read("rtc_payload", workspaceGeneration=self.workspace)
+        self.assertEqual(result["sessionID"], self.session)
+        self.assertEqual(result["workspaceGeneration"], self.workspace)
+        self.assertIn("<dynamicresults>", result["xml"])
+        self.assertIn("<contest>CQ-WW-CW</contest>", result["xml"])
+        self.assertIn("<call>OM0RX</call>", result["xml"])
+        self.assertIn("<score>6</score>", result["xml"])
+        with self.assertRaises(HostError) as stale:
+            self.read("rtc_payload", workspaceGeneration=uid())
+        self.assertEqual(stale.exception.code, "stale_generation")
+
     def test_manual_recalculation_repairs_derived_points_without_changing_draft(self):
         qso = self.log()
         self.mutate("draft_apply", fields={"callsign": "DL1ABC", "other_2": "14"})

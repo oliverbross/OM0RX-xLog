@@ -38,7 +38,10 @@ export type ContestSurfaceAction =
   | { action: "log_edit_set_frequency_text"; params: { qsoID: string; value: string } }
   | { action: "log_edit_set_band"; params: { qsoID: string; value: string } }
   | { action: "log_edit_confirm_delete"; params: { qsoID: string; confirmed: boolean } }
-  | { action: "log_edit_save" | "log_edit_delete"; params: { qsoID: string; expectedSessionRevision: Revision } };
+  | { action: "log_edit_save" | "log_edit_delete"; params: { qsoID: string; expectedSessionRevision: Revision } }
+  | { action: "score_configure"; params: { service: "hamscore" | "contestonlinescore"; username: string;
+      password: string; intervalMinutes: number; enabled: boolean } }
+  | { action: "score_send_now"; params: Record<string, never> };
 
 export type ContestSurfaceActionEnvelope = ContestSurfaceAction & {
   operatingContext: string;
@@ -110,8 +113,10 @@ export type ContestRatesSurfaceProjection = { schemaVersion: 1; status: "ready";
   sinceHourUTC: number; sinceHourQso: number; runQso: number; searchAndPounceQso: number;
   hourRunQso: number; hourSearchAndPounceQso: number; busy: boolean };
 export type ContestScoreReportingSurfaceProjection = { schemaVersion: 1; status: "ready";
-  score: ContestStatisticsScore; intervalMinutes: number; reportingEnabled: false; availability: "configuration-only";
-  reason: string; services: { id: "hamscore" | "contestonlinescore" | "contest-run"; name: string; url: string;
+  score: ContestStatisticsScore; intervalMinutes: number; reportingEnabled: boolean; availability: "available" | "unavailable";
+  reason: string; service: "hamscore" | "contestonlinescore"; username: string; credentialSaved: boolean;
+  reportState: "disabled" | "scheduled" | "posting" | "sent" | "failed" | "paused"; lastOutcome: string;
+  nextAttempt: string | null; services: { id: "hamscore" | "contestonlinescore" | "contest-run"; name: string; url: string;
     transportSecurity: "https" | "legacy-http" }[]; busy: boolean };
 type ContestMatrixSurfaceProjectionV1 = { schemaVersion: 1; status: "ready"; title: string;
   bands: string[]; rows: { label: string; counts: Record<string, number>; total: number }[]; total: number; busy: boolean };
@@ -425,9 +430,13 @@ function validRemoteVFOProjection(value: Record<string, unknown>) {
 }
 function validScoreReportingProjection(value: Record<string, unknown>) {
   const services = value.services;
-  return exact(value, ["schemaVersion", "status", "score", "intervalMinutes", "reportingEnabled", "availability", "reason", "services", "busy"]) &&
+  return exact(value, ["schemaVersion", "status", "score", "intervalMinutes", "reportingEnabled", "availability", "reason", "service", "username",
+      "credentialSaved", "reportState", "lastOutcome", "nextAttempt", "services", "busy"]) &&
     (value.score === null || validStatisticsScore(value.score)) && uint(value.intervalMinutes, 1_440) && (value.intervalMinutes as number) >= 1 &&
-    value.reportingEnabled === false && value.availability === "configuration-only" && text(value.reason, 512) &&
+    typeof value.reportingEnabled === "boolean" && oneOf(value.availability, ["available", "unavailable"]) && text(value.reason, 512) &&
+    oneOf(value.service, ["hamscore", "contestonlinescore"]) && text(value.username, 128, true) && typeof value.credentialSaved === "boolean" &&
+    oneOf(value.reportState, ["disabled", "scheduled", "posting", "sent", "failed", "paused"]) && text(value.lastOutcome, 512) &&
+    (value.nextAttempt === null || text(value.nextAttempt, 64)) &&
     Array.isArray(services) && services.length === 3 && services.every(service => record(service) &&
       exact(service, ["id", "name", "url", "transportSecurity"]) && oneOf(service.id, ["hamscore", "contestonlinescore", "contest-run"]) &&
       text(service.name, 80) && text(service.url, 256) && oneOf(service.transportSecurity, ["https", "legacy-http"])) &&
@@ -490,6 +499,10 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "log_edit_set_band") return qso(params, ["value"]) && text(params.value, 16);
   if (action === "log_edit_confirm_delete") return qso(params, ["confirmed"]) && typeof params.confirmed === "boolean";
   if (action === "log_edit_save" || action === "log_edit_delete") return qso(params, ["expectedSessionRevision"]) && uint(params.expectedSessionRevision);
+  if (action === "score_configure") return exact(params, ["service", "username", "password", "intervalMinutes", "enabled"]) &&
+    oneOf(params.service, ["hamscore", "contestonlinescore"]) && text(params.username, 128, true) && text(params.password, 8192, true) &&
+    uint(params.intervalMinutes, 60) && (params.intervalMinutes as number) >= 1 && typeof params.enabled === "boolean";
+  if (action === "score_send_now") return exact(params, []);
   return false;
 }
 
@@ -500,7 +513,7 @@ export function validContestSurfaceActionEnvelope(value: unknown): value is Cont
   const panel = typeof envelope?.panelID === "string" ? envelope.panelID : "";
   const params = record(envelope?.params) ? envelope.params : undefined;
   const panelMatches = action.startsWith("spot_") ? panel === "band-maps" || panel === "dx-cluster" : action.startsWith("entry_") ? panel === "active-qso" : action.startsWith("assistance_")
-    ? panel === "callsign-intelligence" : action.startsWith("log_") ? panel === "logbook" : false;
+    ? panel === "callsign-intelligence" : action.startsWith("log_") ? panel === "logbook" : action.startsWith("score_") ? panel === "score-reporting" : false;
   return !!envelope && exact(envelope, keys) && validContestSurfaceUUID(envelope.operatingContext) && envelope.scope === "contesting" &&
       validContestSurfaceUUID(envelope.sessionID) && validContestSurfaceUUID(envelope.workspaceGeneration) && oneOf(panel, contestSurfacePanelIDs) &&
       uint(envelope.projectionRevision) && validContestSurfaceUUID(envelope.requestID) && !!params && panelMatches && validParams(action, params);

@@ -138,7 +138,8 @@ actor LiveServiceMethods {
             var values: [String: Any] = [:]
             for account in [WorkspaceCredentialStore.Account.wavelogToken, .qrzPassword,
                             .qrzLogbookKey, .clubLogAPIKey, .clubLogEmail,
-                            .clubLogApplicationPassword, .clubLogCallsign, .ftpBackupPassword] {
+                            .clubLogApplicationPassword, .clubLogCallsign, .ftpBackupPassword,
+                            .rtcScorePassword] {
                 values[account.rawValue] = try secrets.contains(account)
             }
             return values

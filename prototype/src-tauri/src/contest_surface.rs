@@ -4,6 +4,7 @@
 use crate::contest_window_context::ContestWindowContext;
 use crate::workspace_windows::{WorkspaceWindowIdentity, WorkspaceWindowScope};
 use serde_json::{json, Map, Value};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Mutex, OnceLock};
 
@@ -18,9 +19,24 @@ const MAX_PROJECTION_BYTES: usize = 32 * 1024 * 1024;
 #[derive(Clone)]
 struct Receipt {
     envelope: Value,
+    envelope_digest: String,
     status: &'static str,
     message: Option<String>,
     projection_revision: u64,
+}
+
+fn retained_receipt(envelope: &Value, status: &'static str, message: Option<String>, projection_revision: u64) -> Receipt {
+    let digest = Sha256::digest(serde_json::to_vec(envelope).expect("JSON values always serialize"));
+    let mut retained = envelope.clone();
+    if retained["action"] == "score_configure" { retained["params"]["password"] = Value::String("[redacted]".into()); }
+    Receipt { envelope: retained,
+        envelope_digest: digest.iter().map(|byte| format!("{byte:02x}")).collect(),
+        status, message, projection_revision }
+}
+
+fn envelope_digest(envelope: &Value) -> String {
+    let digest = Sha256::digest(serde_json::to_vec(envelope).expect("JSON values always serialize"));
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[derive(Default)]
@@ -133,7 +149,7 @@ fn submit_checked(
             .iter()
             .find(|(request_id, _)| request_id == &checked.request_id)
         {
-            if existing_panel != panel_id || receipt.envelope != envelope {
+            if existing_panel != panel_id || receipt.envelope_digest != envelope_digest(&envelope) {
                 return Err(
                     "That contest action requestID is already bound to another request.".into(),
                 );
@@ -177,12 +193,7 @@ fn submit_checked(
     }
     panel.receipts.push_back((
         checked.request_id.clone(),
-        Receipt {
-            envelope: envelope.clone(),
-            status: "queued",
-            message: None,
-            projection_revision,
-        },
+        retained_receipt(&envelope, "queued", None, projection_revision),
     ));
     let queued = QueuedAction {
         panel_id: panel_id.into(),
@@ -615,7 +626,8 @@ fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
     let matches_panel = action.starts_with("spot_") && matches!(panel_id, "band-maps" | "dx-cluster")
         || action.starts_with("entry_") && panel_id == "active-qso"
         || action.starts_with("assistance_") && panel_id == "callsign-intelligence"
-        || action.starts_with("log_") && panel_id == "logbook";
+        || action.starts_with("log_") && panel_id == "logbook"
+        || action.starts_with("score_") && panel_id == "score-reporting";
     if !matches_panel {
         return Err("The contest action is not available on that panel.".into());
     }
@@ -733,6 +745,16 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
             exact(params, &["expectedSessionRevision"], "log recalculation params")?;
             uint_value(&params["expectedSessionRevision"], MAX_SAFE_INTEGER, "session revision")?;
         }
+        "score_configure" => {
+            exact(params, &["service", "username", "password", "intervalMinutes", "enabled"], "score reporting params")?;
+            enum_value(&params["service"], &["hamscore", "contestonlinescore"], "score reporting service")?;
+            text_value(&params["username"], 128, true, "score reporting username")?;
+            text_value(&params["password"], 8192, true, "score reporting password")?;
+            let interval = uint_value(&params["intervalMinutes"], 60, "score reporting interval")?;
+            if interval == 0 { return Err("The score reporting interval is invalid.".into()); }
+            boolean(&params["enabled"], "score reporting enabled state")?;
+        }
+        "score_send_now" => exact(params, &[], "score reporting send params")?,
         "log_page" => {
             exact(params, &["offset"], "log page params")?;
             uint_value(&params["offset"], 1_000_000, "log offset")?;
@@ -1459,6 +1481,12 @@ fn validate_score_reporting_projection(value: &Map<String, Value>) -> Result<(),
             "reportingEnabled",
             "availability",
             "reason",
+            "service",
+            "username",
+            "credentialSaved",
+            "reportState",
+            "lastOutcome",
+            "nextAttempt",
             "services",
             "busy",
         ],
@@ -1473,15 +1501,19 @@ fn validate_score_reporting_projection(value: &Map<String, Value>) -> Result<(),
     if interval == 0 {
         return Err("The score reporting interval is invalid.".into());
     }
-    if value["reportingEnabled"] != Value::Bool(false) {
-        return Err("Automatic score reporting is not available.".into());
-    }
+    boolean(&value["reportingEnabled"], "score reporting enabled state")?;
     enum_value(
         &value["availability"],
-        &["configuration-only"],
+        &["available", "unavailable"],
         "score reporting availability",
     )?;
     text_value(&value["reason"], 512, false, "score reporting reason")?;
+    enum_value(&value["service"], &["hamscore", "contestonlinescore"], "score reporting service")?;
+    text_value(&value["username"], 128, true, "score reporting username")?;
+    boolean(&value["credentialSaved"], "score reporting credential state")?;
+    enum_value(&value["reportState"], &["disabled", "scheduled", "posting", "sent", "failed", "paused"], "score reporting state")?;
+    text_value(&value["lastOutcome"], 512, false, "score reporting outcome")?;
+    nullable_text(&value["nextAttempt"], 64, "score reporting next attempt")?;
     let services = array(&value["services"], 3, "score reporting services")?;
     if services.len() != 3 {
         return Err("The score reporting services are incomplete.".into());
@@ -2517,6 +2549,30 @@ mod tests {
         ))
         .is_ok());
         assert!(validate_action_envelope(&action(
+            "score_configure",
+            "score-reporting",
+            json!({"service":"hamscore","username":"OM0RX","password":"secret","intervalMinutes":2,"enabled":true})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "score_send_now",
+            "score-reporting",
+            json!({})
+        ))
+        .is_ok());
+        assert!(validate_action_envelope(&action(
+            "score_configure",
+            "score-reporting",
+            json!({"service":"contest-run","username":"OM0RX","password":"secret","intervalMinutes":2,"enabled":true})
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
+            "score_send_now",
+            "logbook",
+            json!({})
+        ))
+        .is_err());
+        assert!(validate_action_envelope(&action(
             "log_export_cabrillo",
             "logbook",
             json!({"extra":true})
@@ -2550,6 +2606,25 @@ mod tests {
         );
         coerced["requestID"] = json!([REQUEST]);
         assert!(validate_action_envelope(&coerced).is_err());
+    }
+
+    #[test]
+    fn score_credentials_are_not_retained_in_action_receipts() {
+        let mut state = State { context: Some(context()), ..State::default() };
+        publish_after_admission(&mut state, "score-reporting", 7, json!({"status":"ready"})).unwrap();
+        let envelope = action("score_configure", "score-reporting", json!({
+            "service":"hamscore","username":"OM0RX","password":"fixture-secret",
+            "intervalMinutes":2,"enabled":true
+        }));
+        let checked = validate_action_envelope(&envelope).unwrap();
+        submit_checked(&mut state, "score-reporting", &checked, envelope.clone()).unwrap();
+        let receipt = &state.panels["score-reporting"].receipts[0].1;
+        assert_eq!(receipt.envelope["params"]["password"], "[redacted]");
+        assert!(!receipt.envelope.to_string().contains("fixture-secret"));
+        assert_eq!(receipt.envelope_digest, envelope_digest(&envelope));
+        let mut changed = envelope;
+        changed["params"]["password"] = json!("different-secret");
+        assert!(submit_checked(&mut state, "score-reporting", &checked, changed).is_err());
     }
 
     #[test]
@@ -2779,8 +2854,9 @@ mod tests {
                 "qsos":12,"points":12,"multipliers":10,"claimedScore":120,
                 "multiplierLabels":["country:K"],"multiplierDisplayLabels":["United States"],
                 "sourceVerification":"verified"},
-            "intervalMinutes":2,"reportingEnabled":false,"availability":"configuration-only",
-            "reason":"Secure automatic posting is not configured.","services":[
+            "intervalMinutes":2,"reportingEnabled":false,"availability":"available",
+            "reason":"HTTPS RTC posting is separate from N1MM UDP.","service":"hamscore","username":"OM0RX",
+            "credentialSaved":true,"reportState":"disabled","lastOutcome":"Not sent yet.","nextAttempt":null,"services":[
                 {"id":"hamscore","name":"Real Time Contest Server","url":"https://hamscore.com/postxml/","transportSecurity":"https"},
                 {"id":"contestonlinescore","name":"Contest Online ScoreBoard","url":"https://contestonlinescore.com/post/","transportSecurity":"https"},
                 {"id":"contest-run","name":"Live Contest Score","url":"http://contest.run","transportSecurity":"legacy-http"}
@@ -2788,7 +2864,8 @@ mod tests {
         assert!(validate_projection("score-reporting", &score_reporting).is_ok());
         let mut enabled_reporting = score_reporting.clone();
         enabled_reporting["reportingEnabled"] = json!(true);
-        assert!(validate_projection("score-reporting", &enabled_reporting).is_err());
+        enabled_reporting["reportState"] = json!("scheduled");
+        assert!(validate_projection("score-reporting", &enabled_reporting).is_ok());
         let mut malformed_service = score_reporting.clone();
         malformed_service["services"][0]["transportSecurity"] = json!("plaintext");
         assert!(validate_projection("score-reporting", &malformed_service).is_err());
@@ -3108,12 +3185,7 @@ mod tests {
                 projection: None,
                 receipts: VecDeque::from([(
                     "receipt".into(),
-                    Receipt {
-                        envelope: json!({}),
-                        status: "uncertain",
-                        message: None,
-                        projection_revision: 7,
-                    },
+                    retained_receipt(&json!({}), "uncertain", None, 7),
                 )]),
             },
         );
@@ -3187,12 +3259,7 @@ mod tests {
             let envelope = action_with_request(&request_id);
             panel.receipts.push_back((
                 request_id.clone(),
-                Receipt {
-                    envelope,
-                    status: "uncertain",
-                    message: None,
-                    projection_revision: 7,
-                },
+                retained_receipt(&envelope, "uncertain", None, 7),
             ));
             state.seen_request_ids.insert(request_id);
         }
@@ -3346,12 +3413,7 @@ mod tests {
                     projection: Some((7, json!({"status":"ready"}))),
                     receipts: VecDeque::from([(
                         request_id.into(),
-                        Receipt {
-                            envelope: json!({"action":"log_export_cabrillo"}),
-                            status: "uncertain",
-                            message: None,
-                            projection_revision: 7,
-                        },
+                        retained_receipt(&json!({"action":"log_export_cabrillo"}), "uncertain", None, 7),
                     )]),
                 },
             )]),
@@ -3644,16 +3706,13 @@ mod tests {
         let panel = state.panels.get_mut("active-qso").unwrap();
         for index in 0..(MAX_RECEIPTS_PER_PANEL - 1) {
             let request_id = format!("50000000-0000-4000-8000-{index:012x}");
-            panel.receipts.push_back((request_id, Receipt {
-                envelope: checked_value(), status: "uncertain", message: None, projection_revision: 7,
-            }));
+            panel.receipts.push_back((request_id, retained_receipt(&checked_value(), "uncertain", None, 7)));
         }
         for index in 0..MAX_ESCAPE_ACTIONS {
             let request_id = format!("60000000-0000-4000-8000-{index:012x}");
-            panel.receipts.push_back((request_id.clone(), Receipt {
-                envelope: escape_with_request(&request_id), status: "applied", message: None,
-                projection_revision: 8,
-            }));
+            panel.receipts.push_back((request_id.clone(), retained_receipt(
+                &escape_with_request(&request_id), "applied", None, 8,
+            )));
         }
         let ordinary = checked_value();
         let ordinary_checked = validate_action_envelope(&ordinary).unwrap();

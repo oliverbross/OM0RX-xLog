@@ -1270,6 +1270,19 @@ class Host:
                         "statistics": calculate_statistics(rows)}
             finally:
                 store.conn.rollback()
+        if method == "rtc_payload":
+            require(set(params) == {"sessionID", "workspaceGeneration"},
+                    "Unexpected RTC payload fields")
+            require(params["workspaceGeneration"] == workspace_generation(state),
+                    "RTC reporting context is stale", "stale_generation")
+            desk = Desk(store, state, self.commit)
+            generator = getattr(desk.contest, "online_score_xml", None)
+            require(callable(generator), "This contest does not provide RTC score XML", "rtc_unsupported")
+            payload = generator(desk)
+            require(isinstance(payload, str) and 1 <= len(payload.encode("utf-8")) <= 65_536,
+                    "RTC score XML is invalid", "rtc_payload_invalid")
+            return {"sessionID": session_id, "workspaceGeneration": workspace_generation(state),
+                    "revision": state["revision"], "xml": payload}
         desk = Desk(store, state, self.commit)
         if method in {"session_open", "projection"}:
             if method == "session_open":

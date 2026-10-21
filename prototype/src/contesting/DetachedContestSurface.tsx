@@ -121,7 +121,8 @@ function Surface({ context }: { context: Context }) {
           projectionRevision={snapshot.projectionRevision} receipts={snapshot.receipts} send={send}/>
       : snapshot.panelID === "propagation" ? <Statistics projection={projection as ContestStatisticsSurfaceProjection}/>
       : snapshot.panelID === "monitor" ? <Rates projection={projection as ContestRatesSurfaceProjection}/>
-      : snapshot.panelID === "score-reporting" ? <ScoreReporting projection={projection as ContestScoreReportingSurfaceProjection}/>
+      : snapshot.panelID === "score-reporting" ? <ScoreReporting projection={projection as ContestScoreReportingSurfaceProjection}
+          projectionRevision={snapshot.projectionRevision} send={send}/>
       : snapshot.panelID === "awards" || snapshot.panelID === "chaser-dx" ? <Matrix projection={projection as ContestMatrixSurfaceProjection}/>
       : snapshot.panelID === "logbook" ? editorOnly
         ? <ContactEditor projection={projection as Extract<typeof projection, { page: unknown }>} disabled={projection.busy} sending={sending}
@@ -138,8 +139,17 @@ function Surface({ context }: { context: Context }) {
   </main>;
 }
 
-function ScoreReporting({ projection }: { projection: ContestScoreReportingSurfaceProjection }) {
+function ScoreReporting({ projection, projectionRevision, send }: { projection: ContestScoreReportingSurfaceProjection;
+    projectionRevision: number; send: Send }) {
   const score = projection.score;
+  const [service,setService]=useState(projection.service),[username,setUsername]=useState(projection.username),[password,setPassword]=useState("");
+  const [interval,setInterval]=useState(projection.intervalMinutes),[pending,setPending]=useState(false),[error,setError]=useState("");
+  useEffect(()=>{setService(projection.service);setUsername(projection.username);setInterval(projection.intervalMinutes);},
+    [projection.service,projection.username,projection.intervalMinutes]);
+  const configure=async(enabled:boolean)=>{setPending(true);setError("");try{await send({action:"score_configure",params:{service,username,password,
+    intervalMinutes:interval,enabled}},projectionRevision);setPassword("");}catch(cause){setError(message(cause));}finally{setPending(false);}};
+  const sendNow=async()=>{setPending(true);setError("");try{await send({action:"score_send_now",params:{}},projectionRevision);}
+    catch(cause){setError(message(cause));}finally{setPending(false);}};
   return <section className="contest-score-reporting" aria-label="Real-time score reporting">
     <header><p className="contest-score-reporting-kicker">Not1MM RTC compatibility</p><h1>Score Reporting</h1>
       <p>Review the current Python-owned score and the scoreboard settings required by the original workflow.</p></header>
@@ -147,15 +157,21 @@ function ScoreReporting({ projection }: { projection: ContestScoreReportingSurfa
       <div><span>QSOs</span><strong>{score?.qsos ?? "—"}</strong></div><div><span>Points</span><strong>{score?.points ?? "—"}</strong></div>
       <div><span>Multipliers</span><strong>{score?.multipliers ?? "—"}</strong></div><div><span>Claimed score</span><strong>{score?.claimedScore ?? "—"}</strong></div>
     </div>
-    <fieldset disabled aria-describedby="rtc-disabled-reason"><legend>Online scoreboard</legend>
-      <label><input type="checkbox" checked={projection.reportingEnabled} readOnly/> Periodically send XML score</label>
-      <label>Service<select defaultValue={projection.services[0]?.id}>{projection.services.map(service =>
-        <option key={service.id} value={service.id}>{service.name}</option>)}</select></label>
-      <label>Username<input type="text" autoComplete="username" value="" readOnly/></label>
-      <label>Password<input type="password" autoComplete="current-password" value="" readOnly/></label>
-      <label>Interval (minutes)<input type="number" min={1} value={projection.intervalMinutes} readOnly/></label>
+    <fieldset disabled={pending||projection.availability!=="available"} aria-describedby="rtc-reporting-status"><legend>Online scoreboard</legend>
+      <label><input aria-label="Periodically send XML score" type="checkbox" checked={projection.reportingEnabled}
+        onChange={event=>void configure(event.target.checked)}/> Periodically send XML score</label>
+      <label>Service<select value={service} onChange={event=>setService(event.target.value as typeof service)}>{projection.services.filter(item=>item.transportSecurity==="https").map(item =>
+        <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label>Username<input aria-label="Username" type="text" autoComplete="username" value={username} maxLength={128} onChange={event=>setUsername(event.target.value)}/></label>
+      <label>Password<input aria-label="Password" type="password" autoComplete="current-password" value={password} maxLength={8192}
+        placeholder={projection.credentialSaved?"•••••••• — saved":""} onChange={event=>setPassword(event.target.value)}/></label>
+      <label>Interval (minutes)<input aria-label="Interval (minutes)" type="number" min={1} max={60} value={interval}
+        onChange={event=>setInterval(Math.max(1,Math.min(60,Number(event.target.value)||1)))}/></label>
+      <button type="button" disabled={pending||!username||(!password&&!projection.credentialSaved)} onClick={()=>void configure(projection.reportingEnabled)}>Save securely</button>
+      <button type="button" disabled={pending||!projection.credentialSaved} onClick={()=>void sendNow()}>Send score now</button>
     </fieldset>
-    <p id="rtc-disabled-reason" className="contest-score-reporting-boundary" role="status"><strong>Sending is disabled.</strong> {projection.reason}</p>
+    <p id="rtc-reporting-status" className="contest-score-reporting-boundary" role="status"><strong>{projection.reportState.replace(/^[a-z]/,c=>c.toUpperCase())}.</strong> {projection.lastOutcome} {projection.reason}</p>
+    {error&&<p className="contest-surface-error" role="alert">{error}</p>}
     <ul className="contest-score-reporting-services">{projection.services.map(service => <li key={service.id}>
       <span>{service.name}</span><code>{service.url}</code>{service.transportSecurity === "legacy-http" && <em>Legacy HTTP endpoint — not eligible for credentials.</em>}
     </li>)}</ul>

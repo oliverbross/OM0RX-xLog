@@ -124,6 +124,8 @@ public actor LiveWorker {
     private let publicServices: LivePublicServiceMethods
     private let services: LiveServiceMethods
     private let onlineLogs: LiveOnlineLogDeliveryService
+    private let logbookMethods: LiveLogbookMethods
+    private var rtcScores: RTCScoreReportingService?
     #if os(macOS)
     private let references: LiveReferenceMethods
     #endif
@@ -154,6 +156,7 @@ public actor LiveWorker {
           pythonContestConfiguration: PythonContestHostConfiguration? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
+        self.logbookMethods = logbook
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
         logbookLane = createdLogbookLane
         contestLogTransfer = ContestLogTransferService(logbook: logbook)
@@ -246,6 +249,7 @@ public actor LiveWorker {
         terminalShutdown = true
         await contestLane?.shutdown()
         await pythonContestLane?.shutdown()
+        await rtcScores?.terminate()
         powerCapture.terminate()
         cancelContactRefresh()
         remoteBackup.beginTermination()
@@ -452,7 +456,9 @@ public actor LiveWorker {
             }
             #endif
             let result: [String: Any]
-            if ["contest_log_transfer_prepare", "contest_log_transfer_commit", "contest_log_transfer_status"].contains(method) {
+            if method.hasPrefix("contest_rtc_") {
+                result = try await handleRTC(method: method, params: params)
+            } else if ["contest_log_transfer_prepare", "contest_log_transfer_commit", "contest_log_transfer_status"].contains(method) {
                 guard usesPythonContestLane, let pythonContestLane else {
                     throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")
                 }
@@ -694,6 +700,53 @@ public actor LiveWorker {
             // Dependency errors can contain credentials, records or URLs. Never
             // return arbitrary localizedDescription over the UI/log boundary.
             return encode(["id": id, "ok": false, "error": ["code": "operation_failed", "message": "Operation failed. Check the connection or configuration; no success has been confirmed.", "outcome": "uncertain"]])
+        }
+    }
+
+    private func handleRTC(method: String, params: [String: Any]) async throws -> [String: Any] {
+        guard operatingModule == .contesting, runtimeProfile.externalIOAllowed, !localAcceptance,
+              let pythonContestLane else {
+            throw WorkerFailure("rtc_unavailable", "Score reporting is unavailable in this application mode.")
+        }
+        let reporter: RTCScoreReportingService
+        if let rtcScores { reporter = rtcScores }
+        else {
+            let logbook = logbookMethods
+            reporter = RTCScoreReportingService(credential: {
+                try WorkspaceCredentialStore(service: try logbook.currentKeychainService()).load(.rtcScorePassword)
+            }, payload: { sessionID, workspaceGeneration in
+                let result = try await pythonContestLane.handle(method: "contest_rtc_payload", params: [
+                    "sessionID": sessionID, "workspaceGeneration": workspaceGeneration,
+                ])
+                guard let xml = result["xml"] as? String else {
+                    throw WorkerFailure("rtc_payload_invalid", "The contest engine did not return score XML.")
+                }
+                return xml
+            })
+            rtcScores = reporter
+        }
+        switch method {
+        case "contest_rtc_status":
+            guard params.isEmpty else { throw WorkerFailure("invalid_params", "RTC status takes no parameters.") }
+            return await reporter.status()
+        case "contest_rtc_configure":
+            guard Set(params.keys) == ["sessionID", "workspaceGeneration", "service", "url", "username", "intervalMinutes", "enabled"],
+                  let sessionID = params["sessionID"] as? String,
+                  let workspaceGeneration = params["workspaceGeneration"] as? String,
+                  let service = params["service"] as? String,
+                  let urlString = params["url"] as? String, let endpoint = URL(string: urlString),
+                  let username = params["username"] as? String,
+                  let interval = params["intervalMinutes"] as? Int,
+                  let enabled = params["enabled"] as? Bool else {
+                throw WorkerFailure("invalid_params", "RTC configuration is invalid.")
+            }
+            return try await reporter.configure(.init(sessionID: sessionID, workspaceGeneration: workspaceGeneration,
+                service: service, endpoint: endpoint, username: username, intervalMinutes: interval, enabled: enabled))
+        case "contest_rtc_send_now":
+            guard params.isEmpty else { throw WorkerFailure("invalid_params", "RTC send takes no parameters.") }
+            return try await reporter.sendNow()
+        default:
+            throw WorkerFailure("invalid_request", "Unknown RTC score reporting request.")
         }
     }
 

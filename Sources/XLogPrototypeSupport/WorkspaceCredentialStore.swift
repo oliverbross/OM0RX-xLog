@@ -14,6 +14,7 @@ struct WorkspaceCredentialStore {
         case clubLogApplicationPassword = "clublog-application-password"
         case clubLogCallsign = "clublog-callsign"
         case ftpBackupPassword = "ftp-backup-password"
+        case rtcScorePassword = "rtc-score-password"
     }
     let service: String
     /// Worker reads are non-interactive by default. Only an explicitly

@@ -97,6 +97,7 @@ public struct SecretStore: Sendable {
         case clubLogApplicationPassword = "clublog-application-password"
         case clubLogCallsign = "clublog-callsign"
         case ftpBackupPassword = "ftp-backup-password"
+        case rtcScorePassword = "rtc-score-password"
     }
     public static let service = "com.oliverbross.OM0RXXLog"
     private static let passiveCache = SecretStorePassiveCache()
