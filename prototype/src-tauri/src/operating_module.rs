@@ -68,6 +68,9 @@ pub fn worker_module(request: &Value) -> Option<OperatingModule> {
             "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" | "contest_history_query" |
             "contest_history_query_cancel" | "contest_history_select")).then_some(OperatingModule::Contesting);
     }
+    if method.starts_with("fldigi_") {
+        return (method != "fldigi_snapshot").then_some(OperatingModule::Contesting);
+    }
     if method == "sync_mutation" {
         return matches!(request["params"]["method"].as_str(), Some("sync_run" | "sync_retry" | "sync_resolve"))
             .then_some(OperatingModule::NormalLogging);
@@ -124,6 +127,10 @@ mod tests {
         assert_eq!(worker_module(&request("wsjtx_start")), Some(OperatingModule::NormalLogging));
         assert_eq!(worker_module(&request("wsjtx_snapshot")), None);
         assert!(shared_worker_mutation(&request("wsjtx_stop")));
+        assert_eq!(worker_module(&request("fldigi_snapshot")), None);
+        for method in ["fldigi_configure", "fldigi_start", "fldigi_stop", "fldigi_send"] {
+            assert_eq!(worker_module(&request(method)), Some(OperatingModule::Contesting));
+        }
         for method in ["settings_save", "workspace_rotor_configuration_save", "workspace_layout_apply"] {
             assert!(shared_worker_mutation(&request(method)));
         }

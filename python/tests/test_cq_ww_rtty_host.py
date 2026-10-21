@@ -109,31 +109,31 @@ class CQWWRTTYHostTests(unittest.TestCase):
         self.assertEqual((saved["mode"], {field["id"]: field["value"] for field in saved["fields"]}["other_1"]),
                          ("USB-D", ""))
 
-    def test_exchange_validation_run_and_sandp_esm_commit_without_cw_output(self):
+    def test_exchange_validation_run_and_sandp_esm_commit_with_fldigi_output(self):
         for zone in ("", "0", "41", " 5"):
             with self.subTest(zone=zone), self.assertRaisesRegex(HostError, "CQ zone must be 1 to 40"):
                 self.mutate("qso_commit", fields={"callsign": "K1ABC", "other_1": zone, "other_2": "CT"})
         with self.assertRaisesRegex(HostError, "state/VE area is required"):
             self.mutate("qso_commit", fields={"callsign": "K1ABC", "other_1": "5", "other_2": ""})
-        self.assertEqual(self.mutate("function_key", key="F1")["actions"], [])
+        self.assertEqual(self.mutate("function_key", key="F1")["actions"][0]["kind"], "fldigi")
         with self.assertRaisesRegex(HostError, "does not support CW"):
             self.read("cw_context")
 
         sandp_call = self.mutate("esm", field="callsign",
                                  fields={"callsign": "K1ABC", "other_1": "5", "other_2": "CT"})
-        self.assertEqual(sandp_call["actions"], [])
+        self.assertTrue(all(action["kind"] == "fldigi" for action in sandp_call["actions"]))
         sandp_exchange = self.mutate("esm", field="other_2",
                                      fields={"callsign": "K1ABC", "other_1": "5", "other_2": "CT"})
-        self.assertEqual(sandp_exchange["actions"], [])
+        self.assertTrue(all(action["kind"] == "fldigi" for action in sandp_exchange["actions"]))
         self.assertEqual(self.read("log")["total"], 1)
 
         self.mutate("run_state", run=True)
         run_call = self.mutate("esm", field="callsign",
                                fields={"callsign": "DL1ABC", "other_1": "14", "other_2": "DX"})
-        self.assertEqual(run_call["actions"], [])
+        self.assertTrue(all(action["kind"] == "fldigi" for action in run_call["actions"]))
         run_exchange = self.mutate("esm", field="other_1",
                                    fields={"callsign": "DL1ABC", "other_1": "14", "other_2": "DX"})
-        self.assertEqual(run_exchange["actions"], [])
+        self.assertTrue(all(action["kind"] == "fldigi" for action in run_exchange["actions"]))
         self.assertEqual(self.read("log")["total"], 2)
 
     def test_points_country_zone_state_multipliers_and_band_dupes(self):

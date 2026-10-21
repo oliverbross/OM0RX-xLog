@@ -338,7 +338,10 @@ public actor LiveWorker {
         await services.beginTermination()
         #if os(macOS)
         await references.terminate()
-        if ownsProcessSessions { await LiveWSJTXBridge.shared.stopForShutdown() }
+        if ownsProcessSessions {
+            await LiveWSJTXBridge.shared.stopForShutdown()
+            await LiveFldigiBridge.shared.stopForShutdown()
+        }
         #endif
         await publicServices.terminate()
         await opportunities.terminate()
@@ -390,7 +393,7 @@ public actor LiveWorker {
             if ["sync_run", "sync_configure", "sync_retry", "sync_resolve"].contains(method) {
                 throw WorkerFailure("sync_owner_required", "Use the shared generation-bound Sync mutation owner.")
             }
-            if terminalShutdown && (method.hasPrefix("contest_") || method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
+            if terminalShutdown && (method.hasPrefix("contest_") || method.hasPrefix("reference_") || method.hasPrefix("sync_") || method.hasPrefix("secret_") || method.hasPrefix("online_log_") || method.hasPrefix("station_") || method.hasPrefix("spot_bridge_") || method.hasPrefix("wsjtx_") || method.hasPrefix("fldigi_") || method.hasPrefix("spot_history_") || method.hasPrefix("spot_draft_") || method.hasPrefix("opportunities_") || method.hasPrefix("operating_goals_") || method.hasPrefix("cluster_") || method.hasPrefix("logbook_operator_draft") || method.hasPrefix("logbook_contact") || ["weather", "propagation_snapshot", "propagation_refresh", "lookup_call", "workspace_create", "backup_restore"].contains(method)) {
                 throw WorkerFailure("worker_stopping", "The worker is shutting down; no new service request was started.")
             }
             if method == "health" {
@@ -533,6 +536,7 @@ public actor LiveWorker {
                     #if os(macOS)
                     await references.suspendForWorkspaceChange()
                     await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
+                    await LiveFldigiBridge.shared.suspendForWorkspaceChange()
                     #endif
                     await cluster.invalidateContactsForWorkspaceChange()
                 }
@@ -642,6 +646,23 @@ public actor LiveWorker {
                         method: method, params: params, route: route,
                         contestDestinationProvider: destinationProvider,
                         contestImporter: contestImporter)
+                } else if method.hasPrefix("fldigi_") {
+                    var receiveDestination: WSJTXContestDestination?
+                    var transmitDestination: WSJTXContestDestination?
+                    var transmitDestinationProvider: (@Sendable () async throws -> WSJTXContestDestination)?
+                    var contestImporter: (@Sendable (ADIFRecord, WSJTXContestDestination) async throws -> Bool)?
+                    if operatingModule == .contesting, let lane = pythonContestLane {
+                        receiveDestination = try? await lane.digitalDestination()
+                        transmitDestinationProvider = { try await lane.fldigiTransmitDestination() }
+                        transmitDestination = try? await transmitDestinationProvider?()
+                        contestImporter = { record, destination in
+                            try await lane.ingestDigital(record, destination: destination)
+                        }
+                    }
+                    result = try await LiveFldigiBridge.shared.handle(
+                        method: method, params: params, receiveDestination: receiveDestination,
+                        transmitDestination: transmitDestination, contestImporter: contestImporter,
+                        transmitDestinationProvider: transmitDestinationProvider)
                 } else {
                     result = try await services.handle(method: method, params: params)
                 }

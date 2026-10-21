@@ -86,6 +86,7 @@ fn native_only_worker_method(method: &str) -> bool {
     matches!(method, "contest_scp_import_private" | "contest_history_preview_private" |
         "contest_legacy_preview" | "contest_legacy_import")
 }
+fn requires_shared_output_acquisition(method: &str) -> bool { method == "fldigi_send" }
 fn private_picker_final_admission(action: &str, pinned: u64, current: u64, exiting: bool, main_present: bool) -> Result<(), String> {
     if exiting || !main_present { return Err(format!("{action} was cancelled because the main window closed.")); }
     if pinned != current { return Err(format!("{action} was cancelled because the worker restarted.")); }
@@ -131,6 +132,14 @@ mod contesting_test_native_admission_tests {
         let isolated = crate::runtime_profile::isolated(false);
         assert!(!super::routes_native_rotor_configuration("workspace_create", isolated));
         assert!(!super::routes_native_rotor_configuration("backup_restore", isolated));
+    }
+
+    #[test]
+    fn fldigi_send_uses_the_shared_output_acquisition() {
+        assert!(super::requires_shared_output_acquisition("fldigi_send"));
+        for method in ["fldigi_snapshot", "fldigi_configure", "fldigi_start", "fldigi_stop"] {
+            assert!(!super::requires_shared_output_acquisition(method));
+        }
     }
 
     #[test]
@@ -2043,6 +2052,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     let invalidate = logbook_events::changes_logbook(&request);
     let map_changed = invalidate || matches!(method, "settings_save" | "workspace_preferences_save" | "workspace_band_map_apply" | "workspace_create" | "backup_restore");
     let settings_changed = matches!(method, "settings_save" | "backup_restore");
+    let shared_output_acquisition = requires_shared_output_acquisition(method);
     let sync_changed = matches!(method, "sync_mutation" | "online_log_configure" | "settings_save" | "secret_save" | "workspace_create" | "backup_restore");
     let rotor_configuration_changed = matches!(method, "workspace_rotor_configuration_save" | "backup_restore");
     let isolated = runtime_profile::isolated(state.path.is_some());
@@ -2064,7 +2074,9 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         Some(contest_window_context::resolve_workspace(request["params"]["generation"].as_str()
             .ok_or("The contest workspace generation is missing.")?)?)
     } else { None };
-    let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; if let Some(selection) = selection { selection.control(request) }
+    let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
+        let _output = if shared_output_acquisition { Some(carrier_tune::reserve_output()?) } else { None };
+        if let Some(selection) = selection { selection.control(request) }
         else if rotor_configuration_save {
             rotor_session::save_configuration(request)
         }

@@ -83,6 +83,13 @@ class SecondRemainingPluginTests(unittest.TestCase):
         self.assertEqual(PLUGIN_REGISTRY["wia_remembrance"].modes,
                          ("CW", "SSB", "FM", *RTTY_MODES))
         self.assertNotIn("30m", PLUGIN_REGISTRY["wia_remembrance"].bands)
+        host, _, session, _ = self.create("wia_remembrance")
+        try:
+            view = self.read(host, session, "projection")["projection"]
+            self.assertEqual((view["fldigiReceiveSupported"], view["fldigiTransmitSupported"],
+                              view["fldigiTransmitAvailable"]), (False, True, False))
+        finally:
+            host.close()
         for plugin_id, expected in (("rsgb_iota", "001 EU005"), ("ukeidx", "001 DX")):
             host, _, session, _ = self.create(plugin_id)
             try:

@@ -676,9 +676,10 @@ mod tests {
     #[test]
     fn cw_and_carrier_races_are_nonblocking_in_both_orders() {
         let _serial=OUTPUT_TEST.lock().unwrap();
-        // Both production entry points use reserve_output. Labels describe the
-        // competing roles; neither may queue an acquisition after the other.
-        for (first, second) in [("carrier", "cw"), ("cw", "carrier")] {
+        // All production output entry points use reserve_output. Labels describe
+        // the competing roles; none may queue an acquisition after another.
+        for (first, second) in [("carrier", "cw"), ("cw", "carrier"),
+                                ("fldigi", "cw"), ("cw", "fldigi")] {
             let guard = reserve_output().unwrap();
             let denied = std::thread::spawn(|| reserve_output().is_err())
                 .join()

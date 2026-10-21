@@ -79,13 +79,15 @@ it("opens all separate setup dialogs from the hub and Contest menu before a sess
   await act(async () => { await route!("contest-dialog-operator"); await route!("contest-dialog-station"); await route!("contest-dialog-configuration"); await route!("contest-dialog-digital"); });
   expect(surfaceWindow.openDialog.mock.calls.map(([kind]) => kind)).toEqual(["station", "configuration", "digital", "operator", "station", "configuration", "digital"]);
   expect(screen.queryByRole("textbox", {name:"City"})).toBeNull();
-  expect(request.mock.calls.every(([method]) => ["contest_catalog", "contest_sessions", "wsjtx_snapshot"].includes(method))).toBe(true);
+  expect(request.mock.calls.every(([method]) => ["contest_catalog", "contest_sessions", "wsjtx_snapshot", "fldigi_snapshot"].includes(method))).toBe(true);
 });
 
 it("routes Digital logging saves, starts, and stops through the real host service", async () => {
   const digital = { configuration:{enabled:false,address:"224.0.0.1",port:2237,destination:"ordinary_logbook"}, running:false,
     status:"Stopped", receive_only:true, contest_target_supported:true,
     active_contest:{session_id:"contest",plugin_id:"cq_ww_rtty"}, received_count:17, activity:{spots:[{}]} };
+  const fldigi = { configuration:{receive_enabled:true,transmit_enabled:false},receive_supported:true,transmit_supported:true,
+    receive_running:false,status:"Stopped",udp_endpoint:"127.0.0.1:9876",xmlrpc_endpoint:"http://127.0.0.1:7362/RPC2" };
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
     if (method === "contest_catalog") return { id:crypto.randomUUID(),ok:true,result:{plugins:[]} };
     if (method === "contest_sessions") return { id:crypto.randomUUID(),ok:true,result:{sessions:[]} };
@@ -93,22 +95,29 @@ it("routes Digital logging saves, starts, and stops through the real host servic
     if (method === "wsjtx_configure") return {...digital,configuration:(params as any).configuration};
     if (method === "wsjtx_start") return {...digital,running:true,status:"Listening"};
     if (method === "wsjtx_stop") return digital;
+    if (method === "fldigi_snapshot") return fldigi;
+    if (method === "fldigi_configure") return {...fldigi,configuration:(params as any).configuration};
+    if (method === "fldigi_start") return {...fldigi,receive_running:true,status:"Receiving"};
+    if (method === "fldigi_stop") return {...fldigi,configuration:{receive_enabled:false,transmit_enabled:false}};
     throw new Error(method);
   });
   render(<Not1MMContestWorkspace setupOnly request={request} serviceRequest={request} {...workspaceProps}/>);
   await waitFor(() => expect(setupDialogOwner.current?.auxiliary.digital).toEqual({
     configuration:digital.configuration,running:false,status:"Stopped",receive_only:true,contest_target_supported:true,
-    active_contest:digital.active_contest,
+    active_contest:digital.active_contest,fldigi,
   }));
 
   const saveDigital = setupDialogOwner.current.saveDigital;
-  await act(() => saveDigital({configuration:digital.configuration,action:"save"}));
-  await act(() => saveDigital({configuration:digital.configuration,action:"start"}));
-  await act(() => saveDigital({configuration:digital.configuration,action:"stop"}));
+  await act(() => saveDigital({configuration:digital.configuration,fldigi_configuration:fldigi.configuration,action:"save"}));
+  await act(() => saveDigital({configuration:digital.configuration,fldigi_configuration:fldigi.configuration,action:"start"}));
+  await act(() => saveDigital({configuration:digital.configuration,fldigi_configuration:fldigi.configuration,action:"stop"}));
   expect(request.mock.calls.filter(([method]) => method.startsWith("wsjtx_")).map(([method]) => method)).toEqual([
-    "wsjtx_snapshot", "wsjtx_configure", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
+    "wsjtx_snapshot", "wsjtx_configure", "wsjtx_configure", "wsjtx_start", "wsjtx_stop", "wsjtx_snapshot",
   ]);
   expect(request).toHaveBeenCalledWith("wsjtx_configure", {configuration:{...digital.configuration,enabled:true}});
+  expect(request.mock.calls.filter(([method]) => method.startsWith("fldigi_")).map(([method]) => method)).toEqual([
+    "fldigi_snapshot", "fldigi_configure", "fldigi_configure", "fldigi_start", "fldigi_stop", "fldigi_snapshot",
+  ]);
 });
 
 it("persists exact confirm, mark, marked-only and delete spot lifecycle semantics",()=>{

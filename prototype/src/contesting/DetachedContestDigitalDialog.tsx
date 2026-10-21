@@ -8,13 +8,15 @@ import "./DetachedContestDigitalDialog.css";
 export function DetachedContestDigitalDialog() {
   const [snapshot, setSnapshot] = useState<SetupDialogSnapshot | null>(null);
   const [draft, setDraft] = useState<ContestDigitalSnapshot["configuration"] | null>(null);
+  const [fldigiDraft, setFldigiDraft] = useState({ receive_enabled: false, transmit_enabled: false });
   const [error, setError] = useState(""), [saving, setSaving] = useState(false);
   useEffect(() => {
     let active = true, retry: ReturnType<typeof setTimeout>;
     const load = async () => {
       try {
         const value = await setupDialogRequest<SetupDialogSnapshot>("snapshot");
-        if (active) { setSnapshot(value); setDraft(current => current ?? value.auxiliary.digital?.configuration ?? null); setError(""); }
+        if (active) { setSnapshot(value); setDraft(current => current ?? value.auxiliary.digital?.configuration ?? null);
+          setFldigiDraft(current => current.receive_enabled || current.transmit_enabled ? current : value.auxiliary.digital?.fldigi?.configuration ?? current); setError(""); }
       } catch (cause) {
         if (active) { setError(cause instanceof Error ? cause.message : "Contest Setup is unavailable."); retry = setTimeout(() => void load(), 250); }
       }
@@ -26,7 +28,7 @@ export function DetachedContestDigitalDialog() {
     const configuration = action === "stop" ? snapshot.auxiliary.digital?.configuration ?? draft : draft;
     if (!validWSJTXConfiguration(configuration)) return;
     setSaving(true); setError("");
-    try { await saveContestDigitalDialog(snapshot, { configuration, action }); await closeContestSetupDialog(); }
+    try { await saveContestDigitalDialog(snapshot, { configuration, fldigi_configuration: fldigiDraft, action }); await closeContestSetupDialog(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Digital logging settings could not be saved."); }
     finally { setSaving(false); }
   };
@@ -49,9 +51,15 @@ export function DetachedContestDigitalDialog() {
       <p className="digital-safety">This listener does not send decodes, replies, CAT commands, or PTT. Configure WSJT-X/JTDX radio control independently.</p>
       {digital?.contest_target_supported && digital.active_contest && <p className="digital-safety">Active contest routes through the original <code>{digital.active_contest.plugin_id}</code> digital handler. Changing or closing that contest stops this listener; late packets are rejected.</p>}
     </section>
-    <section aria-labelledby="fldigi-heading" className="is-unavailable"><div className="digital-section-heading"><div><h2 id="fldigi-heading">fldigi</h2><p>Original Not1MM receives logged QSOs at <code>127.0.0.1:9876</code> and sends F1–F12 through XML-RPC.</p></div><strong>Not integrated</strong></div>
-      <dl><div><dt>XML-RPC</dt><dd>Enable in fldigi</dd></div><div><dt>Contest</dt><dd>Generic Contest</dd></div><div><dt>Text Capture Order</dt><dd><code>CALL EXCHANGE</code></dd></div></dl>
-      <p>xLog does not currently have a contest fldigi UDP/XML-RPC adapter, so this window cannot claim a connection, receive fldigi QSOs, send macros, key transmit, or return fldigi to RX.</p>
+    <section aria-labelledby="fldigi-heading"><div className="digital-section-heading"><div><h2 id="fldigi-heading">fldigi</h2><p>Receive logged ADIF on loopback UDP and send admitted F1–F12 text through loopback XML-RPC.</p></div><strong>{digital?.fldigi?.receive_running ? "Receiving" : fldigiDraft.transmit_enabled ? "Transmit enabled" : "Stopped"}</strong></div>
+      <div className="digital-fields"><label><span>Logged-QSO receive</span><input aria-label="Enable fldigi logged-QSO receive" type="checkbox"
+        checked={fldigiDraft.receive_enabled} disabled={!digital?.fldigi?.receive_supported}
+        onChange={event => setFldigiDraft({...fldigiDraft,receive_enabled:event.target.checked})}/></label>
+        <label><span>F1–F12 macro transmit</span><input aria-label="Enable fldigi macro transmit" type="checkbox"
+          checked={fldigiDraft.transmit_enabled} disabled={!digital?.fldigi?.transmit_supported}
+          onChange={event => setFldigiDraft({...fldigiDraft,transmit_enabled:event.target.checked})}/></label></div>
+      <dl><div><dt>Logged ADIF UDP</dt><dd><code>{digital?.fldigi?.udp_endpoint ?? "127.0.0.1:9876"}</code></dd></div><div><dt>XML-RPC</dt><dd><code>{digital?.fldigi?.xmlrpc_endpoint ?? "http://127.0.0.1:7362/RPC2"}</code></dd></div><div><dt>Text order</dt><dd><code>main.tx</code>, then <code>text.add_tx</code></dd></div></dl>
+      <p className="digital-safety">Receive is available only when the active plugin has its original logged-QSO handler. Transmit is separate: <code>^M</code> becomes a newline and <code>^r</code> returns fldigi to receive.</p>
     </section>
     {error && <p role="alert" className="digital-error">{error}</p>}
     <footer><button type="button" disabled={saving} onClick={() => void closeContestSetupDialog()}>Cancel</button>

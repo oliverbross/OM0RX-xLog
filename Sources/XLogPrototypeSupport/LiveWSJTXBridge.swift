@@ -1,3 +1,15 @@
+public struct WSJTXContestDestination: Equatable, Sendable {
+    public let sessionID: String
+    public let workspaceGeneration: String
+    public let pluginID: String
+    public let sourceRevision: String
+
+    public init(sessionID: String, workspaceGeneration: String, pluginID: String, sourceRevision: String) {
+        self.sessionID = sessionID; self.workspaceGeneration = workspaceGeneration
+        self.pluginID = pluginID; self.sourceRevision = sourceRevision
+    }
+}
+
 #if os(macOS)
 import Foundation
 import Darwin
@@ -192,13 +204,6 @@ private struct WSJTXBridgeConfiguration: Codable, Equatable {
 public enum WSJTXLoggingRoute: String, Sendable {
     case normalLogging = "normal_logging"
     case contestSurfaceOrdinaryLogbook = "active_contest_surface"
-}
-
-public struct WSJTXContestDestination: Equatable, Sendable {
-    public let sessionID: String
-    public let workspaceGeneration: String
-    public let pluginID: String
-    public let sourceRevision: String
 }
 
 public actor LiveWSJTXBridge {

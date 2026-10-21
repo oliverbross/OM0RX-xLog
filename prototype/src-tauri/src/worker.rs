@@ -34,7 +34,8 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "contest-setup" {
         return if matches!(request["method"].as_str(), Some("health" | "workspace_status" | "settings_load" | "station_snapshot" | "cluster_snapshot")) {
             Ok(())
-        } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop")) {
+        } else if matches!(request["method"].as_str(), Some("wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
+            | "fldigi_snapshot" | "fldigi_configure" | "fldigi_start" | "fldigi_stop" | "fldigi_send")) {
             Ok(())
         } else { Err("Contest Setup can only read shared station context and own contest sessions.".into()) };
     }
@@ -328,6 +329,11 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "wsjtx_configure",
         "wsjtx_start",
         "wsjtx_stop",
+        "fldigi_snapshot",
+        "fldigi_configure",
+        "fldigi_start",
+        "fldigi_stop",
+        "fldigi_send",
         "cluster_snapshot",
         "cluster_resume",
         "cluster_resume_initialize",
@@ -1059,7 +1065,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
-        "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" |
+        "wsjtx_snapshot" | "fldigi_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" |
         "contest_export_prepare" | "contest_export_read" | "contest_export_release" |
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
@@ -1618,7 +1624,8 @@ mod tests {
     }
     #[test]
     fn contest_setup_routes_the_visible_digital_logging_commands_only_to_its_owner() {
-        for method in ["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop"] {
+        for method in ["wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",
+            "fldigi_snapshot", "fldigi_configure", "fldigi_start", "fldigi_stop", "fldigi_send"] {
             let request = json!({"id":"contest-digital", "method":method, "params":{}});
             assert!(validate_request(&request).is_ok(), "{method}");
             assert!(validate_surface("contest-setup", &request).is_ok(), "{method}");

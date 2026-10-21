@@ -126,6 +126,21 @@ actor PythonContestLane {
                      pluginID: pluginID, sourceRevision: sourceRevision)
     }
 
+    func fldigiTransmitDestination() throws -> WSJTXContestDestination {
+        guard let projection = activeProjection,
+              projection["fldigiTransmitAvailable"] as? Bool == true,
+              let sessionID = projection["sessionID"] as? String,
+              let workspaceGeneration = projection["workspaceGeneration"] as? String,
+              let pluginID = projection["pluginID"] as? String,
+              let sourceRevision = projection["sourceRevision"] as? String,
+              sessionID == activeSessionID, workspaceGeneration == activeWorkspaceGeneration else {
+            throw ContestLaneError.confirmed("fldigi_transmit_unsupported",
+                "The active contest has no original fldigi transmit path.")
+        }
+        return .init(sessionID: sessionID, workspaceGeneration: workspaceGeneration,
+                     pluginID: pluginID, sourceRevision: sourceRevision)
+    }
+
     func ingestDigital(_ record: ADIFRecord, destination: WSJTXContestDestination) async throws -> Bool {
         let previous = tail
         let operation = Task { [self] in

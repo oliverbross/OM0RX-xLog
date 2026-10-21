@@ -50,9 +50,13 @@ fn digital(value: &Value) -> bool {
     let address = configuration["address"].as_str().unwrap_or("");
     let port = configuration["port"].as_u64().unwrap_or(0);
     let destination = configuration["destination"].as_str().unwrap_or("ordinary_logbook");
+    let fldigi = &value["fldigi_configuration"];
+    let fldigi_valid = fldigi.is_null() || fldigi.as_object().is_some_and(|object| object.len() == 2
+        && fldigi["receive_enabled"].is_boolean() && fldigi["transmit_enabled"].is_boolean());
     configuration.is_object() && configuration["enabled"].is_boolean() && !address.is_empty() && address.len() <= 45
         && matches!(destination, "ordinary_logbook" | "active_contest")
-        && (1..=65_535).contains(&port) && matches!(value["action"].as_str(), Some("save" | "start" | "stop"))
+        && (1..=65_535).contains(&port) && fldigi_valid
+        && matches!(value["action"].as_str(), Some("save" | "start" | "stop"))
 }
 fn owner(label: &str) -> Result<(), String> {
     if label == "contest-setup" { Ok(()) } else { Err("Only Contest Setup owns setup changes.".into()) }
@@ -189,7 +193,7 @@ mod tests {
         let mut s = State::default(); let snapshot = publish(&mut s);
         let mut request = snapshot.clone(); request["requestID"] = json!("digital-1");
         request["digital"] = json!({"configuration":{"enabled":false,"address":"224.0.0.1","port":2237,
-            "destination":"active_contest"},"action":"start"});
+            "destination":"active_contest"},"fldigi_configuration":{"receive_enabled":true,"transmit_enabled":false},"action":"start"});
         assert_eq!(s.request("contest-setup-digital","submit",request.clone()).unwrap()["status"],"pending");
         assert!(s.request("contest-setup-digital","submit",request).is_ok());
         let mut invalid = snapshot; invalid["requestID"] = json!("digital-2");

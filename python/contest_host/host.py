@@ -62,6 +62,7 @@ ESTONIAN_REGIONS = frozenset({
     "PU", "RP", "SR", "TA", "TL", "VC", "VO", "VP",
 })
 VOICE_PAYLOAD_MAXIMUM = 4_096
+DIGITAL_OUTPUT_MODES = frozenset({"RTTY", "USB-D", "LSB-D", "PKTLSB", "PKTUSB", "DIGI-U", "DIGI-L"})
 ESM_ROLES = {"CQ": "esmCQ", "EXCH": "esmExchange", "QRZ": "esmQRZ", "AGN": "esmAGN",
              "HISCALL": "esmHisCall", "MYCALL": "esmMyCall", "QSOB4": "esmQsoB4"}
 # Pre-settings host sessions always used these assignments. Materialize only
@@ -382,8 +383,11 @@ class Field:
 class DigitalOutputSink:
     """Finite compatibility target for original digital ESM without hardware output."""
 
-    def send_string(self, _value):
-        return None
+    def __init__(self, desk):
+        self.desk = desk
+
+    def send_string(self, value, nlbefore=True, rxafter=True):
+        self.desk.record_fldigi_output(value, nlbefore=nlbefore, rxafter=rxafter)
 
 
 class Desk:
@@ -433,7 +437,7 @@ class Desk:
         self.radio_state = {"vfoa": state["draft"]["frequencyHz"], "mode": operating_mode(state)}
         self.contact = self.database.get_empty().copy()
         if state["pluginID"] in RTTY_PLUGINS:
-            self.fldigi_util = DigitalOutputSink()
+            self.fldigi_util = DigitalOutputSink(self)
         self.contest.init_contest(self)
         # DX-Pedition initializes this transient GUI attribute itself. Restore
         # the bounded draft value only after that callback for request continuity.
@@ -476,7 +480,8 @@ class Desk:
         if not macro["template"].strip():
             return
         mode = operating_mode(self.state)
-        context = {"sessionID": self.state["sessionID"], "draftID": self.state["draft"]["id"],
+        context = {"sessionID": self.state["sessionID"], "workspaceGeneration": workspace_generation(self.state),
+                   "sourceRevision": SOURCE_REVISION, "draftID": self.state["draft"]["id"],
                    "fields": self.values(), "stationCall": self.station["Call"],
                    "sentExchange": str(self.contest_settings["SentExchange"]),
                    "sentSerial": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
@@ -500,11 +505,27 @@ class Desk:
                                      canonical(source_macro).encode("utf-8")).hexdigest(),
                                  **context})
             return
+        if mode in DIGITAL_OUTPUT_MODES:
+            self.record_fldigi_output(self.process_macro(macro["template"]))
+            return
         if mode != "CW":
             return
         self.actions.append({"kind": "function_key", "key": button.name,
                              "label": macro["label"], "template": macro["template"],
                              **context})
+
+    def record_fldigi_output(self, value, nlbefore=True, rxafter=True):
+        require(self.state["pluginID"] in RTTY_PLUGINS, "This contest has no original fldigi transmit path")
+        require(type(nlbefore) is bool and type(rxafter) is bool, "Invalid fldigi transmit options")
+        payload = text(value, VOICE_PAYLOAD_MAXIMUM)
+        payload_bytes = payload.encode("utf-8")
+        self.actions.append({"kind": "fldigi", "signal": "digital", "mode": operating_mode(self.state),
+                             "payload": payload, "payloadUTF8Bytes": len(payload_bytes),
+                             "payloadSHA256": hashlib.sha256(payload_bytes).hexdigest(),
+                             "nlBefore": nlbefore, "rxAfter": rxafter,
+                             "sessionID": self.state["sessionID"],
+                             "workspaceGeneration": workspace_generation(self.state),
+                             "sourceRevision": SOURCE_REVISION, "draftID": self.state["draft"]["id"]})
 
     def process_macro(self, template):
         values = {
@@ -679,6 +700,10 @@ class Desk:
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
                 "digitalLoggingSupported": callable(getattr(self.contest, "ft8_handler", None)),
+                "fldigiReceiveSupported": callable(getattr(self.contest, "ft8_handler", None)),
+                "fldigiTransmitSupported": self.state["pluginID"] in RTTY_PLUGINS,
+                "fldigiTransmitAvailable": (self.state["pluginID"] in RTTY_PLUGINS
+                                             and operating_mode(self.state) in DIGITAL_OUTPUT_MODES),
                 "matrixTrackers": list(plugin.matrix_trackers),
                 "exportFormats": list(plugin.export_formats),
                 "workspaceGeneration": workspace_generation(self.state),

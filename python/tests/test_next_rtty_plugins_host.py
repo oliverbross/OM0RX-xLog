@@ -73,7 +73,7 @@ class RTTYHostCase(unittest.TestCase):
     def read(self, method, **kwargs):
         return self.call(method, {"sessionID": self.session, **kwargs})
 
-    def assert_source_mode_macros_and_nontransmitting_output(self, name):
+    def assert_source_mode_macros_and_fldigi_output(self, name):
         source = VENDOR / f"not1mm/plugins/{self.plugin_id}.py"
         self.assertEqual(sha256(source.read_bytes()).hexdigest(), HASHES[self.plugin_id])
         self.assertEqual(load_plugin(self.plugin_id).__file__, str(source))
@@ -87,7 +87,9 @@ class RTTYHostCase(unittest.TestCase):
         self.assertEqual(macros[("R", "F6")]["template"], "{SENTNR}")
         self.assertEqual(sha256((VENDOR / "not1mm/data/rttymacros.txt").read_bytes()).hexdigest(),
                          "150d819c00a15c5e70fadce632704e13c220bef88012c7777269b3e1bf0638f9")
-        self.assertEqual(self.mutate("function_key", key="F3")["actions"], [])
+        action = self.mutate("function_key", key="F3")["actions"][0]
+        self.assertEqual((action["kind"], action["signal"], action["mode"]), ("fldigi", "digital", "RTTY"))
+        self.assertEqual((action["nlBefore"], action["rxAfter"]), (True, True))
         with self.assertRaisesRegex(HostError, "does not support CW"):
             self.read("cw_context")
 
@@ -103,7 +105,7 @@ class CQWPXRTTYHostTests(RTTYHostCase):
         return qso
 
     def test_provenance_catalog_serial_macro_esm_scoring_rebuild_restart_and_cabrillo(self):
-        self.assert_source_mode_macros_and_nontransmitting_output("CQ WPX RTTY")
+        self.assert_source_mode_macros_and_fldigi_output("CQ WPX RTTY")
         view = self.read("projection")["projection"]
         fields = {field["id"]: field for field in view["fields"]}
         self.assertEqual(view["supportedBands"], ["80m", "40m", "20m", "15m", "10m"])
@@ -156,10 +158,11 @@ class CQWPXRTTYHostTests(RTTYHostCase):
         self.assertIn("CLAIMED-SCORE: 22\r\n", export)
         self.assertTrue(any(line.startswith("QSO:") and " RTTY " in line for line in export.splitlines()))
 
-    def test_esm_commits_without_digital_output(self):
+    def test_esm_commits_with_fldigi_output(self):
         self.mutate("esm", field="callsign", fields={"callsign": "K1ABC", "other_2": "100"})
         result = self.mutate("esm", field="other_2", fields={"callsign": "K1ABC", "other_2": "100"})
-        self.assertEqual(result["actions"], [])
+        self.assertTrue(result["actions"])
+        self.assertTrue(all(action["kind"] == "fldigi" for action in result["actions"]))
         self.assertEqual(self.read("log")["total"], 1)
 
 
@@ -174,7 +177,7 @@ class NameSPCRTTYCase(RTTYHostCase):
         return qso
 
     def assert_entry_contract(self, contest_name):
-        self.assert_source_mode_macros_and_nontransmitting_output(contest_name)
+        self.assert_source_mode_macros_and_fldigi_output(contest_name)
         fields = {field["id"]: field for field in self.read("projection")["projection"]["fields"]}
         self.assertEqual((fields["sent"]["visible"], fields["receive"]["visible"]), (False, False))
         self.assertEqual((fields["other_1"]["label"], fields["other_2"]["label"]), ("Name", "State" if self.plugin_id == "naqp_rtty" else "SPC"))
@@ -187,7 +190,8 @@ class NameSPCRTTYCase(RTTYHostCase):
                     fields={"callsign": "K1ABC", "other_1": "JOHN", "other_2": "CT"})
         result = self.mutate("esm", field="other_2",
                              fields={"callsign": "K1ABC", "other_1": "JOHN", "other_2": "CT"})
-        self.assertEqual(result["actions"], [])
+        self.assertTrue(result["actions"])
+        self.assertTrue(all(action["kind"] == "fldigi" for action in result["actions"]))
         self.assertEqual(self.read("log")["total"], 1)
         values = {field["id"]: field["value"] for field in result["projection"]["fields"]}
         self.assertEqual((values["other_1"], values["other_2"]), ("", ""))

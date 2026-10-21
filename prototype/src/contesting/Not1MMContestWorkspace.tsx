@@ -41,6 +41,7 @@ type Projection = {
   exportFormats?: PythonContestExportFormat[];
   ruleIdentity?: { id: string; version: string; edition: string; sourceRevision: string };
   supportedBands?: string[]; supportedModes?: string[]; allowDuplicateCommit?: boolean;
+  fldigiReceiveSupported?: boolean; fldigiTransmitSupported?: boolean; fldigiTransmitAvailable?: boolean;
   columns?: string[];
   history: string; score: Score; operator?: string; roverLocation?: string; cwSpeedWpm?: number | null; callContext?: Partial<ContestManualContext> & {callsign?:string};
 };
@@ -408,6 +409,18 @@ function boundedDigitalSnapshot(value: unknown): ContestDigitalSnapshot | undefi
     contest_target_supported: source.contest_target_supported === true,
     active_contest: active && typeof active.session_id === "string" && typeof active.plugin_id === "string"
       ? { session_id: active.session_id, plugin_id: active.plugin_id } : null };
+}
+
+function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapshot["fldigi"]> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>, configuration = source.configuration as Record<string, unknown> | undefined;
+  if (!configuration || typeof configuration.receive_enabled !== "boolean" || typeof configuration.transmit_enabled !== "boolean" ||
+      typeof source.receive_running !== "boolean" || typeof source.status !== "string" ||
+      typeof source.udp_endpoint !== "string" || typeof source.xmlrpc_endpoint !== "string") return undefined;
+  return { configuration: { receive_enabled: configuration.receive_enabled, transmit_enabled: configuration.transmit_enabled },
+    receive_supported: source.receive_supported === true, transmit_supported: source.transmit_supported === true,
+    receive_running: source.receive_running, status: source.status,
+    udp_endpoint: source.udp_endpoint, xmlrpc_endpoint: source.xmlrpc_endpoint };
 }
 
 export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, contestSpot, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
@@ -793,9 +806,33 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     setPhoneSimulationTrace(items => [...items, ...traces].slice(-24));
     return { ...changed, actions: [] };
   };
+  const consumeFldigiOutput = async (changed: MutationResult, origin: PhoneIntentOrigin): Promise<MutationResult> => {
+    const operationID = changed.operationID, actions = changed.actions ?? [];
+    if (!operationID || changed.replayed !== false || changed.revision !== changed.projection.revision ||
+        !actions.length || actions.length > 12 || actions.some((action, index) => {
+          const payload = typeof action.payload === "string" ? action.payload : "";
+          return action.actionID !== `${operationID}:${index}` || action.kind !== "fldigi" || action.signal !== "digital" ||
+            action.sessionID !== origin.sessionID || action.workspaceGeneration !== origin.workspaceGeneration ||
+            action.sourceRevision !== origin.sourceRevision || action.draftID !== origin.draftID ||
+            new TextEncoder().encode(payload).byteLength > 4_096 || !/^[0-9a-f]{64}$/.test(action.payloadSHA256);
+        })) throw new Error("The contest fldigi intent could not be verified; no XML-RPC command was sent.");
+    const claimed = await result<Data>("contest_output_claim", {
+      sessionID: changed.projection.sessionID, operationID, revision: changed.projection.revision });
+    if (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions))
+      throw new Error("The contest fldigi output claim could not be verified; do not retry the key.");
+    await serviceRequest("fldigi_send", { actions });
+    return { ...changed, actions: [] };
+  };
   const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false,
       contestSurfaceRequestID?: string) => {
     const phoneAction = Boolean(projectionRef.current?.pluginID && contestPhoneIntentPlugins.has(projectionRef.current.pluginID) && projectionRef.current.mode === "SSB");
+    const fldigiMode = projectionRef.current?.fldigiTransmitAvailable === true;
+    const fldigiAction = Boolean(fldigiMode &&
+      digitalSnapshot?.fldigi?.configuration.transmit_enabled && projectionRef.current?.mode !== "CW" && projectionRef.current?.mode !== "SSB");
+    if (fldigiMode && !fldigiAction) {
+      const failure = new Error("Enable fldigi macro transmit in Digital Logging Setup before using RTTY function keys.");
+      setError(failure.message); if (throwFailures) throw failure; return null;
+    }
     if (phoneAction && (!phoneSimulationAvailable || !phoneSimulationArmed)) {
       const failure = new Error(phoneSimulationAvailable
         ? "Arm the nontransmitting phone simulation before using phone contest messages."
@@ -826,7 +863,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
     return { ...changed, actions: [], outputError: native?.error || undefined };
-      }, !phoneAction, false, false, throwFailures, phoneAction ? consumeContestPhoneSimulation : undefined, phoneController?.signal,
+      }, !phoneAction, false, false, throwFailures,
+        phoneAction ? consumeContestPhoneSimulation : fldigiAction ? consumeFldigiOutput : undefined, phoneController?.signal,
         recovery => { phoneSimulationRecoveryRef.current = recovery; });
       if (phoneAction && confirmed && !phoneController?.signal.aborted) void refresh(confirmed.sessionID, confirmed).catch(cause => {
         const current = projectionRef.current;
@@ -940,14 +978,17 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     if (saved) { rememberSetup(document); setEffectiveMacros(savedMacros); }
   };
   useEffect(() => {
-    if (!setupOnly) return;
+    if (!setupOnly && !projection) return;
     let active = true;
-    const refreshDigital = () => void serviceRequest("wsjtx_snapshot").then(value => {
-      if (active) setDigitalSnapshot(boundedDigitalSnapshot(value));
-    }).catch(() => { if (active) setDigitalSnapshot(undefined); });
+    const refreshDigital = () => void Promise.allSettled([serviceRequest("wsjtx_snapshot"), serviceRequest("fldigi_snapshot")]).then(([wsjtx, fldigi]) => {
+      if (!active) return;
+      const decoded = wsjtx.status === "fulfilled" ? boundedDigitalSnapshot(wsjtx.value) : undefined;
+      if (decoded && fldigi.status === "fulfilled") decoded.fldigi = boundedFldigiSnapshot(fldigi.value);
+      setDigitalSnapshot(decoded);
+    });
     refreshDigital(); const timer = window.setInterval(refreshDigital, 5_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [setupOnly, serviceRequest]);
+  }, [setupOnly, serviceRequest, projection?.sessionID, projection?.revision]);
   useContestSetupDialogs({ enabled: setupOnly, context: `${operatingContext}/${workspaceGeneration}/${projection?.sessionID ?? "no-session"}`,
     document: setup, auxiliary: { roverLocation: projection?.roverLocation ?? "", activeSessionID: projection?.sessionID, catalog: setupCatalog,
       effectiveMacros, diagnostics: {
@@ -957,12 +998,23 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       if (busyRef.current || retiring) throw new Error("Contest Setup is busy. Try again after it finishes.");
       await saveSetup(document);
     }, saveRover: async location => { await hostAction("contest_rover_location", { location }, true); },
-    saveDigital: async ({ configuration, action }: ContestDigitalSave) => {
+    saveDigital: async ({ configuration, fldigi_configuration, action }: ContestDigitalSave) => {
       if (busyRef.current || retiring) throw new Error("Contest Setup is busy. Try again after it finishes.");
-      if (action === "stop") setDigitalSnapshot(boundedDigitalSnapshot(await serviceRequest("wsjtx_stop")));
+      if (action === "stop") {
+        await Promise.all([serviceRequest("wsjtx_stop"), serviceRequest("fldigi_stop")]);
+        const wsjtx = boundedDigitalSnapshot(await serviceRequest("wsjtx_snapshot"));
+        if (wsjtx) wsjtx.fldigi = boundedFldigiSnapshot(await serviceRequest("fldigi_snapshot"));
+        setDigitalSnapshot(wsjtx);
+      }
       else {
+        const fldigi = boundedFldigiSnapshot(await serviceRequest("fldigi_configure", {
+          configuration: fldigi_configuration ?? { receive_enabled: false, transmit_enabled: false } }));
         const configured = boundedDigitalSnapshot(await serviceRequest("wsjtx_configure", { configuration: { ...configuration, enabled: action === "start" ? true : configuration.enabled } }));
-        setDigitalSnapshot(action === "start" ? boundedDigitalSnapshot(await serviceRequest("wsjtx_start")) : configured);
+        const wsjtx = action === "start" ? boundedDigitalSnapshot(await serviceRequest("wsjtx_start")) : configured;
+        const startedFldigi = action === "start" && fldigi?.configuration.receive_enabled
+          ? boundedFldigiSnapshot(await serviceRequest("fldigi_start")) : fldigi;
+        if (wsjtx) wsjtx.fldigi = startedFldigi;
+        setDigitalSnapshot(wsjtx);
       }
     }, report: setError });
 
@@ -1127,6 +1179,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     const allocatedSerialField = reservedSerial === null ? null : projection.allocatedSerialFieldID ?? null;
     const editedFrequencyHz = editing ? manualFrequency(editFrequencyMHz, activeSupportedBands, bandDefinitions) : null;
     const callContext = projection.callContext?.callsign === partialQuery ? projection.callContext : undefined;
+    const fldigiOperatorAvailable = projection.fldigiTransmitAvailable === true &&
+      digitalSnapshot?.fldigi?.configuration.transmit_enabled === true;
     unavailable["active-qso"] = {
       schemaVersion: 2, status: "ready",
       manual: {operator:projection.operator ?? "", cwSpeedWpm:projection.cwSpeedWpm ?? null,
@@ -1163,20 +1217,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
       },
       operator: {
         output: phoneSimulationAvailable || cw.state.canonical?.provider === "test-simulation" ? "test-simulation" : "xlog-native",
-        armed: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
+        armed: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
         style: projection.run ? "run" : "search-and-pounce",
         status: phoneSimulationAvailable ? phoneSimulationPending ? "waiting" : phoneSimulationArmed ? "armed" : "disarmed"
           : cw.state.pending ? "waiting" : cw.state.error ? "uncertain" : cw.state.armed ? "armed" : "disarmed",
         pending: phoneSimulationAvailable && phoneSimulationPending || !phoneSimulationAvailable && cw.state.pending ? "send" : null,
         focusedField: contestInputFieldID(projection.focus) ? projection.focus : null,
         tabNext: contestTabMap(projection.tabNext), tabPrevious: contestTabMap(projection.tabPrevious),
-        functionKeys: projection.mode === "CW" || phoneSimulationAvailable
+        functionKeys: projection.mode === "CW" || phoneSimulationAvailable || fldigiOperatorAvailable
           ? projection.functionKeys.map(item => ({ key: item.id as ContestFunctionKey, macro: item.label ?? item.id })) : [],
         autoCQ: { active: autoCQDeadlineMs !== null, delaySeconds: autoCQDelaySeconds,
           remainingMs: autoCQDeadlineMs === null ? null : Math.max(0, autoCQDeadlineMs - autoCQNowMs) },
-        readiness: { canSendCQ: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
-          canSendCall: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
-          canSendDuplicate: phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed,
+        readiness: { canSendCQ: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+          canSendCall: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
+          canSendDuplicate: fldigiOperatorAvailable || (phoneSimulationAvailable ? phoneSimulationArmed : projection.mode === "CW" && cw.state.armed),
           canReserveCall: false, canReserveCommit: false, canCommit: true },
         trace: phoneSimulationAvailable ? phoneSimulationTrace : [],
       },
@@ -1271,7 +1325,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     editCall, editTimestamp, editFrequencyMHz, editOperator, editSent, editReceived, editSentExchange, editZone, correctionReason, confirmDelete, deletionReason,
     busy, retiring, scpSurface, cw.state.armed, cw.state.pending, cw.state.error, phoneSimulationAvailable, phoneSimulationArmed,
     phoneSimulationPending, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
-    bandDefinitions, bandLabels,
+    bandDefinitions, bandLabels, digitalSnapshot,
     setup.settings.SentExchange, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,
     sharedSpots,visibleWorkflowSpots,effectiveSpotWorkflow.markedOnly,selectedSpotId]);
 
@@ -1594,9 +1648,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
     }), false, false);
   };
 
-  const cwPanel = () => projection && <section className="contest-operator" aria-label="CW controls"><header><div><strong>ESM and CW</strong><p>{cw.state.canonical?.provider === "test-simulation"
+  const fldigiPanelReady = Boolean(projection?.fldigiTransmitAvailable && digitalSnapshot?.fldigi?.configuration.transmit_enabled);
+  const cwPanel = () => projection && <section className="contest-operator" aria-label={fldigiPanelReady ? "fldigi controls" : "CW controls"}><header><div><strong>{fldigiPanelReady ? "ESM and fldigi" : "ESM and CW"}</strong><p>{fldigiPanelReady
+    ? "Not1MM chooses the F-key text; xLog claims it once and sends it through fldigi XML-RPC."
+    : cw.state.canonical?.provider === "test-simulation"
     ? "CONTESTING TEST · simulated CW only · no RF, audio, PTT, radio, or network output"
-    : "Not1MM chooses the F-key action; xLog owns the armed output lease."}</p></div><span>{cw.state.message}</span></header><div className="contest-operator-controls"><button type="button" disabled={busy || cw.state.pending} onClick={() => void cw.controller.arm()}>{cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button><button type="button" className="contest-danger-secondary" onClick={() => void stopAutoCQ()}>Stop</button><span className={cw.state.armed ? "is-armed" : ""}>{cw.state.armed ? "Armed" : "Disarmed"}</span>{autoCQDeadlineMs !== null&&<span role="status">Auto CQ · {Math.max(0, Math.ceil((autoCQDeadlineMs-autoCQNowMs)/1000))}s</span>}</div>{cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}<div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div></section>;
+    : "Not1MM chooses the F-key action; xLog owns the armed output lease."}</p></div><span>{fldigiPanelReady ? digitalSnapshot?.fldigi?.status : cw.state.message}</span></header><div className="contest-operator-controls">{!fldigiPanelReady&&<button type="button" disabled={busy || cw.state.pending} onClick={() => void cw.controller.arm()}>{cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button>}<button type="button" className="contest-danger-secondary" onClick={() => fldigiPanelReady ? void serviceRequest("fldigi_stop").then(() => setDigitalSnapshot(current => current?.fldigi ? {...current,fldigi:{...current.fldigi,configuration:{receive_enabled:false,transmit_enabled:false},receive_running:false,status:"Off"}} : current)) : void stopAutoCQ()}>Stop</button><span className={fldigiPanelReady || cw.state.armed ? "is-armed" : ""}>{fldigiPanelReady || cw.state.armed ? "Armed" : "Disarmed"}</span>{autoCQDeadlineMs !== null&&<span role="status">Auto CQ · {Math.max(0, Math.ceil((autoCQDeadlineMs-autoCQNowMs)/1000))}s</span>}</div>{cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}<div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring || projection.mode !== "CW" && !fldigiPanelReady} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div></section>;
   const entryPanel: ReactNode = projection && <form className="contest-entry" aria-label={`${projection.pluginName ?? projection.pluginID} entry`} onSubmit={event => { event.preventDefault(); void runMutation(base => mutate("contest_qso_commit", base, { fields: fieldsRef.current, frequencyHz: base.frequencyHz })); }} onKeyDown={keyDown}>
     <header><div><h2><Radio size={15}/> {projection.pluginName ?? projection.pluginID} · Not1MM</h2><p>Actual pinned Python plugin · {projection.run ? "Run" : "Search & Pounce"}</p></div><span>{busy ? "Working…" : "Ready"}</span></header>
     <ContestEntryFields callsign={visibleFields.slice(0, 1).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} className="contest-call" autoComplete="off" data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } reports={visibleFields.slice(1, 3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value)}/>) } exchange={visibleFields.slice(3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } />
@@ -1606,7 +1663,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune, c
           value={manualFrequencyMHz} onChange={event => setManualFrequencyMHz(event.target.value)} onBlur={syncManualFrequency}/>}</div><div><span>Band / mode</span><strong>{bandLabels[String(projection.band)] ?? projection.band} · {projection.mode}</strong></div><div><span>Operating style</span><button type="button" disabled={busy || retiring} onClick={() => void runMutation(base => mutate("contest_run_state", base, { run: !base.run }), false)}>{projection.run ? "Run" : "S&P"}</button></div></div>
     <div className={`contest-validation ${projection.dupe ? "is-duplicate" : "is-clear"}`}><strong>{projection.dupe ? "Duplicate" : "Dupe check"}</strong><span>{projection.countryResolved ? "Country resolved by xLog CTY data." : "Unknown country is retained; scoring credit may be zero."}</span></div>
     {cwPanel()}
-    <footer><button type="button" disabled={busy || retiring} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
+    <footer><button type="button" disabled={busy || retiring || Boolean(projection.fldigiTransmitAvailable && !fldigiPanelReady)} onClick={() => void hostAction("contest_esm", { field: focusRef.current })}>Enter / ESM</button><button className="contest-primary" type="submit" disabled={busy || retiring}>Log Now</button></footer>
   </form>;
   const scorePanel = <aside className="contest-score" aria-label="Score and multipliers"><h2><Trophy size={15}/> Score</h2><ContestScoreSummary score={scoreView}/></aside>;
   const checkPanel = <section className="contest-score" aria-label="Check Partial"><h2>Check Partial</h2>{projection && <ContestAssistancePanel

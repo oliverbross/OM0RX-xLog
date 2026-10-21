@@ -6,8 +6,12 @@ export type SetupDialogKind = "operator" | "station" | "configuration" | "digita
 export type ContestDigitalSnapshot = { configuration: { enabled: boolean; address: string; port: number;
     destination: "ordinary_logbook" | "active_contest" };
   running: boolean; status: string; receive_only: boolean; contest_target_supported: boolean;
-  active_contest?: { session_id: string; plugin_id: string } | null };
-export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"]; action: "save" | "start" | "stop" };
+  active_contest?: { session_id: string; plugin_id: string } | null;
+  fldigi?: { configuration: { receive_enabled: boolean; transmit_enabled: boolean };
+    receive_supported: boolean; transmit_supported: boolean; receive_running: boolean; status: string;
+    udp_endpoint: string; xmlrpc_endpoint: string } };
+export type ContestDigitalSave = { configuration: ContestDigitalSnapshot["configuration"];
+  fldigi_configuration?: { receive_enabled: boolean; transmit_enabled: boolean }; action: "save" | "start" | "stop" };
 export type SetupDialogAuxiliary = { roverLocation: string; activeSessionID?: string; effectiveMacros?: ContestSetupDocument["macros"];
   catalog?: ContestSetupCatalogEntry[];
   diagnostics: { engine: string; plugin: string; version: string; source: string; reference: string };
