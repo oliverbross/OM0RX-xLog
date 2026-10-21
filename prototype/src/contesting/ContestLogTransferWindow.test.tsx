@@ -39,8 +39,9 @@ it("uses the xLog callsign when the legacy database has no station row", async (
   render(<ContestLogTransferWindow api={api}/>);
   fireEvent.click(screen.getByRole("button",{name:"Choose Not1MM database…"}));
   await screen.findByText("CQ-WW-CW · 2 contacts");
-  expect((screen.getByRole("button",{name:"Review import…"}) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole("button",{name:"Review import…"}));
+  const review=screen.getByRole("button",{name:"Review import…"});
+  await waitFor(()=>expect((review as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(review);
   fireEvent.click(screen.getByRole("button",{name:"Import 2 contacts"}));
   await waitFor(()=>expect(api.importLegacy).toHaveBeenCalled());
   expect(vi.mocked(api.importLegacy).mock.calls[0][0]).toMatchObject({station:{Call:"OM0RX"},operator:"OM0RX",frequencyHz:14025000});
