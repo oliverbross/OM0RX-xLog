@@ -142,6 +142,44 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         try lock.withLock { try readyDatabase() }
     }
 
+    func prepareContestLogTransfer(_ manifest: ContestLogTransferManifest,
+                                   workspaceGeneration: UUID) throws -> ContestLogTransferManifest {
+        try lock.withLock {
+            guard !manualSyncActive, try editGeneration() == workspaceGeneration.uuidString.lowercased() else {
+                throw WorkerFailure("stale_workspace", "The normal log workspace changed before transfer preparation.")
+            }
+            return try readyDatabase().prepareContestLogTransfer(manifest)
+        }
+    }
+
+    func applyContestLogTransfer(manifestID: UUID, workspaceGeneration: UUID,
+                                 contestSessionID: UUID, sourceRevision: Int64) throws
+        -> ContestLogTransferResult {
+        try lock.withLock {
+            guard !manualSyncActive, try editGeneration() == workspaceGeneration.uuidString.lowercased(),
+                  let manifest = try readyDatabase().contestLogTransferManifest(id: manifestID),
+                  manifest.workspaceGeneration == workspaceGeneration,
+                  manifest.contestSessionID == contestSessionID,
+                  manifest.sourceRevision == sourceRevision else {
+                throw WorkerFailure("stale_transfer", "The prepared contest transfer no longer matches this workspace or revision.")
+            }
+            return try readyDatabase().applyContestLogTransfer(manifestID: manifestID)
+        }
+    }
+
+    func contestLogTransferStatus(manifestID: UUID, workspaceGeneration: UUID,
+                                  contestSessionID: UUID) throws -> ContestLogTransferResult {
+        try lock.withLock {
+            guard try editGeneration() == workspaceGeneration.uuidString.lowercased(),
+                  let manifest = try readyDatabase().contestLogTransferManifest(id: manifestID),
+                  manifest.workspaceGeneration == workspaceGeneration,
+                  manifest.contestSessionID == contestSessionID else {
+                throw WorkerFailure("transfer_not_found", "The contest transfer manifest is unavailable in this workspace.")
+            }
+            return try readyDatabase().contestLogTransferStatus(manifestID: manifestID)
+        }
+    }
+
     /// Receive-only digital-mode integrations use the same parser and semantic
     /// duplicate boundary as manual imports without touching the operator draft.
     func importLoggedADIF(_ text: String) throws -> (imported: Int, skipped: Int) {

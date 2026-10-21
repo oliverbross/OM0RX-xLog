@@ -110,6 +110,7 @@ public actor LiveWorker {
     private let pythonContestLaneInitializationError: ContestLaneError?
     private let pythonContestAvailable: Bool
     private let usesPythonContestLane: Bool
+    private let contestLogTransfer: ContestLogTransferService
     let remoteBackup: LiveRemoteBackupService
     private let remoteBackupPresentation: LiveRemoteBackupPresentation
     private let opportunities: LiveOpportunitiesMethods
@@ -150,6 +151,7 @@ public actor LiveWorker {
         self.powerDelivery = powerDelivery
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
         logbookLane = createdLogbookLane
+        contestLogTransfer = ContestLogTransferService(logbook: logbook)
         // The packaged Contesting Test process owns a real bundled Python lane.
         // Keep the retired Swift lane only as a compatibility fixture for
         // disposable unit workers that do not own process services.
@@ -431,7 +433,18 @@ public actor LiveWorker {
             }
             #endif
             let result: [String: Any]
-            if method.hasPrefix("contest_") {
+            if ["contest_log_transfer_prepare", "contest_log_transfer_commit", "contest_log_transfer_status"].contains(method) {
+                guard usesPythonContestLane, let pythonContestLane else {
+                    throw WorkerFailure("contest_host_unavailable", "The bundled contest host is unavailable.")
+                }
+                result = try await contestLogTransfer.handle(method: method, params: params) { method, params in
+                    try await pythonContestLane.handle(method: method, params: params)
+                }
+                if method == "contest_log_transfer_commit", normalBackgroundEnabled,
+                   ((result["counts"] as? [String: Any])?["inserted"] as? Int ?? 0) > 0 {
+                    queueContactRefresh()
+                }
+            } else if method.hasPrefix("contest_") {
                 if usesPythonContestLane {
                     if let pythonContestLaneInitializationError { throw pythonContestLaneInitializationError }
                     guard let pythonContestLane else {

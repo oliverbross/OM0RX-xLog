@@ -208,6 +208,174 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Stores the exact source snapshot before any normal-log insertion. Preparing
+    /// the same source revision and digest is idempotent even across app restarts.
+    public func prepareContestLogTransfer(_ proposed: ContestLogTransferManifest) throws
+        -> ContestLogTransferManifest {
+        try withDatabaseLock {
+            try execute("BEGIN IMMEDIATE;")
+            do {
+                var existing: ContestLogTransferManifest?
+                try withStatement("""
+                    SELECT payload FROM xlog_contest_transfer_manifests
+                    WHERE contest_session_id=? AND workspace_generation=? AND source_revision=? AND source_digest=?;
+                    """) { statement in
+                    bind(proposed.contestSessionID.uuidString.lowercased(), to: 1, in: statement)
+                    bind(proposed.workspaceGeneration.uuidString.lowercased(), to: 2, in: statement)
+                    bind(proposed.sourceRevision, to: 3, in: statement)
+                    bind(proposed.sourceDigest, to: 4, in: statement)
+                    let step = sqlite3_step(statement)
+                    if step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) {
+                        existing = try decoder.decode(ContestLogTransferManifest.self,
+                            from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+                    } else if step != SQLITE_DONE { throw error() }
+                }
+                if let existing {
+                    try execute("COMMIT;")
+                    return existing
+                }
+                let payload = try encoder.encode(proposed)
+                try withStatement("""
+                    INSERT INTO xlog_contest_transfer_manifests(
+                      manifest_id,contest_session_id,workspace_generation,source_revision,source_digest,created_at,payload)
+                    VALUES(?,?,?,?,?,?,?);
+                    """) { statement in
+                    bind(proposed.id.uuidString.lowercased(), to: 1, in: statement)
+                    bind(proposed.contestSessionID.uuidString.lowercased(), to: 2, in: statement)
+                    bind(proposed.workspaceGeneration.uuidString.lowercased(), to: 3, in: statement)
+                    bind(proposed.sourceRevision, to: 4, in: statement)
+                    bind(proposed.sourceDigest, to: 5, in: statement)
+                    sqlite3_bind_double(statement, 6, proposed.createdAt.timeIntervalSince1970)
+                    _ = payload.withUnsafeBytes {
+                        sqlite3_bind_blob(statement, 7, $0.baseAddress, Int32($0.count), Self.transient)
+                    }
+                    try stepDone(statement)
+                }
+                try execute("COMMIT;")
+                return proposed
+            } catch { try? execute("ROLLBACK;"); throw error }
+        }
+    }
+
+    public func contestLogTransferManifest(id: UUID) throws -> ContestLogTransferManifest? {
+        try withDatabaseLock {
+            try withStatement("SELECT payload FROM xlog_contest_transfer_manifests WHERE manifest_id=?;") { statement in
+                bind(id.uuidString.lowercased(), to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { return nil }
+                guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                return try decoder.decode(ContestLogTransferManifest.self,
+                    from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+            }
+        }
+    }
+
+    /// Applies every source QSO independently. Each QSO insert and its durable
+    /// source receipt share one transaction, so interruption is safely resumable.
+    public func applyContestLogTransfer(manifestID: UUID) throws -> ContestLogTransferResult {
+        try withDatabaseLock {
+            guard let manifest = try contestLogTransferManifest(id: manifestID) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            var inserted: [ContestLogTransferReceipt] = []
+            var already: [ContestLogTransferReceipt] = []
+            var conflicts: [ContestLogTransferIssue] = []
+            var errors: [ContestLogTransferIssue] = []
+            for item in manifest.items {
+                do {
+                    try execute("BEGIN IMMEDIATE;")
+                    if let receipt = try contestLogTransferReceipt(
+                        contestSessionID: manifest.contestSessionID, qsoID: item.qsoID) {
+                        try execute("COMMIT;")
+                        if receipt.sourceDigest == item.sourceDigest { already.append(receipt) }
+                        else {
+                            conflicts.append(.init(qsoID: item.qsoID, code: "source_changed",
+                                message: "This contest QSO was already transferred from different source content."))
+                        }
+                        continue
+                    }
+                    if try lookup(localID: item.qso.id) != nil {
+                        try execute("COMMIT;")
+                        conflicts.append(.init(qsoID: item.qsoID, code: "target_identity_collision",
+                            message: "The allocated normal-log identity already belongs to another contact."))
+                        continue
+                    }
+                    try save(item.qso, markDirty: true, onlineLogCandidate: false)
+                    let receipt = ContestLogTransferReceipt(contestSessionID: manifest.contestSessionID,
+                        qsoID: item.qsoID, manifestID: manifest.id,
+                        sourceRevision: manifest.sourceRevision, sourceDigest: item.sourceDigest,
+                        targetQSOID: item.qso.id, insertedAt: Date())
+                    let payload = try encoder.encode(receipt)
+                    try withStatement("""
+                        INSERT INTO xlog_contest_transfer_receipts(
+                          contest_session_id,qso_id,manifest_id,source_revision,source_digest,target_qso_id,inserted_at,payload)
+                        VALUES(?,?,?,?,?,?,?,?);
+                        """) { statement in
+                        bind(manifest.contestSessionID.uuidString.lowercased(), to: 1, in: statement)
+                        bind(item.qsoID.uuidString.lowercased(), to: 2, in: statement)
+                        bind(manifest.id.uuidString.lowercased(), to: 3, in: statement)
+                        bind(manifest.sourceRevision, to: 4, in: statement)
+                        bind(item.sourceDigest, to: 5, in: statement)
+                        bind(item.qso.id.uuidString.lowercased(), to: 6, in: statement)
+                        sqlite3_bind_double(statement, 7, receipt.insertedAt.timeIntervalSince1970)
+                        _ = payload.withUnsafeBytes {
+                            sqlite3_bind_blob(statement, 8, $0.baseAddress, Int32($0.count), Self.transient)
+                        }
+                        try stepDone(statement)
+                    }
+                    try execute("COMMIT;")
+                    inserted.append(receipt)
+                } catch {
+                    try? execute("ROLLBACK;")
+                    errors.append(.init(qsoID: item.qsoID, code: "normal_log_insert_failed",
+                        message: error.localizedDescription))
+                }
+            }
+            return .init(manifest: manifest, inserted: inserted, alreadyTransferred: already,
+                         conflicts: conflicts, errors: errors)
+        }
+    }
+
+    public func contestLogTransferStatus(manifestID: UUID) throws -> ContestLogTransferResult {
+        try withDatabaseLock {
+            guard let manifest = try contestLogTransferManifest(id: manifestID) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            var transferred: [ContestLogTransferReceipt] = []
+            var conflicts: [ContestLogTransferIssue] = []
+            for item in manifest.items {
+                if let receipt = try contestLogTransferReceipt(
+                    contestSessionID: manifest.contestSessionID, qsoID: item.qsoID) {
+                    if receipt.sourceDigest == item.sourceDigest { transferred.append(receipt) }
+                    else {
+                        conflicts.append(.init(qsoID: item.qsoID, code: "source_changed",
+                            message: "This contest QSO was already transferred from different source content."))
+                    }
+                } else if try lookup(localID: item.qso.id) != nil {
+                    conflicts.append(.init(qsoID: item.qsoID, code: "target_identity_collision",
+                        message: "The allocated normal-log identity already belongs to another contact."))
+                }
+            }
+            return .init(manifest: manifest, alreadyTransferred: transferred, conflicts: conflicts)
+        }
+    }
+
+    private func contestLogTransferReceipt(contestSessionID: UUID, qsoID: UUID) throws
+        -> ContestLogTransferReceipt? {
+        try withStatement("""
+            SELECT payload FROM xlog_contest_transfer_receipts
+            WHERE contest_session_id=? AND qso_id=?;
+            """) { statement in
+            bind(contestSessionID.uuidString.lowercased(), to: 1, in: statement)
+            bind(qsoID.uuidString.lowercased(), to: 2, in: statement)
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { return nil }
+            guard step == SQLITE_ROW, let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+            return try decoder.decode(ContestLogTransferReceipt.self,
+                from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+        }
+    }
+
     private func save(_ value: QSO, markDirty: Bool, onlineLogCandidate: Bool) throws {
         try withDatabaseLock {
             if spotDraftLeaseID != nil, try readOperatorDraft()?.qso.id == value.id { throw SpotDraftError.busy }
@@ -3311,6 +3479,28 @@ public final class LogbookDatabase: @unchecked Sendable {
         CREATE TABLE IF NOT EXISTS xlog_contact_receipts(
           operation_id TEXT PRIMARY KEY,
           payload BLOB NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS xlog_contest_transfer_manifests(
+          manifest_id TEXT PRIMARY KEY,
+          contest_session_id TEXT NOT NULL,
+          workspace_generation TEXT NOT NULL,
+          source_revision INTEGER NOT NULL CHECK(source_revision >= 0 AND source_revision <= 9007199254740991),
+          source_digest TEXT NOT NULL,
+          created_at REAL NOT NULL,
+          payload BLOB NOT NULL,
+          UNIQUE(contest_session_id,workspace_generation,source_revision,source_digest)
+        );
+        CREATE TABLE IF NOT EXISTS xlog_contest_transfer_receipts(
+          contest_session_id TEXT NOT NULL,
+          qso_id TEXT NOT NULL,
+          manifest_id TEXT NOT NULL,
+          source_revision INTEGER NOT NULL CHECK(source_revision >= 0 AND source_revision <= 9007199254740991),
+          source_digest TEXT NOT NULL,
+          target_qso_id TEXT NOT NULL,
+          inserted_at REAL NOT NULL,
+          payload BLOB NOT NULL,
+          PRIMARY KEY(contest_session_id,qso_id),
+          FOREIGN KEY(manifest_id) REFERENCES xlog_contest_transfer_manifests(manifest_id)
         );
         CREATE TABLE IF NOT EXISTS sync_outbox(
           local_id TEXT PRIMARY KEY,

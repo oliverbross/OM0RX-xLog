@@ -205,6 +205,11 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_qso_delete",
         "contest_operation_receipt",
         "contest_log_page",
+        "contest_legacy_preview",
+        "contest_legacy_import",
+        "contest_log_transfer_prepare",
+        "contest_log_transfer_commit",
+        "contest_log_transfer_status",
         "contest_score",
         "contest_rates",
         "contest_check_partial",
@@ -1054,7 +1059,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
-        "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get" |
+        "wsjtx_snapshot" | "reference_resolve" | "contest_qso_get" | "contest_log_transfer_status" |
         "contest_export_prepare" | "contest_export_read" | "contest_export_release" |
         "contest_scp_status" | "contest_scp_query" | "contest_scp_cancel" | "contest_scp_select" |
         "contest_history_status" | "contest_history_preview_page" | "contest_history_preview_cancel" |
@@ -1582,6 +1587,7 @@ mod tests {
             "contest_esm", "contest_function_key", "contest_output_claim", "contest_serial_reserve",
             "contest_qso_commit", "contest_qso_get", "contest_qso_correct", "contest_qso_delete",
             "contest_operation_receipt", "contest_log_page", "contest_score", "contest_rates", "contest_check_partial",
+            "contest_log_transfer_prepare", "contest_log_transfer_commit", "contest_log_transfer_status",
             "contest_setup_get", "contest_setup_save", "contest_rover_location", "contest_statistics", "contest_recalculate",
             "contest_export_prepare", "contest_export_read", "contest_export_release", "contest_scp_download",
         ] {
@@ -1591,6 +1597,23 @@ mod tests {
             assert!(validate_surface("main", &request).is_err(), "{method}");
             assert!(validate_surface("monitor", &request).is_err(), "{method}");
             assert!(validate_surface("settings", &request).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn contest_log_transfer_routes_are_explicit_and_only_status_is_a_passive_read() {
+        for method in ["contest_log_transfer_prepare", "contest_log_transfer_commit", "contest_log_transfer_status"] {
+            let request = json!({"id":"transfer", "method":method, "params":{}});
+            assert!(validate_request(&request).is_ok(), "{method}");
+            assert!(validate_surface("contest-setup", &request).is_ok(), "{method}");
+            assert!(validate_surface("main", &request).is_err(), "{method}");
+            assert_eq!(request_is_non_retiring_read(&request), method == "contest_log_transfer_status", "{method}");
+        }
+    }
+    #[test]
+    fn native_legacy_import_routes_reach_the_contest_host() {
+        for method in ["contest_legacy_preview", "contest_legacy_import"] {
+            let request = json!({"id":"legacy", "method":method, "params":{}});
+            assert!(validate_request(&request).is_ok(), "{method}");
         }
     }
     #[test]
