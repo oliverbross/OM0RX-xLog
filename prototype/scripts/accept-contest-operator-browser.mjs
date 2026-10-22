@@ -98,6 +98,7 @@ const waitText = text => browser(["wait", "--text", text]);
 const fill = (label, value) => browser(["find", "label", label, "fill", value]);
 const select = (label, value) => browser(["eval", `(() => { const direct=[...document.querySelectorAll('select')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.firstChild?.textContent?.trim()===${JSON.stringify(label)}); const select=direct ?? owner?.querySelector('select'); if(!select) throw new Error('Missing select'); select.value=${JSON.stringify(value)}; select.dispatchEvent(new Event('change',{bubbles:true})); })()`]);
 const click = name => browser(["find", "role", "button", "click", "--name", name]);
+const clickEnabledButton = name => browser(["eval", `(() => { const button=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()===${JSON.stringify(name)}); if(!button||button.disabled) throw new Error('Button unavailable: '+${JSON.stringify(name)}); button.scrollIntoView({block:'center'}); button.click(); })()`]);
 const waitEnabledButton = name => browser(["eval", `new Promise((resolve,reject)=>{ const until=Date.now()+10000; const poll=()=>{ const button=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()===${JSON.stringify(name)}); if(button && !button.disabled) return resolve(true); if(Date.now()>until) return reject(new Error('Button did not become enabled: '+${JSON.stringify(name)})); setTimeout(poll,50); }; poll(); })`]);
 const pressIn = async (label, key) => { await browser(["eval", `(() => { const direct=[...document.querySelectorAll('input,select,textarea')].find(x=>x.getAttribute('aria-label')===${JSON.stringify(label)}); const owner=[...document.querySelectorAll('label')].find(x=>x.textContent.startsWith(${JSON.stringify(label)})); const field=direct ?? owner?.querySelector('input,select,textarea'); if(!field) throw new Error('Missing field'); field.focus(); })()`]); await browser(["press", key]); };
 const text = selector => browser(["get", "text", selector]);
@@ -182,7 +183,7 @@ const cases = profiles.flatMap(profile => ["run", "search-and-pounce"].map(style
 }));
 
 async function exportCase(item, format) {
-  await waitEnabledButton("Export…"); await click("Export…");
+  await waitEnabledButton("Export…"); await clickEnabledButton("Export…");
   observations.push({ phase: "export-open", case: item.id, style: item.style, format,
     state: await browser(["eval", `new Promise(resolve=>setTimeout(()=>{ const button=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='Export…'); const dialog=document.querySelector('dialog[aria-label="Export contest log"]'); resolve(JSON.stringify({buttonDisabled:button?.disabled??null,dialogPresent:!!dialog,dialogOpen:dialog?.open??false,heading:dialog?.querySelector('h2')?.textContent??null})); },250))`]) });
   await waitText("Prepare a submission file"); await select("Format", format); await fill("Location", "DX"); await fill("Name", "Oliver Acceptance");
