@@ -66,7 +66,7 @@ struct OperatorDraftTests {
         #expect(try reopened.count() == 0)
     }
 
-    @Test("First callsign refreshes an automatic idle start while a manual historical start is preserved")
+    @Test("Save uses the button time for an automatic start while a manual historical start is preserved")
     func automaticAndManualStartProvenance() throws {
         let url = databaseURL()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
@@ -83,7 +83,7 @@ struct OperatorDraftTests {
         #expect(liveReceipt.draft.qso.start == selectedAt)
         #expect(liveReceipt.draft.automaticStart)
 
-        let loggedAt = selectedAt.addingTimeInterval(13 * 60 * 60)
+        let loggedAt = selectedAt.addingTimeInterval(5 * 60)
         let saved = try db.applyOperatorDraft(mutation(liveReceipt.draft, .save), nextDraft: blank(), now: loggedAt)
         #expect(saved.savedQSO?.start == loggedAt)
 

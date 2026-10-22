@@ -1830,9 +1830,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     automaticStart = true
                     if mutation.action == .save {
                         var resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
-                        if automaticStart, now.timeIntervalSince(resolved.start) >= 12 * 60 * 60 {
-                            resolved.start = now
-                        }
+                        if automaticStart { resolved.start = now }
                         try resolved.validateOperatorDraft(forSave: true)
                         guard try lookup(localID: current.qso.id) == nil else { throw OperatorDraftError.existingContact }
                         try save(resolved, markDirty: true, onlineLogCandidate: true)
