@@ -9,7 +9,11 @@ const auxiliary = readFileSync(new URL("./DetachedContestAuxiliaryDialog.css", i
 describe("contest tool window content-fit contract", () => {
   it("uses the viewport as the dialog shell and confines setup overflow to its fieldset", () => {
     expect(setup).toContain(".contest-setup-dialog { height:100dvh; min-height:0; overflow:hidden;");
+    expect(setup).toContain(".contest-setup-dialog .contest-setup>header { display:none; }");
     expect(setup).toContain(".contest-setup-dialog .contest-setup fieldset { flex:1; min-height:0; overflow:auto; }");
+    expect(setup).toContain(".contest-setup-dialog[data-dialog-kind=station] .contest-station-form { gap:4px; }");
+    expect(setup).toContain(".contest-setup-dialog[data-dialog-kind=keys] .contest-setup fieldset { overflow:hidden; }");
+    expect(setup).toContain(".contest-setup-dialog[data-dialog-kind=keys] .contest-key-scroll { flex:1; min-height:0; }");
     expect(setup).toContain("@media(max-width:700px)");
   });
 

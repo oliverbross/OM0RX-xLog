@@ -1,4 +1,4 @@
-.contest-aux-dialog { box-sizing:border-box; width:100%; height:100dvh; min-width:0; min-height:0; padding:12px; overflow:hidden; background:var(--background,#07101c); color:var(--primary,#e7eef7); font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.contest-aux-dialog { box-sizing:border-box; width:100%; height:100dvh; min-width:0; min-height:0; padding:10px; overflow:hidden; background:var(--background,#07111f); color:var(--primary,#e6edf6); font:12px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; }
 .contest-aux-dialog :is(button,input) { font:inherit; }
 .contest-rover-dialog { display:grid; align-content:center; overflow:auto; }
 .contest-rover-dialog form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; }
@@ -8,7 +8,7 @@
 .contest-aux-actions button { min-width:72px; }
 .contest-rover-dialog [role=alert] { grid-column:1/-1; margin:8px 0 0; color:var(--danger,#ff8a8a); }
 .contest-about-dialog { display:flex; flex-direction:column; gap:10px; overflow:hidden; }
-.contest-about-dialog h1 { flex:none; margin:0; text-align:center; color:#c64600; font:100 30px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.contest-about-dialog h1 { flex:none; margin:0; text-align:center; color:var(--orange,#ff8c00); font:700 24px/1.2 -apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif; }
 .contest-about-scroll { flex:1; min-height:0; overflow:auto; padding:10px; border:1px solid var(--border,#2d4259); background:var(--panel,#0b1728); text-align:center; }
 .contest-about-scroll h2 { margin:12px 0 6px; font-size:14px; }
 .contest-about-scroll h2:first-child { margin-top:0; }
