@@ -20,6 +20,9 @@ import { ContestQRZDetailsSurface } from "./DetachedContestQRZDetailsSurface";
 
 type Context = ContestSurfaceContext & { panelID: ContestSurfaceActionEnvelope["panelID"] };
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
+const retryableUnavailablePanels = new Set<Context["panelID"]>([
+  "active-qso", "band-maps", "callsign-intelligence", "monitor", "propagation", "logbook", "dx-cluster", "score-reporting",
+]);
 const fldigiContestModes = new Set(["RTTY", "RTTY-R", "LSB-D", "USB-D", "AM-D", "FM-D",
   "DIGI-U", "DIGI-L", "RTTYR", "PKTLSB", "PKTUSB"]);
 const not1mmCallsignModes = new Set(["CW", "RTTY", "SSB", "FM", "AM", "LSB", "USB"]);
@@ -46,6 +49,20 @@ function useContestSurface(context: Context) {
     return () => { mounted.current = false; ticket.current += 1; stop?.(); window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", visible); };
   }, [refresh]);
+  const retryableUnavailable = snapshot?.projection.status === "unavailable" &&
+    retryableUnavailablePanels.has(context.panelID);
+  useEffect(() => {
+    if (!retryableUnavailable) return;
+    let active = true, timer: number | undefined, delay = 250;
+    const schedule = () => { timer = window.setTimeout(async () => {
+      await refresh();
+      if (!active) return;
+      delay = Math.min(delay * 2, 2_000);
+      schedule();
+    }, delay); };
+    schedule();
+    return () => { active = false; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [refresh, retryableUnavailable]);
   return { snapshot, error, refresh };
 }
 
@@ -124,7 +141,9 @@ function Surface({ context }: { context: Context }) {
   return <main aria-label={`Contest ${context.panelID}`}>
     {error && <p className="contest-surface-error" role="alert">{error}</p>}
     {actionError && <p className="contest-surface-error" role="alert">{actionError}</p>}
-    {projection.status === "unavailable" ? context.panelID === "awards" || context.panelID === "chaser-dx"
+    {projection.status === "unavailable" ? retryableUnavailablePanels.has(context.panelID)
+      ? <p role="status">Loading shared contest panel…</p>
+      : context.panelID === "awards" || context.panelID === "chaser-dx"
       ? <section className="contest-surface-unavailable"><h1>{context.panelID === "awards" ? "DXCC" : "Zones"}</h1>
           <p>{context.panelID === "awards" ? "This contest does not score DXCC multipliers." : "This contest does not score CQ or ITU zone multipliers."}</p></section>
       : <section className="contest-surface-unavailable"><h1>Panel unavailable</h1><p>This shared contest panel is not connected yet.</p></section>

@@ -48,13 +48,46 @@ it("rereads a restored Main Logging window after the replacement context listene
   });
   native.listen.mockImplementation(()=>new Promise(resolve=>{registered=()=>resolve(()=>{});}));
   render(<DetachedContestSurface/>);
-  expect(await screen.findByRole("heading",{name:"Panel unavailable"})).toBeTruthy();
+  expect(await screen.findByText("Loading shared contest panel…")).toBeTruthy();
   // The saved window opened while contest_open reset the native context. Its
   // first ready publication lands before the asynchronous listener is live.
   ready=true;registered();
   expect(await screen.findByLabelText("Callsign")).toHaveProperty("value","OM0RX");
-  expect(screen.queryByRole("heading",{name:"Panel unavailable"})).toBeNull();
+  expect(screen.queryByText("Loading shared contest panel…")).toBeNull();
   expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot")).toHaveLength(2);
+});
+
+it("recovers a restored Main Logging window when its ready publication was missed",async()=>{
+  vi.useFakeTimers();
+  try {
+    const unavailable={...snapshot,projectionRevision:0,projection:{schemaVersion:1,status:"unavailable"}};
+    let ready=false;
+    native.invoke.mockImplementation(async(command:string)=>{
+      if(command!=="contest_surface_snapshot")throw new Error(command);
+      return ready?snapshot:unavailable;
+    });
+    render(<DetachedContestSurface/>);
+    await act(async()=>{await Promise.resolve();await Promise.resolve();});
+    expect(screen.getByText("Loading shared contest panel…")).toBeTruthy();
+    ready=true;
+    await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
+    expect(screen.getByLabelText("Callsign")).toHaveProperty("value","OM0RX");
+    expect(screen.queryByText("Loading shared contest panel…")).toBeNull();
+  } finally { vi.useRealTimers(); }
+});
+
+it("keeps unsupported multiplier trackers terminal instead of polling them",async()=>{
+  vi.useFakeTimers();
+  try {
+    window.history.replaceState({},"",search.replace("view=active-qso","view=awards"));
+    native.invoke.mockResolvedValue({...snapshot,panelID:"awards",projection:{schemaVersion:1,status:"unavailable"}});
+    render(<DetachedContestSurface/>);
+    await act(async()=>{await Promise.resolve();await Promise.resolve();});
+    expect(screen.getByRole("heading",{name:"DXCC"})).toBeTruthy();
+    const reads=native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot").length;
+    await act(async()=>{await vi.advanceTimersByTimeAsync(10_000);});
+    expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_snapshot")).toHaveLength(reads);
+  } finally { vi.useRealTimers(); }
 });
 
 it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot lifecycle actions in the contest %s window",async panelID=>{
@@ -770,8 +803,21 @@ it("lets Band Map and Rates fill a resized contest window without changing their
   expect(css).not.toContain(".contest-surface-rates { align-self:flex-start;");
 });
 
-it.each(["band-maps", "monitor", "alerts", "rotor", "station-control", "dx-cluster"])(
-  "keeps disconnected contest %s explicitly unavailable and passive", async panelID => {
+it.each(["band-maps", "monitor", "dx-cluster"])(
+  "keeps disconnected contest %s waiting and mutation-passive", async panelID => {
+    window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
+    native.invoke.mockImplementation(async (command:string) => {
+      if (command === "contest_surface_snapshot") return { ...snapshot, panelID, projection: { schemaVersion:1, status:"unavailable" } };
+      throw new Error(`unexpected ${command}`);
+    });
+    render(<DetachedContestSurface/>);
+    expect(await screen.findByText("Loading shared contest panel…")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(native.invoke.mock.calls.every(([command]) => command === "contest_surface_snapshot")).toBe(true);
+  });
+
+it.each(["alerts", "rotor", "station-control"])(
+  "keeps non-owner contest %s explicitly unavailable and passive", async panelID => {
     window.history.replaceState({}, "", search.replace("view=active-qso", `view=${panelID}`));
     native.invoke.mockImplementation(async (command:string) => {
       if (command === "contest_surface_snapshot") return { ...snapshot, panelID, projection: { schemaVersion:1, status:"unavailable" } };
