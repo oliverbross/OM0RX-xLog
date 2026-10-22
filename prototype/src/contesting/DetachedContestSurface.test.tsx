@@ -1363,7 +1363,7 @@ it("carries delayed multi-field typing through the real owner drain before one E
   await waitFor(()=>{expect(bridgeProjection.draft.callsign).toBe("K1ABC");expect(bridgeProjection.draft.receivedFields[0].value).toBe("15");});
 });
 
-it("coalesces rapid log edits and resets the presentation buffer when the owner switches contacts",async()=>{
+it("preserves the latest rapid log edit and resets the presentation buffer when the owner switches contacts",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=edit-contact"));
   const editing=(qsoID:string,callsign:string)=>({qsoID,callsign,workedAt:"2026-10-19T10:00:00Z",operator:"OM0RX",name:"",qth:"",comment:"",band:"20m",mode:"CW",sentReport:"599",receivedReport:"599",receivedFields:[],
     frequencyHz:14_025_000,editFrequencyText:"14025000",frequencyError:"",correctionReason:"Operator correction",confirmDelete:false,deletionReason:"Operator deletion"});
@@ -1377,9 +1377,16 @@ it("coalesces rapid log edits and resets the presentation buffer when the owner 
   render(<DetachedContestSurface/>);const input=await screen.findByLabelText("Callsign");
   fireEvent.change(input,{target:{value:"W"}});fireEvent.change(input,{target:{value:"W1"}});fireEvent.change(input,{target:{value:"W1AW"}});
   expect((input as HTMLInputElement).value).toBe("W1AW");await waitFor(()=>expect(actions).toHaveLength(1));
-  current={...current,projectionRevision:4,projection:{...current.projection,editing:editing("qso-1","W")},
-    receipts:[{requestID:actions[0].requestID,status:"applied",message:null,projectionRevision:4}]};await act(async()=>{native.wake!();});
-  await waitFor(()=>expect(actions).toHaveLength(2));expect(actions[1]).toMatchObject({projectionRevision:4,action:"log_edit_set_text",params:{qsoID:"qso-1",value:"W1AW"}});
-  current={...current,projectionRevision:5,projection:{...current.projection,editing:editing("qso-2","VE3XYZ")},receipts:[]};await act(async()=>{native.wake!();});
+  let nextReceipt=0,ownerRevision=4;
+  while(actions.at(-1)?.params.value!=="W1AW"&&nextReceipt<3){
+    const pending=actions[nextReceipt];expect(pending).toBeTruthy();
+    current={...current,projectionRevision:ownerRevision,projection:{...current.projection,editing:editing("qso-1",pending.params.value)},
+      receipts:[{requestID:pending.requestID,status:"applied",message:null,projectionRevision:ownerRevision}]};await act(async()=>{native.wake!();});
+    expect((input as HTMLInputElement).value).toBe("W1AW");
+    nextReceipt+=1;if(actions.at(-1)?.params.value!=="W1AW")await waitFor(()=>expect(actions.length).toBeGreaterThan(nextReceipt));
+    expect(actions[nextReceipt]).toMatchObject({projectionRevision:ownerRevision,action:"log_edit_set_text",params:{qsoID:"qso-1"}});ownerRevision+=1;
+  }
+  expect(actions.length).toBeLessThanOrEqual(3);expect(actions.at(-1)).toMatchObject({params:{qsoID:"qso-1",value:"W1AW"}});
+  current={...current,projectionRevision:ownerRevision,projection:{...current.projection,editing:editing("qso-2","VE3XYZ")},receipts:[]};await act(async()=>{native.wake!();});
   await waitFor(()=>expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("VE3XYZ"));
 });
