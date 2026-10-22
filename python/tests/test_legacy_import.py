@@ -63,7 +63,7 @@ class LegacyImportTests(unittest.TestCase):
     def import_params(self, preview, operation=None):
         return {"sessionID": "11111111-1111-4111-8111-111111111111",
                 "workspaceGeneration": uid(), "operationID": operation or uid(), "expectedRevision": 0,
-                "pluginID": "cq_ww_cw", "station": {"Call": "OM0RX", "GridSquare": "JN88"},
+                "pluginID": "cq_ww_cw", "station": {"Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"},
                 "frequencyHz": 14025000, "settings": {"SentExchange": "15", "ModeCategory": "CW"},
                 "reference": {"id": "test-cty", "countries": deepcopy(CTY)},
                 "sourcePath": str(self.source), "sourceIdentity": preview["source"]["identity"],
@@ -77,6 +77,7 @@ class LegacyImportTests(unittest.TestCase):
         self.assertNotIn("CQZone", preview["station"])
         params = self.import_params(preview)
         params["station"] = preview["station"]
+        params["station"]["CQZone"] = "15"
         params["settings"] = preview["contest"]["settings"]
         result = self.call("legacy_import", params)
         self.assertEqual(result["legacyImport"]["importedRows"], 2)

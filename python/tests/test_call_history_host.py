@@ -32,7 +32,7 @@ class CallHistoryHostTests(unittest.TestCase):
         self.session, self.workspace, self.revision = uid(), uid(), 0
         self.call("session_create", {"sessionID": self.session, "workspaceGeneration": self.workspace,
             "operationID": uid(), "expectedRevision": 0, "pluginID": "cq_ww_cw",
-            "station": {"Call": "OM0RX", "GridSquare": "JN88"}, "frequencyHz": 14_025_000,
+            "station": {"Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"}, "frequencyHz": 14_025_000,
             "settings": {"SentExchange": "15", "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL", "PowerCategory": "LOW"},
             "reference": {"id": "test-cty-v1", "countries": deepcopy(CTY)}})
 

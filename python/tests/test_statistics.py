@@ -62,7 +62,7 @@ class StatisticsHostTests(unittest.TestCase):
         self.revision = 0
         self.call("session_create", {"sessionID": self.session, "workspaceGeneration": uid(),
             "operationID": uid(), "expectedRevision": 0, "pluginID": "cq_ww_cw",
-            "station": {"Call": "OM0RX", "GridSquare": "JN88"}, "frequencyHz": 14025000,
+            "station": {"Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"}, "frequencyHz": 14025000,
             "settings": {"SentExchange": "15", "OperatorCategory": "SINGLE-OP",
                          "BandCategory": "ALL", "PowerCategory": "LOW"},
             "reference": {"id": "statistics-cty-v1", "countries": deepcopy(CTY)}})

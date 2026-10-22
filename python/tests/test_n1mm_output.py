@@ -77,7 +77,7 @@ class N1MMHostTests(unittest.TestCase):
         }
         self.call("session_create", {"sessionID": self.session, "workspaceGeneration": self.workspace,
                   "operationID": uid(), "expectedRevision": 0, "pluginID": "cq_ww_cw",
-                  "station": {"Call": "OM0RX", "GridSquare": "JN88"}, "frequencyHz": 14025000,
+                  "station": {"Call": "OM0RX", "GridSquare": "JN88", "CQZone": "15"}, "frequencyHz": 14025000,
                   "settings": {"SentExchange": "15", "OperatorCategory": "SINGLE-OP", "BandCategory": "ALL",
                                "PowerCategory": "LOW", "TransmitterCategory": "ONE"},
                   "reference": {"id": "test-cty-v1", "countries": countries}})
